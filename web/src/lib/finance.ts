@@ -1,0 +1,765 @@
+import type { Database } from "@/integrations/supabase/types";
+import { convertCents, minorUnitsOf, type RateTable } from "@/lib/currency";
+
+/**
+ * Phase 4A finance domain. Everything here is pure: no Supabase, no React.
+ *
+ * Money is carried as integer cents, never as a float. `0.1 + 0.2` is not `0.3`, and a
+ * ledger that cannot add up its own rows is worthless — so amounts are converted once on
+ * the way in and formatted once on the way out.
+ */
+
+export type AccountType = Database["public"]["Enums"]["account_type"];
+export type CategoryOrigin = Database["public"]["Enums"]["category_origin"];
+export type CategoryScope = Database["public"]["Enums"]["category_scope"];
+export type TransactionType = Database["public"]["Enums"]["transaction_type"];
+export type RecurringFrequency = Database["public"]["Enums"]["recurring_frequency"];
+
+export type Account = {
+  id: string;
+  name: string;
+  type: AccountType;
+  /** What the account held before the ledger began. */
+  openingBalanceCents: number;
+  /** Derived by the database from the ledger; never written by the client. */
+  balanceCents: number;
+  currency: string;
+  otherPersonName: string | null;
+  accountNumber: string | null;
+  tags: string[];
+  createdAt: string;
+  deletedAt: string | null;
+};
+
+export type Category = {
+  id: string;
+  name: string;
+  origin: CategoryOrigin;
+  appliesTo: CategoryScope;
+  color: string;
+  /** Stable English key on the seeded set; null on anything the user made. */
+  slug: string | null;
+  sortOrder: number;
+  deletedAt: string | null;
+};
+
+export type Transaction = {
+  id: string;
+  accountId: string;
+  categoryId: string;
+  type: TransactionType;
+  amountCents: number;
+  /** The currency the entry was recorded in, taken from its account and never editable. */
+  currency: string;
+  /**
+   * The same amount in the owner's base currency, and the base it was computed against.
+   * The base is carried alongside on purpose: a cached conversion without its key is
+   * undetectably stale the moment someone changes base currency.
+   */
+  amountInBaseCents: number | null;
+  baseCurrency: string | null;
+  conversionRate: number | null;
+  description: string | null;
+  date: string;
+  businessRelated: boolean;
+  businessPurpose: string | null;
+  receiptPath: string | null;
+  isRecurring: boolean;
+  recurringFrequency: RecurringFrequency | null;
+  recurringLabel: string | null;
+  createdAt: string;
+  deletedAt: string | null;
+};
+
+/** A transaction with its account and category resolved — what every report reads. */
+export type LedgerEntry = Transaction & {
+  account: Account;
+  category: Category;
+};
+
+export const ACCOUNT_TYPES: readonly AccountType[] = [
+  "checking",
+  "savings",
+  "credit_card",
+  "cash",
+  "loan",
+  "crypto",
+  "investment",
+  "other",
+  "other_person_holding",
+] as const;
+
+export const ACCOUNT_TYPE_LABELS: Record<AccountType, string> = {
+  checking: "Tài khoản thanh toán",
+  savings: "Tiết kiệm",
+  credit_card: "Thẻ tín dụng",
+  cash: "Tiền mặt",
+  loan: "Khoản vay",
+  crypto: "Tiền mã hoá",
+  investment: "Đầu tư",
+  other: "Khác",
+  other_person_holding: "Người khác giữ",
+};
+
+/**
+ * Accounts that represent money owed rather than money held. Their balance runs negative,
+ * so net worth is simply the sum of every balance and never needs a special case.
+ */
+const LIABILITY_TYPES: ReadonlySet<AccountType> = new Set<AccountType>(["credit_card", "loan"]);
+
+export function isLiabilityAccount(type: AccountType): boolean {
+  return LIABILITY_TYPES.has(type);
+}
+
+export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
+  income: "Thu",
+  expense: "Chi",
+};
+
+export const RECURRING_FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
+  weekly: "Hằng tuần",
+  monthly: "Hằng tháng",
+  yearly: "Hằng năm",
+};
+
+/** Category slugs that count as generosity in the Giving report and the gauge. */
+export const GIVING_SLUGS: readonly string[] = ["tithe", "giving"] as const;
+
+export const DESCRIPTION_MAX_LEN = 500;
+export const BUSINESS_PURPOSE_MAX_LEN = 300;
+export const ACCOUNT_NAME_MAX_LEN = 120;
+export const CATEGORY_NAME_MAX_LEN = 80;
+
+// ---------------------------------------------------------------- money
+
+/** Largest amount the `numeric(14,2)` columns can hold, in cents. */
+export const MAX_AMOUNT_CENTS = 999_999_999_999_99;
+
+/** Postgres hands numerics back as JS numbers or strings; both become exact cents here. */
+export function toCents(value: number | string | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  const n = typeof value === "string" ? Number.parseFloat(value) : value;
+  if (!Number.isFinite(n)) return 0;
+  return Math.round(n * 100);
+}
+
+/** Cents back to the decimal string Postgres expects — never a float. */
+export function centsToDecimalString(cents: number): string {
+  const sign = cents < 0 ? "-" : "";
+  const abs = Math.abs(Math.round(cents));
+  return `${sign}${Math.floor(abs / 100)}.${String(abs % 100).padStart(2, "0")}`;
+}
+
+export function sumCents(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
+}
+
+/** Signed contribution of one entry to its account: income adds, expense subtracts. */
+export function signedCents(entry: Pick<Transaction, "type" | "amountCents">): number {
+  return entry.type === "income" ? entry.amountCents : -entry.amountCents;
+}
+
+export type MoneyFormatOptions = {
+  /** Show `+` in front of a positive amount. Off by default. */
+  signed?: boolean;
+};
+
+/**
+ * Currencies with no minor unit (VND, JPY, KRW) read in Vietnamese grouping and carry no
+ * decimals; everything else follows the en-US convention the amounts were entered in. The
+ * subunit count comes from the catalogue rather than being guessed here.
+ */
+export function formatMoney(cents: number, currency: string = "USD", options: MoneyFormatOptions = {}): string {
+  const code = currency.toUpperCase();
+  const zeroDecimal = minorUnitsOf(code) === 0;
+  const value = zeroDecimal ? Math.round(cents / 100) : cents / 100;
+  const formatter = new Intl.NumberFormat(zeroDecimal ? "vi-VN" : "en-US", {
+    style: "currency",
+    currency: code,
+    minimumFractionDigits: zeroDecimal ? 0 : 2,
+    maximumFractionDigits: zeroDecimal ? 0 : 2,
+  });
+  const text = formatter.format(Math.abs(value));
+  if (cents < 0) return `−${text}`;
+  if (options.signed && cents > 0) return `+${text}`;
+  return text;
+}
+
+/** Bare number for spreadsheets: no symbol, no grouping, always two decimals. */
+export function centsToExportNumber(cents: number): number {
+  return Math.round(cents) / 100;
+}
+
+export function formatPercent(ratio: number, digits: number = 1): string {
+  if (!Number.isFinite(ratio)) return "—";
+  return `${(ratio * 100).toFixed(digits)}%`;
+}
+
+// ---------------------------------------------------------------- dates
+
+/** Local calendar day as `YYYY-MM-DD`. A ledger day must read the same at 08:00 and 23:00. */
+export function todayIso(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const day = String(now.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/** `YYYY-MM` bucket of a calendar day. */
+export function monthKey(dateIso: string): string {
+  return dateIso.slice(0, 7);
+}
+
+export function startOfMonth(monthIso: string): string {
+  return `${monthIso}-01`;
+}
+
+export function endOfMonth(monthIso: string): string {
+  const [year, month] = monthIso.split("-").map(Number);
+  const last = new Date(year, month, 0).getDate();
+  return `${monthIso}-${String(last).padStart(2, "0")}`;
+}
+
+export function addMonths(monthIso: string, delta: number): string {
+  const [year, month] = monthIso.split("-").map(Number);
+  const base = new Date(year, month - 1 + delta, 1);
+  return `${base.getFullYear()}-${String(base.getMonth() + 1).padStart(2, "0")}`;
+}
+
+/** The `count` months ending at `endMonth`, oldest first. */
+export function monthRange(endMonth: string, count: number): string[] {
+  const months: string[] = [];
+  for (let i = count - 1; i >= 0; i -= 1) months.push(addMonths(endMonth, -i));
+  return months;
+}
+
+const MONTH_LABELS = ["Th1", "Th2", "Th3", "Th4", "Th5", "Th6", "Th7", "Th8", "Th9", "Th10", "Th11", "Th12"];
+
+export function formatMonthShort(monthIso: string): string {
+  const month = Number(monthIso.slice(5, 7));
+  return MONTH_LABELS[month - 1] ?? monthIso;
+}
+
+export function formatMonthLong(monthIso: string): string {
+  return `Tháng ${Number(monthIso.slice(5, 7))}/${monthIso.slice(0, 4)}`;
+}
+
+/** `2026-09-07` → `07/09/2026`, the way a Vietnamese ledger is read. */
+export function formatDayVi(dateIso: string): string {
+  const [year, month, day] = dateIso.split("-");
+  return `${day}/${month}/${year}`;
+}
+
+export function isWithinRange(dateIso: string, from: string, to: string): boolean {
+  return dateIso >= from && dateIso <= to;
+}
+
+export function addDaysIso(dateIso: string, days: number): string {
+  const [year, month, day] = dateIso.split("-").map(Number);
+  const base = new Date(year, month - 1, day + days);
+  return todayIso(base);
+}
+
+/** When a recurring pattern is next expected after `dateIso`. */
+export function nextRecurrence(dateIso: string, frequency: RecurringFrequency): string {
+  if (frequency === "weekly") return addDaysIso(dateIso, 7);
+  const [year, month, day] = dateIso.split("-").map(Number);
+  const target = frequency === "monthly" ? new Date(year, month, day) : new Date(year + 1, month - 1, day);
+  // A 31st that lands in a short month rolls forward; clamp it back to that month's last day.
+  if (frequency === "monthly" && target.getDate() !== day) target.setDate(0);
+  return todayIso(target);
+}
+
+// ---------------------------------------------------------------- validation
+
+export type AmountValidation = { cents: number | null; error: string | null };
+
+/**
+ * Accepts what people actually type: `1,234.56`, `1234`, ` 12.5 `. Rejects anything that
+ * is not a positive number with at most two decimals, because a third decimal would be
+ * silently rounded by the database and the row would not say what the person entered.
+ */
+export function validateAmount(raw: string): AmountValidation {
+  const trimmed = raw.trim().replace(/,/g, "");
+  if (trimmed.length === 0) return { cents: null, error: "Số tiền là bắt buộc." };
+  if (!/^\d*\.?\d*$/.test(trimmed) || trimmed === ".") {
+    return { cents: null, error: "Số tiền chỉ gồm chữ số, ví dụ 1250.50." };
+  }
+  const decimals = trimmed.split(".")[1] ?? "";
+  if (decimals.length > 2) return { cents: null, error: "Số tiền tối đa 2 chữ số thập phân." };
+  const value = Number.parseFloat(trimmed);
+  if (!Number.isFinite(value)) return { cents: null, error: "Số tiền không hợp lệ." };
+  const cents = Math.round(value * 100);
+  if (cents <= 0) return { cents: null, error: "Số tiền phải lớn hơn 0." };
+  if (cents > MAX_AMOUNT_CENTS) return { cents: null, error: "Số tiền quá lớn." };
+  return { cents, error: null };
+}
+
+/** Signed amount for an opening balance: a credit card or loan legitimately starts negative. */
+export function validateOpeningBalance(raw: string): AmountValidation {
+  const trimmed = raw.trim().replace(/,/g, "");
+  if (trimmed.length === 0) return { cents: 0, error: null };
+  const negative = trimmed.startsWith("-");
+  const body = negative ? trimmed.slice(1) : trimmed;
+  const parsed = validateAmount(body === "" ? "0" : body);
+  if (body === "0" || body === "0.00") return { cents: 0, error: null };
+  if (parsed.error !== null || parsed.cents === null) {
+    return { cents: null, error: parsed.error ?? "Số dư không hợp lệ." };
+  }
+  return { cents: negative ? -parsed.cents : parsed.cents, error: null };
+}
+
+export function validateTransactionDate(raw: string, today: string = todayIso()): { date: string | null; error: string | null } {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return { date: null, error: "Ngày giao dịch là bắt buộc." };
+  if (raw > today) return { date: null, error: "Ngày giao dịch không thể ở tương lai." };
+  return { date: raw, error: null };
+}
+
+export function validateAccountName(raw: string, existing: readonly Account[], editingId?: string): { name: string | null; error: string | null } {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return { name: null, error: "Tên tài khoản là bắt buộc." };
+  if (trimmed.length > ACCOUNT_NAME_MAX_LEN) {
+    return { name: null, error: `Tên tài khoản quá dài (tối đa ${ACCOUNT_NAME_MAX_LEN} ký tự).` };
+  }
+  const clash = existing.some(
+    (account) =>
+      account.id !== editingId &&
+      account.deletedAt === null &&
+      account.name.trim().toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (clash) return { name: null, error: "Bạn đã có một tài khoản trùng tên." };
+  return { name: trimmed, error: null };
+}
+
+export function validateCategoryName(raw: string, existing: readonly Category[], editingId?: string): { name: string | null; error: string | null } {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return { name: null, error: "Tên hạng mục là bắt buộc." };
+  if (trimmed.length > CATEGORY_NAME_MAX_LEN) {
+    return { name: null, error: `Tên hạng mục quá dài (tối đa ${CATEGORY_NAME_MAX_LEN} ký tự).` };
+  }
+  const clash = existing.some(
+    (category) =>
+      category.id !== editingId &&
+      category.deletedAt === null &&
+      category.name.trim().toLowerCase() === trimmed.toLowerCase(),
+  );
+  if (clash) return { name: null, error: "Hạng mục này đã có rồi." };
+  return { name: trimmed, error: null };
+}
+
+export type TransactionDraft = {
+  type: TransactionType;
+  accountId: string;
+  categoryId: string;
+  date: string;
+  amount: string;
+  description: string;
+  businessRelated: boolean;
+  businessPurpose: string;
+  isRecurring: boolean;
+  recurringFrequency: RecurringFrequency;
+  recurringLabel: string;
+  receiptPath: string | null;
+};
+
+export function emptyTransactionDraft(today: string = todayIso()): TransactionDraft {
+  return {
+    type: "expense",
+    accountId: "",
+    categoryId: "",
+    date: today,
+    amount: "",
+    description: "",
+    businessRelated: false,
+    businessPurpose: "",
+    isRecurring: false,
+    recurringFrequency: "monthly",
+    recurringLabel: "",
+    receiptPath: null,
+  };
+}
+
+/** True once every required field carries something — what un-dims the submit button. */
+export function isTransactionDraftComplete(draft: TransactionDraft): boolean {
+  return (
+    draft.accountId !== "" &&
+    draft.categoryId !== "" &&
+    draft.date !== "" &&
+    validateAmount(draft.amount).error === null
+  );
+}
+
+export type DraftValidation = { field: keyof TransactionDraft | null; error: string | null };
+
+export function validateTransactionDraft(draft: TransactionDraft, today: string = todayIso()): DraftValidation {
+  if (draft.accountId === "") return { field: "accountId", error: "Hãy chọn tài khoản." };
+  if (draft.categoryId === "") return { field: "categoryId", error: "Hãy chọn hạng mục." };
+  const date = validateTransactionDate(draft.date, today);
+  if (date.error !== null) return { field: "date", error: date.error };
+  const amount = validateAmount(draft.amount);
+  if (amount.error !== null) return { field: "amount", error: amount.error };
+  if (draft.description.trim().length > DESCRIPTION_MAX_LEN) {
+    return { field: "description", error: `Diễn giải quá dài (tối đa ${DESCRIPTION_MAX_LEN} ký tự).` };
+  }
+  if (draft.businessRelated && draft.businessPurpose.trim().length > BUSINESS_PURPOSE_MAX_LEN) {
+    return { field: "businessPurpose", error: `Mục đích quá dài (tối đa ${BUSINESS_PURPOSE_MAX_LEN} ký tự).` };
+  }
+  return { field: null, error: null };
+}
+
+// ---------------------------------------------------------------- selectors
+
+export function activeAccounts(accounts: readonly Account[]): Account[] {
+  return accounts.filter((account) => account.deletedAt === null);
+}
+
+export function activeCategories(categories: readonly Category[]): Category[] {
+  return categories.filter((category) => category.deletedAt === null);
+}
+
+/** The list the form shows once a type is picked — seeded and custom mixed, in one order. */
+export function categoriesFor(categories: readonly Category[], scope: CategoryScope): Category[] {
+  return activeCategories(categories)
+    .filter((category) => category.appliesTo === scope)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "vi"));
+}
+
+/** Joins transactions to their account and category, dropping any row whose refs are missing. */
+export function buildLedger(
+  transactions: readonly Transaction[],
+  accounts: readonly Account[],
+  categories: readonly Category[],
+): LedgerEntry[] {
+  const accountById = new Map(accounts.map((account) => [account.id, account]));
+  const categoryById = new Map(categories.map((category) => [category.id, category]));
+  const entries: LedgerEntry[] = [];
+  for (const transaction of transactions) {
+    const account = accountById.get(transaction.accountId);
+    const category = categoryById.get(transaction.categoryId);
+    if (!account || !category) continue;
+    entries.push({ ...transaction, account, category });
+  }
+  return entries;
+}
+
+/** Live rows only: a transaction marked as an error must not move a single total. */
+export function postedEntries(entries: readonly LedgerEntry[]): LedgerEntry[] {
+  return entries.filter((entry) => entry.deletedAt === null);
+}
+
+export function entriesInRange(entries: readonly LedgerEntry[], from: string, to: string): LedgerEntry[] {
+  return entries.filter((entry) => isWithinRange(entry.date, from, to));
+}
+
+/** Newest first, and within one day the most recently entered first. */
+export function sortEntries(entries: readonly LedgerEntry[]): LedgerEntry[] {
+  return [...entries].sort((a, b) => (a.date === b.date ? b.createdAt.localeCompare(a.createdAt) : b.date.localeCompare(a.date)));
+}
+
+export type DayGroup = { date: string; entries: LedgerEntry[]; netCents: number };
+
+export function groupByDay(entries: readonly LedgerEntry[]): DayGroup[] {
+  const byDay = new Map<string, LedgerEntry[]>();
+  for (const entry of sortEntries(entries)) {
+    const bucket = byDay.get(entry.date);
+    if (bucket) bucket.push(entry);
+    else byDay.set(entry.date, [entry]);
+  }
+  return [...byDay.entries()].map(([date, group]) => ({
+    date,
+    entries: group,
+    netCents: sumCents(group.map(signedCents)),
+  }));
+}
+
+/** Matches description, category name, business purpose and recurring label. */
+export function searchEntries(entries: readonly LedgerEntry[], query: string): LedgerEntry[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return [...entries];
+  return entries.filter((entry) => {
+    const haystack = [
+      entry.description ?? "",
+      entry.category.name,
+      entry.businessPurpose ?? "",
+      entry.recurringLabel ?? "",
+      entry.account.name,
+    ]
+      .join(" ")
+      .toLowerCase();
+    return haystack.includes(needle);
+  });
+}
+
+// ---------------------------------------------------------------- balances
+
+/**
+ * What an account held at the close of `dateIso`, rebuilt from the ledger.
+ * Used by the balance chart and by net worth, which both need a balance "as of" a past day.
+ */
+export function balanceAt(account: Account, entries: readonly LedgerEntry[], dateIso: string): number {
+  const delta = sumCents(
+    entries.filter((entry) => entry.accountId === account.id && entry.date <= dateIso).map(signedCents),
+  );
+  return account.openingBalanceCents + delta;
+}
+
+export type NetWorth = {
+  assetsCents: number;
+  liabilitiesCents: number;
+  netCents: number;
+};
+
+/** Liabilities are reported as a positive amount owed; net worth is assets minus that. */
+export function netWorthAt(accounts: readonly Account[], entries: readonly LedgerEntry[], dateIso: string): NetWorth {
+  let assets = 0;
+  let liabilities = 0;
+  for (const account of activeAccounts(accounts)) {
+    const balance = balanceAt(account, entries, dateIso);
+    if (isLiabilityAccount(account.type)) liabilities += -balance;
+    else assets += balance;
+  }
+  return { assetsCents: assets, liabilitiesCents: liabilities, netCents: assets - liabilities };
+}
+
+// ---------------------------------------------------------------- currency
+
+/**
+ * Restates one account's balance in the base currency, or null when no rate bridges the pair.
+ * Null rather than 0: a balance that cannot be valued must read as unknown, never as empty —
+ * a missing rate should not quietly shrink someone's net worth.
+ */
+export function balanceInBase(
+  account: Account,
+  entries: readonly LedgerEntry[],
+  dateIso: string,
+  base: string,
+  rates: RateTable,
+): number | null {
+  const native = balanceAt(account, entries, dateIso);
+  return convertCents(native, account.currency, base, rates);
+}
+
+/**
+ * Net worth across accounts in several currencies, everything restated in the base.
+ *
+ * `unvalued` names the accounts that could not be converted, so the screen can say so rather
+ * than present a total that silently omits them.
+ */
+export function netWorthInBase(
+  accounts: readonly Account[],
+  entries: readonly LedgerEntry[],
+  dateIso: string,
+  base: string,
+  rates: RateTable,
+): NetWorth & { unvalued: Account[] } {
+  let assets = 0;
+  let liabilities = 0;
+  const unvalued: Account[] = [];
+  for (const account of activeAccounts(accounts)) {
+    const balance = balanceInBase(account, entries, dateIso, base, rates);
+    if (balance === null) {
+      unvalued.push(account);
+      continue;
+    }
+    if (isLiabilityAccount(account.type)) liabilities += -balance;
+    else assets += balance;
+  }
+  return { assetsCents: assets, liabilitiesCents: liabilities, netCents: assets - liabilities, unvalued };
+}
+
+/**
+ * Restates a whole ledger in the base currency, so every downstream report — all eight of
+ * them, plus every chart — keeps working on plain comparable numbers instead of each one
+ * having to learn about exchange rates.
+ *
+ * The database's own `amount_in_base_currency` is preferred when it was computed against this
+ * same base; otherwise the rate table is used. That is exactly why the base is stored beside
+ * the cached figure: it makes a stale cache detectable rather than silently wrong.
+ */
+export function toBaseLedger(
+  entries: readonly LedgerEntry[],
+  base: string,
+  rates: RateTable,
+): LedgerEntry[] {
+  const code = base.trim().toUpperCase();
+  const converted: LedgerEntry[] = [];
+  for (const entry of entries) {
+    if (entry.currency.toUpperCase() === code) {
+      converted.push(entry);
+      continue;
+    }
+    const cached =
+      entry.baseCurrency !== null && entry.baseCurrency.toUpperCase() === code
+        ? entry.amountInBaseCents
+        : null;
+    const amount = cached ?? convertCents(entry.amountCents, entry.currency, code, rates);
+    if (amount === null) continue;
+    converted.push({ ...entry, amountCents: amount, currency: code });
+  }
+  return converted;
+}
+
+/** Entries whose currency cannot be expressed in the base, so a report can disclose them. */
+export function unconvertibleEntries(
+  entries: readonly LedgerEntry[],
+  base: string,
+  rates: RateTable,
+): LedgerEntry[] {
+  const code = base.trim().toUpperCase();
+  return entries.filter((entry) => {
+    if (entry.currency.toUpperCase() === code) return false;
+    if (
+      entry.baseCurrency !== null &&
+      entry.baseCurrency.toUpperCase() === code &&
+      entry.amountInBaseCents !== null
+    )
+      return false;
+    return convertCents(entry.amountCents, entry.currency, code, rates) === null;
+  });
+}
+
+/** The distinct currencies actually in use, base first — what the multi-currency view lists. */
+export function currenciesInUse(accounts: readonly Account[], base: string): string[] {
+  const code = base.trim().toUpperCase();
+  const seen = new Set<string>();
+  for (const account of activeAccounts(accounts)) seen.add(account.currency.toUpperCase());
+  return [code, ...[...seen].filter((entry) => entry !== code).sort()];
+}
+
+export type PeriodTotals = {
+  incomeCents: number;
+  expenseCents: number;
+  netCents: number;
+  businessIncomeCents: number;
+  businessExpenseCents: number;
+  personalExpenseCents: number;
+  grossProfitCents: number;
+  givingCents: number;
+};
+
+export function totalsFor(entries: readonly LedgerEntry[]): PeriodTotals {
+  let income = 0;
+  let expense = 0;
+  let businessIncome = 0;
+  let businessExpense = 0;
+  let giving = 0;
+
+  for (const entry of entries) {
+    if (entry.type === "income") {
+      income += entry.amountCents;
+      if (entry.businessRelated) businessIncome += entry.amountCents;
+    } else {
+      expense += entry.amountCents;
+      if (entry.businessRelated) businessExpense += entry.amountCents;
+      if (entry.category.slug !== null && GIVING_SLUGS.includes(entry.category.slug)) {
+        giving += entry.amountCents;
+      }
+    }
+  }
+
+  return {
+    incomeCents: income,
+    expenseCents: expense,
+    netCents: income - expense,
+    businessIncomeCents: businessIncome,
+    businessExpenseCents: businessExpense,
+    personalExpenseCents: expense - businessExpense,
+    grossProfitCents: businessIncome - businessExpense,
+    givingCents: giving,
+  };
+}
+
+/** A ledger counts as a household business the moment one row is flagged. */
+export function hasBusinessActivity(entries: readonly LedgerEntry[]): boolean {
+  return entries.some((entry) => entry.businessRelated);
+}
+
+export type GivingBand = "low" | "fair" | "generous" | "none";
+
+/** Red under 5%, yellow through 10%, green above it. */
+export function givingBand(ratio: number | null): GivingBand {
+  if (ratio === null || !Number.isFinite(ratio)) return "none";
+  if (ratio < 0.05) return "low";
+  if (ratio <= 0.1) return "fair";
+  return "generous";
+}
+
+export const GIVING_BAND_COLORS: Record<GivingBand, string> = {
+  low: "#C0492A",
+  fair: "#C98A3E",
+  generous: "#3F8F6B",
+  none: "#CCCCCC",
+};
+
+export const GIVING_BAND_LABELS: Record<GivingBand, string> = {
+  low: "Dưới 5% thu nhập",
+  fair: "5–10% thu nhập",
+  generous: "Trên 10% thu nhập",
+  none: "Chưa có thu nhập để so sánh",
+};
+
+/** Giving over income. Null when there is no income, because 0/0 is not "0%". */
+export function givingRatio(totals: PeriodTotals): number | null {
+  if (totals.incomeCents <= 0) return null;
+  return totals.givingCents / totals.incomeCents;
+}
+
+// ---------------------------------------------------------------- recurring
+
+export type RecurringSuggestion = {
+  key: string;
+  sourceId: string;
+  label: string;
+  amountCents: number;
+  type: TransactionType;
+  accountId: string;
+  categoryId: string;
+  businessRelated: boolean;
+  businessPurpose: string | null;
+  frequency: RecurringFrequency;
+  dueDate: string;
+};
+
+/**
+ * Recurring entries are a memory aid, never an auto-charge: AVORA notices the day has come
+ * and offers to add it. Nothing is written until the person says so.
+ */
+export function recurringSuggestions(
+  entries: readonly LedgerEntry[],
+  today: string = todayIso(),
+  dismissed: ReadonlySet<string> = new Set(),
+): RecurringSuggestion[] {
+  const latestByPattern = new Map<string, LedgerEntry>();
+
+  for (const entry of entries) {
+    if (!entry.isRecurring || entry.recurringFrequency === null) continue;
+    const patternKey = `${entry.accountId}|${entry.categoryId}|${entry.type}|${entry.recurringLabel ?? entry.description ?? ""}`;
+    const known = latestByPattern.get(patternKey);
+    if (!known || entry.date > known.date) latestByPattern.set(patternKey, entry);
+  }
+
+  const suggestions: RecurringSuggestion[] = [];
+  for (const [patternKey, entry] of latestByPattern) {
+    const frequency = entry.recurringFrequency;
+    if (frequency === null) continue;
+    const dueDate = nextRecurrence(entry.date, frequency);
+    if (dueDate > today) continue;
+    const key = `${patternKey}|${dueDate}`;
+    if (dismissed.has(key)) continue;
+    suggestions.push({
+      key,
+      sourceId: entry.id,
+      label: entry.recurringLabel ?? entry.description ?? entry.category.name,
+      amountCents: entry.amountCents,
+      type: entry.type,
+      accountId: entry.accountId,
+      categoryId: entry.categoryId,
+      businessRelated: entry.businessRelated,
+      businessPurpose: entry.businessPurpose,
+      frequency,
+      dueDate,
+    });
+  }
+
+  return suggestions.sort((a, b) => a.dueDate.localeCompare(b.dueDate) || a.label.localeCompare(b.label, "vi"));
+}

@@ -1,0 +1,137 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* AVORA design system — warm paper canvas, bold ink, terracotta accent.
+   All colors MUST be HSL. */
+
+@layer base {
+  :root {
+    /* Canvas #F6F3EC */
+    --background: 42 36% 95%;
+    /* Ink #1C1A17 */
+    --foreground: 36 10% 10%;
+
+    /* Surface #FFFFFF */
+    --card: 0 0% 100%;
+    --card-foreground: 36 10% 10%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 36 10% 10%;
+
+    /* Terracotta #E0603C */
+    --primary: 13 73% 56%;
+    --primary-foreground: 15 100% 97%;
+
+    /* Warm sand #EFE7DA */
+    --secondary: 37 40% 90%;
+    --secondary-foreground: 36 10% 10%;
+
+    --muted: 42 36% 95%;
+    /* Warm grey #6B635A */
+    --muted-foreground: 32 9% 39%;
+
+    /* Soft accent wash #F7E3DC */
+    --accent: 16 63% 92%;
+    --accent-foreground: 13 62% 40%;
+
+    --destructive: 4 66% 46%;
+    --destructive-foreground: 15 100% 97%;
+
+    /* Hairline #E6DFD3 */
+    --border: 38 28% 86%;
+    --input: 38 28% 86%;
+    --ring: 13 73% 56%;
+
+    --radius: 0.625rem;
+
+    /* Presence #3F8F6B */
+    --online: 153 39% 40%;
+
+    /* Deadline pressure. Warm like the rest of the paper — urgency is never a red alarm.
+       Overdue #E17A5F, due soon #D68A6F, scheduled #666666, unscheduled #CCCCCC. */
+    --task-overdue: 12 68% 63%;
+    --task-due-soon: 16 56% 64%;
+    --task-routine: 0 0% 40%;
+    --task-idle: 0 0% 80%;
+
+    /* The emergency mark. Printed amber from the chart ramp (#C98A3E), deliberately NOT the
+       terracotta accent: a starred task is a flag to read, never a button to press. */
+    --task-important: 32 53% 52%;
+
+    /* Ledger direction. Money in is the same considered green as presence; money out is a
+       deep rust that is deliberately NOT the terracotta accent, so a figure can never be
+       mistaken for a button. #3F8F6B in, #C0492A out. */
+    --money-in: 153 39% 40%;
+    --money-out: 13 65% 46%;
+
+    --sidebar-background: 42 36% 95%;
+    --sidebar-foreground: 36 10% 10%;
+    --sidebar-primary: 13 73% 56%;
+    --sidebar-primary-foreground: 15 100% 97%;
+    --sidebar-accent: 16 63% 92%;
+    --sidebar-accent-foreground: 13 62% 40%;
+    --sidebar-border: 38 28% 86%;
+    --sidebar-ring: 13 73% 56%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family:
+      "Inter Tight",
+      ui-sans-serif,
+      system-ui,
+      -apple-system,
+      "Segoe UI",
+      sans-serif;
+    font-feature-settings:
+      "cv05" 1,
+      "ss03" 1;
+  }
+
+  ::selection {
+    background-color: hsl(var(--accent));
+    color: hsl(var(--foreground));
+  }
+
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .wordmark {
+    font-weight: 600;
+    letter-spacing: 0.34em;
+    text-transform: uppercase;
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Faint paper grain over the canvas — depth without shadows. */
+  .paper {
+    background-color: hsl(var(--background));
+    background-image: radial-gradient(hsl(38 28% 86% / 0.55) 0.5px, transparent 0.5px);
+    background-size: 22px 22px;
+  }
+}
+
+@layer utilities {
+  .press {
+    @apply transition-transform duration-150 ease-out active:scale-[0.985];
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "$schema": "https://rork.com/schema/rork.json",
+  "apps": [
+    {
+      "name": "AVORA",
+      "path": "web",
+      "framework": "web"
+    },
+    {
+      "name": "Backend",
+      "path": "backend",
+      "framework": "supabase"
+    }
+  ]
+}

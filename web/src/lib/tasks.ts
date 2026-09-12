@@ -1,0 +1,1080 @@
+import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+import { toIsoTimestamp } from "@/lib/chat";
+import {
+  parseContextSnapshot,
+  snapshotToJson,
+  type TaskContextSnapshot,
+} from "@/lib/task-context";
+import {
+  browserTimezone,
+  validateDeadlineTime,
+  normalizeDeadlineTime,
+  type RecurrencePattern,
+  type ReminderPresetId,
+  type TaskRecurrence,
+} from "@/lib/task-schedule";
+
+/** Query keys live here so the realtime provider can patch the cache without importing hooks. */
+export const taskKeys = {
+  all: ["tasks"] as const,
+  list: ["tasks", "list"] as const,
+};
+
+/**
+ * A 1-1 shared task is closed by two people, never one:
+ *   pending_confirmation -> confirmed -> done_pending_review -> done
+ * The peer accepts the task, the peer claims it finished, and the creator reviews that claim.
+ * Personal tasks skip both handshakes and only ever sit at 'confirmed' or 'done'.
+ */
+export type TaskStatus = "pending_confirmation" | "confirmed" | "done_pending_review" | "done";
+
+/**
+ * A task is one of three things: your own, something between two people, or something one
+ * member of a group was asked for. The last two behave identically — the only difference is
+ * that a group has to name who is carrying it, because "the other person" is not a thing a
+ * group has.
+ */
+export type TaskType = "personal" | "1-1-shared" | "group-shared";
+
+export type SharedTaskType = "1-1-shared" | "group-shared";
+
+/** True for both kinds of two-party task, so no rule has to list them one by one. */
+export function isSharedTask(task: TaskItem): boolean {
+  return task.type === "1-1-shared" || task.type === "group-shared";
+}
+
+export type TaskItem = {
+  id: string;
+  type: TaskType;
+  creatorId: string;
+  /**
+   * The one person carrying a shared task. Null on 1-1 rows written before it was recorded,
+   * where the assignee is simply whoever is not the creator, and on personal tasks.
+   */
+  assigneeId: string | null;
+  /** The conversation this task was born in, copied at creation and never editable after. */
+  contextSnapshot: TaskContextSnapshot | null;
+  conversationId: string | null;
+  title: string;
+  /** What is actually being asked for. Required: a task without it is only a note. */
+  description: string;
+  status: TaskStatus;
+  confirmedAt: string | null;
+  /** When the assignee claimed the work was finished. */
+  doneAt: string | null;
+  /** When the creator accepted that claim. Shared tasks only. */
+  completedConfirmedAt: string | null;
+  /**
+   * Calendar day the work is due, `YYYY-MM-DD`. Required on every new task; the nullable type
+   * is kept only so rows written before the rule still render instead of crashing the list.
+   */
+  deadline: string | null;
+  /**
+   * Clock the work is due at, `HH:MM`, or null for "any time that day" — which is what every
+   * task written before Phase 3B means, and is treated as the END of the day rather than
+   * 09:00, so nothing silently became overdue when the column arrived.
+   */
+  deadlineTime: string | null;
+  /** The zone the date and time were written in. A Vietnamese 09:00 must stay 09:00. */
+  deadlineTz: string;
+  /** The creator's own shelf. Null on a task the peer is looking at, whose labels are private. */
+  categoryId: string | null;
+  /** An emergency marker, and only a tiebreaker — it never outranks a deadline. */
+  isImportant: boolean;
+  recurrence: TaskRecurrence;
+  recurrencePattern: RecurrencePattern | null;
+  /** Set once this task has produced its successor, so a repeat cannot fork. */
+  recurrenceSpawnedAt: string | null;
+  /** Each side of a shared task has its own bin; the row only leaves the database when both are set. */
+  deletedByCreator: boolean;
+  deletedByPeer: boolean;
+  createdAt: string;
+};
+
+/**
+ * How much of a claim a task has on someone, from the outside in.
+ *
+ *   1 — someone else asked this person for it
+ *   2 — this person asked someone else for it
+ *   3 — this person's own to-do
+ *
+ * Work other people are waiting on ranks above private work, which is why this breaks ties
+ * inside a shared moment. It never crosses a deadline: an earlier date always wins.
+ */
+export type TaskTier = 1 | 2 | 3;
+
+export function taskTier(task: TaskItem, userId: string | undefined): TaskTier {
+  if (task.type === "personal") return 3;
+  if (userId !== undefined && task.creatorId !== userId) return 1;
+  return 2;
+}
+
+/**
+ * Whether this person is the one being asked. Mirrors the database rule exactly: a named
+ * assignee decides it outright, and only a 1-1 task may fall back to "not the creator",
+ * because a group task has other people in the room who were not asked for anything.
+ */
+export function isTaskAssignee(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined || !isSharedTask(task)) return false;
+  if (task.assigneeId !== null) return task.assigneeId === userId;
+  return task.type === "1-1-shared" && task.creatorId !== userId;
+}
+
+/** A group member who can read a task but was not asked for it and did not raise it. */
+export function isTaskBystander(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined || !isSharedTask(task)) return false;
+  return task.creatorId !== userId && !isTaskAssignee(task, userId);
+}
+
+/**
+ * Whether a task is the viewer's own business: they were asked for it, or they asked for it.
+ *
+ * This is what separates the panel inside a group chat from the group's full list. A room of
+ * twelve people generates work that has nothing to do with you, and reading it every time you
+ * open the chat is noise. What remains is what you are carrying and what you are waiting on —
+ * the second half matters, because the creator is the only person who can close a task.
+ */
+export function involvesViewer(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined) return false;
+  if (!isSharedTask(task)) return task.creatorId === userId;
+  return task.creatorId === userId || isTaskAssignee(task, userId);
+}
+
+export const TIER_LABELS: Record<TaskTier, string> = {
+  1: "Người khác giao",
+  2: "Bạn giao",
+  3: "Cá nhân",
+};
+
+export type SharedTaskGroup = {
+  conversationId: string;
+  tasks: TaskItem[];
+};
+
+export type TitleValidation = {
+  title: string | null;
+  error: string | null;
+};
+
+export const TASK_TITLE_MAX_LEN = 200;
+export const TASK_DESCRIPTION_MAX_LEN = 2000;
+
+/** Maps Postgres/PostgREST failures on the tasks tables to short Vietnamese messages. */
+export function toVietnameseTaskError(code: string | undefined, message: string): string {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("avora_task_title_blank")) return "Tên nhiệm vụ không được để trống.";
+  if (normalized.includes("avora_task_title_max_len"))
+    return `Tên nhiệm vụ quá dài (tối đa ${TASK_TITLE_MAX_LEN} ký tự).`;
+  if (normalized.includes("avora_task_self_confirm")) return "Bạn không thể tự xác nhận nhiệm vụ của chính mình.";
+  if (normalized.includes("avora_task_not_confirmed"))
+    return "Nhiệm vụ chưa được xác nhận nên chưa thể hoàn thành.";
+  if (normalized.includes("avora_task_only_assignee_marks_done"))
+    return "Chỉ người nhận việc mới báo xong được. Bạn là người duyệt.";
+  if (normalized.includes("avora_task_only_creator_reviews"))
+    return "Chỉ người giao việc mới duyệt hoàn thành được.";
+  if (normalized.includes("avora_task_only_creator_returns"))
+    return "Chỉ người giao việc mới trả việc được.";
+  if (normalized.includes("avora_task_assignee_delete_requires_done"))
+    return "Chỉ có thể xoá khi người giao xác nhận việc đã hoàn thành.";
+  if (normalized.includes("avora_task_description_required"))
+    return "Mô tả cụ thể là bắt buộc: bạn cần gì, kết quả dự kiến là gì?";
+  if (normalized.includes("avora_task_description_max_len"))
+    return `Mô tả quá dài (tối đa ${TASK_DESCRIPTION_MAX_LEN} ký tự).`;
+  if (normalized.includes("avora_task_deadline_required")) return "Nhiệm vụ phải có hạn hoàn thành.";
+  if (normalized.includes("avora_task_deadline_past"))
+    return "Hạn hoàn thành không thể là ngày đã qua.";
+  if (normalized.includes("avora_task_timezone_invalid")) return "Múi giờ không hợp lệ.";
+  if (normalized.includes("avora_task_category_foreign"))
+    return "Hạng mục này không thuộc về bạn.";
+  if (normalized.includes("avora_task_not_shared")) return "Nhiệm vụ này không phải nhiệm vụ chung.";
+  if (normalized.includes("avora_task_not_assignee"))
+    return "Chỉ người được giao nhiệm vụ này mới thao tác được.";
+  if (normalized.includes("avora_task_assignee_required"))
+    return "Hãy chọn một thành viên đảm trách nhiệm vụ này.";
+  if (normalized.includes("avora_task_assignee_not_participant"))
+    return "Người này không còn trong cuộc trò chuyện.";
+  if (normalized.includes("avora_task_self_assign"))
+    return "Việc bạn tự làm là nhiệm vụ cá nhân — hãy thêm ở tab Nhiệm vụ.";
+  if (normalized.includes("avora_task_wrong_conversation"))
+    return "Loại nhiệm vụ không khớp với cuộc trò chuyện này.";
+  if (normalized.includes("avora_context_snapshot_immutable"))
+    return "Ngữ cảnh của nhiệm vụ đã lưu thì không sửa được.";
+  if (normalized.includes("avora_context_snapshot"))
+    return "Không lưu được ngữ cảnh cuộc trò chuyện. Thử lại nhé.";
+  if (normalized.includes("avora_task_not_awaiting_review"))
+    return "Nhiệm vụ chưa được báo xong nên chưa có gì để duyệt.";
+  if (normalized.includes("avora_task_not_found")) return "Không tìm thấy nhiệm vụ này.";
+  if (normalized.includes("avora_not_a_participant")) return "Bạn không có quyền trong cuộc trò chuyện này.";
+  if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
+  if (code === "42501" || normalized.includes("permission denied"))
+    return "Máy chủ chưa cho phép thao tác này. Vui lòng báo lại cho chúng tôi.";
+  if (normalized.includes("row-level security")) return "Bạn không có quyền với nhiệm vụ này.";
+  if (normalized.includes("failed to fetch")) return "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.";
+  return "Có lỗi xảy ra. Vui lòng thử lại.";
+}
+
+function fail(code: string | undefined, message: string): Error {
+  console.error(`[tasks] ${code ?? "unknown"}: ${message}`);
+  return new Error(toVietnameseTaskError(code, message));
+}
+
+/** Trims and bounds a task title; returns the error to show when it is unusable. */
+export function validateTaskTitle(raw: string): TitleValidation {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0) return { title: null, error: "Tên nhiệm vụ không được để trống." };
+  if (trimmed.length > TASK_TITLE_MAX_LEN)
+    return { title: null, error: `Tên nhiệm vụ quá dài (tối đa ${TASK_TITLE_MAX_LEN} ký tự).` };
+  return { title: trimmed, error: null };
+}
+
+/**
+ * A task is what someone needs, plus when they need it. Both are required, so the description
+ * is validated exactly as strictly as the title — an empty one is rejected, not silently stored.
+ */
+export function validateTaskDescription(raw: string): { description: string | null; error: string | null } {
+  const trimmed = raw.trim();
+  if (trimmed.length === 0)
+    return { description: null, error: "Mô tả cụ thể là bắt buộc: bạn cần gì, kết quả dự kiến là gì?" };
+  if (trimmed.length > TASK_DESCRIPTION_MAX_LEN)
+    return {
+      description: null,
+      error: `Mô tả quá dài (tối đa ${TASK_DESCRIPTION_MAX_LEN} ký tự).`,
+    };
+  return { description: trimmed, error: null };
+}
+
+/**
+ * A deadline is required and cannot already have passed. Today is allowed: work promised for
+ * today is ordinary, and deadlines here are calendar days rather than instants, so "today"
+ * means the same thing at 08:00 and at 23:00.
+ */
+export function validateTaskDeadline(
+  raw: string | null | undefined,
+  today: string,
+): { deadline: string | null; error: string | null } {
+  const normalized = normalizeDeadline(raw);
+  if (normalized === null) return { deadline: null, error: "Nhiệm vụ phải có hạn hoàn thành." };
+  const days = daysUntilDeadline(normalized, today);
+  if (days !== null && days < 0) return { deadline: null, error: "Hạn hoàn thành không thể là ngày đã qua." };
+  return { deadline: normalized, error: null };
+}
+
+export type TaskDraft = {
+  title: string;
+  description: string;
+  deadline: string;
+  /** Optional: a task due "that day" is a perfectly ordinary task. */
+  deadlineTime?: string;
+  categoryId?: string | null;
+  isImportant?: boolean;
+  recurrence?: TaskRecurrence;
+  recurrencePattern?: RecurrencePattern | null;
+  /** Which reminder to set once the task exists, or null for none. */
+  reminder?: ReminderPresetId | null;
+};
+
+export type ValidatedTaskDraft = {
+  title: string;
+  description: string;
+  deadline: string;
+  deadlineTime: string | null;
+  categoryId: string | null;
+  isImportant: boolean;
+  recurrence: TaskRecurrence;
+  recurrencePattern: RecurrencePattern | null;
+} | null;
+
+/** All three fields, checked in reading order so the person is told about the first gap only. */
+export function validateTaskDraft(
+  draft: TaskDraft,
+  today: string,
+): { value: ValidatedTaskDraft; error: string | null } {
+  const title = validateTaskTitle(draft.title);
+  if (!title.title) return { value: null, error: title.error };
+  const description = validateTaskDescription(draft.description);
+  if (!description.description) return { value: null, error: description.error };
+  const deadline = validateTaskDeadline(draft.deadline, today);
+  if (!deadline.deadline) return { value: null, error: deadline.error };
+  const time = validateDeadlineTime(draft.deadlineTime ?? "");
+  if (time.error !== null) return { value: null, error: time.error };
+
+  const recurrence: TaskRecurrence = draft.recurrence ?? "none";
+  const pattern = recurrence === "custom" ? draft.recurrencePattern ?? null : null;
+  if (recurrence === "custom" && (pattern === null || pattern.interval < 1))
+    return { value: null, error: "Lặp tuỳ chỉnh cần khoảng cách ít nhất 1." };
+
+  return {
+    value: {
+      title: title.title,
+      description: description.description,
+      deadline: deadline.deadline,
+      deadlineTime: time.time,
+      categoryId: draft.categoryId ?? null,
+      isImportant: draft.isImportant ?? false,
+      recurrence,
+      recurrencePattern: pattern,
+    },
+    error: null,
+  };
+}
+
+/**
+ * Whether anything has been typed in all three required fields. Used only to keep the submit
+ * button dark until the form can succeed — the real check is `validateTaskDraft`.
+ */
+export function isTaskDraftComplete(draft: TaskDraft): boolean {
+  return draft.title.trim() !== "" && draft.description.trim() !== "" && draft.deadline.trim() !== "";
+}
+
+/** Only the assignee — never the creator, never a bystander — can accept a pending shared task. */
+export function canConfirmSharedTask(task: TaskItem, userId: string | undefined): boolean {
+  return (
+    userId !== undefined &&
+    isSharedTask(task) &&
+    task.status === "pending_confirmation" &&
+    task.creatorId !== userId &&
+    isTaskAssignee(task, userId)
+  );
+}
+
+/** Only the assignee — the person who accepted the task — can claim it is finished. */
+export function canMarkSharedDone(task: TaskItem, userId: string | undefined): boolean {
+  return (
+    userId !== undefined &&
+    isSharedTask(task) &&
+    task.status === "confirmed" &&
+    task.creatorId !== userId &&
+    isTaskAssignee(task, userId)
+  );
+}
+
+/** Only the creator reviews the assignee's claim, and only once that claim exists. */
+export function canReviewSharedDone(task: TaskItem, userId: string | undefined): boolean {
+  return (
+    userId !== undefined &&
+    isSharedTask(task) &&
+    task.status === "done_pending_review" &&
+    task.creatorId === userId
+  );
+}
+
+/**
+ * Reviewing a claim has two answers, and both belong to the creator: accept it, or send the
+ * work back. So 'Trả việc' is available in exactly the same place as 'Xác nhận hoàn thành'.
+ */
+export function canReturnSharedTask(task: TaskItem, userId: string | undefined): boolean {
+  return canReviewSharedDone(task, userId);
+}
+
+/** True once both sides have deleted a shared task, meaning the row is gone from the database. */
+export function isTaskGone(task: TaskItem): boolean {
+  return task.deletedByCreator && task.deletedByPeer;
+}
+
+/** Whether this task sits in *this* person's bin. Each side of a shared task has its own. */
+export function isDeletedFor(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined) return false;
+  if (task.type === "personal") return task.deletedByCreator;
+  if (task.creatorId === userId) return task.deletedByCreator;
+  // A group member who was never party to the task has no bin of their own to check.
+  if (isTaskBystander(task, userId)) return false;
+  return task.deletedByPeer;
+}
+
+/**
+ * The other party dropped a shared task that this person still keeps. Worth saying out loud:
+ * the task is now one-sided, and nothing more will come from them.
+ */
+export function isDeletedByOther(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined || !isSharedTask(task)) return false;
+  if (isTaskBystander(task, userId)) return false;
+  return task.creatorId === userId ? task.deletedByPeer : task.deletedByCreator;
+}
+
+/** What the surviving party is told when the other side deletes a shared task. */
+export function deletedByOtherNote(task: TaskItem, userId: string | undefined): string {
+  return task.creatorId === userId ? "Người nhận đã xoá" : "Người giao đã xoá";
+}
+
+/**
+ * Who may bin a task, and when. This is about authority, not about being finished.
+ *
+ * A personal task belongs to one person, so they may always delete it. On a shared task the
+ * creator may let go at any point — it is their request to withdraw. The person doing the work
+ * can only delete once the creator has confirmed the work finished: otherwise unfinished work
+ * could be swept off the list before anyone has answered for it, which is exactly what the
+ * two-party flow exists to prevent. The server enforces the same rule; this only decides
+ * whether to offer the button.
+ */
+export function canDeleteTask(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined) return false;
+  if (task.type === "personal") return task.creatorId === userId;
+  if (task.creatorId === userId) return true;
+  // A bystander is not party to the request, so it is not theirs to clear.
+  if (!isTaskAssignee(task, userId)) return false;
+  return task.status === "done";
+}
+
+/**
+ * True when deleting will destroy the row outright rather than move it to this person's bin:
+ * a request nobody has accepted yet has no second copy to preserve. The button says so, because
+ * "Xoá" that cannot be undone must not look like "Xoá" that can.
+ */
+export function deleteIsPermanent(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined || !isSharedTask(task)) return false;
+  if (task.creatorId !== userId) return false;
+  return task.status === "pending_confirmation";
+}
+
+/**
+ * 'Xoá hẳn' only exists where one person owns the row outright. A shared task in someone's
+ * bin is still on the other person's list, so destroying it would delete their copy too.
+ */
+export function canPurgeTask(task: TaskItem): boolean {
+  return task.type === "personal";
+}
+
+/** Splits tasks into what this person still keeps and what they have put in the bin. */
+export function partitionByBin(
+  tasks: TaskItem[],
+  userId: string | undefined,
+): { kept: TaskItem[]; binned: TaskItem[] } {
+  const kept: TaskItem[] = [];
+  const binned: TaskItem[] = [];
+  for (const task of tasks) {
+    if (isTaskGone(task)) continue;
+    if (isDeletedFor(task, userId)) binned.push(task);
+    else kept.push(task);
+  }
+  return { kept, binned };
+}
+
+/** Groups shared tasks by conversation, preserving the order tasks arrive in. */
+export function groupSharedByConversation(tasks: TaskItem[]): SharedTaskGroup[] {
+  const groups: SharedTaskGroup[] = [];
+  const index = new Map<string, SharedTaskGroup>();
+  for (const task of tasks) {
+    if (!isSharedTask(task) || !task.conversationId) continue;
+    let group = index.get(task.conversationId);
+    if (!group) {
+      group = { conversationId: task.conversationId, tasks: [] };
+      index.set(task.conversationId, group);
+      groups.push(group);
+    }
+    group.tasks.push(task);
+  }
+  return groups;
+}
+
+/**
+ * Vietnamese label for a task status chip.
+ *
+ * Acceptance and completion are kept in separate vocabularies on purpose: the first pair
+ * talks about *nhận việc* (taking the task on) and the second about *hoàn thành* (finishing
+ * it). A bare "Đã xác nhận" once stood for both, so an accepted task and a finished one read
+ * identically.
+ */
+export function taskStatusLabel(status: TaskStatus): string {
+  if (status === "pending_confirmation") return "Chờ nhận việc";
+  if (status === "confirmed") return "Đã nhận việc";
+  if (status === "done_pending_review") return "Chờ xác nhận hoàn thành";
+  return "Đã hoàn thành";
+}
+
+/**
+ * The quiet line shown to whoever is NOT holding the next action, so every shared task
+ * states whose turn it is instead of only its raw state. Each line names the step it is
+ * waiting on (nhận việc vs xác nhận hoàn thành), never just "waiting".
+ */
+export function sharedTaskNote(task: TaskItem, userId: string | undefined): string {
+  const isCreator = userId !== undefined && task.creatorId === userId;
+  const isAssignee = isTaskAssignee(task, userId);
+  if (task.status === "pending_confirmation") return isAssignee ? "Chờ bạn nhận việc" : "Chờ nhận việc";
+  if (task.status === "confirmed") return "Đã nhận việc";
+  if (task.status === "done_pending_review")
+    return isCreator ? "Chờ bạn xác nhận hoàn thành" : "Chờ người giao xác nhận hoàn thành";
+  return "Đã hoàn thành";
+}
+
+/**
+ * A task is "open" until both sides agree it is finished. A claim awaiting review still
+ * counts: nobody can act on it being closed yet, so hiding it from the count would make
+ * work disappear while it is still someone's responsibility.
+ */
+export const OPEN_TASK_STATUSES: readonly TaskStatus[] = [
+  "pending_confirmation",
+  "confirmed",
+  "done_pending_review",
+];
+
+export function isOpenTask(task: TaskItem, viewerId?: string): boolean {
+  if (isTaskGone(task)) return false;
+  if (viewerId !== undefined && isDeletedFor(task, viewerId)) return false;
+  return OPEN_TASK_STATUSES.includes(task.status);
+}
+
+/**
+ * How many of these tasks are still open. Used by every "nhiệm vụ đang mở" counter.
+ * Pass the viewer to leave out what they have already binned — a task in the bin is
+ * not work they are carrying.
+ */
+export function countOpenTasks(tasks: TaskItem[], viewerId?: string): number {
+  return tasks.filter((task) => isOpenTask(task, viewerId)).length;
+}
+
+/**
+ * How urgent a task is, read off its deadline. Four bands, because "late", "almost due",
+ * "scheduled" and "unscheduled" are the four different reactions a person can have.
+ */
+export type TaskPriority = "overdue" | "due_soon" | "routine" | "none";
+
+/** Inside this many days a deadline stops being routine and starts being pressing. */
+export const DUE_SOON_DAYS = 3;
+
+const PRIORITY_RANK: Record<TaskPriority, number> = { overdue: 0, due_soon: 1, routine: 2, none: 3 };
+
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Today as a calendar day in the viewer's own timezone, `YYYY-MM-DD`. */
+export function todayIso(now: Date = new Date()): string {
+  const year = now.getFullYear();
+  const month = `${now.getMonth() + 1}`.padStart(2, "0");
+  const day = `${now.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Whole days from `today` to `deadline`, both plain calendar days. Deadlines are days, not
+ * instants: comparing them as UTC midnights keeps "due today" the same answer at 08:00 and
+ * at 23:00, which a timestamp comparison would not.
+ */
+export function daysUntilDeadline(deadline: string, today: string): number | null {
+  if (!ISO_DATE.test(deadline) || !ISO_DATE.test(today)) return null;
+  const utc = (iso: string): number => {
+    const [year, month, day] = iso.split("-").map((part) => Number.parseInt(part, 10));
+    return Date.UTC(year ?? 0, (month ?? 1) - 1, day ?? 1);
+  };
+  return Math.round((utc(deadline) - utc(today)) / 86_400_000);
+}
+
+export function deadlinePriority(deadline: string | null, today: string): TaskPriority {
+  if (deadline === null) return "none";
+  const days = daysUntilDeadline(deadline, today);
+  if (days === null) return "none";
+  if (days < 0) return "overdue";
+  if (days < DUE_SOON_DAYS) return "due_soon";
+  return "routine";
+}
+
+export function taskPriority(task: TaskItem, today: string): TaskPriority {
+  return deadlinePriority(task.deadline, today);
+}
+
+/** Short Vietnamese deadline chip: relative while it matters, a plain date once it does not. */
+export function deadlineLabel(deadline: string | null, today: string): string | null {
+  if (deadline === null) return null;
+  const days = daysUntilDeadline(deadline, today);
+  if (days === null) return null;
+  if (days < 0) return days === -1 ? "Quá hạn 1 ngày" : `Quá hạn ${Math.abs(days)} ngày`;
+  if (days === 0) return "Hôm nay";
+  if (days === 1) return "Mai";
+  if (days < DUE_SOON_DAYS) return `Còn ${days} ngày`;
+  const [, month, day] = deadline.split("-");
+  return `${day}/${month}`;
+}
+
+/**
+ * Orders a list the way someone scanning it wants to read: what is late, then what is nearly
+ * late, then what is merely scheduled, then what has no date at all. Finished work sinks to the
+ * bottom regardless of its deadline — a closed task that happens to be overdue must not outrank
+ * live work.
+ */
+export function compareTaskPriority(
+  a: TaskItem,
+  b: TaskItem,
+  today: string,
+  viewerId?: string,
+): number {
+  const aClosed = a.status === "done" ? 1 : 0;
+  const bClosed = b.status === "done" ? 1 : 0;
+  if (aClosed !== bClosed) return aClosed - bClosed;
+
+  const rankA = PRIORITY_RANK[taskPriority(a, today)];
+  const rankB = PRIORITY_RANK[taskPriority(b, today)];
+  if (rankA !== rankB) return rankA - rankB;
+
+  if (a.deadline !== null && b.deadline !== null && a.deadline !== b.deadline)
+    return a.deadline < b.deadline ? -1 : 1;
+
+  // Same day: the clock decides. A task with no clock is due by the end of that day, so it
+  // sits after everything with a stated time rather than jumping to the top.
+  if (a.deadlineTime !== b.deadlineTime) {
+    if (a.deadlineTime === null) return 1;
+    if (b.deadlineTime === null) return -1;
+    return a.deadlineTime < b.deadlineTime ? -1 : 1;
+  }
+
+  // Same moment: what other people are waiting on comes before private work. Only decidable
+  // from someone's point of view, so it is skipped when no viewer is given.
+  if (viewerId !== undefined) {
+    const tierA = taskTier(a, viewerId);
+    const tierB = taskTier(b, viewerId);
+    if (tierA !== tierB) return tierA - tierB;
+  }
+
+  // Last of all, the emergency marker. Deliberately below date, clock and tier: starring a
+  // task must not let it jump ahead of work that is genuinely due sooner.
+  if (a.isImportant !== b.isImportant) return a.isImportant ? -1 : 1;
+
+  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+export function sortTasksByPriority(tasks: TaskItem[], today: string, viewerId?: string): TaskItem[] {
+  return [...tasks].sort((a, b) => compareTaskPriority(a, b, today, viewerId));
+}
+
+// ---------------------------------------------------------------- views
+
+/**
+ * The three ways of reading the same list.
+ *
+ * `deadline` is the default and the only objective one: what is due soonest. `relationship`
+ * answers "what do I owe this person", and `important` is an emergency filter, not a sort —
+ * it narrows to starred work and still orders it by deadline.
+ */
+export type TaskViewMode = "deadline" | "relationship" | "important";
+
+export const TASK_VIEW_LABELS: Record<TaskViewMode, string> = {
+  deadline: "Theo hạn",
+  // "Đối tượng", not "người": this view now groups by conversation, and a group is not a person.
+  relationship: "Theo đối tượng",
+  important: "Khẩn cấp",
+};
+
+export type TaskDayGroup = { date: string | null; tasks: TaskItem[] };
+
+/** Timeline shape: one bucket per calendar day, each already in clock-then-tier order. */
+export function groupTasksByDeadlineDay(
+  tasks: readonly TaskItem[],
+  today: string,
+  viewerId?: string,
+): TaskDayGroup[] {
+  const sorted = sortTasksByPriority([...tasks], today, viewerId);
+  const groups: TaskDayGroup[] = [];
+  const index = new Map<string, TaskDayGroup>();
+  for (const task of sorted) {
+    const key = task.deadline ?? "";
+    let group = index.get(key);
+    if (!group) {
+      group = { date: task.deadline, tasks: [] };
+      index.set(key, group);
+      groups.push(group);
+    }
+    group.tasks.push(task);
+  }
+  return groups;
+}
+
+/** Emergency mode: only what has been starred, still ordered by when it is due. */
+export function importantTasks(
+  tasks: readonly TaskItem[],
+  today: string,
+  viewerId?: string,
+): TaskItem[] {
+  return sortTasksByPriority(
+    tasks.filter((task) => task.isImportant),
+    today,
+    viewerId,
+  );
+}
+
+/** Narrows a list to one shelf. An empty selection means "no filter", not "nothing". */
+export function filterByCategories(
+  tasks: readonly TaskItem[],
+  categoryIds: readonly string[],
+): TaskItem[] {
+  if (categoryIds.length === 0) return [...tasks];
+  const wanted = new Set(categoryIds);
+  return tasks.filter((task) => task.categoryId !== null && wanted.has(task.categoryId));
+}
+
+/**
+ * The most pressing band among the still-open tasks — what colours a group's counter, so a
+ * collapsed branch still shows whether anything inside it is late.
+ */
+export function highestOpenPriority(tasks: TaskItem[], today: string, viewerId?: string): TaskPriority {
+  let best: TaskPriority = "none";
+  for (const task of tasks) {
+    if (!isOpenTask(task, viewerId)) continue;
+    const priority = taskPriority(task, today);
+    if (PRIORITY_RANK[priority] < PRIORITY_RANK[best]) best = priority;
+  }
+  return best;
+}
+
+/**
+ * Whether a task is asking something of this person right now: their move to make, or already
+ * late. Used to decide which branches of a collapsed tree open themselves.
+ */
+export function needsAttention(task: TaskItem, userId: string | undefined, today: string): boolean {
+  if (!isOpenTask(task, userId)) return false;
+  if (taskPriority(task, today) === "overdue") return true;
+  return (
+    canConfirmSharedTask(task, userId) || canMarkSharedDone(task, userId) || canReviewSharedDone(task, userId)
+  );
+}
+
+/**
+ * How many tasks are asking for this person right now — the number the Nhiệm vụ badge carries.
+ *
+ * Deliberately NOT the count of everything open: a badge showing every task on the list would
+ * be permanently lit and stop meaning anything. It counts only what is late or waiting on this
+ * person's move, so a lit badge always answers "yes, go and look".
+ */
+export function countTasksNeedingAttention(
+  tasks: readonly TaskItem[],
+  userId: string | undefined,
+  today: string,
+): number {
+  return tasks.filter((task) => needsAttention(task, userId, today)).length;
+}
+
+type TaskRow = {
+  id: string;
+  type: string;
+  creator_id: string;
+  assignee_id: string | null;
+  context_snapshot: unknown;
+  conversation_id: string | null;
+  title: string;
+  description: string | null;
+  status: string;
+  confirmed_at: string | null;
+  done_at: string | null;
+  completed_confirmed_at: string | null;
+  deadline_date: string | null;
+  deadline_time: string | null;
+  deadline_tz: string | null;
+  task_category_id: string | null;
+  is_important: boolean | null;
+  recurrence: string | null;
+  recurrence_pattern: unknown;
+  recurrence_spawned_at: string | null;
+  deleted_by_creator: boolean;
+  deleted_by_peer: boolean;
+  created_at: string;
+};
+
+/** Postgres hands back whatever JSON was stored; only a usable shape becomes a pattern. */
+function toRecurrencePattern(raw: unknown): RecurrencePattern | null {
+  if (raw === null || typeof raw !== "object") return null;
+  const record = raw as Record<string, unknown>;
+  const interval = typeof record.interval === "number" ? record.interval : Number.NaN;
+  const frequency = record.frequency;
+  if (!Number.isFinite(interval) || interval < 1) return null;
+  if (frequency !== "daily" && frequency !== "weekly" && frequency !== "monthly") return null;
+  return { interval, frequency };
+}
+
+function toRecurrence(raw: string | null): TaskRecurrence {
+  if (raw === "daily" || raw === "weekly" || raw === "monthly" || raw === "custom") return raw;
+  return "none";
+}
+
+/** Ordering used by both the initial fetch and every realtime insert. */
+function compareTasks(a: TaskItem, b: TaskItem): number {
+  if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
+  return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+}
+
+function isSameTask(a: TaskItem, b: TaskItem): boolean {
+  return (
+    a.title === b.title &&
+    a.description === b.description &&
+    a.status === b.status &&
+    a.confirmedAt === b.confirmedAt &&
+    a.doneAt === b.doneAt &&
+    a.completedConfirmedAt === b.completedConfirmedAt &&
+    a.deadline === b.deadline &&
+    a.deadlineTime === b.deadlineTime &&
+    a.categoryId === b.categoryId &&
+    a.isImportant === b.isImportant &&
+    a.recurrence === b.recurrence &&
+    a.deletedByCreator === b.deletedByCreator &&
+    a.deletedByPeer === b.deletedByPeer &&
+    a.conversationId === b.conversationId
+  );
+}
+
+/**
+ * Inserts or replaces a task in the cached list, keeping fetch order.
+ * Returns the same array reference when nothing changed, so React skips the re-render.
+ */
+export function upsertTask(list: TaskItem[], incoming: TaskItem): TaskItem[] {
+  const index = list.findIndex((task) => task.id === incoming.id);
+  if (index === -1) {
+    const next = [...list, incoming];
+    next.sort(compareTasks);
+    return next;
+  }
+  const current = list[index];
+  if (current && isSameTask(current, incoming)) return list;
+  const next = [...list];
+  next[index] = incoming;
+  return next;
+}
+
+/** Drops a task from the cached list; same reference when it was not there. */
+export function removeTask(list: TaskItem[], taskId: string): TaskItem[] {
+  const next = list.filter((task) => task.id !== taskId);
+  return next.length === list.length ? list : next;
+}
+
+/**
+ * Maps a realtime row to a task. Realtime sends raw Postgres timestamps without a
+ * zone marker, so they are normalised the same way chat message timestamps are.
+ */
+export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["Row"]): TaskItem {
+  return {
+    id: row.id,
+    type: row.type as TaskType,
+    creatorId: row.creator_id,
+    assigneeId: row.assignee_id,
+    contextSnapshot: parseContextSnapshot(row.context_snapshot),
+    conversationId: row.conversation_id,
+    title: row.title,
+    description: row.description ?? "",
+    status: row.status as TaskStatus,
+    confirmedAt: row.confirmed_at === null ? null : toIsoTimestamp(row.confirmed_at),
+    doneAt: row.done_at === null ? null : toIsoTimestamp(row.done_at),
+    completedConfirmedAt:
+      row.completed_confirmed_at === null ? null : toIsoTimestamp(row.completed_confirmed_at),
+    // A date column carries no zone, so it needs none of the timestamp normalising.
+    deadline: row.deadline_date,
+    deadlineTime: normalizeDeadlineTime(row.deadline_time),
+    deadlineTz: row.deadline_tz ?? "Asia/Ho_Chi_Minh",
+    categoryId: row.task_category_id,
+    isImportant: row.is_important ?? false,
+    recurrence: toRecurrence(row.recurrence),
+    recurrencePattern: toRecurrencePattern(row.recurrence_pattern),
+    recurrenceSpawnedAt:
+      row.recurrence_spawned_at === null ? null : toIsoTimestamp(row.recurrence_spawned_at),
+    deletedByCreator: row.deleted_by_creator,
+    deletedByPeer: row.deleted_by_peer,
+    createdAt: toIsoTimestamp(row.created_at),
+  };
+}
+
+const TASK_COLUMNS =
+  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
+
+function toTaskItem(row: TaskRow): TaskItem {
+  return {
+    id: row.id,
+    type: row.type as TaskType,
+    creatorId: row.creator_id,
+    assigneeId: row.assignee_id,
+    contextSnapshot: parseContextSnapshot(row.context_snapshot),
+    conversationId: row.conversation_id,
+    title: row.title,
+    description: row.description ?? "",
+    status: row.status as TaskStatus,
+    confirmedAt: row.confirmed_at,
+    doneAt: row.done_at,
+    completedConfirmedAt: row.completed_confirmed_at,
+    deadline: row.deadline_date,
+    deadlineTime: normalizeDeadlineTime(row.deadline_time),
+    deadlineTz: row.deadline_tz ?? "Asia/Ho_Chi_Minh",
+    categoryId: row.task_category_id,
+    isImportant: row.is_important ?? false,
+    recurrence: toRecurrence(row.recurrence),
+    recurrencePattern: toRecurrencePattern(row.recurrence_pattern),
+    recurrenceSpawnedAt: row.recurrence_spawned_at,
+    deletedByCreator: row.deleted_by_creator,
+    deletedByPeer: row.deleted_by_peer,
+    createdAt: row.created_at,
+  };
+}
+
+/** Every task visible to the caller: their personal ones plus shared ones from their 1-1s. */
+export async function fetchTasks(): Promise<TaskItem[]> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(TASK_COLUMNS)
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => toTaskItem(row as TaskRow));
+}
+
+/**
+ * Creates a personal task, actionable immediately (no confirmation step). Title, description
+ * and deadline are all required — the same bar a task you give someone else has to clear.
+ */
+export async function createPersonalTask(
+  userId: string,
+  draft: TaskDraft,
+  today: string = todayIso(),
+): Promise<TaskItem> {
+  const clean = validateTaskDraft(draft, today);
+  if (!clean.value) throw new Error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .insert({
+      type: "personal",
+      creator_id: userId,
+      title: clean.value.title,
+      description: clean.value.description,
+      status: "confirmed",
+      deadline_date: clean.value.deadline,
+      deadline_time: clean.value.deadlineTime,
+      deadline_tz: browserTimezone(),
+      task_category_id: clean.value.categoryId,
+      is_important: clean.value.isImportant,
+      recurrence: clean.value.recurrence,
+      recurrence_pattern: clean.value.recurrencePattern,
+    })
+    .select(TASK_COLUMNS)
+    .single();
+
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as TaskRow);
+}
+
+/** An empty date input means "no deadline", not an invalid one. */
+export function normalizeDeadline(raw: string | null | undefined): string | null {
+  if (raw === null || raw === undefined) return null;
+  const trimmed = raw.trim();
+  return ISO_DATE.test(trimmed) ? trimmed : null;
+}
+
+/** Moves a personal task in or out of the owner's bin. Single-owner rows need no handshake. */
+export async function setPersonalTaskDeleted(taskId: string, deleted: boolean): Promise<TaskItem> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ deleted_by_creator: deleted })
+    .eq("id", taskId)
+    .select(TASK_COLUMNS)
+    .single();
+
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as TaskRow);
+}
+
+/** 'Xoá hẳn' for a personal task: the row really leaves the database. */
+export async function purgePersonalTask(taskId: string): Promise<void> {
+  const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Marks a personal task done, or re-opens it. Personal tasks are self-governed. */
+export async function setPersonalTaskDone(taskId: string, done: boolean): Promise<TaskItem> {
+  const patch = done
+    ? { status: "done" as const, done_at: new Date().toISOString() }
+    : { status: "confirmed" as const, done_at: null };
+
+  const { data, error } = await supabase.from("tasks").update(patch).eq("id", taskId).select(TASK_COLUMNS).single();
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as TaskRow);
+}
+
+/**
+ * Where a shared task is being raised: which thread, which kind, who is being asked, and the
+ * copy of the conversation that travels with it. A 1-1 task may leave `assigneeId` null — the
+ * server fills in the only other participant — but a group task has to name someone.
+ */
+export type SharedTaskTarget = {
+  conversationId: string;
+  type: SharedTaskType;
+  assigneeId: string | null;
+  contextSnapshot: TaskContextSnapshot | null;
+};
+
+/**
+ * Creates a shared task in a conversation, pending until the person asked confirms.
+ * The client-generated id makes network retries idempotent server-side, and the context
+ * snapshot can only be written here: the row refuses to have it edited afterwards.
+ */
+export async function createSharedTask(
+  target: SharedTaskTarget,
+  draft: TaskDraft,
+  today: string = todayIso(),
+): Promise<TaskItem> {
+  const clean = validateTaskDraft(draft, today);
+  if (!clean.value) throw new Error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
+  if (target.type === "group-shared" && target.assigneeId === null)
+    throw new Error("Hãy chọn một thành viên đảm trách nhiệm vụ này.");
+
+  const { data, error } = await supabase.rpc("create_shared_task", {
+    p_conversation_id: target.conversationId,
+    p_type: target.type,
+    p_title: clean.value.title,
+    p_description: clean.value.description,
+    p_deadline: clean.value.deadline,
+    p_task_id: crypto.randomUUID(),
+    p_assignee_id: target.assigneeId,
+    p_deadline_time: clean.value.deadlineTime,
+    p_deadline_tz: browserTimezone(),
+    p_category_id: clean.value.categoryId,
+    p_is_important: clean.value.isImportant,
+    p_recurrence: clean.value.recurrence,
+    p_recurrence_pattern: clean.value.recurrencePattern,
+    p_context_snapshot:
+      target.contextSnapshot === null ? null : snapshotToJson(target.contextSnapshot),
+  });
+
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/** The assignee accepts a pending shared task. Safe to retry. */
+export async function confirmSharedTask(taskId: string): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("confirm_shared_task", { p_task_id: taskId });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/**
+ * Step 1 of completion: the assignee claims the work is finished, which puts the task
+ * in review rather than closing it. Safe to retry.
+ */
+export async function markSharedTaskDone(taskId: string): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("mark_shared_task_done", { p_task_id: taskId });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/** Step 2 of completion: the creator accepts the claim and closes the task. Safe to retry. */
+export async function reviewSharedTaskCompletion(taskId: string): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("review_shared_task_completion", { p_task_id: taskId });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/** The other answer to a done claim: send the work back for redo. Creator only. Safe to retry. */
+export async function returnSharedTask(taskId: string): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("return_shared_task", { p_task_id: taskId });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/**
+ * Puts a shared task in the caller's bin. The row only leaves the database once the other
+ * side has binned it too — check `isTaskGone` on the result to know which happened.
+ */
+export async function deleteSharedTask(taskId: string): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("delete_shared_task", { p_task_id: taskId });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/** Takes a shared task back out of the caller's bin. Safe to retry. */
+export async function restoreSharedTask(taskId: string): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("restore_shared_task", { p_task_id: taskId });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
