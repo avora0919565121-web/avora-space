@@ -179,6 +179,7 @@ export type Database = {
           created_at: string
           name: string | null
           owner_id: string
+          project_mode: boolean
           updated_at: string
         }
         Insert: {
@@ -186,6 +187,7 @@ export type Database = {
           created_at?: string
           name?: string | null
           owner_id: string
+          project_mode?: boolean
           updated_at?: string
         }
         Update: {
@@ -193,6 +195,7 @@ export type Database = {
           created_at?: string
           name?: string | null
           owner_id?: string
+          project_mode?: boolean
           updated_at?: string
         }
         Relationships: [
@@ -348,6 +351,207 @@ export type Database = {
           },
         ]
       }
+      deliverables: {
+        Row: {
+          created_at: string
+          id: string
+          objective_id: string
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          objective_id: string
+          sort_order?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          objective_id?: string
+          sort_order?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deliverables_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "objectives"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_decision_grants: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          granted_by: string
+          grantee_id: string
+          id: string
+          kind: string
+          used_at: string | null
+          used_decision_id: string | null
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          granted_by: string
+          grantee_id: string
+          id?: string
+          kind: string
+          used_at?: string | null
+          used_decision_id?: string | null
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          granted_by?: string
+          grantee_id?: string
+          id?: string
+          kind?: string
+          used_at?: string | null
+          used_decision_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_decision_grants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_decision_grants_used_decision_id_fkey"
+            columns: ["used_decision_id"]
+            isOneToOne: false
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_decision_options: {
+        Row: {
+          decision_id: string
+          id: string
+          label: string
+          sort_order: number
+        }
+        Insert: {
+          decision_id: string
+          id?: string
+          label: string
+          sort_order?: number
+        }
+        Update: {
+          decision_id?: string
+          id?: string
+          label?: string
+          sort_order?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_decision_options_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_decision_votes: {
+        Row: {
+          created_at: string
+          decision_id: string
+          option_id: string
+          voter_id: string
+        }
+        Insert: {
+          created_at?: string
+          decision_id: string
+          option_id: string
+          voter_id: string
+        }
+        Update: {
+          created_at?: string
+          decision_id?: string
+          option_id?: string
+          voter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_decision_votes_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "group_decision_votes_option_id_fkey"
+            columns: ["option_id"]
+            isOneToOne: false
+            referencedRelation: "group_decision_options"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      group_decisions: {
+        Row: {
+          body: string
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          settled_at: string | null
+          settled_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          conversation_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          kind: string
+          settled_at?: string | null
+          settled_by?: string | null
+          status: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          conversation_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          kind?: string
+          settled_at?: string | null
+          settled_by?: string | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "group_decisions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       group_invite_links: {
         Row: {
           conversation_id: string
@@ -453,6 +657,47 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      objectives: {
+        Row: {
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          conversation_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          sort_order?: number
+          status?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          conversation_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          sort_order?: number
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "objectives_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
@@ -668,10 +913,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -697,10 +944,12 @@ export type Database = {
           deadline_tz?: string
           deleted_by_creator?: boolean
           deleted_by_peer?: boolean
+          deliverable_id?: string | null
           description?: string
           done_at?: string | null
           id?: string
           is_important?: boolean
+          objective_id?: string | null
           recurrence?: string
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
@@ -726,10 +975,12 @@ export type Database = {
           deadline_tz?: string
           deleted_by_creator?: boolean
           deleted_by_peer?: boolean
+          deliverable_id?: string | null
           description?: string
           done_at?: string | null
           id?: string
           is_important?: boolean
+          objective_id?: string | null
           recurrence?: string
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
@@ -747,6 +998,20 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_objective_id_fkey"
+            columns: ["objective_id"]
+            isOneToOne: false
+            referencedRelation: "objectives"
             referencedColumns: ["id"]
           },
           {
@@ -884,13 +1149,31 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      can_toggle_task_lists: {
-        Args: { p_conversation_id: string; p_user_id: string }
-        Returns: boolean
+      cast_group_vote: {
+        Args: { p_decision_id: string; p_option_id: string }
+        Returns: undefined
       }
-      can_view_task: {
-        Args: { p_task: string; p_user: string }
-        Returns: boolean
+      close_group_poll: {
+        Args: { p_decision_id: string }
+        Returns: {
+          body: string
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          settled_at: string | null
+          settled_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       confirm_1_1_task: {
         Args: { p_task_id: string }
@@ -908,10 +1191,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -946,10 +1231,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -984,10 +1271,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1038,10 +1327,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1067,6 +1358,35 @@ export type Database = {
       create_group_conversation: {
         Args: { p_member_ids?: string[]; p_name: string }
         Returns: string
+      }
+      create_group_decision: {
+        Args: {
+          p_body?: string
+          p_conversation_id: string
+          p_decision_id?: string
+          p_kind: string
+          p_options?: string[]
+          p_title: string
+        }
+        Returns: {
+          body: string
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          settled_at: string | null
+          settled_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_shared_task: {
         Args: {
@@ -1099,10 +1419,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1151,10 +1473,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1189,10 +1513,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1237,6 +1563,28 @@ export type Database = {
         Returns: undefined
       }
       ensure_personal_journal: { Args: { p_user_id: string }; Returns: string }
+      finalize_meeting_note: {
+        Args: { p_decision_id: string }
+        Returns: {
+          body: string
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          settled_at: string | null
+          settled_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       find_user_by_email: {
         Args: { p_email: string }
         Returns: {
@@ -1258,9 +1606,28 @@ export type Database = {
         Args: { group_id: string; target_user_id: string }
         Returns: string
       }
-      is_conversation_participant: {
-        Args: { p_conversation_id: string; p_user_id: string }
-        Returns: boolean
+      grant_group_decision_permission: {
+        Args: {
+          p_conversation_id: string
+          p_grantee_id: string
+          p_kind: string
+        }
+        Returns: {
+          conversation_id: string
+          created_at: string
+          granted_by: string
+          grantee_id: string
+          id: string
+          kind: string
+          used_at: string | null
+          used_decision_id: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_decision_grants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       is_task_assignee: {
         Args: {
@@ -1318,10 +1685,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1360,10 +1729,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1429,10 +1800,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1467,10 +1840,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1505,10 +1880,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1543,10 +1920,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1581,10 +1960,12 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
+          deliverable_id: string | null
           description: string
           done_at: string | null
           id: string
           is_important: boolean
+          objective_id: string | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1602,6 +1983,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      revoke_group_decision_permission: {
+        Args: { p_grant_id: string }
+        Returns: undefined
       }
       revoke_group_invite: {
         Args: { p_conversation_id: string }
@@ -1627,6 +2012,28 @@ export type Database = {
       transfer_group_ownership: {
         Args: { new_owner_user_id: string; target_conversation_id: string }
         Returns: undefined
+      }
+      update_meeting_note_draft: {
+        Args: { p_body: string; p_decision_id: string; p_title: string }
+        Returns: {
+          body: string
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          settled_at: string | null
+          settled_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
     }
     Enums: {

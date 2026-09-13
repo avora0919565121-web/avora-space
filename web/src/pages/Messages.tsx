@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
+  BookLock,
   Check,
   CheckCheck,
   ChevronLeft,
@@ -23,6 +24,7 @@ import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { NewGroupDialog } from "@/components/NewGroupDialog";
 import { ChatTaskPanel } from "@/components/chat/ChatTaskPanel";
+import { GroupDecisionSheet } from "@/components/chat/GroupDecisionSheet";
 import { GroupInfoSheet } from "@/components/chat/GroupInfoSheet";
 import { GroupTaskListSheet } from "@/components/chat/GroupTaskListSheet";
 import { MessageComposer } from "@/components/chat/MessageComposer";
@@ -93,6 +95,7 @@ const Messages = () => {
   const [isInfoOpen, setIsInfoOpen] = useState<boolean>(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<boolean>(false);
   const [isGroupTasksOpen, setIsGroupTasksOpen] = useState<boolean>(false);
+  const [isDecisionsOpen, setIsDecisionsOpen] = useState<boolean>(false);
   /**
    * The message a new task will quote. Null means "whatever was said last", which is what the
    * button beside the composer means; a bubble's own action names that bubble instead.
@@ -727,15 +730,26 @@ const Messages = () => {
                 </div>
                 <div className="ml-auto flex items-center gap-1 text-muted-foreground">
                   {activeKind === "group" ? (
-                    <button
-                      type="button"
-                      aria-label="Danh sách nhiệm vụ nhóm"
-                      title="Danh sách nhiệm vụ nhóm"
-                      onClick={() => setIsGroupTasksOpen(true)}
-                      className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
-                    >
-                      <ListTodo className="h-[19px] w-[19px]" strokeWidth={1.6} />
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        aria-label="Danh sách nhiệm vụ nhóm"
+                        title="Danh sách nhiệm vụ nhóm"
+                        onClick={() => setIsGroupTasksOpen(true)}
+                        className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
+                      >
+                        <ListTodo className="h-[19px] w-[19px]" strokeWidth={1.6} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="Sổ quyết định"
+                        title="Sổ quyết định"
+                        onClick={() => setIsDecisionsOpen(true)}
+                        className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
+                      >
+                        <BookLock className="h-[19px] w-[19px]" strokeWidth={1.6} />
+                      </button>
+                    </>
                   ) : null}
                   {activeKind === "personal" ? null : (
                   <>
@@ -1029,6 +1043,16 @@ const Messages = () => {
         <GroupTaskListSheet
           open={isGroupTasksOpen}
           onOpenChange={setIsGroupTasksOpen}
+          conversationId={conversationId}
+          groupName={threadTitle}
+          members={groupMembersQuery.data ?? []}
+        />
+      ) : null}
+
+      {conversationId && activeKind === "group" ? (
+        <GroupDecisionSheet
+          open={isDecisionsOpen}
+          onOpenChange={setIsDecisionsOpen}
           conversationId={conversationId}
           groupName={threadTitle}
           members={groupMembersQuery.data ?? []}
