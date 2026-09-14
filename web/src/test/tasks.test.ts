@@ -162,6 +162,8 @@ describe("validateTaskDraft", () => {
       deadlineTime: null,
       categoryId: null,
       isImportant: false,
+      // Not estimated, which is the ordinary resting state — never zero.
+      durationMinutes: null,
       recurrence: "none",
       recurrencePattern: null,
     });

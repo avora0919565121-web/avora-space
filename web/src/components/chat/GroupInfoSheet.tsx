@@ -21,6 +21,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { FamilyFlagCard } from "@/components/chat/FamilyFlagCard";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -104,6 +105,8 @@ type GroupInfoSheetProps = {
   /** Fallback identity for a direct conversation, which has no member list to show. */
   peerName?: string;
   peerEmail?: string | null;
+  /** The other person in a 1-1 — who the Gia đình mark is about. Absent in a group. */
+  peerId?: string | null;
   /** Opens another thread (the private one started with "Nhắn riêng"). */
   onOpenConversation: (conversationId: string) => void;
   /** Called after the viewer leaves the group, once the thread is no longer theirs to read. */
@@ -127,6 +130,7 @@ export function GroupInfoSheet({
   onOpenChange,
   peerName,
   peerEmail,
+  peerId,
   onOpenConversation,
   onLeft,
 }: GroupInfoSheetProps) {
@@ -952,6 +956,11 @@ export function GroupInfoSheet({
                   </p>
                 </div>
               </div>
+
+              {/* Only in a 1-1: family is a relationship between two people, not a room. */}
+              {peerId ? (
+                <FamilyFlagCard peerId={peerId} peerName={peerName ?? "người này"} />
+              ) : null}
             </div>
           )}
         </SheetContent>

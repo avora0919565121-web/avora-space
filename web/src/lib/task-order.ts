@@ -1,9 +1,14 @@
 import type { TaskViewMode } from "@/lib/tasks";
 
-/** The order the three readings ship in. First one is what opens when you arrive. */
-export const DEFAULT_VIEW_ORDER: readonly TaskViewMode[] = ["deadline", "relationship", "important"];
+/** The order the four readings ship in. First one is what opens when you arrive. */
+export const DEFAULT_VIEW_ORDER: readonly TaskViewMode[] = [
+  "deadline",
+  "relationship",
+  "important",
+  "heavy",
+];
 
-const VIEW_MODES: readonly TaskViewMode[] = ["deadline", "relationship", "important"];
+const VIEW_MODES: readonly TaskViewMode[] = ["deadline", "relationship", "important", "heavy"];
 
 export const VIEW_ORDER_STORAGE_KEY = "avora.tasks.viewOrder";
 export const SHARED_ORDER_STORAGE_KEY = "avora.tasks.sharedOrder";

@@ -1,19 +1,22 @@
-import { ChevronRight, ListTodo, Trash2 } from "lucide-react";
+import { ChevronRight, ListTodo, Pencil, Trash2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
+import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import { useAuth } from "@/lib/auth";
 import type { GroupMember } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
 import {
   canConfirmSharedTask,
   canDeleteTask,
+  canEditTask,
   canMarkSharedDone,
   canReturnSharedTask,
   canReviewSharedDone,
   deadlineLabel,
   deleteIsPermanent,
+  editBlockedReason,
   involvesViewer,
   isOpenTask,
   isSharedTask,
@@ -155,6 +158,7 @@ function assigneeLabel(
   return member ? peerLabel(member.displayName, member.email) : peerName;
 }
 
+
 function ChatTaskRow({
   task,
   userId,
@@ -171,11 +175,14 @@ function ChatTaskRow({
   isHighlighted: boolean;
 }) {
   const { confirmShared, markSharedDone, reviewSharedDone, returnShared, deleteShared } = useTaskActions();
+  const [isEditing, setIsEditing] = useState<boolean>(false);
   const canConfirm = canConfirmSharedTask(task, userId);
   const canMarkDone = canMarkSharedDone(task, userId);
   const canReview = canReviewSharedDone(task, userId);
   const canReturn = canReturnSharedTask(task, userId);
   const canDelete = canDeleteTask(task, userId);
+  const canEdit = canEditTask(task, userId);
+  const editBlocked = editBlockedReason(task, userId);
   const permanent = deleteIsPermanent(task, userId);
   const deadline = deadlineLabel(task.deadline, today);
 
@@ -198,34 +205,56 @@ function ChatTaskRow({
       <div className="flex items-start gap-3">
         <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
         <div className="min-w-0 flex-1">
-          <p
-            className={cn(
-              "text-[14px] font-medium leading-5",
-              task.status === "done" ? "text-muted-foreground line-through" : "text-foreground",
-            )}
-          >
-            {task.title}
-          </p>
-          {task.description.trim() !== "" ? (
-            <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
-              {task.description}
-            </p>
-          ) : null}
-          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-muted-foreground">
-            <span>Giao cho {assigneeLabel(task, members, peerName, userId)}</span>
-            {deadline !== null ? (
-              <>
+          {isEditing ? (
+            <TaskEditForm task={task} today={today} onClose={() => setIsEditing(false)} />
+          ) : (
+            <>
+              <p
+                className={cn(
+                  "text-[14px] font-medium leading-5",
+                  task.status === "done" ? "text-muted-foreground line-through" : "text-foreground",
+                )}
+              >
+                {task.title}
+              </p>
+              {task.description.trim() !== "" ? (
+                <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
+                  {task.description}
+                </p>
+              ) : null}
+              <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-muted-foreground">
+                <span>Giao cho {assigneeLabel(task, members, peerName, userId)}</span>
+                {deadline !== null ? (
+                  <>
+                    <span aria-hidden="true">·</span>
+                    <span>{deadline}</span>
+                  </>
+                ) : null}
                 <span aria-hidden="true">·</span>
-                <span>{deadline}</span>
-              </>
-            ) : null}
-            <span aria-hidden="true">·</span>
-            <span>{sharedTaskNote(task, userId)}</span>
-          </p>
+                <span>{sharedTaskNote(task, userId)}</span>
+              </p>
+            </>
+          )}
         </div>
+        {canEdit && !isEditing ? (
+          <button
+            type="button"
+            onClick={() => setIsEditing(true)}
+            aria-label="Sửa nhiệm vụ"
+            title="Sửa nhiệm vụ"
+            className="press flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:h-9 sm:w-9"
+          >
+            <Pencil className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        ) : null}
       </div>
 
-      {canConfirm || canMarkDone || canReview || canReturn || canDelete ? (
+      {/* Say why the button is missing, rather than leaving it to be guessed. */}
+      {!canEdit && editBlocked !== null && task.status === "done_pending_review" ? (
+        <p className="mt-1.5 pl-11 text-[11px] text-muted-foreground">{editBlocked}</p>
+      ) : null}
+
+      {!isEditing && (canConfirm || canMarkDone || canReview || canReturn || canDelete) ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-11">
           {canConfirm ? (
             <button

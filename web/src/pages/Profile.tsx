@@ -1,9 +1,10 @@
-import { Check, Clock, Coins, Loader2, LogOut, Quote } from "lucide-react";
+import { Check, Clock, Coins, Loader2, LogOut, PencilLine, Quote } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { MuteSettingsCard } from "@/components/chat/MuteSettingsCard";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { currenciesByRegion, REGION_LABELS } from "@/lib/currency";
 import { formatRate } from "@/lib/currency";
@@ -24,11 +25,13 @@ const SELECT_CLASS =
 function PreferencesCard() {
   const { data: settings, isLoading } = useProfileSettings();
   const { data: rates } = useCurrencyRates();
-  const { setBaseCurrency, setTimezone, setDailyThoughtCategory, isWorking } = useSettingsActions();
+  const { setBaseCurrency, setTimezone, setDailyThoughtCategory, setTypingSignal, isWorking } =
+    useSettingsActions();
 
   const base = settings?.baseCurrency ?? "VND";
   const zone = settings?.timezone ?? "Asia/Ho_Chi_Minh";
   const thoughtCategory = settings?.dailyThoughtCategory ?? DEFAULT_DAILY_THOUGHT_CATEGORY;
+  const hidesTyping = settings?.hideTypingSignal ?? false;
   const sample = rates === undefined || base === "USD" ? null : formatRate("USD", base, rates);
 
   const changeBase = async (code: string): Promise<void> => {
@@ -53,6 +56,19 @@ function PreferencesCard() {
       await setDailyThoughtCategory.mutateAsync(value);
       toast.success(
         value === "khong_chon" ? "Đã tắt Daily Thought." : "Đã lưu lựa chọn Daily Thought.",
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không lưu được thiết lập.");
+    }
+  };
+
+  const changeTypingSignal = async (hide: boolean): Promise<void> => {
+    try {
+      await setTypingSignal.mutateAsync(hide);
+      toast.success(
+        hide
+          ? "Đã tắt tín hiệu đang nhập của bạn."
+          : "Đã bật lại tín hiệu đang nhập của bạn.",
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không lưu được thiết lập.");
@@ -148,6 +164,40 @@ function PreferencesCard() {
             <p className="text-[12px] leading-5 text-muted-foreground">
               Một câu mỗi ngày trên Avora Space. Chọn “Không chọn” nếu bạn không muốn hiển thị.
             </p>
+          </div>
+
+          {/*
+            One-directional on purpose: this silences the signal you SEND and leaves you
+            seeing everyone else's. Making it a trade would turn a privacy choice into a
+            price, and most people would keep it on for the wrong reason.
+          */}
+          <div className="space-y-2 border-t border-border pt-5">
+            <label
+              htmlFor="hideTyping"
+              className="flex items-start gap-3 text-[14px] font-medium text-foreground"
+            >
+              <input
+                id="hideTyping"
+                type="checkbox"
+                checked={hidesTyping}
+                disabled={isWorking}
+                onChange={(event) => void changeTypingSignal(event.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+              />
+              <span className="min-w-0">
+                <span className="flex items-center gap-2">
+                  <PencilLine
+                    className="h-4 w-4 text-muted-foreground"
+                    strokeWidth={1.6}
+                    aria-hidden="true"
+                  />
+                  Không hiển thị cho người khác khi tôi đang nhập
+                </span>
+                <span className="mt-1 block text-[12px] font-normal leading-5 text-muted-foreground">
+                  Chỉ tắt tín hiệu của bạn. Bạn vẫn thấy khi người khác đang nhập.
+                </span>
+              </span>
+            </label>
           </div>
         </div>
       )}
@@ -272,6 +322,8 @@ const Profile = () => {
         </div>
 
         <PreferencesCard />
+
+        <MuteSettingsCard />
 
         <button
           type="button"

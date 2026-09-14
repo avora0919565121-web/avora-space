@@ -95,9 +95,157 @@ export type ChatMessage = {
   senderId: string;
   content: string;
   createdAt: string;
+  /**
+   * When the wording was corrected, or null if it never was.
+   *
+   * Shown on the bubble on purpose. A silent edit would let someone change what they are on
+   * record as having said, which is a worse problem than the typo it fixes.
+   */
+  editedAt?: string | null;
+  /**
+   * When the message was withdrawn. The row survives so replies quoting it still have
+   * something to point at, but `content` is genuinely empty by then — the server destroys
+   * the text rather than hiding it.
+   */
+  deletedAt?: string | null;
+  /** The message this one answers, or null for an ordinary message. */
+  replyToMessageId?: string | null;
+  /**
+   * Who this message specifically asks, by id.
+   *
+   * Ids rather than the text "@Minh": display names change, so re-reading the words later
+   * could resolve to a different person or to nobody. The mute rules need an exact answer to
+   * "was I named in this?", and an empty array means "nobody was" — never "we did not record".
+   */
+  mentionedUserIds?: string[];
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
 };
+
+/** Stands in for the words of a withdrawn message, wherever they would have been shown. */
+export const RECALLED_MESSAGE_NOTE = "Tin nhắn đã được thu hồi.";
+
+/** True once a message has been taken back. */
+export function isRecalled(message: Pick<ChatMessage, "deletedAt">): boolean {
+  return message.deletedAt !== null && message.deletedAt !== undefined;
+}
+
+/** True once its wording was corrected — and not merely withdrawn. */
+export function isEdited(message: Pick<ChatMessage, "editedAt" | "deletedAt">): boolean {
+  if (isRecalled(message)) return false;
+  return message.editedAt !== null && message.editedAt !== undefined;
+}
+
+/**
+ * What a bubble should read. A withdrawn message shows the note in place of its words, which
+ * is why every surface asks this rather than reading `content` directly.
+ */
+export function messageBodyText(message: Pick<ChatMessage, "content" | "deletedAt">): string {
+  return isRecalled(message) ? RECALLED_MESSAGE_NOTE : message.content;
+}
+
+/** How long a message stays yours to correct or take back. Mirrors the database's own window. */
+export const MESSAGE_EDIT_WINDOW_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * Whether the window is still open.
+ *
+ * The database enforces this independently — an expired edit is refused even when called
+ * directly — so this only decides whether to offer the action rather than hiding a rule the
+ * server does not keep.
+ */
+export function isWithinEditWindow(
+  message: Pick<ChatMessage, "createdAt">,
+  now: Date = new Date(),
+): boolean {
+  const age = now.getTime() - new Date(message.createdAt).getTime();
+  return age >= 0 && age <= MESSAGE_EDIT_WINDOW_MS;
+}
+
+/** Correcting your own words: yours, still live, still inside the window. */
+export function canEditMessage(
+  message: ChatMessage,
+  viewerId: string | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (viewerId === undefined || message.senderId !== viewerId) return false;
+  if (message.pending === true || isRecalled(message)) return false;
+  return isWithinEditWindow(message, now);
+}
+
+/**
+ * Taking your own message back. Same window as editing, and an already-withdrawn message has
+ * nothing left to withdraw.
+ */
+export function canRecallMessage(
+  message: ChatMessage,
+  viewerId: string | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (viewerId === undefined || message.senderId !== viewerId) return false;
+  if (message.pending === true || isRecalled(message)) return false;
+  return isWithinEditWindow(message, now);
+}
+
+/**
+ * Anyone in the room may answer any message, including a withdrawn one — replying to the gap
+ * where something was said is a legitimate thing to do, and the quote block says as much.
+ * A message still in flight has no id to point at yet.
+ */
+export function canReplyToMessage(message: ChatMessage): boolean {
+  return message.pending !== true;
+}
+
+/** How a search result is labelled in the list, and what the query matched. */
+export const MESSAGE_SEARCH_KEY = "message-search";
+
+/**
+ * Where the match sits inside a message, so the result can show the words around it.
+ *
+ * A result that shows only the first 80 characters of a long message often fails to include
+ * the thing that was searched for, which makes the list unreadable. This finds the match and
+ * keeps a window around it instead.
+ */
+export function matchExcerpt(
+  content: string,
+  query: string,
+  radius: number = 40,
+): { text: string; matchStart: number; matchLength: number } {
+  const flat = content.replace(/\s+/g, " ").trim();
+  const needle = query.trim();
+  if (needle === "") return { text: flat, matchStart: -1, matchLength: 0 };
+
+  const at = flat.toLocaleLowerCase().indexOf(needle.toLocaleLowerCase());
+  if (at === -1) return { text: flat, matchStart: -1, matchLength: 0 };
+
+  const from = Math.max(0, at - radius);
+  const to = Math.min(flat.length, at + needle.length + radius);
+  const prefix = from > 0 ? "…" : "";
+  const suffix = to < flat.length ? "…" : "";
+
+  return {
+    text: `${prefix}${flat.slice(from, to)}${suffix}`,
+    matchStart: at - from + prefix.length,
+    matchLength: needle.length,
+  };
+}
+
+/** Whether a query is worth sending. One character matches most of a thread. */
+export const MESSAGE_SEARCH_MIN_LENGTH = 2;
+
+export function isSearchable(query: string): boolean {
+  return query.trim().length >= MESSAGE_SEARCH_MIN_LENGTH;
+}
+
+/** The short version of a quoted message, for the block above a reply. */
+export function quotePreview(
+  message: Pick<ChatMessage, "content" | "deletedAt">,
+  maxLength: number = 80,
+): string {
+  const text = messageBodyText(message);
+  const flattened = text.replace(/\s+/g, " ").trim();
+  return flattened.length <= maxLength ? flattened : `${flattened.slice(0, maxLength - 1)}…`;
+}
 
 /**
  * Normalises a Postgres timestamp to ISO.
@@ -134,6 +282,54 @@ export function mergeIncomingMessage(thread: ChatMessage[], incoming: ChatMessag
   const next = pendingIndex === -1 ? [...thread] : thread.filter((_, index) => index !== pendingIndex);
   next.push(incoming);
   return next.sort(compareMessages);
+}
+
+/**
+ * Replaces a cached message with the server's newer version of itself.
+ *
+ * An edit and a recall both arrive as UPDATEs rather than new messages, so they patch in
+ * place instead of appending. Returns the same array when the id is not cached, which is the
+ * ordinary case for a thread nobody has open.
+ */
+export function applyMessageUpdate(thread: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
+  const index = thread.findIndex((message) => message.id === incoming.id);
+  if (index === -1) return thread;
+  const current = thread[index];
+  if (
+    current.content === incoming.content &&
+    (current.editedAt ?? null) === (incoming.editedAt ?? null) &&
+    (current.deletedAt ?? null) === (incoming.deletedAt ?? null)
+  )
+    return thread;
+  const next = [...thread];
+  // `pending` is a client-only flag and the server knows nothing about it, so it is dropped
+  // rather than carried: a row coming back from the database has plainly been written.
+  next[index] = { ...current, ...incoming, pending: undefined };
+  return next;
+}
+
+/**
+ * Keeps the inbox preview honest after an edit or a recall.
+ *
+ * Only touched when the changed message is the one being previewed — editing something from
+ * last Tuesday must not overwrite the line showing what was said a minute ago.
+ */
+export function applyMessageEditToInbox(
+  inbox: ConversationSummary[],
+  incoming: ChatMessage,
+): ConversationSummary[] {
+  const index = inbox.findIndex((item) => item.conversationId === incoming.conversationId);
+  if (index === -1) return inbox;
+  const current = inbox[index];
+  if (current.lastMessageAt === null) return inbox;
+  const isPreviewed =
+    new Date(current.lastMessageAt).getTime() === new Date(incoming.createdAt).getTime() &&
+    current.lastMessageSenderId === incoming.senderId;
+  if (!isPreviewed) return inbox;
+
+  const next = [...inbox];
+  next[index] = { ...current, lastMessageContent: messageBodyText(incoming) };
+  return next;
 }
 
 function sortByRecency(inbox: ConversationSummary[]): ConversationSummary[] {

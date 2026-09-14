@@ -389,6 +389,45 @@ export type Database = {
           },
         ]
       }
+      dismissed_guidance: {
+        Row: {
+          dismissed_at: string
+          guidance_key: string
+          user_id: string
+        }
+        Insert: {
+          dismissed_at?: string
+          guidance_key: string
+          user_id: string
+        }
+        Update: {
+          dismissed_at?: string
+          guidance_key?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      family_relations: {
+        Row: {
+          created_at: string
+          related_user_id: string
+          relation_type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          related_user_id: string
+          relation_type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          related_user_id?: string
+          relation_type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       group_decision_grants: {
         Row: {
           conversation_id: string
@@ -632,26 +671,165 @@ export type Database = {
           },
         ]
       }
+      meeting_note_details: {
+        Row: {
+          absentee_ids: string[]
+          action_items: Json
+          agenda_items: string[]
+          attendee_ids: string[]
+          created_at: string
+          decision_id: string
+          decisions_made: string
+          meeting_type: string
+          next_meeting_at: string | null
+          objective: string
+          reference_links: string[]
+          risks_issues: string
+          updated_at: string
+        }
+        Insert: {
+          absentee_ids?: string[]
+          action_items?: Json
+          agenda_items?: string[]
+          attendee_ids?: string[]
+          created_at?: string
+          decision_id: string
+          decisions_made?: string
+          meeting_type?: string
+          next_meeting_at?: string | null
+          objective?: string
+          reference_links?: string[]
+          risks_issues?: string
+          updated_at?: string
+        }
+        Update: {
+          absentee_ids?: string[]
+          action_items?: Json
+          agenda_items?: string[]
+          attendee_ids?: string[]
+          created_at?: string
+          decision_id?: string
+          decisions_made?: string
+          meeting_type?: string
+          next_meeting_at?: string | null
+          objective?: string
+          reference_links?: string[]
+          risks_issues?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_note_details_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_pins: {
+        Row: {
+          conversation_id: string
+          id: string
+          message_id: string
+          pinned_at: string
+          pinned_by: string
+          scope: string
+        }
+        Insert: {
+          conversation_id: string
+          id?: string
+          message_id: string
+          pinned_at?: string
+          pinned_by: string
+          scope: string
+        }
+        Update: {
+          conversation_id?: string
+          id?: string
+          message_id?: string
+          pinned_at?: string
+          pinned_by?: string
+          scope?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_pins_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_pins_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      message_reactions: {
+        Row: {
+          created_at: string
+          emoji: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          emoji: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          emoji?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_reactions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
           conversation_id: string
           created_at: string
+          deleted_at: string | null
+          edited_at: string | null
           id: string
+          mentioned_user_ids: string[]
+          reply_to_message_id: string | null
           sender_id: string
         }
         Insert: {
           content: string
           conversation_id: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
+          mentioned_user_ids?: string[]
+          reply_to_message_id?: string | null
           sender_id: string
         }
         Update: {
           content?: string
           conversation_id?: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
+          mentioned_user_ids?: string[]
+          reply_to_message_id?: string | null
           sender_id?: string
         }
         Relationships: [
@@ -662,7 +840,35 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
         ]
+      }
+      mute_settings: {
+        Row: {
+          created_at: string
+          muted_until: string
+          scope: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          muted_until: string
+          scope: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          muted_until?: string
+          scope?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       objectives: {
         Row: {
@@ -712,6 +918,7 @@ export type Database = {
           created_at: string
           daily_thought_category: string
           display_name: string | null
+          hide_typing_signal: boolean
           id: string
           timezone: string
         }
@@ -721,6 +928,7 @@ export type Database = {
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
+          hide_typing_signal?: boolean
           id: string
           timezone?: string
         }
@@ -730,6 +938,7 @@ export type Database = {
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
+          hide_typing_signal?: boolean
           id?: string
           timezone?: string
         }
@@ -798,6 +1007,41 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "task_confirmations_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_flags: {
+        Row: {
+          created_at: string
+          duration_minutes: number | null
+          is_important: boolean
+          task_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_minutes?: number | null
+          is_important?: boolean
+          task_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_minutes?: number | null
+          is_important?: boolean
+          task_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_flags_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
@@ -1537,6 +1781,26 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      edit_message: {
+        Args: { p_content: string; p_message_id: string }
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          mentioned_user_ids: string[]
+          reply_to_message_id: string | null
+          sender_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ensure_default_categories: {
         Args: never
         Returns: {
@@ -1753,12 +2017,51 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      message_edit_window: { Args: never; Returns: string }
+      message_pin_limit: { Args: never; Returns: number }
+      pin_message: {
+        Args: { p_message_id: string; p_scope: string }
+        Returns: {
+          conversation_id: string
+          id: string
+          message_id: string
+          pinned_at: string
+          pinned_by: string
+          scope: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "message_pins"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       preview_group_invite: {
         Args: { p_token: string }
         Returns: {
           conversation_id: string
           group_name: string
         }[]
+      }
+      recall_message: {
+        Args: { p_message_id: string }
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          mentioned_user_ids: string[]
+          reply_to_message_id: string | null
+          sender_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       recompute_account_state: {
         Args: { p_account_id: string }
@@ -1996,6 +2299,42 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: string
       }
+      save_meeting_note_details: {
+        Args: {
+          p_absentee_ids: string[]
+          p_action_items: Json
+          p_agenda_items: string[]
+          p_attendee_ids: string[]
+          p_decision_id: string
+          p_decisions_made: string
+          p_meeting_type: string
+          p_next_meeting_at: string
+          p_objective: string
+          p_reference_links: string[]
+          p_risks_issues: string
+        }
+        Returns: {
+          absentee_ids: string[]
+          action_items: Json
+          agenda_items: string[]
+          attendee_ids: string[]
+          created_at: string
+          decision_id: string
+          decisions_made: string
+          meeting_type: string
+          next_meeting_at: string | null
+          objective: string
+          reference_links: string[]
+          risks_issues: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meeting_note_details"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       seed_finance_categories: { Args: { p_user_id: string }; Returns: number }
       set_group_admin: {
         Args: {
@@ -2004,6 +2343,10 @@ export type Database = {
           target_user_id: string
         }
         Returns: undefined
+      }
+      suggested_meeting_attendees: {
+        Args: { p_conversation_id: string }
+        Returns: string[]
       }
       task_deadline_instant: {
         Args: { p_date: string; p_time: string; p_tz: string }
@@ -2031,6 +2374,53 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "group_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_shared_task_details: {
+        Args: {
+          p_deadline: string
+          p_deadline_time?: string
+          p_deadline_tz?: string
+          p_description: string
+          p_task_id: string
+          p_title: string
+        }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          deliverable_id: string | null
+          description: string
+          done_at: string | null
+          id: string
+          is_important: boolean
+          objective_id: string | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
           isOneToOne: true
           isSetofReturn: false
         }

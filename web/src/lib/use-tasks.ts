@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient, type UseQueryR
 
 import { useAuth } from "@/lib/auth";
 import { useChatRealtime } from "@/lib/realtime";
+import { saveTaskFlag, taskFlagKeys, upsertFlagRow, type TaskFlagRow } from "@/lib/task-flags";
 import {
   confirmSharedTask,
   createPersonalTask,
@@ -18,9 +19,12 @@ import {
   setPersonalTaskDeleted,
   setPersonalTaskDone,
   taskKeys,
+  updatePersonalTaskDetails,
+  updateSharedTaskDetails,
   upsertTask,
   type SharedTaskTarget,
   type TaskDraft,
+  type TaskEdit,
   type TaskItem,
 } from "@/lib/tasks";
 
@@ -47,6 +51,36 @@ export function useTasks(): UseQueryResult<TaskItem[], Error> {
 
 export function useTaskActions() {
   const queryClient: QueryClient = useQueryClient();
+  const { user } = useAuth();
+  const actorId = user?.id ?? "";
+
+  /**
+   * Records the composer's own reading of a task it just created.
+   *
+   * Written after the task rather than inside it: importance and effort are per-person, so
+   * they belong to whoever is acting, not to the task. A failure here is logged and swallowed
+   * on purpose — the task itself exists and is usable, and losing a star must not look like
+   * losing the work.
+   */
+  const applyOwnFlags = async (
+    taskId: string,
+    draft: { isImportant?: boolean; durationMinutes?: number | null },
+  ): Promise<void> => {
+    const wantsImportant = draft.isImportant === true;
+    const wantsDuration = draft.durationMinutes !== undefined && draft.durationMinutes !== null;
+    if (actorId === "" || (!wantsImportant && !wantsDuration)) return;
+    try {
+      const row = await saveTaskFlag(taskId, actorId, {
+        isImportant: wantsImportant,
+        durationMinutes: draft.durationMinutes ?? null,
+      });
+      const cached = queryClient.getQueryData<TaskFlagRow[]>(taskFlagKeys.list);
+      if (cached === undefined) void queryClient.invalidateQueries({ queryKey: taskFlagKeys.all });
+      else queryClient.setQueryData<TaskFlagRow[]>(taskFlagKeys.list, upsertFlagRow(cached, row));
+    } catch (error) {
+      console.error("[tasks] task created but its flags could not be saved", error);
+    }
+  };
 
   /**
    * Writes the row the server just returned straight into the cache, so the acting
@@ -72,7 +106,10 @@ export function useTaskActions() {
   const addPersonal = useMutation({
     mutationFn: ({ userId, draft }: { userId: string; draft: TaskDraft }) =>
       createPersonalTask(userId, draft),
-    onSuccess: applyOwnResult,
+    onSuccess: (task, variables) => {
+      applyOwnResult(task);
+      void applyOwnFlags(task.id, variables.draft);
+    },
   });
 
   const togglePersonalDone = useMutation({
@@ -83,7 +120,10 @@ export function useTaskActions() {
   const addShared = useMutation({
     mutationFn: ({ target, draft }: { target: SharedTaskTarget; draft: TaskDraft }) =>
       createSharedTask(target, draft),
-    onSuccess: applyOwnResult,
+    onSuccess: (task, variables) => {
+      applyOwnResult(task);
+      void applyOwnFlags(task.id, variables.draft);
+    },
   });
 
   const confirmShared = useMutation({
@@ -116,6 +156,25 @@ export function useTaskActions() {
     onSuccess: applyOwnResult,
   });
 
+  /**
+   * Rewords a task. One entry point for both kinds, because the person editing does not care
+   * which table rule applies — a personal task goes straight through RLS, a shared one through
+   * the RPC that re-checks both parties and the task's state.
+   */
+  const editDetails = useMutation({
+    mutationFn: ({
+      taskId,
+      isShared,
+      edit,
+    }: {
+      taskId: string;
+      isShared: boolean;
+      edit: Required<TaskEdit>;
+    }) =>
+      isShared ? updateSharedTaskDetails(taskId, edit) : updatePersonalTaskDetails(taskId, edit),
+    onSuccess: applyOwnResult,
+  });
+
   const binPersonal = useMutation({
     mutationFn: ({ taskId, deleted }: { taskId: string; deleted: boolean }) =>
       setPersonalTaskDeleted(taskId, deleted),
@@ -137,6 +196,7 @@ export function useTaskActions() {
     returnShared,
     deleteShared,
     restoreShared,
+    editDetails,
     binPersonal,
     purgePersonal,
     isWorking:
@@ -149,6 +209,7 @@ export function useTaskActions() {
       returnShared.isPending ||
       deleteShared.isPending ||
       restoreShared.isPending ||
+      editDetails.isPending ||
       binPersonal.isPending ||
       purgePersonal.isPending,
   };

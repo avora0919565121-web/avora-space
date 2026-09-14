@@ -1,10 +1,19 @@
-import { Bell, BellOff, Repeat, Star, X } from "lucide-react";
+import { Bell, BellOff, Hourglass, Repeat, Star, X } from "lucide-react";
 import { useMemo } from "react";
 
 import { TimeField } from "@/components/tasks/TimeField";
 import { cn } from "@/lib/utils";
+import type { GuidanceKey } from "@/lib/guidance";
+import { GUIDANCE_TEXT } from "@/lib/guidance";
 import type { TaskCategory } from "@/lib/task-categories";
+import {
+  DURATION_PRESETS,
+  durationPresetOf,
+  formatDuration,
+  parseDurationInput,
+} from "@/lib/task-flags";
 import type { TaskReminder } from "@/lib/task-reminders";
+import { useGuidance } from "@/lib/use-task-flags";
 import {
   DEFAULT_REMINDER_PRESET,
   feasibleReminderPresets,
@@ -33,6 +42,8 @@ export type ScheduleDraft = {
   deadlineTime: string;
   categoryId: string | null;
   isImportant: boolean;
+  /** This person's own estimate in minutes, or null for "not estimated". Never required. */
+  durationMinutes: number | null;
   recurrence: TaskRecurrence;
   customInterval: number;
   customFrequency: "daily" | "weekly" | "monthly";
@@ -43,11 +54,115 @@ export const emptyScheduleDraft: ScheduleDraft = {
   deadlineTime: "",
   categoryId: null,
   isImportant: false,
+  durationMinutes: null,
   recurrence: "none",
   customInterval: 2,
   customFrequency: "weekly",
   reminder: DEFAULT_REMINDER_PRESET,
 };
+
+/**
+ * An explanation shown until the person says they have read it.
+ *
+ * Dismissing is the whole point: a hint that cannot be turned off is read once and then
+ * becomes part of the wallpaper, which is exactly when it stops working.
+ */
+export function GuidanceNote({ guidanceKey }: { guidanceKey: GuidanceKey }) {
+  const { shouldShow, dismiss } = useGuidance();
+  if (!shouldShow(guidanceKey)) return null;
+  return (
+    <div className="flex items-start gap-2 rounded-[10px] border border-border bg-secondary/40 px-3 py-2.5">
+      <p className="min-w-0 flex-1 text-[12px] leading-5 text-muted-foreground">
+        {GUIDANCE_TEXT[guidanceKey]}
+      </p>
+      <button
+        type="button"
+        onClick={() => dismiss(guidanceKey)}
+        className="press shrink-0 rounded-md px-2 py-1 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+      >
+        Đã hiểu
+      </button>
+    </div>
+  );
+}
+
+/**
+ * How long this person thinks the work will take them.
+ *
+ * Two quick answers come first because that is the honest resolution of most estimates — few
+ * people know whether something is 40 or 55 minutes, and the heavy view only needs to know
+ * which side of an hour it falls on. The exact box stays for whoever genuinely knows.
+ */
+export function DurationField({
+  idPrefix,
+  value,
+  onChange,
+}: {
+  idPrefix: string;
+  value: number | null;
+  onChange: (minutes: number | null) => void;
+}) {
+  const preset = durationPresetOf(value);
+  const exact = formatDuration(value);
+
+  return (
+    <div className="space-y-2">
+      <OptionalLabel htmlFor={`${idPrefix}-duration-exact`}>
+        Thời lượng dự kiến (không bắt buộc)
+      </OptionalLabel>
+      <div className="flex flex-wrap items-center gap-1.5">
+        {DURATION_PRESETS.map((option) => {
+          const active = preset === option.id;
+          return (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => onChange(active ? null : option.minutes)}
+              aria-pressed={active}
+              className={cn(
+                "press flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[12px] transition-colors",
+                active
+                  ? "border-foreground/25 bg-accent text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-accent/40",
+              )}
+            >
+              <Hourglass className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+              {option.label}
+            </button>
+          );
+        })}
+        <div className="flex items-center gap-1.5">
+          <input
+            id={`${idPrefix}-duration-exact`}
+            type="number"
+            min={1}
+            max={100000}
+            inputMode="numeric"
+            value={value === null ? "" : value}
+            placeholder="phút"
+            onChange={(event) => onChange(parseDurationInput(event.target.value))}
+            className={cn(CONTROL_CLASS, "tabular h-9 w-[92px]")}
+          />
+          <span className="text-[12px] text-muted-foreground">phút</span>
+        </div>
+        {value !== null ? (
+          <button
+            type="button"
+            onClick={() => onChange(null)}
+            className="press flex items-center gap-1 rounded-full px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+          >
+            <X className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+            Bỏ
+          </button>
+        ) : null}
+      </div>
+      {exact !== null ? (
+        <p className="text-[12px] text-muted-foreground">Dự kiến {exact}</p>
+      ) : null}
+      <GuidanceNote guidanceKey="task_duration_field" />
+    </div>
+  );
+}
 
 /**
  * The optional half of the composer: a clock, a shelf, a nudge and a repeat rule.
@@ -213,30 +328,39 @@ export function ScheduleFields({
         </div>
       ) : null}
 
-      <button
-        type="button"
-        onClick={() => onPatch({ isImportant: !draft.isImportant })}
-        aria-pressed={draft.isImportant}
-        className={cn(
-          "press flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[13px] transition-colors",
-          draft.isImportant
-            ? "border-task-important/40 bg-task-important/10 text-foreground"
-            : "border-border bg-card text-muted-foreground hover:bg-accent/40",
-        )}
-      >
-        <Star
-          aria-hidden="true"
-          strokeWidth={1.8}
-          className={cn("h-4 w-4", draft.isImportant && "fill-task-important text-task-important")}
-        />
-        Khẩn cấp
-      </button>
-      {draft.isImportant ? (
-        <p className="text-[12px] leading-5 text-muted-foreground">
-          Chỉ dùng cho việc thật sự khẩn cấp. Dấu này không đẩy nhiệm vụ lên trước việc có hạn sớm hơn — nó
-          chỉ phân định khi hai việc cùng một thời điểm.
-        </p>
-      ) : null}
+      <DurationField
+        idPrefix={idPrefix}
+        value={draft.durationMinutes}
+        onChange={(minutes) => onPatch({ durationMinutes: minutes })}
+      />
+
+      <div className="space-y-2">
+        <button
+          type="button"
+          onClick={() => onPatch({ isImportant: !draft.isImportant })}
+          aria-pressed={draft.isImportant}
+          className={cn(
+            "press flex items-center gap-2 rounded-[10px] border px-3 py-2 text-[13px] transition-colors",
+            draft.isImportant
+              ? "border-task-important/40 bg-task-important/10 text-foreground"
+              : "border-border bg-card text-muted-foreground hover:bg-accent/40",
+          )}
+        >
+          <Star
+            aria-hidden="true"
+            strokeWidth={1.8}
+            className={cn("h-4 w-4", draft.isImportant && "fill-task-important text-task-important")}
+          />
+          {TASK_VIEW_LABELS.important}
+        </button>
+        <GuidanceNote guidanceKey="task_important_flag" />
+        {draft.isImportant ? (
+          <p className="text-[12px] leading-5 text-muted-foreground">
+            Đánh dấu này là của riêng bạn — người kia không thấy và không bị ảnh hưởng. Nó không đẩy
+            nhiệm vụ lên trước việc có hạn sớm hơn, chỉ phân định khi hai việc cùng một thời điểm.
+          </p>
+        ) : null}
+      </div>
     </div>
   );
 }
@@ -266,10 +390,22 @@ export function ImportantStar({ active }: { active: boolean }) {
   if (!active) return null;
   return (
     <Star
-      aria-label="Khẩn cấp"
+      aria-label={TASK_VIEW_LABELS.important}
       strokeWidth={1.8}
       className="h-3.5 w-3.5 shrink-0 fill-task-important text-task-important"
     />
+  );
+}
+
+/** The effort estimate beside a task, shown only once this person has made one. */
+export function DurationTag({ minutes }: { minutes: number | null }) {
+  const label = formatDuration(minutes);
+  if (label === null) return null;
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 text-[11px] text-muted-foreground">
+      <Hourglass className="h-3 w-3" strokeWidth={1.8} aria-hidden="true" />
+      {label}
+    </span>
   );
 }
 
@@ -334,7 +470,7 @@ export function ViewModeSwitch({
   mode: TaskViewMode;
   onChange: (mode: TaskViewMode) => void;
 }) {
-  const modes: TaskViewMode[] = ["deadline", "relationship", "important"];
+  const modes: TaskViewMode[] = ["deadline", "relationship", "important", "heavy"];
   return (
     <div role="tablist" aria-label="Cách xem" className="flex items-center gap-1 rounded-[10px] border border-border bg-card p-1">
       {modes.map((option) => (

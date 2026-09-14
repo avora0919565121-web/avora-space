@@ -41,10 +41,11 @@ describe("moveBefore", () => {
 
 describe("normalizeViewOrder", () => {
   it("keeps a good stored order as it is", () => {
-    expect(normalizeViewOrder(["important", "deadline", "relationship"])).toEqual([
+    expect(normalizeViewOrder(["important", "deadline", "relationship", "heavy"])).toEqual([
       "important",
       "deadline",
       "relationship",
+      "heavy",
     ]);
   });
 
@@ -59,12 +60,30 @@ describe("normalizeViewOrder", () => {
       "important",
       "deadline",
       "relationship",
+      "heavy",
     ]);
     expect(normalizeViewOrder(["important", "important"])).toEqual([
       "important",
       "deadline",
       "relationship",
+      "heavy",
     ]);
+  });
+
+  /**
+   * Someone who arranged their tabs before the heavy view existed keeps the arrangement they
+   * made, and the new tab arrives at the end rather than displacing their first choice.
+   */
+  it("appends a newly shipped reading without disturbing a saved arrangement", () => {
+    expect(normalizeViewOrder(["important", "relationship", "deadline"])).toEqual([
+      "important",
+      "relationship",
+      "deadline",
+      "heavy",
+    ]);
+    expect(defaultViewMode(normalizeViewOrder(["important", "relationship", "deadline"]))).toBe(
+      "important",
+    );
   });
 });
 

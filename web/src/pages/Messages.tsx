@@ -15,6 +15,7 @@ import {
   SquarePen,
   UserRound,
   Users,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
@@ -28,7 +29,18 @@ import { GroupDecisionSheet } from "@/components/chat/GroupDecisionSheet";
 import { GroupInfoSheet } from "@/components/chat/GroupInfoSheet";
 import { GroupTaskListSheet } from "@/components/chat/GroupTaskListSheet";
 import { MessageComposer } from "@/components/chat/MessageComposer";
-import { MessageTaskAffordance } from "@/components/chat/MessageTaskButton";
+import {
+  MessageActionsAffordance,
+  type MessageAction,
+} from "@/components/chat/MessageActionsMenu";
+import { MessageReactions, ReactionPicker } from "@/components/chat/MessageReactions";
+import { PinChoiceDialog, PinnedStrip } from "@/components/chat/PinnedStrip";
+import { ThreadSearch } from "@/components/chat/ThreadSearch";
+import {
+  extractMentionedIds,
+  mentionCandidates as buildMentionCandidates,
+  splitMentions,
+} from "@/lib/mentions";
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
 import { useAuth } from "@/lib/auth";
 import { useChatRealtime } from "@/lib/realtime";
@@ -39,6 +51,7 @@ import {
   clearUnread,
   conversationSubtitle,
   conversationTitle,
+  editMessage,
   ensureJournalConversation,
   fetchConversationPeer,
   fetchMessages,
@@ -48,12 +61,17 @@ import {
   formatMissedMessages,
   formatUnreadBadge,
   groupMessagesByDay,
+  isEdited,
   isNearThreadBottom,
+  isRecalled,
   isSeenByPeer,
   lastOutgoingId,
   markConversationRead,
   matchesConversationQuery,
+  messageBodyText,
   MESSAGE_TABS,
+  quotePreview,
+  recallMessage,
   sendMessage,
   tabOfKind,
   threadScrollDecision,
@@ -70,7 +88,12 @@ import {
   DELETED_MESSAGE_NOTE,
   isOriginalMessageMissing,
 } from "@/lib/task-context";
+import { canPinForGroup } from "@/lib/pins";
+import { useThreadPins } from "@/lib/use-pins";
+import { useThreadReactions } from "@/lib/use-reactions";
+import { useProfileSettings } from "@/lib/use-settings";
 import { useTasks } from "@/lib/use-tasks";
+import { typingText, useThreadPresence } from "@/lib/use-thread-presence";
 import { cn } from "@/lib/utils";
 
 /**
@@ -102,6 +125,14 @@ const Messages = () => {
    */
   const [taskSourceMessage, setTaskSourceMessage] = useState<ChatMessage | null>(null);
   const [draft, setDraft] = useState<string>("");
+  /** The message the next send will answer, shown as a quote above the composer. */
+  const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
+  /** Which bubble is currently open for correction, and the text being corrected. */
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<string>("");
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
+  /** A result just jumped to, lit briefly so the eye can find it among its neighbours. */
+  const [flashedMessageId, setFlashedMessageId] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
   const threadScrollRef = useRef<HTMLDivElement | null>(null);
   // Whether the reader is watching the live end of the thread, and how many messages have
@@ -217,6 +248,72 @@ const Messages = () => {
     [userId, activeKind, senderNames, threadTitle],
   );
 
+  /**
+   * Reactions for the whole thread, and the one action that changes them.
+   *
+   * A journal has nobody to react to you, so it keeps none of this.
+   */
+  const { groupsFor: reactionGroupsFor, toggle: toggleReaction } = useThreadReactions(
+    activeKind === "personal" ? undefined : conversationId,
+    messageIds,
+  );
+
+  /**
+   * Typing and presence, both carried by the socket and stored nowhere.
+   *
+   * The person's own preference only gates what they SEND: switching it off stops their
+   * signal going out and still lets them see everyone else's, because a privacy choice that
+   * also blinds you is a punishment, and people would leave it on for the wrong reason.
+   */
+  const { data: profileSettings } = useProfileSettings();
+  const sendsTypingSignal = profileSettings?.hideTypingSignal !== true;
+  const { typingUserIds, onlineUserIds, notifyTyping, clearTyping } = useThreadPresence(
+    activeKind === "personal" ? undefined : conversationId,
+    sendsTypingSignal,
+  );
+
+  /** Who is typing, named. A 1-1 has only one candidate, so the thread title is the name. */
+  const typingLine: string | null = useMemo(
+    () =>
+      typingText(typingUserIds, (id) =>
+        activeKind === "group" ? (senderNames.get(id) ?? "Thành viên") : threadTitle,
+      ),
+    [typingUserIds, activeKind, senderNames, threadTitle],
+  );
+
+  /** In a 1-1, "anyone else here" is the peer — which is what the green dot means. */
+  const isPeerOnline: boolean = activeKind === "direct" && onlineUserIds.length > 0;
+
+  /**
+   * Who can be named here.
+   *
+   * Groups only: a 1-1 has exactly one other person, so naming them adds nothing the message
+   * did not already say, and a journal has nobody to name.
+   */
+  const mentionable = useMemo(
+    () =>
+      activeKind === "group" ? buildMentionCandidates(groupMembersQuery.data ?? [], userId) : [],
+    [activeKind, groupMembersQuery.data, userId],
+  );
+
+  /** This viewer's seat in the room, which decides whether they may pin for everyone. */
+  const myGroupRole = useMemo(
+    () => (groupMembersQuery.data ?? []).find((member) => member.userId === userId)?.role,
+    [groupMembersQuery.data, userId],
+  );
+
+  const {
+    ordered: orderedPinList,
+    pinOf,
+    isFull: isPinQuotaFull,
+    pin: addPin,
+    unpin: removePin,
+    isWorking: isPinning,
+  } = useThreadPins(conversationId);
+
+  /** The message awaiting a "for the room, or for me?" answer. */
+  const [pinChoiceMessageId, setPinChoiceMessageId] = useState<string | null>(null);
+
   /** The two doors into the same dialog: a chosen bubble, or the end of the thread. */
   const taskContextMessage: ChatMessage | null = taskSourceMessage ?? newestMessage;
 
@@ -249,6 +346,24 @@ const Messages = () => {
     setMissedMessages(0);
     setIsThreadAtBottom(true);
   }, [scrollThreadToBottom]);
+
+  /**
+   * Takes a search result to its place in the thread.
+   *
+   * The highlight is temporary on purpose: it exists to answer "which one of these is it?"
+   * for the second after the scroll lands, and a permanent mark would still be sitting there
+   * an hour later claiming to be the answer to a question nobody is asking any more.
+   */
+  const jumpToMessage = useCallback((messageId: string): void => {
+    const node = document.getElementById(`message-${messageId}`);
+    if (node === null) return;
+    node.scrollIntoView({ behavior: "smooth", block: "center" });
+    setFlashedMessageId(messageId);
+    window.setTimeout(
+      () => setFlashedMessageId((current) => (current === messageId ? null : current)),
+      2_000,
+    );
+  }, []);
 
   /** The thread position already accounted for, so one arrival is followed exactly once. */
   const scrollSeenRef = useRef<{ conversationId: string | null; messageId: string | null }>({
@@ -338,7 +453,15 @@ const Messages = () => {
   const sendMutation = useMutation({
     mutationFn: async (content: string): Promise<ChatMessage> => {
       if (!conversationId || !userId) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-      return sendMessage(conversationId, userId, content);
+      // Read off the finished text rather than tracked as chips: deleting part of a name
+      // un-names that person, which is what someone editing the sentence expects.
+      return sendMessage(
+        conversationId,
+        userId,
+        content,
+        replyTarget?.id ?? null,
+        extractMentionedIds(content, mentionable),
+      );
     },
     onMutate: async (content: string) => {
       if (!conversationId || !userId) return { previous: undefined };
@@ -351,6 +474,7 @@ const Messages = () => {
         senderId: userId,
         content: content.trim(),
         createdAt: new Date().toISOString(),
+        replyToMessageId: replyTarget?.id ?? null,
         pending: true,
       };
       queryClient.setQueryData<ChatMessage[]>(key, [...(previous ?? []), optimistic]);
@@ -373,9 +497,105 @@ const Messages = () => {
     (content: string): void => {
       if (content.length === 0 || sendMutation.isPending) return;
       setDraft("");
+      // The quote belongs to the message that was just sent, not to the next one.
+      setReplyTarget(null);
+      // The message has arrived, so "still typing" is now false — say so at once rather than
+      // letting the indicator time out a few seconds later.
+      clearTyping();
       sendMutation.mutate(content);
     },
-    [sendMutation],
+    [sendMutation, clearTyping],
+  );
+
+  /**
+   * Correcting your own wording. The server re-checks the 24-hour window, so a stale form
+   * left open overnight is refused rather than silently rewriting old history.
+   */
+  const editMutation = useMutation({
+    mutationFn: ({ messageId, content }: { messageId: string; content: string }) =>
+      editMessage(messageId, content),
+    onSuccess: () => {
+      setEditingMessageId(null);
+      setEditDraft("");
+      if (conversationId) {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+      }
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  /**
+   * Taking a message back. The words are destroyed server-side, so there is nothing to undo
+   * afterwards — which is why the menu item asks before it fires.
+   */
+  const recallMutation = useMutation({
+    mutationFn: (messageId: string) => recallMessage(messageId),
+    onSuccess: () => {
+      toast.success("Đã thu hồi tin nhắn.");
+      if (conversationId) {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+      }
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  /** One entry point for every per-message action, so the menu stays a dumb list. */
+  const handleMessageAction = useCallback(
+    (message: ChatMessage, action: MessageAction): void => {
+      if (action === "reply") {
+        setReplyTarget(message);
+        return;
+      }
+      if (action === "task") {
+        openTaskDialogFor(message);
+        return;
+      }
+      if (action === "edit") {
+        setEditingMessageId(message.id);
+        setEditDraft(message.content);
+        return;
+      }
+
+      if (action === "pin") {
+        // An officer in a group is asked which audience they mean. Everyone else has only one
+        // possible answer, so asking would be a question with a single button.
+        if (activeKind === "group" && canPinForGroup(myGroupRole)) {
+          setPinChoiceMessageId(message.id);
+          return;
+        }
+        void addPin(message.id, "personal")
+          .then(() => toast.success("Đã ghim riêng cho bạn."))
+          .catch((error: unknown) =>
+            toast.error(error instanceof Error ? error.message : "Không ghim được."),
+          );
+        return;
+      }
+
+      if (action === "unpin") {
+        // Clear whichever pin this person is entitled to remove, preferring their own private
+        // one: an officer unpinning from the bubble usually means their own bookmark, and the
+        // room's shared pin can still be cleared from the strip where it is labelled.
+        const mine = pinOf(message.id, "personal");
+        const shared = canPinForGroup(myGroupRole) ? pinOf(message.id, "group") : null;
+        const target = mine ?? shared;
+        if (target === null) return;
+        void removePin(target.id)
+          .then(() => toast.success("Đã bỏ ghim."))
+          .catch((error: unknown) =>
+            toast.error(error instanceof Error ? error.message : "Không bỏ ghim được."),
+          );
+        return;
+      }
+
+      // Recall destroys the text for everyone, so it asks first — this is the one action on a
+      // message that cannot be walked back.
+      if (window.confirm("Thu hồi tin nhắn này? Nội dung sẽ bị xoá với cả hai bên.")) {
+        recallMutation.mutate(message.id);
+      }
+    },
+    [openTaskDialogFor, recallMutation, activeKind, myGroupRole, addPin, removePin, pinOf],
   );
 
   const openConversation = useCallback(
@@ -717,7 +937,21 @@ const Messages = () => {
                     <NotebookPen className="h-[17px] w-[17px]" strokeWidth={1.7} aria-hidden="true" />
                   </span>
                 ) : (
-                  <InitialsAvatar name={threadTitle} size="sm" />
+                  <span className="relative shrink-0">
+                    <InitialsAvatar name={threadTitle} size="sm" />
+                    {/*
+                      Online or not, and nothing more. A "last seen at" would outlive the
+                      moment it described and quietly become a log of when someone was at
+                      their desk — which nobody asked to publish.
+                    */}
+                    {isPeerOnline ? (
+                      <span
+                        aria-label="Đang trực tuyến"
+                        title="Đang trực tuyến"
+                        className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-card bg-emerald-500"
+                      />
+                    ) : null}
+                  </span>
                 )}
                 <div className="min-w-0">
                   <p className="flex min-w-0 items-center gap-1.5 truncate text-[16px] font-semibold text-foreground">
@@ -726,7 +960,17 @@ const Messages = () => {
                     ) : null}
                     {threadTitle}
                   </p>
-                  <p className="truncate text-[13px] text-muted-foreground">{threadSubtitle}</p>
+                  {/* Typing takes the subtitle's place while it lasts: two lines of status
+                      under one name is more than the header can carry. */}
+                  {typingLine !== null ? (
+                    <p className="truncate text-[13px] font-medium text-primary" aria-live="polite">
+                      {typingLine}
+                    </p>
+                  ) : (
+                    <p className="truncate text-[13px] text-muted-foreground">
+                      {isPeerOnline ? "Đang trực tuyến" : threadSubtitle}
+                    </p>
+                  )}
                 </div>
                 <div className="ml-auto flex items-center gap-1 text-muted-foreground">
                   {activeKind === "group" ? (
@@ -751,6 +995,21 @@ const Messages = () => {
                       </button>
                     </>
                   ) : null}
+                  {/* Searching a thread is useful in a journal too — that is where people
+                      keep the things they most often come back looking for. */}
+                  <button
+                    type="button"
+                    aria-label="Tìm trong cuộc trò chuyện này"
+                    title="Tìm trong cuộc trò chuyện này"
+                    aria-pressed={isSearchOpen}
+                    onClick={() => setIsSearchOpen((current) => !current)}
+                    className={cn(
+                      "press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground",
+                      isSearchOpen ? "bg-accent/60 text-foreground" : "",
+                    )}
+                  >
+                    <Search className="h-[19px] w-[19px]" strokeWidth={1.6} />
+                  </button>
                   {activeKind === "personal" ? null : (
                   <>
                   <button
@@ -772,6 +1031,26 @@ const Messages = () => {
                   )}
                 </div>
               </header>
+
+              {isSearchOpen ? (
+                <ThreadSearch
+                  conversationId={conversationId}
+                  senderNameOf={senderNameOf}
+                  onJumpTo={jumpToMessage}
+                  onClose={() => setIsSearchOpen(false)}
+                />
+              ) : null}
+
+              <PinnedStrip
+                pins={orderedPinList}
+                messages={messages}
+                viewerId={userId}
+                myRole={myGroupRole}
+                senderNameOf={senderNameOf}
+                onJumpTo={jumpToMessage}
+                onUnpin={removePin}
+                isWorking={isPinning}
+              />
 
               {!isLive ? (
                 <p
@@ -853,6 +1132,26 @@ const Messages = () => {
                             // can be raised from either side's bubble — but not from a journal
                             // note (no one to give it to) or a message still in flight.
                             const canRaiseTask = activeKind !== "personal" && message.pending !== true;
+                            const recalled = isRecalled(message);
+                            const isBeingEdited = editingMessageId === message.id;
+                            // A journal has nobody to react to you, and a withdrawn message has
+                            // nothing left to react to.
+                            const canReact =
+                              activeKind !== "personal" && message.pending !== true && !recalled;
+                            // Pinning works everywhere, including a journal — that is where
+                            // people keep the things they most often come back looking for.
+                            const canPinThis = message.pending !== true && !recalled;
+                            // "Already pinned" means pinned for an audience this person can
+                            // clear: their own bookmark, or the room's pin if they hold a seat.
+                            const isPinnedForMe =
+                              pinOf(message.id, "personal") !== null ||
+                              (canPinForGroup(myGroupRole) && pinOf(message.id, "group") !== null);
+                            // Looked up live rather than snapshotted, so a quote follows what
+                            // happens to the original afterwards.
+                            const quotedParent =
+                              message.replyToMessageId == null
+                                ? null
+                                : (messages.find((entry) => entry.id === message.replyToMessageId) ?? null);
                             return (
                               <li
                                 key={message.id}
@@ -861,8 +1160,11 @@ const Messages = () => {
                                 className={cn(
                                   "group flex animate-bubble-in scroll-mt-8 rounded-bubble transition-colors",
                                   outgoing ? "flex-col items-end" : "items-end gap-2.5",
-                                  // The message a task was raised from, pointed out on arrival.
-                                  quotedMessageId === message.id ? "bg-primary/10 ring-1 ring-primary/40" : "",
+                                  // The message a task was raised from, pointed out on arrival,
+                                  // or a search result just jumped to.
+                                  quotedMessageId === message.id || flashedMessageId === message.id
+                                    ? "bg-primary/10 ring-1 ring-primary/40"
+                                    : "",
                                 )}
                               >
                                 {senderLabel ? (
@@ -881,11 +1183,101 @@ const Messages = () => {
                                       {senderLabel}
                                     </span>
                                   ) : null}
-                                  {canRaiseTask ? (
-                                    <MessageTaskAffordance
+                                  {/*
+                                    A reply carries the message it answers above it. The quote
+                                    reads the live original, so one that is withdrawn later
+                                    shows the tombstone note rather than words nobody can see.
+                                  */}
+                                  {quotedParent !== null ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        document
+                                          .getElementById(`message-${quotedParent.id}`)
+                                          ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                                      }}
+                                      className="press mb-1 flex max-w-[80%] flex-col items-start gap-0.5 rounded-[8px] border-l-2 border-primary/50 bg-secondary/50 px-2.5 py-1.5 text-left"
+                                    >
+                                      <span className="text-[11.5px] font-medium text-muted-foreground">
+                                        {senderNameOf(quotedParent)}
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          "line-clamp-2 text-[12.5px]",
+                                          isRecalled(quotedParent)
+                                            ? "italic text-muted-foreground"
+                                            : "text-foreground/80",
+                                        )}
+                                      >
+                                        {quotePreview(quotedParent)}
+                                      </span>
+                                    </button>
+                                  ) : null}
+
+                                  {isBeingEdited ? (
+                                    <div className="w-full max-w-[80%] space-y-1.5">
+                                      <textarea
+                                        value={editDraft}
+                                        onChange={(event) => setEditDraft(event.target.value)}
+                                        rows={2}
+                                        maxLength={4000}
+                                        aria-label="Sửa tin nhắn"
+                                        className="w-full resize-y rounded-bubble border border-input bg-card px-3 py-2 text-[15px] leading-relaxed text-foreground outline-none focus:border-primary/60"
+                                      />
+                                      <div className="flex items-center gap-1.5">
+                                        <button
+                                          type="button"
+                                          disabled={editMutation.isPending || editDraft.trim() === ""}
+                                          onClick={() =>
+                                            editMutation.mutate({
+                                              messageId: message.id,
+                                              content: editDraft,
+                                            })
+                                          }
+                                          className="press h-10 rounded-[8px] bg-primary px-3 text-[13px] font-medium text-primary-foreground disabled:opacity-50"
+                                        >
+                                          {editMutation.isPending ? "Đang lưu…" : "Lưu"}
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingMessageId(null);
+                                            setEditDraft("");
+                                          }}
+                                          className="press h-10 rounded-[8px] border border-border px-3 text-[13px] font-medium text-muted-foreground hover:text-foreground"
+                                        >
+                                          Huỷ
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : recalled ? (
+                                    /* A withdrawn message keeps its place in the thread but not
+                                       its words — the gap is part of the honest record. */
+                                    <div
+                                      className={cn(
+                                        "max-w-[80%] rounded-bubble border border-dashed border-border px-4 py-2.5 text-[14px] italic leading-relaxed text-muted-foreground",
+                                        outgoing ? "rounded-br-[4px]" : "rounded-bl-[4px]",
+                                      )}
+                                    >
+                                      {messageBodyText(message)}
+                                    </div>
+                                  ) : (
+                                    <MessageActionsAffordance
+                                      message={message}
+                                      viewerId={userId}
+                                      canRaiseTask={canRaiseTask}
                                       outgoing={outgoing}
-                                      messageLabel={message.content.slice(0, 60)}
-                                      onCreateTask={() => openTaskDialogFor(message)}
+                                      canPin={canPinThis}
+                                      isPinned={isPinnedForMe}
+                                      onAction={(action) => handleMessageAction(message, action)}
+                                      reactionPicker={
+                                        canReact ? (
+                                          <ReactionPicker
+                                            label={message.content.slice(0, 40)}
+                                            onPick={(emoji) => toggleReaction(message.id, emoji)}
+                                          />
+                                        ) : null
+                                      }
                                     >
                                       <div
                                         className={cn(
@@ -893,26 +1285,70 @@ const Messages = () => {
                                           outgoing
                                             ? "rounded-br-[4px] bg-primary text-primary-foreground"
                                             : "rounded-bl-[4px] border border-border bg-card text-foreground",
+                                          message.pending ? "opacity-70" : "",
                                         )}
                                       >
-                                        {message.content}
+                                        {/*
+                                          Only names that were genuinely recorded as mentions
+                                          light up — driven by the stored ids, not by scanning
+                                          the text for "@", so typing "@nobody" cannot fake the
+                                          appearance of having named someone.
+                                        */}
+                                        {splitMentions(
+                                          message.content,
+                                          message.mentionedUserIds ?? [],
+                                          (id) => senderNames.get(id) ?? "",
+                                          userId,
+                                        ).map((segment, segmentIndex) =>
+                                          segment.mentionedUserId === null ? (
+                                            <span key={segmentIndex}>{segment.text}</span>
+                                          ) : (
+                                            <span
+                                              key={segmentIndex}
+                                              className={cn(
+                                                "rounded-[3px] px-0.5 font-semibold",
+                                                // Being named yourself is the one case worth
+                                                // making unmissable.
+                                                segment.isViewer
+                                                  ? outgoing
+                                                    ? "bg-primary-foreground/25"
+                                                    : "bg-primary/20 text-primary"
+                                                  : outgoing
+                                                    ? "text-primary-foreground/85"
+                                                    : "text-primary",
+                                              )}
+                                            >
+                                              {segment.text}
+                                            </span>
+                                          ),
+                                        )}
                                       </div>
-                                    </MessageTaskAffordance>
-                                  ) : (
-                                    <div
-                                      className={cn(
-                                        "max-w-[80%] whitespace-pre-wrap break-words rounded-bubble px-4 py-2.5 text-[15px] leading-relaxed",
-                                        outgoing
-                                          ? "rounded-br-[4px] bg-primary text-primary-foreground"
-                                          : "rounded-bl-[4px] border border-border bg-card text-foreground",
-                                        message.pending ? "opacity-70" : "",
-                                      )}
-                                    >
-                                      {message.content}
-                                    </div>
+                                    </MessageActionsAffordance>
                                   )}
+
+                                  {/*
+                                    What people said back without saying anything. Shown under
+                                    the bubble rather than over it, so a busy message does not
+                                    hide its own words.
+                                  */}
+                                  {canReact ? (
+                                    <MessageReactions
+                                      groups={reactionGroupsFor(message.id)}
+                                      nameOf={(id) =>
+                                        activeKind === "group"
+                                          ? (senderNames.get(id) ?? "Thành viên")
+                                          : threadTitle
+                                      }
+                                      viewerId={userId}
+                                      outgoing={outgoing}
+                                      onToggle={(emoji) => toggleReaction(message.id, emoji)}
+                                    />
+                                  ) : null}
                                   <span className="tabular mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
                                     {message.pending ? "Đang gửi…" : formatClock(message.createdAt)}
+                                    {/* An edit is admitted out loud: a silent one would let
+                                        someone change what they are on record as saying. */}
+                                    {isEdited(message) ? <span>(đã chỉnh sửa)</span> : null}
                                     {showsReceipt ? (
                                       <span className="flex items-center gap-1">
                                         {seen ? (
@@ -966,13 +1402,51 @@ const Messages = () => {
               )}
 
               <div className="border-t border-border bg-card px-5 py-4 md:px-10">
+                {/*
+                  What the next message will answer, shown before it is sent so nobody replies
+                  to the wrong thing. Dismissable, because changing your mind about replying is
+                  more common than changing your mind about the words.
+                */}
+                {replyTarget !== null ? (
+                  <div className="mx-auto mb-2 flex max-w-2xl items-start gap-2 rounded-[10px] border-l-2 border-primary/60 bg-secondary/50 px-3 py-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[11.5px] font-medium text-muted-foreground">
+                        Đang trả lời {senderNameOf(replyTarget)}
+                      </p>
+                      <p
+                        className={cn(
+                          "line-clamp-2 text-[12.5px]",
+                          isRecalled(replyTarget) ? "italic text-muted-foreground" : "text-foreground/80",
+                        )}
+                      >
+                        {quotePreview(replyTarget)}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setReplyTarget(null)}
+                      aria-label="Bỏ trả lời"
+                      className="press shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                    </button>
+                  </div>
+                ) : null}
                 <MessageComposer
                   value={draft}
-                  onValueChange={setDraft}
+                  onValueChange={(next) => {
+                    setDraft(next);
+                    // Typing is announced from the keystroke, and stopped the moment the box
+                    // empties — a cleared draft is someone who changed their mind, and leaving
+                    // the indicator up would misreport that for the next few seconds.
+                    if (next.trim() === "") clearTyping();
+                    else notifyTyping();
+                  }}
                   onSend={handleSend}
                   isSending={sendMutation.isPending}
                   placeholder={activeKind === "personal" ? "Ghi vào nhật ký…" : `Nhắn tin cho ${threadTitle}…`}
                   ariaLabel={activeKind === "personal" ? "Ghi vào nhật ký" : `Nhắn tin cho ${threadTitle}`}
+                  mentionCandidates={mentionable}
                   leadingAction={
                     activeKind === "personal" ? undefined : (
                       <button
@@ -1039,6 +1513,31 @@ const Messages = () => {
         />
       ) : null}
 
+      {/*
+        Only an officer in a group ever sees this: everyone else has one possible answer, so
+        asking would be a question with a single button.
+      */}
+      <PinChoiceDialog
+        open={pinChoiceMessageId !== null}
+        onOpenChange={(next) => {
+          if (!next) setPinChoiceMessageId(null);
+        }}
+        groupFull={isPinQuotaFull("group")}
+        personalFull={isPinQuotaFull("personal")}
+        onChoose={(scope) => {
+          const messageId = pinChoiceMessageId;
+          setPinChoiceMessageId(null);
+          if (messageId === null) return;
+          void addPin(messageId, scope)
+            .then(() =>
+              toast.success(scope === "group" ? "Đã ghim cho cả nhóm." : "Đã ghim riêng cho bạn."),
+            )
+            .catch((error: unknown) =>
+              toast.error(error instanceof Error ? error.message : "Không ghim được."),
+            );
+        }}
+      />
+
       {conversationId && activeKind === "group" ? (
         <GroupTaskListSheet
           open={isGroupTasksOpen}
@@ -1066,6 +1565,11 @@ const Messages = () => {
           onOpenChange={setIsInfoOpen}
           peerName={threadTitle}
           peerEmail={peerEmail}
+          peerId={
+            activeKind === "direct"
+              ? (activeSummary?.peerId ?? peerQuery.data?.peerId ?? null)
+              : null
+          }
           onOpenConversation={openConversation}
           onLeft={() => navigate("/tin-nhan")}
         />

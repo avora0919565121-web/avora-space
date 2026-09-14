@@ -18,6 +18,7 @@ import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/compon
 import {
   CategoryFilterBar,
   CategoryTag,
+  DurationTag,
   emptyScheduleDraft,
   ImportantStar,
   ReminderBanner,
@@ -25,6 +26,7 @@ import {
   TimeTag,
   type ScheduleDraft,
 } from "@/components/tasks/ScheduleFields";
+import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import { TaskViewTabs } from "@/components/tasks/TaskViewTabs";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
@@ -35,8 +37,10 @@ import { RECURRENCE_LABELS } from "@/lib/task-schedule";
 import {
   filterByScope,
   parseTaskScope,
+  parseTaskView,
   TASK_SCOPE_LABELS,
   TASK_SCOPE_PARAM,
+  TASK_VIEW_PARAM,
   type TaskScope,
 } from "@/lib/task-scope";
 import {
@@ -51,16 +55,21 @@ import {
   deadlineLabel,
   deadlinePriority,
   deletedByOtherNote,
+  durationFor,
   filterByCategories,
   groupSharedByConversation,
   groupTasksByDeadlineDay,
+  heavyTasks,
+  HEAVY_TASK_MINUTES,
   highestOpenPriority,
   importantTasks,
   isDeletedByOther,
+  isImportantFor,
   isTaskDraftComplete,
   needsAttention,
   partitionByBin,
   sharedTaskNote,
+  slackMinutes,
   sortTasksByPriority,
   TASK_VIEW_LABELS,
   taskStatusLabel,
@@ -69,11 +78,13 @@ import {
   todayIso,
   validateTaskDraft,
   type TaskDraft,
+  type TaskFlagIndex,
   type TaskItem,
   type TaskPriority,
   type TaskViewMode,
 } from "@/lib/tasks";
 import { useConversations } from "@/lib/use-conversations";
+import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { useSharedTaskOrder, useViewOrder } from "@/lib/use-task-order";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
@@ -145,6 +156,10 @@ function DeadlineChip({
 }) {
   const label = deadlineLabel(task.deadline, today);
   const priority = deadlinePriority(task.deadline, today);
+  // The star and the estimate are this viewer's own reading of the task, never the other
+  // party's. Read here rather than passed down so every row that shows a deadline shows the
+  // same person's marks.
+  const flags = useTaskFlagIndex();
   return (
     <span className="flex flex-wrap items-center gap-2">
       {label === null ? (
@@ -161,7 +176,8 @@ function DeadlineChip({
           {RECURRENCE_LABELS[task.recurrence]}
         </span>
       ) : null}
-      <ImportantStar active={task.isImportant} />
+      <ImportantStar active={isImportantFor(flags, task.id)} />
+      <DurationTag minutes={durationFor(flags, task.id)} />
       <CategoryTag category={category} />
     </span>
   );
@@ -262,7 +278,15 @@ function TaskDescription({ task }: { task: TaskItem }) {
   );
 }
 
-function PersonalRow({ task, today }: { task: TaskItem; today: string }) {
+function PersonalRow({
+  task,
+  today,
+  onOpen,
+}: {
+  task: TaskItem;
+  today: string;
+  onOpen?: (task: TaskItem) => void;
+}) {
   const { togglePersonalDone, binPersonal } = useTaskActions();
   const categories = useCategoryIndex();
   const done = task.status === "done";
@@ -282,13 +306,23 @@ function PersonalRow({ task, today }: { task: TaskItem; today: string }) {
         onClick={() => void run(togglePersonalDone.mutateAsync({ taskId: task.id, done: !done }))}
         label={done ? "Mở lại nhiệm vụ" : "Đánh dấu hoàn thành"}
       />
-      <div className="min-w-0 flex-1 pt-0.5">
+      {/*
+        The row itself opens the task. The bubble and the bin keep their own jobs, so the only
+        thing left to click is the text — which is exactly what someone reaches for when they
+        want to re-read what a task actually said.
+      */}
+      <button
+        type="button"
+        onClick={() => onOpen?.(task)}
+        disabled={onOpen === undefined}
+        className="press min-w-0 flex-1 pt-0.5 text-left disabled:cursor-default"
+      >
         <TaskTitle task={task} muted={false} />
         <TaskDescription task={task} />
         <div className="mt-0.5 text-[12px]">
           <DeadlineChip task={task} today={today} category={categories.get(task.categoryId ?? "")} />
         </div>
-      </div>
+      </button>
       <IconAction
         label="Xoá"
         icon={Trash2}
@@ -320,6 +354,7 @@ function SharedRow({
   onDrop,
   onDragEnd,
   onMove,
+  onOpen,
 }: {
   task: TaskItem;
   userId: string | undefined;
@@ -333,6 +368,7 @@ function SharedRow({
   onDrop?: () => void;
   onDragEnd?: () => void;
   onMove?: (direction: -1 | 1) => void;
+  onOpen?: (task: TaskItem) => void;
 }) {
   const navigate = useNavigate();
   const categories = useCategoryIndex();
@@ -392,7 +428,13 @@ function SharedRow({
         ) : null}
         <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
 
-        <div className="min-w-0 flex-1 pt-0.5">
+        {/* The text opens the task; dragging still belongs to the row around it. */}
+        <button
+          type="button"
+          onClick={() => onOpen?.(task)}
+          disabled={onOpen === undefined}
+          className="press min-w-0 flex-1 pt-0.5 text-left disabled:cursor-default"
+        >
           <TaskTitle task={task} muted={false} />
           <TaskDescription task={task} />
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
@@ -417,7 +459,7 @@ function SharedRow({
               </>
             ) : null}
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 pl-11 sm:pl-0">
@@ -682,7 +724,15 @@ function TaskComposer({
   );
 }
 
-function PersonalSection({ tasks, today }: { tasks: TaskItem[]; today: string }) {
+function PersonalSection({
+  tasks,
+  today,
+  onOpen,
+}: {
+  tasks: TaskItem[];
+  today: string;
+  onOpen: (task: TaskItem) => void;
+}) {
   const { user } = useAuth();
   const { addPersonal } = useTaskActions();
   const { isOpen, toggle } = useTree();
@@ -706,7 +756,7 @@ function PersonalSection({ tasks, today }: { tasks: TaskItem[]; today: string })
           {tasks.length > 0 ? (
             <ul className="px-5 pb-2">
               {tasks.map((task) => (
-                <PersonalRow key={task.id} task={task} today={today} />
+                <PersonalRow key={task.id} task={task} today={today} onOpen={onOpen} />
               ))}
             </ul>
           ) : (
@@ -739,7 +789,15 @@ type NamedGroup = {
   auto: boolean;
 };
 
-function SharedSection({ groups, today }: { groups: NamedGroup[]; today: string }) {
+function SharedSection({
+  groups,
+  today,
+  onOpen,
+}: {
+  groups: NamedGroup[];
+  today: string;
+  onOpen: (task: TaskItem) => void;
+}) {
   const { user } = useAuth();
   const { isOpen, toggle } = useTree();
   const { reorder } = useSharedTaskOrder();
@@ -821,6 +879,7 @@ function SharedSection({ groups, today }: { groups: NamedGroup[]; today: string 
                               setOverId(null);
                             }}
                             onMove={(direction) => moveBy(task.id, direction)}
+                            onOpen={onOpen}
                           />
                         ))}
                       </ul>
@@ -887,10 +946,12 @@ function TimelineView({
   tasks,
   userId,
   today,
+  onOpen,
 }: {
   tasks: TaskItem[];
   userId: string | undefined;
   today: string;
+  onOpen: (task: TaskItem) => void;
 }) {
   const groups = useMemo(() => groupTasksByDeadlineDay(tasks, today, userId), [tasks, today, userId]);
 
@@ -922,9 +983,9 @@ function TimelineView({
             <ul className="px-5 py-1">
               {group.tasks.map((task) =>
                 task.type === "personal" ? (
-                  <PersonalRow key={task.id} task={task} today={today} />
+                  <PersonalRow key={task.id} task={task} today={today} onOpen={onOpen} />
                 ) : (
-                  <SharedRow key={task.id} task={task} userId={userId} today={today} />
+                  <SharedRow key={task.id} task={task} userId={userId} today={today} onOpen={onOpen} />
                 ),
               )}
             </ul>
@@ -935,23 +996,28 @@ function TimelineView({
   );
 }
 
-/** Emergency mode: only what has been starred, still in deadline order. */
+/** Only what THIS person marked as mattering, still in deadline order. */
 function ImportantView({
   tasks,
   userId,
   today,
+  flags,
+  onOpen,
 }: {
   tasks: TaskItem[];
   userId: string | undefined;
   today: string;
+  flags: TaskFlagIndex;
+  onOpen: (task: TaskItem) => void;
 }) {
-  const starred = useMemo(() => importantTasks(tasks, today, userId), [tasks, today, userId]);
+  const starred = useMemo(() => importantTasks(tasks, today, flags, userId), [tasks, today, flags, userId]);
 
   if (starred.length === 0) {
     return (
       <section className="rounded-[10px] border border-border bg-card px-5 py-6">
         <p className="text-[14px] text-muted-foreground">
-          Chưa có việc nào đánh dấu khẩn cấp — và đó thường là dấu hiệu tốt.
+          Bạn chưa đánh dấu việc nào là quan trọng. Dấu này dành cho những việc bạn không muốn để trọn
+          — kể cả khi chúng không gấp và không tốn nhiều thời gian.
         </p>
       </section>
     );
@@ -960,9 +1026,9 @@ function ImportantView({
   return (
     <section className="rounded-[10px] border border-border bg-card">
       <div className="border-b border-border px-5 py-3">
-        <h2 className="text-[15px] font-semibold text-foreground">Việc khẩn cấp</h2>
+        <h2 className="text-[15px] font-semibold text-foreground">Việc quan trọng</h2>
         <p className="mt-0.5 text-[12px] text-muted-foreground">
-          Chỉ những việc đã đánh dấu, sắp theo hạn.
+          Những việc bạn đánh dấu quan trọng, sắp theo hạn. Chỉ bạn thấy danh sách này.
         </p>
       </div>
       <ul className="px-5 py-1">
@@ -972,9 +1038,9 @@ function ImportantView({
             <li key={task.id} className="border-b border-border/50 last:border-b-0">
               <ul>
                 {task.type === "personal" ? (
-                  <PersonalRow task={task} today={today} />
+                  <PersonalRow task={task} today={today} onOpen={onOpen} />
                 ) : (
-                  <SharedRow task={task} userId={userId} today={today} />
+                  <SharedRow task={task} userId={userId} today={today} onOpen={onOpen} />
                 )}
               </ul>
               <p className="pb-1.5 pl-[44px] text-[11px] text-muted-foreground">{TIER_LABELS[tier]}</p>
@@ -986,7 +1052,83 @@ function ImportantView({
   );
 }
 
-/** Nhiệm vụ — personal to-dos plus shared tasks from 1-1s and groups, read three ways. */
+/** `Còn 2 giờ trống` — how much room is left once the work itself is subtracted. */
+function slackNote(minutes: number): string {
+  if (!Number.isFinite(minutes)) return "Không có hạn";
+  if (minutes < 0) {
+    const late = Math.round(Math.abs(minutes) / 60);
+    return late < 1 ? "Đã không còn kịp" : `Thiếu khoảng ${late} giờ`;
+  }
+  const hours = Math.floor(minutes / 60);
+  if (hours < 1) return "Chỉ còn dưới 1 giờ trống";
+  if (hours < 24) return `Còn ~${hours} giờ trống`;
+  return `Còn ~${Math.floor(hours / 24)} ngày trống`;
+}
+
+/**
+ * Heavy work, ordered by how little room is left rather than by deadline.
+ *
+ * This is the one view where the deadline is not the answer. A four-hour job due tomorrow
+ * evening is in more trouble than a ten-minute errand due this afternoon, so sorting by date
+ * would put the wrong task first. What it sorts by is the gap between now and the deadline
+ * minus the time the work is expected to cost — the room actually left to do it in.
+ */
+function HeavyView({
+  tasks,
+  userId,
+  today,
+  flags,
+  onOpen,
+}: {
+  tasks: TaskItem[];
+  userId: string | undefined;
+  today: string;
+  flags: TaskFlagIndex;
+  onOpen: (task: TaskItem) => void;
+}) {
+  const heavy = useMemo(() => heavyTasks(tasks, today, flags, userId), [tasks, today, flags, userId]);
+
+  if (heavy.length === 0) {
+    return (
+      <section className="rounded-[10px] border border-border bg-card px-5 py-6">
+        <p className="text-[14px] text-muted-foreground">
+          Chưa có việc nào bạn đánh giá là tốn hơn {HEAVY_TASK_MINUTES} phút. Khi thêm hoặc sửa một nhiệm
+          vụ, chọn “Nặng” hoặc nhập số phút để nó xuất hiện ở đây.
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className="rounded-[10px] border border-border bg-card">
+      <div className="border-b border-border px-5 py-3">
+        <h2 className="text-[15px] font-semibold text-foreground">{TASK_VIEW_LABELS.heavy}</h2>
+        <p className="mt-0.5 text-[12px] text-muted-foreground">
+          Việc bạn đánh giá tốn hơn {HEAVY_TASK_MINUTES} phút, sắp theo chỗ trống còn lại — việc sắp
+          không còn đủ thời gian để làm nằm trên.
+        </p>
+      </div>
+      <ul className="px-5 py-1">
+        {heavy.map((task) => (
+          <li key={task.id} className="border-b border-border/50 last:border-b-0">
+            <ul>
+              {task.type === "personal" ? (
+                <PersonalRow task={task} today={today} onOpen={onOpen} />
+              ) : (
+                <SharedRow task={task} userId={userId} today={today} onOpen={onOpen} />
+              )}
+            </ul>
+            <p className="pb-1.5 pl-[44px] text-[11px] text-muted-foreground">
+              {slackNote(slackMinutes(task, today, flags))}
+            </p>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+/** Nhiệm vụ — personal to-dos plus shared tasks from 1-1s and groups, read four ways. */
 export default function Tasks() {
   const { user } = useAuth();
   const { data: tasks, isLoading } = useTasks();
@@ -996,6 +1138,8 @@ export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope: TaskScope | null = parseTaskScope(searchParams.get(TASK_SCOPE_PARAM));
   const { order: sharedOrder } = useSharedTaskOrder();
+  // This person's own marks, which now break ties in every ordering on this page.
+  const flags = useTaskFlagIndex();
 
   const { personal, sharedGroups, binned } = useMemo(() => {
     const all = filterByScope(tasks ?? [], scope);
@@ -1004,6 +1148,8 @@ export default function Tasks() {
     const personalTasks = sortTasksByPriority(
       split.kept.filter((task) => task.type === "personal"),
       today,
+      userId,
+      flags,
     );
 
     const named: NamedGroup[] = groupSharedByConversation(split.kept).map((group) => ({
@@ -1011,7 +1157,7 @@ export default function Tasks() {
       // Filled in by the section, which is where conversation names live.
       peerName: "",
       // Deadline order first, then whatever this person dragged into place on top of it.
-      tasks: applyManualOrder(sortTasksByPriority(group.tasks, today), sharedOrder),
+      tasks: applyManualOrder(sortTasksByPriority(group.tasks, today, userId, flags), sharedOrder),
       tone: highestOpenPriority(group.tasks, today),
       auto: group.tasks.some((task) => needsAttention(task, userId, today)),
     }));
@@ -1019,30 +1165,42 @@ export default function Tasks() {
     return {
       personal: personalTasks,
       sharedGroups: named,
-      binned: sortTasksByPriority(split.binned, today),
+      binned: sortTasksByPriority(split.binned, today, userId, flags),
     };
-  }, [tasks, userId, today, scope, sharedOrder]);
+  }, [tasks, userId, today, scope, sharedOrder, flags]);
 
   const { order: viewOrder, isReady: isOrderReady, reorder: reorderViews } = useViewOrder();
-  const [mode, setMode] = useState<TaskViewMode>("deadline");
+  /**
+   * A link may name the reading it wants; arriving without one means no opinion.
+   *
+   * Read once at mount rather than on every render, so switching tabs by hand afterwards is
+   * not immediately undone by the address that brought them here.
+   */
+  const requestedView: TaskViewMode | null = parseTaskView(searchParams.get(TASK_VIEW_PARAM));
+  const [mode, setMode] = useState<TaskViewMode>(requestedView ?? "deadline");
   const [categoryFilter, setCategoryFilter] = useState<readonly string[]>([]);
   const { data: categories } = useTaskCategories();
   const { due, dismiss } = useDueReminders();
 
   /**
-   * The tab sitting first is the one that opens — but only on arrival. Dragging the strip
-   * around later must not yank the person out of the view they are reading.
+   * The tab sitting first is the one that opens — but only on arrival, and only when the link
+   * did not already say which reading it wanted. Dragging the strip around later must not
+   * yank the person out of the view they are reading, and a dashboard block that asked for
+   * the by-contact reading must not be overruled by someone's saved tab order.
    */
   const hasAppliedDefaultView = useRef<boolean>(false);
   useEffect(() => {
     if (!isOrderReady || hasAppliedDefaultView.current) return;
     hasAppliedDefaultView.current = true;
-    setMode(defaultViewMode(viewOrder));
-  }, [isOrderReady, viewOrder]);
+    if (requestedView === null) setMode(defaultViewMode(viewOrder));
+  }, [isOrderReady, viewOrder, requestedView]);
 
   const clearScope = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
     next.delete(TASK_SCOPE_PARAM);
+    // The requested reading goes with the filter it arrived with, so "Bỏ lọc" does not leave
+    // a stale view= behind to reassert itself on the next reload.
+    next.delete(TASK_VIEW_PARAM);
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
 
@@ -1062,6 +1220,20 @@ export default function Tasks() {
     (taskId: string): string | null => (tasks ?? []).find((task) => task.id === taskId)?.title ?? null,
     [tasks],
   );
+
+  /**
+   * Which task the detail panel is showing, kept as an id rather than the row itself.
+   *
+   * Holding the object would freeze it at the moment it was clicked, so an edit saved in the
+   * panel — or the other party accepting the task while it is open — would leave stale text
+   * on screen. Looking it up each render means the panel always shows what is actually true.
+   */
+  const [openTaskId, setOpenTaskId] = useState<string | null>(null);
+  const openedTask = useMemo<TaskItem | null>(
+    () => (tasks ?? []).find((task) => task.id === openTaskId) ?? null,
+    [tasks, openTaskId],
+  );
+  const openTask = useCallback((task: TaskItem): void => setOpenTaskId(task.id), []);
 
   const { data: conversations } = useConversations();
   const namedGroups = useMemo<NamedGroup[]>(() => {
@@ -1089,7 +1261,9 @@ export default function Tasks() {
             ? "Tất cả việc của bạn theo thứ tự phải làm trước."
             : mode === "relationship"
               ? "Việc của bạn và việc chung theo từng đối tượng. Bấm vào từng mục để mở ra."
-              : "Chỉ những việc đã đánh dấu khẩn cấp."}
+              : mode === "heavy"
+                ? "Việc bạn đánh giá là nặng, sắp theo chỗ trống còn lại trước hạn."
+                : "Những việc bạn đánh dấu là quan trọng — chỉ riêng bạn thấy."}
         </p>
 
         <div className="mt-5 space-y-3">
@@ -1127,15 +1301,30 @@ export default function Tasks() {
         ) : (
           <div className="mt-5 space-y-4 pb-10">
             {mode === "deadline" ? (
-              <TimelineView tasks={visible} userId={userId} today={today} />
+              <TimelineView tasks={visible} userId={userId} today={today} onOpen={openTask} />
             ) : null}
             {mode === "important" ? (
-              <ImportantView tasks={visible} userId={userId} today={today} />
+              <ImportantView
+                tasks={visible}
+                userId={userId}
+                today={today}
+                flags={flags}
+                onOpen={openTask}
+              />
+            ) : null}
+            {mode === "heavy" ? (
+              <HeavyView
+                tasks={visible}
+                userId={userId}
+                today={today}
+                flags={flags}
+                onOpen={openTask}
+              />
             ) : null}
             {mode === "relationship" ? (
               <>
-                <PersonalSection tasks={personal} today={today} />
-                <SharedSection groups={namedGroups} today={today} />
+                <PersonalSection tasks={personal} today={today} onOpen={openTask} />
+                <SharedSection groups={namedGroups} today={today} onOpen={openTask} />
               </>
             ) : null}
 
@@ -1158,6 +1347,20 @@ export default function Tasks() {
           </div>
         )}
       </div>
+
+      {/*
+        Held by id rather than by value, so the panel keeps showing the live row: an edit
+        saved inside it, or the other side moving the task along, is reflected immediately
+        instead of freezing whatever was clicked.
+      */}
+      <TaskDetailSheet
+        task={openedTask}
+        today={today}
+        open={openedTask !== null}
+        onOpenChange={(next) => {
+          if (!next) setOpenTaskId(null);
+        }}
+      />
     </div>
   );
 }

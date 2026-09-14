@@ -7,10 +7,12 @@ import {
   filterByScope,
   openCountsByScope,
   parseTaskScope,
+  parseTaskView,
   scopeLink,
   scopeOfTask,
   scopeSlug,
   TASK_SCOPE_PARAM,
+  TASK_VIEW_PARAM,
 } from "@/lib/task-scope";
 import type { TaskItem } from "@/lib/tasks";
 
@@ -114,13 +116,44 @@ describe("openCountsByScope", () => {
 
 describe("scopeLink", () => {
   it("leads to Tab Nhiệm vụ already narrowed to that block", () => {
-    expect(scopeLink("personal")).toBe(`/nhiem-vu?${TASK_SCOPE_PARAM}=ca-nhan`);
-    expect(scopeLink("direct")).toBe(`/nhiem-vu?${TASK_SCOPE_PARAM}=1-1`);
-    expect(scopeLink("group")).toBe(`/nhiem-vu?${TASK_SCOPE_PARAM}=nhom`);
+    expect(scopeLink("personal")).toContain(`${TASK_SCOPE_PARAM}=ca-nhan`);
+    expect(scopeLink("direct")).toContain(`${TASK_SCOPE_PARAM}=1-1`);
+    expect(scopeLink("group")).toContain(`${TASK_SCOPE_PARAM}=nhom`);
+  });
+
+  /**
+   * A block labelled "1-1" has to land on the reading where that grouping is visible.
+   * Filtering alone dropped people into the deadline timeline, which looks like the click
+   * was ignored — the tasks were right but the question they asked was not answered.
+   */
+  it("also opens the by-contact reading, which is what the block was asking", () => {
+    expect(scopeLink("direct")).toBe(
+      `/nhiem-vu?${TASK_SCOPE_PARAM}=1-1&${TASK_VIEW_PARAM}=relationship`,
+    );
+    expect(parseTaskView(new URLSearchParams(scopeLink("group").split("?")[1]).get(TASK_VIEW_PARAM))).toBe(
+      "relationship",
+    );
   });
 
   it("uses a slug the filter can read back", () => {
     // The number tapped and the list landed on must always be the same set of tasks.
     expect(parseTaskScope(scopeSlug("group"))).toBe("group");
+  });
+});
+
+describe("parseTaskView", () => {
+  it("reads back every reading the app can show", () => {
+    expect(parseTaskView("deadline")).toBe("deadline");
+    expect(parseTaskView("relationship")).toBe("relationship");
+    expect(parseTaskView("important")).toBe("important");
+    expect(parseTaskView("heavy")).toBe("heavy");
+  });
+
+  /** A hand-edited or stale address must not leave the screen on a tab that cannot render. */
+  it("treats anything unrecognised as no opinion at all", () => {
+    expect(parseTaskView(null)).toBeNull();
+    expect(parseTaskView(undefined)).toBeNull();
+    expect(parseTaskView("")).toBeNull();
+    expect(parseTaskView("khong-ton-tai")).toBeNull();
   });
 });

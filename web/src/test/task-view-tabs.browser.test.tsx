@@ -46,11 +46,17 @@ async function dragOnto(source: Element, target: Element): Promise<void> {
   source.dispatchEvent(new DragEvent("dragend", { bubbles: true, dataTransfer }));
 }
 
-test("the three readings are named in Vietnamese, with the relationship one by subject", async () => {
+test("the four readings are named in Vietnamese, with the relationship one by subject", async () => {
   const screen = await render(<Harness />);
   // "Theo đối tượng", not "Theo người": this view groups by conversation, and a group
-  // is not a person.
-  expect(tabLabels(screen.container)).toEqual(["Theo hạn", "Theo đối tượng", "Khẩn cấp"]);
+  // is not a person. "Quan trọng", not "Khẩn cấp": the deadline already answers urgency, so
+  // calling this tab urgent made every important thing without a date look out of place.
+  expect(tabLabels(screen.container)).toEqual([
+    "Theo hạn",
+    "Theo đối tượng",
+    "Quan trọng",
+    "Nhiệm vụ nặng",
+  ]);
 });
 
 test("dragging a tab to the front makes it the reading that opens next time", async () => {
@@ -58,13 +64,18 @@ test("dragging a tab to the front makes it the reading that opens next time", as
   const screen = await render(<Harness onOrderChange={(order) => orders.push(order)} />);
 
   const tabs = [...screen.container.querySelectorAll('[role="tab"]')];
-  const urgent = tabs[2];
+  const important = tabs[2];
   const first = tabs[0];
-  if (!urgent || !first) throw new Error("the strip is missing its tabs");
+  if (!important || !first) throw new Error("the strip is missing its tabs");
 
-  await dragOnto(urgent, first);
+  await dragOnto(important, first);
 
-  expect(tabLabels(screen.container)).toEqual(["Khẩn cấp", "Theo hạn", "Theo đối tượng"]);
+  expect(tabLabels(screen.container)).toEqual([
+    "Quan trọng",
+    "Theo hạn",
+    "Theo đối tượng",
+    "Nhiệm vụ nặng",
+  ]);
   const latest = orders[orders.length - 1];
   expect(latest).toBeDefined();
   expect(defaultViewMode(latest ?? [])).toBe("important");
@@ -73,19 +84,31 @@ test("dragging a tab to the front makes it the reading that opens next time", as
 test("the same move is available from the keyboard", async () => {
   const screen = await render(<Harness />);
 
-  await userEvent.click(screen.getByRole("tab", { name: "Khẩn cấp" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Quan trọng" }));
   await userEvent.keyboard("{Control>}{ArrowLeft}{/Control}");
 
-  expect(tabLabels(screen.container)).toEqual(["Theo hạn", "Khẩn cấp", "Theo đối tượng"]);
+  expect(tabLabels(screen.container)).toEqual([
+    "Theo hạn",
+    "Quan trọng",
+    "Theo đối tượng",
+    "Nhiệm vụ nặng",
+  ]);
 });
 
 test("choosing a tab selects it without disturbing the order", async () => {
   const screen = await render(<Harness />);
 
-  await userEvent.click(screen.getByRole("tab", { name: "Khẩn cấp" }));
+  await userEvent.click(screen.getByRole("tab", { name: "Quan trọng" }));
 
-  await expect.element(screen.getByRole("tab", { name: "Khẩn cấp" })).toHaveAttribute("aria-selected", "true");
-  expect(tabLabels(screen.container)).toEqual(["Theo hạn", "Theo đối tượng", "Khẩn cấp"]);
+  await expect
+    .element(screen.getByRole("tab", { name: "Quan trọng" }))
+    .toHaveAttribute("aria-selected", "true");
+  expect(tabLabels(screen.container)).toEqual([
+    "Theo hạn",
+    "Theo đối tượng",
+    "Quan trọng",
+    "Nhiệm vụ nặng",
+  ]);
 });
 
 test("on a 375px screen every tab is thumb-sized and nothing overflows", async () => {

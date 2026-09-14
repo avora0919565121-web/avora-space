@@ -15,6 +15,7 @@ import {
   updateBaseCurrency,
   updateDailyThoughtCategory,
   updateTimezone,
+  updateTypingSignal,
   type ProfileSettings,
 } from "@/lib/settings";
 
@@ -91,11 +92,22 @@ export function useSettingsActions() {
     },
   });
 
+  const setTypingSignal = useMutation({
+    mutationFn: (hide: boolean) => updateTypingSignal(userId, hide),
+    onSuccess: (settings) => {
+      queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, settings);
+    },
+  });
+
   return {
     setBaseCurrency,
     setTimezone,
     setDailyThoughtCategory,
+    setTypingSignal,
     isWorking:
-      setBaseCurrency.isPending || setTimezone.isPending || setDailyThoughtCategory.isPending,
+      setBaseCurrency.isPending ||
+      setTimezone.isPending ||
+      setDailyThoughtCategory.isPending ||
+      setTypingSignal.isPending,
   };
 }

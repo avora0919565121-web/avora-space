@@ -12,7 +12,9 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { useAuth } from "@/lib/auth";
 import {
+  applyMessageEditToInbox,
   applyMessageToInbox,
+  applyMessageUpdate,
   applyPeerRead,
   chatKeys,
   clearUnread,
@@ -123,15 +125,48 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
     };
 
+    /** One realtime row to a message, with the three after-the-fact fields carried through. */
+    const toChatMessage = (row: MessageRow): ChatMessage => ({
+      id: row.id,
+      conversationId: row.conversation_id,
+      senderId: row.sender_id,
+      content: row.content,
+      createdAt: toIsoTimestamp(row.created_at),
+      editedAt: row.edited_at === null ? null : toIsoTimestamp(row.edited_at),
+      deletedAt: row.deleted_at === null ? null : toIsoTimestamp(row.deleted_at),
+      replyToMessageId: row.reply_to_message_id,
+    });
+
+    /**
+     * An edit or a recall, delivered to everyone in the room.
+     *
+     * This is what makes đã thu hồi mean something: without it, the words would stay on the
+     * other person's screen until they happened to reload, which is exactly the moment that
+     * matters most.
+     */
+    const handleMessageUpdate = (payload: RealtimePostgresUpdatePayload<MessageRow>): void => {
+      const incoming = toChatMessage(payload.new);
+
+      const threadKey = chatKeys.messages(incoming.conversationId);
+      const thread = queryClient.getQueryData<ChatMessage[]>(threadKey);
+      if (thread) {
+        const next = applyMessageUpdate(thread, incoming);
+        if (next !== thread) queryClient.setQueryData<ChatMessage[]>(threadKey, next);
+      }
+
+      // The inbox preview quotes the newest message, so a correction to it has to follow.
+      const inbox = queryClient.getQueryData<ConversationSummary[]>(chatKeys.conversations);
+      if (inbox) {
+        const patched = applyMessageEditToInbox(inbox, incoming);
+        if (patched !== inbox) {
+          queryClient.setQueryData<ConversationSummary[]>(chatKeys.conversations, patched);
+        }
+      }
+    };
+
     const handleMessage = (payload: RealtimePostgresInsertPayload<MessageRow>): void => {
       const row = payload.new;
-      const incoming: ChatMessage = {
-        id: row.id,
-        conversationId: row.conversation_id,
-        senderId: row.sender_id,
-        content: row.content,
-        createdAt: toIsoTimestamp(row.created_at),
-      };
+      const incoming: ChatMessage = toChatMessage(row);
 
       const threadKey = chatKeys.messages(incoming.conversationId);
       const thread = queryClient.getQueryData<ChatMessage[]>(threadKey);
@@ -250,6 +285,11 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       channel = supabase
         .channel(`avora-chat-${userId}`)
         .on<MessageRow>("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, handleMessage)
+        .on<MessageRow>(
+          "postgres_changes",
+          { event: "UPDATE", schema: "public", table: "messages" },
+          handleMessageUpdate,
+        )
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "conversation_participants" },

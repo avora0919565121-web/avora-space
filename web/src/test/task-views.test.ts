@@ -14,12 +14,29 @@ import {
   sortTasksByPriority,
   taskTier,
   validateTaskDraft,
+  type TaskFlagIndex,
+  type TaskFlagValue,
   type TaskItem,
 } from "@/lib/tasks";
 
 const TODAY = "2026-09-08";
 const ME = "u-me";
 const THEM = "u-them";
+
+/**
+ * One reader's marks. Importance is no longer a property of the task, so these tests have to
+ * say whose list they are describing — which is the point of the change.
+ */
+function flagsFor(entries: Record<string, Partial<TaskFlagValue>>): TaskFlagIndex {
+  const index = new Map<string, TaskFlagValue>();
+  for (const [taskId, value] of Object.entries(entries)) {
+    index.set(taskId, {
+      isImportant: value.isImportant ?? false,
+      durationMinutes: value.durationMinutes ?? null,
+    });
+  }
+  return index;
+}
 
 function makeTask(overrides: Partial<TaskItem>): TaskItem {
   return {
@@ -130,26 +147,37 @@ describe("ordering", () => {
    * The rule the brief is most emphatic about: starring a task must not let it jump ahead of
    * work that is genuinely due sooner.
    */
-  it("never lets the emergency mark outrank an earlier deadline", () => {
-    const starredLater = makeTask({
-      id: "starred",
-      deadline: "2026-09-15",
-      isImportant: true,
-    });
+  it("never lets the importance mark outrank an earlier deadline", () => {
+    const starredLater = makeTask({ id: "starred", deadline: "2026-09-15" });
     const plainSooner = makeTask({ id: "plain", deadline: "2026-09-10" });
-    expect(sortTasksByPriority([starredLater, plainSooner], TODAY, ME).map((t) => t.id)).toEqual([
-      "plain",
+    const flags = flagsFor({ starred: { isImportant: true } });
+    expect(
+      sortTasksByPriority([starredLater, plainSooner], TODAY, ME, flags).map((t) => t.id),
+    ).toEqual(["plain", "starred"]);
+  });
+
+  it("uses the importance mark only when everything else already matches", () => {
+    const starred = makeTask({ id: "starred", deadline: "2026-09-12", deadlineTime: "14:00" });
+    const plain = makeTask({ id: "plain", deadline: "2026-09-12", deadlineTime: "14:00" });
+    const flags = flagsFor({ starred: { isImportant: true } });
+    expect(sortTasksByPriority([plain, starred], TODAY, ME, flags).map((t) => t.id)).toEqual([
       "starred",
+      "plain",
     ]);
   });
 
-  it("uses the emergency mark only when everything else already matches", () => {
-    const starred = makeTask({ id: "starred", deadline: "2026-09-12", deadlineTime: "14:00", isImportant: true });
-    const plain = makeTask({ id: "plain", deadline: "2026-09-12", deadlineTime: "14:00" });
-    expect(sortTasksByPriority([plain, starred], TODAY, ME).map((t) => t.id)).toEqual([
-      "starred",
-      "plain",
-    ]);
+  /**
+   * The heart of the split: the same two tasks, ordered from two people's points of view,
+   * come out in opposite orders because each is reading their own marks. Before this change
+   * one person's star silently reordered everybody's list.
+   */
+  it("orders the same pair differently for two people who marked different things", () => {
+    const a = makeTask({ id: "a", deadline: "2026-09-12", deadlineTime: "14:00" });
+    const b = makeTask({ id: "b", deadline: "2026-09-12", deadlineTime: "14:00" });
+    const mine = flagsFor({ a: { isImportant: true } });
+    const theirs = flagsFor({ b: { isImportant: true } });
+    expect(sortTasksByPriority([a, b], TODAY, ME, mine).map((t) => t.id)).toEqual(["a", "b"]);
+    expect(sortTasksByPriority([a, b], TODAY, ME, theirs).map((t) => t.id)).toEqual(["b", "a"]);
   });
 
   it("still sinks finished work to the bottom even when it is overdue", () => {
@@ -180,13 +208,26 @@ describe("groupTasksByDeadlineDay", () => {
 });
 
 describe("importantTasks", () => {
-  it("keeps only starred work, still in deadline order", () => {
+  it("keeps only work this person marked, still in deadline order", () => {
     const tasks = [
       makeTask({ id: "plain", deadline: "2026-09-09" }),
-      makeTask({ id: "star-late", deadline: "2026-09-20", isImportant: true }),
-      makeTask({ id: "star-soon", deadline: "2026-09-10", isImportant: true }),
+      makeTask({ id: "star-late", deadline: "2026-09-20" }),
+      makeTask({ id: "star-soon", deadline: "2026-09-10" }),
     ];
-    expect(importantTasks(tasks, TODAY, ME).map((task) => task.id)).toEqual(["star-soon", "star-late"]);
+    const flags = flagsFor({
+      "star-late": { isImportant: true },
+      "star-soon": { isImportant: true },
+    });
+    expect(importantTasks(tasks, TODAY, flags, ME).map((task) => task.id)).toEqual([
+      "star-soon",
+      "star-late",
+    ]);
+  });
+
+  /** Someone who marked nothing sees an empty list, even on tasks others starred. */
+  it("shows nothing to a person who marked nothing", () => {
+    const tasks = [makeTask({ id: "a" }), makeTask({ id: "b" })];
+    expect(importantTasks(tasks, TODAY, flagsFor({}), ME)).toEqual([]);
   });
 });
 

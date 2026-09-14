@@ -80,7 +80,13 @@ export type TaskItem = {
   deadlineTz: string;
   /** The creator's own shelf. Null on a task the peer is looking at, whose labels are private. */
   categoryId: string | null;
-  /** An emergency marker, and only a tiebreaker — it never outranks a deadline. */
+  /**
+   * Legacy single-flag column, kept so old rows still parse. Superseded by `task_flags`:
+   * whether a task is important is now each person's own reading, so nothing should decide
+   * anything from this field. Read `TaskFlagIndex` instead.
+   *
+   * @deprecated Use the viewer's own flag from `task_flags`.
+   */
   isImportant: boolean;
   recurrence: TaskRecurrence;
   recurrencePattern: RecurrencePattern | null;
@@ -204,6 +210,10 @@ export function toVietnameseTaskError(code: string | undefined, message: string)
     return "Không lưu được ngữ cảnh cuộc trò chuyện. Thử lại nhé.";
   if (normalized.includes("avora_task_not_awaiting_review"))
     return "Nhiệm vụ chưa được báo xong nên chưa có gì để duyệt.";
+  if (normalized.includes("avora_task_not_party"))
+    return "Chỉ người giao và người nhận nhiệm vụ này mới sửa được.";
+  if (normalized.includes("avora_task_edit_closed"))
+    return "Nhiệm vụ đã báo xong nên không sửa được nữa.";
   if (normalized.includes("avora_task_not_found")) return "Không tìm thấy nhiệm vụ này.";
   if (normalized.includes("avora_not_a_participant")) return "Bạn không có quyền trong cuộc trò chuyện này.";
   if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
@@ -267,7 +277,10 @@ export type TaskDraft = {
   /** Optional: a task due "that day" is a perfectly ordinary task. */
   deadlineTime?: string;
   categoryId?: string | null;
+  /** The composer's own reading, written to this person's `task_flags` row after creation. */
   isImportant?: boolean;
+  /** Expected effort in minutes, or null for "not estimated". Never required. */
+  durationMinutes?: number | null;
   recurrence?: TaskRecurrence;
   recurrencePattern?: RecurrencePattern | null;
   /** Which reminder to set once the task exists, or null for none. */
@@ -281,6 +294,7 @@ export type ValidatedTaskDraft = {
   deadlineTime: string | null;
   categoryId: string | null;
   isImportant: boolean;
+  durationMinutes: number | null;
   recurrence: TaskRecurrence;
   recurrencePattern: RecurrencePattern | null;
 } | null;
@@ -312,6 +326,7 @@ export function validateTaskDraft(
       deadlineTime: time.time,
       categoryId: draft.categoryId ?? null,
       isImportant: draft.isImportant ?? false,
+      durationMinutes: draft.durationMinutes ?? null,
       recurrence,
       recurrencePattern: pattern,
     },
@@ -365,6 +380,80 @@ export function canReviewSharedDone(task: TaskItem, userId: string | undefined):
  */
 export function canReturnSharedTask(task: TaskItem, userId: string | undefined): boolean {
   return canReviewSharedDone(task, userId);
+}
+
+/**
+ * Who may reword a task, and until when.
+ *
+ * A personal task belongs to one person, so they may always edit it. A shared task may be
+ * edited by either party — the person who asked and the person carrying it — but only while
+ * it is still live. Once the assignee has filed a done claim, the description is the thing
+ * being reviewed: rewriting it then would mean judging finished work against wording that
+ * changed after the fact. A group bystander can read the task but was never party to it, so
+ * it is not theirs to reword. The server enforces all of this; this only decides whether to
+ * offer the button.
+ */
+export function canEditTask(task: TaskItem, userId: string | undefined): boolean {
+  if (userId === undefined) return false;
+  if (task.type === "personal") return task.creatorId === userId;
+  if (task.status !== "pending_confirmation" && task.status !== "confirmed") return false;
+  return task.creatorId === userId || isTaskAssignee(task, userId);
+}
+
+/** Why the edit button is absent, said plainly rather than left to be guessed. */
+export function editBlockedReason(task: TaskItem, userId: string | undefined): string | null {
+  if (canEditTask(task, userId)) return null;
+  if (userId === undefined) return "Bạn cần đăng nhập lại.";
+  if (task.type === "personal") return "Chỉ chủ nhiệm vụ sửa được.";
+  if (task.status === "done") return "Nhiệm vụ đã hoàn thành nên không sửa được nữa.";
+  if (task.status === "done_pending_review")
+    return "Đang chờ xác nhận hoàn thành — nội dung được giữ nguyên để đối chiếu.";
+  return "Chỉ người giao và người nhận nhiệm vụ này mới sửa được.";
+}
+
+/** The three fields an edit may change. Everything else about a task is settled at creation. */
+export type TaskEdit = {
+  title: string;
+  description: string;
+  deadline: string;
+  deadlineTime?: string | null;
+};
+
+/** The same bar a new task has to clear, applied to an edit. */
+export function validateTaskEdit(
+  edit: TaskEdit,
+  today: string,
+): { value: Required<TaskEdit> | null; error: string | null } {
+  const title = validateTaskTitle(edit.title);
+  if (!title.title) return { value: null, error: title.error };
+  const description = validateTaskDescription(edit.description);
+  if (!description.description) return { value: null, error: description.error };
+  const deadline = validateTaskDeadline(edit.deadline, today);
+  if (!deadline.deadline) return { value: null, error: deadline.error };
+  const time = validateDeadlineTime(edit.deadlineTime ?? "");
+  if (time.error !== null) return { value: null, error: time.error };
+  return {
+    value: {
+      title: title.title,
+      description: description.description,
+      deadline: deadline.deadline,
+      deadlineTime: time.time,
+    },
+    error: null,
+  };
+}
+
+/**
+ * An edit that changes nothing is not worth a round trip — or an `updated_at` bump, which
+ * would tell the other side something happened when nothing did.
+ */
+export function isTaskEditUnchanged(task: TaskItem, edit: Required<TaskEdit>): boolean {
+  return (
+    task.title === edit.title &&
+    task.description === edit.description &&
+    task.deadline === edit.deadline &&
+    task.deadlineTime === edit.deadlineTime
+  );
 }
 
 /** True once both sides have deleted a shared task, meaning the row is gone from the database. */
@@ -532,6 +621,47 @@ export type TaskPriority = "overdue" | "due_soon" | "routine" | "none";
 /** Inside this many days a deadline stops being routine and starts being pressing. */
 export const DUE_SOON_DAYS = 3;
 
+/**
+ * Above this many minutes a task stops being an errand and starts needing a slot in the day.
+ * An hour is the line because it is the point where work stops fitting between other things.
+ */
+export const HEAVY_TASK_MINUTES = 60;
+
+/**
+ * One person's reading of one task: whether it matters to them, and how long they think it
+ * will take them. Both are opinions — the person who asked for the work and the person
+ * carrying it can hold different ones, and each is right about their own list.
+ */
+export type TaskFlagValue = {
+  isImportant: boolean;
+  /** Null means not estimated, which is the ordinary resting state, not zero. */
+  durationMinutes: number | null;
+};
+
+/** The viewer's own flags, keyed by task id. Never holds anyone else's reading. */
+export type TaskFlagIndex = ReadonlyMap<string, TaskFlagValue>;
+
+export const NO_TASK_FLAGS: TaskFlagIndex = new Map<string, TaskFlagValue>();
+
+/** What this person marked important. Absent means "not marked", never "unknown". */
+export function isImportantFor(flags: TaskFlagIndex, taskId: string): boolean {
+  return flags.get(taskId)?.isImportant ?? false;
+}
+
+/** This person's own estimate, or null when they never gave one. */
+export function durationFor(flags: TaskFlagIndex, taskId: string): number | null {
+  return flags.get(taskId)?.durationMinutes ?? null;
+}
+
+/** Heavy is a judgement about effort only — it says nothing about urgency or importance. */
+export function isHeavyDuration(minutes: number | null): boolean {
+  return minutes !== null && minutes > HEAVY_TASK_MINUTES;
+}
+
+export function isHeavyFor(flags: TaskFlagIndex, taskId: string): boolean {
+  return isHeavyDuration(durationFor(flags, taskId));
+}
+
 const PRIORITY_RANK: Record<TaskPriority, number> = { overdue: 0, due_soon: 1, routine: 2, none: 3 };
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -595,6 +725,7 @@ export function compareTaskPriority(
   b: TaskItem,
   today: string,
   viewerId?: string,
+  flags: TaskFlagIndex = NO_TASK_FLAGS,
 ): number {
   const aClosed = a.status === "done" ? 1 : 0;
   const bClosed = b.status === "done" ? 1 : 0;
@@ -623,16 +754,24 @@ export function compareTaskPriority(
     if (tierA !== tierB) return tierA - tierB;
   }
 
-  // Last of all, the emergency marker. Deliberately below date, clock and tier: starring a
-  // task must not let it jump ahead of work that is genuinely due sooner.
-  if (a.isImportant !== b.isImportant) return a.isImportant ? -1 : 1;
+  // Last of all, this person's own importance mark. Deliberately below date, clock and tier:
+  // marking a task must not let it jump ahead of work that is genuinely due sooner. Read from
+  // the viewer's flags, so one person's marking never reorders anyone else's list.
+  const importantA = isImportantFor(flags, a.id);
+  const importantB = isImportantFor(flags, b.id);
+  if (importantA !== importantB) return importantA ? -1 : 1;
 
   if (a.createdAt !== b.createdAt) return a.createdAt < b.createdAt ? -1 : 1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
 
-export function sortTasksByPriority(tasks: TaskItem[], today: string, viewerId?: string): TaskItem[] {
-  return [...tasks].sort((a, b) => compareTaskPriority(a, b, today, viewerId));
+export function sortTasksByPriority(
+  tasks: TaskItem[],
+  today: string,
+  viewerId?: string,
+  flags: TaskFlagIndex = NO_TASK_FLAGS,
+): TaskItem[] {
+  return [...tasks].sort((a, b) => compareTaskPriority(a, b, today, viewerId, flags));
 }
 
 // ---------------------------------------------------------------- views
@@ -644,13 +783,17 @@ export function sortTasksByPriority(tasks: TaskItem[], today: string, viewerId?:
  * answers "what do I owe this person", and `important` is an emergency filter, not a sort —
  * it narrows to starred work and still orders it by deadline.
  */
-export type TaskViewMode = "deadline" | "relationship" | "important";
+export type TaskViewMode = "deadline" | "relationship" | "important" | "heavy";
 
 export const TASK_VIEW_LABELS: Record<TaskViewMode, string> = {
   deadline: "Theo hạn",
   // "Đối tượng", not "người": this view now groups by conversation, and a group is not a person.
   relationship: "Theo đối tượng",
-  important: "Khẩn cấp",
+  // "Quan trọng", not "Khẩn cấp": what matters and what is urgent are different questions, and
+  // the deadline already answers the urgent one. Calling this tab urgent made every important
+  // thing without a date look like it did not belong here.
+  important: "Quan trọng",
+  heavy: "Nhiệm vụ nặng",
 };
 
 export type TaskDayGroup = { date: string | null; tasks: TaskItem[] };
@@ -677,17 +820,84 @@ export function groupTasksByDeadlineDay(
   return groups;
 }
 
-/** Emergency mode: only what has been starred, still ordered by when it is due. */
+/**
+ * Only what THIS person marked important, still ordered by when it is due.
+ *
+ * Flags are required rather than optional: reading this view without them would return an
+ * empty list that looks exactly like "you have marked nothing", and a hidden list and an
+ * empty one must not be indistinguishable.
+ */
 export function importantTasks(
   tasks: readonly TaskItem[],
   today: string,
+  flags: TaskFlagIndex,
   viewerId?: string,
 ): TaskItem[] {
   return sortTasksByPriority(
-    tasks.filter((task) => task.isImportant),
+    tasks.filter((task) => isImportantFor(flags, task.id)),
     today,
     viewerId,
+    flags,
   );
+}
+
+/**
+ * Minutes from the start of today until a task is due, in the same unit as an estimate so the
+ * two can be subtracted. A task due at a stated hour is due then; one without a clock is due
+ * by the end of its day, which is the same reading the sort order already uses. Negative for
+ * work already late.
+ */
+export function leadTimeMinutes(task: TaskItem, today: string): number | null {
+  if (task.deadline === null) return null;
+  const days = daysUntilDeadline(task.deadline, today);
+  if (days === null) return null;
+  const END_OF_DAY = 24 * 60;
+  if (task.deadlineTime === null) return days * END_OF_DAY + END_OF_DAY;
+  const [hours, minutes] = task.deadlineTime.split(":").map((part) => Number.parseInt(part, 10));
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return days * END_OF_DAY + END_OF_DAY;
+  return days * END_OF_DAY + (hours ?? 0) * 60 + (minutes ?? 0);
+}
+
+/**
+ * How much room is left after the work itself is accounted for: the time until the deadline
+ * minus the time the work is expected to take.
+ *
+ * This is the whole point of the heavy view. A four-hour job due in six hours is in more
+ * trouble than a ten-minute job due in one, even though the second has the nearer deadline —
+ * so ordering heavy work by deadline alone would put the wrong task first. A task with no
+ * deadline has unlimited room, expressed as infinity so it sorts last without a special case.
+ */
+export function slackMinutes(task: TaskItem, today: string, flags: TaskFlagIndex): number {
+  const lead = leadTimeMinutes(task, today);
+  if (lead === null) return Number.POSITIVE_INFINITY;
+  return lead - (durationFor(flags, task.id) ?? 0);
+}
+
+/**
+ * Work this person expects to cost them more than an hour, tightest first.
+ *
+ * Ordered by slack rather than by deadline, then by deadline to settle ties, so the task that
+ * is genuinely about to run out of room sits at the top. Finished work sinks regardless.
+ */
+export function heavyTasks(
+  tasks: readonly TaskItem[],
+  today: string,
+  flags: TaskFlagIndex,
+  viewerId?: string,
+): TaskItem[] {
+  return tasks
+    .filter((task) => isHeavyFor(flags, task.id))
+    .sort((a, b) => {
+      const aClosed = a.status === "done" ? 1 : 0;
+      const bClosed = b.status === "done" ? 1 : 0;
+      if (aClosed !== bClosed) return aClosed - bClosed;
+
+      const slackA = slackMinutes(a, today, flags);
+      const slackB = slackMinutes(b, today, flags);
+      if (slackA !== slackB) return slackA < slackB ? -1 : 1;
+
+      return compareTaskPriority(a, b, today, viewerId, flags);
+    });
 }
 
 /** Narrows a list to one shelf. An empty selection means "no filter", not "nothing". */
@@ -934,7 +1144,10 @@ export async function createPersonalTask(
       deadline_time: clean.value.deadlineTime,
       deadline_tz: browserTimezone(),
       task_category_id: clean.value.categoryId,
-      is_important: clean.value.isImportant,
+      // The shared column is retired: importance is per-person now and lives in `task_flags`,
+      // which the caller writes for whoever is acting. Left at false rather than dropped so
+      // rows written before the split still read back unchanged.
+      is_important: false,
       recurrence: clean.value.recurrence,
       recurrence_pattern: clean.value.recurrencePattern,
     })
@@ -1020,7 +1233,8 @@ export async function createSharedTask(
     p_deadline_time: clean.value.deadlineTime,
     p_deadline_tz: browserTimezone(),
     p_category_id: clean.value.categoryId,
-    p_is_important: clean.value.isImportant,
+    // Retired in favour of per-person `task_flags`; see createPersonalTask.
+    p_is_important: false,
     p_recurrence: clean.value.recurrence,
     p_recurrence_pattern: clean.value.recurrencePattern,
     p_context_snapshot:
@@ -1070,6 +1284,50 @@ export async function deleteSharedTask(taskId: string): Promise<TaskItem> {
   const { data, error } = await supabase.rpc("delete_shared_task", { p_task_id: taskId });
   if (error) throw fail(error.code, error.message);
   return toTaskItem(data as unknown as TaskRow);
+}
+
+/**
+ * Rewords a shared task: title, detail and when it is due.
+ *
+ * Both parties may do this while the task is live, because a promise often needs its wording
+ * fixed after it is made. The server re-checks who is asking and what state the task is in —
+ * this is not a client-side rule with a server-side hint.
+ */
+export async function updateSharedTaskDetails(
+  taskId: string,
+  edit: Required<TaskEdit>,
+): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("update_shared_task_details", {
+    p_task_id: taskId,
+    p_title: edit.title,
+    p_description: edit.description,
+    p_deadline: edit.deadline,
+    p_deadline_time: edit.deadlineTime,
+    p_deadline_tz: browserTimezone(),
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/** The same edit on a personal task, which one person owns outright and RLS already guards. */
+export async function updatePersonalTaskDetails(
+  taskId: string,
+  edit: Required<TaskEdit>,
+): Promise<TaskItem> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({
+      title: edit.title,
+      description: edit.description,
+      deadline_date: edit.deadline,
+      deadline_time: edit.deadlineTime,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", taskId)
+    .select(TASK_COLUMNS)
+    .single();
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as TaskRow);
 }
 
 /** Takes a shared task back out of the caller's bin. Safe to retry. */

@@ -39,6 +39,17 @@ import {
 } from "@/lib/decisions";
 import type { GroupMember, GroupRole } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
+import { MeetingNoteFields, MeetingNoteSummary } from "@/components/chat/MeetingNoteFields";
+import {
+  canFinalizeWithDetails,
+  emptyDetails,
+  fetchMeetingNoteDetails,
+  hasAnyDetail,
+  meetingNoteKeys,
+  pendingTaskCount,
+  saveMeetingNoteDetails,
+  type MeetingNoteDetails,
+} from "@/lib/meeting-notes";
 import { cn } from "@/lib/utils";
 
 type GroupDecisionSheetProps = {
@@ -80,6 +91,15 @@ export function GroupDecisionSheet({
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState<string>("");
   const [editBody, setEditBody] = useState<string>("");
+  /**
+   * The structured half being composed or edited, held apart from the note itself.
+   *
+   * A new note has no id until it is created, so its details are collected here first and
+   * written immediately afterwards — which is also why `createMutation` saves them in the
+   * same success path rather than leaving a note whose template quietly went nowhere.
+   */
+  const [composeDetails, setComposeDetails] = useState<MeetingNoteDetails>(emptyDetails(""));
+  const [editDetails, setEditDetails] = useState<MeetingNoteDetails>(emptyDetails(""));
 
   const myRole: GroupRole | undefined = members.find((member) => member.userId === userId)?.role;
 
@@ -98,9 +118,30 @@ export function GroupDecisionSheet({
   const entries: DecisionEntry[] = useMemo(() => listQuery.data ?? [], [listQuery.data]);
   const grants = useMemo(() => grantsQuery.data ?? [], [grantsQuery.data]);
 
+  const noteIds = useMemo(
+    () => entries.filter((entry) => entry.kind === "meeting_note").map((entry) => entry.id),
+    [entries],
+  );
+
+  /** Details for every note in the log, fetched in one pass rather than one per row. */
+  const detailsQuery = useQuery({
+    queryKey: [...meetingNoteKeys.details(conversationId), noteIds],
+    queryFn: () => fetchMeetingNoteDetails(noteIds),
+    enabled: open && noteIds.length > 0,
+  });
+
+  const detailsByNote = useMemo(
+    () => detailsQuery.data ?? new Map<string, MeetingNoteDetails>(),
+    [detailsQuery.data],
+  );
+
+  /** Everyone in the room, offered as a starting point for the attendance list. */
+  const suggestedAttendees = useMemo(() => members.map((member) => member.userId), [members]);
+
   const refresh = (): void => {
     void queryClient.invalidateQueries({ queryKey: decisionKeys.list(conversationId) });
     void queryClient.invalidateQueries({ queryKey: decisionKeys.grants(conversationId) });
+    void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.details(conversationId) });
   };
 
   const resetCompose = (): void => {
@@ -108,11 +149,25 @@ export function GroupDecisionSheet({
     setTitle("");
     setBody("");
     setOptions(["", ""]);
+    setComposeDetails(emptyDetails(""));
   };
 
+  /**
+   * Creating a note writes its template in the same breath.
+   *
+   * The details need the note's id, which only exists once the note does — so they are saved
+   * immediately after. A failure here is reported rather than swallowed: the note exists and
+   * is still a draft, so the person can re-enter what did not land instead of discovering
+   * later that the structure silently went nowhere.
+   */
   const createMutation = useMutation({
-    mutationFn: (kind: DecisionKind) =>
-      createDecision({ conversationId, kind, title, body, options }),
+    mutationFn: async (kind: DecisionKind) => {
+      const id = await createDecision({ conversationId, kind, title, body, options });
+      if (kind === "meeting_note" && hasAnyDetail(composeDetails)) {
+        await saveMeetingNoteDetails({ ...composeDetails, decisionId: id });
+      }
+      return id;
+    },
     onSuccess: (_id, kind) => {
       toast.success(kind === "poll" ? "Đã mở cuộc bình chọn." : "Đã tạo bản nháp biên bản.");
       resetCompose();
@@ -122,7 +177,10 @@ export function GroupDecisionSheet({
   });
 
   const saveDraftMutation = useMutation({
-    mutationFn: (entryId: string) => updateDraft(entryId, editTitle, editBody),
+    mutationFn: async (entryId: string) => {
+      await updateDraft(entryId, editTitle, editBody);
+      await saveMeetingNoteDetails({ ...editDetails, decisionId: entryId });
+    },
     onSuccess: () => {
       toast.success("Đã lưu bản nháp.");
       setEditingId(null);
@@ -131,10 +189,29 @@ export function GroupDecisionSheet({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /**
+   * Locking a note is also what hands out the work it recorded, so the message says how many
+   * tasks it produced. Silently creating three tasks would be a surprise; saying so is not.
+   */
   const finalizeMutation = useMutation({
-    mutationFn: (entryId: string) => finalizeNote(entryId),
-    onSuccess: () => {
-      toast.success("Đã khoá biên bản. Từ giờ không sửa được nữa.");
+    mutationFn: async (entryId: string) => {
+      // Save any unsaved edits first, or the tasks would be built from stale action items.
+      if (editingId === entryId) {
+        await updateDraft(entryId, editTitle, editBody);
+        await saveMeetingNoteDetails({ ...editDetails, decisionId: entryId });
+      }
+      const created = pendingTaskCount(
+        editingId === entryId ? editDetails : detailsByNote.get(entryId),
+      );
+      await finalizeNote(entryId);
+      return created;
+    },
+    onSuccess: (created) => {
+      toast.success(
+        created > 0
+          ? `Đã khoá biên bản và tạo ${created} nhiệm vụ.`
+          : "Đã khoá biên bản. Từ giờ không sửa được nữa.",
+      );
       setEditingId(null);
       refresh();
     },
@@ -190,6 +267,7 @@ export function GroupDecisionSheet({
     setEditingId(entry.id);
     setEditTitle(entry.title);
     setEditBody(entry.body);
+    setEditDetails(detailsByNote.get(entry.id) ?? emptyDetails(entry.id));
   };
 
   const submitCompose = (event: FormEvent): void => {
@@ -255,13 +333,21 @@ export function GroupDecisionSheet({
               />
 
               {composing === "meeting_note" ? (
-                <textarea
-                  value={body}
-                  onChange={(event) => setBody(event.target.value)}
-                  rows={4}
-                  placeholder="Nội dung đã thống nhất…"
-                  className="mt-2 w-full resize-none rounded-[8px] border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
-                />
+                <>
+                  <textarea
+                    value={body}
+                    onChange={(event) => setBody(event.target.value)}
+                    rows={4}
+                    placeholder="Nội dung đã thống nhất…"
+                    className="mt-2 w-full resize-none rounded-[8px] border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+                  />
+                  <MeetingNoteFields
+                    details={composeDetails}
+                    members={members}
+                    suggestedAttendees={suggestedAttendees}
+                    onChange={setComposeDetails}
+                  />
+                </>
               ) : (
                 <div className="mt-2 space-y-2">
                   {options.map((option, index) => (
@@ -453,7 +539,7 @@ export function GroupDecisionSheet({
                       ) : null}
                     </div>
 
-                    {/* Meeting note body */}
+                    {/* Meeting note body, plus the structured half */}
                     {entry.kind === "meeting_note" ? (
                       editing ? (
                         <div className="mt-2.5">
@@ -462,6 +548,13 @@ export function GroupDecisionSheet({
                             onChange={(event) => setEditBody(event.target.value)}
                             rows={4}
                             className="w-full resize-none rounded-[8px] border border-border bg-card px-2.5 py-2 text-[13.5px] text-foreground outline-none focus:border-primary/60"
+                          />
+                          <MeetingNoteFields
+                            details={editDetails}
+                            members={members}
+                            suggestedAttendees={suggestedAttendees}
+                            onChange={setEditDetails}
+                            startExpanded={hasAnyDetail(editDetails)}
                           />
                           <div className="mt-2 flex gap-2">
                             <button
@@ -480,11 +573,19 @@ export function GroupDecisionSheet({
                             </button>
                           </div>
                         </div>
-                      ) : entry.body.length > 0 ? (
-                        <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-[1.55] text-foreground/90">
-                          {entry.body}
-                        </p>
-                      ) : null
+                      ) : (
+                        <>
+                          {entry.body.length > 0 ? (
+                            <p className="mt-2 whitespace-pre-wrap text-[13.5px] leading-[1.55] text-foreground/90">
+                              {entry.body}
+                            </p>
+                          ) : null}
+                          <MeetingNoteSummary
+                            details={detailsByNote.get(entry.id)}
+                            memberName={memberName}
+                          />
+                        </>
+                      )
                     ) : null}
 
                     {/* Poll options */}
@@ -560,15 +661,33 @@ export function GroupDecisionSheet({
                             Sửa nháp
                           </button>
                         ) : null}
-                        {entry.kind === "meeting_note" && canSettle(entry, myRole, userId) ? (
-                          <button
-                            type="button"
-                            onClick={() => finalizeMutation.mutate(entry.id)}
-                            className="press rounded-[8px] bg-primary px-2.5 py-1.5 text-[12.5px] font-semibold text-primary-foreground"
-                          >
-                            Kết thúc &amp; khoá
-                          </button>
-                        ) : null}
+                        {entry.kind === "meeting_note" && canSettle(entry, myRole, userId)
+                          ? (() => {
+                              // Locking is what hands out the work, so a half-filled ticked
+                              // line blocks it here rather than being refused mid-finalize.
+                              const draftDetails =
+                                editing ? editDetails : detailsByNote.get(entry.id);
+                              const ready = canFinalizeWithDetails(draftDetails);
+                              const willCreate = pendingTaskCount(draftDetails);
+                              return (
+                                <button
+                                  type="button"
+                                  disabled={!ready}
+                                  title={
+                                    ready
+                                      ? undefined
+                                      : "Có việc cần làm đã tick “Tạo Task” nhưng chưa đủ người phụ trách hoặc hạn"
+                                  }
+                                  onClick={() => finalizeMutation.mutate(entry.id)}
+                                  className="press rounded-[8px] bg-primary px-2.5 py-1.5 text-[12.5px] font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-45"
+                                >
+                                  {willCreate > 0
+                                    ? `Kết thúc & khoá · tạo ${willCreate} nhiệm vụ`
+                                    : "Kết thúc & khoá"}
+                                </button>
+                              );
+                            })()
+                          : null}
                         {entry.kind === "poll" && canSettle(entry, myRole, userId) ? (
                           <button
                             type="button"

@@ -3,8 +3,13 @@ import type { ChatMessage, ConversationKind, ConversationSummary } from "@/lib/c
 import { peerLabel } from "@/lib/initials";
 
 export {
+  applyMessageEditToInbox,
   applyMessageToInbox,
+  applyMessageUpdate,
   applyPeerRead,
+  canEditMessage,
+  canRecallMessage,
+  canReplyToMessage,
   canSendDraft,
   chatKeys,
   clearUnread,
@@ -18,14 +23,24 @@ export {
   formatMissedMessages,
   formatUnreadBadge,
   groupMessagesByDay,
+  isEdited,
   isNearThreadBottom,
+  isRecalled,
+  isSearchable,
   isSeenByPeer,
+  isWithinEditWindow,
+  matchExcerpt,
+  MESSAGE_SEARCH_MIN_LENGTH,
   JOURNAL_SUBTITLE,
   JOURNAL_TITLE,
   lastOutgoingId,
   matchesConversationQuery,
   mergeIncomingMessage,
+  messageBodyText,
+  MESSAGE_EDIT_WINDOW_MS,
   MESSAGE_TABS,
+  quotePreview,
+  RECALLED_MESSAGE_NOTE,
   tabOfKind,
   THREAD_BOTTOM_TOLERANCE_PX,
   threadScrollDecision,
@@ -69,6 +84,17 @@ export function toVietnameseChatError(code: string | undefined, message: string)
   if (normalized.includes("avora_not_a_participant")) return "Bạn không có quyền trong cuộc trò chuyện này.";
   if (normalized.includes("messages_content_not_blank")) return "Tin nhắn không được để trống.";
   if (normalized.includes("messages_content_max_len")) return "Tin nhắn quá dài (tối đa 4000 ký tự).";
+  if (normalized.includes("avora_message_not_yours")) return "Bạn chỉ sửa hoặc thu hồi tin của mình.";
+  if (normalized.includes("avora_message_edit_expired"))
+    return "Đã quá 24 giờ nên không sửa được tin này nữa.";
+  if (normalized.includes("avora_message_recall_expired"))
+    return "Đã quá 24 giờ nên không thu hồi được tin này nữa.";
+  if (normalized.includes("avora_message_recalled")) return "Tin nhắn này đã được thu hồi.";
+  if (normalized.includes("avora_message_not_found")) return "Không tìm thấy tin nhắn này.";
+  if (normalized.includes("avora_message_mention_not_participant"))
+    return "Bạn chỉ nhắc tên được thành viên trong nhóm này.";
+  if (normalized.includes("avora_message_mentions_immutable"))
+    return "Không thể thay đổi người được nhắc sau khi đã gửi.";
   if (normalized.includes("failed to fetch")) return "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.";
   return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
@@ -111,11 +137,15 @@ export async function markConversationRead(conversationId: string): Promise<stri
   return data ?? null;
 }
 
+/** The columns every message read returns, named once so the shapes cannot drift apart. */
+const MESSAGE_COLUMNS =
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids";
+
 /** Full thread, oldest first. RLS returns nothing for conversations you are not in. */
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
   const { data, error } = await supabase
     .from("messages")
-    .select("id, conversation_id, sender_id, content, created_at")
+    .select(MESSAGE_COLUMNS)
     .eq("conversation_id", conversationId)
     .order("created_at", { ascending: true })
     .order("id", { ascending: true });
@@ -128,7 +158,121 @@ export async function fetchMessages(conversationId: string): Promise<ChatMessage
     senderId: row.sender_id,
     content: row.content,
     createdAt: row.created_at,
+    editedAt: row.edited_at,
+    deletedAt: row.deleted_at,
+    replyToMessageId: row.reply_to_message_id,
+    mentionedUserIds: row.mentioned_user_ids ?? [],
   }));
+}
+
+/**
+ * Finds messages in one conversation by what they say.
+ *
+ * Scoped to a single thread on purpose: "where did we agree that" is nearly always a question
+ * about one conversation, and searching every thread at once would need ranking, grouping and
+ * a results screen of its own. ILIKE is enough at this scale — a full-text index would be
+ * machinery bought before the problem exists.
+ *
+ * Withdrawn messages are excluded explicitly rather than relying on their text being empty.
+ * The recall destroys the words, so they could not match anyway; saying so here means a future
+ * change to how recall stores things cannot quietly make them searchable again.
+ */
+export async function searchMessages(
+  conversationId: string,
+  query: string,
+  limit: number = 50,
+): Promise<ChatMessage[]> {
+  const needle = query.trim();
+  if (needle === "") return [];
+
+  // `%` and `_` are wildcards in LIKE; someone searching for "50%" means the characters.
+  const escaped = needle.replace(/[\\%_]/g, (match) => `\\${match}`);
+
+  const { data, error } = await supabase
+    .from("messages")
+    .select(MESSAGE_COLUMNS)
+    .eq("conversation_id", conversationId)
+    .is("deleted_at", null)
+    .ilike("content", `%${escaped}%`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+
+  if (error) throw fail(error.code, error.message);
+
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    conversationId: row.conversation_id,
+    senderId: row.sender_id,
+    content: row.content,
+    createdAt: row.created_at,
+    editedAt: row.edited_at,
+    deletedAt: row.deleted_at,
+    replyToMessageId: row.reply_to_message_id,
+    mentionedUserIds: row.mentioned_user_ids ?? [],
+  }));
+}
+
+/**
+ * Corrects the wording of your own message.
+ *
+ * The server re-checks who is asking and how old the message is, so an expired edit is
+ * refused even when this is called directly — the window is a rule, not a hint.
+ */
+export async function editMessage(messageId: string, content: string): Promise<ChatMessage> {
+  const { data, error } = await supabase.rpc("edit_message", {
+    p_message_id: messageId,
+    p_content: content,
+  });
+  if (error) throw fail(error.code, error.message);
+  const row = data as unknown as {
+    id: string;
+    conversation_id: string;
+    sender_id: string;
+    content: string;
+    created_at: string;
+    edited_at: string | null;
+    deleted_at: string | null;
+    reply_to_message_id: string | null;
+  };
+  return {
+    id: row.id,
+    conversationId: row.conversation_id,
+    senderId: row.sender_id,
+    content: row.content,
+    createdAt: row.created_at,
+    editedAt: row.edited_at,
+    deletedAt: row.deleted_at,
+    replyToMessageId: row.reply_to_message_id,
+  };
+}
+
+/**
+ * Takes your own message back. The words are destroyed server-side rather than hidden, so
+ * what comes back has empty content and a tombstone — which is what the bubble then says.
+ */
+export async function recallMessage(messageId: string): Promise<ChatMessage> {
+  const { data, error } = await supabase.rpc("recall_message", { p_message_id: messageId });
+  if (error) throw fail(error.code, error.message);
+  const row = data as unknown as {
+    id: string;
+    conversation_id: string;
+    sender_id: string;
+    content: string;
+    created_at: string;
+    edited_at: string | null;
+    deleted_at: string | null;
+    reply_to_message_id: string | null;
+  };
+  return {
+    id: row.id,
+    conversationId: row.conversation_id,
+    senderId: row.sender_id,
+    content: row.content,
+    createdAt: row.created_at,
+    editedAt: row.edited_at,
+    deletedAt: row.deleted_at,
+    replyToMessageId: row.reply_to_message_id,
+  };
 }
 
 /** Peer of a thread opened straight from its URL. Returns null when you are not a member. */
@@ -145,12 +289,24 @@ export async function fetchConversationPeer(conversationId: string): Promise<Con
   };
 }
 
-export async function sendMessage(conversationId: string, senderId: string, content: string): Promise<ChatMessage> {
+export async function sendMessage(
+  conversationId: string,
+  senderId: string,
+  content: string,
+  replyToMessageId: string | null = null,
+  mentionedUserIds: readonly string[] = [],
+): Promise<ChatMessage> {
   const trimmed = content.trim();
   const { data, error } = await supabase
     .from("messages")
-    .insert({ conversation_id: conversationId, sender_id: senderId, content: trimmed })
-    .select("id, conversation_id, sender_id, content, created_at")
+    .insert({
+      conversation_id: conversationId,
+      sender_id: senderId,
+      content: trimmed,
+      reply_to_message_id: replyToMessageId,
+      mentioned_user_ids: [...mentionedUserIds],
+    })
+    .select(MESSAGE_COLUMNS)
     .single();
 
   if (error) throw fail(error.code, error.message);
@@ -161,6 +317,10 @@ export async function sendMessage(conversationId: string, senderId: string, cont
     senderId: data.sender_id,
     content: data.content,
     createdAt: data.created_at,
+    editedAt: data.edited_at,
+    deletedAt: data.deleted_at,
+    replyToMessageId: data.reply_to_message_id,
+    mentionedUserIds: data.mentioned_user_ids ?? [],
   };
 }
 

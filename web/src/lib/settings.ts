@@ -18,15 +18,25 @@ export type ProfileSettings = {
   baseCurrency: string;
   timezone: string;
   dailyThoughtCategory: DailyThoughtCategory;
+  /**
+   * True stops this person's "is typing" signal being broadcast.
+   *
+   * One-directional by design: it silences what they send and does not blind them to other
+   * people's signals. Making it symmetric would turn a privacy choice into a trade, and
+   * people would leave it on to avoid paying the price.
+   */
+  hideTypingSignal: boolean;
 };
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
-const PROFILE_SETTINGS_COLUMNS = "base_currency, timezone, daily_thought_category";
+const PROFILE_SETTINGS_COLUMNS =
+  "base_currency, timezone, daily_thought_category, hide_typing_signal";
 
 type ProfileSettingsRow = {
   base_currency: string | null;
   timezone: string | null;
   daily_thought_category: string | null;
+  hide_typing_signal: boolean | null;
 };
 
 /**
@@ -43,6 +53,9 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     dailyThoughtCategory: isDailyThoughtCategory(category)
       ? category
       : DEFAULT_DAILY_THOUGHT_CATEGORY,
+    // Absent means the signal is on, which is the useful default: the indicator only helps
+    // when most people send it.
+    hideTypingSignal: row?.hide_typing_signal ?? false,
   };
 }
 
@@ -119,6 +132,23 @@ export async function updateDailyThoughtCategory(
   const { data, error } = await supabase
     .from("profiles")
     .update({ daily_thought_category: category })
+    .eq("id", userId)
+    .select(PROFILE_SETTINGS_COLUMNS)
+    .single();
+  if (error) throw fail("settings", error.code, error.message);
+  return toProfileSettings(data);
+}
+
+/**
+ * Turns this person's own typing signal on or off.
+ *
+ * Only affects what they broadcast. They keep seeing other people's indicators either way —
+ * see `ProfileSettings.hideTypingSignal`.
+ */
+export async function updateTypingSignal(userId: string, hide: boolean): Promise<ProfileSettings> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ hide_typing_signal: hide })
     .eq("id", userId)
     .select(PROFILE_SETTINGS_COLUMNS)
     .single();
