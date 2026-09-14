@@ -52,6 +52,8 @@ function makeTask(overrides: Partial<TaskItem>): TaskItem {
     confirmedAt: null,
     doneAt: null,
     completedConfirmedAt: null,
+    skippedAt: null,
+    skippedSilently: false,
     deadline: TODAY,
     deadlineTime: null,
     deadlineTz: "Asia/Ho_Chi_Minh",

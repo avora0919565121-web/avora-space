@@ -1167,6 +1167,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1198,6 +1200,8 @@ export type Database = {
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
           recurrence_spawned_at?: string | null
+          skipped_at?: string | null
+          skipped_silently?: boolean
           status?: string
           task_category_id?: string | null
           task_list_id?: string | null
@@ -1229,6 +1233,8 @@ export type Database = {
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
           recurrence_spawned_at?: string | null
+          skipped_at?: string | null
+          skipped_silently?: boolean
           status?: string
           task_category_id?: string | null
           task_list_id?: string | null
@@ -1445,6 +1451,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1485,6 +1493,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1525,6 +1535,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1581,6 +1593,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1645,7 +1659,7 @@ export type Database = {
           p_is_important?: boolean
           p_recurrence?: string
           p_recurrence_pattern?: Json
-          p_task_id: string
+          p_task_id?: string
           p_title: string
           p_type: string
         }
@@ -1673,6 +1687,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1727,6 +1743,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1767,6 +1785,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -1959,6 +1979,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -2003,6 +2025,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -2113,6 +2137,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -2153,6 +2179,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -2193,6 +2221,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -2233,6 +2263,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -2273,6 +2305,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null
@@ -2344,6 +2378,48 @@ export type Database = {
         }
         Returns: undefined
       }
+      skip_shared_task: {
+        Args: { p_silent?: boolean; p_task_id: string }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          deliverable_id: string | null
+          description: string
+          done_at: string | null
+          id: string
+          is_important: boolean
+          objective_id: string | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       suggested_meeting_attendees: {
         Args: { p_conversation_id: string }
         Returns: string[]
@@ -2411,6 +2487,8 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
           status: string
           task_category_id: string | null
           task_list_id: string | null

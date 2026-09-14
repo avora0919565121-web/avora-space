@@ -17,6 +17,7 @@ import {
   returnSharedTask,
   reviewSharedTaskCompletion,
   setPersonalTaskDeleted,
+  skipSharedTask,
   setPersonalTaskDone,
   taskKeys,
   updatePersonalTaskDetails,
@@ -151,6 +152,16 @@ export function useTaskActions() {
     onSuccess: applyOwnResult,
   });
 
+  /**
+   * Declining a suggestion. The task changes state and stays on the list — which is why this
+   * writes the returned row back rather than dropping it from the cache like a delete.
+   */
+  const skipShared = useMutation({
+    mutationFn: ({ taskId, silent }: { taskId: string; silent: boolean }) =>
+      skipSharedTask(taskId, silent),
+    onSuccess: applyOwnResult,
+  });
+
   const restoreShared = useMutation({
     mutationFn: (taskId: string) => restoreSharedTask(taskId),
     onSuccess: applyOwnResult,
@@ -195,6 +206,7 @@ export function useTaskActions() {
     reviewSharedDone,
     returnShared,
     deleteShared,
+    skipShared,
     restoreShared,
     editDetails,
     binPersonal,
@@ -208,6 +220,7 @@ export function useTaskActions() {
       reviewSharedDone.isPending ||
       returnShared.isPending ||
       deleteShared.isPending ||
+      skipShared.isPending ||
       restoreShared.isPending ||
       editDetails.isPending ||
       binPersonal.isPending ||

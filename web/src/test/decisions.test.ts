@@ -10,11 +10,14 @@ import {
   canSeeResults,
   canSettle,
   canSubmitDecision,
+  canVote,
   decisionStatusLabel,
   DECISION_MAX_OPTIONS,
   DECISION_TITLE_MAX_LENGTH,
   isSettled,
+  openPollNote,
   toVietnameseDecisionError,
+  wouldChangeVote,
   type DecisionEntry,
   type DecisionGrant,
 } from "@/lib/decisions";
@@ -186,6 +189,49 @@ describe("the label beside each title", () => {
   });
 });
 
+describe("changing a vote while the poll is open", () => {
+  const openPoll = (myVote: string | null): DecisionEntry =>
+    makeEntry({ kind: "poll", status: "open", myVote });
+
+  it("lets someone choose when they have not answered yet", () => {
+    expect(canVote(openPoll(null))).toBe(true);
+  });
+
+  it("keeps the choice open after they have answered — thinking again is allowed", () => {
+    // The whole point of the change: having voted does NOT close the question.
+    expect(canVote(openPoll("opt-a"))).toBe(true);
+    expect(wouldChangeVote(openPoll("opt-a"), "opt-b")).toBe(true);
+  });
+
+  it("treats re-pressing the current choice as changing nothing", () => {
+    expect(wouldChangeVote(openPoll("opt-a"), "opt-a")).toBe(false);
+  });
+
+  it("stops every change once the poll is closed", () => {
+    const closed = makeEntry({ kind: "poll", status: "closed", myVote: "opt-a" });
+    expect(canVote(closed)).toBe(false);
+    // Not merely "no button": the answer is false for any option, including a different one.
+    expect(wouldChangeVote(closed, "opt-b")).toBe(false);
+  });
+
+  it("is not something a meeting note has", () => {
+    expect(canVote(makeEntry({ status: "draft" }))).toBe(false);
+  });
+
+  it("says the choice is still changeable, not just that it was recorded", () => {
+    // Calling it "recorded" and stopping there made one press feel irreversible.
+    const note = openPollNote(openPoll("opt-a"));
+    expect(note).toContain("đổi được");
+    expect(note).toContain("Kết quả hiện khi cuộc bình chọn đóng lại");
+  });
+
+  it("still admits nothing about the result while the poll is open", () => {
+    // Changing a vote must not have leaked a tally into the line under the options.
+    expect(openPollNote(openPoll(null))).toContain("chỉ hiện khi cuộc bình chọn đóng lại");
+    expect(canSeeResults(openPoll("opt-a"))).toBe(false);
+  });
+});
+
 describe("what a refusal says to the person", () => {
   it("explains a locked record instead of showing the raw exception", () => {
     expect(toVietnameseDecisionError(undefined, "avora_decision_settled_immutable")).toBe(
@@ -201,6 +247,18 @@ describe("what a refusal says to the person", () => {
 
   it("explains a second ballot", () => {
     expect(toVietnameseDecisionError(undefined, "avora_decision_already_voted")).toBe("Bạn đã bình chọn rồi.");
+  });
+
+  it("says why a closed poll refuses a change, rather than only that it is closed", () => {
+    expect(toVietnameseDecisionError(undefined, "avora_decision_poll_closed")).toBe(
+      "Cuộc bình chọn đã đóng nên không đổi phiếu được nữa.",
+    );
+  });
+
+  it("explains that a ballot can be moved but never withdrawn", () => {
+    expect(toVietnameseDecisionError(undefined, "avora_decision_vote_immutable")).toBe(
+      "Phiếu đã bỏ thì không rút lại được.",
+    );
   });
 
   it("falls back to something human for anything unrecognised", () => {

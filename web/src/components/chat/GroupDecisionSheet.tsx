@@ -18,6 +18,7 @@ import {
   canOpenDecision,
   canSettle,
   canSubmitDecision,
+  canVote,
   castVote,
   closePoll,
   createDecision,
@@ -32,8 +33,10 @@ import {
   finalizeNote,
   grantPermission,
   isSettled,
+  openPollNote,
   revokePermission,
   updateDraft,
+  wouldChangeVote,
   type DecisionEntry,
   type DecisionKind,
 } from "@/lib/decisions";
@@ -218,11 +221,16 @@ export function GroupDecisionSheet({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  /**
+   * Choosing, and changing the choice, are the same act — so there is one mutation and no
+   * separate confirm step. `changed` only decides the wording afterwards: telling someone
+   * their vote was "recorded" when they just moved it reads as though the move failed.
+   */
   const voteMutation = useMutation({
-    mutationFn: (input: { decisionId: string; optionId: string }) =>
+    mutationFn: (input: { decisionId: string; optionId: string; changed: boolean }) =>
       castVote(input.decisionId, input.optionId),
-    onSuccess: () => {
-      toast.success("Đã ghi nhận lựa chọn của bạn.");
+    onSuccess: (_data, input) => {
+      toast.success(input.changed ? "Đã đổi lựa chọn của bạn." : "Đã ghi nhận lựa chọn của bạn.");
       refresh();
     },
     onError: (error: Error) => toast.error(error.message),
@@ -596,20 +604,29 @@ export function GroupDecisionSheet({
                           const total = entry.totalVotes ?? 0;
                           const share = count !== null && total > 0 ? Math.round((count / total) * 100) : 0;
                           const mine = entry.myVote === option.id;
+                          // Open means choosable, whether or not this person has answered
+                          // already. Only the option they are already on stops responding,
+                          // since pressing it would change nothing.
+                          const open = canVote(entry);
                           return (
                             <button
                               key={option.id}
                               type="button"
-                              disabled={entry.status !== "open" || entry.myVote !== null}
+                              disabled={!open || mine}
+                              aria-pressed={open ? mine : undefined}
                               onClick={() =>
-                                voteMutation.mutate({ decisionId: entry.id, optionId: option.id })
+                                voteMutation.mutate({
+                                  decisionId: entry.id,
+                                  optionId: option.id,
+                                  changed: entry.myVote !== null && wouldChangeVote(entry, option.id),
+                                })
                               }
                               className={cn(
                                 "press relative w-full overflow-hidden rounded-[8px] border px-2.5 py-2 text-left text-[13px] transition-colors",
-                                mine ? "border-primary/50 bg-primary/10" : "border-border bg-background/50",
-                                entry.status === "open" && entry.myVote === null
-                                  ? "hover:bg-accent/40"
-                                  : "cursor-default",
+                                mine
+                                  ? "border-primary/50 bg-primary/10 disabled:opacity-100"
+                                  : "border-border bg-background/50",
+                                open && !mine ? "hover:bg-accent/40" : "cursor-default",
                               )}
                             >
                               {count !== null && total > 0 ? (
@@ -624,6 +641,9 @@ export function GroupDecisionSheet({
                                 {mine ? (
                                   <Check className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2.2} aria-label="Lựa chọn của bạn" />
                                 ) : null}
+                                {open && entry.myVote !== null && !mine ? (
+                                  <span className="shrink-0 text-[11.5px] text-muted-foreground">Đổi sang</span>
+                                ) : null}
                                 {count !== null ? (
                                   <span className="tabular shrink-0 text-[12px] text-muted-foreground">
                                     {count}
@@ -636,11 +656,7 @@ export function GroupDecisionSheet({
 
                         {/* What a person is told while the ballot is still secret */}
                         {entry.status === "open" ? (
-                          <p className="pt-0.5 text-[12px] text-muted-foreground">
-                            {entry.myVote === null
-                              ? "Bạn chưa bình chọn. Kết quả chỉ hiện khi cuộc bình chọn đóng lại."
-                              : "Đã ghi nhận lựa chọn của bạn. Kết quả hiện khi cuộc bình chọn đóng lại."}
-                          </p>
+                          <p className="pt-0.5 text-[12px] text-muted-foreground">{openPollNote(entry)}</p>
                         ) : (
                           <p className="tabular pt-0.5 text-[12px] text-muted-foreground">
                             {entry.totalVotes ?? 0} phiếu

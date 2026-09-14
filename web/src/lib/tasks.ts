@@ -26,8 +26,17 @@ export const taskKeys = {
  *   pending_confirmation -> confirmed -> done_pending_review -> done
  * The peer accepts the task, the peer claims it finished, and the creator reviews that claim.
  * Personal tasks skip both handshakes and only ever sit at 'confirmed' or 'done'.
+ *
+ * 'skipped' is the fourth answer to a suggestion: the person asked declined it. It is a state,
+ * not a deletion — the request was made, seen and answered, and erasing the row would leave
+ * the person who asked unable to tell whether it ever arrived.
  */
-export type TaskStatus = "pending_confirmation" | "confirmed" | "done_pending_review" | "done";
+export type TaskStatus =
+  | "pending_confirmation"
+  | "confirmed"
+  | "done_pending_review"
+  | "done"
+  | "skipped";
 
 /**
  * A task is one of three things: your own, something between two people, or something one
@@ -65,6 +74,16 @@ export type TaskItem = {
   doneAt: string | null;
   /** When the creator accepted that claim. Shared tasks only. */
   completedConfirmedAt: string | null;
+  /** When the person asked declined the suggestion. Null unless the task is `skipped`. */
+  skippedAt: string | null;
+  /**
+   * Whether that decline was made without sending a word.
+   *
+   * Recorded rather than inferred: "declined, said nothing" and "declined, sent a note" are
+   * indistinguishable on the row otherwise, and the thread needs to know which happened to
+   * decide whether a quiet annotation belongs in it.
+   */
+  skippedSilently: boolean;
   /**
    * Calendar day the work is due, `YYYY-MM-DD`. Required on every new task; the nullable type
    * is kept only so rows written before the rule still render instead of crashing the list.
@@ -196,6 +215,12 @@ export function toVietnameseTaskError(code: string | undefined, message: string)
   if (normalized.includes("avora_task_not_shared")) return "Nhiệm vụ này không phải nhiệm vụ chung.";
   if (normalized.includes("avora_task_not_assignee"))
     return "Chỉ người được giao nhiệm vụ này mới thao tác được.";
+  if (normalized.includes("avora_task_skip_not_pending"))
+    return "Nhiệm vụ này đã được nhận nên không bỏ qua được nữa.";
+  if (normalized.includes("avora_task_skip_needs_message"))
+    return "Trong nhóm, hãy gửi một lời nhắn khi bỏ qua — cả nhóm đang chờ phản hồi.";
+  if (normalized.includes("avora_task_context_required"))
+    return "Nhiệm vụ chia sẻ cần gắn với cuộc trò chuyện nó sinh ra.";
   if (normalized.includes("avora_task_assignee_required"))
     return "Hãy chọn một thành viên đảm trách nhiệm vụ này.";
   if (normalized.includes("avora_task_assignee_not_participant"))
@@ -351,6 +376,201 @@ export function canConfirmSharedTask(task: TaskItem, userId: string | undefined)
     task.creatorId !== userId &&
     isTaskAssignee(task, userId)
   );
+}
+
+/**
+ * Whether this task is a suggestion waiting on the person it was suggested to.
+ *
+ * A shared task starts as a request, not an instruction: the creator asks, and the assignee
+ * decides. This is what turns "Xác nhận / Xoá" into "Tạo tác vụ / Bỏ qua" — the same two
+ * decisions, named for what they actually are. A task someone wrote for themselves has nobody
+ * to suggest anything to, so it never reaches this shape.
+ */
+export function isSuggestion(task: TaskItem, userId: string | undefined): boolean {
+  return canConfirmSharedTask(task, userId);
+}
+
+/**
+ * Declining a suggestion: the assignee's alone, and only while it is still a suggestion.
+ *
+ * Deliberately NOT available to the creator. A creator who could "skip" on the assignee's
+ * behalf would be withdrawing their own request while making it look like a refusal — the
+ * creator's way out is deleting what they asked for. Once accepted the task is a promise, and
+ * the way out of a promise is the done/return flow, not a retroactive decline.
+ */
+export function canSkipSharedTask(task: TaskItem, userId: string | undefined): boolean {
+  return canConfirmSharedTask(task, userId);
+}
+
+/**
+ * Whether declining may be done without sending a word.
+ *
+ * Allowed in a 1-1 and refused in a group. In a 1-1 the other person sees the decline on the
+ * task itself, so silence still leaves them informed. In a group the same silence would leave
+ * a room of people watching a request go unanswered with no way to tell it was even seen — so
+ * a group decline has to carry something. The database refuses a silent group decline
+ * independently; this only decides whether the third option is offered.
+ */
+export function canSkipSilently(task: TaskItem): boolean {
+  return task.type === "1-1-shared";
+}
+
+/** True once the person asked has declined. The task stays on the list; only its state moves. */
+export function isSkipped(task: Pick<TaskItem, "status">): boolean {
+  return task.status === "skipped";
+}
+
+/**
+ * The note saying this task was suggested rather than handed down, shown to whoever is
+ * looking at someone else's request. Named, because "someone suggested this" is not an answer
+ * to "who is waiting on me".
+ */
+export function suggestedByNote(creatorName: string): string {
+  return `${creatorName} đã gợi ý việc này`;
+}
+
+/**
+ * The message offered ready-to-send when someone declines, with the asker's real name in it.
+ *
+ * Pre-filled and sendable as it stands, because the hardest part of declining is finding the
+ * words — and someone who cannot find them says nothing at all, which reads as being ignored.
+ * It promises to come back to the matter rather than refusing it outright, which is usually
+ * what is true.
+ */
+export function skipMessageTemplate(creatorName: string): string {
+  return `${creatorName}, tôi xin theo dõi sau.`;
+}
+
+/**
+ * The quiet line left in a 1-1 thread when someone declined without a word.
+ *
+ * It says the decline happened and deliberately does NOT speculate about why — "có lý do riêng
+ * của họ" is the whole point: choosing not to explain is a legitimate answer, and the thread
+ * should not imply an explanation is owed.
+ */
+export function silentSkipNote(assigneeName: string): string {
+  return `${assigneeName} đã bỏ qua, có lý do riêng của họ.`;
+}
+
+/**
+ * A decline made without a word, as the conversation needs to show it.
+ *
+ * Derived from the task rather than stored as a message: a silent decline creates NO message,
+ * so the thread has nothing of its own to render. This is the annotation, not a message — it
+ * carries no bubble, no sender and no reactions.
+ */
+export type SilentSkipNotice = {
+  taskId: string;
+  /** Who declined, so the line can name them. */
+  assigneeId: string | null;
+  /** When, used only to place the line among the messages. */
+  at: string;
+};
+
+/**
+ * Every silent decline belonging to one conversation, oldest first.
+ *
+ * Only genuinely silent ones: a decline that sent a message is already visible as that
+ * message, and annotating it too would say the same thing twice.
+ */
+export function silentSkipNotices(
+  tasks: readonly TaskItem[],
+  conversationId: string,
+): SilentSkipNotice[] {
+  return tasks
+    .filter(
+      (task) =>
+        task.conversationId === conversationId &&
+        isSkipped(task) &&
+        task.skippedSilently &&
+        task.skippedAt !== null,
+    )
+    .map((task) => ({
+      taskId: task.id,
+      assigneeId: task.assigneeId,
+      at: task.skippedAt as string,
+    }))
+    .sort((a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0));
+}
+
+/**
+ * Which message each annotation sits after, so the line lands where the decline happened
+ * rather than being swept to the bottom of the thread.
+ *
+ * A decline that predates every message (possible only for a task raised in an empty thread)
+ * is keyed under "", which the caller renders above the first message. Keyed by message id
+ * rather than index so it survives new arrivals.
+ */
+export function placeSilentSkipNotices(
+  notices: readonly SilentSkipNotice[],
+  messages: readonly { id: string; createdAt: string }[],
+): Map<string, SilentSkipNotice[]> {
+  const placed = new Map<string, SilentSkipNotice[]>();
+  for (const notice of notices) {
+    let key = "";
+    for (const message of messages) {
+      if (message.createdAt <= notice.at) key = message.id;
+      else break;
+    }
+    const existing = placed.get(key);
+    if (existing) existing.push(notice);
+    else placed.set(key, [notice]);
+  }
+  return placed;
+}
+
+/**
+ * How someone answers when they decline: send the offered sentence, write their own, or
+ * (in a 1-1 only) say nothing at all.
+ */
+export type SkipReplyMode = "template" | "custom" | "silent";
+
+/**
+ * Which ways of declining are on offer for this task, in the order they are shown.
+ *
+ * A group genuinely has two options rather than three with one greyed out: offering silence
+ * and then refusing it would teach people the menu cannot be trusted. The order puts the
+ * ready-made sentence first, because the person declining is usually looking for words rather
+ * than wanting to compose any.
+ */
+export function skipReplyModes(task: TaskItem): readonly SkipReplyMode[] {
+  return canSkipSilently(task)
+    ? ["template", "custom", "silent"]
+    : ["template", "custom"];
+}
+
+/**
+ * Whether this decline can be submitted as it stands.
+ *
+ * The offered sentence is always sendable — that is what makes it useful. A written reply must
+ * actually contain something: an empty box submitted as a "message" would be silence wearing
+ * the costume of a reply, which is exactly what a group decline may not be.
+ */
+export function canSubmitSkip(
+  task: TaskItem,
+  mode: SkipReplyMode,
+  customMessage: string,
+): boolean {
+  if (mode === "silent") return canSkipSilently(task);
+  if (mode === "template") return true;
+  return customMessage.trim().length > 0;
+}
+
+/**
+ * The words this decline will actually send, or null when it sends nothing.
+ *
+ * Returns null only for a genuine silent decline, so a caller can tell "say nothing" from
+ * "say something empty" without re-deriving the rule.
+ */
+export function skipMessageFor(
+  mode: SkipReplyMode,
+  creatorName: string,
+  customMessage: string,
+): string | null {
+  if (mode === "silent") return null;
+  if (mode === "template") return skipMessageTemplate(creatorName);
+  const trimmed = customMessage.trim();
+  return trimmed.length === 0 ? null : trimmed;
 }
 
 /** Only the assignee — the person who accepted the task — can claim it is finished. */
@@ -568,6 +788,9 @@ export function taskStatusLabel(status: TaskStatus): string {
   if (status === "pending_confirmation") return "Chờ nhận việc";
   if (status === "confirmed") return "Đã nhận việc";
   if (status === "done_pending_review") return "Chờ xác nhận hoàn thành";
+  // A declined suggestion says so plainly. It is not a failure and not a deletion, so it
+  // borrows neither vocabulary.
+  if (status === "skipped") return "Đã bỏ qua";
   return "Đã hoàn thành";
 }
 
@@ -583,6 +806,9 @@ export function sharedTaskNote(task: TaskItem, userId: string | undefined): stri
   if (task.status === "confirmed") return "Đã nhận việc";
   if (task.status === "done_pending_review")
     return isCreator ? "Chờ bạn xác nhận hoàn thành" : "Chờ người giao xác nhận hoàn thành";
+  // Said from each side: "you declined this" and "they declined this" are different facts,
+  // and neither is improved by pretending the other person's reasons are known.
+  if (task.status === "skipped") return isAssignee ? "Bạn đã bỏ qua" : "Người nhận đã bỏ qua";
   return "Đã hoàn thành";
 }
 
@@ -590,6 +816,10 @@ export function sharedTaskNote(task: TaskItem, userId: string | undefined): stri
  * A task is "open" until both sides agree it is finished. A claim awaiting review still
  * counts: nobody can act on it being closed yet, so hiding it from the count would make
  * work disappear while it is still someone's responsibility.
+ *
+ * A declined suggestion is NOT open — it has been answered, and nobody is waiting on anyone.
+ * It stays visible on the list with its state shown, but it must not keep a counter lit or
+ * a badge would demand attention for a matter already settled.
  */
 export const OPEN_TASK_STATUSES: readonly TaskStatus[] = [
   "pending_confirmation",
@@ -964,6 +1194,8 @@ type TaskRow = {
   confirmed_at: string | null;
   done_at: string | null;
   completed_confirmed_at: string | null;
+  skipped_at: string | null;
+  skipped_silently: boolean | null;
   deadline_date: string | null;
   deadline_time: string | null;
   deadline_tz: string | null;
@@ -1061,6 +1293,8 @@ export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["
     doneAt: row.done_at === null ? null : toIsoTimestamp(row.done_at),
     completedConfirmedAt:
       row.completed_confirmed_at === null ? null : toIsoTimestamp(row.completed_confirmed_at),
+    skippedAt: row.skipped_at === null ? null : toIsoTimestamp(row.skipped_at),
+    skippedSilently: row.skipped_silently ?? false,
     // A date column carries no zone, so it needs none of the timestamp normalising.
     deadline: row.deadline_date,
     deadlineTime: normalizeDeadlineTime(row.deadline_time),
@@ -1078,7 +1312,7 @@ export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["
 }
 
 const TASK_COLUMNS =
-  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
+  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
 
 function toTaskItem(row: TaskRow): TaskItem {
   return {
@@ -1094,6 +1328,8 @@ function toTaskItem(row: TaskRow): TaskItem {
     confirmedAt: row.confirmed_at,
     doneAt: row.done_at,
     completedConfirmedAt: row.completed_confirmed_at,
+    skippedAt: row.skipped_at,
+    skippedSilently: row.skipped_silently ?? false,
     deadline: row.deadline_date,
     deadlineTime: normalizeDeadlineTime(row.deadline_time),
     deadlineTz: row.deadline_tz ?? "Asia/Ho_Chi_Minh",
@@ -1282,6 +1518,22 @@ export async function returnSharedTask(taskId: string): Promise<TaskItem> {
  */
 export async function deleteSharedTask(taskId: string): Promise<TaskItem> {
   const { data, error } = await supabase.rpc("delete_shared_task", { p_task_id: taskId });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/**
+ * Declines a suggestion: the assignee's answer of "not this".
+ *
+ * `silent` asks to decline without sending a word, which the server allows in a 1-1 and
+ * refuses in a group — so this is not a UI-only asymmetry. Safe to retry: a task already
+ * declined comes back unchanged rather than failing.
+ */
+export async function skipSharedTask(taskId: string, silent: boolean): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("skip_shared_task", {
+    p_task_id: taskId,
+    p_silent: silent,
+  });
   if (error) throw fail(error.code, error.message);
   return toTaskItem(data as unknown as TaskRow);
 }

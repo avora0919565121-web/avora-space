@@ -1,7 +1,8 @@
 import { ChevronRight, ListTodo, Pencil, Trash2 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { SkipSuggestionDialog } from "@/components/chat/SkipSuggestionDialog";
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import { useAuth } from "@/lib/auth";
@@ -14,16 +15,19 @@ import {
   canMarkSharedDone,
   canReturnSharedTask,
   canReviewSharedDone,
+  canSkipSharedTask,
   deadlineLabel,
   deleteIsPermanent,
   editBlockedReason,
   involvesViewer,
   isOpenTask,
   isSharedTask,
+  isSuggestion,
   isTaskAssignee,
   partitionByBin,
   sharedTaskNote,
   sortTasksByPriority,
+  suggestedByNote,
   taskStatusLabel,
   todayIso,
   type TaskItem,
@@ -44,6 +48,13 @@ type ChatTaskPanelProps = {
    * is shown whole.
    */
   scope?: "mine" | "all";
+  /**
+   * Sends an ordinary message into this conversation, used when someone declines with a word.
+   *
+   * A plain message on purpose: a decline explained in a system notice would be the app
+   * speaking for the person, and the whole point is that they said it themselves.
+   */
+  onSendMessage: (content: string) => Promise<void>;
 };
 
 /**
@@ -59,6 +70,7 @@ export function ChatTaskPanel({
   members,
   highlightTaskId,
   scope = "all",
+  onSendMessage,
 }: ChatTaskPanelProps) {
   const { user } = useAuth();
   const { data: tasks } = useTasks();
@@ -136,6 +148,7 @@ export function ChatTaskPanel({
                 peerName={peerName}
                 members={members}
                 isHighlighted={task.id === highlightTaskId}
+                onSendMessage={onSendMessage}
               />
             ))}
           </ul>
@@ -159,6 +172,18 @@ function assigneeLabel(
 }
 
 
+/** Who raised this, named — so "X đã gợi ý việc này" can address a person rather than "ai đó". */
+function creatorLabel(
+  task: TaskItem,
+  members: readonly GroupMember[],
+  peerName: string,
+  userId: string | undefined,
+): string {
+  if (task.creatorId === userId) return "Bạn";
+  const member = members.find((entry) => entry.userId === task.creatorId);
+  return member ? peerLabel(member.displayName, member.email) : peerName;
+}
+
 function ChatTaskRow({
   task,
   userId,
@@ -166,6 +191,7 @@ function ChatTaskRow({
   peerName,
   members,
   isHighlighted,
+  onSendMessage,
 }: {
   task: TaskItem;
   userId: string | undefined;
@@ -173,18 +199,26 @@ function ChatTaskRow({
   peerName: string;
   members: readonly GroupMember[];
   isHighlighted: boolean;
+  onSendMessage: (content: string) => Promise<void>;
 }) {
-  const { confirmShared, markSharedDone, reviewSharedDone, returnShared, deleteShared } = useTaskActions();
+  const { confirmShared, markSharedDone, reviewSharedDone, returnShared, deleteShared, skipShared } =
+    useTaskActions();
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isSkipOpen, setIsSkipOpen] = useState<boolean>(false);
   const canConfirm = canConfirmSharedTask(task, userId);
   const canMarkDone = canMarkSharedDone(task, userId);
   const canReview = canReviewSharedDone(task, userId);
   const canReturn = canReturnSharedTask(task, userId);
   const canDelete = canDeleteTask(task, userId);
   const canEdit = canEditTask(task, userId);
+  const canSkip = canSkipSharedTask(task, userId);
   const editBlocked = editBlockedReason(task, userId);
   const permanent = deleteIsPermanent(task, userId);
   const deadline = deadlineLabel(task.deadline, today);
+  // A suggestion is somebody else's request awaiting this person's answer, which is what
+  // turns "Xác nhận/Xoá" into "Tạo tác vụ/Bỏ qua" and earns the note above the buttons.
+  const suggested = isSuggestion(task, userId);
+  const askedBy = creatorLabel(task, members, peerName, userId);
 
   const run = async (action: Promise<unknown>): Promise<void> => {
     try {
@@ -193,6 +227,36 @@ function ChatTaskRow({
       toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
     }
   };
+
+  /**
+   * Declining, and saying so.
+   *
+   * The task changes state FIRST: if the message send fails afterwards the decline still
+   * stands, which is the honest order — the answer was given, and a network problem must not
+   * silently leave the request looking unanswered. A failed note is reported so the person
+   * can say it again themselves.
+   */
+  const handleSkip = useCallback(
+    async (input: { silent: boolean; message: string | null }): Promise<void> => {
+      try {
+        await skipShared.mutateAsync({ taskId: task.id, silent: input.silent });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Không bỏ qua được.");
+        return;
+      }
+      setIsSkipOpen(false);
+      if (input.message !== null) {
+        try {
+          await onSendMessage(input.message);
+        } catch {
+          toast.error("Đã bỏ qua, nhưng lời nhắn chưa gửi được. Bạn thử gửi lại nhé.");
+          return;
+        }
+      }
+      toast.success("Đã bỏ qua việc này.");
+    },
+    [skipShared, task.id, onSendMessage],
+  );
 
   return (
     <li
@@ -254,7 +318,16 @@ function ChatTaskRow({
         <p className="mt-1.5 pl-11 text-[11px] text-muted-foreground">{editBlocked}</p>
       ) : null}
 
-      {!isEditing && (canConfirm || canMarkDone || canReview || canReturn || canDelete) ? (
+      {/*
+        Named as a suggestion, not an assignment. Someone asked; this person decides. Saying so
+        above the two buttons is what makes "Bỏ qua" read as a legitimate answer rather than as
+        refusing an order.
+      */}
+      {suggested && !isEditing ? (
+        <p className="mt-1.5 pl-11 text-[11.5px] text-muted-foreground">{suggestedByNote(askedBy)}</p>
+      ) : null}
+
+      {!isEditing && (canConfirm || canSkip || canMarkDone || canReview || canReturn || canDelete) ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-11">
           {canConfirm ? (
             <button
@@ -263,7 +336,17 @@ function ChatTaskRow({
               disabled={confirmShared.isPending}
               className="press h-12 rounded-[10px] bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
-              Nhận việc
+              Tạo tác vụ
+            </button>
+          ) : null}
+          {canSkip ? (
+            <button
+              type="button"
+              onClick={() => setIsSkipOpen(true)}
+              disabled={skipShared.isPending}
+              className="press h-12 rounded-[10px] border border-border px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:border-foreground hover:text-foreground disabled:opacity-60"
+            >
+              Bỏ qua
             </button>
           ) : null}
           {canMarkDone ? (
@@ -310,6 +393,15 @@ function ChatTaskRow({
           ) : null}
         </div>
       ) : null}
+
+      <SkipSuggestionDialog
+        task={task}
+        open={isSkipOpen}
+        onOpenChange={setIsSkipOpen}
+        creatorName={askedBy}
+        onSkip={(input) => void handleSkip(input)}
+        isWorking={skipShared.isPending}
+      />
     </li>
   );
 }

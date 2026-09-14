@@ -17,7 +17,7 @@ import {
   Users,
   X,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -88,6 +88,7 @@ import {
   DELETED_MESSAGE_NOTE,
   isOriginalMessageMissing,
 } from "@/lib/task-context";
+import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote } from "@/lib/tasks";
 import { canPinForGroup } from "@/lib/pins";
 import { useThreadPins } from "@/lib/use-pins";
 import { useThreadReactions } from "@/lib/use-reactions";
@@ -236,6 +237,30 @@ const Messages = () => {
   const quotedMessageId: string | null = isQuotedMessageGone
     ? null
     : (highlightSnapshot?.originalMessageId ?? null);
+
+  /**
+   * Declines made without a word, placed where they happened.
+   *
+   * Derived from the tasks rather than stored as messages, because a silent decline creates
+   * no message — that is the whole point of it. The thread shows a quiet annotation so the
+   * other person can see the request was answered, without the app putting words in anyone's
+   * mouth.
+   */
+  const silentSkipsByMessage = useMemo(() => {
+    if (!conversationId) return new Map<string, ReturnType<typeof silentSkipNotices>>();
+    return placeSilentSkipNotices(silentSkipNotices(allTasks ?? [], conversationId), messages);
+  }, [allTasks, conversationId, messages]);
+
+  /** Who declined, named — in a 1-1 that is the person the thread is with. */
+  const skipActorName = useCallback(
+    (assigneeId: string | null): string => {
+      if (assigneeId === null) return threadTitle;
+      if (assigneeId === userId) return "Bạn";
+      if (activeKind === "group") return senderNames.get(assigneeId) ?? "Thành viên";
+      return threadTitle;
+    },
+    [userId, activeKind, senderNames, threadTitle],
+  );
 
   /** Who said a given message, named the way the task archive should remember it. */
   const senderNameOf = useCallback(
@@ -505,6 +530,25 @@ const Messages = () => {
       sendMutation.mutate(content);
     },
     [sendMutation, clearTyping],
+  );
+
+  /**
+   * Sends one ordinary message that did not come from the composer.
+   *
+   * Used when someone declines a suggestion with a word. Deliberately NOT `handleSend`: that
+   * one clears the draft and the reply quote, which belong to whatever the person was already
+   * writing and must survive an unrelated action. Awaited by the caller so a failure can be
+   * reported rather than disappearing.
+   */
+  const sendPlainMessage = useCallback(
+    async (content: string): Promise<void> => {
+      const trimmed = content.trim();
+      if (trimmed.length === 0 || !conversationId || !userId) return;
+      await sendMessage(conversationId, userId, trimmed, null, extractMentionedIds(trimmed, mentionable));
+      void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+    },
+    [conversationId, userId, mentionable, queryClient],
   );
 
   /**
@@ -1152,9 +1196,13 @@ const Messages = () => {
                               message.replyToMessageId == null
                                 ? null
                                 : (messages.find((entry) => entry.id === message.replyToMessageId) ?? null);
+                            // Declines made without a word, sitting after the message they
+                            // followed. Not bubbles: nobody said this, so it gets no sender,
+                            // no side and no reactions.
+                            const skipNotices = silentSkipsByMessage.get(message.id) ?? [];
                             return (
+                              <Fragment key={message.id}>
                               <li
-                                key={message.id}
                                 id={`message-${message.id}`}
                                 style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
                                 className={cn(
@@ -1362,6 +1410,15 @@ const Messages = () => {
                                   </span>
                                 </div>
                               </li>
+                              {skipNotices.map((notice) => (
+                                <li
+                                  key={`skip-${notice.taskId}`}
+                                  className="px-4 py-1 text-center text-[12.5px] italic leading-5 text-muted-foreground"
+                                >
+                                  {silentSkipNote(skipActorName(notice.assigneeId))}
+                                </li>
+                              ))}
+                              </Fragment>
                             );
                           })}
                         </ul>
@@ -1398,6 +1455,7 @@ const Messages = () => {
                   // A group keeps this panel to the viewer's own work; the room's full list
                   // opens from the header. A 1-1 has only two people, so it stays whole.
                   scope={activeKind === "group" ? "mine" : "all"}
+                  onSendMessage={sendPlainMessage}
                 />
               )}
 

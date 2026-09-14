@@ -83,6 +83,41 @@ export function canSeeResults(entry: Pick<DecisionEntry, "kind" | "status">): bo
   return entry.kind === "poll" && entry.status === "closed";
 }
 
+/**
+ * Whether this person may still choose, or change what they chose.
+ *
+ * While a poll is open, thinking again is legitimate — the point of asking is to find out what
+ * people think, not to catch them at their first instinct. Once it closes the ballot is fixed,
+ * because by then the result has been published to the whole room and a late change would
+ * rewrite something everyone has already read. The database enforces both halves; this only
+ * decides whether the option is offered.
+ */
+export function canVote(entry: Pick<DecisionEntry, "kind" | "status">): boolean {
+  return entry.kind === "poll" && entry.status === "open";
+}
+
+/**
+ * Whether pressing this option would actually change anything.
+ *
+ * Re-pressing the option already chosen is not an error and not worth a round trip — the
+ * answer is already what the person wants, so the press is simply absorbed.
+ */
+export function wouldChangeVote(entry: Pick<DecisionEntry, "kind" | "status" | "myVote">, optionId: string): boolean {
+  if (!canVote(entry)) return false;
+  return entry.myVote !== optionId;
+}
+
+/**
+ * The quiet line under an open poll, which must say two things at once: the result is not
+ * visible yet, and the choice is not final yet. Leaving the second unsaid would make people
+ * treat one press as irreversible and hesitate over it.
+ */
+export function openPollNote(entry: Pick<DecisionEntry, "myVote">): string {
+  return entry.myVote === null
+    ? "Bạn chưa bình chọn. Kết quả chỉ hiện khi cuộc bình chọn đóng lại."
+    : "Đây là lựa chọn của bạn — còn mở thì vẫn đổi được. Kết quả hiện khi cuộc bình chọn đóng lại.";
+}
+
 /** Officers may always open a record; everyone else needs an unspent permission. */
 export function canOpenDecision(
   role: GroupRole | undefined,
@@ -143,7 +178,10 @@ export function toVietnameseDecisionError(code: string | undefined, message: str
   if (normalized.includes("avora_decision_settled_immutable"))
     return "Mục này đã được khoá nên không sửa hay xoá được nữa.";
   if (normalized.includes("avora_decision_already_voted")) return "Bạn đã bình chọn rồi.";
-  if (normalized.includes("avora_decision_poll_closed")) return "Cuộc bình chọn đã đóng.";
+  if (normalized.includes("avora_decision_vote_immutable"))
+    return "Phiếu đã bỏ thì không rút lại được.";
+  if (normalized.includes("avora_decision_poll_closed"))
+    return "Cuộc bình chọn đã đóng nên không đổi phiếu được nữa.";
   if (normalized.includes("avora_decision_not_allowed"))
     return "Bạn cần được chủ nhóm uỷ quyền để tạo mục này.";
   if (normalized.includes("avora_decision_officers_only"))
@@ -326,7 +364,13 @@ export async function finalizeNote(decisionId: string): Promise<void> {
   if (error) throw fail(error.code, error.message);
 }
 
-/** Casts one ballot. There is no second one, and no taking it back. */
+/**
+ * Records this person's choice, replacing whatever they chose before.
+ *
+ * One person holds exactly one ballot — the database keys it that way — so changing a vote
+ * moves that single row rather than adding a second. "The last vote counts" is therefore true
+ * by construction, not by a tie-break rule sitting somewhere else.
+ */
 export async function castVote(decisionId: string, optionId: string): Promise<void> {
   const { error } = await supabase.rpc("cast_group_vote", {
     p_decision_id: decisionId,

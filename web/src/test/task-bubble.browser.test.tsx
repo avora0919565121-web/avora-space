@@ -70,7 +70,20 @@ test("each shared status renders its own distinct shape", async () => {
     expect(rendered?.getAttribute("data-bubble")).toBe(state);
     seen.add(state);
   }
-  expect(seen.size).toBe(4);
+  // Five states, five shapes: a declined suggestion must not borrow the empty square (still
+  // waiting for an answer) or the filled disc (work somebody actually did).
+  expect(seen.size).toBe(5);
+});
+
+test("a declined suggestion is neither the unanswered square nor the finished disc", async () => {
+  const skipped = await render(<TaskBubble state="skip" label="Đã bỏ qua" />);
+  const shape = skipped.container.querySelector('[data-bubble="skip"]');
+  expect(shape).not.toBeNull();
+  expect(skipped.container.querySelector('[data-bubble="box"]')).toBeNull();
+  expect(skipped.container.querySelector('[data-bubble="full"]')).toBeNull();
+
+  // Dashed rather than solid: settled, but not by anyone doing the work.
+  expect(getComputedStyle(shape as Element).borderTopStyle).toBe("dashed");
 });
 
 test("a shape is a button only when this person can act on it", async () => {

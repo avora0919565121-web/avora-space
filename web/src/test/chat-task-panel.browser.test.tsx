@@ -1,3 +1,4 @@
+import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { vi } from "vitest";
 
@@ -22,6 +23,7 @@ vi.mock("@/lib/use-tasks", () => ({
     reviewSharedDone: { mutateAsync: async () => {}, isPending: false },
     returnShared: { mutateAsync: async () => {}, isPending: false },
     deleteShared: { mutateAsync: async () => {}, isPending: false },
+    skipShared: { mutateAsync: async () => {}, isPending: false },
   }),
 }));
 
@@ -37,6 +39,8 @@ function task(overrides: Partial<TaskItem> & { id: string; title: string }): Tas
     confirmedAt: null,
     doneAt: null,
     completedConfirmedAt: null,
+    skippedAt: null,
+    skippedSilently: false,
     deadline: "2099-09-20",
     deadlineTime: null,
     deadlineTz: "Asia/Ho_Chi_Minh",
@@ -73,6 +77,7 @@ function panel(scope: "mine" | "all") {
         members={MEMBERS}
         highlightTaskId={null}
         scope={scope}
+        onSendMessage={async () => {}}
       />
     </div>,
   );
@@ -131,7 +136,48 @@ test("a group task the viewer must accept still reaches them", async () => {
   ];
   const screen = await panel("mine");
 
-  await expect.element(screen.getByRole("button", { name: "Nhận việc" })).toBeVisible();
+  // A suggestion offers the two real answers, named for what they are.
+  await expect.element(screen.getByRole("button", { name: "Tạo tác vụ" })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Bỏ qua" })).toBeVisible();
+  // And says who asked, so declining does not read as refusing an order.
+  await expect.element(screen.getByText("Sếp Minh đã gợi ý việc này")).toBeVisible();
+});
+
+test("the person who asked gets no Bỏ qua — declining is the other side's answer", async () => {
+  state.tasks = [
+    task({ id: "gave", title: "Việc tôi gợi ý", creatorId: ME, assigneeId: HOA }),
+  ];
+  const screen = await panel("mine");
+
+  expect(screen.container.textContent).not.toContain("Bỏ qua");
+  expect(screen.container.textContent).not.toContain("đã gợi ý việc này");
+});
+
+test("a declined task stays on the list and says so", async () => {
+  state.tasks = [
+    task({
+      id: "skipped",
+      title: "Việc đã bỏ qua",
+      status: "skipped",
+      skippedAt: "2026-09-14T02:00:00Z",
+    }),
+  ];
+  const screen = await panel("mine");
+
+  // A declined task asks nothing of anyone, so the panel does NOT open itself for it — the
+  // matter is settled, and only unanswered work earns that interruption.
+  await expect.element(screen.getByRole("button", { name: /Nhiệm vụ chung/ })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+  await userEvent.click(screen.getByRole("button", { name: /Nhiệm vụ chung/ }));
+
+  // Skipping is not deleting: the work is still there, with its state shown.
+  await expect.element(screen.getByText("Việc đã bỏ qua")).toBeVisible();
+  await expect.element(screen.getByText("Bạn đã bỏ qua")).toBeVisible();
+  // And it is answered, so neither decision is offered a second time.
+  expect(screen.container.textContent).not.toContain("Tạo tác vụ");
+  expect(screen.container.textContent).not.toContain("Bỏ qua việc này");
 });
 
 test("nothing of the viewer's own means no panel at all, rather than an empty one", async () => {

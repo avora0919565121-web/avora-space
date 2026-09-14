@@ -33,6 +33,8 @@ function task(overrides: Partial<TaskItem> & { id: string }): TaskItem {
     confirmedAt: null,
     doneAt: null,
     completedConfirmedAt: null,
+    skippedAt: null,
+    skippedSilently: false,
     deadline: "2026-09-20",
     deadlineTime: null,
     deadlineTz: "Asia/Ho_Chi_Minh",
