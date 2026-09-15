@@ -8,7 +8,12 @@ import { MuteSettingsCard } from "@/components/chat/MuteSettingsCard";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { currenciesByRegion, REGION_LABELS } from "@/lib/currency";
 import { formatRate } from "@/lib/currency";
-import { DAILY_THOUGHT_OPTIONS, DEFAULT_DAILY_THOUGHT_CATEGORY } from "@/lib/daily-thoughts";
+
+import {
+  DAILY_THOUGHT_OPTIONS,
+  DEFAULT_DAILY_THOUGHT_CATEGORY,
+  type DailyThoughtCategory,
+} from "@/lib/daily-thoughts";
 import { TIMEZONE_OPTIONS } from "@/lib/settings";
 import { useCurrencyRates, useProfileSettings, useSettingsActions } from "@/lib/use-settings";
 
@@ -31,6 +36,16 @@ function PreferencesCard() {
   const base = settings?.baseCurrency ?? "VND";
   const zone = settings?.timezone ?? "Asia/Ho_Chi_Minh";
   const thoughtCategory = settings?.dailyThoughtCategory ?? DEFAULT_DAILY_THOUGHT_CATEGORY;
+
+  /**
+   * Scripture is paused for choosing — but a person who chose it before the pause keeps it
+   * in their own list, exactly as they left it. Hiding it from them would silently change
+   * what their settings mean; the pause only stops NEW selections.
+   */
+  const thoughtOptions: readonly { value: DailyThoughtCategory; label: string }[] =
+    thoughtCategory === "kinh_thanh"
+      ? [{ value: "kinh_thanh", label: "Kinh Thánh" }, ...DAILY_THOUGHT_OPTIONS]
+      : DAILY_THOUGHT_OPTIONS;
   const hidesTyping = settings?.hideTypingSignal ?? false;
   const sample = rates === undefined || base === "USD" ? null : formatRate("USD", base, rates);
 
@@ -155,14 +170,14 @@ function PreferencesCard() {
               onChange={(event) => void changeThought(event.target.value)}
               className={SELECT_CLASS}
             >
-              {DAILY_THOUGHT_OPTIONS.map((option) => (
+              {thoughtOptions.map((option) => (
                 <option key={option.value} value={option.value}>
                   {option.label}
                 </option>
               ))}
             </select>
             <p className="text-[12px] leading-5 text-muted-foreground">
-              Một câu mỗi ngày trên Avora Space. Chọn “Không chọn” nếu bạn không muốn hiển thị.
+              Một câu mỗi ngày trên Avora Space. Chọn “Ẩn” nếu bạn không muốn hiển thị.
             </p>
           </div>
 

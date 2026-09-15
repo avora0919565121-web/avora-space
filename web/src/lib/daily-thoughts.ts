@@ -4,28 +4,46 @@
  * Three rules shape this file:
  *
  * 1. The text is a fixed, hand-checked list. Nothing is generated, paraphrased or fetched.
- *    A verse the app invented would be worse than no verse at all, so the only lines that can
+ *    A line the app invented would be worse than no line at all, so the only lines that can
  *    ever appear are the ones written below, word for word.
- * 2. The choice is stable for a whole day and rotates through the entire list before any line
- *    comes back. A plain `random % length` would repeat some lines twice in a week and skip
- *    others for a month, so the day number walks the list by a fixed coprime stride instead
- *    (see `dailyStride`).
+ * 2. The choice is stable for a whole day, and no line wears out before the list does — but
+ *    the two pools get there differently, on purpose:
+ *
+ *    - Scripture (30 lines, legacy) walks the list by a fixed coprime stride (`dailyStride`),
+ *      which keeps it fair over ANY window of days. This mechanism is frozen: it still runs
+ *      quietly for the people who chose it before it was taken out of the settings screen.
+ *    - The maxims (365 lines, v0.2) are mapped to the calendar itself: day N of the year
+ *      reads maxim N, and the whole wheel is rotated by the year (`maximOffset`), so January
+ *      1st opens a different line every year while a year never repeats itself. The list is
+ *      exactly one line per day — that mapping is the content's own design, not a shuffle.
  * 3. The scripture reference is data, not interface. It is kept so the wording can be checked
  *    against its source, and `dailyThoughtView` — the only thing the screen reads — has no field
  *    to put it in. That makes "no book, chapter or verse on screen" a property of the shape,
  *    not a promise someone has to remember.
+ *
+ * 4. Scripture is paused, not deleted. It is a valid category that existing readers keep
+ *    seeing, but it is no longer offered to anyone who has not already chosen it — the
+ *    settings screen offers the maxims and "Ẩn". When another content group ships, scripture
+ *    comes back by adding one entry to `DAILY_THOUGHT_OPTIONS`; nothing else needs to exist.
  */
+
+import { MAXIM_SECTIONS } from "@/lib/daily-thought-maxims";
 
 /** What a person chose to see: scripture, a maxim, or nothing. */
 export type DailyThoughtCategory = "kinh_thanh" | "danh_ngon" | "khong_chon";
 
-export const DEFAULT_DAILY_THOUGHT_CATEGORY: DailyThoughtCategory = "khong_chon";
+/** Someone who has never picked anything opens on the maxims — a thought, not a blank. */
+export const DEFAULT_DAILY_THOUGHT_CATEGORY: DailyThoughtCategory = "danh_ngon";
 
-/** The three choices, in the order the settings screen offers them. */
+/**
+ * What the settings screen offers. Scripture is deliberately absent: it stays a working
+ * category (see `isDailyThoughtCategory` and `thoughtPool`) so anyone who chose it before
+ * keeps their line every day — the screen just stops offering it to people who have not.
+ * The old "Không chọn" is now called "Ẩn": plainer about what it does.
+ */
 export const DAILY_THOUGHT_OPTIONS: readonly { value: DailyThoughtCategory; label: string }[] = [
-  { value: "khong_chon", label: "Không chọn" },
-  { value: "kinh_thanh", label: "Kinh Thánh" },
   { value: "danh_ngon", label: "Danh ngôn" },
+  { value: "khong_chon", label: "Ẩn" },
 ] as const;
 
 export function isDailyThoughtCategory(value: string): value is DailyThoughtCategory {
@@ -43,7 +61,7 @@ export type DailyThought = {
   ref: string | null;
 };
 
-/** The 30 scripture lines, as given. */
+/** The 30 scripture lines, as given. Paused in the settings screen; kept for its readers. */
 export const KINH_THANH: readonly DailyThought[] = [
   {
     text: "Yêu Đức Chúa Trời hết lòng, hết linh hồn, hết trí khôn — và yêu người lân cận như chính mình.",
@@ -227,116 +245,15 @@ export const KINH_THANH: readonly DailyThought[] = [
   },
 ] as const;
 
-/** The 20 maxims, as given. No speaker: these are shown unattributed, by design. */
-export const DANH_NGON: readonly DailyThought[] = [
-  { text: "Một ngày sống tử tế là một ngày không phí hoài.", speaker: null, theme: "Sống đẹp", ref: null },
-  {
-    text: "Siêng năng hôm nay là món quà cho chính mình ngày mai.",
-    speaker: null,
-    theme: "Làm việc siêng năng",
-    ref: null,
-  },
-  {
-    text: "Người biết ơn những gì mình có, sẽ luôn thấy mình đủ đầy.",
-    speaker: null,
-    theme: "Cuộc sống",
-    ref: null,
-  },
-  {
-    text: "Lời nói nhẹ nhàng có sức mạnh hơn cả tiếng quát tháo.",
-    speaker: null,
-    theme: "Tôn trọng người",
-    ref: null,
-  },
-  {
-    text: "Tiết kiệm không phải là keo kiệt, mà là biết quý trọng những gì mình đang có.",
-    speaker: null,
-    theme: "Tiết kiệm",
-    ref: null,
-  },
-  {
-    text: "Yêu thương không cần lời hoa mỹ, chỉ cần một hành động chân thành.",
-    speaker: null,
-    theme: "Tình yêu",
-    ref: null,
-  },
-  { text: "Người gieo điều tốt, sớm muộn cũng gặt được điều lành.", speaker: null, theme: "Sống đẹp", ref: null },
-  {
-    text: "Một giờ làm việc chăm chỉ đáng giá hơn cả ngày than vãn.",
-    speaker: null,
-    theme: "Làm việc siêng năng",
-    ref: null,
-  },
-  {
-    text: "Tôn trọng người khác bắt đầu từ việc lắng nghe họ thật lòng.",
-    speaker: null,
-    theme: "Tôn trọng người",
-    ref: null,
-  },
-  {
-    text: "Của cải rồi cũng qua đi, nhưng cách sống tử tế thì còn mãi.",
-    speaker: null,
-    theme: "Cuộc sống",
-    ref: null,
-  },
-  {
-    text: "Người khôn ngoan biết dừng lại đúng lúc, không tham quá sức mình.",
-    speaker: null,
-    theme: "Tiết kiệm",
-    ref: null,
-  },
-  {
-    text: "Một lời cảm ơn đúng lúc có thể sưởi ấm cả một ngày dài.",
-    speaker: null,
-    theme: "Tôn trọng người",
-    ref: null,
-  },
-  {
-    text: "Gia đình là nơi ta được là chính mình, không cần giả vờ.",
-    speaker: null,
-    theme: "Tình yêu",
-    ref: null,
-  },
-  { text: "Càng cho đi, lòng càng thấy nhẹ nhàng và giàu có.", speaker: null, theme: "Sống đẹp", ref: null },
-  {
-    text: "Sức khoẻ là quý giá, hãy trân trọng khi còn có và sống lành mạnh.",
-    speaker: null,
-    theme: "Cuộc sống",
-    ref: null,
-  },
-  {
-    text: "Kiên nhẫn với người khác, cũng là kiên nhẫn với chính mình.",
-    speaker: null,
-    theme: "Tôn trọng người",
-    ref: null,
-  },
-  {
-    text: "Một ngày mới là một trang giấy trắng, hãy viết nó bằng điều tử tế.",
-    speaker: null,
-    theme: "Cuộc sống",
-    ref: null,
-  },
-  {
-    text: "Người biết quý thời gian, sẽ có nhiều thời gian hơn cho điều thật sự quan trọng.",
-    speaker: null,
-    theme: "Tiết kiệm",
-    ref: null,
-  },
-  {
-    text: "Hãy dành thời gian cho người mình thương, dù công việc có bận rộn đến đâu.",
-    speaker: null,
-    theme: "Tình yêu",
-    ref: null,
-  },
-  {
-    text: "Thành thật với chính mình là bước đầu để sống một cuộc đời ngay thẳng.",
-    speaker: null,
-    theme: "Sống đẹp",
-    ref: null,
-  },
-] as const;
+/**
+ * The 365 maxims (v0.2), in day order: line 1 belongs to January 1st, line 365 to December
+ * 31st. No speaker — these are shown unattributed, by design.
+ */
+export const DANH_NGON: readonly DailyThought[] = MAXIM_SECTIONS.flatMap((section) =>
+  section.lines.map((text) => ({ text, speaker: null, theme: section.theme, ref: null })),
+);
 
-/** The list a category reads from. "Không chọn" has no list, by design. */
+/** The list a category reads from. "Ẩn" has no list, by design. */
 export function thoughtPool(category: DailyThoughtCategory): readonly DailyThought[] {
   if (category === "kinh_thanh") return KINH_THANH;
   if (category === "danh_ngon") return DANH_NGON;
@@ -382,14 +299,50 @@ export function dailyStride(length: number): number {
   return 1;
 }
 
+
 /**
- * The line for this day, or null when there is nothing to show — the reader chose "Không chọn",
- * or the list is empty. Returning null rather than a placeholder keeps the screen silent instead
- * of printing an apology where a thought should be.
+ * How far the maxim wheel turns per year: offset = (year × KEY) mod 365.
+ *
+ * 137 shares no factor with 365 (5 × 73), so consecutive years start 137 lines apart and the
+ * same date takes 365 years to land on the same maxim again. Any fixed constant would satisfy
+ * the letter of the brief; one that is coprime with the list length also keeps year-to-year
+ * jumps large, which is what makes a returning reader feel the calendar is alive.
+ */
+export const DANH_NGON_YEAR_KEY = 137;
+
+/** Where the maxim wheel starts in a given year, in lines from the top of the list. */
+export function maximOffset(year: number): number {
+  return ((year % 365) * DANH_NGON_YEAR_KEY) % 365;
+}
+
+/**
+ * The reader's own calendar day-of-year, 1-based, from their device clock rather than UTC —
+ * the same philosophy as `dayNumber`: someone reading at 23:30 in Hồ Chí Minh is still on
+ * today's line, not tomorrow's.
+ */
+export function dayOfYear(date: Date): number {
+  const startOfYear = Date.UTC(date.getFullYear(), 0, 1);
+  return (
+    Math.floor((Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) - startOfYear) / 86_400_000) + 1
+  );
+}
+
+/**
+ * The line for this day, or null when there is nothing to show — the reader chose "Ẩn",
+ * or the list is empty. Returning null rather than a placeholder keeps the screen silent
+ * instead of printing an apology where a thought should be.
  */
 export function pickDailyThought(category: DailyThoughtCategory, date: Date): DailyThought | null {
   const pool = thoughtPool(category);
   if (pool.length === 0) return null;
+
+  if (category === "danh_ngon") {
+    // Day 366 (a leap year's extra day) does not get its own line: it repeats day 365's,
+    // because the list is shaped by the 365-day year, not by the calendar's rare overflow.
+    const day = Math.min(dayOfYear(date), 365);
+    const index = (day - 1 + maximOffset(date.getFullYear())) % pool.length;
+    return pool[index];
+  }
 
   const step = dayNumber(date) * dailyStride(pool.length);
   return pool[((step % pool.length) + pool.length) % pool.length];
