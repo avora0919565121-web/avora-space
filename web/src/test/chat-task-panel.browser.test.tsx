@@ -15,6 +15,13 @@ const state = vi.hoisted(() => ({ tasks: [] as unknown[] }));
 
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
 
+// The completion dialog reads its one-time guidance through React Query; these tests mock the
+// panel's own data instead of standing up a provider, so the explanation is simply retired.
+vi.mock("@/lib/use-task-flags", () => ({
+  useGuidance: () => ({ shouldShow: () => false, dismiss: () => undefined }),
+  useTaskFlagIndex: () => new Map(),
+}));
+
 vi.mock("@/lib/use-tasks", () => ({
   useTasks: () => ({ data: state.tasks }),
   useTaskActions: () => ({
@@ -47,6 +54,7 @@ function task(overrides: Partial<TaskItem> & { id: string; title: string }): Tas
     categoryId: null,
     isImportant: false,
     isMilestone: false,
+    outputValue: null,
     progressPercent: null,
     recurrence: "none",
     recurrencePattern: null,

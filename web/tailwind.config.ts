@@ -127,6 +127,30 @@ export default {
             transform: "translateY(-2px)",
           },
         },
+        "burst-pop": {
+          "0%": {
+            opacity: "0",
+            transform: "scale(0.72)",
+          },
+          "40%": {
+            opacity: "1",
+            transform: "scale(1.04)",
+          },
+          "100%": {
+            opacity: "1",
+            transform: "scale(1)",
+          },
+        },
+        "burst-ring": {
+          "0%": {
+            opacity: "0.5",
+            transform: "scale(0.55)",
+          },
+          "100%": {
+            opacity: "0",
+            transform: "scale(1.9)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -134,6 +158,8 @@ export default {
         "rise-in": "rise-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both",
         "bubble-in": "bubble-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) both",
         blink: "blink 1.4s ease-in-out infinite",
+        "burst-pop": "burst-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both",
+        "burst-ring": "burst-ring 1.1s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
     },
   },

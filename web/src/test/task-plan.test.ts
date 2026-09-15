@@ -50,6 +50,7 @@ function makeTask(overrides: Partial<TaskItem> & { id: string }): TaskItem {
     categoryId: null,
     isImportant: false,
     isMilestone: false,
+    outputValue: null,
     progressPercent: null,
     recurrence: "none",
     recurrencePattern: null,

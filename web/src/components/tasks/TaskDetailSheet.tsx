@@ -1,9 +1,13 @@
-import { MessagesSquare, Pencil } from "lucide-react";
+import { BookOpen, Loader2, MessagesSquare, Pencil } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { celebrate } from "@/lib/confetti";
+import { forwardTaskOutputToJournal } from "@/lib/task-report";
+
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
+import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import { StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -59,6 +63,8 @@ export function TaskDetailSheet({
   const flags = useTaskFlagIndex();
   const { togglePersonalDone } = useTaskActions();
   const [isEditing, setIsEditing] = useState<boolean>(false);
+  const [isCompleteOpen, setIsCompleteOpen] = useState<boolean>(false);
+  const [isForwarding, setIsForwarding] = useState<boolean>(false);
 
   if (task === null) return null;
 
@@ -78,6 +84,33 @@ export function TaskDetailSheet({
     canMarkSharedDone(task, userId) ||
     canReviewSharedDone(task, userId) ||
     canReturnSharedTask(task, userId);
+
+  const complete = (output: string | null): void => {
+    void togglePersonalDone
+      .mutateAsync({ taskId: task.id, done: true, output })
+      .then(() => {
+        toast.success("Đã đánh dấu hoàn thành.");
+        celebrate(task.isMilestone ? "milestone" : "task");
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra. Thử lại nhé.");
+      });
+  };
+
+  const forward = async (): Promise<void> => {
+    if (user === undefined || task.outputValue === null) return;
+    setIsForwarding(true);
+    try {
+      const conversationId = await forwardTaskOutputToJournal(user.id, task);
+      toast.success("Đã chuyển vào Nhật ký.", {
+        action: { label: "Mở", onClick: () => navigate(`/tin-nhan/${conversationId}`) },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không chuyển được vào Nhật ký.");
+    } finally {
+      setIsForwarding(false);
+    }
+  };
 
   const close = (): void => {
     setIsEditing(false);
@@ -105,18 +138,7 @@ export function TaskDetailSheet({
               state={shared ? SHARED_BUBBLE_STATE[task.status] : PERSONAL_BUBBLE_STATE[task.status]}
               label={taskStatusLabel(task.status)}
               onClick={
-                shared || done
-                  ? undefined
-                  : () => {
-                      void togglePersonalDone
-                        .mutateAsync({ taskId: task.id, done: true })
-                        .then(() => toast.success("Đã đánh dấu hoàn thành."))
-                        .catch((error: unknown) => {
-                          toast.error(
-                            error instanceof Error ? error.message : "Có lỗi xảy ra. Thử lại nhé.",
-                          );
-                        });
-                    }
+                shared || done ? undefined : () => setIsCompleteOpen(true)
               }
             />
             <div className="min-w-0 flex-1">
@@ -168,6 +190,21 @@ export function TaskDetailSheet({
                 </div>
               </dl>
 
+              {/*
+                What the work brought, kept beside what was asked for. While a shared claim is
+                still in review it is the assignee's answer; once closed it is the record.
+              */}
+              {task.outputValue !== null && (done || task.status === "done_pending_review") ? (
+                <div className="rounded-[10px] border border-border bg-card p-3">
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                    {done ? "Kết quả đạt được" : "Kết quả báo xong"}
+                  </p>
+                  <p className="mt-1 whitespace-pre-wrap text-[14px] leading-6 text-foreground">
+                    {task.outputValue}
+                  </p>
+                </div>
+              ) : null}
+
               {shared ? (
                 <p className="text-[13px] text-muted-foreground">{sharedTaskNote(task, userId)}</p>
               ) : null}
@@ -207,6 +244,23 @@ export function TaskDetailSheet({
                 Xem trong ngữ cảnh
               </button>
             ) : null}
+
+            {done && task.outputValue !== null ? (
+              <button
+                type="button"
+                onClick={() => void forward()}
+                disabled={isForwarding}
+                aria-label="Chuyển kết quả vào Nhật ký"
+                className="press flex h-11 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-50"
+              >
+                {isForwarding ? (
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+                ) : (
+                  <BookOpen className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                )}
+                Vào Nhật ký
+              </button>
+            ) : null}
           </div>
 
           {/* Say why editing is unavailable rather than leaving an absent button to be read. */}
@@ -227,6 +281,15 @@ export function TaskDetailSheet({
 
           {canDeleteTask(task, userId) ? null : null}
         </div>
+
+        <TaskCompleteDialog
+          task={task}
+          open={isCompleteOpen}
+          onOpenChange={setIsCompleteOpen}
+          confirmLabel="Hoàn thành"
+          isWorking={togglePersonalDone.isPending}
+          onComplete={complete}
+        />
       </SheetContent>
     </Sheet>
   );

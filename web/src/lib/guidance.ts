@@ -7,7 +7,12 @@ import { supabase } from "@/integrations/supabase/client";
  * look past it, including the one time it mattered. So each of these is shown until the person
  * says they have read it, and then it is gone for good.
  */
-export const GUIDANCE_KEYS = ["task_important_flag", "task_duration_field", "family_flag_tag"] as const;
+export const GUIDANCE_KEYS = [
+  "task_important_flag",
+  "task_duration_field",
+  "family_flag_tag",
+  "task_output_value",
+] as const;
 
 export type GuidanceKey = (typeof GUIDANCE_KEYS)[number];
 
@@ -26,6 +31,8 @@ export const GUIDANCE_TEXT: Record<GuidanceKey, string> = {
     "Thời lượng dự kiến giúp bạn thấy việc nào tốn nhiều thời gian/sức lực để chủ động sắp xếp trước — không cần chính xác, không biết rõ thì chọn Nhẹ hoặc Nặng theo cảm nhận.",
   family_flag_tag:
     "Gia đình ở đây là mối quan hệ có trách nhiệm lâu dài (vợ/chồng, con cái, cha mẹ — kể cả nuôi hợp pháp), khác với việc chỉ đánh dấu ai đó quan trọng nhất thời.",
+  task_output_value:
+    "Kết quả là điều việc này mang lại khi hoàn thành — một con số, một sản phẩm, hay một điều bạn rút ra. Không bắt buộc: bỏ trống vẫn đánh dấu xong được. Có kết quả thì việc sẽ xuất hiện ở mục Báo cáo và có thể chuyển vào Nhật ký.",
 };
 
 export const guidanceKeys = {

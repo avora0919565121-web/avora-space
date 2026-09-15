@@ -117,7 +117,16 @@ export function useTaskActions() {
   });
 
   const togglePersonalDone = useMutation({
-    mutationFn: ({ taskId, done }: { taskId: string; done: boolean }) => setPersonalTaskDone(taskId, done),
+    mutationFn: ({
+      taskId,
+      done,
+      output,
+    }: {
+      taskId: string;
+      done: boolean;
+      /** Normalised by the caller; written only on the way in, never on re-open. */
+      output?: string | null;
+    }) => setPersonalTaskDone(taskId, done, output),
     onSuccess: applyOwnResult,
   });
 
@@ -136,7 +145,8 @@ export function useTaskActions() {
   });
 
   const markSharedDone = useMutation({
-    mutationFn: (taskId: string) => markSharedTaskDone(taskId),
+    mutationFn: ({ taskId, output }: { taskId: string; output: string | null }) =>
+      markSharedTaskDone(taskId, output),
     onSuccess: applyOwnResult,
   });
 

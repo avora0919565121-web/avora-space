@@ -120,6 +120,14 @@ export type TaskItem = {
    * estimated is not a task reported as untouched.
    */
   progressPercent: number | null;
+  /**
+   * What the work brought: the concrete result named once, when the task was completed.
+   *
+   * Optional — a task completed without naming its output stays null, which is not the same
+   * as an empty one. Written at completion and never after: once the creator has reviewed a
+   * shared claim, the record is closed and the text does not change again.
+   */
+  outputValue: string | null;
   recurrence: TaskRecurrence;
   recurrencePattern: RecurrencePattern | null;
   /** Set once this task has produced its successor, so a repeat cannot fork. */
@@ -197,6 +205,24 @@ export type TitleValidation = {
 
 export const TASK_TITLE_MAX_LEN = 200;
 export const TASK_DESCRIPTION_MAX_LEN = 2000;
+/** Same bar as the description: room to say what the work brought, no room for an essay. */
+export const TASK_OUTPUT_MAX_LEN = 2000;
+
+/**
+ * Normalises what the completion prompt collected: trimmed, blank means "none this time".
+ * Returns null for over-length too — callers check `isTaskOutputTooLong` first so the person
+ * is told why, rather than watching a long answer silently become nothing.
+ */
+export function normalizeTaskOutput(raw: string): string | null {
+  const trimmed = raw.trim();
+  if (trimmed === "" || trimmed.length > TASK_OUTPUT_MAX_LEN) return null;
+  return trimmed;
+}
+
+/** Whether the output box holds something the server would refuse, so the button can say so. */
+export function isTaskOutputTooLong(raw: string): boolean {
+  return raw.trim().length > TASK_OUTPUT_MAX_LEN;
+}
 
 /** Maps Postgres/PostgREST failures on the tasks tables to short Vietnamese messages. */
 export function toVietnameseTaskError(code: string | undefined, message: string): string {
@@ -257,6 +283,8 @@ export function toVietnameseTaskError(code: string | undefined, message: string)
     normalized.includes("tasks_progress_percent_range")
   )
     return "Tiến độ phải nằm trong khoảng 0 đến 100.";
+  if (normalized.includes("tasks_output_value_max_len"))
+    return `Kết quả quá dài (tối đa ${TASK_OUTPUT_MAX_LEN} ký tự).`;
   if (normalized.includes("avora_task_not_found")) return "Không tìm thấy nhiệm vụ này.";
   if (normalized.includes("avora_not_a_participant")) return "Bạn không có quyền trong cuộc trò chuyện này.";
   if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
@@ -1281,6 +1309,7 @@ type TaskRow = {
   is_important: boolean | null;
   is_milestone: boolean | null;
   progress_percent: number | null;
+  output_value: string | null;
   recurrence: string | null;
   recurrence_pattern: unknown;
   recurrence_spawned_at: string | null;
@@ -1325,6 +1354,7 @@ function isSameTask(a: TaskItem, b: TaskItem): boolean {
     a.isImportant === b.isImportant &&
     a.isMilestone === b.isMilestone &&
     a.progressPercent === b.progressPercent &&
+    a.outputValue === b.outputValue &&
     a.recurrence === b.recurrence &&
     a.deletedByCreator === b.deletedByCreator &&
     a.deletedByPeer === b.deletedByPeer &&
@@ -1385,6 +1415,7 @@ export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["
     isImportant: row.is_important ?? false,
     isMilestone: row.is_milestone ?? false,
     progressPercent: row.progress_percent,
+    outputValue: row.output_value,
     recurrence: toRecurrence(row.recurrence),
     recurrencePattern: toRecurrencePattern(row.recurrence_pattern),
     recurrenceSpawnedAt:
@@ -1396,7 +1427,7 @@ export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["
 }
 
 const TASK_COLUMNS =
-  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, is_milestone, progress_percent, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
+  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, is_milestone, progress_percent, output_value, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
 
 function toTaskItem(row: TaskRow): TaskItem {
   return {
@@ -1421,6 +1452,7 @@ function toTaskItem(row: TaskRow): TaskItem {
     isImportant: row.is_important ?? false,
     isMilestone: row.is_milestone ?? false,
     progressPercent: row.progress_percent,
+    outputValue: row.output_value,
     recurrence: toRecurrence(row.recurrence),
     recurrencePattern: toRecurrencePattern(row.recurrence_pattern),
     recurrenceSpawnedAt: row.recurrence_spawned_at,
@@ -1506,11 +1538,23 @@ export async function purgePersonalTask(taskId: string): Promise<void> {
   if (error) throw fail(error.code, error.message);
 }
 
-/** Marks a personal task done, or re-opens it. Personal tasks are self-governed. */
-export async function setPersonalTaskDone(taskId: string, done: boolean): Promise<TaskItem> {
-  const patch = done
-    ? { status: "done" as const, done_at: new Date().toISOString() }
-    : { status: "confirmed" as const, done_at: null };
+/**
+ * Marks a personal task done, or re-opens it. Personal tasks are self-governed.
+ *
+ * `outputValue` is only ever written on the way in — completing with what the work brought.
+ * Re-opening deliberately keeps the old text: it is a record of what happened last time, and
+ * a new completion overwrites it; erasing it by hand is a separate decision the prompt offers
+ * by sending null on the next completion.
+ */
+export async function setPersonalTaskDone(
+  taskId: string,
+  done: boolean,
+  outputValue?: string | null,
+): Promise<TaskItem> {
+  const patch: { status: "done" | "confirmed"; done_at: string | null; output_value?: string | null } = done
+    ? { status: "done", done_at: new Date().toISOString() }
+    : { status: "confirmed", done_at: null };
+  if (done && outputValue !== undefined) patch.output_value = outputValue;
 
   const { data, error } = await supabase.from("tasks").update(patch).eq("id", taskId).select(TASK_COLUMNS).single();
   if (error) throw fail(error.code, error.message);
@@ -1575,11 +1619,18 @@ export async function confirmSharedTask(taskId: string): Promise<TaskItem> {
 }
 
 /**
- * Step 1 of completion: the assignee claims the work is finished, which puts the task
- * in review rather than closing it. Safe to retry.
+ * Step 1 of completion: the assignee claims the work is finished, naming what it brought.
+ *
+ * Through `mark_shared_task_done_with_output`, which applies every rule the bare claim
+ * applies — participant, assignee-only, idempotent retries — and stores the output only
+ * while the claim is still open. Once reviewed, the record is closed: the server refuses
+ * to rewrite what was already judged. Safe to retry.
  */
-export async function markSharedTaskDone(taskId: string): Promise<TaskItem> {
-  const { data, error } = await supabase.rpc("mark_shared_task_done", { p_task_id: taskId });
+export async function markSharedTaskDone(taskId: string, outputValue: string | null): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("mark_shared_task_done_with_output", {
+    p_task_id: taskId,
+    p_output_value: outputValue,
+  });
   if (error) throw fail(error.code, error.message);
   return toTaskItem(data as unknown as TaskRow);
 }
@@ -1720,6 +1771,41 @@ export async function updatePersonalTaskPlan(
     .single();
   if (error) throw fail(error.code, error.message);
   return toTaskItem(data as TaskRow);
+}
+
+/**
+ * When a task actually closed: the review stamp settles shared work, the claim is all a
+ * personal task has. Null for anything still open.
+ */
+export function completedAtOf(task: TaskItem): string | null {
+  return task.completedConfirmedAt ?? task.doneAt;
+}
+
+/**
+ * The Báo cáo reading: work that closed AND named what it brought, newest first.
+ *
+ * Both halves matter. A task finished without an output has nothing to read back — it stays
+ * on its own list, and does not gain an entry here by merely being finished. And a task this
+ * person has binned is gone from their day, however good its result was. Every task the
+ * viewer can read is eligible (including a group's), because a completed result is worth
+ * seeing regardless of whose hands produced it.
+ */
+export function reportTasks(tasks: readonly TaskItem[], userId: string | undefined): TaskItem[] {
+  return tasks
+    .filter(
+      (task) =>
+        task.status === "done" &&
+        task.outputValue !== null &&
+        !isTaskGone(task) &&
+        !isDeletedFor(task, userId),
+    )
+    .sort((a, b) => {
+      const aAt = completedAtOf(a) ?? a.createdAt;
+      const bAt = completedAtOf(b) ?? b.createdAt;
+      // Newest first: the report answers "what have I delivered lately".
+      if (aAt !== bAt) return aAt < bAt ? 1 : -1;
+      return a.id < b.id ? 1 : a.id > b.id ? -1 : 0;
+    });
 }
 
 /** Takes a shared task back out of the caller's bin. Safe to retry. */

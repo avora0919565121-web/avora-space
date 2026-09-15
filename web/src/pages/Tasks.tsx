@@ -1,5 +1,6 @@
 import {
   CalendarDays,
+  BookOpen,
   ChevronRight,
   GripVertical,
   Loader2,
@@ -13,8 +14,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { celebrate } from "@/lib/confetti";
+
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
+import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import {
   CategoryFilterBar,
   CategoryTag,
@@ -32,6 +36,7 @@ import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import type { TaskCategory } from "@/lib/task-categories";
 import { contextLink, contextTarget } from "@/lib/task-context";
+import { forwardTaskOutputToJournal, completedDayLabel } from "@/lib/task-report";
 import { applyManualOrder, defaultViewMode } from "@/lib/task-order";
 import { RECURRENCE_LABELS } from "@/lib/task-schedule";
 import {
@@ -68,6 +73,7 @@ import {
   isTaskDraftComplete,
   needsAttention,
   partitionByBin,
+  reportTasks,
   sharedTaskNote,
   slackMinutes,
   sortTasksByPriority,
@@ -292,6 +298,7 @@ function PersonalRow({
   const { togglePersonalDone, binPersonal } = useTaskActions();
   const categories = useCategoryIndex();
   const done = task.status === "done";
+  const [isCompleteOpen, setIsCompleteOpen] = useState<boolean>(false);
 
   const run = async (action: Promise<unknown>): Promise<void> => {
     try {
@@ -305,7 +312,11 @@ function PersonalRow({
     <li className="flex items-start gap-3 py-2">
       <TaskBubble
         state={PERSONAL_BUBBLE_STATE[task.status]}
-        onClick={() => void run(togglePersonalDone.mutateAsync({ taskId: task.id, done: !done }))}
+        onClick={() => {
+          // Completing asks the one question first; re-opening needs no dialog.
+          if (done) void run(togglePersonalDone.mutateAsync({ taskId: task.id, done: false }));
+          else setIsCompleteOpen(true);
+        }}
         label={done ? "Mở lại nhiệm vụ" : "Đánh dấu hoàn thành"}
       />
       {/*
@@ -330,6 +341,21 @@ function PersonalRow({
         icon={Trash2}
         disabled={binPersonal.isPending}
         onClick={() => void run(binPersonal.mutateAsync({ taskId: task.id, deleted: true }))}
+      />
+
+      <TaskCompleteDialog
+        task={task}
+        open={isCompleteOpen}
+        onOpenChange={setIsCompleteOpen}
+        confirmLabel="Hoàn thành"
+        isWorking={togglePersonalDone.isPending}
+        onComplete={(output) => {
+          void run(
+            togglePersonalDone
+              .mutateAsync({ taskId: task.id, done: true, output })
+              .then(() => celebrate(task.isMilestone ? "milestone" : "task")),
+          );
+        }}
       />
     </li>
   );
@@ -979,6 +1005,120 @@ function ProposedSection({
   );
 }
 
+/**
+ * Báo cáo — the reading of work that closed AND named what it brought.
+ *
+ * A section of the Nhiệm vụ page, not a view mode: it sits between the working lists and the
+ * bin, collapsed on arrival like the bin, because a report is a place you go looking for too.
+ * Newest first — it answers "what have I delivered lately".
+ */
+function ReportsSection({
+  tasks,
+  today,
+  onOpen,
+}: {
+  tasks: TaskItem[];
+  today: string;
+  onOpen: (task: TaskItem) => void;
+}) {
+  const { isOpen, toggle } = useTree();
+  const open = isOpen("reports", false);
+
+  return (
+    <section aria-labelledby="tasks-reports" className="rounded-[10px] border border-border bg-card">
+      <BranchHeader open={open} onToggle={() => toggle("reports", false)} className="px-5 py-4">
+        <h2 id="tasks-reports" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
+          Báo cáo
+        </h2>
+        <span className="tabular shrink-0 text-[13px] text-muted-foreground">{tasks.length} kết quả</span>
+      </BranchHeader>
+
+      {open ? (
+        <div className="rise-in">
+          <p className="px-5 pb-2 text-[13px] text-muted-foreground">
+            Việc đã hoàn thành kèm kết quả cụ thể, mới nhất trước. Chuyển vào Nhật ký để giữ lại những
+            điều đáng nhớ.
+          </p>
+          <ul className="px-5 pb-3">
+            {tasks.map((task) => (
+              <ReportRow key={task.id} task={task} today={today} onOpen={onOpen} />
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
+/** One delivered result, with the one action a finished task still offers: keep it. */
+function ReportRow({
+  task,
+  today,
+  onOpen,
+}: {
+  task: TaskItem;
+  today: string;
+  onOpen: (task: TaskItem) => void;
+}) {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isForwarding, setIsForwarding] = useState<boolean>(false);
+  const day = completedDayLabel(task);
+
+  const forward = async (): Promise<void> => {
+    if (user?.id === undefined) return;
+    setIsForwarding(true);
+    try {
+      const conversationId = await forwardTaskOutputToJournal(user.id, task);
+      toast.success("Đã chuyển vào Nhật ký.", {
+        action: { label: "Mở", onClick: () => navigate(`/tin-nhan/${conversationId}`) },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không chuyển được vào Nhật ký.");
+    } finally {
+      setIsForwarding(false);
+    }
+  };
+
+  return (
+    <li className="flex items-start gap-3 border-t border-border/60 py-2.5 first:border-t-0">
+      <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label="Đã hoàn thành" />
+      <button
+        type="button"
+        onClick={() => onOpen(task)}
+        className="press min-w-0 flex-1 pt-0.5 text-left"
+      >
+        <TaskTitle task={task} muted />
+        <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-foreground/90">{task.outputValue}</p>
+        <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
+          {day !== null ? <span>Hoàn thành {day}</span> : null}
+          {task.isMilestone ? (
+            <span className="font-medium text-[#b98a2f]">Cột mốc</span>
+          ) : null}
+          {deadlineLabel(task.deadline, today) !== null ? (
+            <span>Hạn {deadlineLabel(task.deadline, today)}</span>
+          ) : null}
+        </p>
+      </button>
+      <button
+        type="button"
+        onClick={() => void forward()}
+        disabled={isForwarding}
+        aria-label="Chuyển kết quả vào Nhật ký"
+        title="Chuyển kết quả vào Nhật ký"
+        className="press flex h-12 shrink-0 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50 sm:h-9"
+      >
+        {isForwarding ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+        ) : (
+          <BookOpen className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+        )}
+        Vào Nhật ký
+      </button>
+    </li>
+  );
+}
+
 /** The bin. Always collapsed on arrival: it is a place you go looking for, never a distraction. */
 function BinSection({ tasks, userId, today }: { tasks: TaskItem[]; userId: string | undefined; today: string }) {
   const { isOpen, toggle } = useTree();
@@ -1256,6 +1396,12 @@ export default function Tasks() {
     };
   }, [tasks, userId, today, scope, sharedOrder, flags]);
 
+  /** Work that closed and named what it brought — the section between the lists and the bin. */
+  const reports: TaskItem[] = useMemo(
+    () => reportTasks(filterByScope(tasks ?? [], scope), userId),
+    [tasks, userId, scope],
+  );
+
   const { order: viewOrder, isReady: isOrderReady, reorder: reorderViews } = useViewOrder();
   /**
    * A link may name the reading it wants; arriving without one means no opinion.
@@ -1431,6 +1577,8 @@ export default function Tasks() {
             ) : null}
 
             {proposed.length > 0 ? <ProposedSection suggestions={proposed} today={today} /> : null}
+
+            {reports.length > 0 ? <ReportsSection tasks={reports} today={today} onOpen={openTask} /> : null}
 
             {binned.length > 0 ? <BinSection tasks={binned} userId={userId} today={today} /> : null}
           </div>

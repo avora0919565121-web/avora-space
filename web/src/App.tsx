@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
 import { LegacyRedirect } from "@/components/LegacyRedirect";
+import { MilestoneBurstLayer } from "@/components/MilestoneBurstLayer";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -35,6 +36,7 @@ const App = () => (
       <ChatRealtimeProvider>
         <TooltipProvider>
           <Toaster />
+          <MilestoneBurstLayer />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/" element={<Navigate to={HOME_ROUTE} replace />} />

@@ -4,10 +4,13 @@ import { toast } from "sonner";
 
 import { SkipSuggestionDialog } from "@/components/chat/SkipSuggestionDialog";
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
+import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import { useAuth } from "@/lib/auth";
+import { celebrate } from "@/lib/confetti";
 import type { GroupMember } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
+import { fireMilestoneBurst } from "@/lib/milestone-burst";
 import {
   canConfirmSharedTask,
   canDeleteTask,
@@ -206,6 +209,7 @@ function ChatTaskRow({
     useTaskActions();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isSkipOpen, setIsSkipOpen] = useState<boolean>(false);
+  const [isCompleteOpen, setIsCompleteOpen] = useState<boolean>(false);
   const canConfirm = canConfirmSharedTask(task, userId);
   const canMarkDone = canMarkSharedDone(task, userId);
   const canReview = canReviewSharedDone(task, userId);
@@ -257,6 +261,26 @@ function ChatTaskRow({
       toast.success("Đã bỏ qua việc này.");
     },
     [skipShared, task.id, onSendMessage],
+  );
+
+  /**
+   * Claiming the work done, with what it brought.
+   *
+   * The dialog closes only once the claim has actually gone through — closing it first and
+   * failing after would leave the person looking at a done task that is not done.
+   */
+  const handleComplete = useCallback(
+    async (output: string | null): Promise<void> => {
+      try {
+        await markSharedDone.mutateAsync({ taskId: task.id, output });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Không báo xong được.");
+        return;
+      }
+      setIsCompleteOpen(false);
+      celebrate(task.isMilestone ? "milestone" : "task");
+    },
+    [markSharedDone, task.id, task.isMilestone],
   );
 
   return (
@@ -314,6 +338,21 @@ function ChatTaskRow({
         ) : null}
       </div>
 
+      {/*
+        What the work brought, said by the person who did it. Visible to the whole room while
+        the claim is in review and after it closes — a finished result is worth reading.
+      */}
+      {!isEditing && task.outputValue !== null && (task.status === "done_pending_review" || task.status === "done") ? (
+        <div className="ml-11 mt-2 rounded-[10px] border border-border bg-secondary/40 px-3 py-2">
+          <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+            {task.status === "done" ? "Kết quả đạt được" : "Kết quả báo xong"}
+          </p>
+          <p className="mt-0.5 whitespace-pre-wrap text-[13px] leading-5 text-foreground">
+            {task.outputValue}
+          </p>
+        </div>
+      ) : null}
+
       {/* Say why the button is missing, rather than leaving it to be guessed. */}
       {!canEdit && editBlocked !== null && task.status === "done_pending_review" ? (
         <p className="mt-1.5 pl-11 text-[11px] text-muted-foreground">{editBlocked}</p>
@@ -353,7 +392,7 @@ function ChatTaskRow({
           {canMarkDone ? (
             <button
               type="button"
-              onClick={() => void run(markSharedDone.mutateAsync(task.id))}
+              onClick={() => setIsCompleteOpen(true)}
               disabled={markSharedDone.isPending}
               className="press h-12 rounded-[10px] border border-foreground px-4 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
             >
@@ -363,7 +402,22 @@ function ChatTaskRow({
           {canReview ? (
             <button
               type="button"
-              onClick={() => void run(reviewSharedDone.mutateAsync(task.id))}
+              onClick={() =>
+                void run(
+                  reviewSharedDone.mutateAsync(task.id).then(() => {
+                    // A milestone closing is a moment for the room, not just the two parties:
+                    // the burst plays here for the person who just closed it, and rides the
+                    // realtime broadcast to everyone else. Nothing is stored.
+                    if (task.isMilestone && userId !== undefined && task.conversationId !== null) {
+                      fireMilestoneBurst({
+                        conversationId: task.conversationId,
+                        taskId: task.id,
+                        actorId: userId,
+                      });
+                    }
+                  }),
+                )
+              }
               disabled={reviewSharedDone.isPending}
               className="press h-12 rounded-[10px] bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
@@ -403,6 +457,15 @@ function ChatTaskRow({
         creatorName={askedBy}
         onSkip={(input) => void handleSkip(input)}
         isWorking={skipShared.isPending}
+      />
+
+      <TaskCompleteDialog
+        task={task}
+        open={isCompleteOpen}
+        onOpenChange={setIsCompleteOpen}
+        confirmLabel="Báo đã xong"
+        onComplete={(output) => void handleComplete(output)}
+        isWorking={markSharedDone.isPending}
       />
     </li>
   );
