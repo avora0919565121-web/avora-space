@@ -91,7 +91,18 @@ import {
 } from "@/lib/tasks";
 import { suggestionsProposed, type TaskSuggestion } from "@/lib/task-suggestions";
 import { useConversations } from "@/lib/use-conversations";
-import { useTaskSuggestions } from "@/lib/use-task-suggestions";
+import { useSuggestionActions, useTaskSuggestions } from "@/lib/use-task-suggestions";
+import { EditSuggestionDialog } from "@/components/tasks/EditSuggestionDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { useSharedTaskOrder, useViewOrder } from "@/lib/use-task-order";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
@@ -946,6 +957,22 @@ function ProposedSection({
 }) {
   const { isOpen, toggle } = useTree();
   const open = isOpen("proposed", false);
+  const { withdraw } = useSuggestionActions();
+  const [editTarget, setEditTarget] = useState<TaskSuggestion | null>(null);
+  const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
+  const [withdrawTarget, setWithdrawTarget] = useState<TaskSuggestion | null>(null);
+
+  const handleWithdraw = useCallback(
+    async (id: string): Promise<void> => {
+      try {
+        await withdraw.mutateAsync(id);
+        toast.success("Đã rút lại gợi ý.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Không rút được gợi ý.");
+      }
+    },
+    [withdraw],
+  );
 
   return (
     <section aria-labelledby="tasks-proposed" className="rounded-[10px] border border-border bg-card">
@@ -989,18 +1016,94 @@ function ProposedSection({
                       ) : null}
                     </p>
                   </div>
-                  <a
-                    href={`/tin-nhan/${entry.conversationId}`}
-                    className="press shrink-0 rounded-[8px] px-2 py-1 text-[12.5px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground"
-                  >
-                    Mở cuộc trò chuyện
-                  </a>
+                  <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+                    <a
+                      href={`/tin-nhan/${entry.conversationId}`}
+                      className="press flex h-12 items-center rounded-[8px] px-2 py-1 text-[12.5px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground sm:h-9"
+                    >
+                      Mở cuộc trò chuyện
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditTarget(entry);
+                        setIsEditOpen(true);
+                      }}
+                      disabled={withdraw.isPending}
+                      title="Sửa gợi ý"
+                      className="press flex h-12 items-center rounded-[10px] border border-border px-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-foreground hover:text-foreground disabled:opacity-50 sm:h-9"
+                    >
+                      Sửa
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setWithdrawTarget(entry)}
+                      disabled={withdraw.isPending}
+                      title="Rút lại gợi ý"
+                      className="press flex h-12 items-center rounded-[10px] border border-border px-3 text-[12.5px] font-medium text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-50 sm:h-9"
+                    >
+                      Rút lại
+                    </button>
+                  </div>
                 </li>
               );
             })}
           </ul>
         </div>
       ) : null}
+
+      <EditSuggestionDialog
+        suggestionId={editTarget?.id ?? null}
+        draft={
+          editTarget === null
+            ? null
+            : {
+                title: editTarget.title,
+                description: editTarget.description,
+                deadline: editTarget.deadline,
+                deadlineTime: editTarget.deadlineTime,
+              }
+        }
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+      />
+
+      {/*
+        Withdrawing gets one confirmation and no second chance — the question goes back and
+        nobody is asked to answer it again. No task was ever created, so nothing is deleted;
+        the request simply stops being open.
+      */}
+      <AlertDialog
+        open={withdrawTarget !== null}
+        onOpenChange={(next) => (!next ? setWithdrawTarget(null) : undefined)}
+      >
+        {withdrawTarget !== null ? (
+          <AlertDialogContent className="border-border bg-card">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="text-foreground">Rút lại gợi ý này?</AlertDialogTitle>
+              <AlertDialogDescription>
+                “{withdrawTarget.title}” sẽ ngừng chờ câu trả lời và biến mất khỏi danh sách của
+                cả hai bên. Không có tác vụ nào bị xoá — nó chưa từng tồn tại.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="border-border bg-transparent text-foreground hover:bg-accent/40">
+                Để nguyên
+              </AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  const id = withdrawTarget.id;
+                  setWithdrawTarget(null);
+                  void handleWithdraw(id);
+                }}
+                className="bg-destructive text-white hover:bg-destructive/90"
+              >
+                Rút lại
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        ) : null}
+      </AlertDialog>
     </section>
   );
 }

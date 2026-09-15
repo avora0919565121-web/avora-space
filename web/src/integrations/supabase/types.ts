@@ -1,7 +1,3 @@
-/* eslint-disable */
-// AUTO-GENERATED — DO NOT EDIT
-// Run migrations to regenerate.
-
 export type Json =
   | string
   | number
@@ -2059,6 +2055,40 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      edit_task_suggestion: {
+        Args: {
+          p_deadline: string
+          p_deadline_time?: string
+          p_deadline_tz?: string
+          p_description: string
+          p_suggestion_id: string
+          p_title: string
+        }
+        Returns: {
+          accepted_task_id: string | null
+          assignee_id: string
+          context_snapshot: Json
+          conversation_id: string
+          created_at: string
+          id: string
+          message_id: string | null
+          proposed_deadline: string
+          proposed_deadline_time: string | null
+          proposed_deadline_tz: string
+          proposed_description: string
+          proposed_title: string
+          proposer_id: string
+          resolved_at: string | null
+          skipped_silently: boolean
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_suggestions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       ensure_default_categories: {
         Args: never
         Returns: {
@@ -2886,6 +2916,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      withdraw_task_suggestion: {
+        Args: { p_suggestion_id: string }
+        Returns: {
+          accepted_task_id: string | null
+          assignee_id: string
+          context_snapshot: Json
+          conversation_id: string
+          created_at: string
+          id: string
+          message_id: string | null
+          proposed_deadline: string
+          proposed_deadline_time: string | null
+          proposed_deadline_tz: string
+          proposed_description: string
+          proposed_title: string
+          proposer_id: string
+          resolved_at: string | null
+          skipped_silently: boolean
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_suggestions"
           isOneToOne: true
           isSetofReturn: false
         }

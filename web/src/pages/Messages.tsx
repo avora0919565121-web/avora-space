@@ -552,13 +552,20 @@ const Messages = () => {
    * Used when someone declines a suggestion with a word. Deliberately NOT `handleSend`: that
    * one clears the draft and the reply quote, which belong to whatever the person was already
    * writing and must survive an unrelated action. Awaited by the caller so a failure can be
-   * reported rather than disappearing.
+   * reported rather than disappearing. `replyToMessageId` quotes the message the suggestion
+   * came out of, so the answer reads beside the ask.
    */
   const sendPlainMessage = useCallback(
-    async (content: string): Promise<void> => {
+    async (content: string, replyToMessageId?: string | null): Promise<void> => {
       const trimmed = content.trim();
       if (trimmed.length === 0 || !conversationId || !userId) return;
-      await sendMessage(conversationId, userId, trimmed, null, extractMentionedIds(trimmed, mentionable));
+      await sendMessage(
+        conversationId,
+        userId,
+        trimmed,
+        replyToMessageId ?? null,
+        extractMentionedIds(trimmed, mentionable),
+      );
       void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
     },

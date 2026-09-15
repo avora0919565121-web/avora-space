@@ -16,13 +16,17 @@ export const suggestionKeys = {
 };
 
 /**
- * Three answers a suggestion can be in, and only the first one is still a question.
+ * Four answers a suggestion can be in, and only the first one is still a question.
  *
  * `pending` is deliberately NOT a task state — a suggestion nobody has agreed to is not work
  * anybody is carrying, and putting it in `tasks` is what made unanswered requests show up in
  * deadline views, counters and badges as though they were promises.
+ *
+ * `withdrawn` is the proposer taking their own question back. It is deliberately distinct
+ * from `skipped`: withdrawing says nothing about how the other person would have answered,
+ * and must never read as a refusal on their behalf.
  */
-export type SuggestionStatus = "pending" | "accepted" | "skipped";
+export type SuggestionStatus = "pending" | "accepted" | "skipped" | "withdrawn";
 
 /**
  * A piece of work someone proposed in a conversation, before anyone agreed to it.
@@ -79,7 +83,13 @@ const SUGGESTION_COLUMNS =
   "id, conversation_id, message_id, proposer_id, assignee_id, proposed_title, proposed_description, proposed_deadline, proposed_deadline_time, proposed_deadline_tz, context_snapshot, status, skipped_silently, accepted_task_id, resolved_at, created_at";
 
 function toStatus(raw: string): SuggestionStatus {
-  if (raw === "accepted" || raw === "skipped") return raw;
+  if (
+    raw === "accepted" ||
+    raw === "skipped" ||
+    raw === "withdrawn"
+  ) {
+    return raw;
+  }
   return "pending";
 }
 
@@ -135,6 +145,8 @@ export function toVietnameseSuggestionError(code: string | undefined, message: s
     return "Không tìm thấy gợi ý này. Có thể nó đã được gỡ.";
   if (normalized.includes("avora_suggestion_already_answered"))
     return "Gợi ý này đã được trả lời rồi.";
+  if (normalized.includes("avora_task_not_proposer"))
+    return "Chỉ người gợi ý mới làm được điều này.";
   // Reuses the task vocabulary for everything else: the two flows raise the same error names,
   // and a person reading "Chỉ người được giao…" should not get two different wordings of it.
   return toVietnameseTaskError(code, message);
@@ -229,6 +241,52 @@ export async function skipTaskSuggestion(
   return toSuggestion(data as unknown as SuggestionRow);
 }
 
+/** The editable surface of a suggestion: everything except who is asked and what it quotes. */
+export type SuggestionEditDraft = {
+  title: string;
+  description: string;
+  deadline: string;
+  deadlineTime: string | null;
+};
+
+/**
+ * "Sửa": the proposer rewords their own still-pending suggestion.
+ *
+ * Only the wording moves — title, description, deadline. The assignee and the quoted
+ * exchange are not parameters because changing them would be asking a different question,
+ * not editing this one. Safe to retry: a suggestion answered meanwhile is refused server-side.
+ */
+export async function editTaskSuggestion(
+  suggestionId: string,
+  draft: SuggestionEditDraft,
+): Promise<TaskSuggestion> {
+  const { data, error } = await supabase.rpc("edit_task_suggestion", {
+    p_suggestion_id: suggestionId,
+    p_title: draft.title,
+    p_description: draft.description,
+    p_deadline: draft.deadline,
+    p_deadline_time: draft.deadlineTime,
+    p_deadline_tz: browserTimezone(),
+  });
+  if (error) throw fail(error.code, error.message);
+  return toSuggestion(data as unknown as SuggestionRow);
+}
+
+/**
+ * "Rút lại": the proposer takes their own unanswered question back.
+ *
+ * No task exists yet, so nothing is deleted — the suggestion simply stops being open and
+ * disappears from both sides' lists. Safe to retry: withdrawing an already-withdrawn
+ * suggestion is a no-op success, and one already answered is refused server-side.
+ */
+export async function withdrawTaskSuggestion(suggestionId: string): Promise<TaskSuggestion> {
+  const { data, error } = await supabase.rpc("withdraw_task_suggestion", {
+    p_suggestion_id: suggestionId,
+  });
+  if (error) throw fail(error.code, error.message);
+  return toSuggestion(data as unknown as SuggestionRow);
+}
+
 // ---------------------------------------------------------------- reading
 
 /** Still a question: nobody has answered it yet. */
@@ -248,6 +306,18 @@ export function canAnswerSuggestion(
   userId: string | undefined,
 ): boolean {
   return userId !== undefined && isPending(suggestion) && suggestion.assigneeId === userId;
+}
+
+/**
+ * Whether this person may reword or take back this suggestion: the proposer's alone, and only
+ * while it is still a question. Once answered — accepted, skipped or withdrawn — the record
+ * stands as what it was when it was answered.
+ */
+export function canManageSuggestion(
+  suggestion: TaskSuggestion,
+  userId: string | undefined,
+): boolean {
+  return userId !== undefined && isPending(suggestion) && suggestion.proposerId === userId;
 }
 
 /**

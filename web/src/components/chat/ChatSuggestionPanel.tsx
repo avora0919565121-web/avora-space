@@ -3,12 +3,14 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SkipSuggestionDialog } from "@/components/chat/SkipSuggestionDialog";
+import { EditSuggestionDialog } from "@/components/tasks/EditSuggestionDialog";
 import { useAuth } from "@/lib/auth";
 import type { ConversationKind } from "@/lib/chat";
 import type { GroupMember } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
 import {
   canAnswerSuggestion,
+  canManageSuggestion,
   canSkipSuggestionSilently,
   pendingInConversation,
   type TaskSuggestion,
@@ -16,6 +18,16 @@ import {
 import { deadlineLabel, suggestedByNote, todayIso } from "@/lib/tasks";
 import { useSuggestionActions, useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { cn } from "@/lib/utils";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type ChatSuggestionPanelProps = {
   conversationId: string;
@@ -28,8 +40,10 @@ type ChatSuggestionPanelProps = {
    *
    * A plain message on purpose: a decline explained in a system notice would be the app
    * speaking for the person, and the whole point is that they said it themselves.
+   * `replyToMessageId` quotes the message the suggestion came out of, so the answer lands
+   * beside the ask rather than loose at the bottom of the thread.
    */
-  onSendMessage: (content: string) => Promise<void>;
+  onSendMessage: (content: string, replyToMessageId?: string | null) => Promise<void>;
 };
 
 /**
@@ -144,11 +158,14 @@ function SuggestionRow({
   conversationKind: ConversationKind;
   peerName: string;
   members: readonly GroupMember[];
-  onSendMessage: (content: string) => Promise<void>;
+  onSendMessage: (content: string, replyToMessageId?: string | null) => Promise<void>;
 }) {
-  const { accept, skip } = useSuggestionActions();
+  const { accept, skip, withdraw } = useSuggestionActions();
   const [isSkipOpen, setIsSkipOpen] = useState<boolean>(false);
+  const [isEditOpen, setIsEditOpen] = useState<boolean>(false);
+  const [isWithdrawOpen, setIsWithdrawOpen] = useState<boolean>(false);
   const canAnswer = canAnswerSuggestion(suggestion, userId);
+  const canManage = canManageSuggestion(suggestion, userId);
   const askedBy = nameOf(suggestion.proposerId, members, peerName, userId);
   const askedOf = nameOf(suggestion.assigneeId, members, peerName, userId);
   const deadline = deadlineLabel(suggestion.deadline, today);
@@ -160,6 +177,10 @@ function SuggestionRow({
    * still stands, which is the honest order — the answer was given, and a network problem must
    * not silently leave the request looking unanswered. A failed note is reported so the person
    * can say it again themselves.
+   *
+   * The note quotes the message the suggestion came out of, so the ask and its answer read
+   * together even with other talk in between. A suggestion raised in an empty thread has no
+   * message to quote and its reply simply stands alone.
    */
   const handleSkip = useCallback(
     async (input: { silent: boolean; message: string | null }): Promise<void> => {
@@ -172,7 +193,7 @@ function SuggestionRow({
       setIsSkipOpen(false);
       if (input.message !== null) {
         try {
-          await onSendMessage(input.message);
+          await onSendMessage(input.message, suggestion.messageId);
         } catch {
           toast.error("Đã bỏ qua, nhưng lời nhắn chưa gửi được. Bạn thử gửi lại nhé.");
           return;
@@ -180,7 +201,7 @@ function SuggestionRow({
       }
       toast.success("Đã bỏ qua gợi ý này.");
     },
-    [skip, suggestion.id, onSendMessage],
+    [skip, suggestion.id, suggestion.messageId, onSendMessage],
   );
 
   const handleAccept = useCallback(async (): Promise<void> => {
@@ -191,6 +212,15 @@ function SuggestionRow({
       toast.error(error instanceof Error ? error.message : "Không tạo được tác vụ.");
     }
   }, [accept, suggestion.id]);
+
+  const handleWithdraw = useCallback(async (): Promise<void> => {
+    try {
+      await withdraw.mutateAsync(suggestion.id);
+      toast.success("Đã rút lại gợi ý.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không rút được gợi ý.");
+    }
+  }, [withdraw, suggestion.id]);
 
   return (
     <li className="rounded-[10px] border border-dashed border-border bg-card px-3 py-2.5">
@@ -230,7 +260,9 @@ function SuggestionRow({
       <p className="mt-1.5 pl-7 text-[11.5px] text-muted-foreground">
         {canAnswer
           ? suggestedByNote(askedBy)
-          : `Đang chờ ${askedOf === "Bạn" ? "bạn" : askedOf} trả lời`}
+          : canManage
+            ? "Người được gợi ý sẽ quyết định — bạn có thể sửa hoặc rút lại."
+            : `Đang chờ ${askedOf === "Bạn" ? "bạn" : askedOf} trả lời`}
       </p>
 
       {canAnswer ? (
@@ -254,6 +286,27 @@ function SuggestionRow({
         </div>
       ) : null}
 
+      {canManage ? (
+        <div className="mt-2 flex flex-wrap items-center gap-2 pl-7">
+          <button
+            type="button"
+            onClick={() => setIsEditOpen(true)}
+            disabled={withdraw.isPending}
+            className="press h-12 rounded-[10px] border border-border px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:border-foreground hover:text-foreground disabled:opacity-60"
+          >
+            Sửa
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsWithdrawOpen(true)}
+            disabled={withdraw.isPending}
+            className="press h-12 rounded-[10px] border border-border px-4 text-[13px] font-medium text-muted-foreground transition-colors hover:border-destructive hover:text-destructive disabled:opacity-60"
+          >
+            Rút lại
+          </button>
+        </div>
+      ) : null}
+
       <SkipSuggestionDialog
         title={suggestion.title}
         allowSilent={canSkipSuggestionSilently(conversationKind)}
@@ -263,6 +316,46 @@ function SuggestionRow({
         onSkip={(input) => void handleSkip(input)}
         isWorking={skip.isPending}
       />
+
+      <EditSuggestionDialog
+        suggestionId={suggestion.id}
+        draft={{
+          title: suggestion.title,
+          description: suggestion.description,
+          deadline: suggestion.deadline,
+          deadlineTime: suggestion.deadlineTime,
+        }}
+        open={isEditOpen}
+        onOpenChange={setIsEditOpen}
+      />
+
+      {/*
+        Withdrawing gets one confirmation and no second chance: the question goes back and
+        nobody is asked to answer it again. The copy says what actually happens — no task was
+        ever created, so nothing is deleted; the request simply stops being open.
+      */}
+      <AlertDialog open={isWithdrawOpen} onOpenChange={setIsWithdrawOpen}>
+        <AlertDialogContent className="border-border bg-card">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-foreground">Rút lại gợi ý này?</AlertDialogTitle>
+            <AlertDialogDescription>
+              “{suggestion.title}” sẽ ngừng chờ câu trả lời và biến mất khỏi danh sách của cả hai
+              bên. Không có tác vụ nào bị xoá — nó chưa từng tồn tại.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="border-border bg-transparent text-foreground hover:bg-accent/40">
+              Để nguyên
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => void handleWithdraw()}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Rút lại
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </li>
   );
 }

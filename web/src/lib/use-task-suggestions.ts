@@ -5,10 +5,13 @@ import { useChatRealtime } from "@/lib/realtime";
 import {
   acceptTaskSuggestion,
   createTaskSuggestion,
+  editTaskSuggestion,
   fetchTaskSuggestions,
   skipTaskSuggestion,
   suggestionKeys,
   upsertSuggestion,
+  withdrawTaskSuggestion,
+  type SuggestionEditDraft,
   type SuggestionTarget,
   type TaskSuggestion,
 } from "@/lib/task-suggestions";
@@ -100,10 +103,25 @@ export function useSuggestionActions() {
     onSuccess: applyOwnResult,
   });
 
+  /** "Sửa": rewording the ask. The row is patched in place, still pending. */
+  const edit = useMutation({
+    mutationFn: ({ suggestionId, draft }: { suggestionId: string; draft: SuggestionEditDraft }) =>
+      editTaskSuggestion(suggestionId, draft),
+    onSuccess: applyOwnResult,
+  });
+
+  /** "Rút lại": taking the question back. The resolved row drops out of every pending list. */
+  const withdraw = useMutation({
+    mutationFn: (suggestionId: string) => withdrawTaskSuggestion(suggestionId),
+    onSuccess: applyOwnResult,
+  });
+
   return {
     propose,
     accept,
     skip,
-    isWorking: propose.isPending || accept.isPending || skip.isPending,
+    edit,
+    withdraw,
+    isWorking: propose.isPending || accept.isPending || skip.isPending || edit.isPending || withdraw.isPending,
   };
 }
