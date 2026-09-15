@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { celebrate } from "@/lib/confetti";
+import { celebrate, MILESTONE_BURSTS } from "@/lib/confetti";
 import { forwardTaskOutputToJournal } from "@/lib/task-report";
 
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
@@ -91,7 +91,9 @@ export function TaskDetailSheet({
       .mutateAsync({ taskId: task.id, done: true, output })
       .then(() => {
         toast.success("Đã đánh dấu hoàn thành.");
-        celebrate(task.isMilestone ? "milestone" : "task");
+        // Fired from inside an open sheet: the confetti canvas lives on the document body,
+        // so a milestone fills the screen rather than the panel it was closed from.
+        celebrate(task.isMilestone ? "milestone" : "task", task.isMilestone ? MILESTONE_BURSTS : 1);
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra. Thử lại nhé.");

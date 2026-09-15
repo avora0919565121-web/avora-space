@@ -1,7 +1,8 @@
 import { Plus, SmilePlus } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { emojiBounceClass, EMOJI_BOUNCE_MS } from "@/lib/emoji-bounce";
 import {
   describeReactors,
   MORE_REACTIONS,
@@ -79,11 +80,31 @@ export function ReactionPicker({
 }) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [showAll, setShowAll] = useState<boolean>(false);
+  const [pressed, setPressed] = useState<string | null>(null);
+  const closeRef = useRef<number | null>(null);
 
+  useEffect(
+    () => () => {
+      if (closeRef.current !== null) window.clearTimeout(closeRef.current);
+    },
+    [],
+  );
+
+  /**
+   * The reaction is sent now; the sheet waits out the bounce.
+   *
+   * Saving first and animating after means a slow network never costs the feedback, and the
+   * person still sees which of eight small faces took their press before it all closes.
+   */
   const pick = (emoji: string): void => {
     onPick(emoji);
-    setIsOpen(false);
-    setShowAll(false);
+    setPressed(emoji);
+    if (closeRef.current !== null) window.clearTimeout(closeRef.current);
+    closeRef.current = window.setTimeout(() => {
+      setIsOpen(false);
+      setShowAll(false);
+      setPressed(null);
+    }, EMOJI_BOUNCE_MS);
   };
 
   return (
@@ -91,7 +112,10 @@ export function ReactionPicker({
       open={isOpen}
       onOpenChange={(next) => {
         setIsOpen(next);
-        if (!next) setShowAll(false);
+        if (!next) {
+          setShowAll(false);
+          setPressed(null);
+        }
       }}
     >
       <PopoverTrigger asChild>
@@ -118,7 +142,9 @@ export function ReactionPicker({
               aria-label={entry.label}
               className="press flex h-10 w-10 items-center justify-center rounded-[8px] text-[20px] transition-colors hover:bg-accent/50"
             >
-              <span aria-hidden="true">{entry.emoji}</span>
+              <span aria-hidden="true" className={emojiBounceClass(pressed, entry.emoji)}>
+                {entry.emoji}
+              </span>
             </button>
           ))}
           {!showAll ? (
@@ -145,7 +171,9 @@ export function ReactionPicker({
                   aria-label={`Thả ${emoji}`}
                   className="press flex h-10 w-10 items-center justify-center rounded-[8px] text-[20px] transition-colors hover:bg-accent/50"
                 >
-                  <span aria-hidden="true">{emoji}</span>
+                  <span aria-hidden="true" className={emojiBounceClass(pressed, emoji)}>
+                    {emoji}
+                  </span>
                 </button>
               ))}
             </div>

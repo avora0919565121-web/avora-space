@@ -7,7 +7,7 @@ import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import { useAuth } from "@/lib/auth";
-import { celebrate } from "@/lib/confetti";
+import { celebrate, MILESTONE_BURSTS } from "@/lib/confetti";
 import type { GroupMember } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
 import { fireMilestoneBurst } from "@/lib/milestone-burst";
@@ -283,7 +283,7 @@ function ChatTaskRow({
         return;
       }
       setIsCompleteOpen(false);
-      celebrate(task.isMilestone ? "milestone" : "task");
+      celebrate(task.isMilestone ? "milestone" : "task", task.isMilestone ? MILESTONE_BURSTS : 1);
     },
     [markSharedDone, task.id, task.isMilestone],
   );
@@ -413,9 +413,15 @@ function ChatTaskRow({
               onClick={() =>
                 void run(
                   reviewSharedDone.mutateAsync(task.id).then(() => {
+                    // Closing the work is the moment itself: the person who pressed the
+                    // button gets the confetti here and now, several waves for a milestone.
+                    celebrate(
+                      task.isMilestone ? "milestone" : "task",
+                      task.isMilestone ? MILESTONE_BURSTS : 1,
+                    );
                     // A milestone closing is a moment for the room, not just the two parties:
-                    // the burst plays here for the person who just closed it, and rides the
-                    // realtime broadcast to everyone else. Nothing is stored.
+                    // this rides the realtime broadcast to whoever is looking right now, and
+                    // the database keeps it for whoever is not (see task_celebrations).
                     if (task.isMilestone && userId !== undefined && task.conversationId !== null) {
                       fireMilestoneBurst({
                         conversationId: task.conversationId,

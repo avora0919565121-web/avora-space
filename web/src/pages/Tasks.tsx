@@ -14,7 +14,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { celebrate } from "@/lib/confetti";
+import { celebrate, MILESTONE_BURSTS } from "@/lib/confetti";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
@@ -394,7 +394,14 @@ function PersonalRow({
           void run(
             togglePersonalDone
               .mutateAsync({ taskId: task.id, done: true, output })
-              .then(() => celebrate(task.isMilestone ? "milestone" : "task")),
+              // A milestone is several pops in a row, on the whole screen — the canvas is
+              // parented to the document, so no open dialog or panel can clip it.
+              .then(() =>
+                celebrate(
+                  task.isMilestone ? "milestone" : "task",
+                  task.isMilestone ? MILESTONE_BURSTS : 1,
+                ),
+              ),
           );
         }}
       />

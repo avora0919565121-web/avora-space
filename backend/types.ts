@@ -1,3 +1,7 @@
+/* eslint-disable */
+// AUTO-GENERATED — DO NOT EDIT
+// Run migrations to regenerate.
+
 export type Json =
   | string
   | number
@@ -983,6 +987,75 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      task_celebration_views: {
+        Row: {
+          task_id: string
+          user_id: string
+          viewed_at: string
+        }
+        Insert: {
+          task_id: string
+          user_id: string
+          viewed_at?: string
+        }
+        Update: {
+          task_id?: string
+          user_id?: string
+          viewed_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_celebration_views_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "task_celebrations"
+            referencedColumns: ["task_id"]
+          },
+          {
+            foreignKeyName: "task_celebration_views_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_celebrations: {
+        Row: {
+          burst_count: number
+          conversation_id: string
+          task_id: string
+          triggered_at: string
+        }
+        Insert: {
+          burst_count?: number
+          conversation_id: string
+          task_id: string
+          triggered_at?: string
+        }
+        Update: {
+          burst_count?: number
+          conversation_id?: string
+          task_id?: string
+          triggered_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_celebrations_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_celebrations_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       task_confirmations: {
         Row: {

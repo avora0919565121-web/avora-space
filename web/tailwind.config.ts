@@ -151,6 +151,21 @@ export default {
             transform: "scale(1.9)",
           },
         },
+        /* The press of a feeling: down, overshoot, settle. Every emoji, not just the heart. */
+        "emoji-bounce": {
+          "0%": {
+            transform: "scale(1)",
+          },
+          "25%": {
+            transform: "scale(0.86)",
+          },
+          "55%": {
+            transform: "scale(1.32)",
+          },
+          "100%": {
+            transform: "scale(1)",
+          },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -160,6 +175,7 @@ export default {
         blink: "blink 1.4s ease-in-out infinite",
         "burst-pop": "burst-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) both",
         "burst-ring": "burst-ring 1.1s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "emoji-bounce": "emoji-bounce 0.26s cubic-bezier(0.34, 1.56, 0.64, 1) both",
       },
     },
   },

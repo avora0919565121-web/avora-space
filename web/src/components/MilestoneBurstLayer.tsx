@@ -2,6 +2,7 @@ import { Flag } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
+import { celebrate, MILESTONE_BURSTS } from "@/lib/confetti";
 import { onMilestoneBurst, warmMilestoneChannel, type MilestoneBurstEvent } from "@/lib/milestone-burst";
 import { useConversations } from "@/lib/use-conversations";
 import { useTasks } from "@/lib/use-tasks";
@@ -41,6 +42,10 @@ export function MilestoneBurstLayer() {
       const task = tasks?.find((entry) => entry.id === event.taskId);
       const title: string | null = task?.title ?? null;
       setBurst({ title, at: Date.now() });
+
+      // Whoever is looking when it lands gets the same several-wave celebration the person
+      // who closed it got — the overlay names what happened, the confetti is the feeling.
+      celebrate("milestone", MILESTONE_BURSTS);
 
       toast.success(title === null ? "Một cột mốc vừa hoàn thành 🏁" : `Cột mốc hoàn thành: ${title} 🏁`);
 

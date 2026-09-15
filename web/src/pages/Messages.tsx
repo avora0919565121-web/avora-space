@@ -94,6 +94,7 @@ import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
 import { useThreadPins } from "@/lib/use-pins";
 import { useThreadReactions } from "@/lib/use-reactions";
+import { useThreadCelebrations } from "@/lib/use-task-celebrations";
 import { useProfileSettings } from "@/lib/use-settings";
 import { useTasks } from "@/lib/use-tasks";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
@@ -296,6 +297,14 @@ const Messages = () => {
     activeKind === "personal" ? undefined : conversationId,
     messageIds,
   );
+
+  /**
+   * Anything the room finished while this person was away plays now, once.
+   *
+   * A journal is excluded: it has no shared work in it, so it can hold no celebration that
+   * somebody else earned.
+   */
+  useThreadCelebrations(activeKind === "personal" ? undefined : conversationId);
 
   /**
    * Typing and presence, both carried by the socket and stored nowhere.
