@@ -3,18 +3,22 @@ import { useEffect, useState } from "react";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
-  canSkipSilently,
-  canSubmitSkip,
+  canSubmitSkipFor,
   skipMessageFor,
   skipMessageTemplate,
-  skipReplyModes,
+  skipReplyModesFor,
   type SkipReplyMode,
-  type TaskItem,
 } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
 type SkipSuggestionDialogProps = {
-  task: TaskItem | null;
+  /** What is being declined, quoted so a group decline can name it. Null closes the dialog. */
+  title: string | null;
+  /**
+   * Whether saying nothing at all is one of the answers. True in a 1-1, false in a group --
+   * and the server refuses a silent group decline independently, so this is not a UI-only rule.
+   */
+  allowSilent: boolean;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Who asked, named so the offered sentence can address them. */
@@ -47,7 +51,8 @@ const MODE_LABEL: Record<SkipReplyMode, string> = {
  * server refuses it independently, so this is not a UI-only rule.
  */
 export function SkipSuggestionDialog({
-  task,
+  title,
+  allowSilent,
   open,
   onOpenChange,
   creatorName,
@@ -65,11 +70,11 @@ export function SkipSuggestionDialog({
     setCustom("");
   }, [open]);
 
-  if (task === null) return null;
+  if (title === null) return null;
 
-  const modes = skipReplyModes(task);
+  const modes = skipReplyModesFor(allowSilent);
   const template = skipMessageTemplate(creatorName);
-  const canSubmit = canSubmitSkip(task, mode, custom) && !isWorking;
+  const canSubmit = canSubmitSkipFor(allowSilent, mode, custom) && !isWorking;
 
   const submit = (): void => {
     if (!canSubmit) return;
@@ -84,9 +89,9 @@ export function SkipSuggestionDialog({
             Bỏ qua việc này
           </DialogTitle>
           <DialogDescription className="mt-1 text-[13px] leading-5 text-muted-foreground">
-            {canSkipSilently(task)
+            {allowSilent
               ? "Bạn không cần giải thích. Nhưng một dòng ngắn giúp người kia biết bạn đã đọc."
-              : `Trong nhóm, hãy để lại một dòng — cả nhóm đang chờ phản hồi cho “${task.title}”.`}
+              : `Trong nhóm, hãy để lại một dòng — cả nhóm đang chờ phản hồi cho “${title}”.`}
           </DialogDescription>
         </div>
 

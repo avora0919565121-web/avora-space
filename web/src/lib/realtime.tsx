@@ -25,11 +25,19 @@ import {
 } from "@/lib/chat";
 import { groupKeys, type GroupMember } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
+import {
+  removeSuggestion,
+  suggestionFromRealtimeRow,
+  suggestionKeys,
+  upsertSuggestion,
+  type TaskSuggestion,
+} from "@/lib/task-suggestions";
 import { removeTask, taskFromRealtimeRow, taskKeys, upsertTask, type TaskItem } from "@/lib/tasks";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
 type ParticipantRow = Database["public"]["Tables"]["conversation_participants"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
+type SuggestionRow = Database["public"]["Tables"]["task_suggestions"]["Row"];
 type RemovalRequestRow = Database["public"]["Tables"]["group_removal_requests"]["Row"];
 
 export type RealtimeStatus = "connecting" | "live" | "offline";
@@ -106,6 +114,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
     queryClient.removeQueries({ queryKey: ["messages"] });
     queryClient.removeQueries({ queryKey: ["conversation-peer"] });
     queryClient.removeQueries({ queryKey: taskKeys.all });
+    queryClient.removeQueries({ queryKey: suggestionKeys.all });
   }, [userId, queryClient]);
 
   useEffect(() => {
@@ -123,6 +132,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
       void queryClient.invalidateQueries({ queryKey: ["messages"] });
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      void queryClient.invalidateQueries({ queryKey: suggestionKeys.all });
     };
 
     /** One realtime row to a message, with the three after-the-fact fields carried through. */
@@ -242,6 +252,45 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
     };
 
     /**
+     * A suggestion is a question asked of someone who is usually reading the thread right then,
+     * so the answer has to land immediately: otherwise the person who asked keeps looking at an
+     * open request that has already been answered.
+     */
+    const handleSuggestionChange = (payload: RealtimePostgresChangesPayload<SuggestionRow>): void => {
+      const cached = queryClient.getQueryData<TaskSuggestion[]>(suggestionKeys.list);
+      if (!cached) {
+        void queryClient.invalidateQueries({ queryKey: suggestionKeys.all });
+        return;
+      }
+
+      if (payload.eventType === "DELETE") {
+        const deletedId: string | undefined = payload.old?.id;
+        if (!deletedId) {
+          void queryClient.invalidateQueries({ queryKey: suggestionKeys.all });
+          return;
+        }
+        queryClient.setQueryData<TaskSuggestion[]>(
+          suggestionKeys.list,
+          removeSuggestion(cached, deletedId),
+        );
+        return;
+      }
+
+      const suggestion = suggestionFromRealtimeRow(payload.new);
+      queryClient.setQueryData<TaskSuggestion[]>(
+        suggestionKeys.list,
+        upsertSuggestion(cached, suggestion),
+      );
+
+      // Accepting creates a task in the same breath. The tasks socket delivers it too, but only
+      // to people RLS lets read it — refreshing here keeps the two views from disagreeing for
+      // whoever is watching the conversation.
+      if (suggestion.status === "accepted") {
+        void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      }
+    };
+
+    /**
      * The owner's verdict on one of this viewer's removal asks, delivered the moment it is
      * written. RLS only streams rows the subscriber may read — an admin sees their own asks,
      * never anyone else's — and a resolution is a one-way state change, so each request id is
@@ -301,6 +350,11 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
           handleParticipantUpdate,
         )
         .on<TaskRow>("postgres_changes", { event: "*", schema: "public", table: "tasks" }, handleTaskChange)
+        .on<SuggestionRow>(
+          "postgres_changes",
+          { event: "*", schema: "public", table: "task_suggestions" },
+          handleSuggestionChange,
+        )
         .on<RemovalRequestRow>(
           "postgres_changes",
           { event: "UPDATE", schema: "public", table: "group_removal_requests" },

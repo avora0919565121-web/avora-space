@@ -10,14 +10,9 @@ import type { ConversationKind } from "@/lib/chat";
 import type { GroupMember } from "@/lib/groups";
 import { memberLabel } from "@/lib/member-search";
 import { buildContextSnapshot, type ContextMessage } from "@/lib/task-context";
-import {
-  isTaskDraftComplete,
-  todayIso,
-  validateTaskDraft,
-  type SharedTaskTarget,
-  type TaskDraft,
-} from "@/lib/tasks";
-import { useTaskActions } from "@/lib/use-tasks";
+import type { SuggestionTarget } from "@/lib/task-suggestions";
+import { isTaskDraftComplete, todayIso, validateTaskDraft, type TaskDraft } from "@/lib/tasks";
+import { useSuggestionActions } from "@/lib/use-task-suggestions";
 import { cn } from "@/lib/utils";
 
 type TaskFromChatDialogProps = {
@@ -42,11 +37,14 @@ const FIELD_CLASS =
   "w-full rounded-[10px] border border-input bg-card px-3 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-muted-foreground";
 
 /**
- * Raising a task from inside the conversation it came out of.
+ * Proposing work from inside the conversation it came out of.
  *
- * This is the only way a shared task is created, because the interaction has to come first:
- * you talk, and then you write down what was agreed. The message being answered is copied onto
- * the task and kept, so the task still makes sense long after the thread moves on.
+ * This raises a SUGGESTION, not a task. Nothing lands on anybody's task list until the person
+ * being asked says yes — writing the task straight away put unanswered requests into their
+ * deadlines and counters as though they had already agreed, which is the thing that made a
+ * question feel like an instruction. The message being answered is copied onto the suggestion
+ * and carried onto the task it eventually becomes, so it still makes sense long after the
+ * thread moves on.
  */
 export function TaskFromChatDialog({
   open,
@@ -61,7 +59,7 @@ export function TaskFromChatDialog({
   contextSenderName,
 }: TaskFromChatDialogProps) {
   const { user } = useAuth();
-  const { addShared } = useTaskActions();
+  const { propose } = useSuggestionActions();
   const today = todayIso();
   const isGroup = conversationKind === "group";
 
@@ -111,35 +109,43 @@ export function TaskFromChatDialog({
     });
 
     /**
-     * Several people means several tasks, not one task with several owners. Each row is a
-     * separate promise: accepted, finished and closed on its own, without waiting on anyone
-     * else. They are created one after another so a failure halfway is reported honestly
-     * rather than leaving the caller guessing which ones landed.
+     * Several people means several suggestions, not one suggestion with several owners. Each
+     * is answered on its own, without waiting on anyone else. They are raised one after another
+     * so a failure halfway is reported honestly rather than leaving the caller guessing which
+     * ones landed.
      */
     const created: string[] = [];
     try {
       for (const assigneeId of assigneeIds) {
-        const target: SharedTaskTarget = {
+        const target: SuggestionTarget = {
           conversationId,
-          type: isGroup ? "group-shared" : "1-1-shared",
           assigneeId,
+          messageId: contextMessage?.id ?? null,
           contextSnapshot,
         };
-        await addShared.mutateAsync({ target, draft: clean.value });
+        await propose.mutateAsync({
+          target,
+          draft: {
+            title: clean.value.title,
+            description: clean.value.description,
+            deadline: clean.value.deadline,
+            deadlineTime: clean.value.deadlineTime,
+          },
+        });
         created.push(assigneeId);
       }
       toast.success(
         created.length > 1
-          ? `Đã tạo ${created.length} nhiệm vụ riêng cho ${assigneeNames}.`
-          : `Đã giao nhiệm vụ cho ${assigneeNames}.`,
+          ? `Đã gửi ${created.length} gợi ý tới ${assigneeNames}.`
+          : `Đã gợi ý việc này cho ${assigneeNames}.`,
       );
       onOpenChange(false);
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Không tạo được nhiệm vụ.";
+      const message = error instanceof Error ? error.message : "Không gửi được gợi ý.";
       toast.error(
         created.length === 0
           ? message
-          : `Đã tạo ${created.length}/${assigneeIds.length} nhiệm vụ. ${message}`,
+          : `Đã gửi ${created.length}/${assigneeIds.length} gợi ý. ${message}`,
       );
     }
   };
@@ -153,10 +159,10 @@ export function TaskFromChatDialog({
         <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
           <div className="min-w-0">
             <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">
-              Tác vụ mới
+              Gợi ý tác vụ
             </DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
-              Ghi lại việc vừa trao đổi trong {conversationName}
+              Đề xuất việc vừa trao đổi trong {conversationName} — người nhận sẽ quyết định
             </DialogDescription>
           </div>
           <button
@@ -247,7 +253,7 @@ export function TaskFromChatDialog({
               htmlFor="chat-task-assignee"
               className="mb-1 block text-[12px] font-medium text-muted-foreground"
             >
-              Người đảm trách
+              Gợi ý cho
             </label>
             {isGroup ? (
               <AssigneePicker
@@ -277,14 +283,14 @@ export function TaskFromChatDialog({
             </button>
             <button
               type="submit"
-              disabled={!complete || addShared.isPending}
-              title={complete ? undefined : "Cần đủ tiêu đề, mô tả, hạn hoàn thành và người đảm trách"}
+              disabled={!complete || propose.isPending}
+              title={complete ? undefined : "Cần đủ tiêu đề, mô tả, hạn hoàn thành và người nhận gợi ý"}
               className="press flex h-12 items-center gap-2 rounded-[10px] bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {addShared.isPending ? (
+              {propose.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
-              {addShared.isPending ? "Đang giao…" : "Giao việc"}
+              {propose.isPending ? "Đang gửi…" : "Gửi gợi ý"}
             </button>
           </div>
         </form>

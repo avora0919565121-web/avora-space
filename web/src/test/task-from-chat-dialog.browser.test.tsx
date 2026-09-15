@@ -4,27 +4,39 @@ import { vi } from "vitest";
 
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
 import type { GroupMember } from "@/lib/groups";
-import type { SharedTaskTarget, TaskDraft } from "@/lib/tasks";
+import type { SuggestionTarget } from "@/lib/task-suggestions";
 
-/** Every call the dialog makes to create a task, captured in order. */
+type ProposedDraft = {
+  title: string;
+  description: string;
+  deadline: string;
+  deadlineTime: string | null;
+};
+
+/** Every call the dialog makes to propose work, captured in order. */
 const state = vi.hoisted(() => ({
-  calls: [] as { target: SharedTaskTarget; draft: TaskDraft }[],
+  calls: [] as { target: SuggestionTarget; draft: ProposedDraft }[],
   toasts: [] as string[],
   failOn: null as number | null,
 }));
 
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
 
-vi.mock("@/lib/use-tasks", () => ({
-  useTaskActions: () => ({
-    addShared: {
+/**
+ * The dialog talks to suggestions now, not tasks. A `useTaskActions` mock left here would
+ * pass whatever the component did — including going back to writing tasks directly, which is
+ * the exact regression this batch exists to prevent.
+ */
+vi.mock("@/lib/use-task-suggestions", () => ({
+  useSuggestionActions: () => ({
+    propose: {
       isPending: false,
-      mutateAsync: async (input: { target: SharedTaskTarget; draft: TaskDraft }) => {
+      mutateAsync: async (input: { target: SuggestionTarget; draft: ProposedDraft }) => {
         state.calls.push(input);
         if (state.failOn !== null && state.calls.length === state.failOn) {
           throw new Error("Mất kết nối");
         }
-        return { id: `t-${state.calls.length}` };
+        return { id: `s-${state.calls.length}` };
       },
     },
   }),
@@ -99,11 +111,11 @@ beforeEach(() => {
   state.failOn = null;
 });
 
-test("choosing three people creates three separate tasks, one per person", async () => {
+test("choosing three people raises three separate suggestions, one per person", async () => {
   const screen = await renderDialog();
   await fillAndAssign(screen, [/Hoà/, /Dũng/, /Đạt/]);
 
-  await userEvent.click(screen.getByRole("button", { name: "Giao việc" }));
+  await userEvent.click(screen.getByRole("button", { name: "Gửi gợi ý" }));
 
   await vi.waitFor(() => expect(state.calls).toHaveLength(3));
   expect(state.calls.map((call) => call.target.assigneeId)).toEqual(["u-hoa", "u-dung", "u-dat"]);
@@ -112,50 +124,50 @@ test("choosing three people creates three separate tasks, one per person", async
 test("each of the three carries the same wording, deadline and quoted message", async () => {
   const screen = await renderDialog();
   await fillAndAssign(screen, [/Hoà/, /Dũng/, /Đạt/]);
-  await userEvent.click(screen.getByRole("button", { name: "Giao việc" }));
+  await userEvent.click(screen.getByRole("button", { name: "Gửi gợi ý" }));
   await vi.waitFor(() => expect(state.calls).toHaveLength(3));
 
   const titles = new Set(state.calls.map((call) => call.draft.title));
   const deadlines = new Set(state.calls.map((call) => call.draft.deadline));
-  const quoted = new Set(state.calls.map((call) => call.target.contextSnapshot?.originalMessageId));
+  const quoted = new Set(state.calls.map((call) => call.target.contextSnapshot.originalMessageId));
 
   expect(titles).toEqual(new Set(["Lập kế hoạch tuần"]));
   expect(deadlines).toEqual(new Set(["2099-09-20"]));
   expect(quoted).toEqual(new Set(["m-42"]));
 });
 
-test("the three rows differ in exactly one thing: who was asked", async () => {
+test("the three differ in exactly one thing: who was asked", async () => {
   const screen = await renderDialog();
   await fillAndAssign(screen, [/Hoà/, /Dũng/, /Đạt/]);
-  await userEvent.click(screen.getByRole("button", { name: "Giao việc" }));
+  await userEvent.click(screen.getByRole("button", { name: "Gửi gợi ý" }));
   await vi.waitFor(() => expect(state.calls).toHaveLength(3));
 
   const assignees = state.calls.map((call) => call.target.assigneeId);
   expect(new Set(assignees).size).toBe(3);
 
-  // Nothing else about the target varies — no shared row, no group ownership.
   for (const call of state.calls) {
-    expect(call.target.type).toBe("group-shared");
     expect(call.target.conversationId).toBe("conv-group");
+    // The message being answered travels with every one of them, so each can be read later.
+    expect(call.target.messageId).toBe("m-42");
   }
 });
 
-test("one person still means exactly one task", async () => {
+test("one person still means exactly one suggestion", async () => {
   const screen = await renderDialog();
   await fillAndAssign(screen, [/Dũng/]);
-  await userEvent.click(screen.getByRole("button", { name: "Giao việc" }));
+  await userEvent.click(screen.getByRole("button", { name: "Gửi gợi ý" }));
 
   await vi.waitFor(() => expect(state.calls).toHaveLength(1));
   expect(state.calls[0].target.assigneeId).toBe("u-dung");
 });
 
-test("nothing is created until somebody is chosen", async () => {
+test("nothing is raised until somebody is chosen", async () => {
   const screen = await renderDialog();
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Việc gì đó");
   await userEvent.fill(screen.getByLabelText("Mô tả cụ thể"), "Mô tả");
   await userEvent.fill(screen.getByLabelText("Hạn hoàn thành"), "2099-09-20");
 
-  await expect.element(screen.getByRole("button", { name: "Giao việc" })).toBeDisabled();
+  await expect.element(screen.getByRole("button", { name: "Gửi gợi ý" })).toBeDisabled();
   expect(state.calls).toEqual([]);
 });
 
@@ -164,15 +176,25 @@ test("a failure halfway is reported honestly rather than claiming all of them la
   const screen = await renderDialog();
   await fillAndAssign(screen, [/Hoà/, /Dũng/, /Đạt/]);
 
-  await userEvent.click(screen.getByRole("button", { name: "Giao việc" }));
+  await userEvent.click(screen.getByRole("button", { name: "Gửi gợi ý" }));
 
   await vi.waitFor(() => expect(state.toasts).toHaveLength(1));
   expect(state.toasts[0]).toContain("error:");
   expect(state.toasts[0]).toContain("1/3");
 });
 
-test("the message being answered is quoted on the task", async () => {
+test("the message being answered is quoted on the suggestion", async () => {
   const screen = await renderDialog();
   await expect.element(screen.getByText("Tuần này mình cần bản kế hoạch nhé")).toBeVisible();
   await expect.element(screen.getByText("Gắn với tin nhắn của Nguyễn Thị Hoà")).toBeVisible();
+});
+
+test("the wording names it a suggestion, because the other person still decides", async () => {
+  const screen = await renderDialog();
+
+  // "Giao việc" told the receiver a decision had already been made about their time.
+  await expect.element(screen.getByText("Gợi ý tác vụ")).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Gửi gợi ý" })).toBeVisible();
+  expect(screen.container.textContent).not.toContain("Giao việc");
+  expect(screen.container.textContent).not.toContain("Người đảm trách");
 });

@@ -24,6 +24,7 @@ import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { NewGroupDialog } from "@/components/NewGroupDialog";
+import { ChatSuggestionPanel } from "@/components/chat/ChatSuggestionPanel";
 import { ChatTaskPanel } from "@/components/chat/ChatTaskPanel";
 import { GroupDecisionSheet } from "@/components/chat/GroupDecisionSheet";
 import { GroupInfoSheet } from "@/components/chat/GroupInfoSheet";
@@ -89,11 +90,13 @@ import {
   isOriginalMessageMissing,
 } from "@/lib/task-context";
 import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote } from "@/lib/tasks";
+import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
 import { useThreadPins } from "@/lib/use-pins";
 import { useThreadReactions } from "@/lib/use-reactions";
 import { useProfileSettings } from "@/lib/use-settings";
 import { useTasks } from "@/lib/use-tasks";
+import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { typingText, useThreadPresence } from "@/lib/use-thread-presence";
 import { cn } from "@/lib/utils";
 
@@ -224,6 +227,7 @@ const Messages = () => {
   // Arriving from "Xem trong ngữ cảnh": which task sent us here, and what it remembers.
   const highlightTaskId: string | null = searchParams.get(CONTEXT_TASK_PARAM);
   const { data: allTasks } = useTasks();
+  const { data: suggestions } = useTaskSuggestions();
   const highlightTask = useMemo(
     () => (allTasks ?? []).find((task) => task.id === highlightTaskId) ?? null,
     [allTasks, highlightTaskId],
@@ -248,8 +252,18 @@ const Messages = () => {
    */
   const silentSkipsByMessage = useMemo(() => {
     if (!conversationId) return new Map<string, ReturnType<typeof silentSkipNotices>>();
-    return placeSilentSkipNotices(silentSkipNotices(allTasks ?? [], conversationId), messages);
-  }, [allTasks, conversationId, messages]);
+    // Two sources, one line: declines of a suggestion (the current path) and declines of a
+    // shared task raised before suggestions were split out. Both are the same event to a
+    // reader, so they render identically rather than as two kinds of annotation.
+    const fromSuggestions = silentlySkippedInConversation(
+      suggestions ?? [],
+      conversationId,
+    ).map((entry) => ({ taskId: entry.id, assigneeId: entry.assigneeId, at: entry.at }));
+    const merged = [...silentSkipNotices(allTasks ?? [], conversationId), ...fromSuggestions].sort(
+      (a, b) => (a.at < b.at ? -1 : a.at > b.at ? 1 : 0),
+    );
+    return placeSilentSkipNotices(merged, messages);
+  }, [allTasks, suggestions, conversationId, messages]);
 
   /** Who declined, named — in a 1-1 that is the person the thread is with. */
   const skipActorName = useCallback(
@@ -1445,6 +1459,16 @@ const Messages = () => {
                 </button>
               ) : null}
               </div>
+
+              {activeKind === "personal" ? null : (
+                <ChatSuggestionPanel
+                  conversationId={conversationId}
+                  conversationKind={activeKind}
+                  peerName={threadTitle}
+                  members={groupMembersQuery.data ?? []}
+                  onSendMessage={sendPlainMessage}
+                />
+              )}
 
               {activeKind === "personal" ? null : (
                 <ChatTaskPanel

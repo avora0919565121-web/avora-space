@@ -1142,6 +1142,85 @@ export type Database = {
           },
         ]
       }
+      task_suggestions: {
+        Row: {
+          accepted_task_id: string | null
+          assignee_id: string
+          context_snapshot: Json
+          conversation_id: string
+          created_at: string
+          id: string
+          message_id: string | null
+          proposed_deadline: string
+          proposed_deadline_time: string | null
+          proposed_deadline_tz: string
+          proposed_description: string
+          proposed_title: string
+          proposer_id: string
+          resolved_at: string | null
+          skipped_silently: boolean
+          status: string
+        }
+        Insert: {
+          accepted_task_id?: string | null
+          assignee_id: string
+          context_snapshot: Json
+          conversation_id: string
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          proposed_deadline: string
+          proposed_deadline_time?: string | null
+          proposed_deadline_tz?: string
+          proposed_description?: string
+          proposed_title: string
+          proposer_id: string
+          resolved_at?: string | null
+          skipped_silently?: boolean
+          status?: string
+        }
+        Update: {
+          accepted_task_id?: string | null
+          assignee_id?: string
+          context_snapshot?: Json
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          proposed_deadline?: string
+          proposed_deadline_time?: string | null
+          proposed_deadline_tz?: string
+          proposed_description?: string
+          proposed_title?: string
+          proposer_id?: string
+          resolved_at?: string | null
+          skipped_silently?: boolean
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_suggestions_accepted_task_id_fkey"
+            columns: ["accepted_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_suggestions_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_suggestions_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tasks: {
         Row: {
           assignee_id: string | null
@@ -1399,6 +1478,48 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_task_suggestion: {
+        Args: { p_suggestion_id: string; p_task_id?: string }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          deliverable_id: string | null
+          description: string
+          done_at: string | null
+          id: string
+          is_important: boolean
+          objective_id: string | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       cast_group_vote: {
         Args: { p_decision_id: string; p_option_id: string }
         Returns: undefined
@@ -1699,6 +1820,44 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_task_suggestion: {
+        Args: {
+          p_assignee_id: string
+          p_context_snapshot: Json
+          p_conversation_id: string
+          p_deadline: string
+          p_deadline_time?: string
+          p_deadline_tz?: string
+          p_description: string
+          p_message_id?: string
+          p_suggestion_id?: string
+          p_title: string
+        }
+        Returns: {
+          accepted_task_id: string | null
+          assignee_id: string
+          context_snapshot: Json
+          conversation_id: string
+          created_at: string
+          id: string
+          message_id: string | null
+          proposed_deadline: string
+          proposed_deadline_time: string | null
+          proposed_deadline_tz: string
+          proposed_description: string
+          proposed_title: string
+          proposer_id: string
+          resolved_at: string | null
+          skipped_silently: boolean
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_suggestions"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2416,6 +2575,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      skip_task_suggestion: {
+        Args: { p_silent?: boolean; p_suggestion_id: string }
+        Returns: {
+          accepted_task_id: string | null
+          assignee_id: string
+          context_snapshot: Json
+          conversation_id: string
+          created_at: string
+          id: string
+          message_id: string | null
+          proposed_deadline: string
+          proposed_deadline_time: string | null
+          proposed_deadline_tz: string
+          proposed_description: string
+          proposed_title: string
+          proposer_id: string
+          resolved_at: string | null
+          skipped_silently: boolean
+          status: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_suggestions"
           isOneToOne: true
           isSetofReturn: false
         }

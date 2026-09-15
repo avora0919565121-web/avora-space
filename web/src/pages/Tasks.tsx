@@ -83,7 +83,9 @@ import {
   type TaskPriority,
   type TaskViewMode,
 } from "@/lib/tasks";
+import { suggestionsProposed, type TaskSuggestion } from "@/lib/task-suggestions";
 import { useConversations } from "@/lib/use-conversations";
+import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { useSharedTaskOrder, useViewOrder } from "@/lib/use-task-order";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
@@ -899,6 +901,84 @@ function SharedSection({
   );
 }
 
+/**
+ * What this person has proposed to others and not heard back on.
+ *
+ * This half used to be invisible in the worst way: the request sat in their task list looking
+ * like work in progress, so "waiting on an answer" and "work underway" were the same row. They
+ * are different states of mind, and only one of them is anyone's responsibility yet.
+ *
+ * Collapsed on arrival, like the bin: nothing here is owed by the reader, so it must not
+ * compete with work that is.
+ */
+function ProposedSection({
+  suggestions,
+  today,
+}: {
+  suggestions: TaskSuggestion[];
+  today: string;
+}) {
+  const { isOpen, toggle } = useTree();
+  const open = isOpen("proposed", false);
+
+  return (
+    <section aria-labelledby="tasks-proposed" className="rounded-[10px] border border-border bg-card">
+      <BranchHeader open={open} onToggle={() => toggle("proposed", false)} className="px-5 py-4">
+        <h2 id="tasks-proposed" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
+          Đã gợi ý, đang chờ
+        </h2>
+        <span className="tabular shrink-0 text-[13px] text-muted-foreground">
+          {suggestions.length} gợi ý
+        </span>
+      </BranchHeader>
+
+      {open ? (
+        <div className="rise-in">
+          <p className="px-5 pb-2 text-[13px] text-muted-foreground">
+            Chưa ai nhận những việc này — người được gợi ý sẽ quyết định. Trả lời nằm trong cuộc
+            trò chuyện.
+          </p>
+          <ul className="px-5 pb-3">
+            {suggestions.map((entry) => {
+              const deadline = deadlineLabel(entry.deadline, today);
+              return (
+                <li
+                  key={entry.id}
+                  className="flex items-start gap-3 border-t border-border/60 py-2.5 first:border-t-0"
+                >
+                  {/* Dashed: nothing here has been agreed to, so it gets no task bubble. */}
+                  <span
+                    aria-hidden="true"
+                    className="mt-1 h-4 w-4 shrink-0 rounded-full border border-dashed border-muted-foreground"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[14px] font-medium leading-5 text-foreground">{entry.title}</p>
+                    <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
+                      <span>Chờ trả lời</span>
+                      {deadline !== null ? (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span>{deadline}</span>
+                        </>
+                      ) : null}
+                    </p>
+                  </div>
+                  <a
+                    href={`/tin-nhan/${entry.conversationId}`}
+                    className="press shrink-0 rounded-[8px] px-2 py-1 text-[12.5px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground"
+                  >
+                    Mở cuộc trò chuyện
+                  </a>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 /** The bin. Always collapsed on arrival: it is a place you go looking for, never a distraction. */
 function BinSection({ tasks, userId, today }: { tasks: TaskItem[]; userId: string | undefined; today: string }) {
   const { isOpen, toggle } = useTree();
@@ -1132,8 +1212,15 @@ function HeavyView({
 export default function Tasks() {
   const { user } = useAuth();
   const { data: tasks, isLoading } = useTasks();
+  const { data: allSuggestions } = useTaskSuggestions();
   const userId: string | undefined = user?.id;
   const today = todayIso();
+
+  /** Questions this person asked and is still waiting on. Never work, so never in the lists. */
+  const proposed: TaskSuggestion[] = useMemo(
+    () => suggestionsProposed(allSuggestions ?? [], userId),
+    [allSuggestions, userId],
+  );
 
   const [searchParams, setSearchParams] = useSearchParams();
   const scope: TaskScope | null = parseTaskScope(searchParams.get(TASK_SCOPE_PARAM));
@@ -1342,6 +1429,8 @@ export default function Tasks() {
                 . Việc chung được giao ngay trong cuộc trò chuyện.
               </p>
             ) : null}
+
+            {proposed.length > 0 ? <ProposedSection suggestions={proposed} today={today} /> : null}
 
             {binned.length > 0 ? <BinSection tasks={binned} userId={userId} today={today} /> : null}
           </div>

@@ -534,9 +534,16 @@ export type SkipReplyMode = "template" | "custom" | "silent";
  * than wanting to compose any.
  */
 export function skipReplyModes(task: TaskItem): readonly SkipReplyMode[] {
-  return canSkipSilently(task)
-    ? ["template", "custom", "silent"]
-    : ["template", "custom"];
+  return skipReplyModesFor(canSkipSilently(task));
+}
+
+/**
+ * The same choice, decided from the one fact it actually depends on: whether silence is
+ * allowed here. Suggestions live in their own table and have no TaskItem to pass, but the
+ * rule they follow is identical, so it is stated once.
+ */
+export function skipReplyModesFor(allowSilent: boolean): readonly SkipReplyMode[] {
+  return allowSilent ? ["template", "custom", "silent"] : ["template", "custom"];
 }
 
 /**
@@ -551,7 +558,16 @@ export function canSubmitSkip(
   mode: SkipReplyMode,
   customMessage: string,
 ): boolean {
-  if (mode === "silent") return canSkipSilently(task);
+  return canSubmitSkipFor(canSkipSilently(task), mode, customMessage);
+}
+
+/** The same rule, stated without a task, for declining a suggestion. */
+export function canSubmitSkipFor(
+  allowSilent: boolean,
+  mode: SkipReplyMode,
+  customMessage: string,
+): boolean {
+  if (mode === "silent") return allowSilent;
   if (mode === "template") return true;
   return customMessage.trim().length > 0;
 }

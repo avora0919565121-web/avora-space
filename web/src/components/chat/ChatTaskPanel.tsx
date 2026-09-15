@@ -16,6 +16,7 @@ import {
   canReturnSharedTask,
   canReviewSharedDone,
   canSkipSharedTask,
+  canSkipSilently,
   deadlineLabel,
   deleteIsPermanent,
   editBlockedReason,
@@ -395,7 +396,8 @@ function ChatTaskRow({
       ) : null}
 
       <SkipSuggestionDialog
-        task={task}
+        title={task.title}
+        allowSilent={canSkipSilently(task)}
         open={isSkipOpen}
         onOpenChange={setIsSkipOpen}
         creatorName={askedBy}
