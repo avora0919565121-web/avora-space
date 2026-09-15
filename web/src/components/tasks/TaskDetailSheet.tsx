@@ -5,10 +5,11 @@ import { toast } from "sonner";
 
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
+import { StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 import { contextLink, contextTarget } from "@/lib/task-context";
-import { durationFor, isImportantFor } from "@/lib/tasks";
+import { durationFor, formatProgress, isImportantFor } from "@/lib/tasks";
 import { formatDuration } from "@/lib/task-flags";
 import {
   canConfirmSharedTask,
@@ -69,6 +70,7 @@ export function TaskDetailSheet({
   const duration = formatDuration(durationFor(flags, task.id));
   const shared = isSharedTask(task);
   const done = task.status === "done";
+  const progress = formatProgress(task.progressPercent);
 
   /** The panel is for reading and rewording; deciding a shared task stays in the chat. */
   const awaitsDecision =
@@ -128,6 +130,8 @@ export function TaskDetailSheet({
               </h2>
               <p className="mt-0.5 text-[12px] text-muted-foreground">
                 {TIER_LABELS[taskTier(task, userId)]} · {taskStatusLabel(task.status)}
+                {task.isMilestone ? " · Cột mốc" : ""}
+                {progress !== null ? ` · ${progress}` : ""}
               </p>
             </div>
           </div>
@@ -167,6 +171,14 @@ export function TaskDetailSheet({
               {shared ? (
                 <p className="text-[13px] text-muted-foreground">{sharedTaskNote(task, userId)}</p>
               ) : null}
+
+              {/*
+                Depth for whoever wants it, invisible weight for whoever does not. Editing is a
+                different mode, so the plan steps aside while the wording is being fixed.
+              */}
+              {canEdit ? <TaskPlanFields task={task} /> : null}
+
+              <StartButton task={task} />
             </>
           )}
 

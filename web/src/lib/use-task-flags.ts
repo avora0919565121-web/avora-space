@@ -56,7 +56,11 @@ export function useTaskFlagActions(): {
         patch,
         current === undefined
           ? undefined
-          : { isImportant: current.isImportant, durationMinutes: current.durationMinutes },
+          : {
+              isImportant: current.isImportant,
+              durationMinutes: current.durationMinutes,
+              startedAt: current.startedAt,
+            },
       );
     },
     onSuccess: (row) => {
@@ -78,6 +82,31 @@ export function useTaskFlagActions(): {
   );
 
   return { setFlag, isWorking: save.isPending };
+}
+
+/**
+ * Picking a task up, and putting it back down.
+ *
+ * Writes only this person's own row, so a shared task can be underway for one side and
+ * untouched for the other — which is the ordinary case, not an edge case. Starting is
+ * deliberately inert beyond that: it does not notify the other party, does not change the
+ * task's status, and never mutes anything.
+ */
+export function useTaskStart(): {
+  start: (taskId: string) => void;
+  stop: (taskId: string) => void;
+  isWorking: boolean;
+} {
+  const { setFlag, isWorking } = useTaskFlagActions();
+
+  const start = useCallback(
+    (taskId: string): void => setFlag(taskId, { startedAt: new Date().toISOString() }),
+    [setFlag],
+  );
+
+  const stop = useCallback((taskId: string): void => setFlag(taskId, { startedAt: null }), [setFlag]);
+
+  return { start, stop, isWorking };
 }
 
 /**

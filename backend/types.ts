@@ -1014,11 +1014,55 @@ export type Database = {
           },
         ]
       }
+      task_dependencies: {
+        Row: {
+          created_at: string
+          created_by: string
+          depends_on_task_id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          depends_on_task_id: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          depends_on_task_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_dependencies_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_depends_on_task_id_fkey"
+            columns: ["depends_on_task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_flags: {
         Row: {
           created_at: string
           duration_minutes: number | null
           is_important: boolean
+          started_at: string | null
           task_id: string
           updated_at: string
           user_id: string
@@ -1027,6 +1071,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           is_important?: boolean
+          started_at?: string | null
           task_id: string
           updated_at?: string
           user_id: string
@@ -1035,6 +1080,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           is_important?: boolean
+          started_at?: string | null
           task_id?: string
           updated_at?: string
           user_id?: string
@@ -1241,7 +1287,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1274,7 +1322,9 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_important?: boolean
+          is_milestone?: boolean
           objective_id?: string | null
+          progress_percent?: number | null
           recurrence?: string
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
@@ -1307,7 +1357,9 @@ export type Database = {
           done_at?: string | null
           id?: string
           is_important?: boolean
+          is_milestone?: boolean
           objective_id?: string | null
+          progress_percent?: number | null
           recurrence?: string
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
@@ -1499,7 +1551,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1567,7 +1621,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1609,7 +1665,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1651,7 +1709,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1709,7 +1769,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1803,7 +1865,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1897,7 +1961,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -1939,7 +2005,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2133,7 +2201,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2179,7 +2249,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2291,7 +2363,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2333,7 +2407,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2375,7 +2451,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2417,7 +2495,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2459,7 +2539,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2558,7 +2640,9 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
@@ -2668,7 +2752,58 @@ export type Database = {
           done_at: string | null
           id: string
           is_important: boolean
+          is_milestone: boolean
           objective_id: string | null
+          progress_percent: number | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          skipped_at: string | null
+          skipped_silently: boolean
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_shared_task_plan: {
+        Args: {
+          p_clear_progress?: boolean
+          p_is_milestone?: boolean
+          p_progress_percent?: number
+          p_task_id: string
+        }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          deliverable_id: string | null
+          description: string
+          done_at: string | null
+          id: string
+          is_important: boolean
+          is_milestone: boolean
+          objective_id: string | null
+          progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null

@@ -53,6 +53,8 @@ function makeTask(overrides: Partial<TaskItem>): TaskItem {
     deadlineTz: "Asia/Ho_Chi_Minh",
     categoryId: null,
     isImportant: false,
+    isMilestone: false,
+    progressPercent: null,
     recurrence: "none",
     recurrencePattern: null,
     recurrenceSpawnedAt: null,
@@ -69,6 +71,7 @@ function flagsFor(entries: Record<string, Partial<TaskFlagValue>>): TaskFlagInde
     index.set(taskId, {
       isImportant: value.isImportant ?? false,
       durationMinutes: value.durationMinutes ?? null,
+      startedAt: value.startedAt ?? null,
     });
   }
   return index;
@@ -248,8 +251,8 @@ describe("duration input", () => {
 
 describe("flag cache", () => {
   const base: TaskFlagRow[] = [
-    { taskId: "a", isImportant: true, durationMinutes: null },
-    { taskId: "b", isImportant: false, durationMinutes: 120 },
+    { taskId: "a", isImportant: true, durationMinutes: null, startedAt: null },
+    { taskId: "b", isImportant: false, durationMinutes: 120, startedAt: null },
   ];
 
   it("indexes rows by task", () => {
@@ -260,15 +263,30 @@ describe("flag cache", () => {
   });
 
   it("adds a row the first time a task is marked", () => {
-    const next = upsertFlagRow(base, { taskId: "c", isImportant: true, durationMinutes: 30 });
+    const next = upsertFlagRow(base, {
+      taskId: "c",
+      isImportant: true,
+      durationMinutes: 30,
+      startedAt: null,
+    });
     expect(next).toHaveLength(3);
     expect(next[2]?.taskId).toBe("c");
   });
 
   it("replaces a row in place rather than duplicating it", () => {
-    const next = upsertFlagRow(base, { taskId: "a", isImportant: false, durationMinutes: 15 });
+    const next = upsertFlagRow(base, {
+      taskId: "a",
+      isImportant: false,
+      durationMinutes: 15,
+      startedAt: null,
+    });
     expect(next).toHaveLength(2);
-    expect(next[0]).toEqual({ taskId: "a", isImportant: false, durationMinutes: 15 });
+    expect(next[0]).toEqual({
+      taskId: "a",
+      isImportant: false,
+      durationMinutes: 15,
+      startedAt: null,
+    });
   });
 });
 

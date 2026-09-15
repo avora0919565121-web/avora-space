@@ -33,6 +33,7 @@ function flagsFor(entries: Record<string, Partial<TaskFlagValue>>): TaskFlagInde
     index.set(taskId, {
       isImportant: value.isImportant ?? false,
       durationMinutes: value.durationMinutes ?? null,
+      startedAt: value.startedAt ?? null,
     });
   }
   return index;
@@ -59,6 +60,8 @@ function makeTask(overrides: Partial<TaskItem>): TaskItem {
     deadlineTz: "Asia/Ho_Chi_Minh",
     categoryId: null,
     isImportant: false,
+    isMilestone: false,
+    progressPercent: null,
     recurrence: "none",
     recurrencePattern: null,
     recurrenceSpawnedAt: null,

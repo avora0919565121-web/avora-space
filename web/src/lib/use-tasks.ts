@@ -21,12 +21,15 @@ import {
   setPersonalTaskDone,
   taskKeys,
   updatePersonalTaskDetails,
+  updatePersonalTaskPlan,
   updateSharedTaskDetails,
+  updateSharedTaskPlan,
   upsertTask,
   type SharedTaskTarget,
   type TaskDraft,
   type TaskEdit,
   type TaskItem,
+  type TaskPlanPatch,
 } from "@/lib/tasks";
 
 export { taskKeys };
@@ -186,6 +189,26 @@ export function useTaskActions() {
     onSuccess: applyOwnResult,
   });
 
+  /**
+   * The two optional planning fields, through whichever door the task's kind requires.
+   *
+   * One entry point for both because the person setting a percentage does not care which
+   * table rule applies — a personal task goes straight through RLS, a shared one through the
+   * RPC that re-checks both parties and the task's state.
+   */
+  const editPlan = useMutation({
+    mutationFn: ({
+      taskId,
+      isShared,
+      patch,
+    }: {
+      taskId: string;
+      isShared: boolean;
+      patch: TaskPlanPatch;
+    }) => (isShared ? updateSharedTaskPlan(taskId, patch) : updatePersonalTaskPlan(taskId, patch)),
+    onSuccess: applyOwnResult,
+  });
+
   const binPersonal = useMutation({
     mutationFn: ({ taskId, deleted }: { taskId: string; deleted: boolean }) =>
       setPersonalTaskDeleted(taskId, deleted),
@@ -209,6 +232,7 @@ export function useTaskActions() {
     skipShared,
     restoreShared,
     editDetails,
+    editPlan,
     binPersonal,
     purgePersonal,
     isWorking:
@@ -223,6 +247,7 @@ export function useTaskActions() {
       skipShared.isPending ||
       restoreShared.isPending ||
       editDetails.isPending ||
+      editPlan.isPending ||
       binPersonal.isPending ||
       purgePersonal.isPending,
   };

@@ -46,6 +46,8 @@ function groupTask(overrides: Partial<TaskItem> = {}): TaskItem {
     deadlineTz: "Asia/Ho_Chi_Minh",
     categoryId: null,
     isImportant: false,
+    isMilestone: false,
+    progressPercent: null,
     recurrence: "none",
     recurrencePattern: null,
     recurrenceSpawnedAt: null,

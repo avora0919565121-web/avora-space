@@ -46,6 +46,8 @@ function task(overrides: Partial<TaskItem> & { id: string; title: string }): Tas
     deadlineTz: "Asia/Ho_Chi_Minh",
     categoryId: null,
     isImportant: false,
+    isMilestone: false,
+    progressPercent: null,
     recurrence: "none",
     recurrencePattern: null,
     recurrenceSpawnedAt: null,

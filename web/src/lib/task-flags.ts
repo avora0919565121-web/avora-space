@@ -23,9 +23,11 @@ export type TaskFlagRow = {
   taskId: string;
   isImportant: boolean;
   durationMinutes: number | null;
+  /** When this person picked the work up. Null while they have not. */
+  startedAt: string | null;
 };
 
-const FLAG_COLUMNS = "task_id, is_important, duration_minutes";
+const FLAG_COLUMNS = "task_id, is_important, duration_minutes, started_at";
 
 function fail(code: string | undefined, message: string): Error {
   console.error(`[task-flags] ${code ?? "unknown"}: ${message}`);
@@ -81,7 +83,12 @@ export function parseDurationInput(raw: string): number | null {
   return value;
 }
 
-type FlagRow = { task_id: string; is_important: boolean | null; duration_minutes: number | null };
+type FlagRow = {
+  task_id: string;
+  is_important: boolean | null;
+  duration_minutes: number | null;
+  started_at: string | null;
+};
 
 /**
  * This person's own flags for every task they can see. RLS restricts the rows to theirs, so
@@ -96,6 +103,7 @@ export async function fetchTaskFlags(): Promise<TaskFlagRow[]> {
       taskId: flag.task_id,
       isImportant: flag.is_important ?? false,
       durationMinutes: flag.duration_minutes,
+      startedAt: flag.started_at,
     };
   });
 }
@@ -107,6 +115,7 @@ export function toFlagIndex(rows: readonly TaskFlagRow[]): TaskFlagIndex {
     index.set(row.taskId, {
       isImportant: row.isImportant,
       durationMinutes: row.durationMinutes,
+      startedAt: row.startedAt,
     });
   }
   return index;
@@ -128,6 +137,7 @@ export async function saveTaskFlag(
     isImportant: patch.isImportant ?? current?.isImportant ?? false,
     durationMinutes:
       patch.durationMinutes !== undefined ? patch.durationMinutes : current?.durationMinutes ?? null,
+    startedAt: patch.startedAt !== undefined ? patch.startedAt : current?.startedAt ?? null,
   };
 
   const { data, error } = await supabase
@@ -138,6 +148,7 @@ export async function saveTaskFlag(
         user_id: userId,
         is_important: next.isImportant,
         duration_minutes: next.durationMinutes,
+        started_at: next.startedAt,
       },
       { onConflict: "task_id,user_id" },
     )
@@ -150,6 +161,7 @@ export async function saveTaskFlag(
     taskId: row.task_id,
     isImportant: row.is_important ?? false,
     durationMinutes: row.duration_minutes,
+    startedAt: row.started_at,
   };
 }
 
@@ -161,7 +173,8 @@ export function upsertFlagRow(list: readonly TaskFlagRow[], incoming: TaskFlagRo
   if (
     current !== undefined &&
     current.isImportant === incoming.isImportant &&
-    current.durationMinutes === incoming.durationMinutes
+    current.durationMinutes === incoming.durationMinutes &&
+    current.startedAt === incoming.startedAt
   )
     return [...list];
   const next = [...list];

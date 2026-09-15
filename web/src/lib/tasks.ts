@@ -107,6 +107,19 @@ export type TaskItem = {
    * @deprecated Use the viewer's own flag from `task_flags`.
    */
   isImportant: boolean;
+  /**
+   * Whether finishing this is an event worth marking, not just another item crossed off.
+   * Never required: most work is ordinary, and a plan where everything is a milestone has
+   * no milestones in it.
+   */
+  isMilestone: boolean;
+  /**
+   * How far along the work is, 0-100, or null for "not tracked".
+   *
+   * Null is the resting state and means something different from 0: a task nobody has
+   * estimated is not a task reported as untouched.
+   */
+  progressPercent: number | null;
   recurrence: TaskRecurrence;
   recurrencePattern: RecurrencePattern | null;
   /** Set once this task has produced its successor, so a repeat cannot fork. */
@@ -239,6 +252,11 @@ export function toVietnameseTaskError(code: string | undefined, message: string)
     return "Chỉ người giao và người nhận nhiệm vụ này mới sửa được.";
   if (normalized.includes("avora_task_edit_closed"))
     return "Nhiệm vụ đã báo xong nên không sửa được nữa.";
+  if (
+    normalized.includes("avora_task_progress_range") ||
+    normalized.includes("tasks_progress_percent_range")
+  )
+    return "Tiến độ phải nằm trong khoảng 0 đến 100.";
   if (normalized.includes("avora_task_not_found")) return "Không tìm thấy nhiệm vụ này.";
   if (normalized.includes("avora_not_a_participant")) return "Bạn không có quyền trong cuộc trò chuyện này.";
   if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
@@ -882,6 +900,14 @@ export type TaskFlagValue = {
   isImportant: boolean;
   /** Null means not estimated, which is the ordinary resting state, not zero. */
   durationMinutes: number | null;
+  /**
+   * When THIS person picked the work up, or null while they have not.
+   *
+   * Per-viewer on purpose. Two people carrying the same shared task start at different
+   * moments, and one of them starting says nothing about whether the other has — so this
+   * can never be a single column on the task.
+   */
+  startedAt: string | null;
 };
 
 /** The viewer's own flags, keyed by task id. Never holds anyone else's reading. */
@@ -897,6 +923,42 @@ export function isImportantFor(flags: TaskFlagIndex, taskId: string): boolean {
 /** This person's own estimate, or null when they never gave one. */
 export function durationFor(flags: TaskFlagIndex, taskId: string): number | null {
   return flags.get(taskId)?.durationMinutes ?? null;
+}
+
+/** When this person started, or null. Never reports anybody else's start. */
+export function startedAtFor(flags: TaskFlagIndex, taskId: string): string | null {
+  return flags.get(taskId)?.startedAt ?? null;
+}
+
+/** Whether this person has this task underway. Their own answer, nobody else's. */
+export function isStartedFor(flags: TaskFlagIndex, taskId: string): boolean {
+  return startedAtFor(flags, taskId) !== null;
+}
+
+/**
+ * Whether "Bắt đầu làm" belongs on a task at all.
+ *
+ * Only work that is actually live can be picked up: a suggestion has not been agreed to yet,
+ * and something already filed done or declined has nothing left to start. Deliberately says
+ * nothing about mute or notifications — starting is a private note to yourself, not a state
+ * change anyone else is told about.
+ */
+export function canStartTask(task: TaskItem): boolean {
+  return task.status === "confirmed";
+}
+
+/** A whole percentage in 0-100, or null when the box is empty or unusable. */
+export function parseProgressInput(raw: string): number | null {
+  const trimmed = raw.trim();
+  if (trimmed === "") return null;
+  const value = Number.parseInt(trimmed, 10);
+  if (!Number.isFinite(value) || value < 0 || value > 100) return null;
+  return value;
+}
+
+/** A short human reading of progress. Null stays absent rather than becoming "0%". */
+export function formatProgress(percent: number | null): string | null {
+  return percent === null ? null : `${percent}%`;
 }
 
 /** Heavy is a judgement about effort only — it says nothing about urgency or importance. */
@@ -1217,6 +1279,8 @@ type TaskRow = {
   deadline_tz: string | null;
   task_category_id: string | null;
   is_important: boolean | null;
+  is_milestone: boolean | null;
+  progress_percent: number | null;
   recurrence: string | null;
   recurrence_pattern: unknown;
   recurrence_spawned_at: string | null;
@@ -1259,6 +1323,8 @@ function isSameTask(a: TaskItem, b: TaskItem): boolean {
     a.deadlineTime === b.deadlineTime &&
     a.categoryId === b.categoryId &&
     a.isImportant === b.isImportant &&
+    a.isMilestone === b.isMilestone &&
+    a.progressPercent === b.progressPercent &&
     a.recurrence === b.recurrence &&
     a.deletedByCreator === b.deletedByCreator &&
     a.deletedByPeer === b.deletedByPeer &&
@@ -1317,6 +1383,8 @@ export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["
     deadlineTz: row.deadline_tz ?? "Asia/Ho_Chi_Minh",
     categoryId: row.task_category_id,
     isImportant: row.is_important ?? false,
+    isMilestone: row.is_milestone ?? false,
+    progressPercent: row.progress_percent,
     recurrence: toRecurrence(row.recurrence),
     recurrencePattern: toRecurrencePattern(row.recurrence_pattern),
     recurrenceSpawnedAt:
@@ -1328,7 +1396,7 @@ export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["
 }
 
 const TASK_COLUMNS =
-  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
+  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, is_milestone, progress_percent, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
 
 function toTaskItem(row: TaskRow): TaskItem {
   return {
@@ -1351,6 +1419,8 @@ function toTaskItem(row: TaskRow): TaskItem {
     deadlineTz: row.deadline_tz ?? "Asia/Ho_Chi_Minh",
     categoryId: row.task_category_id,
     isImportant: row.is_important ?? false,
+    isMilestone: row.is_milestone ?? false,
+    progressPercent: row.progress_percent,
     recurrence: toRecurrence(row.recurrence),
     recurrencePattern: toRecurrencePattern(row.recurrence_pattern),
     recurrenceSpawnedAt: row.recurrence_spawned_at,
@@ -1591,6 +1661,60 @@ export async function updatePersonalTaskDetails(
       deadline_time: edit.deadlineTime,
       updated_at: new Date().toISOString(),
     })
+    .eq("id", taskId)
+    .select(TASK_COLUMNS)
+    .single();
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as TaskRow);
+}
+
+/**
+ * The two optional planning fields on a task: milestone, and how far along it is.
+ *
+ * `progressPercent` uses `undefined` for "leave it alone" and `null` for "erase it", because
+ * those are genuinely different requests: setting the milestone flag must not silently wipe
+ * a percentage somebody typed, and clearing an estimate has to be sayable.
+ */
+export type TaskPlanPatch = {
+  isMilestone?: boolean;
+  progressPercent?: number | null;
+};
+
+/**
+ * Writes the planning fields on a shared task.
+ *
+ * Through an RPC rather than a direct update, for the same reason every other shared-task
+ * change is: the row belongs to two people, and who may touch it is re-checked by the server
+ * against the task's state. A bystander in a group can read this task but not replan it.
+ */
+export async function updateSharedTaskPlan(
+  taskId: string,
+  patch: TaskPlanPatch,
+): Promise<TaskItem> {
+  const { data, error } = await supabase.rpc("update_shared_task_plan", {
+    p_task_id: taskId,
+    p_is_milestone: patch.isMilestone ?? undefined,
+    p_progress_percent: patch.progressPercent ?? undefined,
+    p_clear_progress: patch.progressPercent === null,
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as unknown as TaskRow);
+}
+
+/** The same two fields on a personal task, which one person owns outright. */
+export async function updatePersonalTaskPlan(
+  taskId: string,
+  patch: TaskPlanPatch,
+): Promise<TaskItem> {
+  const fields: { is_milestone?: boolean; progress_percent?: number | null; updated_at: string } = {
+    updated_at: new Date().toISOString(),
+  };
+  if (patch.isMilestone !== undefined) fields.is_milestone = patch.isMilestone;
+  if (patch.progressPercent !== undefined) fields.progress_percent = patch.progressPercent;
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update(fields)
     .eq("id", taskId)
     .select(TASK_COLUMNS)
     .single();
