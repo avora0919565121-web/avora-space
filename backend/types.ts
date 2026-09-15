@@ -137,6 +137,121 @@ export type Database = {
         }
         Relationships: []
       }
+      contact: {
+        Row: {
+          business_address: string | null
+          contact_type: string
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          employer_contact_id: string | null
+          id: string
+          industry: string | null
+          linked_user_id: string | null
+          name: string
+          note: string | null
+          owner_user_id: string
+          phone: string | null
+          relationship_tag: string | null
+          representative_email: string | null
+          representative_name: string | null
+          representative_phone: string | null
+          tax_code: string | null
+          updated_at: string
+        }
+        Insert: {
+          business_address?: string | null
+          contact_type: string
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          employer_contact_id?: string | null
+          id?: string
+          industry?: string | null
+          linked_user_id?: string | null
+          name: string
+          note?: string | null
+          owner_user_id: string
+          phone?: string | null
+          relationship_tag?: string | null
+          representative_email?: string | null
+          representative_name?: string | null
+          representative_phone?: string | null
+          tax_code?: string | null
+          updated_at?: string
+        }
+        Update: {
+          business_address?: string | null
+          contact_type?: string
+          created_at?: string
+          date_of_birth?: string | null
+          email?: string | null
+          employer_contact_id?: string | null
+          id?: string
+          industry?: string | null
+          linked_user_id?: string | null
+          name?: string
+          note?: string | null
+          owner_user_id?: string
+          phone?: string | null
+          relationship_tag?: string | null
+          representative_email?: string | null
+          representative_name?: string | null
+          representative_phone?: string | null
+          tax_code?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_employer_contact_id_fkey"
+            columns: ["employer_contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_invite: {
+        Row: {
+          accepted_at: string | null
+          contact_id: string
+          id: string
+          invite_token: string
+          invited_at: string
+          invited_by: string
+          method: string
+          status: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          contact_id: string
+          id?: string
+          invite_token: string
+          invited_at?: string
+          invited_by: string
+          method: string
+          status?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          contact_id?: string
+          id?: string
+          invite_token?: string
+          invited_at?: string
+          invited_by?: string
+          method?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_invite_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       context_task_list_settings: {
         Row: {
           conversation_id: string
@@ -1602,6 +1717,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_invite: { Args: { p_token: string }; Returns: string }
       accept_task_suggestion: {
         Args: { p_suggestion_id: string; p_task_id?: string }
         Returns: {
@@ -1868,6 +1984,54 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      create_contact: {
+        Args: {
+          p_business_address?: string
+          p_contact_type: string
+          p_date_of_birth?: string
+          p_email?: string
+          p_industry?: string
+          p_name: string
+          p_note?: string
+          p_phone?: string
+          p_relationship_tag?: string
+          p_representative_email?: string
+          p_representative_name?: string
+          p_representative_phone?: string
+          p_tax_code?: string
+        }
+        Returns: {
+          business_address: string | null
+          contact_type: string
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          employer_contact_id: string | null
+          id: string
+          industry: string | null
+          linked_user_id: string | null
+          name: string
+          note: string | null
+          owner_user_id: string
+          phone: string | null
+          relationship_tag: string | null
+          representative_email: string | null
+          representative_name: string | null
+          representative_phone: string | null
+          tax_code: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "contact"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_contact_invite: {
+        Args: { p_contact_id: string; p_method: string }
+        Returns: string
       }
       create_direct_conversation: {
         Args: { other_user_id: string }
