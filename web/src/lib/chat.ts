@@ -39,6 +39,8 @@ export {
   messageBodyText,
   MESSAGE_EDIT_WINDOW_MS,
   MESSAGE_TABS,
+  PLACEHOLDER_TABS,
+  isPlaceholderTab,
   quotePreview,
   RECALLED_MESSAGE_NOTE,
   tabOfKind,

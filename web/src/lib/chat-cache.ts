@@ -26,14 +26,23 @@ export type ConversationSummary = {
   sortAt: string;
 };
 
-/** The three directions Tin nhắn is split into. */
-export type MessageTab = "journal" | "direct" | "group";
+/** The directions Tin nhắn is split into. "projects" and "email" are named in the strip but not built yet. */
+export type MessageTab = "journal" | "direct" | "group" | "projects" | "email";
 
 export const MESSAGE_TABS: readonly { readonly id: MessageTab; readonly label: string }[] = [
   { id: "journal", label: "Nhật ký" },
-  { id: "direct", label: "Chat 1-1" },
-  { id: "group", label: "Chat group" },
+  { id: "direct", label: "1-1" },
+  { id: "group", label: "Nhóm" },
+  { id: "projects", label: "Dự án" },
+  { id: "email", label: "Email" },
 ];
+
+/** The tabs that exist only as a promise in the strip, with no function behind them yet. */
+export const PLACEHOLDER_TABS: readonly MessageTab[] = ["projects", "email"];
+
+export function isPlaceholderTab(tab: MessageTab): tab is "projects" | "email" {
+  return PLACEHOLDER_TABS.includes(tab);
+}
 
 export const JOURNAL_TITLE = "Nhật ký của bạn";
 export const JOURNAL_SUBTITLE = "Chỉ mình bạn đọc được";

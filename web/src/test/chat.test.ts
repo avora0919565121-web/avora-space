@@ -9,6 +9,7 @@ import {
   formatMissedMessages,
   formatUnreadBadge,
   isNearThreadBottom,
+  isPlaceholderTab,
   isSeenByPeer,
   JOURNAL_TITLE,
   lastOutgoingId,
@@ -306,9 +307,29 @@ describe("message tabs", () => {
     memberCount: 5,
   });
 
-  it("offers exactly the three directions, in reading order", () => {
-    expect(MESSAGE_TABS.map((tab) => tab.id)).toEqual(["journal", "direct", "group"]);
-    expect(MESSAGE_TABS.map((tab) => tab.label)).toEqual(["Nhật ký", "Chat 1-1", "Chat group"]);
+  it("offers the five directions in reading order — two of them still promises", () => {
+    expect(MESSAGE_TABS.map((tab) => tab.id)).toEqual([
+      "journal",
+      "direct",
+      "group",
+      "projects",
+      "email",
+    ]);
+    expect(MESSAGE_TABS.map((tab) => tab.label)).toEqual([
+      "Nhật ký",
+      "1-1",
+      "Nhóm",
+      "Dự án",
+      "Email",
+    ]);
+  });
+
+  it("names exactly the two tabs that are placeholders, and nothing else", () => {
+    expect(isPlaceholderTab("projects")).toBe(true);
+    expect(isPlaceholderTab("email")).toBe(true);
+    expect(isPlaceholderTab("journal")).toBe(false);
+    expect(isPlaceholderTab("direct")).toBe(false);
+    expect(isPlaceholderTab("group")).toBe(false);
   });
 
   it("files each kind of thread under its own tab", () => {
@@ -322,6 +343,11 @@ describe("message tabs", () => {
     expect(filterConversationsByTab(inbox, "journal").map((item) => item.conversationId)).toEqual(["j1"]);
     expect(filterConversationsByTab(inbox, "direct").map((item) => item.conversationId)).toEqual(["d1"]);
     expect(filterConversationsByTab(inbox, "group").map((item) => item.conversationId)).toEqual(["g1"]);
+    // The placeholder tabs hold no threads at all — they are not built yet.
+    expect(filterConversationsByTab(inbox, "projects")).toEqual([]);
+    expect(filterConversationsByTab(inbox, "email")).toEqual([]);
+    expect(unreadForTab(inbox, "projects")).toBe(0);
+    expect(unreadForTab(inbox, "email")).toBe(0);
   });
 
   it("names a group by its own name, a journal after the reader, a 1-1 after the other person", () => {

@@ -1,10 +1,12 @@
 import { LayoutGrid, ListTodo, LogOut, MessageSquareText, Settings, Vault } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { ResizeHandle } from "@/components/ResizeHandle";
 import { useAuth, useDisplayName } from "@/lib/auth";
+import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { countTasksNeedingAttention, todayIso } from "@/lib/tasks";
@@ -34,6 +36,9 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const unreadTotal = useTotalUnread();
   const { data: tasks } = useTasks();
+  // Desktop only: the rail's width, as the reader last dragged it.
+  const navColumn = useColumnWidth(NAV_COLUMN);
+  const asideRef = useRef<HTMLElement | null>(null);
 
   // Only what is late or waiting on this person's move. A badge counting every open task would
   // never go out, and a badge that is always lit is decoration rather than information.
@@ -54,7 +59,12 @@ export function AppSidebar() {
   };
 
   return (
-    <aside className="paper flex w-full shrink-0 flex-col border-b border-border md:h-screen md:w-[240px] md:border-b-0 md:border-r">
+    <aside
+      ref={asideRef}
+      style={navColumn.isDesktop ? { width: navColumn.width } : undefined}
+      className="paper relative flex w-full shrink-0 flex-col border-b border-border md:h-screen md:w-[240px] md:border-b-0 md:border-r"
+    >
+      <ResizeHandle columnRef={asideRef} control={navColumn} label="Độ rộng thanh điều hướng" />
       <div className="flex items-center gap-2.5 px-6 pb-5 pt-6">
         <img
           src="/icon.png"

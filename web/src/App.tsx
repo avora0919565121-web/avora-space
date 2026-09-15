@@ -24,6 +24,8 @@ import Profile from "./pages/Profile";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import SettingsAssistant from "./pages/SettingsAssistant";
+import SettingsNotifications from "./pages/SettingsNotifications";
+import SettingsPreferences from "./pages/SettingsPreferences";
 import Tasks from "./pages/Tasks";
 import Vault from "./pages/Vault";
 import VaultPasswords from "./pages/VaultPasswords";
@@ -61,6 +63,8 @@ const App = () => (
 
                 <Route path="/cai-dat" element={<Settings />}>
                   <Route index element={<Profile />} />
+                  <Route path="thiet-lap" element={<SettingsPreferences />} />
+                  <Route path="thong-bao" element={<SettingsNotifications />} />
                   <Route path="avora-ai" element={<SettingsAssistant />} />
                 </Route>
 

@@ -5,9 +5,11 @@ import {
   Check,
   CheckCheck,
   ChevronLeft,
+  FolderKanban,
   Info,
   ListPlus,
   ListTodo,
+  Mail,
   MessageSquarePlus,
   NotebookPen,
   Phone,
@@ -16,13 +18,29 @@ import {
   UserRound,
   Users,
   X,
+  type LucideIcon,
 } from "lucide-react";
+
+/** The one "Sắp ra mắt" screen a placeholder tab shows, in both panes it can appear in. */
+function PlaceholderComingSoon({ id }: { id: MessageTab }) {
+  if (!isPlaceholderTab(id)) return null;
+  const content = PLACEHOLDER_CONTENT[id];
+  return (
+    <ComingSoon
+      icon={content.icon}
+      title={content.title}
+      description={content.description}
+    />
+  );
+}
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { ComingSoon } from "@/components/ComingSoon";
 import { NewChatDialog } from "@/components/NewChatDialog";
+import { ResizeHandle } from "@/components/ResizeHandle";
 import { NewGroupDialog } from "@/components/NewGroupDialog";
 import { ChatSuggestionPanel } from "@/components/chat/ChatSuggestionPanel";
 import { ChatTaskPanel } from "@/components/chat/ChatTaskPanel";
@@ -64,6 +82,7 @@ import {
   groupMessagesByDay,
   isEdited,
   isNearThreadBottom,
+  isPlaceholderTab,
   isRecalled,
   isSeenByPeer,
   lastOutgoingId,
@@ -82,6 +101,7 @@ import {
   type ConversationSummary,
   type MessageTab,
 } from "@/lib/chat";
+import { LIST_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { fetchGroupMembers, groupKeys } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
 import {
@@ -107,6 +127,28 @@ import { cn } from "@/lib/utils";
  */
 const OFFLINE_THREAD_POLL_MS = 5_000;
 
+/**
+ * The two directions that are named in the strip but not built yet. One screen each,
+ * borrowed from the same "Sắp ra mắt" page Mật khẩu and Avora AI use — no inputs, no
+ * promise of a function that cannot answer.
+ */
+const PLACEHOLDER_CONTENT: Readonly<
+  Record<"projects" | "email", { icon: LucideIcon; title: string; description: string }>
+> = {
+  projects: {
+    icon: FolderKanban,
+    title: "Dự án",
+    description:
+      "Một nơi gom việc, tài liệu và cuộc trò chuyện cho từng dự án — đang được xây, chưa mở ở đây.",
+  },
+  email: {
+    icon: Mail,
+    title: "Email",
+    description:
+      "Hộp thư làm việc ngay trong AVORA — đang được xây, chưa mở ở đây.",
+  },
+};
+
 const Messages = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
   const navigate = useNavigate();
@@ -118,6 +160,11 @@ const Messages = () => {
 
   const [query, setQuery] = useState<string>("");
   const [activeTab, setActiveTab] = useState<MessageTab>("direct");
+  /** A direction named in the strip but not built yet: Dự án, Email. */
+  const isPlaceholder = isPlaceholderTab(activeTab);
+  // Desktop only: the list column's width, as the reader last dragged it.
+  const listColumn = useColumnWidth(LIST_COLUMN);
+  const listSectionRef = useRef<HTMLElement | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState<boolean>(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState<boolean>(false);
   const [isInfoOpen, setIsInfoOpen] = useState<boolean>(false);
@@ -718,6 +765,10 @@ const Messages = () => {
       setActiveTab(tab);
       setQuery("");
 
+      // Nothing lives behind these two yet — the strip is a roadmap, so the tab
+      // only turns its own page and touches neither the inbox nor the router.
+      if (isPlaceholderTab(tab)) return;
+
       if (tab !== "journal") {
         navigate("/tin-nhan");
         return;
@@ -744,12 +795,19 @@ const Messages = () => {
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col md:flex-row">
       <section
+        ref={listSectionRef}
+        style={listColumn.isDesktop ? { width: listColumn.width } : undefined}
         className={cn(
-          "flex min-h-0 w-full flex-col border-border bg-card md:w-[320px] md:shrink-0 md:border-r lg:w-[360px]",
-          conversationId ? "hidden md:flex" : "flex",
+          "relative flex min-h-0 w-full flex-col border-border bg-card md:w-[360px] md:shrink-0 md:border-r",
+          conversationId && !isPlaceholder ? "hidden md:flex" : "flex",
         )}
         aria-label="Danh sách cuộc trò chuyện"
       >
+        <ResizeHandle
+          columnRef={listSectionRef}
+          control={listColumn}
+          label="Độ rộng danh sách"
+        />
         <div className="px-6 pb-4 pt-7">
           <div className="flex items-center justify-between gap-3">
             <h1 className="text-[26px] font-semibold tracking-tight text-foreground">Tin nhắn</h1>
@@ -824,7 +882,7 @@ const Messages = () => {
             })}
           </div>
 
-          {activeTab === "journal" ? null : (
+          {activeTab === "journal" || isPlaceholder ? null : (
             <label className="relative mt-4 block">
               <span className="sr-only">Tìm cuộc trò chuyện</span>
               <Search
@@ -842,6 +900,13 @@ const Messages = () => {
           )}
         </div>
 
+        {isPlaceholder ? (
+          /* Mobile: the placeholder page lives under the strip, where the list would be.
+             Desktop gets the full-width one in the detail pane instead. */
+          <div className="flex min-h-0 flex-1 flex-col md:hidden">
+            <PlaceholderComingSoon id={activeTab} />
+          </div>
+        ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
           {conversationsQuery.isPending ? (
             <ul className="space-y-1 px-3 pt-1" aria-hidden="true">
@@ -972,13 +1037,21 @@ const Messages = () => {
                   </li>
                 );
               })}
-            </ul>
+              </ul>
           )}
         </div>
+        )}
       </section>
 
-      <section className={cn("paper min-h-0 flex-1 flex-col", conversationId ? "flex" : "hidden md:flex")}>
-        {conversationId ? (
+      <section
+        className={cn(
+          "paper min-h-0 flex-1 flex-col",
+          conversationId && !isPlaceholder ? "flex" : "hidden md:flex",
+        )}
+      >
+        {isPlaceholder ? (
+          <PlaceholderComingSoon id={activeTab} />
+        ) : conversationId ? (
           isUnknownConversation ? (
             <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
               <h2 className="text-[24px] font-semibold tracking-tight text-foreground">

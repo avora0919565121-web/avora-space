@@ -4,8 +4,9 @@ import { SectionTabs } from "@/components/SectionTabs";
 import { SETTINGS_TABS } from "@/lib/navigation";
 
 /**
- * Cài đặt — the account itself (Hồ sơ, unchanged) beside the assistant that is
- * planned but not built. The section frames them and nothing more.
+ * Cài đặt — four sibling halves: the account (Hồ sơ), the app's own settings (Thiết lập),
+ * its notifications (Thông báo), and the assistant that is planned but not built (Avora AI).
+ * The section frames them and nothing more.
  */
 const Settings = () => (
   <div className="flex min-h-0 flex-1 flex-col">

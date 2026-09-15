@@ -51,9 +51,19 @@ describe("the sectioned screens", () => {
     expect(VAULT_TABS[0].to).toBe("/ket-sat");
   });
 
-  it("opens Cài đặt on the profile, with the assistant beside it", () => {
-    expect(SETTINGS_TABS.map((tab) => tab.label)).toEqual(["Hồ sơ", "Avora AI"]);
-    expect(SETTINGS_TABS[0].to).toBe("/cai-dat");
+  it("opens Cài đặt on the profile, with the three sibling tabs beside it", () => {
+    expect(SETTINGS_TABS.map((tab) => tab.label)).toEqual([
+      "Hồ sơ",
+      "Thiết lập",
+      "Thông báo",
+      "Avora AI",
+    ]);
+    expect(SETTINGS_TABS.map((tab) => tab.to)).toEqual([
+      "/cai-dat",
+      "/cai-dat/thiet-lap",
+      "/cai-dat/thong-bao",
+      "/cai-dat/avora-ai",
+    ]);
   });
 
   it("keeps every finance sub-screen under the Tài chính tab", () => {
@@ -66,8 +76,10 @@ describe("the sectioned screens", () => {
     expect(activeSectionTab("/ket-sat/mat-khau", VAULT_TABS)).toBe("/ket-sat/mat-khau");
   });
 
-  it("hands the assistant route to its own tab", () => {
+  it("hands each Cài setting sub-route to its own tab", () => {
     expect(activeSectionTab("/cai-dat", SETTINGS_TABS)).toBe("/cai-dat");
+    expect(activeSectionTab("/cai-dat/thiet-lap", SETTINGS_TABS)).toBe("/cai-dat/thiet-lap");
+    expect(activeSectionTab("/cai-dat/thong-bao", SETTINGS_TABS)).toBe("/cai-dat/thong-bao");
     expect(activeSectionTab("/cai-dat/avora-ai", SETTINGS_TABS)).toBe("/cai-dat/avora-ai");
   });
 

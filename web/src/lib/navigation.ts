@@ -39,9 +39,11 @@ export const VAULT_TABS: readonly NavEntry[] = [
   { to: "/ket-sat/mat-khau", label: "Mật khẩu" },
 ];
 
-/** Cài đặt: the real profile, and the assistant that is not built yet. */
+/** Cài đặt: the profile, the app's own settings, its notifications, and the unbuilt assistant. */
 export const SETTINGS_TABS: readonly NavEntry[] = [
   { to: "/cai-dat", label: "Hồ sơ" },
+  { to: "/cai-dat/thiet-lap", label: "Thiết lập" },
+  { to: "/cai-dat/thong-bao", label: "Thông báo" },
   { to: "/cai-dat/avora-ai", label: "Avora AI" },
 ];
 
