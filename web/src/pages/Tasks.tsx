@@ -90,6 +90,7 @@ import {
   type TaskViewMode,
 } from "@/lib/tasks";
 import { suggestionsProposed, type TaskSuggestion } from "@/lib/task-suggestions";
+import { TASK_VOICE_HINT, TASK_VOICE_TITLE_CLASS, taskVoice, type TaskVoice } from "@/lib/task-voice";
 import { useConversations } from "@/lib/use-conversations";
 import { useSuggestionActions, useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { EditSuggestionDialog } from "@/components/tasks/EditSuggestionDialog";
@@ -264,15 +265,43 @@ function IconAction({
   );
 }
 
-function TaskTitle({ task, muted }: { task: TaskItem; muted: boolean }) {
+/**
+ * A task's title, weighted by whose move it is.
+ *
+ * Work the reader is carrying is ink at semibold; work somebody else is carrying is lighter,
+ * italic and warm grey — still in the same place in the list, just visibly not theirs to do.
+ * A finished or binned row ignores the voice entirely: a closed task is nobody's next move,
+ * and bolding it would claim something is still owed.
+ *
+ * The weight is only a hint, so the same fact is spelled out for screen readers beside it.
+ */
+function TaskTitle({
+  task,
+  muted,
+  voice,
+}: {
+  task: TaskItem;
+  muted: boolean;
+  voice?: TaskVoice;
+}) {
+  const settled = task.status === "done" || muted;
   return (
     <p
       className={cn(
         "truncate text-[15px] leading-6",
-        task.status === "done" ? "text-muted-foreground line-through" : muted ? "text-muted-foreground" : "text-foreground",
+        task.status === "done"
+          ? "text-muted-foreground line-through"
+          : muted
+            ? "text-muted-foreground"
+            : voice === undefined
+              ? "text-foreground"
+              : TASK_VOICE_TITLE_CLASS[voice],
       )}
     >
       {task.title}
+      {voice !== undefined && !settled ? (
+        <span className="sr-only"> — {TASK_VOICE_HINT[voice]}</span>
+      ) : null}
     </p>
   );
 }
@@ -341,7 +370,8 @@ function PersonalRow({
         disabled={onOpen === undefined}
         className="press min-w-0 flex-1 pt-0.5 text-left disabled:cursor-default"
       >
-        <TaskTitle task={task} muted={false} />
+        {/* A personal task is always the reader's own move — nobody else can carry it. */}
+        <TaskTitle task={task} muted={false} voice="mine" />
         <TaskDescription task={task} />
         <div className="mt-0.5 text-[12px]">
           <DeadlineChip task={task} today={today} category={categories.get(task.categoryId ?? "")} />
@@ -414,6 +444,7 @@ function SharedRow({
   const abandoned = isDeletedByOther(task, userId);
   const note = sharedTaskNote(task, userId);
   const target = contextTarget(task.contextSnapshot, task.conversationId);
+  const voice = taskVoice(task, userId);
 
   return (
     <li
@@ -474,7 +505,7 @@ function SharedRow({
           disabled={onOpen === undefined}
           className="press min-w-0 flex-1 pt-0.5 text-left disabled:cursor-default"
         >
-          <TaskTitle task={task} muted={false} />
+          <TaskTitle task={task} muted={false} voice={voice} />
           <TaskDescription task={task} />
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
             <DeadlineChip task={task} today={today} category={categories.get(task.categoryId ?? "")} />

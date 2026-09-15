@@ -2,9 +2,11 @@ import { ChevronRight, ListTodo, Loader2, MessagesSquare, UserRound, Users } fro
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
 
+import { ThoughtNote } from "@/components/space/ThoughtNote";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { conversationsWithUnread, unreadSummaryText } from "@/lib/chat";
 import { dailyThoughtView } from "@/lib/daily-thoughts";
+import { PULSE_LABELS, pulseSentence, spaceDateLabel, taskPulse } from "@/lib/space-summary";
 import {
   openCountsByScope,
   scopeLink,
@@ -13,7 +15,7 @@ import {
   TASK_SCOPES,
   type TaskScope,
 } from "@/lib/task-scope";
-import { todayIso, type TaskItem } from "@/lib/tasks";
+import { todayIso } from "@/lib/tasks";
 import { useConversations } from "@/lib/use-conversations";
 import { useDailyThoughtCategory } from "@/lib/use-settings";
 import { useTasks } from "@/lib/use-tasks";
@@ -42,6 +44,10 @@ function greeting(hour: number): string {
  * The day's thought sits with the greeting, as part of being met by name, rather than at the
  * foot of the page where it would read as an afterthought. Who is waiting on a reply stays
  * below the work: that is something to act on, not something to sit with.
+ *
+ * Between the two sits the pulse: three numbers that partition everything still open into
+ * late, due today, and ahead. Three numbers rather than one because "twelve waiting" and
+ * "twelve waiting, four of them late" are different mornings.
  */
 export default function Dashboard() {
   const { user } = useAuth();
@@ -63,21 +69,24 @@ export default function Dashboard() {
     () => openCountsByScope(tasks ?? [], userId),
     [tasks, userId],
   );
-  const total = counts.personal + counts.direct + counts.group;
 
-  const overdue = useMemo(
-    () =>
-      (tasks ?? []).filter(
-        (task: TaskItem) =>
-          task.status !== "done" && task.deadline !== null && task.deadline < today,
-      ).length,
-    [tasks, today],
-  );
+  /**
+   * Late, due today, ahead — and their total. One reading of the same set of tasks the three
+   * scope cards below split a different way, so the two can never disagree about how much is
+   * open: both count exactly what `isOpenTask` counts.
+   */
+  const pulse = useMemo(() => taskPulse(tasks ?? [], userId, today), [tasks, userId, today]);
 
   return (
     <div className="paper min-h-screen flex-1 md:h-screen md:overflow-y-auto">
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
-        <p className="text-[14px] text-muted-foreground">{greeting(new Date().getHours())}</p>
+        <p className="text-[14px] text-muted-foreground">
+          {greeting(new Date().getHours())}
+          <span className="text-task-idle" aria-hidden="true">
+            {" · "}
+          </span>
+          <span>{spaceDateLabel(new Date())}</span>
+        </p>
         <h1 className="mt-1 text-[26px] font-semibold tracking-tight text-foreground sm:text-[28px]">
           {displayName}
         </h1>
@@ -90,6 +99,8 @@ export default function Dashboard() {
             {thought.speaker === null ? null : (
               <p className="mt-1.5 text-[13px] text-muted-foreground">— {thought.speaker}</p>
             )}
+            {/* Answering is offered, never asked for: the field stays shut until opened. */}
+            <ThoughtNote thought={thought} />
           </section>
         )}
 
@@ -99,13 +110,40 @@ export default function Dashboard() {
           </div>
         ) : (
           <>
-            <p className="mt-2 text-[15px] text-muted-foreground">
-              {total === 0
-                ? "Không còn việc nào đang chờ. Nghỉ tay một chút nhé."
-                : overdue > 0
-                  ? `${total} việc đang chờ, trong đó ${overdue} việc đã quá hạn.`
-                  : `${total} việc đang chờ bạn.`}
-            </p>
+            {/*
+              The three numbers, then the one sentence that names the single most pressing
+              fact. A zero sits in the unscheduled grey rather than going bold: nothing late
+              is good news and must not look like an alarm.
+            */}
+            <div className="mt-5 flex items-stretch rounded-[12px] border border-border bg-card">
+              {PULSE_LABELS.map(({ key, label }, index) => (
+                <div
+                  key={key}
+                  className={cn(
+                    "flex-1 px-4 py-3",
+                    index > 0 ? "border-l border-border" : "",
+                  )}
+                >
+                  <p
+                    className={cn(
+                      "tabular text-[26px] font-semibold leading-none",
+                      pulse[key] === 0
+                        ? "text-task-idle"
+                        : key === "overdue"
+                          ? "text-task-overdue"
+                          : key === "today"
+                            ? "text-task-due-soon"
+                            : "text-foreground",
+                    )}
+                  >
+                    {pulse[key]}
+                  </p>
+                  <p className="mt-1.5 text-[12px] text-muted-foreground">{label}</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="mt-3 text-[15px] text-muted-foreground">{pulseSentence(pulse)}</p>
 
             <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-3">
               {TASK_SCOPES.map((scope) => {

@@ -31,6 +31,7 @@ import {
   taskTier,
   type TaskItem,
 } from "@/lib/tasks";
+import { TASK_VOICE_HINT, taskVoice } from "@/lib/task-voice";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { useTaskActions } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
@@ -150,6 +151,16 @@ export function TaskDetailSheet({
               >
                 {task.title}
               </h2>
+              {/*
+                The panel is already one task rather than a list, so the weight that separates
+                rows has nothing to separate here. What it carries instead is the sentence —
+                said outright, because this is where someone comes to be sure.
+              */}
+              {done ? null : (
+                <p className="mt-0.5 text-[12px] font-medium text-foreground">
+                  {TASK_VOICE_HINT[taskVoice(task, userId)]}
+                </p>
+              )}
               <p className="mt-0.5 text-[12px] text-muted-foreground">
                 {TIER_LABELS[taskTier(task, userId)]} · {taskStatusLabel(task.status)}
                 {task.isMilestone ? " · Cột mốc" : ""}

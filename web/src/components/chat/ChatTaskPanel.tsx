@@ -36,6 +36,7 @@ import {
   todayIso,
   type TaskItem,
 } from "@/lib/tasks";
+import { TASK_VOICE_HINT, TASK_VOICE_TITLE_CLASS, taskVoice } from "@/lib/task-voice";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
@@ -224,6 +225,10 @@ function ChatTaskRow({
   // turns "Xác nhận/Xoá" into "Tạo tác vụ/Bỏ qua" and earns the note above the buttons.
   const suggested = isSuggestion(task, userId);
   const askedBy = creatorLabel(task, members, peerName, userId);
+  // Whose move it is, in the row's own weight. In a group panel this is the difference
+  // between scanning your own work and reading the room's.
+  const voice = taskVoice(task, userId);
+  const settled = task.status === "done" || task.status === "skipped";
 
   const run = async (action: Promise<unknown>): Promise<void> => {
     try {
@@ -300,11 +305,14 @@ function ChatTaskRow({
             <>
               <p
                 className={cn(
-                  "text-[14px] font-medium leading-5",
-                  task.status === "done" ? "text-muted-foreground line-through" : "text-foreground",
+                  "text-[14px] leading-5",
+                  task.status === "done"
+                    ? "font-medium text-muted-foreground line-through"
+                    : TASK_VOICE_TITLE_CLASS[voice],
                 )}
               >
                 {task.title}
+                {settled ? null : <span className="sr-only"> — {TASK_VOICE_HINT[voice]}</span>}
               </p>
               {task.description.trim() !== "" ? (
                 <p className="mt-0.5 line-clamp-2 text-[13px] leading-5 text-muted-foreground">
