@@ -80,20 +80,27 @@ export default function Dashboard() {
   return (
     <div className="paper min-h-screen flex-1 md:h-screen md:overflow-y-auto">
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
-        <p className="text-[14px] text-muted-foreground">
-          {greeting(new Date().getHours())}
-          <span className="text-task-idle" aria-hidden="true">
-            {" · "}
+        {/**
+          * One line, one size: the greeting and the day read at the same weight as the page,
+          * and only the name is bold — the name is not a headline, the thought below is the
+          * loudest text on the screen.
+          */}
+        <h1 className="text-[19px] leading-snug text-foreground">
+          <span className="font-normal text-muted-foreground">
+            {greeting(new Date().getHours())},{" "}
           </span>
-          <span>{spaceDateLabel(new Date())}</span>
-        </p>
-        <h1 className="mt-1 text-[26px] font-semibold tracking-tight text-foreground sm:text-[28px]">
-          {displayName}
+          <span className="font-semibold">{displayName}</span>
+          <span className="font-normal text-muted-foreground">
+            <span className="text-task-idle" aria-hidden="true">
+              {" · "}
+            </span>
+            {spaceDateLabel(new Date())}
+          </span>
         </h1>
 
         {thought === null ? null : (
           <section aria-label="Suy ngẫm hôm nay" className="mt-4 border-l-2 border-primary/30 pl-4">
-            <blockquote className="text-[15px] leading-7 text-foreground/90">
+            <blockquote className="text-[20px] leading-[1.65] text-foreground">
               {thought.text}
             </blockquote>
             {thought.speaker === null ? null : (
