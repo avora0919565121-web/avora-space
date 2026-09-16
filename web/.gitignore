@@ -23,6 +23,10 @@ yarn-debug.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# test artifacts (screenshots and attachments written on browser-test failures)
+.vitest-attachments
+src/test/__screenshots__
+
 # IDE
 .vscode/*
 !.vscode/extensions.json

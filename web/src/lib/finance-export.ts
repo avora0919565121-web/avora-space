@@ -1,5 +1,6 @@
 import writeXlsxFile, { type Row as XlsxRow, type SheetData } from "write-excel-file/browser";
 
+import { triggerDownload } from "@/lib/download";
 import { centsToExportNumber, formatDayVi } from "@/lib/finance";
 import { reportFileBase, type ReportChart, type ReportColumn, type ReportResult } from "@/lib/finance-reports";
 
@@ -64,18 +65,6 @@ export function reportToCsv(report: ReportResult, currency: string): string {
   }
 
   return BOM + lines.join("\r\n") + "\r\n";
-}
-
-function triggerDownload(blob: Blob, filename: string): void {
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
-  // Revoke on the next tick so Safari has finished handing the blob to the download manager.
-  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export function downloadReportCsv(report: ReportResult, currency: string, from: string, to: string): string {

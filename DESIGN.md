@@ -873,6 +873,35 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   screen only leaves buttons out for what it can see, so a number deleted on another device while this page
   sat open still reaches the database's own objection — which is then said in the reader's language, and
   names the link as the way through instead of dead-ending.
+- 2026-09-16 — An address book arrives by spreadsheet first. Of the ways in that were weighed — the phone's
+  own contacts, a mail account, iCloud — a file is the only one that works on every browser and device, needs
+  no permission from anyone else, and shows the person exactly what is about to be written before any of it
+  is. The other routes are additions to this one, not replacements: they all end at the same preview table.
+- 2026-09-16 — The file states the type; the importer never guesses it. A `loai` column filled in by hand is
+  the person's own explicit word on whether a row is a human being or a company, which is the one fact that
+  can never be edited afterwards. Inferring it from whether a tax code happened to be filled in would put
+  that permanent decision in our hands, silently, hundreds of rows at a time.
+- 2026-09-16 — Nothing is ticked when the table opens, not even the rows that are perfectly valid. An import
+  writes to the address book in bulk, so the tick is where the person takes responsibility for each row; a
+  pre-ticked table would make "import everything" the accidental default and the review a formality.
+- 2026-09-16 — A broken row stays visible and loses its checkbox rather than being dropped or greyed out.
+  Dropping it silently would leave someone counting rows and finding fewer than they sent, with no clue which
+  ones; every complaint about a row is listed at once, so reopening the spreadsheet fixes the whole line in
+  one pass rather than one re-upload per problem.
+- 2026-09-16 — A match already in the book defaults to being left alone. Of the three answers — fill the gaps,
+  skip, write a second row — only skipping is certain to destroy nothing, and the other two stay one click
+  away. Filling the gaps is offered only between two contacts of the same kind, because a person's details
+  poured into a company row are nonsense, and it never overwrites a field that already had something in it:
+  the file is a source of missing facts, not a correction to facts already recorded.
+- 2026-09-16 — The uploaded file is read, shown, and forgotten. These are other people's phone numbers held
+  only because someone is passing them along, so nothing is cached, no draft table is kept, and closing the
+  dialog starts the next attempt from an empty file picker. There is nothing to re-run on the next visit
+  because there is nothing left to re-run it on.
+- 2026-09-16 — Inviting is a separate step after importing, and its defaults are inverted. Everyone new is
+  ticked here, unlike the import table: these are people the user just deliberately added, so asking them to
+  tick the same names twice would be ceremony. Email leads where both channels exist — it carries a whole
+  sentence and a link, and costs the sender nothing — and a channel the contact has no address for is never
+  drawn, matching what the database would refuse anyway.
 
 ## Out of scope
 

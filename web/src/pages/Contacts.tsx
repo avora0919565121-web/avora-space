@@ -1,7 +1,8 @@
-import { Building2, CheckCircle2, Plus, Search, UserRound } from "lucide-react";
+import { Building2, CheckCircle2, Plus, Search, Upload, UserRound } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
 import { NewContactDialog } from "@/components/contacts/NewContactDialog";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import {
@@ -33,6 +34,7 @@ const Contacts = () => {
   const [query, setQuery] = useState<string>("");
   const [group, setGroup] = useState<Group>("individual");
   const [isNewOpen, setIsNewOpen] = useState<boolean>(false);
+  const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
 
   const contactsQuery = useContacts();
 
@@ -63,14 +65,24 @@ const Contacts = () => {
             <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Liên hệ</h1>
             <p className="mt-1 text-[15px] text-muted-foreground">Danh bạ của riêng bạn</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setIsNewOpen(true)}
-            className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
-          >
-            <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
-            Thêm liên hệ
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsImportOpen(true)}
+              className="press inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2.5 text-[14.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
+            >
+              <Upload className="h-[17px] w-[17px]" strokeWidth={1.8} aria-hidden="true" />
+              Nhập từ file
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsNewOpen(true)}
+              className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
+            >
+              <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
+              Thêm liên hệ
+            </button>
+          </div>
         </header>
 
         <nav aria-label="Loại liên hệ" className="mt-7">
@@ -188,6 +200,8 @@ const Contacts = () => {
         onOpenChange={setIsNewOpen}
         onCreated={(contact) => openContact(contact.id)}
       />
+
+      <ImportContactsDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
     </div>
   );
 };
