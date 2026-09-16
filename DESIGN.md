@@ -858,6 +858,21 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   invite buttons with a status while something is pending, so a link that had quietly run out would have
   stranded them twice over: still told the person was deciding, and unable to ask again. Only an invitation
   that can still be accepted holds those buttons back.
+- 2026-09-16 — An invitation must have somewhere to go. Sending was checked against who was asking and what
+  kind of contact it was, but never against whether the chosen way had an address: a person with only an
+  email could be invited "by message", which issued a token and wrote a row with no number to send it to.
+  Both the channel checks now live next to the ownership ones, so the gap closes for anything calling the
+  function, not only for the screen. A missing entry in the original specification rather than a coding slip.
+- 2026-09-16 — A link needs no channel of its own and is always offered. Whoever sends it picks how to pass
+  it on — messages, email, paper — so demanding a stored address to copy a link would deny the one route
+  that always works, and it is exactly the route left for a contact with nothing else written down.
+- 2026-09-16 — A way that cannot work is left out rather than shown greyed out, the same rule already used
+  for importing from the phone book. A disabled button poses a question it does not answer; an absent one
+  leaves the choices that do work, and the remaining link keeps the panel from ever being empty.
+- 2026-09-16 — The screen and the database refuse the same thing, and the refusal is still translated. The
+  screen only leaves buttons out for what it can see, so a number deleted on another device while this page
+  sat open still reaches the database's own objection — which is then said in the reader's language, and
+  names the link as the way through instead of dead-ending.
 
 ## Out of scope
 

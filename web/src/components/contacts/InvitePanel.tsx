@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   buildContactInviteLink,
+  canInviteVia,
   inviteHref,
   inviteMessage,
   pendingInvite,
@@ -24,6 +25,10 @@ import { useContactActions, useContactInvites } from "@/lib/use-contacts";
  * Once an invitation is waiting, the buttons are replaced by its status rather than sitting
  * next to it. A second invitation would create a second token for the same person, and the
  * first one they tapped would be the wrong one.
+ *
+ * A channel is only offered when there is somewhere for it to go: no number written down means
+ * no message button, the same way the phone-book import button stays away when there is nothing
+ * to import. Copying a link is always offered, since the sender chooses how to pass it on.
  */
 export function InvitePanel({ contact, inviterName }: { contact: Contact; inviterName: string }) {
   const [copied, setCopied] = useState<boolean>(false);
@@ -51,7 +56,9 @@ export function InvitePanel({ contact, inviterName }: { contact: Contact; invite
 
         const href = inviteHref(method, contact, body);
         if (href === null) {
-          // The token is already issued, so the link is still the way through.
+          // The channel has no address. The button for it is not drawn, and the database refuses
+          // too, so reaching here means the contact changed under an open page: the token is
+          // already issued, so the link stays the way through.
           await navigator.clipboard.writeText(link);
           setCopied(true);
           setNotice(
@@ -95,24 +102,28 @@ export function InvitePanel({ contact, inviterName }: { contact: Contact; invite
       </p>
 
       <div className="mt-4 flex flex-wrap gap-2.5">
-        <Button
-          variant="outline"
-          className="press h-10 gap-2 px-4"
-          disabled={isWorking}
-          onClick={() => void send("sms")}
-        >
-          <MessageSquare className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
-          Tin nhắn
-        </Button>
-        <Button
-          variant="outline"
-          className="press h-10 gap-2 px-4"
-          disabled={isWorking}
-          onClick={() => void send("email")}
-        >
-          <Mail className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
-          Email
-        </Button>
+        {canInviteVia(contact, "sms") ? (
+          <Button
+            variant="outline"
+            className="press h-10 gap-2 px-4"
+            disabled={isWorking}
+            onClick={() => void send("sms")}
+          >
+            <MessageSquare className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+            Tin nhắn
+          </Button>
+        ) : null}
+        {canInviteVia(contact, "email") ? (
+          <Button
+            variant="outline"
+            className="press h-10 gap-2 px-4"
+            disabled={isWorking}
+            onClick={() => void send("email")}
+          >
+            <Mail className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+            Email
+          </Button>
+        ) : null}
         <Button
           variant="outline"
           className="press h-10 gap-2 px-4"

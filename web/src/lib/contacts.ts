@@ -232,6 +232,10 @@ export function toVietnameseContactError(code: string | undefined, message: stri
     return "Nơi làm việc phải là một liên hệ doanh nghiệp.";
   if (normalized.includes("chỉ liên hệ cá nhân mới có thể mời"))
     return "Chỉ mời được liên hệ cá nhân — doanh nghiệp không đăng nhập vào AVORA.";
+  if (normalized.includes("chưa có số điện thoại, không thể mời qua sms"))
+    return "Liên hệ này chưa có số điện thoại. Hãy thêm số, hoặc mời bằng liên kết.";
+  if (normalized.includes("chưa có email, không thể mời qua email"))
+    return "Liên hệ này chưa có email. Hãy thêm email, hoặc mời bằng liên kết.";
   if (normalized.includes("lời mời không tồn tại")) return "Lời mời này không còn hiệu lực.";
   if (normalized.includes("lời mời này đã được chấp nhận")) return "Lời mời này đã được chấp nhận.";
   if (normalized.includes("lời mời đã hết hạn")) return "Lời mời này đã hết hạn.";
@@ -419,6 +423,22 @@ export function inviteHref(method: InviteMethod, contact: Contact, body: string)
 /** Only a person can be invited to link an account; a company is not someone who signs in. */
 export function canInviteContact(contact: Contact): boolean {
   return contact.contactType === "individual" && contact.linkedUserId === null;
+}
+
+/**
+ * Whether an invitation can actually travel this way.
+ *
+ * A message needs a number and an email needs an address, so offering those channels to a
+ * contact that has neither written down is offering something that cannot work. A link needs
+ * nothing: the sender forwards it however they like, which is why it is always available.
+ *
+ * `create_contact_invite` enforces the same rule; this is here so the screen can leave out a
+ * button rather than let someone press one and collect an error.
+ */
+export function canInviteVia(contact: Contact, method: InviteMethod): boolean {
+  if (method === "sms") return given(contact.phone) !== null;
+  if (method === "email") return given(contact.email) !== null;
+  return true;
 }
 
 /** A linked contact can be written to directly, through the same 1-1 thread as anywhere else. */

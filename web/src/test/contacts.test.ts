@@ -11,6 +11,7 @@ import {
   contactInviteState,
   contactInviteTimedOut,
   canInviteContact,
+  canInviteVia,
   canMessageContact,
   canSubmitBusiness,
   canSubmitIndividual,
@@ -322,6 +323,61 @@ describe("who can be invited, and who can be written to", () => {
 
   it("does not offer to message someone who has no account", () => {
     expect(canMessageContact(person({ id: "p", name: "A" }))).toBe(false);
+  });
+});
+
+/**
+ * An invitation has to have somewhere to go. A message needs a number and an email needs an
+ * address, so those channels are only offered when the contact actually has one written down —
+ * `create_contact_invite` refuses them otherwise, and a button that always fails is worse than
+ * no button.
+ */
+describe("which ways an invitation can travel", () => {
+  // The shared `person` helper gives everyone a phone number, so both sides are stated
+  // explicitly here — the whole point of these cases is what is missing.
+  const emailOnly = person({ id: "p1", name: "Chi Email", phone: null, email: "chi@example.com" });
+  const phoneOnly = person({ id: "p2", name: "Anh Phone", phone: "0912345678", email: null });
+  const both = person({ id: "p3", name: "Cả Hai", phone: "0900000000", email: "ca@example.com" });
+
+  it("will not send a message to someone with no number", () => {
+    expect(canInviteVia(emailOnly, "sms")).toBe(false);
+    expect(canInviteVia(emailOnly, "email")).toBe(true);
+  });
+
+  it("will not send an email to someone with no address", () => {
+    expect(canInviteVia(phoneOnly, "email")).toBe(false);
+    expect(canInviteVia(phoneOnly, "sms")).toBe(true);
+  });
+
+  it("offers both ways when both are written down", () => {
+    expect(canInviteVia(both, "sms")).toBe(true);
+    expect(canInviteVia(both, "email")).toBe(true);
+  });
+
+  /** The link carries itself; the sender picks how to pass it on, so it needs no channel. */
+  it("always offers a link, whatever the contact is missing", () => {
+    expect(canInviteVia(emailOnly, "link")).toBe(true);
+    expect(canInviteVia(phoneOnly, "link")).toBe(true);
+    expect(canInviteVia(person({ id: "p4", name: "Trống", phone: null }), "link")).toBe(true);
+  });
+
+  /** A channel written as blank space is not a channel, the same way the database reads it. */
+  it("treats an empty or blank channel as missing", () => {
+    expect(canInviteVia(person({ id: "p5", name: "A", phone: "   " }), "sms")).toBe(false);
+    expect(canInviteVia(person({ id: "p6", name: "A", email: "" }), "email")).toBe(false);
+  });
+
+  /** Bypassing the screen reaches the database's own refusal, said in the user's language. */
+  it("explains the database's refusal when the screen is bypassed", () => {
+    expect(
+      toVietnameseContactError(
+        "P0001",
+        "Liên hệ này chưa có số điện thoại, không thể mời qua SMS",
+      ),
+    ).toBe("Liên hệ này chưa có số điện thoại. Hãy thêm số, hoặc mời bằng liên kết.");
+    expect(
+      toVietnameseContactError("P0001", "Liên hệ này chưa có email, không thể mời qua email"),
+    ).toBe("Liên hệ này chưa có email. Hãy thêm email, hoặc mời bằng liên kết.");
   });
 });
 
