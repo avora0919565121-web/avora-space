@@ -14,6 +14,9 @@ import {
   monthRange,
   netWorthAt,
   signedCents,
+  entryCategoryName,
+  entryColor,
+  TRANSACTION_DIRECTION,
   sortEntries,
   startOfMonth,
   sumCents,
@@ -201,6 +204,8 @@ function totalsByCategory(entries: readonly LedgerEntry[], type: "income" | "exp
   const byId = new Map<string, CategoryTotal>();
   for (const entry of entries) {
     if (entry.type !== type) continue;
+    // Only income and expense reach here, and both always carry a category.
+    if (entry.category === null || entry.categoryId === null) continue;
     const known = byId.get(entry.categoryId);
     if (known) known.cents += entry.amountCents;
     else
@@ -437,14 +442,18 @@ function buildAccountStatement(context: ReportContext): ReportResult {
 
   for (const entry of scoped) {
     running += signedCents(entry);
+    // Columns follow the direction of the money, not the name of the type, so a borrowing
+    // lands under "in" and a repayment under "out" — and the two columns still explain
+    // every step the running balance takes.
+    const incoming = TRANSACTION_DIRECTION[entry.type] === 1;
     rows.push({
       key: entry.id,
       cells: {
         date: entry.date,
-        description: entry.description ?? entry.category.name,
-        category: entry.category.name,
-        income: entry.type === "income" ? entry.amountCents : null,
-        expense: entry.type === "expense" ? entry.amountCents : null,
+        description: entry.description ?? entryCategoryName(entry),
+        category: entryCategoryName(entry),
+        income: incoming ? entry.amountCents : null,
+        expense: incoming ? null : entry.amountCents,
         balance: running,
       },
     });
@@ -607,7 +616,11 @@ function buildGiving(context: ReportContext): ReportResult {
   const scoped = entriesInRange(context.entries, context.from, context.to);
   const givingEntries = sortEntries(
     scoped.filter(
-      (entry) => entry.type === "expense" && entry.category.slug !== null && GIVING_SLUGS.includes(entry.category.slug),
+      (entry) =>
+        entry.type === "expense" &&
+        entry.category !== null &&
+        entry.category.slug !== null &&
+        GIVING_SLUGS.includes(entry.category.slug),
     ),
   );
   const totals = totalsFor(scoped);
@@ -615,10 +628,10 @@ function buildGiving(context: ReportContext): ReportResult {
 
   const rows: ReportRow[] = givingEntries.map((entry) => ({
     key: entry.id,
-    color: entry.category.color,
+    color: entryColor(entry),
     cells: {
       date: entry.date,
-      category: entry.category.name,
+      category: entryCategoryName(entry),
       description: entry.description ?? "",
       amount: entry.amountCents,
     },
@@ -800,6 +813,8 @@ function buildDeductibleSummary(context: ReportContext): ReportResult {
 
   const byCategory = new Map<string, LedgerEntry[]>();
   for (const entry of scoped) {
+    // Business expenses always have a category; obligations never reach this report.
+    if (entry.categoryId === null) continue;
     const bucket = byCategory.get(entry.categoryId);
     if (bucket) bucket.push(entry);
     else byCategory.set(entry.categoryId, [entry]);
@@ -812,14 +827,14 @@ function buildDeductibleSummary(context: ReportContext): ReportResult {
 
   for (const [, group] of groups) {
     const first = group[0];
-    rows.push({ key: `h-${first.categoryId}`, heading: true, cells: { date: "", category: first.category.name, description: "", purpose: "", amount: null } });
+    rows.push({ key: `h-${first.categoryId}`, heading: true, cells: { date: "", category: entryCategoryName(first), description: "", purpose: "", amount: null } });
     for (const entry of group) {
       rows.push({
         key: entry.id,
-        color: entry.category.color,
+        color: entryColor(entry),
         cells: {
           date: entry.date,
-          category: entry.category.name,
+          category: entryCategoryName(entry),
           description: entry.description ?? "",
           // The purpose is the whole point of this report; say so when it is missing.
           purpose: entry.businessPurpose ?? "— chưa ghi mục đích —",
@@ -832,7 +847,7 @@ function buildDeductibleSummary(context: ReportContext): ReportResult {
       emphasis: true,
       cells: {
         date: "",
-        category: `Cộng ${first.category.name}`,
+        category: `Cộng ${entryCategoryName(first)}`,
         description: "",
         purpose: "",
         amount: sumCents(group.map((entry) => entry.amountCents)),

@@ -1,8 +1,20 @@
-import { Bell, Briefcase, Paperclip, Pencil, RotateCcw, Repeat, Search, Trash2, X } from "lucide-react";
+import {
+  Bell,
+  Briefcase,
+  HandCoins,
+  Paperclip,
+  Pencil,
+  RotateCcw,
+  Repeat,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
+import { ObligationForm } from "@/components/finance/ObligationForm";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { CategoryDialog } from "@/components/finance/dialogs";
 import {
@@ -12,29 +24,45 @@ import {
   FinancePage,
   Money,
   Panel,
+  StatCard,
+  StatusBadge,
   inputClass,
   selectChevron,
   selectClass,
 } from "@/components/finance/primitives";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
+  OBLIGATION_STATUS_LABELS,
+  OBLIGATION_TYPES,
   RECURRING_FREQUENCY_LABELS,
+  TRANSACTION_DIRECTION,
+  TRANSACTION_TYPE_LABELS,
   activeAccounts,
   activeCategories,
   endOfMonth,
   entriesInRange,
+  entryCategoryName,
+  entryColor,
   formatDayVi,
+  formatMoney,
   formatMonthLong,
   groupByDay,
+  isObligationType,
   monthKey,
+  obligationStatusOf,
+  obligationTotals,
+  outstandingCents,
   recurringSuggestions,
   searchEntries,
   startOfMonth,
   todayIso,
-  type CategoryScope,
+  validateAmount,
   type LedgerEntry,
+  type MovementType,
+  type ObligationType,
 } from "@/lib/finance";
 import { receiptUrl } from "@/lib/finance-api";
+import { useContacts } from "@/lib/use-contacts";
 import { useDismissedRecurring, useFinanceActions, useLedger } from "@/lib/use-finance";
 import { cn } from "@/lib/utils";
 
@@ -45,14 +73,20 @@ function EntryRow({
   onEdit,
   onVoid,
   onOpen,
+  onSettle,
 }: {
   entry: LedgerEntry;
   currency: string;
   onEdit: (entry: LedgerEntry) => void;
   onVoid: (entry: LedgerEntry) => void;
   onOpen: (entry: LedgerEntry) => void;
+  onSettle: (entry: LedgerEntry) => void;
 }) {
   const voided = entry.deletedAt !== null;
+  const obligation = isObligationType(entry.type);
+  const status = obligation ? obligationStatusOf(entry) : null;
+  const incoming = TRANSACTION_DIRECTION[entry.type] === 1;
+  const title = entry.description ?? entryCategoryName(entry);
 
   return (
     <li className={cn("group border-b border-border last:border-b-0", voided && "bg-background/50")}>
@@ -60,14 +94,14 @@ function EntryRow({
         <span
           aria-hidden="true"
           className="h-8 w-1.5 shrink-0 rounded-full"
-          style={{ backgroundColor: voided ? "#CCCCCC" : entry.category.color }}
+          style={{ backgroundColor: voided ? "#CCCCCC" : entryColor(entry) }}
         />
 
         <button
           type="button"
           onClick={() => onOpen(entry)}
           className="min-w-0 flex-1 text-left"
-          aria-label={`Xem chi tiết ${entry.description ?? entry.category.name}`}
+          aria-label={`Xem chi tiết ${title}`}
         >
           <span className="flex items-center gap-2">
             <span
@@ -76,8 +110,9 @@ function EntryRow({
                 voided && "text-muted-foreground line-through",
               )}
             >
-              {entry.description ?? entry.category.name}
+              {title}
             </span>
+            {status !== null && !voided ? <StatusBadge status={status} /> : null}
             {entry.businessRelated ? (
               <Briefcase className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-label="Kinh doanh" />
             ) : null}
@@ -89,21 +124,35 @@ function EntryRow({
             ) : null}
           </span>
           <span className="mt-0.5 block truncate text-[12.5px] text-muted-foreground">
-            {entry.category.name} · {entry.account.name}
+            {entryCategoryName(entry)} · {entry.account.name}
+            {obligation && entry.dueDate !== null ? ` · đến hạn ${formatDayVi(entry.dueDate)}` : ""}
+            {obligation && entry.settledCents > 0 && entry.settledCents < entry.amountCents
+              ? ` · còn ${formatMoney(outstandingCents(entry), currency)}`
+              : ""}
             {voided ? " · đã đánh dấu nhầm" : ""}
           </span>
         </button>
 
         <Money
-          cents={entry.type === "income" ? entry.amountCents : -entry.amountCents}
+          cents={incoming ? entry.amountCents : -entry.amountCents}
           currency={currency}
-          tone={voided ? "muted" : entry.type === "income" ? "in" : "ink"}
-          signed={entry.type === "income" && !voided}
+          tone={voided ? "muted" : incoming ? "in" : "ink"}
+          signed={incoming && !voided}
           className={cn("shrink-0 text-[14.5px] font-semibold", voided && "line-through")}
         />
 
         <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
-          {!voided ? (
+          {!voided && obligation && status !== "hoan_thanh" ? (
+            <button
+              type="button"
+              onClick={() => onSettle(entry)}
+              aria-label="Ghi nhận thanh toán"
+              className="press rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+            >
+              <HandCoins className="h-4 w-4" strokeWidth={1.7} />
+            </button>
+          ) : null}
+          {!voided && !obligation ? (
             <button
               type="button"
               onClick={() => onEdit(entry)}
@@ -130,15 +179,20 @@ function EntryRow({
 const FinanceTransactions = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { accounts, categories, allEntries, entries, currency, isLoading } = useLedger();
-  const { voidTransaction, addTransaction } = useFinanceActions();
+  const { voidTransaction, addTransaction, settleTransaction } = useFinanceActions();
   const { dismissed, dismiss } = useDismissedRecurring();
+  const contactsQuery = useContacts();
+  const contacts = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
 
   const [query, setQuery] = useState<string>("");
   const [editing, setEditing] = useState<LedgerEntry | null>(null);
   const [viewing, setViewing] = useState<LedgerEntry | null>(null);
   const [receiptHref, setReceiptHref] = useState<string | null>(null);
-  const [categoryScope, setCategoryScope] = useState<CategoryScope | null>(null);
+  const [categoryScope, setCategoryScope] = useState<MovementType | null>(null);
   const [showVoided, setShowVoided] = useState<boolean>(false);
+  const [obligationType, setObligationType] = useState<ObligationType | null>(null);
+  const [settling, setSettling] = useState<LedgerEntry | null>(null);
+  const [settleAmount, setSettleAmount] = useState<string>("");
 
   const monthFilter = searchParams.get("thang");
   const categoryFilter = searchParams.get("hang_muc");
@@ -170,6 +224,34 @@ const FinanceTransactions = () => {
     },
     [searchParams, setSearchParams],
   );
+
+  const obligations = useMemo(() => obligationTotals(entries), [entries]);
+
+  const openSettle = useCallback((entry: LedgerEntry): void => {
+    setSettling(entry);
+    // The whole remainder is the common case, so it is offered already filled in.
+    setSettleAmount((outstandingCents(entry) / 100).toFixed(2));
+  }, []);
+
+  const confirmSettle = useCallback(async (): Promise<void> => {
+    if (settling === null) return;
+    const check = validateAmount(settleAmount);
+    if (check.cents === null) {
+      toast.error(check.error ?? "Số tiền không hợp lệ.");
+      return;
+    }
+    if (check.cents > outstandingCents(settling)) {
+      toast.error("Số tiền trả vượt quá phần còn lại.");
+      return;
+    }
+    try {
+      await settleTransaction.mutateAsync({ transactionId: settling.id, amountCents: check.cents });
+      toast.success("Đã ghi nhận thanh toán.");
+      setSettling(null);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không ghi được thanh toán.");
+    }
+  }, [settleAmount, settleTransaction, settling]);
 
   const handleVoid = useCallback(
     async (entry: LedgerEntry): Promise<void> => {
@@ -243,6 +325,32 @@ const FinanceTransactions = () => {
   return (
     <FinancePage>
       <FinanceHeader subtitle="Ghi thu chi và xem lại toàn bộ sổ." />
+
+      {obligations.owedCents > 0 || obligations.dueToYouCents > 0 ? (
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          <StatCard
+            label="Bạn đang nợ"
+            value={<Money cents={obligations.owedCents} currency={currency} tone="ink" />}
+            hint="Vay và thuế chưa trả xong"
+          />
+          <StatCard
+            label="Người khác nợ bạn"
+            value={<Money cents={obligations.dueToYouCents} currency={currency} tone="ink" />}
+            hint="Phần cho vay chưa thu về"
+          />
+          <StatCard
+            label="Cần để ý"
+            value={`${obligations.overdueCount + obligations.dueSoonCount}`}
+            hint={
+              obligations.overdueCount > 0
+                ? `${obligations.overdueCount} khoản quá hạn`
+                : obligations.dueSoonCount > 0
+                  ? `${obligations.dueSoonCount} khoản đến hạn hôm nay`
+                  : "Không có khoản nào gấp"
+            }
+          />
+        </div>
+      ) : null}
 
       <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-start">
         <div className="order-2 lg:order-1">
@@ -332,6 +440,7 @@ const FinanceTransactions = () => {
                           onEdit={setEditing}
                           onVoid={(item) => void handleVoid(item)}
                           onOpen={setViewing}
+                          onSettle={openSettle}
                         />
                       ))}
                     </ul>
@@ -397,6 +506,28 @@ const FinanceTransactions = () => {
               onRequestCategory={(scope) => setCategoryScope(scope)}
             />
           </Panel>
+
+          {editing === null ? (
+            <Panel title="Khoản có kỳ hạn">
+              <div className="px-5 py-4">
+                <p className="text-[13px] text-muted-foreground">
+                  Tiền đã hẹn trước: vay mượn và thuế. Ghi riêng để biết còn nợ ai và đến khi nào.
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {OBLIGATION_TYPES.map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() => setObligationType(type)}
+                      className="press rounded-md border border-border px-3.5 py-2 text-[13.5px] font-medium text-foreground transition-colors hover:bg-accent/35"
+                    >
+                      {TRANSACTION_TYPE_LABELS[type]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </Panel>
+          ) : null}
 
           {open.length > 1 ? (
             <Panel title="Lọc theo tài khoản">
@@ -532,6 +663,86 @@ const FinanceTransactions = () => {
               className="press rounded-md border border-border px-4 py-2.5 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/35"
             >
               {viewing?.deletedAt !== null && viewing !== null ? "Khôi phục" : "Đánh dấu nhầm"}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Writing a borrowing, a loan out, or a tax bill. */}
+      <Dialog
+        open={obligationType !== null}
+        onOpenChange={(next) => {
+          if (!next) setObligationType(null);
+        }}
+      >
+        <DialogContent className="max-w-[520px] p-0">
+          <div className="border-b border-border px-5 py-4">
+            <DialogTitle className="text-[19px] font-semibold tracking-tight">
+              Ghi khoản {obligationType !== null ? TRANSACTION_TYPE_LABELS[obligationType].toLowerCase() : ""}
+            </DialogTitle>
+            <DialogDescription className="mt-1 text-[13.5px] text-muted-foreground">
+              Khoản này có kỳ hạn riêng và theo dõi được phần đã trả.
+            </DialogDescription>
+          </div>
+          <div className="max-h-[70vh] overflow-y-auto">
+            {obligationType !== null ? (
+              <ObligationForm
+                type={obligationType}
+                accounts={accounts}
+                contacts={contacts}
+                onDone={() => setObligationType(null)}
+                onCancel={() => setObligationType(null)}
+              />
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recording a payment against an obligation. */}
+      <Dialog
+        open={settling !== null}
+        onOpenChange={(next) => {
+          if (!next) setSettling(null);
+        }}
+      >
+        <DialogContent className="max-w-[440px]">
+          <DialogTitle className="text-[19px] font-semibold tracking-tight">Ghi nhận thanh toán</DialogTitle>
+          <DialogDescription className="text-[13.5px] text-muted-foreground">
+            {settling !== null
+              ? `${settling.description ?? entryCategoryName(settling)} · còn ${formatMoney(outstandingCents(settling), currency)}`
+              : ""}
+          </DialogDescription>
+
+          <div className="mt-4">
+            <FieldLabel htmlFor="settle-amount" required>
+              Số tiền trả lần này
+            </FieldLabel>
+            <input
+              id="settle-amount"
+              inputMode="decimal"
+              value={settleAmount}
+              onChange={(event) => setSettleAmount(event.target.value)}
+              className={cn(inputClass, "tabular mt-1.5 text-[16px]")}
+            />
+            <p className="mt-2 text-[12.5px] text-muted-foreground">
+              Số tiền ban đầu của khoản này không đổi — chỉ phần đã trả được cộng thêm.
+            </p>
+          </div>
+
+          <div className="mt-5 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setSettling(null)}
+              className="press rounded-md border border-border px-4 py-2.5 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/35"
+            >
+              Huỷ
+            </button>
+            <button
+              type="button"
+              onClick={() => void confirmSettle()}
+              className="press rounded-md bg-primary px-4 py-2.5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
+            >
+              Ghi nhận
             </button>
           </div>
         </DialogContent>

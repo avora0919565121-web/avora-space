@@ -1650,15 +1650,18 @@ export type Database = {
           account_id: string
           amount: number
           amount_in_base_currency: number | null
+          amount_settled: number
           base_currency: string | null
           business_purpose: string | null
           business_related: boolean
-          category_id: string
+          category_id: string | null
+          contact_id: string | null
           conversion_rate: number | null
           created_at: string
           currency: string | null
           deleted_at: string | null
           description: string | null
+          due_date: string | null
           id: string
           is_recurring: boolean
           receipt_url: string | null
@@ -1666,6 +1669,9 @@ export type Database = {
             | Database["public"]["Enums"]["recurring_frequency"]
             | null
           recurring_label: string | null
+          status: string
+          tax_period_end: string | null
+          tax_period_start: string | null
           transaction_date: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at: string
@@ -1675,15 +1681,18 @@ export type Database = {
           account_id: string
           amount: number
           amount_in_base_currency?: number | null
+          amount_settled?: number
           base_currency?: string | null
           business_purpose?: string | null
           business_related?: boolean
-          category_id: string
+          category_id?: string | null
+          contact_id?: string | null
           conversion_rate?: number | null
           created_at?: string
           currency?: string | null
           deleted_at?: string | null
           description?: string | null
+          due_date?: string | null
           id?: string
           is_recurring?: boolean
           receipt_url?: string | null
@@ -1691,6 +1700,9 @@ export type Database = {
             | Database["public"]["Enums"]["recurring_frequency"]
             | null
           recurring_label?: string | null
+          status?: string
+          tax_period_end?: string | null
+          tax_period_start?: string | null
           transaction_date: string
           type: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -1700,15 +1712,18 @@ export type Database = {
           account_id?: string
           amount?: number
           amount_in_base_currency?: number | null
+          amount_settled?: number
           base_currency?: string | null
           business_purpose?: string | null
           business_related?: boolean
-          category_id?: string
+          category_id?: string | null
+          contact_id?: string | null
           conversion_rate?: number | null
           created_at?: string
           currency?: string | null
           deleted_at?: string | null
           description?: string | null
+          due_date?: string | null
           id?: string
           is_recurring?: boolean
           receipt_url?: string | null
@@ -1716,6 +1731,9 @@ export type Database = {
             | Database["public"]["Enums"]["recurring_frequency"]
             | null
           recurring_label?: string | null
+          status?: string
+          tax_period_end?: string | null
+          tax_period_start?: string | null
           transaction_date?: string
           type?: Database["public"]["Enums"]["transaction_type"]
           updated_at?: string
@@ -1727,6 +1745,13 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
             referencedColumns: ["id"]
           },
           {
@@ -2101,6 +2126,97 @@ export type Database = {
       create_contact_invite: {
         Args: { p_contact_id: string; p_method: string }
         Returns: string
+      }
+      create_obligation_transaction: {
+        Args: {
+          p_account_id: string
+          p_amount: number
+          p_business_related?: boolean
+          p_contact_id?: string | null
+          p_description?: string | null
+          p_due_date: string
+          p_tax_period_end?: string | null
+          p_tax_period_start?: string | null
+          p_transaction_date?: string | null
+          p_type: Database["public"]["Enums"]["transaction_type"]
+        }
+        Returns: {
+          account_id: string
+          amount: number
+          amount_in_base_currency: number | null
+          amount_settled: number
+          base_currency: string | null
+          business_purpose: string | null
+          business_related: boolean
+          category_id: string | null
+          contact_id: string | null
+          conversion_rate: number | null
+          created_at: string
+          currency: string | null
+          deleted_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          is_recurring: boolean
+          receipt_url: string | null
+          recurring_frequency:
+            | Database["public"]["Enums"]["recurring_frequency"]
+            | null
+          recurring_label: string | null
+          status: string
+          tax_period_end: string | null
+          tax_period_start: string | null
+          transaction_date: string
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      settle_transaction: {
+        Args: { p_amount: number; p_transaction_id: string }
+        Returns: {
+          account_id: string
+          amount: number
+          amount_in_base_currency: number | null
+          amount_settled: number
+          base_currency: string | null
+          business_purpose: string | null
+          business_related: boolean
+          category_id: string | null
+          contact_id: string | null
+          conversion_rate: number | null
+          created_at: string
+          currency: string | null
+          deleted_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          is_recurring: boolean
+          receipt_url: string | null
+          recurring_frequency:
+            | Database["public"]["Enums"]["recurring_frequency"]
+            | null
+          recurring_label: string | null
+          status: string
+          tax_period_end: string | null
+          tax_period_start: string | null
+          transaction_date: string
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       detach_contact_channel: {
         Args: { p_contact_id: string; p_kind: string; p_value: string }
@@ -3352,7 +3468,13 @@ export type Database = {
       category_origin: "predefined" | "custom"
       category_scope: "income" | "expense"
       recurring_frequency: "weekly" | "monthly" | "yearly"
-      transaction_type: "income" | "expense"
+      transaction_type:
+        | "income"
+        | "expense"
+        | "vay"
+        | "cho_vay"
+        | "thue_ca_nhan"
+        | "thue_kinh_doanh"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -3494,7 +3616,14 @@ export const Constants = {
       category_origin: ["predefined", "custom"],
       category_scope: ["income", "expense"],
       recurring_frequency: ["weekly", "monthly", "yearly"],
-      transaction_type: ["income", "expense"],
+      transaction_type: [
+        "income",
+        "expense",
+        "vay",
+        "cho_vay",
+        "thue_ca_nhan",
+        "thue_kinh_doanh",
+      ],
     },
   },
 } as const

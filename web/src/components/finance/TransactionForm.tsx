@@ -23,9 +23,9 @@ import {
   type Account,
   type Category,
   type LedgerEntry,
+  type MovementType,
   type RecurringFrequency,
   type TransactionDraft,
-  type TransactionType,
 } from "@/lib/finance";
 import { removeReceipt, uploadReceipt, type TransactionInput } from "@/lib/finance-api";
 import { useFinanceActions } from "@/lib/use-finance";
@@ -36,9 +36,10 @@ const BUSINESS_LEANING_SLUGS: readonly string[] = ["farming", "rental"] as const
 
 function draftFromEntry(entry: LedgerEntry): TransactionDraft {
   return {
-    type: entry.type,
+    // This form only ever edits thu/chi; obligations open their own form instead.
+    type: entry.type === "income" ? "income" : "expense",
     accountId: entry.accountId,
-    categoryId: entry.categoryId,
+    categoryId: entry.categoryId ?? "",
     date: entry.date,
     amount: (entry.amountCents / 100).toFixed(2),
     description: entry.description ?? "",
@@ -60,7 +61,7 @@ export type TransactionFormProps = {
   seed?: Partial<TransactionDraft> | null;
   onDone?: () => void;
   onCancel?: () => void;
-  onRequestCategory?: (scope: TransactionType) => void;
+  onRequestCategory?: (scope: MovementType) => void;
 };
 
 /**

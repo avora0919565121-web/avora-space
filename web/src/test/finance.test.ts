@@ -42,6 +42,13 @@ import {
   validateOpeningBalance,
   validateTransactionDate,
   validateTransactionDraft,
+  entryCategoryName,
+  isObligationType,
+  movementEntries,
+  obligationEntries,
+  obligationStatusOf,
+  obligationTotals,
+  outstandingCents,
   type Account,
   type Category,
   type LedgerEntry,
@@ -102,6 +109,12 @@ function makeTransaction(overrides: Partial<Transaction> = {}): Transaction {
     isRecurring: false,
     recurringFrequency: null,
     recurringLabel: null,
+    contactId: null,
+    dueDate: null,
+    status: "hoan_thanh",
+    settledCents: 0,
+    taxPeriodStart: null,
+    taxPeriodEnd: null,
     createdAt: "2026-09-05T10:00:00Z",
     deletedAt: null,
     ...overrides,
@@ -888,5 +901,176 @@ describe("report file names", () => {
 describe("monthKey", () => {
   it("buckets a day into its month", () => {
     expect(monthKey("2026-09-07")).toBe("2026-09");
+  });
+});
+
+// ---------------------------------------------------------------- obligations
+
+const VAY = makeTransaction({
+  id: "ob-vay",
+  type: "vay",
+  categoryId: null,
+  amountCents: 300_000,
+  date: "2026-09-01",
+  dueDate: "2026-12-31",
+  contactId: "contact-ba",
+  status: "ke_hoach",
+  settledCents: 0,
+});
+
+const CHO_VAY = makeTransaction({
+  id: "ob-cho-vay",
+  type: "cho_vay",
+  categoryId: null,
+  amountCents: 100_000,
+  date: "2026-09-02",
+  dueDate: "2026-10-01",
+  contactId: "contact-tu",
+  status: "ke_hoach",
+  settledCents: 0,
+});
+
+const THUE = makeTransaction({
+  id: "ob-thue",
+  type: "thue_ca_nhan",
+  categoryId: null,
+  amountCents: 50_000,
+  date: "2026-09-03",
+  dueDate: "2026-10-31",
+  status: "ke_hoach",
+  settledCents: 0,
+  taxPeriodStart: "2026-07-01",
+  taxPeriodEnd: "2026-09-30",
+});
+
+describe("an obligation is a promise about money, not a movement of it", () => {
+  it("keeps a row that has no category, because an obligation is not a kind of spending", () => {
+    const entries = ledgerOf([VAY]);
+    expect(entries).toHaveLength(1);
+    expect(entries[0].category).toBeNull();
+  });
+
+  it("still drops an income or expense whose category is missing", () => {
+    const entries = ledgerOf([makeTransaction({ categoryId: null })]);
+    expect(entries).toHaveLength(0);
+  });
+
+  it("names itself by its type when there is no category to name it", () => {
+    expect(entryCategoryName(ledgerOf([VAY])[0])).toBe("Vay");
+    expect(entryCategoryName(ledgerOf([THUE])[0])).toBe("Thuế cá nhân");
+  });
+
+  it("knows which four types are obligations", () => {
+    expect(isObligationType("vay")).toBe(true);
+    expect(isObligationType("cho_vay")).toBe(true);
+    expect(isObligationType("thue_ca_nhan")).toBe(true);
+    expect(isObligationType("thue_kinh_doanh")).toBe(true);
+    expect(isObligationType("income")).toBe(false);
+    expect(isObligationType("expense")).toBe(false);
+  });
+});
+
+describe("obligations move the balance the way the money actually moved", () => {
+  it("adds a borrowing and subtracts a loan out or a tax", () => {
+    expect(signedCents({ type: "vay", amountCents: 1000 })).toBe(1000);
+    expect(signedCents({ type: "cho_vay", amountCents: 1000 })).toBe(-1000);
+    expect(signedCents({ type: "thue_ca_nhan", amountCents: 1000 })).toBe(-1000);
+    expect(signedCents({ type: "thue_kinh_doanh", amountCents: 1000 })).toBe(-1000);
+  });
+
+  it("carries borrowed money into the account balance", () => {
+    const entries = ledgerOf([VAY, CHO_VAY, THUE]);
+    // 500000 opening + 300000 borrowed - 100000 lent - 50000 tax
+    expect(balanceAt(makeAccount(), entries, "2026-12-31")).toBe(650_000);
+  });
+});
+
+describe("an obligation never counts as income or expense", () => {
+  const entries = ledgerOf([
+    makeTransaction({ id: "m1", type: "income", categoryId: "cat-salary", amountCents: 200_000 }),
+    makeTransaction({ id: "m2", amountCents: 30_000 }),
+    VAY,
+    CHO_VAY,
+    THUE,
+  ]);
+
+  it("leaves both totals untouched by borrowing, lending and tax", () => {
+    const totals = totalsFor(entries);
+    expect(totals.incomeCents).toBe(200_000);
+    expect(totals.expenseCents).toBe(30_000);
+    expect(totals.netCents).toBe(170_000);
+  });
+
+  it("separates the two families for the screens that need one or the other", () => {
+    expect(movementEntries(entries).map((entry) => entry.id)).toEqual(["m1", "m2"]);
+    expect(obligationEntries(entries).map((entry) => entry.id)).toEqual(["ob-vay", "ob-cho-vay", "ob-thue"]);
+  });
+});
+
+describe("the state of an obligation is derived, never declared", () => {
+  const base = { amountCents: 100_000, settledCents: 0, dueDate: "2026-09-10" };
+
+  it("is planned while the due date is still ahead", () => {
+    expect(obligationStatusOf(base, "2026-09-01")).toBe("ke_hoach");
+  });
+
+  it("becomes due on the day itself", () => {
+    expect(obligationStatusOf(base, "2026-09-10")).toBe("den_han");
+  });
+
+  it("becomes overdue the day after, without anybody writing to the row", () => {
+    expect(obligationStatusOf(base, "2026-09-11")).toBe("qua_han");
+  });
+
+  it("reads as part-paid once something has been paid against it", () => {
+    expect(obligationStatusOf({ ...base, settledCents: 40_000 }, "2026-09-01")).toBe("hoan_thanh_mot_phan");
+  });
+
+  it("still reads as overdue when a part-paid one runs past its date", () => {
+    expect(obligationStatusOf({ ...base, settledCents: 40_000 }, "2026-09-11")).toBe("qua_han");
+  });
+
+  it("is finished once the whole amount is covered, even past the date", () => {
+    expect(obligationStatusOf({ ...base, settledCents: 100_000 }, "2026-12-01")).toBe("hoan_thanh");
+  });
+});
+
+describe("paying an obligation never rewrites what was owed", () => {
+  it("reports what is left without touching the original amount", () => {
+    const part = { ...VAY, settledCents: 120_000 };
+    expect(outstandingCents(part)).toBe(180_000);
+    expect(part.amountCents).toBe(300_000);
+  });
+
+  it("never reports a negative remainder", () => {
+    expect(outstandingCents({ amountCents: 100, settledCents: 500 })).toBe(0);
+  });
+});
+
+describe("the obligation summary answers who owes whom", () => {
+  const entries = ledgerOf([
+    VAY,
+    CHO_VAY,
+    THUE,
+    makeTransaction({ id: "m1", type: "income", categoryId: "cat-salary", amountCents: 900_000 }),
+  ]);
+
+  it("separates what you owe from what is owed to you", () => {
+    const totals = obligationTotals(entries, "2026-09-05");
+    expect(totals.owedCents).toBe(350_000);
+    expect(totals.dueToYouCents).toBe(100_000);
+  });
+
+  it("counts what needs attention today", () => {
+    const totals = obligationTotals(entries, "2026-10-02");
+    expect(totals.overdueCount).toBe(1);
+    expect(totals.dueSoonCount).toBe(0);
+  });
+
+  it("stops counting an obligation once it is settled in full", () => {
+    const settled = ledgerOf([{ ...VAY, settledCents: 300_000 }, CHO_VAY]);
+    const totals = obligationTotals(settled, "2026-09-05");
+    expect(totals.owedCents).toBe(0);
+    expect(totals.dueToYouCents).toBe(100_000);
   });
 });

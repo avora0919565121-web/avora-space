@@ -16,6 +16,7 @@ import {
 import {
   createAccount,
   createCategory,
+  createObligation,
   createTransaction,
   deleteCategory,
   fetchAccounts,
@@ -24,11 +25,13 @@ import {
   financeKeys,
   setAccountClosed,
   setTransactionVoided,
+  settleObligation,
   updateAccount,
   updateCategory,
   updateTransaction,
   type AccountDraft,
   type CategoryDraft,
+  type ObligationInput,
   type TransactionInput,
 } from "@/lib/finance-api";
 import { useCurrencyRates, useProfileSettings } from "@/lib/use-settings";
@@ -215,6 +218,17 @@ export function useFinanceActions() {
     onSuccess: refreshLedger,
   });
 
+  const addObligation = useMutation({
+    mutationFn: (input: ObligationInput) => createObligation(input),
+    onSuccess: refreshLedger,
+  });
+
+  const settleTransaction = useMutation({
+    mutationFn: ({ transactionId, amountCents }: { transactionId: string; amountCents: number }) =>
+      settleObligation(transactionId, amountCents),
+    onSuccess: refreshLedger,
+  });
+
   return {
     addAccount,
     editAccount,
@@ -225,6 +239,8 @@ export function useFinanceActions() {
     addTransaction,
     editTransaction,
     voidTransaction,
+    addObligation,
+    settleTransaction,
     isWorking:
       addAccount.isPending ||
       editAccount.isPending ||
@@ -234,7 +250,9 @@ export function useFinanceActions() {
       removeCategory.isPending ||
       addTransaction.isPending ||
       editTransaction.isPending ||
-      voidTransaction.isPending,
+      voidTransaction.isPending ||
+      addObligation.isPending ||
+      settleTransaction.isPending,
   };
 }
 

@@ -1091,6 +1091,41 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   because starting from a known-good file is still the easiest route for somebody with no export at all, but
   the wording no longer implies the columns must match.
 
+### Tiền đã hẹn trước — vay, cho vay và thuế
+
+- 2026-09-16 — Money that has been promised lives in the same ledger as money that has moved, not in a
+  second book beside it. A loan and a lunch both change what is in the account, and two separate books would
+  mean two balances to reconcile and two places to look before anybody could answer "what do I actually have".
+- 2026-09-16 — An obligation has no spending category, and the database refuses to let it have one. A loan
+  filed under "Ăn uống" would read as money eaten; the four new types answer "what kind" with their own name
+  instead. Income and expense still require a category exactly as before — the rule now depends on the type
+  rather than applying blindly to every row.
+- 2026-09-16 — Direction is declared per type rather than assumed. The ledger used to add income and
+  subtract everything else, which was true while everything else was expense; borrowing brings money in, so
+  the assumption had to be replaced by a statement before a loan could be recorded at all. One function in
+  the database and one table on the client, deliberately mirroring each other, because a balance on screen
+  that disagrees with the balance in the ledger is worse than either being wrong alone.
+- 2026-09-16 — Recording a borrowing moves the balance immediately, including while it is still marked as
+  planned. The money is in the account from the day it arrives whatever the paperwork says, and a balance
+  that waited for a status to change would be a balance nobody could trust against their own wallet.
+- 2026-09-16 — Obligations never reach income or expense totals. Borrowing is not earning and repaying is
+  not spending: letting either into a profit-and-loss would inflate both sides of it and overstate the tax
+  owed on the result. They move balances and net worth, and they stay out of the eight reports.
+- 2026-09-16 — The state of an obligation is worked out from the due date and what has been paid, never
+  stored as somebody's opinion. A row that simply sat there overnight becomes overdue without anyone writing
+  to it, so the database recomputes it on every write and the screen derives it again on every read.
+- 2026-09-16 — Overdue outranks part-paid. Having paid half of something that is now late does not make it
+  less late; the badge says what needs doing and the amount still owed says how far along it is.
+- 2026-09-16 — A payment is added to what has been settled and never subtracted from what was owed. The
+  original figure is the agreement, and a ledger that quietly rewrites it loses the only record of what was
+  actually promised.
+- 2026-09-16 — Borrowing and lending must name a person, and that person must be one of your own contacts —
+  checked in the database, not in the browser. A debt with nobody attached is an amount with no way to
+  settle it. Tax asks for a period instead, because there is nobody on the other end to name.
+- 2026-09-16 — The four types get their own form rather than four more branches inside the thu/chi form.
+  The required fields genuinely differ, and folding them together would put conditional inputs for loans and
+  tax periods in front of somebody recording a bowl of phở.
+
 ## Out of scope
 
 Dark mode, media upload outside finance receipts, voice or video calls (the call icon is decorative

@@ -1,11 +1,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import {
+  centsToDecimalString,
+  isObligationStatus,
   toCents,
   type Account,
   type AccountType,
   type Category,
   type CategoryScope,
+  type ObligationType,
   type RecurringFrequency,
   type Transaction,
   type TransactionType,
@@ -52,6 +55,23 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
     return "Hạng mục không khớp với loại giao dịch (thu hay chi).";
   if (normalized.includes("avora_txn_description_max_len")) return "Diễn giải quá dài.";
   if (normalized.includes("avora_txn_purpose_max_len")) return "Mục đích kinh doanh quá dài.";
+  if (normalized.includes("avora_txn_category_required")) return "Hãy chọn hạng mục.";
+
+  if (normalized.includes("avora_txn_due_date_required")) return "Hãy chọn ngày đến hạn.";
+  if (normalized.includes("avora_txn_contact_required"))
+    return "Hãy chọn người vay hoặc người cho vay.";
+  if (normalized.includes("avora_txn_contact_not_yours")) return "Liên hệ này không thuộc về bạn.";
+  if (normalized.includes("avora_txn_type_not_obligation"))
+    return "Loại giao dịch này không phải khoản vay hay thuế.";
+  if (normalized.includes("avora_txn_not_an_obligation"))
+    return "Chỉ khoản vay, cho vay hoặc thuế mới ghi nhận thanh toán.";
+  if (normalized.includes("avora_txn_settle_over")) return "Số tiền trả vượt quá phần còn lại.";
+  if (normalized.includes("avora_txn_settle_positive")) return "Số tiền trả phải lớn hơn 0.";
+  if (normalized.includes("avora_txn_tax_period_invalid"))
+    return "Kỳ thuế kết thúc trước khi bắt đầu.";
+  if (normalized.includes("avora_txn_not_yours")) return "Khoản này không thuộc về bạn.";
+  if (normalized.includes("avora_txn_voided"))
+    return "Khoản này đã được đánh dấu nhầm nên không ghi thêm được.";
 
   if (normalized.includes("avora_category_name_required")) return "Tên hạng mục là bắt buộc.";
   if (normalized.includes("avora_category_name_max_len")) return "Tên hạng mục quá dài.";
@@ -129,6 +149,12 @@ function toTransaction(row: TransactionRow): Transaction {
     isRecurring: row.is_recurring,
     recurringFrequency: row.recurring_frequency,
     recurringLabel: row.recurring_label,
+    contactId: row.contact_id,
+    dueDate: row.due_date,
+    status: isObligationStatus(row.status) ? row.status : "hoan_thanh",
+    settledCents: toCents(row.amount_settled),
+    taxPeriodStart: row.tax_period_start,
+    taxPeriodEnd: row.tax_period_end,
     createdAt: row.created_at,
     deletedAt: row.deleted_at,
   };
@@ -348,6 +374,56 @@ export async function updateTransaction(transactionId: string, input: Transactio
     .single();
   if (error) throw fail(error.code, error.message);
   return toTransaction(data);
+}
+
+export type ObligationInput = {
+  type: ObligationType;
+  accountId: string;
+  amountCents: number;
+  dueDate: string;
+  contactId: string | null;
+  description: string | null;
+  taxPeriodStart: string | null;
+  taxPeriodEnd: string | null;
+  businessRelated: boolean;
+};
+
+/**
+ * Records a borrowing, a loan out, or a tax bill. Goes through an RPC rather than a plain
+ * insert because which fields are required depends on the type, and because the row's owner
+ * must come from the session rather than from the browser.
+ */
+export async function createObligation(input: ObligationInput): Promise<Transaction> {
+  const { data, error } = await supabase
+    .rpc("create_obligation_transaction", {
+      p_type: input.type,
+      p_account_id: input.accountId,
+      p_amount: Number(centsToDecimalString(input.amountCents)),
+      p_due_date: input.dueDate,
+      p_contact_id: input.contactId,
+      p_description: input.description,
+      p_tax_period_start: input.taxPeriodStart,
+      p_tax_period_end: input.taxPeriodEnd,
+      p_business_related: input.businessRelated,
+    })
+    .single();
+  if (error) throw fail(error.code, error.message);
+  return toTransaction(data as TransactionRow);
+}
+
+/**
+ * Records a payment against an obligation. The original amount is never rewritten — losing
+ * it would lose the history of what was actually agreed.
+ */
+export async function settleObligation(transactionId: string, amountCents: number): Promise<Transaction> {
+  const { data, error } = await supabase
+    .rpc("settle_transaction", {
+      p_transaction_id: transactionId,
+      p_amount: Number(centsToDecimalString(amountCents)),
+    })
+    .single();
+  if (error) throw fail(error.code, error.message);
+  return toTransaction(data as TransactionRow);
 }
 
 /**

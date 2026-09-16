@@ -43,10 +43,48 @@ export type Category = {
   deletedAt: string | null;
 };
 
+/** The two types that record money that has already moved. */
+export type MovementType = "income" | "expense";
+
+/** The four types that record an obligation rather than a completed movement of money. */
+export type ObligationType = "vay" | "cho_vay" | "thue_ca_nhan" | "thue_kinh_doanh";
+
+export type ObligationStatus =
+  | "ke_hoach"
+  | "den_han"
+  | "hoan_thanh_mot_phan"
+  | "hoan_thanh"
+  | "qua_han";
+
+export const OBLIGATION_TYPES: readonly ObligationType[] = [
+  "vay",
+  "cho_vay",
+  "thue_ca_nhan",
+  "thue_kinh_doanh",
+] as const;
+
+export function isObligationType(type: TransactionType): type is ObligationType {
+  return type !== "income" && type !== "expense";
+}
+
+const OBLIGATION_STATUSES: readonly string[] = [
+  "ke_hoach",
+  "den_han",
+  "hoan_thanh_mot_phan",
+  "hoan_thanh",
+  "qua_han",
+] as const;
+
+/** `status` is plain text in the database, so it is checked rather than trusted. */
+export function isObligationStatus(value: string): value is ObligationStatus {
+  return OBLIGATION_STATUSES.includes(value);
+}
+
 export type Transaction = {
   id: string;
   accountId: string;
-  categoryId: string;
+  /** Null on the four obligation types: an obligation is not a spending category. */
+  categoryId: string | null;
   type: TransactionType;
   amountCents: number;
   /** The currency the entry was recorded in, taken from its account and never editable. */
@@ -67,15 +105,39 @@ export type Transaction = {
   isRecurring: boolean;
   recurringFrequency: RecurringFrequency | null;
   recurringLabel: string | null;
+  /** Who the obligation is with. Null on income, expense and tax. */
+  contactId: string | null;
+  /** When it must be settled. Null on income and expense, which have already happened. */
+  dueDate: string | null;
+  status: ObligationStatus;
+  /** Paid so far. The original `amountCents` is never rewritten by a payment. */
+  settledCents: number;
+  taxPeriodStart: string | null;
+  taxPeriodEnd: string | null;
   createdAt: string;
   deletedAt: string | null;
 };
 
-/** A transaction with its account and category resolved — what every report reads. */
+/**
+ * A transaction with its account and category resolved — what every report reads.
+ *
+ * `category` is null on the four obligation types. An obligation is a balance-sheet item,
+ * not a line of spending: filing a loan under "Ăn uống" would make it read as money eaten.
+ */
 export type LedgerEntry = Transaction & {
   account: Account;
-  category: Category;
+  category: Category | null;
 };
+
+/** What to call an entry that may have no category — obligations answer with their type. */
+export function entryCategoryName(entry: LedgerEntry): string {
+  return entry.category?.name ?? TRANSACTION_TYPE_LABELS[entry.type];
+}
+
+/** Colour for an entry's spine; obligations borrow the neutral ink of the theme. */
+export function entryColor(entry: LedgerEntry): string {
+  return entry.category?.color ?? OBLIGATION_COLOR;
+}
 
 export const ACCOUNT_TYPES: readonly AccountType[] = [
   "checking",
@@ -114,6 +176,31 @@ export function isLiabilityAccount(type: AccountType): boolean {
 export const TRANSACTION_TYPE_LABELS: Record<TransactionType, string> = {
   income: "Thu",
   expense: "Chi",
+  vay: "Vay",
+  cho_vay: "Cho vay",
+  thue_ca_nhan: "Thuế cá nhân",
+  thue_kinh_doanh: "Thuế kinh doanh",
+};
+
+/** One muted brass note for every obligation, so they read as a family, not as a category. */
+export const OBLIGATION_COLOR = "#8A6D3B";
+
+export const OBLIGATION_STATUS_LABELS: Record<ObligationStatus, string> = {
+  ke_hoach: "Kế hoạch",
+  den_han: "Đến hạn",
+  hoan_thanh_mot_phan: "Trả một phần",
+  hoan_thanh: "Xong",
+  qua_han: "Quá hạn",
+};
+
+/** Which way each type moves an account: borrowing brings money in, the rest send it out. */
+export const TRANSACTION_DIRECTION: Record<TransactionType, 1 | -1> = {
+  income: 1,
+  vay: 1,
+  expense: -1,
+  cho_vay: -1,
+  thue_ca_nhan: -1,
+  thue_kinh_doanh: -1,
 };
 
 export const RECURRING_FREQUENCY_LABELS: Record<RecurringFrequency, string> = {
@@ -154,9 +241,13 @@ export function sumCents(values: readonly number[]): number {
   return values.reduce((total, value) => total + value, 0);
 }
 
-/** Signed contribution of one entry to its account: income adds, expense subtracts. */
+/**
+ * Signed contribution of one entry to its account. Mirrors `private.transaction_signed_amount`
+ * in the database exactly — if the two ever disagree, the balance on screen stops matching the
+ * balance in the ledger.
+ */
 export function signedCents(entry: Pick<Transaction, "type" | "amountCents">): number {
-  return entry.type === "income" ? entry.amountCents : -entry.amountCents;
+  return TRANSACTION_DIRECTION[entry.type] * entry.amountCents;
 }
 
 export type MoneyFormatOptions = {
@@ -348,7 +439,8 @@ export function validateCategoryName(raw: string, existing: readonly Category[],
 }
 
 export type TransactionDraft = {
-  type: TransactionType;
+  /** Thu/chi only — obligations are written through their own form. */
+  type: MovementType;
   accountId: string;
   categoryId: string;
   date: string;
@@ -435,11 +527,54 @@ export function buildLedger(
   const entries: LedgerEntry[] = [];
   for (const transaction of transactions) {
     const account = accountById.get(transaction.accountId);
+    if (!account) continue;
+    // An obligation carries no category by design, so a missing one is only a broken
+    // reference for income and expense — those are still dropped rather than half-shown.
+    if (transaction.categoryId === null) {
+      if (!isObligationType(transaction.type)) continue;
+      entries.push({ ...transaction, account, category: null });
+      continue;
+    }
     const category = categoryById.get(transaction.categoryId);
-    if (!account || !category) continue;
+    if (!category) continue;
     entries.push({ ...transaction, account, category });
   }
   return entries;
+}
+
+/** The obligations — what the Vay/Cho vay/Thuế views read. */
+export function obligationEntries(entries: readonly LedgerEntry[]): LedgerEntry[] {
+  return entries.filter((entry) => isObligationType(entry.type));
+}
+
+/**
+ * Income and expense only. Every report and every total reads through this: an obligation
+ * is money promised, not money earned or spent, and letting one into a P&L would overstate
+ * both sides of it.
+ */
+export function movementEntries(entries: readonly LedgerEntry[]): LedgerEntry[] {
+  return entries.filter((entry) => !isObligationType(entry.type));
+}
+
+/** Still owed on an obligation, in cents. */
+export function outstandingCents(entry: Pick<Transaction, "amountCents" | "settledCents">): number {
+  return Math.max(0, entry.amountCents - entry.settledCents);
+}
+
+/**
+ * The status an obligation actually has today. Mirrors `private.obligation_status`: the
+ * database recomputes on write, but a row that simply sat there overnight becomes overdue
+ * without anybody writing to it, so the screen derives it again on read.
+ */
+export function obligationStatusOf(
+  entry: Pick<Transaction, "amountCents" | "settledCents" | "dueDate">,
+  today: string = todayIso(),
+): ObligationStatus {
+  if (entry.settledCents >= entry.amountCents) return "hoan_thanh";
+  if (entry.dueDate !== null && entry.dueDate < today) return "qua_han";
+  if (entry.settledCents > 0) return "hoan_thanh_mot_phan";
+  if (entry.dueDate !== null && entry.dueDate === today) return "den_han";
+  return "ke_hoach";
 }
 
 /** Live rows only: a transaction marked as an error must not move a single total. */
@@ -479,7 +614,7 @@ export function searchEntries(entries: readonly LedgerEntry[], query: string): L
   return entries.filter((entry) => {
     const haystack = [
       entry.description ?? "",
-      entry.category.name,
+      entryCategoryName(entry),
       entry.businessPurpose ?? "",
       entry.recurringLabel ?? "",
       entry.account.name,
@@ -637,6 +772,13 @@ export type PeriodTotals = {
   givingCents: number;
 };
 
+/**
+ * Income and expense totals for a period.
+ *
+ * Obligations are excluded on purpose. Borrowing is not income and repaying is not an
+ * expense — counting either would inflate a P&L with money that was only promised. They
+ * still move account balances; they just never appear in what was earned or spent.
+ */
 export function totalsFor(entries: readonly LedgerEntry[]): PeriodTotals {
   let income = 0;
   let expense = 0;
@@ -645,13 +787,14 @@ export function totalsFor(entries: readonly LedgerEntry[]): PeriodTotals {
   let giving = 0;
 
   for (const entry of entries) {
+    if (isObligationType(entry.type)) continue;
     if (entry.type === "income") {
       income += entry.amountCents;
       if (entry.businessRelated) businessIncome += entry.amountCents;
     } else {
       expense += entry.amountCents;
       if (entry.businessRelated) businessExpense += entry.amountCents;
-      if (entry.category.slug !== null && GIVING_SLUGS.includes(entry.category.slug)) {
+      if (entry.category !== null && entry.category.slug !== null && GIVING_SLUGS.includes(entry.category.slug)) {
         giving += entry.amountCents;
       }
     }
@@ -672,6 +815,39 @@ export function totalsFor(entries: readonly LedgerEntry[]): PeriodTotals {
 /** A ledger counts as a household business the moment one row is flagged. */
 export function hasBusinessActivity(entries: readonly LedgerEntry[]): boolean {
   return entries.some((entry) => entry.businessRelated);
+}
+
+export type ObligationTotals = {
+  /** Still owed to other people — borrowings and taxes not yet settled. */
+  owedCents: number;
+  /** Still owed to this person by others. */
+  dueToYouCents: number;
+  overdueCount: number;
+  dueSoonCount: number;
+};
+
+/** The obligation picture as of `today`, for the summary strip above the list. */
+export function obligationTotals(
+  entries: readonly LedgerEntry[],
+  today: string = todayIso(),
+): ObligationTotals {
+  let owed = 0;
+  let dueToYou = 0;
+  let overdue = 0;
+  let dueSoon = 0;
+
+  for (const entry of entries) {
+    if (!isObligationType(entry.type)) continue;
+    const status = obligationStatusOf(entry, today);
+    if (status === "hoan_thanh") continue;
+    const left = outstandingCents(entry);
+    if (entry.type === "cho_vay") dueToYou += left;
+    else owed += left;
+    if (status === "qua_han") overdue += 1;
+    else if (status === "den_han") dueSoon += 1;
+  }
+
+  return { owedCents: owed, dueToYouCents: dueToYou, overdueCount: overdue, dueSoonCount: dueSoon };
 }
 
 export type GivingBand = "low" | "fair" | "generous" | "none";
@@ -749,7 +925,7 @@ export function recurringSuggestions(
     suggestions.push({
       key,
       sourceId: entry.id,
-      label: entry.recurringLabel ?? entry.description ?? entry.category.name,
+      label: entry.recurringLabel ?? entry.description ?? entryCategoryName(entry),
       amountCents: entry.amountCents,
       type: entry.type,
       accountId: entry.accountId,

@@ -1,8 +1,30 @@
 import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 
-import { formatMoney } from "@/lib/finance";
+import { OBLIGATION_STATUS_LABELS, formatMoney, type ObligationStatus } from "@/lib/finance";
 import { cn } from "@/lib/utils";
+
+/**
+ * The state of an obligation, in the same warm deadline palette the tasks module uses:
+ * urgency here is a flag to read, never a red alarm to panic at.
+ */
+export function StatusBadge({ status, className }: { status: ObligationStatus; className?: string }) {
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11.5px] font-semibold",
+        status === "qua_han" && "bg-[hsl(var(--task-overdue))]/16 text-[hsl(var(--task-overdue))]",
+        status === "den_han" && "bg-[hsl(var(--task-due-soon))]/16 text-[hsl(var(--task-due-soon))]",
+        status === "hoan_thanh_mot_phan" && "bg-[hsl(var(--task-important))]/16 text-[hsl(var(--task-important))]",
+        status === "ke_hoach" && "bg-secondary text-muted-foreground",
+        status === "hoan_thanh" && "bg-money-in/14 text-money-in",
+        className,
+      )}
+    >
+      {OBLIGATION_STATUS_LABELS[status]}
+    </span>
+  );
+}
 
 /**
  * Money on screen. Income reads green and expense reads deep rust; neither uses the
