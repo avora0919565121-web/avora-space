@@ -824,6 +824,24 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   bypasses it, and the employer must be a company in the caller's own book: the trigger blocks pointing at a
   non-company, but only this check blocks pointing at someone else's. The link to an account is not editable
   by any form — only accepting an invitation sets it.
+- 2026-09-16 — An invitation link now has somewhere to land. It was being handed out before the screen that
+  receives it existed, so every invitation already sent ended on the not-found page — the one part of the
+  handover AVORA does control, and the one it was dropping.
+- 2026-09-16 — The person receiving an invitation cannot read it. The invite row is visible only to its
+  sender and a profile only to its owner, so the screen could not answer even "who is asking?" — or "does
+  this token exist?". A read-only function answers those on the invitee's behalf, the same way group links
+  are already previewed. It returns the inviter's name and nothing else: whoever holds the token can call it,
+  so every extra field would be a field given away, and the name the sender wrote down privately is not the
+  screen's business.
+- 2026-09-16 — Everything that can stop an acceptance is read before anything is pressed, and the button
+  exists only where pressing it can work. A link is opened days later, by the wrong person, twice — so the
+  five dead ends are stated as sentences instead of arriving as a button that fails. The sender opening their
+  own link is told they meant to forward it, not shown the database's refusal; an already-accepted link
+  reports the outcome even to its sender, because that is the useful fact rather than the one they know.
+- 2026-09-16 — The preview is a courtesy, not a gate. Accepting re-checks every rule server-side, so a page
+  left open while something changed elsewhere refuses honestly rather than writing half a link — and the
+  screen re-reads itself afterwards, so a stale invitation is never left sitting next to its own refusal.
+  Accepting lands on the address book, where the contact it just created is the proof it worked.
 
 ## Out of scope
 

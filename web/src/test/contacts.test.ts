@@ -8,6 +8,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import {
   buildContactInviteLink,
   businessDraftProblem,
+  contactInviteState,
   canInviteContact,
   canMessageContact,
   canSubmitBusiness,
@@ -35,6 +36,7 @@ import {
   type BusinessDraft,
   type Contact,
   type ContactInvite,
+  type ContactInvitePreview,
   type IndividualDraft,
 } from "@/lib/contacts";
 
@@ -477,6 +479,119 @@ describe("what the screen says when the server refuses", () => {
     const message = toVietnameseContactError("XX000", 'relation "contact" does not exist');
     expect(message).toBe("Có lỗi xảy ra. Vui lòng thử lại.");
     expect(message).not.toContain("relation");
+  });
+});
+
+describe("opening an invitation link", () => {
+  const preview = (over: Partial<ContactInvitePreview> = {}): ContactInvitePreview => ({
+    inviterName: "Minh",
+    status: "pending",
+    isOwnInvite: false,
+    alreadyLinked: false,
+    ...over,
+  });
+
+  /**
+   * Only this one state shows a button. Every other ending is a sentence, so a dead end is
+   * explained before anything is pressed rather than surfacing as a failed press.
+   */
+  it("offers the choice, naming who is asking", () => {
+    expect(contactInviteState(preview())).toEqual({ kind: "ready", inviterName: "Minh" });
+  });
+
+  it("treats a token nobody has heard of as an ordinary ending, not a failure", () => {
+    expect(contactInviteState(null)).toEqual({ kind: "missing" });
+  });
+
+  it("says an invitation already accepted has been used", () => {
+    expect(contactInviteState(preview({ status: "accepted" }))).toEqual({ kind: "accepted" });
+  });
+
+  it("separates an expired invitation from one that never existed", () => {
+    expect(contactInviteState(preview({ status: "expired" }))).toEqual({ kind: "expired" });
+  });
+
+  /**
+   * The sender opening their own link made an ordinary mistake — they meant to forward it —
+   * so they are told that, not shown the refusal the database writes for its own log.
+   */
+  it("recognises the sender opening their own link", () => {
+    expect(contactInviteState(preview({ isOwnInvite: true }))).toEqual({ kind: "own" });
+  });
+
+  it("stops an invitation whose contact someone else already claimed", () => {
+    expect(contactInviteState(preview({ alreadyLinked: true }))).toEqual({ kind: "linked" });
+  });
+
+  /**
+   * An inviter reopening their own link after it worked is better told the useful fact — that
+   * it was accepted — than the detail they already know, that they sent it.
+   */
+  it("reports the outcome before the detail when both are true", () => {
+    expect(contactInviteState(preview({ status: "accepted", isOwnInvite: true }))).toEqual({
+      kind: "accepted",
+    });
+    expect(contactInviteState(preview({ status: "accepted", alreadyLinked: true }))).toEqual({
+      kind: "accepted",
+    });
+  });
+
+  it("never offers a button on an ending that cannot be accepted", () => {
+    const endings: ContactInvitePreview[] = [
+      preview({ status: "accepted" }),
+      preview({ status: "expired" }),
+      preview({ isOwnInvite: true }),
+      preview({ alreadyLinked: true }),
+    ];
+    for (const ending of endings) {
+      expect(contactInviteState(ending).kind).not.toBe("ready");
+    }
+    expect(contactInviteState(null).kind).not.toBe("ready");
+  });
+
+  it("round-trips the link the sender handed over", () => {
+    const link = buildContactInviteLink("https://avora.app", "tok-abc");
+    expect(link.endsWith("/loi-moi-lien-he/tok-abc")).toBe(true);
+  });
+});
+
+describe("what the accept screen says when the server refuses", () => {
+  /**
+   * The preview is a courtesy, not a gate: `accept_invite` re-checks every rule itself, so a
+   * link left open while things changed still fails honestly — and must fail in Vietnamese.
+   */
+  it("explains a self-accept without repeating the server's wording", () => {
+    const message = toVietnameseContactError(
+      undefined,
+      "Không thể tự chấp nhận lời mời của chính mình",
+    );
+    expect(message).toContain("chính bạn gửi");
+    expect(message).toContain("chuyển liên kết");
+  });
+
+  it("names the three settled states of a token", () => {
+    expect(toVietnameseContactError(undefined, "Lời mời không tồn tại hoặc đã hết hiệu lực")).toBe(
+      "Lời mời này không còn hiệu lực.",
+    );
+    expect(toVietnameseContactError(undefined, "Lời mời này đã được chấp nhận")).toBe(
+      "Lời mời này đã được chấp nhận.",
+    );
+    expect(toVietnameseContactError(undefined, "Lời mời đã hết hạn")).toBe("Lời mời này đã hết hạn.");
+  });
+
+  it("tells the accepter when the sender deleted the contact underneath them", () => {
+    expect(toVietnameseContactError(undefined, "Liên hệ gốc không còn tồn tại")).toContain(
+      "không còn hiệu lực",
+    );
+  });
+
+  it("distinguishes being linked already from being linked to someone else", () => {
+    expect(toVietnameseContactError(undefined, "Hai tài khoản đã liên kết với nhau từ trước")).toContain(
+      "từ trước",
+    );
+    expect(
+      toVietnameseContactError(undefined, "Người này đã liên kết với một tài khoản khác"),
+    ).toContain("tài khoản khác");
   });
 });
 

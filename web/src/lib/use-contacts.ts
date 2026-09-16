@@ -3,10 +3,12 @@ import { useCallback } from "react";
 
 import { useAuth } from "@/lib/auth";
 import {
+  acceptContactInvite,
   contactKeys,
   createBusiness,
   createContactInvite,
   createIndividual,
+  fetchContactInvitePreview,
   fetchContactInvites,
   fetchContacts,
   updateBusiness,
@@ -14,6 +16,7 @@ import {
   type BusinessDraft,
   type Contact,
   type ContactInvite,
+  type ContactInvitePreview,
   type IndividualDraft,
   type InviteMethod,
 } from "@/lib/contacts";
@@ -47,6 +50,46 @@ export function useContactInvites(contactId: string | null, enabled: boolean = t
     queryFn: () => fetchContactInvites(contactId ?? ""),
     enabled: enabled && contactId !== null,
   });
+}
+
+/**
+ * What one invitation link says to whoever opened it.
+ *
+ * Never retried: every answer this can give — including "no such invitation" — is a settled
+ * fact about the token, not a hiccup worth asking about again.
+ */
+export function useContactInvitePreview(
+  token: string,
+): UseQueryResult<ContactInvitePreview | null, Error> {
+  const { user } = useAuth();
+
+  return useQuery<ContactInvitePreview | null, Error>({
+    queryKey: ["contact-invite-preview", token],
+    queryFn: () => fetchContactInvitePreview(token),
+    enabled: token.length > 0 && Boolean(user?.id),
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+/** Accepting an invitation, which writes a contact into the accepter's own book. */
+export function useAcceptContactInvite(): {
+  accept: (token: string) => Promise<string>;
+  isAccepting: boolean;
+} {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation({
+    mutationFn: (token: string) => acceptContactInvite(token),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contactKeys.all });
+    },
+  });
+
+  return {
+    accept: useCallback((token: string) => mutation.mutateAsync(token), [mutation]),
+    isAccepting: mutation.isPending,
+  };
 }
 
 /** Creating, editing and inviting — each refreshing the one list every screen reads. */

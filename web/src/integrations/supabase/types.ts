@@ -2616,6 +2616,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      preview_contact_invite: {
+        Args: { p_token: string }
+        Returns: {
+          already_linked: boolean
+          inviter_name: string
+          is_own_invite: boolean
+          status: string
+        }[]
+      }
       preview_group_invite: {
         Args: { p_token: string }
         Returns: {

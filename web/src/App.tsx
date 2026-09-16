@@ -10,6 +10,7 @@ import { AuthProvider } from "@/lib/auth";
 import { HOME_ROUTE } from "@/lib/navigation";
 import { ChatRealtimeProvider } from "@/lib/realtime";
 
+import AcceptContactInvite from "./pages/AcceptContactInvite";
 import Auth from "./pages/Auth";
 import ContactDetail from "./pages/ContactDetail";
 import Contacts from "./pages/Contacts";
@@ -71,6 +72,8 @@ const App = () => (
 
                 <Route path="/lien-he" element={<Contacts />} />
                 <Route path="/lien-he/:contactId" element={<ContactDetail />} />
+                {/* Signed-in on purpose: accepting links two accounts, so there must be a second one. */}
+                <Route path="/loi-moi-lien-he/:token" element={<AcceptContactInvite />} />
 
                 {/* Routes that were published under their old names keep working. */}
                 <Route path="/tai-chinh" element={<LegacyRedirect />} />

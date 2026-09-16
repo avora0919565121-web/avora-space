@@ -108,8 +108,30 @@ export const contactKeys = {
   invites: (contactId: string) => ["contacts", "invites", contactId] as const,
 };
 
-/** Where an invited person will land once the accept screen exists. */
+/** Where an invited person lands when they open the link. */
 export const CONTACT_INVITE_PATH = "/loi-moi-lien-he";
+
+/** What the person holding an invitation link is allowed to know before deciding. */
+export type ContactInvitePreview = {
+  inviterName: string;
+  status: ContactInvite["status"];
+  isOwnInvite: boolean;
+  alreadyLinked: boolean;
+};
+
+/**
+ * Which of the six things the accept screen should say.
+ *
+ * Read once, before anything is pressed, so every dead end is explained as a sentence rather
+ * than surfaced as a failed button press. Only `ready` shows the button at all.
+ */
+export type ContactInviteState =
+  | { kind: "ready"; inviterName: string }
+  | { kind: "missing" }
+  | { kind: "accepted" }
+  | { kind: "expired" }
+  | { kind: "own" }
+  | { kind: "linked" };
 
 type ContactRow = {
   id: string;
@@ -189,6 +211,17 @@ export function toVietnameseContactError(code: string | undefined, message: stri
     return "Nơi làm việc phải là một liên hệ doanh nghiệp.";
   if (normalized.includes("chỉ liên hệ cá nhân mới có thể mời"))
     return "Chỉ mời được liên hệ cá nhân — doanh nghiệp không đăng nhập vào AVORA.";
+  if (normalized.includes("lời mời không tồn tại")) return "Lời mời này không còn hiệu lực.";
+  if (normalized.includes("lời mời này đã được chấp nhận")) return "Lời mời này đã được chấp nhận.";
+  if (normalized.includes("lời mời đã hết hạn")) return "Lời mời này đã hết hạn.";
+  if (normalized.includes("không thể tự chấp nhận lời mời của chính mình"))
+    return "Đây là lời mời do chính bạn gửi. Hãy chuyển liên kết này cho người bạn muốn mời.";
+  if (normalized.includes("liên hệ gốc không còn tồn tại"))
+    return "Người gửi đã xoá liên hệ này, nên lời mời không còn hiệu lực.";
+  if (normalized.includes("hai tài khoản đã liên kết với nhau từ trước"))
+    return "Hai bạn đã có nhau trong danh bạ từ trước.";
+  if (normalized.includes("người này đã liên kết với một tài khoản khác"))
+    return "Lời mời này đã được một tài khoản khác dùng.";
   if (normalized.includes("chưa đăng nhập") || normalized.includes("avora_not_signed_in"))
     return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (code === "42501" || normalized.includes("permission denied"))
@@ -497,6 +530,57 @@ export async function createContactInvite(contactId: string, method: InviteMetho
   });
   if (error) throw fail(error.code, error.message);
   if (!data) throw new Error("Không tạo được lời mời. Thử lại nhé.");
+  return data as string;
+}
+
+/**
+ * What the invitation looks like to the person holding the link, or null when there is no
+ * such invitation.
+ *
+ * Goes through an RPC rather than a table read because the invitee can see neither: the
+ * invite row is visible only to its sender, and a profile only to its owner. A missing token
+ * is an ordinary outcome of a link sent by message, so it returns null instead of throwing.
+ */
+export async function fetchContactInvitePreview(token: string): Promise<ContactInvitePreview | null> {
+  const { data, error } = await supabase.rpc("preview_contact_invite", { p_token: token });
+  if (error) throw fail(error.code, error.message);
+
+  const row = Array.isArray(data) ? data[0] : data;
+  if (!row) return null;
+
+  return {
+    inviterName: row.inviter_name,
+    status: row.status as ContactInvite["status"],
+    isOwnInvite: row.is_own_invite,
+    alreadyLinked: row.already_linked,
+  };
+}
+
+/**
+ * Turns the preview into the one thing the screen should say.
+ *
+ * Acceptance is reported before ownership on purpose: an inviter reopening their own link
+ * after it worked is better told that it was accepted — the useful fact — than that they sent
+ * it. The reverse order would hide the outcome behind a detail they already know.
+ */
+export function contactInviteState(preview: ContactInvitePreview | null): ContactInviteState {
+  if (preview === null) return { kind: "missing" };
+  if (preview.status === "accepted") return { kind: "accepted" };
+  if (preview.status === "expired") return { kind: "expired" };
+  if (preview.isOwnInvite) return { kind: "own" };
+  if (preview.alreadyLinked) return { kind: "linked" };
+  return { kind: "ready", inviterName: preview.inviterName };
+}
+
+/**
+ * Accepts the invitation and returns the id of the contact it created in the accepter's own
+ * book. The server re-checks every rule the preview showed, so a link left open while things
+ * changed fails honestly instead of writing a half-link.
+ */
+export async function acceptContactInvite(token: string): Promise<string> {
+  const { data, error } = await supabase.rpc("accept_invite", { p_token: token });
+  if (error) throw fail(error.code, error.message);
+  if (!data) throw new Error("Không chấp nhận được lời mời. Thử lại nhé.");
   return data as string;
 }
 
