@@ -1056,6 +1056,40 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - 2026-09-16 — Only long lists are virtualised. A dozen phone-book entries in an inner scroller inside a
   dialog that already scrolls is worse than the problem it solves, so short lists render exactly as before
   and the machinery appears only when a file is big enough to stutter without it.
+- 2026-09-16 — A file no longer has to use our column names. It used to be turned away at the door —
+  "thiếu cột loai hoặc ten" — which asked somebody to go and rename the headings of a report they did not
+  write, in a file they may not know how to edit. Now the file keeps its own headings and is asked about
+  once instead: "Họ tên", "SĐT" and "Full Name" are ours as far as anyone using them is concerned.
+- 2026-09-16 — The matching step is a layer in front of the importer, not a change to it. It rewrites the
+  file under our own headings and hands it on, so from that line forward a CRM export and a file saved from
+  our template are the same table going through the same validation, duplicate matching and preview. Nothing
+  downstream can tell them apart, which is what stops the two from drifting.
+- 2026-09-16 — A heading either is a word we know or it is left for a person to answer. There is no
+  similarity scoring and no nearest match: a wrong guess here files two thousand phone numbers as notes, and
+  it would sit pre-filled on a screen most people click straight through. An empty dropdown asks a question;
+  a plausible wrong one does not.
+- 2026-09-16 — Punctuation is not part of a heading's identity, but the heading shown is always the file's
+  own spelling. "S.Đ.T" and "SĐT" are one word for matching, while the dropdown, the stored choice and the
+  "not importing" list all quote the file back to itself — somebody checking our reading of their
+  spreadsheet should see their own words, not our normalised version of them.
+- 2026-09-16 — One column cannot fill two fields. A file with a single "Liên hệ" column would otherwise
+  become both the phone and the email, and duplicate the same value into two places for every row.
+- 2026-09-16 — A missing name column is said once, about the file, at the moment it can be fixed by one
+  dropdown. The same fact discovered at the preview is two thousand identical per-row complaints about
+  something that was never a property of any row.
+- 2026-09-16 — A file that never says what its rows are is asked once, for the whole file, and every row
+  stays changeable at the preview. A file that does have a type column keeps its own values, blanks
+  included — a row whose type was left empty is a row somebody has to look at, not one for us to decide.
+- 2026-09-16 — The mapping is remembered per person and per layout, keyed by the set of headings rather
+  than their order, so next month's export of the same report arrives already filled in even if a column has
+  moved. It is always shown before it is used: a report that has grown a column since last time would
+  otherwise be read wrongly and silently, and this is the step that writes to somebody's address book.
+- 2026-09-16 — A remembered choice is believed only as far as the file in hand allows. A heading that has
+  since disappeared is dropped rather than followed to whatever now sits in that position, and a stored
+  mapping that no longer fits anything counts as no memory at all.
+- 2026-09-16 — The template is now an offer rather than an instruction. It stays on the first screen,
+  because starting from a known-good file is still the easiest route for somebody with no export at all, but
+  the wording no longer implies the columns must match.
 
 ## Out of scope
 

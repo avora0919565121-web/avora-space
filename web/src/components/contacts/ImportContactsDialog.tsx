@@ -11,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 
 import { BulkInvitePanel } from "@/components/contacts/BulkInvitePanel";
 import { CandidatePreview } from "@/components/contacts/CandidatePreview";
+import { ColumnMapStep } from "@/components/contacts/ColumnMapStep";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
@@ -30,11 +31,21 @@ import {
 import {
   buildImportRows,
   canImportRow,
+  mapHeaderRow,
   MAX_IMPORT_ROWS,
   rowToCandidate,
   summarizeRows,
+  type ImportColumn,
   type ImportRow,
 } from "@/lib/contact-import";
+import {
+  applyColumnMapping,
+  autoMapColumns,
+  fileColumns,
+  readRememberedMapping,
+  rememberMapping,
+  type ColumnMapping,
+} from "@/lib/contact-import-mapping";
 import {
   downloadImportTemplate,
   IMPORT_ACCEPT,
@@ -43,7 +54,8 @@ import {
   readImportFile,
 } from "@/lib/contact-import-file";
 import { parseVcards } from "@/lib/contact-vcard";
-import type { Contact } from "@/lib/contacts";
+import type { Contact, ContactType } from "@/lib/contacts";
+import { useAuth } from "@/lib/auth";
 import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
 import { useCandidateImport, type CandidateOutcome } from "@/lib/use-candidate-import";
 import { useChannelIndex } from "@/lib/use-contact-channels";
@@ -54,7 +66,25 @@ type ImportContactsDialogProps = {
   onOpenChange: (open: boolean) => void;
 };
 
-type Step = "pick" | "preview" | "invite" | "done";
+type Step = "pick" | "map" | "preview" | "invite" | "done";
+
+/**
+ * A spreadsheet waiting on the one question its headings could not answer.
+ *
+ * Held whole rather than as candidates because the mapping decides what the cells mean: until
+ * it is settled there is nothing to validate, and re-reading the file after every dropdown
+ * change would be reading the same megabyte a dozen times.
+ */
+type PendingTable = {
+  fileName: string;
+  table: readonly string[][];
+  header: readonly string[];
+  columns: readonly string[];
+  /** True when these exact headings have been matched before by this person. */
+  wasRemembered: boolean;
+  /** How many fields we recognised without help, for the line that admits to guessing. */
+  matchedCount: number;
+};
 
 /** What the file itself was wrong about, kept separate from the candidates it did yield. */
 type FileProblems = { invalid: number; sample: number } | null;
@@ -104,12 +134,16 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
   const [choices, setChoices] = useState<Record<string, CandidateChoice>>({});
   const [decisions, setDecisions] = useState<Record<string, TypeDecision>>({});
   const [sourceLabel, setSourceLabel] = useState<string | null>(null);
+  const [pending, setPending] = useState<PendingTable | null>(null);
+  const [mapping, setMapping] = useState<ColumnMapping>({});
+  const [fallbackType, setFallbackType] = useState<ContactType>("individual");
   const [fileProblems, setFileProblems] = useState<FileProblems>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isReading, setIsReading] = useState<boolean>(false);
   const [outcome, setOutcome] = useState<CandidateOutcome | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
+  const { user } = useAuth();
   const contactsQuery = useContacts();
   const contacts: Contact[] = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
 
@@ -128,6 +162,9 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
     setChoices({});
     setDecisions({});
     setSourceLabel(null);
+    setPending(null);
+    setMapping({});
+    setFallbackType("individual");
     setFileProblems(null);
     setNotice(null);
     setOutcome(null);
@@ -165,6 +202,34 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
     [index],
   );
 
+  /**
+   * A validated table turned into candidates, for a file whose columns are already settled.
+   *
+   * Everything from here on is the shared pipeline, untouched: the same validator, the same
+   * duplicate matching, the same preview. A mapped file and a template file arrive here as the
+   * same shape, which is what stops the two from drifting apart.
+   */
+  const startTable = useCallback(
+    (table: readonly string[][], fileName: string): void => {
+      const result = buildImportRows(table);
+      if (result.kind === "refused") {
+        setNotice(result.reason);
+        return;
+      }
+
+      const counts = summarizeRows(result.rows);
+      const usable: ImportRow[] = result.rows.filter((row) => canImportRow(row));
+
+      startPreview(
+        usable.map(rowToCandidate),
+        usable.map((row) => `Dòng ${row.lineNumber}`),
+        fileName,
+        { invalid: counts.invalid, sample: counts.sample },
+      );
+    },
+    [startPreview],
+  );
+
   const chooseFile = useCallback(
     async (file: File): Promise<void> => {
       setNotice(null);
@@ -187,21 +252,33 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
         }
 
         const table = await readImportFile(file);
-        const result = buildImportRows(table);
-        if (result.kind === "refused") {
-          setNotice(result.reason);
+        const header = table[0] ?? [];
+
+        // Our own template goes straight through. Asking whether the column called `ten` is
+        // the name would be a screen that exists only to be clicked past.
+        const asTemplate = mapHeaderRow(header);
+        if (asTemplate.ten !== undefined && asTemplate.loai !== undefined) {
+          startTable(table, file.name);
           return;
         }
 
-        const counts = summarizeRows(result.rows);
-        const usable: ImportRow[] = result.rows.filter((row) => canImportRow(row));
+        const remembered =
+          user === null ? null : readRememberedMapping(user.id, header);
+        const guessed = autoMapColumns(header);
 
-        startPreview(
-          usable.map(rowToCandidate),
-          usable.map((row) => `Dòng ${row.lineNumber}`),
-          file.name,
-          { invalid: counts.invalid, sample: counts.sample },
-        );
+        setPending({
+          fileName: file.name,
+          table,
+          header,
+          columns: fileColumns(header),
+          wasRemembered: remembered !== null,
+          matchedCount: Object.keys(guessed).length,
+        });
+        // A remembered mapping is shown, never applied behind anyone's back: last month's
+        // export may have grown a column, and the file is about to be written to the book.
+        setMapping(remembered ?? guessed);
+        setFallbackType("individual");
+        setStep("map");
       } catch (error) {
         setNotice(
           error instanceof ImportFileError
@@ -213,8 +290,16 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
         if (inputRef.current !== null) inputRef.current.value = "";
       }
     },
-    [startPreview],
+    [startPreview, startTable, user],
   );
+
+  /** The mapping accepted: the file is rewritten under our headings and handed onward. */
+  const continueFromMapping = useCallback((): void => {
+    if (pending === null) return;
+    setNotice(null);
+    if (user !== null) rememberMapping(user.id, pending.header, mapping);
+    startTable(applyColumnMapping(pending.table, mapping, fallbackType), pending.fileName);
+  }, [pending, mapping, fallbackType, user, startTable]);
 
   const chooseDevice = useCallback(async (): Promise<void> => {
     setNotice(null);
@@ -294,18 +379,22 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
             <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">
               {step === "pick"
                 ? "Nhập liên hệ"
-                : step === "preview"
-                  ? "Xem trước trước khi nhập"
-                  : step === "invite"
-                    ? "Đã nhập xong"
-                    : "Xong"}
+                : step === "map"
+                  ? "Ghép cột trong file của bạn"
+                  : step === "preview"
+                    ? "Xem trước trước khi nhập"
+                    : step === "invite"
+                      ? "Đã nhập xong"
+                      : "Xong"}
             </DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
               {step === "pick"
-                ? "Từ file bảng tính, file danh bạ (.vcf) xuất từ iPhone/Android, hoặc thẳng từ danh bạ trên máy"
-                : step === "preview"
-                  ? (sourceLabel ?? "Chọn những liên hệ muốn lưu")
-                  : `${total} liên hệ đã vào danh bạ`}
+                ? "Từ file bảng tính, file vCard (.vcf) xuất từ iPhone/Android, hoặc thẳng từ danh bạ trên máy"
+                : step === "map"
+                  ? "File không cần đúng tên cột như file mẫu — chỉ cần nói cột nào là gì"
+                  : step === "preview"
+                    ? (sourceLabel ?? "Chọn những liên hệ muốn lưu")
+                    : `${total} liên hệ đã vào danh bạ`}
             </DialogDescription>
           </div>
           <button
@@ -327,6 +416,32 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
               isIndexPending={isIndexPending}
               onFile={(file) => void chooseFile(file)}
               onDevice={() => void chooseDevice()}
+            />
+          ) : step === "map" && pending !== null ? (
+            <ColumnMapStep
+              fileName={pending.fileName}
+              header={pending.header}
+              columns={pending.columns}
+              mapping={mapping}
+              fallbackType={fallbackType}
+              wasRemembered={pending.wasRemembered}
+              matchedCount={pending.matchedCount}
+              onChange={(column: ImportColumn, heading) =>
+                setMapping((current) => {
+                  const next = { ...current };
+                  if (heading === undefined) delete next[column];
+                  else next[column] = heading;
+                  return next;
+                })
+              }
+              onFallbackType={setFallbackType}
+              onBack={() => {
+                setStep("pick");
+                setPending(null);
+                setMapping({});
+                setNotice(null);
+              }}
+              onContinue={continueFromMapping}
             />
           ) : step === "preview" ? (
             <>
@@ -454,6 +569,12 @@ function PickStep({
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
           Tối đa {MAX_IMPORT_ROWS.toLocaleString("vi-VN")} liên hệ mỗi lần. Bạn sẽ xem lại từng
           liên hệ trước khi có gì được lưu.
+        </p>
+        {/* The template is an offer, not a requirement: a file exported from another CRM keeps
+            its own headings and the next step asks which is which. */}
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+          Tên cột không cần giống file mẫu — để “Họ tên” hay “SĐT” cũng được, AVORA sẽ hỏi cột
+          nào là gì trước khi nhập.
         </p>
         {/* The one route an iPhone owner has: Safari has no contacts picker, so the phone's own
             export is what they can actually produce. */}

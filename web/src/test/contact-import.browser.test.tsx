@@ -244,12 +244,22 @@ test("ticking a row makes the button say how many will be written", async () => 
   await expect.element(screen.getByRole("button", { name: "Nhập 1 liên hệ đã chọn" })).toBeEnabled();
 });
 
-test("a file without the columns it needs is refused as a whole", async () => {
+/**
+ * A file that does not use our column names is no longer refused.
+ *
+ * It used to be: "thiếu cột loai hoặc ten", which asked somebody to go and rename their
+ * columns to ours. Now the same file is asked about instead — and "ho_ten" is recognised as
+ * the name by itself, while "so_dt" is a word nobody can interpret and stays blank.
+ */
+test("a file without our column names is asked about rather than refused", async () => {
   const screen = await openDialog();
 
   await upload(screen, csvFile("ho_ten,so_dt", "Anh,0912345678"));
 
-  await expect.element(screen.getByRole("alert")).toHaveTextContent("thiếu cột loai hoặc ten");
+  await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+  await expect.element(screen.getByLabelText(/^Tên/)).toBeInTheDocument();
+  expect(document.querySelector<HTMLSelectElement>("#map-ten")?.value).toBe("ho_ten");
+  expect(document.querySelector<HTMLSelectElement>("#map-dien_thoai")?.value).toBe("");
 });
 
 test("a file past the row limit says so instead of starting", async () => {
@@ -760,6 +770,9 @@ describe("a file of real size", () => {
     );
     await upload(screen, csvFile(HEADER, ...body));
 
+    // Waited for before counting: a bare query runs before the preview has rendered and
+    // would report zero rows whatever the component did.
+    await expect.element(screen.getByText("6 liên hệ sẵn sàng")).toBeInTheDocument();
     expect(document.querySelectorAll('[role="checkbox"]')).toHaveLength(6);
   });
 
@@ -802,5 +815,251 @@ describe("a file of real size", () => {
     expect(state.created).toHaveLength(40);
     // File order survives the parallel run, so the closing report reads the way the file does.
     expect(state.created[0].name).toBe("Người 0");
+  });
+});
+
+/**
+ * A file that does not use our column names.
+ *
+ * This is what almost every real file looks like: exported from a CRM, an old phone, an
+ * accountant's spreadsheet. Before this step each one was refused at the door for lacking a
+ * column literally called `ten`.
+ */
+describe("a file with somebody else's column names", () => {
+  /** A file with its own headings, as another system would have written it. */
+  function foreignFile(...lines: string[]): File {
+    return new File([lines.join("\r\n")], "crm-export.csv", { type: "text/csv" });
+  }
+
+  const FOREIGN = ["Họ tên", "SĐT", "Ghi chú"].join(",");
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  test("asks which column is which instead of refusing the file", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(FOREIGN, "Chị Hoa,0912345678,khách quen"));
+
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+    // The old behaviour, which this step replaces.
+    expect(document.body.textContent).not.toContain("thiếu cột loai hoặc ten");
+  });
+
+  /** Recognised headings arrive already filled in, so most files are one click. */
+  test("fills in the columns it recognised itself", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(FOREIGN, "Chị Hoa,0912345678,khách quen"));
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+
+    const name = document.querySelector<HTMLSelectElement>("#map-ten");
+    const phone = document.querySelector<HTMLSelectElement>("#map-dien_thoai");
+    const note = document.querySelector<HTMLSelectElement>("#map-ghi_chu");
+    expect(name?.value).toBe("Họ tên");
+    expect(phone?.value).toBe("SĐT");
+    expect(note?.value).toBe("Ghi chú");
+  });
+
+  test("carries the mapped file into the preview that already existed", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(FOREIGN, "Chị Hoa,0912345678,khách quen"));
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+
+    await expect.element(screen.getByText("1 liên hệ sẵn sàng")).toBeInTheDocument();
+    await expect.element(screen.getByRole("checkbox", { name: /Chị Hoa/ })).toBeInTheDocument();
+  });
+
+  /** The whole point: the mapped file is written by the same pipeline as the template. */
+  test("writes the contact the mapped columns describe", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(FOREIGN, "Chị Hoa,0912345678,khách quen"));
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Chị Hoa/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    expect(state.created).toEqual([{ type: "individual", name: "Chị Hoa" }]);
+  });
+
+  /**
+   * A heading nobody can interpret is left blank rather than guessed at. A plausible wrong
+   * answer, pre-filled on a screen people click through, is how phone numbers end up in notes.
+   */
+  test("leaves a column it cannot interpret for the person to answer", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(["Cột A", "Cột B"].join(","), "Chị Hoa,0912345678"));
+
+    await expect.element(screen.getByRole("alert")).toHaveTextContent("Chưa biết cột nào là Tên");
+    expect(document.querySelector<HTMLSelectElement>("#map-ten")?.value).toBe("");
+  });
+
+  /**
+   * Said here, once, about the file — rather than as two thousand identical per-row
+   * complaints discovered one screen later.
+   */
+  test("will not continue until the name column is answered", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(["Cột A", "Cột B"].join(","), "Chị Hoa,0912345678"));
+
+    await expect.element(screen.getByRole("button", { name: /Tiếp tục/ })).toBeDisabled();
+  });
+
+  test("accepts the column a person picks by hand", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(["Cột A", "Cột B"].join(","), "Chị Hoa,0912345678"));
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+
+    const name = document.querySelector<HTMLSelectElement>("#map-ten");
+    const phone = document.querySelector<HTMLSelectElement>("#map-dien_thoai");
+    if (name === null || phone === null) throw new Error("no mapping selects");
+    await userEvent.selectOptions(name, "Cột A");
+    await userEvent.selectOptions(phone, "Cột B");
+
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Chị Hoa/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    expect(state.created).toEqual([{ type: "individual", name: "Chị Hoa" }]);
+  });
+
+  /** Our own template still goes straight through — no screen asking the obvious. */
+  test("does not ask about our own template", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      csvFile(HEADER, line({ loai: "ca_nhan", ten: "Chị Hoa", dien_thoai: "0912345678" })),
+    );
+
+    await expect.element(screen.getByText("1 liên hệ sẵn sàng")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("Ghép cột trong file của bạn");
+  });
+
+  /** A file of people says nowhere that they are people; the one answer covers the file. */
+  test("asks what a file with no type column is, once", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(FOREIGN, "Chị Hoa,0912345678,"));
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+
+    const fallback = document.querySelector<HTMLSelectElement>("#map-fallback-type");
+    expect(fallback?.value).toBe("individual");
+
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+    await userEvent.click(screen.getByRole("checkbox", { name: /Chị Hoa/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    expect(state.created).toEqual([{ type: "individual", name: "Chị Hoa" }]);
+  });
+
+  test("names the columns it will not be importing", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      foreignFile(["Họ tên", "SĐT", "Điểm tín dụng"].join(","), "Chị Hoa,0912345678,720"),
+    );
+
+    await expect.element(screen.getByText(/Không dùng cột: Điểm tín dụng/)).toBeInTheDocument();
+  });
+
+  test("goes back to the source list without importing anything", async () => {
+    const screen = await openDialog();
+
+    await upload(screen, foreignFile(FOREIGN, "Chị Hoa,0912345678,"));
+    await userEvent.click(screen.getByRole("button", { name: "Chọn file khác" }));
+
+    await expect.element(screen.getByRole("button", { name: "Tải file mẫu" })).toBeInTheDocument();
+    expect(state.created).toEqual([]);
+  });
+
+  /**
+   * The same monthly export should not need answering twice.
+   *
+   * Done the way a person does it — one file, then another through "Chọn nguồn khác" — rather
+   * than by mounting the dialog twice, which tests the harness more than the product.
+   */
+  test("remembers the mapping for the next file with the same columns", async () => {
+    const screen = await openDialog();
+    await upload(screen, foreignFile(["Cột A", "Cột B"].join(","), "Chị Hoa,0912345678"));
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+
+    const name = document.querySelector<HTMLSelectElement>("#map-ten");
+    const phone = document.querySelector<HTMLSelectElement>("#map-dien_thoai");
+    if (name === null || phone === null) throw new Error("no mapping selects");
+    await userEvent.selectOptions(name, "Cột A");
+    await userEvent.selectOptions(phone, "Cột B");
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+
+    // Back out to the sources and bring the next export of the same report.
+    await userEvent.click(screen.getByRole("button", { name: "Chọn nguồn khác" }));
+    await upload(screen, foreignFile(["Cột A", "Cột B"].join(","), "Anh Bình,0987000111"));
+
+    await expect
+      .element(screen.getByText(/Đã dùng lại cách ghép cột bạn chọn lần trước/))
+      .toBeInTheDocument();
+    expect(document.querySelector<HTMLSelectElement>("#map-ten")?.value).toBe("Cột A");
+    expect(document.querySelector<HTMLSelectElement>("#map-dien_thoai")?.value).toBe("Cột B");
+  });
+
+  /**
+   * A remembered layout is still shown for review, never applied behind anyone's back: last
+   * month's report may have grown a column since, and this file is about to be written to the
+   * address book.
+   */
+  test("still shows a remembered mapping rather than skipping the step", async () => {
+    const screen = await openDialog();
+    await upload(screen, foreignFile(FOREIGN, "Chị Hoa,0912345678,"));
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Chọn nguồn khác" }));
+    await upload(screen, foreignFile(FOREIGN, "Anh Bình,0987000111,"));
+
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+    await expect.element(screen.getByRole("button", { name: /Tiếp tục/ })).toBeEnabled();
+  });
+
+  test("does not reuse a mapping for a file with different columns", async () => {
+    const screen = await openDialog();
+    await upload(screen, foreignFile(["Cột A", "Cột B"].join(","), "Chị Hoa,0912345678"));
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+
+    const name = document.querySelector<HTMLSelectElement>("#map-ten");
+    const phone = document.querySelector<HTMLSelectElement>("#map-dien_thoai");
+    if (name === null || phone === null) throw new Error("no mapping selects");
+    await userEvent.selectOptions(name, "Cột A");
+    await userEvent.selectOptions(phone, "Cột B");
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+
+    await userEvent.click(screen.getByRole("button", { name: "Chọn nguồn khác" }));
+    await upload(screen, foreignFile(["Cột X", "Cột Y"].join(","), "Anh Bình,0987000111"));
+
+    expect(document.querySelector<HTMLSelectElement>("#map-ten")?.value).toBe("");
+    expect(document.body.textContent).not.toContain("Đã dùng lại cách ghép cột");
+  });
+
+  /**
+   * A name with no way of reaching anybody is still refused, and said where the columns are
+   * chosen rather than a screen later: the answer is one dropdown away.
+   */
+  test("says so when the mapped columns leave nothing importable", async () => {
+    const screen = await openDialog();
+    await upload(screen, foreignFile(["Cột A", "Cột B"].join(","), "Chị Hoa,0912345678"));
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+
+    const name = document.querySelector<HTMLSelectElement>("#map-ten");
+    if (name === null) throw new Error("no mapping selects");
+    await userEvent.selectOptions(name, "Cột A");
+    await userEvent.click(screen.getByRole("button", { name: /Tiếp tục/ }));
+
+    // Still on the mapping step, with the reason — the phone column was never chosen.
+    await expect.element(screen.getByRole("alert")).toHaveTextContent("Không có dòng nào dùng được");
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
   });
 });
