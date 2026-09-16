@@ -12,8 +12,9 @@ import {
   splitContacts,
   type Contact,
 } from "@/lib/contacts";
+import { reviewTotal } from "@/lib/contact-channels";
 import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
-import { useContactsNeedingReview } from "@/lib/use-contact-channels";
+import { useContactsNeedingReview, useSharedChannels } from "@/lib/use-contact-channels";
 import { useContacts } from "@/lib/use-contacts";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +41,11 @@ const Contacts = () => {
 
   const contactsQuery = useContacts();
   const review = useContactsNeedingReview();
+  const shared = useSharedChannels();
+
+  // One number, because the banner is one sentence. Someone with two unconfirmed numbers and one
+  // number shared across contacts has three things to look at, not two counts to add up.
+  const reviewCount: number = reviewTotal(review.count, shared.count);
 
   const { individuals, businesses } = useMemo(
     () => splitContacts(contactsQuery.data ?? []),
@@ -89,7 +95,7 @@ const Contacts = () => {
         </header>
 
         {/* Only ever shown when there is something to do about it — a count of zero is not news. */}
-        {review.count > 0 ? (
+        {reviewCount > 0 ? (
           <button
             type="button"
             onClick={() => navigate(CHANNEL_REVIEW_ROUTE)}
@@ -104,10 +110,16 @@ const Contacts = () => {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block text-[14.5px] font-medium text-foreground">
-                {review.count} liên hệ cần bạn xem lại
+                {reviewCount} việc cần bạn xem lại
               </span>
               <span className="block text-[13px] text-muted-foreground">
-                Nhiều số điện thoại hoặc email chưa được xác nhận
+                {/* Says which kind of tangle is waiting, because the two need different
+                    thinking — and both at once is worth knowing before opening the screen. */}
+                {review.count > 0 && shared.count > 0
+                  ? "Kênh liên lạc chưa xác nhận, và kênh đang dùng chung nhiều liên hệ"
+                  : shared.count > 0
+                    ? "Cùng một số hoặc email đang gắn với nhiều liên hệ"
+                    : "Nhiều số điện thoại hoặc email chưa được xác nhận"}
               </span>
             </span>
           </button>

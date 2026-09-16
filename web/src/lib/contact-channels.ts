@@ -349,6 +349,220 @@ export function reviewCount(channels: readonly ContactChannel[]): number {
   return channels.filter((entry) => entry.needsReview).length;
 }
 
+// ------------------------------------------------- one channel, several people
+
+/**
+ * One contact holding a value that several contacts hold.
+ *
+ * `isPrimary` is carried because the two are the same thing to the person reading — "this number
+ * is on three of my contacts" — but not to the database: one lives in `contact.phone`, the others
+ * in `contact_channel`. The screen shows which is which; the fix works the same either way.
+ */
+export type SharedChannelHolder = {
+  contact: Contact;
+  isPrimary: boolean;
+  /** As this contact spells it. Two holders of one number rarely wrote it identically. */
+  value: string;
+};
+
+export type SharedChannelGroup = {
+  /** `kind:normalised`, stable across reloads so React keys and open menus survive a refetch. */
+  key: string;
+  kind: ChannelKind;
+  valueNormalized: string;
+  /** The spelling used to title the group: a primary holder's if there is one. */
+  value: string;
+  holders: SharedChannelHolder[];
+  /** The companies among the holders — empty when no company holds this value. */
+  businesses: Contact[];
+};
+
+/**
+ * Every value that more than one contact is holding.
+ *
+ * The mirror image of `contactsNeedingReview`: that one finds a contact with several numbers,
+ * this one finds a number on several contacts. Both are read out of the two lists the address
+ * book already loads, so neither costs a request — and both compare through
+ * `normalizeChannelValue`, the same function the import preview and `private.normalize_channel`
+ * agree on. A second normaliser here is how "0912 345 678" would stop being the same number as
+ * "+84912345678" on one screen while still being it everywhere else.
+ *
+ * Primary and extra channels go into one pass because a number shared between a contact's phone
+ * field and another contact's extra channel is exactly the case a cheaper check would miss.
+ */
+export function sharedChannelGroups(
+  contacts: readonly Contact[],
+  channels: readonly ContactChannel[],
+): SharedChannelGroup[] {
+  const byId = new Map<string, Contact>();
+  for (const contact of contacts) byId.set(contact.id, contact);
+
+  const buckets = new Map<string, { kind: ChannelKind; normalized: string; holders: Map<string, SharedChannelHolder> }>();
+
+  const record = (
+    kind: ChannelKind,
+    raw: string,
+    contact: Contact,
+    isPrimary: boolean,
+  ): void => {
+    const normalized = normalizeChannelValue(kind, raw);
+    if (normalized.length === 0) return;
+
+    const key = `${kind}:${normalized}`;
+    const bucket = buckets.get(key) ?? { kind, normalized, holders: new Map<string, SharedChannelHolder>() };
+    const existing = bucket.holders.get(contact.id);
+
+    // A contact counts once however many of its own fields carry the value: this screen is about
+    // a value spanning several people, and the same value twice on one contact is the other
+    // screen's business. The primary spelling wins because that is the one in use.
+    if (existing === undefined || (isPrimary && !existing.isPrimary)) {
+      bucket.holders.set(contact.id, { contact, isPrimary, value: raw.trim() });
+    }
+
+    buckets.set(key, bucket);
+  };
+
+  for (const contact of contacts) {
+    record("phone", contact.phone ?? "", contact, true);
+    record("email", contact.email ?? "", contact, true);
+  }
+
+  for (const channel of channels) {
+    const owner = byId.get(channel.contactId);
+    if (owner === undefined) continue;
+    record(channel.kind, channel.value, owner, false);
+  }
+
+  const groups: SharedChannelGroup[] = [];
+
+  for (const [key, bucket] of buckets) {
+    if (bucket.holders.size < 2) continue;
+
+    const holders = [...bucket.holders.values()].sort((left, right) => {
+      if (left.isPrimary !== right.isPrimary) return left.isPrimary ? -1 : 1;
+      return left.contact.name.localeCompare(right.contact.name, "vi");
+    });
+
+    groups.push({
+      key,
+      kind: bucket.kind,
+      valueNormalized: bucket.normalized,
+      value: (holders.find((entry) => entry.isPrimary) ?? holders[0]).value,
+      holders,
+      businesses: holders
+        .filter((entry) => entry.contact.contactType === "business")
+        .map((entry) => entry.contact),
+    });
+  }
+
+  // The worst tangle first, then phones before emails, then alphabetically — so the order is the
+  // same on every visit and the list does not reshuffle under someone mid-decision.
+  return groups.sort((left, right) => {
+    if (left.holders.length !== right.holders.length) return right.holders.length - left.holders.length;
+    if (left.kind !== right.kind) return left.kind === "phone" ? -1 : 1;
+    return left.value.localeCompare(right.value, "vi");
+  });
+}
+
+/**
+ * Whether this value can be declared a company's.
+ *
+ * Offered only when a company is already among the holders. Without that, the choice would mean
+ * picking a company out of the whole address book — a different, larger decision than the one
+ * this screen is about, and one nobody asked for while tidying up a duplicate.
+ */
+export function canAssignToBusiness(group: SharedChannelGroup): boolean {
+  return group.businesses.length > 0;
+}
+
+/** What the reader chose to do about one shared value. */
+export type SharedChannelChoice =
+  | { kind: "keep-one"; contactId: string }
+  | { kind: "remove-all" }
+  | { kind: "assign-business"; contactId: string };
+
+/**
+ * Which contacts a choice touches, and which it must leave alone.
+ *
+ * Kept as a pure function rather than living inside the mutation, because "does not delete from
+ * the wrong contact" is the whole promise of this screen and it should be checkable without a
+ * server. Anything not in `detachFrom` keeps its value.
+ *
+ * A choice naming a contact that does not hold the value returns a problem and an EMPTY list —
+ * never "detach from everyone". A stale screen acting on a group that has since changed is the
+ * one situation where a permissive fallback would delete the most and explain the least.
+ */
+export type SharedChannelPlan = {
+  /**
+   * The company that should end up holding this value, or null when nothing needs adding.
+   *
+   * The whole holder rather than the contact, because the value travels with it: a company keeps
+   * the number as IT spells it, not as whichever holder happened to name the group.
+   */
+  ensureOn: SharedChannelHolder | null;
+  detachFrom: SharedChannelHolder[];
+  problem: string | null;
+};
+
+export function planSharedChannelFix(
+  group: SharedChannelGroup,
+  choice: SharedChannelChoice,
+): SharedChannelPlan {
+  if (choice.kind === "remove-all") {
+    return { ensureOn: null, detachFrom: [...group.holders], problem: null };
+  }
+
+  const chosen = group.holders.find((entry) => entry.contact.id === choice.contactId);
+  if (chosen === undefined) {
+    return {
+      ensureOn: null,
+      detachFrom: [],
+      problem: "Liên hệ này không còn giữ số/email đó nữa. Hãy tải lại danh sách.",
+    };
+  }
+
+  if (choice.kind === "assign-business") {
+    if (chosen.contact.contactType !== "business") {
+      return {
+        ensureOn: null,
+        detachFrom: [],
+        problem: "Chỉ gán được cho một liên hệ doanh nghiệp.",
+      };
+    }
+
+    return {
+      // Already held by definition — the company is one of the holders. The call is made anyway
+      // so the company is certain to keep it whatever order the detaching happens in, and
+      // `add_contact_channel` answers a repeat with the row it already has.
+      ensureOn: chosen,
+      detachFrom: group.holders.filter((entry) => entry.contact.id !== chosen.contact.id),
+      problem: null,
+    };
+  }
+
+  return {
+    ensureOn: null,
+    detachFrom: group.holders.filter((entry) => entry.contact.id !== chosen.contact.id),
+    problem: null,
+  };
+}
+
+/** What actually happened, contact by contact — a partial success is the common outcome. */
+export type SharedChannelOutcome = {
+  detached: number;
+  failures: { contactName: string; reason: string }[];
+};
+
+/**
+ * How many separate things this screen is asking about, across both kinds of review.
+ *
+ * One number, because the banner that leads here is one sentence: someone with two unconfirmed
+ * numbers and one shared number has three things to look at, not two lists to add up themselves.
+ */
+export function reviewTotal(contactGroups: number, sharedGroups: number): number {
+  return contactGroups + sharedGroups;
+}
+
 // ------------------------------------------------------------------ writing
 
 /**
@@ -420,5 +634,31 @@ export async function renameChannel(channelId: string, label: string): Promise<v
 
 export async function deleteContactChannel(channelId: string): Promise<void> {
   const { error } = await supabase.from("contact_channel").delete().eq("id", channelId);
+  if (error) throw fail(error.code, error.message);
+}
+
+/**
+ * Takes one value off one contact, wherever that contact was keeping it.
+ *
+ * Addressed by value rather than by row id because the caller is answering "this number does not
+ * belong to this person", and whether it sat in the contact's phone field or in a channel row is
+ * an implementation detail of the storage, not of the decision.
+ *
+ * Goes through an RPC because both halves of the job — clearing the field and promoting whatever
+ * number is left to take its place — have to happen together or not at all. Two calls from here
+ * would leave a moment where the contact has numbers on file but none of them reachable, and
+ * `update_contact` would refuse to save that contact until someone noticed.
+ */
+export async function detachContactChannel(input: {
+  contactId: string;
+  kind: ChannelKind;
+  value: string;
+}): Promise<void> {
+  const { error } = await supabase.rpc("detach_contact_channel", {
+    p_contact_id: input.contactId,
+    p_kind: input.kind,
+    p_value: input.value.trim(),
+  });
+
   if (error) throw fail(error.code, error.message);
 }

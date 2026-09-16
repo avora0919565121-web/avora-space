@@ -971,6 +971,49 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   not tell which of someone's numbers is the real one, that question is handed over with a way straight to it;
   if nothing was left open, the same place says so and goes back to the address book. A summary that simply
   stopped would leave the unresolved numbers to be discovered weeks later, by accident.
+- 2026-09-16 — There are two ways a phone number can be tangled, and they are opposite questions. One person
+  with three numbers asks "which of these is theirs"; one number on three people asks "which of these people
+  is it". They read almost identically as sentences and mean nothing alike, so they sit in separate blocks
+  under their own headings, each absent entirely when it has nothing in it. Interleaving them would turn every
+  row into a small puzzle about what is being asked before it could be answered.
+- 2026-09-16 — A shared number is found by grouping the address book on read, not by a stored flag or a
+  scheduled sweep. It is a fact about the data as it stands rather than an event anyone caused, so a contact
+  created a second ago is already part of it and there is no cache to fall out of date. The two lists this
+  screen already loads are enough; the check costs no request at all. Primary and extra channels are compared
+  in one pass, because a number shared between one contact's phone field and another's spare channel is
+  exactly the case a cheaper check misses.
+- 2026-09-16 — A contact holding the same number twice does not count as sharing it with itself. That is the
+  other block's question, and counting it here would report a tangle no choice on this card could fix.
+- 2026-09-16 — Taking a number off a contact is addressed by the number, not by the row holding it. The person
+  is answering "this is not theirs"; whether their copy sat in the contact's own phone field or in the
+  extra-channels table is a fact about storage, not about the decision. One call, because clearing the field
+  and promoting whatever number is left to replace it have to happen together — done separately there would be
+  a moment where the contact has numbers on file but none reachable, and saving that contact would be refused
+  until somebody worked out why.
+- 2026-09-16 — Nothing may leave a contact with no way to reach it. Creating and editing both demand at least
+  one channel, so a removal that emptied the last one would produce a record that can never be saved again
+  while still looking fine on screen. If another number or address is on file it takes the place; if there is
+  genuinely nothing left, the removal is refused and says that plainly.
+- 2026-09-16 — The three answers are offered plainly and none is chosen for the reader. Every one of them
+  deletes something from somebody's contact, which is precisely where a second press earns its cost — unlike
+  the everyday acts elsewhere in AVORA, which are never made to ask twice.
+- 2026-09-16 — "This belongs to a company" is offered only when a company is already one of the holders.
+  Otherwise the answer would mean picking a company out of the whole address book: a larger, different
+  decision than the one being made, and not one anybody asked for while tidying a duplicate.
+- 2026-09-16 — When a number is declared a company's, the company is made certain of it before anyone gives it
+  up. In the other order a refusal halfway through would leave the number on nobody at all. Each holder is
+  also cleared separately and a refusal is reported by name: six contacts sharing a number is already a mess,
+  and abandoning the cleanup at the second one leaves a worse one.
+- 2026-09-16 — A card acting on a group that has since changed deletes nothing. Naming a contact that no
+  longer holds the value yields an empty plan and an explanation, never a fallback of "remove from everyone" —
+  a stale screen is the one case where the permissive reading would destroy the most and explain the least.
+- 2026-09-16 — Each contact keeps its own spelling of a shared number, including the company that ends up
+  owning it. "+84 900 111 222" and "0900111222" are one number to every rule in the system and two different
+  things to the person who typed one of them, so the card shows what each contact actually stored and each
+  removal quotes that contact back to itself.
+- 2026-09-16 — The banner into this screen counts both kinds of tangle as one number. Someone with two
+  unconfirmed numbers and one shared number has three things to look at, not two lists to add up in their head
+  — though the line beneath still says which kinds are waiting, because the two need different thinking.
 
 ## Out of scope
 

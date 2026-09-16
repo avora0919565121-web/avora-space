@@ -3,14 +3,22 @@ import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { SharedChannelCard } from "@/components/contacts/SharedChannelCard";
 import { Button } from "@/components/ui/button";
 import {
   channelSourceLabel,
   type ChannelKind,
   type ContactChannel,
+  type SharedChannelChoice,
+  type SharedChannelGroup,
 } from "@/lib/contact-channels";
 import { type Contact } from "@/lib/contacts";
-import { useContactChannelActions, useContactsNeedingReview } from "@/lib/use-contact-channels";
+import {
+  useContactChannelActions,
+  useContactsNeedingReview,
+  useSharedChannelFix,
+  useSharedChannels,
+} from "@/lib/use-contact-channels";
 
 /**
  * The numbers and addresses an import brought in that nobody has vouched for yet.
@@ -22,11 +30,18 @@ import { useContactChannelActions, useContactsNeedingReview } from "@/lib/use-co
  *
  * Confirming is the ordinary act and reads as "đúng rồi", not as an edit: most of these values
  * are correct, and the flag is about attention, not suspicion.
+ *
+ * Two different questions live here, in two blocks that never mix. One asks which of a person's
+ * several numbers is real; the other asks which person a single number belongs to. They read
+ * almost identically as sentences and mean opposite things, so interleaving them would turn every
+ * row into a small puzzle about what is being asked.
  */
 const ContactChannelReview = () => {
   const navigate = useNavigate();
   const { groups, isPending, isError, error } = useContactsNeedingReview();
+  const shared = useSharedChannels();
   const { confirm, confirmContact, remove, isWorking } = useContactChannelActions();
+  const { apply, isWorking: isFixing } = useSharedChannelFix();
   const [notice, setNotice] = useState<string | null>(null);
 
   const act = useCallback(async (run: () => Promise<void>): Promise<void> => {
@@ -38,7 +53,34 @@ const ContactChannelReview = () => {
     }
   }, []);
 
-  if (isPending) {
+  /**
+   * A cleanup that only partly worked says which contacts refused and why. Reporting just
+   * "failed" would leave someone re-pressing a button that is doing most of its job.
+   */
+  const fix = useCallback(
+    async (group: SharedChannelGroup, choice: SharedChannelChoice): Promise<void> => {
+      setNotice(null);
+      try {
+        const outcome = await apply(group, choice);
+        if (outcome.failures.length > 0) {
+          const names = outcome.failures.map((entry) => entry.contactName).join(", ");
+          setNotice(`Chưa bỏ được khỏi: ${names}. ${outcome.failures[0].reason}`);
+        }
+      } catch (problem) {
+        setNotice((problem as Error).message);
+      }
+    },
+    [apply],
+  );
+
+  const openContact = useCallback(
+    (contactId: string): void => {
+      navigate(`/lien-he/${contactId}`);
+    },
+    [navigate],
+  );
+
+  if (isPending || shared.isPending) {
     return (
       <Shell onBack={() => navigate("/lien-he")}>
         <div className="space-y-3" aria-hidden="true">
@@ -49,12 +91,12 @@ const ContactChannelReview = () => {
     );
   }
 
-  if (isError) {
+  if (isError || shared.isError) {
     return (
       <Shell onBack={() => navigate("/lien-he")}>
         <div className="rounded-xl border border-border bg-card px-6 py-10 text-center">
           <p className="text-[14px] text-muted-foreground">
-            {error?.message ?? "Không đọc được danh sách cần xem lại."}
+            {error?.message ?? shared.error?.message ?? "Không đọc được danh sách cần xem lại."}
           </p>
         </div>
       </Shell>
@@ -65,7 +107,7 @@ const ContactChannelReview = () => {
    * An empty list here is a finished job, not a missing feature, so it says so and points back
    * to the address book instead of leaving a blank page with nothing to do.
    */
-  if (groups.length === 0) {
+  if (groups.length === 0 && shared.groups.length === 0) {
     return (
       <Shell onBack={() => navigate("/lien-he")}>
         <div className="rounded-xl border border-border bg-card px-6 py-14 text-center">
@@ -89,8 +131,7 @@ const ContactChannelReview = () => {
       <header>
         <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Cần xem lại</h1>
         <p className="mt-1 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-          {groups.length} liên hệ có nhiều số điện thoại hoặc email. AVORA không tự chọn giúp bạn —
-          hãy giữ lại cái đúng và bỏ cái không còn dùng.
+          AVORA không tự chọn giúp bạn — hãy giữ lại cái đúng và bỏ cái không còn dùng.
         </p>
       </header>
 
@@ -100,20 +141,55 @@ const ContactChannelReview = () => {
         </p>
       ) : null}
 
-      <ul className="mt-6 space-y-4">
-        {groups.map((group) => (
-          <ReviewCard
-            key={group.contact.id}
-            contact={group.contact}
-            channels={group.channels}
-            isWorking={isWorking}
-            onOpen={() => navigate(`/lien-he/${group.contact.id}`)}
-            onConfirmAll={() => void act(() => confirmContact(group.contact.id))}
-            onConfirm={(channelId) => void act(() => confirm(channelId))}
-            onRemove={(channelId) => void act(() => remove(channelId))}
-          />
-        ))}
-      </ul>
+      {/* Each block only exists when it has something in it: an empty heading is a to-do list
+          item that cannot be done. */}
+      {groups.length > 0 ? (
+        <section className="mt-7">
+          <h2 className="text-[16px] font-semibold text-foreground">
+            {groups.length} liên hệ có nhiều số điện thoại hoặc email
+          </h2>
+          <p className="mt-1 max-w-xl text-[13.5px] leading-relaxed text-muted-foreground">
+            Chưa biết số nào mới là số họ dùng.
+          </p>
+          <ul className="mt-4 space-y-4">
+            {groups.map((group) => (
+              <ReviewCard
+                key={group.contact.id}
+                contact={group.contact}
+                channels={group.channels}
+                isWorking={isWorking}
+                onOpen={() => openContact(group.contact.id)}
+                onConfirmAll={() => void act(() => confirmContact(group.contact.id))}
+                onConfirm={(channelId) => void act(() => confirm(channelId))}
+                onRemove={(channelId) => void act(() => remove(channelId))}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      {shared.groups.length > 0 ? (
+        <section className="mt-9">
+          <h2 className="text-[16px] font-semibold text-foreground">
+            {shared.groups.length} số điện thoại hoặc email đang dùng chung
+          </h2>
+          <p className="mt-1 max-w-xl text-[13.5px] leading-relaxed text-muted-foreground">
+            Cùng một cách liên lạc đang nằm ở nhiều liên hệ — có thể là số chung của một nơi làm
+            việc, hoặc đã gõ vào đúng một dòng không phải của nó.
+          </p>
+          <ul className="mt-4 space-y-4">
+            {shared.groups.map((group) => (
+              <SharedChannelCard
+                key={group.key}
+                group={group}
+                isWorking={isFixing}
+                onApply={(choice) => void fix(group, choice)}
+                onOpenContact={openContact}
+              />
+            ))}
+          </ul>
+        </section>
+      ) : null}
     </Shell>
   );
 };

@@ -8,14 +8,20 @@ import {
   contactChannelKeys,
   contactsNeedingReview,
   deleteContactChannel,
+  detachContactChannel,
   fetchContactChannels,
   markChannelReviewed,
   markContactReviewed,
+  planSharedChannelFix,
   renameChannel,
+  sharedChannelGroups,
   type ChannelKind,
   type ChannelMatch,
   type ChannelSource,
   type ContactChannel,
+  type SharedChannelChoice,
+  type SharedChannelGroup,
+  type SharedChannelOutcome,
 } from "@/lib/contact-channels";
 import { contactKeys, type Contact } from "@/lib/contacts";
 import { useContacts } from "@/lib/use-contacts";
@@ -87,6 +93,107 @@ export function useContactsNeedingReview(): {
     isPending: contactsQuery.isPending || channelsQuery.isPending,
     isError: contactsQuery.isError || channelsQuery.isError,
     error: (contactsQuery.error ?? channelsQuery.error) as Error | null,
+  };
+}
+
+/**
+ * The values that more than one contact is holding.
+ *
+ * Read from the same two queries as everything else on the review screen rather than a query of
+ * its own: the detection is a grouping of the address book, so a contact created a second ago is
+ * already part of it, and there is no cache to fall out of date.
+ */
+export function useSharedChannels(): {
+  groups: SharedChannelGroup[];
+  count: number;
+  isPending: boolean;
+  isError: boolean;
+  error: Error | null;
+} {
+  const contactsQuery = useContacts();
+  const channelsQuery = useContactChannels();
+
+  const groups = useMemo(
+    () => sharedChannelGroups(contactsQuery.data ?? [], channelsQuery.data ?? []),
+    [contactsQuery.data, channelsQuery.data],
+  );
+
+  return {
+    groups,
+    count: groups.length,
+    isPending: contactsQuery.isPending || channelsQuery.isPending,
+    isError: contactsQuery.isError || channelsQuery.isError,
+    error: (contactsQuery.error ?? channelsQuery.error) as Error | null,
+  };
+}
+
+/**
+ * Carrying out one decision about one shared value.
+ *
+ * The company keeps the value first, then the others give it up: done the other way round, a
+ * failure halfway through would leave the number on nobody. Each contact is detached separately
+ * and a refusal on one is reported by name instead of stopping the rest — six contacts sharing a
+ * number is already a mess, and abandoning the cleanup at the second one leaves a worse one.
+ */
+export function useSharedChannelFix(): {
+  apply: (group: SharedChannelGroup, choice: SharedChannelChoice) => Promise<SharedChannelOutcome>;
+  isWorking: boolean;
+} {
+  const queryClient = useQueryClient();
+
+  const mutation = useMutation<
+    SharedChannelOutcome,
+    Error,
+    { group: SharedChannelGroup; choice: SharedChannelChoice }
+  >({
+    mutationFn: async ({ group, choice }) => {
+      const plan = planSharedChannelFix(group, choice);
+      if (plan.problem !== null) throw new Error(plan.problem);
+
+      const failures: { contactName: string; reason: string }[] = [];
+      let detached = 0;
+
+      if (plan.ensureOn !== null) {
+        await addContactChannel({
+          contactId: plan.ensureOn.contact.id,
+          kind: group.kind,
+          value: plan.ensureOn.value,
+          source: "manual",
+          needsReview: false,
+        });
+      }
+
+      for (const holder of plan.detachFrom) {
+        try {
+          await detachContactChannel({
+            contactId: holder.contact.id,
+            kind: group.kind,
+            value: holder.value,
+          });
+          detached += 1;
+        } catch (problem) {
+          failures.push({
+            contactName: holder.contact.name,
+            reason: (problem as Error).message,
+          });
+        }
+      }
+
+      return { detached, failures };
+    },
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: contactChannelKeys.all });
+      void queryClient.invalidateQueries({ queryKey: contactKeys.all });
+    },
+  });
+
+  return {
+    apply: useCallback(
+      (group: SharedChannelGroup, choice: SharedChannelChoice) =>
+        mutation.mutateAsync({ group, choice }),
+      [mutation],
+    ),
+    isWorking: mutation.isPending,
   };
 }
 

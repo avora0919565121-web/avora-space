@@ -2102,6 +2102,36 @@ export type Database = {
         Args: { p_contact_id: string; p_method: string }
         Returns: string
       }
+      detach_contact_channel: {
+        Args: { p_contact_id: string; p_kind: string; p_value: string }
+        Returns: {
+          business_address: string | null
+          contact_type: string
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          employer_contact_id: string | null
+          id: string
+          industry: string | null
+          linked_user_id: string | null
+          name: string
+          note: string | null
+          owner_user_id: string
+          phone: string | null
+          relationship_tag: string | null
+          representative_email: string | null
+          representative_name: string | null
+          representative_phone: string | null
+          tax_code: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "contact"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_direct_conversation: {
         Args: { other_user_id: string }
         Returns: string
