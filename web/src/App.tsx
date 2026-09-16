@@ -11,6 +11,7 @@ import { HOME_ROUTE } from "@/lib/navigation";
 import { ChatRealtimeProvider } from "@/lib/realtime";
 
 import Auth from "./pages/Auth";
+import ContactDetail from "./pages/ContactDetail";
 import Contacts from "./pages/Contacts";
 import Dashboard from "./pages/Dashboard";
 import Finance from "./pages/Finance";
@@ -69,6 +70,7 @@ const App = () => (
                 </Route>
 
                 <Route path="/lien-he" element={<Contacts />} />
+                <Route path="/lien-he/:contactId" element={<ContactDetail />} />
 
                 {/* Routes that were published under their old names keep working. */}
                 <Route path="/tai-chinh" element={<LegacyRedirect />} />

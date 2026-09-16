@@ -794,6 +794,36 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   table itself grants no UPDATE, so a status cannot be flipped by hand. Accepting writes both directions at
   once: the inviter's contact gains the link, and the person accepting gets their own contact pointing back.
   A relationship only one side can see is not a relationship.
+- 2026-09-16 — Liên hệ stopped being a by-product of having chatted. It used to list whoever a conversation
+  existed with, which quietly meant the address book could not hold the people who matter most before the
+  first message — or anyone not on AVORA at all. It now reads the contact records themselves, so a contact
+  exists because someone decided to keep it, and stays after the last message.
+- 2026-09-16 — People and companies are two tabs, never one mixed list. They answer different questions
+  ("who do I call" / "who do I invoice"), they are searched by different fields — a person by name, phone or
+  email, a company by name or the tax code being copied off an invoice — and their rows carry different facts.
+  Sorting them together by name would put a tax code between two phone numbers. A company's representative is
+  deliberately not searchable: the row on screen shows the company and its code, so a hit on a hidden field
+  would read as a bug.
+- 2026-09-16 — Adding a contact begins by naming what it is. The type is asked before anything is typed,
+  because it cannot be changed afterwards and the two forms barely overlap; one form with fields that appear
+  and vanish would make that permanent decision invisibly, halfway through filling it in. The form's own checks
+  are a mirror of the database's, kept only so the button can explain itself before a round trip — the server
+  validates independently and is the one that decides.
+- 2026-09-16 — A company's record offers no invitation and no message button, and the absence is the point.
+  A company does not sign in, so a button that existed only to be refused would promise something the model
+  never made. It shows who works there instead — the question actually asked of a company. An empty staff list
+  says so in one line rather than hiding the section: "nobody recorded yet" and "no such field" are different
+  facts, and hiding the block would make the first look like the second.
+- 2026-09-16 — An invitation is prepared, not sent. Each channel opens the person's own messages app with the
+  text already written, so the last read and the send belong to them — the same rule that keeps AVORA out of
+  calendars and phone calls. Once one is waiting, the buttons are replaced by its status rather than sitting
+  beside it: a second invitation would issue a second token, and the one they already tapped would be wrong.
+- 2026-09-16 — Editing measures a contact against the type it was born with. `update_contact` takes no type
+  parameter at all — it re-reads the stored one and applies that type's rules, so a person cannot be edited
+  into a company. Ownership is re-checked inside the function rather than left to RLS, since a definer function
+  bypasses it, and the employer must be a company in the caller's own book: the trigger blocks pointing at a
+  non-company, but only this check blocks pointing at someone else's. The link to an account is not editable
+  by any form — only accepting an invitation sets it.
 
 ## Out of scope
 
