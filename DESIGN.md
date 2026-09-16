@@ -1014,6 +1014,48 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - 2026-09-16 — The banner into this screen counts both kinds of tangle as one number. Someone with two
   unconfirmed numbers and one shared number has three things to look at, not two lists to add up in their head
   — though the line beneath still says which kinds are waiting, because the two need different thinking.
+- 2026-09-16 — A phone book export is the third way in, because on an iPhone it is the only way in. Safari has
+  no contacts picker and never will by our doing — Apple withholds it — so an iPhone owner previously had no
+  bulk route at all short of typing a spreadsheet by hand. The same file is what Android, Outlook and Gmail
+  export, so one reader serves every device rather than one per vendor.
+- 2026-09-16 — The phone book file is not a separate feature. It is chosen in the same dialog, by extension
+  alongside the spreadsheet, and from the preview onwards runs the identical code: same duplicate matching,
+  same company question, same invitations. A second "import contacts from vCard" flow would double every
+  decision the first one already answers and let the two drift apart.
+- 2026-09-16 — Every number on a card is kept, not the first of each kind. A person with a mobile, a desk line
+  and a home number has three, and an import that silently took one would lose the other two at the moment
+  they were finally being written down. The first of each kind becomes the contact's own field and the rest
+  are filed as extra channels, exactly as a spreadsheet's second column is.
+- 2026-09-16 — The card's own `TYPE=WORK` pre-fills a channel name and decides nothing. Phone books disagree
+  about these words — an iPhone writes CELL for a number its owner uses purely for work — so it arrives as a
+  suggestion the person can rename. A type nobody can interpret suggests no name at all: an invented "Khác"
+  would read as though somebody had decided something.
+- 2026-09-16 — A card naming a company still waits to be confirmed as one. Apple states it outright, and an
+  organisation standing alone with no person beside it is the other honest sign; an employer written next to
+  somebody's name is not, and guessing there would file a person as a firm. Either way the card cannot supply
+  a tax code or a representative, so the row stays unimportable until a person supplies them.
+- 2026-09-16 — One unreadable card costs one contact, never the address book. The file is cut into cards
+  before the parser sees any of them, because the parser refuses a whole file over a single bad entry — and
+  a truncated card stops at the next one rather than swallowing the person written after it. Cards that
+  yielded nothing at all are counted and shown, in the same place a spreadsheet's unusable lines are.
+- 2026-09-16 — Line endings, an unknown version number and Android's quoted-printable are repaired rather
+  than refused. All three are facts about how a file was written, not about the contact inside it, and a card
+  whose name and number are perfectly legible should not be dropped over its punctuation.
+- 2026-09-16 — The ceiling rose from five hundred to five thousand only once the two things that made it a
+  real limit were fixed: the preview now renders just the rows on screen, and contacts are written several at
+  a time. A whole phone book is one file, and making somebody split their own contacts into ten pieces was a
+  limit of our making, not theirs. It stays a ceiling — past that a browser holding every row breaks next,
+  and a refusal naming the limit beats a tab that dies silently.
+- 2026-09-16 — Parallel writing is shaped by what can actually collide. Two rows merging into the same
+  existing person run in order, because each sends a whole record built from the copy it read and the second
+  would undo the first; everything else runs freely. Results are filed by position, so the closing report
+  reads in the order of the file the person will go back to.
+- 2026-09-16 — The progress count is painted on a timer, not on every write. At five thousand contacts it
+  changes faster than a screen refreshes, and redrawing the dialog that many times would make the import
+  slower than the requests it is reporting on.
+- 2026-09-16 — Only long lists are virtualised. A dozen phone-book entries in an inner scroller inside a
+  dialog that already scrolls is worse than the problem it solves, so short lists render exactly as before
+  and the machinery appears only when a file is big enough to stutter without it.
 
 ## Out of scope
 

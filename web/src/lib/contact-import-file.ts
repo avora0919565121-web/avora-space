@@ -22,7 +22,8 @@ export function downloadImportTemplate(): string {
 }
 
 /** What the file input accepts. Kept next to the reader that has to honour it. */
-export const IMPORT_ACCEPT = ".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+export const IMPORT_ACCEPT =
+  ".csv,.xlsx,.vcf,text/csv,text/vcard,text/x-vcard,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 /**
  * A cell from a spreadsheet as text.
@@ -48,6 +49,17 @@ function cellToText(value: unknown): string {
 
 function isExcelName(name: string): boolean {
   return /\.xlsx$/i.test(name);
+}
+
+/**
+ * Whether this file is a phone book export rather than a table.
+ *
+ * By extension, like the spreadsheet test above: a `.vcf` arrives as `text/vcard`,
+ * `text/x-vcard`, `text/directory` or nothing at all depending on which phone wrote it, and
+ * picking the reader on that would fail for whole classes of device.
+ */
+export function isVcardName(name: string): boolean {
+  return /\.vcf$/i.test(name);
 }
 
 /** Unreadable files are reported in the user's words, never as a stack trace. */

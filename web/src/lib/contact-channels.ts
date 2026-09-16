@@ -13,7 +13,7 @@ import { toVietnameseContactError, type Contact, type ContactType } from "@/lib/
 export type ChannelKind = "phone" | "email";
 
 /** Where a channel came from. Kept because it answers "why do I have this number?" later. */
-export type ChannelSource = "manual" | "import_csv" | "import_device";
+export type ChannelSource = "manual" | "import_csv" | "import_device" | "import_vcf";
 
 export type ContactChannel = {
   id: string;
@@ -56,7 +56,12 @@ function isChannelKind(value: string): value is ChannelKind {
 }
 
 function isChannelSource(value: string): value is ChannelSource {
-  return value === "manual" || value === "import_csv" || value === "import_device";
+  return (
+    value === "manual" ||
+    value === "import_csv" ||
+    value === "import_device" ||
+    value === "import_vcf"
+  );
 }
 
 function toChannel(row: ContactChannelRow): ContactChannel {
@@ -117,6 +122,9 @@ export function channelKindLabel(kind: ChannelKind): string {
 export function channelSourceLabel(source: ChannelSource): string {
   if (source === "import_csv") return "Nhập từ tệp";
   if (source === "import_device") return "Nhập từ danh bạ máy";
+  // Named apart from the spreadsheet route on purpose: "nhập từ tệp" would be true but
+  // useless to someone retracing where a number came from months later.
+  if (source === "import_vcf") return "Nhập từ file danh bạ";
   return "Tự thêm";
 }
 

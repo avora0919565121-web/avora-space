@@ -17,6 +17,7 @@ const state = vi.hoisted(() => ({
     kind: string;
     value: string;
     source: string;
+    label: string | null;
     needsReview: boolean;
   }[],
   createError: null as string | null,
@@ -74,6 +75,7 @@ vi.mock("@/lib/contact-channels", async () => {
       kind: string;
       value: string;
       source?: string;
+      label?: string | null;
       needsReview?: boolean;
     }) => {
       state.channels.push({
@@ -81,6 +83,7 @@ vi.mock("@/lib/contact-channels", async () => {
         kind: input.kind,
         value: input.value,
         source: input.source ?? "manual",
+        label: input.label ?? null,
         needsReview: input.needsReview ?? false,
       });
       return { id: `ch-${state.channels.length}` };
@@ -136,6 +139,19 @@ function csvFile(...lines: string[]): File {
   return new File([lines.join("\r\n")], "lien-he.csv", { type: "text/csv" });
 }
 
+/**
+ * A phone book export, as a phone would hand it over.
+ *
+ * Given the MIME type iOS sends, to hold the reader to choosing by extension: the same file
+ * arrives as `text/vcard`, `text/x-vcard` or nothing at all depending on the device.
+ */
+function vcardFile(...cards: string[][]): File {
+  const text = cards
+    .map((lines) => ["BEGIN:VCARD", "VERSION:3.0", ...lines, "END:VCARD"].join("\r\n"))
+    .join("\r\n");
+  return new File([text], "Danh bạ.vcf", { type: "text/vcard" });
+}
+
 async function openDialog() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return await render(
@@ -154,7 +170,7 @@ async function openDialog() {
  * a button named "Chọn file liên hệ", so a loose match finds two elements.
  */
 async function upload(screen: Awaited<ReturnType<typeof openDialog>>, file: File) {
-  await userEvent.click(screen.getByRole("button", { name: "Chọn file .csv hoặc .xlsx" }));
+  await userEvent.click(screen.getByRole("button", { name: "Chọn file .csv, .xlsx hoặc .vcf" }));
   // The dialog is portalled to the body, so the input is looked up there rather than in the
   // render container, which holds only the mount point.
   const input = document.querySelector<HTMLInputElement>('input[type="file"]');
@@ -328,6 +344,8 @@ describe("a row carrying two numbers", () => {
         kind: "phone",
         value: "0987000111",
         source: "import_csv",
+        // A spreadsheet has no notion of what to call a number, so nothing is suggested.
+        label: null,
         needsReview: true,
       },
     ]);
@@ -532,4 +550,257 @@ test("a row the server refuses is reported by where it came from", async () => {
   await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
 
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Liên hệ cần có tên.");
+});
+
+/**
+ * The phone book file route.
+ *
+ * This is the only bulk import an iPhone owner can perform — Safari has no contacts picker —
+ * so these run the same dialog, the same preview and the same writing code as the spreadsheet.
+ */
+describe("importing a phone book file", () => {
+  test("the first step says a .vcf is accepted without the template", async () => {
+    const screen = await openDialog();
+
+    await expect
+      .element(screen.getByText(/xuất từ iPhone hay Android/))
+      .toBeInTheDocument();
+  });
+
+  test("reads every card in the file, not only the first", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      vcardFile(
+        ["FN:Nguyễn Văn An", "TEL;type=CELL:0912345678"],
+        ["FN:Trần Thị Bích", "TEL;type=CELL:0987000111"],
+        ["FN:Lê Văn C", "EMAIL:c@example.com"],
+      ),
+    );
+
+    await expect.element(screen.getByText("3 liên hệ sẵn sàng")).toBeInTheDocument();
+  });
+
+  /** The requirement that matters most: a second number must not be thrown away. */
+  test("keeps every number on a card, not just the first", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      vcardFile([
+        "FN:Nhiều Số",
+        "TEL;type=CELL:0912345678",
+        "TEL;type=WORK:02838220011",
+        "EMAIL;type=WORK:work@example.com",
+        "EMAIL;type=HOME:home@example.com",
+      ]),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /Nhiều Số/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    // First of each kind becomes the contact's own field; the rest are filed as channels.
+    expect(state.channels.map((entry) => entry.value)).toEqual([
+      "02838220011",
+      "home@example.com",
+    ]);
+  });
+
+  test("records where the numbers came from", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      vcardFile(["FN:Hai Số", "TEL:0912345678", "TEL:0987000111"]),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /Hai Số/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    expect(state.channels.map((entry) => entry.source)).toEqual(["import_vcf"]);
+  });
+
+  /** TYPE= pre-fills a name for the channel. It is a suggestion, never a decision. */
+  test("passes the card's own words on as a suggested label", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      vcardFile(["FN:Có Nhãn", "TEL;type=CELL:0912345678", "TEL;type=WORK:02838220011"]),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /Có Nhãn/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    expect(state.channels).toEqual([
+      expect.objectContaining({ value: "02838220011", label: "Cơ quan" }),
+    ]);
+  });
+
+  /**
+   * A company suggestion still has to be confirmed. The card cannot supply a tax code, so the
+   * row stays unpickable until a person fills the two fields a company cannot exist without.
+   */
+  test("a company suggestion still waits for the person to complete it", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      vcardFile([
+        "FN:Công ty Cổ phần Sen Vàng",
+        "ORG:Công ty Cổ phần Sen Vàng;Kinh doanh",
+        "X-ABShowAs:COMPANY",
+        "TEL;type=WORK:19001234",
+      ]),
+    );
+
+    await expect.element(screen.getByText("0 liên hệ sẵn sàng")).toBeInTheDocument();
+    await expect.element(screen.getByText(/Doanh nghiệp cần mã số thuế/)).toBeInTheDocument();
+  });
+
+  /** An employer beside a person's name is not a company contact. */
+  test("does not file a person as a company for having an employer", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      vcardFile([
+        "N:Nguyễn;An;;;",
+        "FN:Nguyễn Văn An",
+        "ORG:Công ty TNHH An Phát;",
+        "TEL;type=CELL:0912345678",
+      ]),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /Nguyễn Văn An/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    expect(state.created).toEqual([{ type: "individual", name: "Nguyễn Văn An" }]);
+  });
+
+  /** Same dedup as every other route — no separate branch for phone book files. */
+  test("matches against the book the same way a spreadsheet does", async () => {
+    state.contacts = [{ ...blank("c1", "Chị Hoa"), phone: "0912345678" }];
+    const screen = await openDialog();
+
+    await upload(screen, vcardFile(["FN:Hoa Mới", "TEL:+84 912 345 678"]));
+
+    await expect.element(screen.getByText(/Trùng số điện thoại/)).toBeInTheDocument();
+    await expect.element(screen.getByRole("button", { name: "Gộp" })).toBeInTheDocument();
+  });
+
+  /** An unreadable card costs one contact, never the whole address book. */
+  test("keeps the rest of the file when one card is unreadable", async () => {
+    const screen = await openDialog();
+
+    const good = [
+      "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Đọc được\r\nTEL:0912345678\r\nEND:VCARD",
+      "BEGIN:VCARD\r\nkhông phải thẻ\r\n",
+      "BEGIN:VCARD\r\nVERSION:3.0\r\nFN:Cũng được\r\nTEL:0987000111\r\nEND:VCARD",
+    ].join("\r\n");
+
+    await upload(screen, new File([good], "Danh bạ.vcf", { type: "text/vcard" }));
+
+    await expect.element(screen.getByText("2 liên hệ sẵn sàng")).toBeInTheDocument();
+  });
+
+  test("a phone book past the limit says so instead of starting", async () => {
+    const screen = await openDialog();
+
+    const cards = Array.from({ length: MAX_IMPORT_ROWS + 1 }, (_unused, index) => [
+      `FN:Người ${index}`,
+      `TEL:09${String(index).padStart(8, "0")}`,
+    ]);
+    await upload(screen, vcardFile(...cards));
+
+    await expect
+      .element(screen.getByRole("alert"))
+      .toHaveTextContent(`vượt giới hạn ${MAX_IMPORT_ROWS}`);
+  });
+});
+
+describe("a file of real size", () => {
+  /**
+   * Only the rows near the viewport are in the document. Rendering five thousand at once is
+   * what made the preview stutter, and the count line above still speaks for all of them.
+   */
+  test("renders a fraction of a long list, not all of it", async () => {
+    const screen = await openDialog();
+
+    const body = Array.from({ length: 800 }, (_unused, index) =>
+      line({ loai: "ca_nhan", ten: `Người ${index}`, email: `n${index}@example.com` }),
+    );
+    await upload(screen, csvFile(HEADER, ...body));
+
+    await expect.element(screen.getByText("800 liên hệ sẵn sàng")).toBeInTheDocument();
+
+    const rendered = document.querySelectorAll('[role="checkbox"]').length;
+    expect(rendered).toBeGreaterThan(0);
+    expect(rendered).toBeLessThan(100);
+  });
+
+  /** Ticking all of them is one act, and it must count every row, not the rendered few. */
+  test("selecting all covers the rows that were never drawn", async () => {
+    const screen = await openDialog();
+
+    const body = Array.from({ length: 800 }, (_unused, index) =>
+      line({ loai: "ca_nhan", ten: `Người ${index}`, email: `n${index}@example.com` }),
+    );
+    await upload(screen, csvFile(HEADER, ...body));
+    await userEvent.click(screen.getByRole("button", { name: /Chọn tất cả 800/ }));
+
+    await expect
+      .element(screen.getByRole("button", { name: "Nhập 800 liên hệ đã chọn" }))
+      .toBeEnabled();
+  });
+
+  /** A short list is left exactly as it was: no inner scroller, every row present. */
+  test("leaves a short list rendered in full", async () => {
+    const screen = await openDialog();
+
+    const body = Array.from({ length: 6 }, (_unused, index) =>
+      line({ loai: "ca_nhan", ten: `Người ${index}`, email: `n${index}@example.com` }),
+    );
+    await upload(screen, csvFile(HEADER, ...body));
+
+    expect(document.querySelectorAll('[role="checkbox"]')).toHaveLength(6);
+  });
+
+  /** Failures are reported in file order, however the parallel writes happened to finish. */
+  test("reports failures in the order they appear in the file", async () => {
+    const screen = await openDialog();
+
+    state.createError = "Máy chủ từ chối.";
+    await upload(
+      screen,
+      csvFile(
+        HEADER,
+        line({ loai: "ca_nhan", ten: "Một", email: "a@example.com" }),
+        line({ loai: "ca_nhan", ten: "Hai", email: "b@example.com" }),
+        line({ loai: "ca_nhan", ten: "Ba", email: "c@example.com" }),
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Chọn tất cả/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 3 liên hệ/ }));
+
+    await expect.element(screen.getByRole("alert")).toHaveTextContent("Máy chủ từ chối.");
+  });
+
+  /** Everything ticked is written, and the run does not stop at the first refusal. */
+  test("writes every ticked row even when one of them fails", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      csvFile(
+        HEADER,
+        ...Array.from({ length: 40 }, (_unused, index) =>
+          line({ loai: "ca_nhan", ten: `Người ${index}`, email: `n${index}@example.com` }),
+        ),
+      ),
+    );
+    await userEvent.click(screen.getByRole("button", { name: /Chọn tất cả 40/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 40 liên hệ/ }));
+
+    expect(state.created).toHaveLength(40);
+    // File order survives the parallel run, so the closing report reads the way the file does.
+    expect(state.created[0].name).toBe("Người 0");
+  });
 });

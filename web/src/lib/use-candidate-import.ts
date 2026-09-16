@@ -36,15 +36,57 @@ export type CandidateOutcome = {
 };
 
 /**
- * Writing the ticked candidates, one at a time.
+ * How many contacts are written at the same time.
  *
- * Sequential rather than parallel: each candidate is a `create_contact` round trip that can fail
- * on its own terms, and a failure has to be attributable to something the person can locate in
- * their file or their phone book. Firing them together would also let two entries for the same
- * new person race each other into the book.
+ * Enough that the waiting is spent in parallel instead of end to end — five thousand contacts
+ * written one after another is minutes of staring at a bar. Not so many that a single import
+ * saturates the connection pool the rest of the app shares, or reads to the server like
+ * something to rate-limit.
+ */
+const IMPORT_CONCURRENCY = 12;
+
+/** One ticked row, paired with everything already decided about it. */
+type PlannedWrite = {
+  /** Position in the ticked list. Results are filed by it so the report keeps file order. */
+  index: number;
+  row: CandidateRow;
+  decision: TypeDecision;
+  choice: CandidateChoice;
+};
+
+type WriteResult =
+  | { kind: "created"; contact: Contact; reviewable: boolean }
+  | { kind: "merged"; contact: Contact; reviewable: boolean }
+  | { kind: "skipped" }
+  | { kind: "failed"; failure: CandidateFailure };
+
+/**
+ * Which writes must not overlap each other.
  *
- * A failure does not stop the run. The rest are still written and every failure is reported with
- * its origin, so a partly bad file still gets its good rows in.
+ * Two rows merging into the same existing contact are the one genuine race here: each sends a
+ * whole draft built from the copy of that contact it read, so run together the second would
+ * overwrite what the first had just filled in. They are put in one lane and run in order.
+ *
+ * Everything else gets a lane of its own, because a create touches nobody else's row.
+ */
+function laneKeyOf(task: PlannedWrite): string {
+  if (task.choice === "merge" && task.row.duplicate !== null) {
+    return `contact:${task.row.duplicate.contactId}`;
+  }
+  return `row:${task.index}`;
+}
+
+/**
+ * Writing the ticked candidates, several at a time.
+ *
+ * The work is split into lanes that cannot interfere, and a small pool of workers takes a lane
+ * at a time. Within a lane the writes stay in order, so merging two spreadsheet rows into one
+ * existing person still happens one after the other and neither overwrites the other.
+ *
+ * A failure does not stop the run: the rest are still written, and every failure is reported
+ * with its origin so a partly bad file still gets its good rows in. Results are filed by
+ * position rather than by arrival, which keeps "Dòng 4, Dòng 9" reading in the order the person
+ * will look for them in their file.
  */
 export function useCandidateImport(): {
   run: (
@@ -78,83 +120,147 @@ export function useCandidateImport(): {
         decisions[row.key] ?? EMPTY_TYPE_DECISION;
       const doable = rows.filter((row) => canImportCandidate(row, decisionOf(row)));
 
+      const tasks: PlannedWrite[] = doable.map((row, index) => ({
+        index,
+        row,
+        decision: decisionOf(row),
+        choice: row.duplicate === null ? "create" : (choices[row.key] ?? "skip"),
+      }));
+
+      const total = tasks.length;
+      const results: WriteResult[] = new Array<WriteResult>(total);
+
       setIsRunning(true);
-      setProgress({ done: 0, total: doable.length });
+      setProgress({ done: 0, total });
 
-      try {
-        for (const [index, row] of doable.entries()) {
-          const decision = decisionOf(row);
-          const { candidate } = row;
-          const choice: CandidateChoice =
-            row.duplicate === null ? "create" : (choices[row.key] ?? "skip");
-          const flagged = candidateNeedsReview(candidate);
+      // Painted on a timer rather than on every write. At this size the count changes faster
+      // than a screen refreshes, and re-rendering the dialog five thousand times would make the
+      // import slower than the requests it is reporting on.
+      let done = 0;
+      let paintedAt = 0;
+      const countOne = (): void => {
+        done += 1;
+        const now = Date.now();
+        if (done === total || now - paintedAt >= 80) {
+          paintedAt = now;
+          setProgress({ done, total });
+        }
+      };
 
-          try {
-            if (choice === "skip") continue;
+      const runOne = async (task: PlannedWrite): Promise<WriteResult> => {
+        const { row, decision, choice } = task;
+        const { candidate } = row;
+        const reviewable = candidateNeedsReview(candidate);
 
-            // A merge the screen would not have offered is refused here too, in case the two
-            // ever disagree: the request would otherwise rewrite a company as a person.
-            if (choice === "merge" && row.duplicate !== null && canMergeCandidate(row, decision)) {
-              const existing = contactById(contacts, row.duplicate.contactId);
-              if (existing === null) {
-                outcome.failed.push({
+        try {
+          if (choice === "skip") return { kind: "skipped" };
+
+          // A merge the screen would not have offered is refused here too, in case the two
+          // ever disagree: the request would otherwise rewrite a company as a person.
+          if (choice === "merge" && row.duplicate !== null && canMergeCandidate(row, decision)) {
+            const existing = contactById(contacts, row.duplicate.contactId);
+            if (existing === null) {
+              return {
+                kind: "failed",
+                failure: {
                   origin: row.origin,
                   name: candidate.name,
                   reason: "Liên hệ cần gộp không còn nữa.",
-                });
-                continue;
-              }
-
-              const saved =
-                existing.contactType === "individual"
-                  ? await saveIndividual(existing.id, mergeCandidateIntoIndividual(existing, candidate))
-                  : await saveBusiness(
-                      existing.id,
-                      mergeCandidateIntoBusiness(existing, candidate, decision),
-                    );
-
-              // Every value is offered; the RPC keeps only the ones that are neither the primary
-              // channel nor already stored, so a merge adds numbers without overwriting any.
-              const added = await fileChannels(
-                saved.id,
-                mergeChannelsOf(candidate),
-                candidate.source,
-                flagged,
-              );
-              if (added > 0 && flagged) outcome.needsReviewCount += 1;
-
-              outcome.merged.push(saved);
-              continue;
+                },
+              };
             }
 
-            const type = resolvedType(row, decision);
             const saved =
-              type === "business"
-                ? await addBusiness(candidateToBusinessDraft(candidate, decision))
-                : await addIndividual(candidateToIndividualDraft(candidate));
+              existing.contactType === "individual"
+                ? await saveIndividual(
+                    existing.id,
+                    mergeCandidateIntoIndividual(existing, candidate),
+                  )
+                : await saveBusiness(
+                    existing.id,
+                    mergeCandidateIntoBusiness(existing, candidate, decision),
+                  );
 
+            // Every value is offered; the RPC keeps only the ones that are neither the primary
+            // channel nor already stored, so a merge adds numbers without overwriting any.
             const added = await fileChannels(
               saved.id,
-              extraChannelsOf(candidate),
+              mergeChannelsOf(candidate),
               candidate.source,
-              flagged,
+              reviewable,
             );
-            if (added > 0 && flagged) outcome.needsReviewCount += 1;
 
-            outcome.created.push(saved);
-          } catch (error) {
-            outcome.failed.push({
+            return { kind: "merged", contact: saved, reviewable: reviewable && added > 0 };
+          }
+
+          const type = resolvedType(row, decision);
+          const saved =
+            type === "business"
+              ? await addBusiness(candidateToBusinessDraft(candidate, decision))
+              : await addIndividual(candidateToIndividualDraft(candidate));
+
+          const added = await fileChannels(
+            saved.id,
+            extraChannelsOf(candidate),
+            candidate.source,
+            reviewable,
+          );
+
+          return { kind: "created", contact: saved, reviewable: reviewable && added > 0 };
+        } catch (error) {
+          return {
+            kind: "failed",
+            failure: {
               origin: row.origin,
               name: candidate.name,
               reason: (error as Error).message,
-            });
-          } finally {
-            setProgress({ done: index + 1, total: doable.length });
-          }
+            },
+          };
         }
+      };
+
+      const lanes = new Map<string, PlannedWrite[]>();
+      for (const task of tasks) {
+        const key = laneKeyOf(task);
+        const lane = lanes.get(key);
+        if (lane === undefined) lanes.set(key, [task]);
+        else lane.push(task);
+      }
+
+      const queue = [...lanes.values()];
+      let cursor = 0;
+
+      try {
+        // Workers take the next lane rather than a fixed share, so one slow lane cannot leave
+        // the others idle behind it.
+        await Promise.all(
+          Array.from({ length: Math.min(IMPORT_CONCURRENCY, queue.length) }, async () => {
+            for (;;) {
+              const at = cursor;
+              cursor += 1;
+              if (at >= queue.length) return;
+
+              for (const task of queue[at]) {
+                results[task.index] = await runOne(task);
+                countOne();
+              }
+            }
+          }),
+        );
       } finally {
         setIsRunning(false);
         setProgress(null);
+      }
+
+      for (const result of results) {
+        if (result === undefined || result.kind === "skipped") continue;
+        if (result.kind === "failed") {
+          outcome.failed.push(result.failure);
+          continue;
+        }
+        if (result.reviewable) outcome.needsReviewCount += 1;
+        if (result.kind === "created") outcome.created.push(result.contact);
+        else outcome.merged.push(result.contact);
       }
 
       return outcome;
@@ -188,6 +294,9 @@ async function fileChannels(
         kind: channel.kind,
         value: channel.value,
         source,
+        // Only a vCard suggests one; every other route sends null and the channel stays
+        // unnamed, which is the honest state of not knowing what to call it.
+        label: channel.label,
         needsReview,
       });
       if (saved !== null) stored += 1;

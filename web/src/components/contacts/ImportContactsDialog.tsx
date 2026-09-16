@@ -39,8 +39,10 @@ import {
   downloadImportTemplate,
   IMPORT_ACCEPT,
   ImportFileError,
+  isVcardName,
   readImportFile,
 } from "@/lib/contact-import-file";
+import { parseVcards } from "@/lib/contact-vcard";
 import type { Contact } from "@/lib/contacts";
 import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
 import { useCandidateImport, type CandidateOutcome } from "@/lib/use-candidate-import";
@@ -56,6 +58,30 @@ type Step = "pick" | "preview" | "invite" | "done";
 
 /** What the file itself was wrong about, kept separate from the candidates it did yield. */
 type FileProblems = { invalid: number; sample: number } | null;
+
+/** A phone book export, read card by card. */
+async function readVcardFile(file: File): Promise<{
+  candidates: readonly ImportedContactCandidate[];
+  origins: string[];
+  problems: FileProblems;
+}> {
+  const result = parseVcards(await file.text());
+
+  if (result.total > MAX_IMPORT_ROWS) {
+    throw new ImportFileError(
+      `File có ${result.total} liên hệ, vượt giới hạn ${MAX_IMPORT_ROWS} mỗi lần nhập. Hãy tách thành nhiều file.`,
+    );
+  }
+
+  return {
+    candidates: result.candidates,
+    // Counted over the cards actually read, so the numbering matches what is on screen.
+    origins: result.candidates.map((_entry, position) => `Thẻ ${position + 1}`),
+    // An unreadable card is the same kind of fact as a spreadsheet line missing a column, and
+    // is shown in the same place rather than as a separate species of problem.
+    problems: result.skipped > 0 ? { invalid: result.skipped, sample: 0 } : null,
+  };
+}
 
 /**
  * Importing an address book, whichever way it arrives.
@@ -144,6 +170,22 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
       setNotice(null);
       setIsReading(true);
       try {
+        // The extension picks the reader, as it does between .csv and .xlsx: a .vcf arrives
+        // with a different MIME type from almost every phone, and some send none at all.
+        if (isVcardName(file.name)) {
+          const read = await readVcardFile(file);
+          if (read.candidates.length === 0) {
+            setNotice(
+              read.problems !== null
+                ? "Không đọc được liên hệ nào trong file này. Hãy xuất lại danh bạ rồi thử lại."
+                : "File này không có liên hệ nào.",
+            );
+            return;
+          }
+          startPreview(read.candidates, read.origins, file.name, read.problems);
+          return;
+        }
+
         const table = await readImportFile(file);
         const result = buildImportRows(table);
         if (result.kind === "refused") {
@@ -164,7 +206,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
         setNotice(
           error instanceof ImportFileError
             ? error.message
-            : "Không đọc được file này. Hãy thử lại với file .csv hoặc .xlsx.",
+            : "Không đọc được file này. Hãy thử lại với file .csv, .xlsx hoặc .vcf.",
         );
       } finally {
         setIsReading(false);
@@ -260,7 +302,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
             </DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
               {step === "pick"
-                ? "Từ file bảng tính, hoặc thẳng từ danh bạ trên máy"
+                ? "Từ file bảng tính, file danh bạ (.vcf) xuất từ iPhone/Android, hoặc thẳng từ danh bạ trên máy"
                 : step === "preview"
                   ? (sourceLabel ?? "Chọn những liên hệ muốn lưu")
                   : `${total} liên hệ đã vào danh bạ`}
@@ -408,9 +450,17 @@ function PickStep({
       </div>
 
       <div className="mt-4 rounded-xl border border-border p-5">
-        <h3 className="text-[15px] font-semibold text-foreground">2. Tải file đã điền lên</h3>
+        <h3 className="text-[15px] font-semibold text-foreground">2. Tải file lên</h3>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
-          Tối đa {MAX_IMPORT_ROWS} dòng mỗi lần. Bạn sẽ xem lại từng dòng trước khi có gì được lưu.
+          Tối đa {MAX_IMPORT_ROWS.toLocaleString("vi-VN")} liên hệ mỗi lần. Bạn sẽ xem lại từng
+          liên hệ trước khi có gì được lưu.
+        </p>
+        {/* The one route an iPhone owner has: Safari has no contacts picker, so the phone's own
+            export is what they can actually produce. */}
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+          Nhận cả file danh bạ{" "}
+          <code className="rounded bg-secondary px-1 py-0.5 text-[12.5px]">.vcf</code> xuất từ
+          iPhone hay Android — không cần điền theo mẫu.
         </p>
         <input
           ref={inputRef}
@@ -429,7 +479,7 @@ function PickStep({
           onClick={() => inputRef.current?.click()}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-          {isReading ? "Đang đọc…" : "Chọn file .csv hoặc .xlsx"}
+          {isReading ? "Đang đọc…" : "Chọn file .csv, .xlsx hoặc .vcf"}
         </Button>
       </div>
 

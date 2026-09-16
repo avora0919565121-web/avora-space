@@ -1,4 +1,6 @@
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { AlertTriangle, Building2, Mail, Phone, UserRound } from "lucide-react";
+import { useCallback, useRef } from "react";
 
 import { FieldLabel, contactInputClass } from "@/components/contacts/fields";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -72,19 +74,109 @@ export function CandidatePreview({
         </button>
       ) : null}
 
-      <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
-        {rows.map((row) => (
-          <CandidateItem
-            key={row.key}
-            row={row}
-            isPicked={picked.has(row.key)}
-            choice={choices[row.key] ?? defaultCandidateChoice(row)}
-            decision={decisions[row.key] ?? EMPTY_TYPE_DECISION}
-            onToggle={() => onToggle(row.key)}
-            onChoice={(choice) => onChoice(row.key, choice)}
-            onDecision={(decision) => onDecision(row.key, decision)}
-          />
-        ))}
+      {rows.length > VIRTUALISE_ABOVE ? (
+        <VirtualRows
+          rows={rows}
+          picked={picked}
+          choices={choices}
+          decisions={decisions}
+          onToggle={onToggle}
+          onChoice={onChoice}
+          onDecision={onDecision}
+        />
+      ) : (
+        <ul className="mt-3 overflow-hidden rounded-lg border border-border">
+          {rows.map((row, index) => (
+            <CandidateItem
+              key={row.key}
+              row={row}
+              isLast={index === rows.length - 1}
+              isPicked={picked.has(row.key)}
+              choice={choices[row.key] ?? defaultCandidateChoice(row)}
+              decision={decisions[row.key] ?? EMPTY_TYPE_DECISION}
+              onToggle={() => onToggle(row.key)}
+              onChoice={(choice) => onChoice(row.key, choice)}
+              onDecision={(decision) => onDecision(row.key, decision)}
+            />
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Above this many rows the list gets its own scroller and renders only what is visible.
+ *
+ * Short lists are left exactly as they were. Virtualising a dozen phone-book entries would add
+ * a second scrollbar inside a dialog that already scrolls, and measure every row, to solve a
+ * problem nobody has at that size — the cost is worth paying only once a file is big enough
+ * that rendering all of it would stutter.
+ */
+const VIRTUALISE_ABOVE = 60;
+
+/**
+ * The long version of the same list.
+ *
+ * Heights are measured rather than assumed: a row grows when it turns out to be a duplicate,
+ * and grows again when someone marks it a company and two fields appear. A fixed row height
+ * would leave those rows overlapping their neighbours.
+ */
+function VirtualRows({
+  rows,
+  picked,
+  choices,
+  decisions,
+  onToggle,
+  onChoice,
+  onDecision,
+}: {
+  rows: readonly CandidateRow[];
+  picked: ReadonlySet<string>;
+  choices: Readonly<Record<string, CandidateChoice>>;
+  decisions: Readonly<Record<string, TypeDecision>>;
+  onToggle: (key: string) => void;
+  onChoice: (key: string, choice: CandidateChoice) => void;
+  onDecision: (key: string, decision: TypeDecision) => void;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollRef.current,
+    estimateSize: () => 92,
+    // A few rows beyond the fold, so a flick of the wheel lands on content rather than on gaps.
+    overscan: 8,
+    getItemKey: useCallback((index: number) => rows[index].key, [rows]),
+  });
+
+  const items = virtualizer.getVirtualItems();
+
+  return (
+    <div
+      ref={scrollRef}
+      className="mt-3 max-h-[52vh] overflow-y-auto rounded-lg border border-border"
+    >
+      <ul style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+        {items.map((item) => {
+          const row = rows[item.index];
+          return (
+            <CandidateItem
+              key={row.key}
+              row={row}
+              isLast={item.index === rows.length - 1}
+              isPicked={picked.has(row.key)}
+              choice={choices[row.key] ?? defaultCandidateChoice(row)}
+              decision={decisions[row.key] ?? EMPTY_TYPE_DECISION}
+              onToggle={() => onToggle(row.key)}
+              onChoice={(choice) => onChoice(row.key, choice)}
+              onDecision={(decision) => onDecision(row.key, decision)}
+              measureRef={virtualizer.measureElement}
+              index={item.index}
+              offset={item.start}
+            />
+          );
+        })}
       </ul>
     </div>
   );
@@ -92,29 +184,58 @@ export function CandidatePreview({
 
 function CandidateItem({
   row,
+  isLast,
   isPicked,
   choice,
   decision,
   onToggle,
   onChoice,
   onDecision,
+  measureRef,
+  index,
+  offset,
 }: {
   row: CandidateRow;
+  isLast: boolean;
   isPicked: boolean;
   choice: CandidateChoice;
   decision: TypeDecision;
   onToggle: () => void;
   onChoice: (choice: CandidateChoice) => void;
   onDecision: (decision: TypeDecision) => void;
+  /** Set only in the virtualised list, where each row is placed and measured by hand. */
+  measureRef?: (node: Element | null) => void;
+  index?: number;
+  offset?: number;
 }) {
   const { candidate } = row;
   const problem = candidateProblem(row, decision);
   const usable = canImportCandidate(row, decision);
   const type = resolvedType(row, decision);
   const name = candidate.name.length > 0 ? candidate.name : "(chưa có tên)";
+  const isVirtual = measureRef !== undefined;
 
   return (
-    <li className={cn("px-4 py-3", usable ? null : "bg-primary/[0.04]")}>
+    <li
+      ref={measureRef}
+      data-index={index}
+      className={cn(
+        "px-4 py-3",
+        isLast ? null : "border-b border-border",
+        usable ? null : "bg-primary/[0.04]",
+      )}
+      style={
+        isVirtual
+          ? {
+              position: "absolute",
+              top: 0,
+              left: 0,
+              width: "100%",
+              transform: `translateY(${offset ?? 0}px)`,
+            }
+          : undefined
+      }
+    >
       <div className="flex items-start gap-3">
         {/* A row that cannot be written has no checkbox at all: a disabled one would invite a
             click that can never do anything. */}

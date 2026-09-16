@@ -358,8 +358,8 @@ describe("splitting the channels between the contact row and the channel table",
       }),
     );
     expect(extraChannelsOf(entry)).toEqual([
-      { kind: "phone", value: "0987000111" },
-      { kind: "email", value: "b@e.com" },
+      { kind: "phone", value: "0987000111", label: null },
+      { kind: "email", value: "b@e.com", label: null },
     ]);
   });
 
@@ -523,9 +523,9 @@ describe("merging into someone already there", () => {
       candidate({ name: "Chị Hoa", phones: ["0912345678", "0987000111"], emails: ["a@e.com"] }),
     );
     expect(mergeChannelsOf(entry)).toEqual([
-      { kind: "phone", value: "0912345678" },
-      { kind: "phone", value: "0987000111" },
-      { kind: "email", value: "a@e.com" },
+      { kind: "phone", value: "0912345678", label: null },
+      { kind: "phone", value: "0987000111", label: null },
+      { kind: "email", value: "a@e.com", label: null },
     ]);
   });
 });

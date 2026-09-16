@@ -44,11 +44,15 @@ const TYPE_WORDS: Record<string, ContactType> = {
 /**
  * A hard ceiling, refused before anything is parsed.
  *
- * Every row here becomes one `create_contact` round trip, so a file of thousands would be a
- * progress bar that runs for minutes and fails halfway. Refusing a too-large file up front is
- * honest; pretending to accept it is not.
+ * Ten times what it was, which the two changes underneath it now support: the preview renders
+ * only the rows on screen, and the writing runs several contacts at a time instead of queueing
+ * thousands of round trips end to end. A whole phone book is one file, and a ceiling that
+ * forced someone to split their own contacts into ten pieces was a limit of our making.
+ *
+ * Still a ceiling rather than no ceiling. Past this, a browser tab holding every row in memory
+ * is the next thing to break, and a refusal that names the limit beats a tab that dies silently.
  */
-export const MAX_IMPORT_ROWS = 500;
+export const MAX_IMPORT_ROWS = 5000;
 
 /** Excel reads a bare UTF-8 file as Latin-1; the BOM is what makes "Nguyễn" open correctly. */
 const BOM = "\uFEFF";

@@ -1,5 +1,6 @@
 import {
   matchAnyChannel,
+  normalizeChannelValue,
   uniqueChannelValues,
   type ChannelKind,
   type ChannelMatch,
@@ -26,7 +27,10 @@ import {
  * Nothing below this line branches on `source`. The only place it is read is when a channel is
  * filed, where it records where the value honestly came from.
  */
-export type CandidateSource = Extract<ChannelSource, "import_csv" | "import_device">;
+export type CandidateSource = Extract<
+  ChannelSource,
+  "import_csv" | "import_device" | "import_vcf"
+>;
 
 /**
  * The fields only a filled-in spreadsheet can know.
@@ -58,6 +62,14 @@ export type ImportedContactCandidate = {
   /** What the source claims this is. Null means nobody has said yet — the screen must ask. */
   suggestedType: ContactType | null;
   source: CandidateSource;
+  /**
+   * A name to pre-fill on a channel, keyed `kind:normalisedValue`.
+   *
+   * Only a vCard has anything to say here, and only as a suggestion: its `TYPE=WORK` becomes
+   * "Cơ quan" on the channel the person then sees and can rename. Keyed by value rather than
+   * by position so de-duplicating the list cannot shift a label onto the wrong number.
+   */
+  channelLabels?: Record<string, string>;
   extras?: CandidateExtras;
 };
 
@@ -226,7 +238,23 @@ export function summarizeCandidates(
 
 // ------------------------------------------------------------------ channels
 
-export type PendingChannel = { kind: ChannelKind; value: string };
+export type PendingChannel = {
+  kind: ChannelKind;
+  value: string;
+  /** What the source suggested calling it, or null when it said nothing. */
+  label: string | null;
+};
+
+/** What the source suggested calling this value, if anything. */
+export function suggestedLabelOf(
+  candidate: ImportedContactCandidate,
+  kind: ChannelKind,
+  value: string,
+): string | null {
+  const labels = candidate.channelLabels;
+  if (labels === undefined) return null;
+  return labels[`${kind}:${normalizeChannelValue(kind, value)}`] ?? null;
+}
 
 /**
  * The channels that will not fit on the contact row itself.
@@ -238,8 +266,12 @@ export type PendingChannel = { kind: ChannelKind; value: string };
  */
 export function extraChannelsOf(candidate: ImportedContactCandidate): PendingChannel[] {
   const extras: PendingChannel[] = [];
-  for (const value of candidate.phones.slice(1)) extras.push({ kind: "phone", value });
-  for (const value of candidate.emails.slice(1)) extras.push({ kind: "email", value });
+  for (const value of candidate.phones.slice(1)) {
+    extras.push({ kind: "phone", value, label: suggestedLabelOf(candidate, "phone", value) });
+  }
+  for (const value of candidate.emails.slice(1)) {
+    extras.push({ kind: "email", value, label: suggestedLabelOf(candidate, "email", value) });
+  }
   return extras;
 }
 
@@ -362,7 +394,11 @@ export function mergeCandidateIntoBusiness(
  */
 export function mergeChannelsOf(candidate: ImportedContactCandidate): PendingChannel[] {
   const all: PendingChannel[] = [];
-  for (const value of candidate.phones) all.push({ kind: "phone", value });
-  for (const value of candidate.emails) all.push({ kind: "email", value });
+  for (const value of candidate.phones) {
+    all.push({ kind: "phone", value, label: suggestedLabelOf(candidate, "phone", value) });
+  }
+  for (const value of candidate.emails) {
+    all.push({ kind: "email", value, label: suggestedLabelOf(candidate, "email", value) });
+  }
   return all;
 }
