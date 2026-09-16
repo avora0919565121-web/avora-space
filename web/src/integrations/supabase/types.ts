@@ -434,6 +434,53 @@ export type Database = {
           },
         ]
       }
+      crm_opportunity: {
+        Row: {
+          contact_id: string
+          conversation_id: string | null
+          created_at: string
+          estimated_value: number | null
+          id: string
+          owner_user_id: string
+          project_id: string | null
+          stage: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          contact_id: string
+          conversation_id?: string | null
+          created_at?: string
+          estimated_value?: number | null
+          id?: string
+          owner_user_id: string
+          project_id?: string | null
+          stage?: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          estimated_value?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_opportunity_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_opportunity_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       currencies: {
         Row: {
           code: string
@@ -1513,6 +1560,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -1549,6 +1597,7 @@ export type Database = {
           is_important?: boolean
           is_milestone?: boolean
           objective_id?: string | null
+          opportunity_id?: string | null
           output_value?: string | null
           progress_percent?: number | null
           recurrence?: string
@@ -1585,6 +1634,7 @@ export type Database = {
           is_important?: boolean
           is_milestone?: boolean
           objective_id?: string | null
+          opportunity_id?: string | null
           output_value?: string | null
           progress_percent?: number | null
           recurrence?: string
@@ -1621,6 +1671,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "objectives"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_opportunity_fkey"
+            columns: ["opportunity_id", "creator_id"]
+            isOneToOne: false
+            referencedRelation: "crm_opportunity"
+            referencedColumns: ["id", "owner_user_id"]
           },
           {
             foreignKeyName: "tasks_recurrence_origin_id_fkey"
@@ -2251,6 +2308,76 @@ export type Database = {
       create_direct_conversation: {
         Args: { other_user_id: string }
         Returns: string
+      }
+      create_opportunity: {
+        Args: {
+          p_contact_id: string
+          p_estimated_value?: number | null
+          p_title: string
+        }
+        Returns: {
+          contact_id: string
+          conversation_id: string | null
+          created_at: string
+          estimated_value: number | null
+          id: string
+          owner_user_id: string
+          project_id: string | null
+          stage: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      link_opportunity_conversation: {
+        Args: {
+          p_conversation_id: string | null
+          p_opportunity_id: string
+        }
+        Returns: {
+          contact_id: string
+          conversation_id: string | null
+          created_at: string
+          estimated_value: number | null
+          id: string
+          owner_user_id: string
+          project_id: string | null
+          stage: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_opportunity_stage: {
+        Args: { p_opportunity_id: string; p_stage: string }
+        Returns: {
+          contact_id: string
+          conversation_id: string | null
+          created_at: string
+          estimated_value: number | null
+          id: string
+          owner_user_id: string
+          project_id: string | null
+          stage: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       create_group_conversation: {
         Args: { p_member_ids?: string[]; p_name: string }

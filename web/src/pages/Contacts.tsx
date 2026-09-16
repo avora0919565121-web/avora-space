@@ -1,4 +1,13 @@
-import { AlertCircle, Building2, CheckCircle2, Plus, Search, Upload, UserRound } from "lucide-react";
+import {
+  AlertCircle,
+  Briefcase,
+  Building2,
+  CheckCircle2,
+  Plus,
+  Search,
+  Upload,
+  UserRound,
+} from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -16,6 +25,7 @@ import { reviewTotal } from "@/lib/contact-channels";
 import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
 import { useContactsNeedingReview, useSharedChannels } from "@/lib/use-contact-channels";
 import { useContacts } from "@/lib/use-contacts";
+import { useOpenOpportunityContacts } from "@/lib/use-opportunities";
 import { cn } from "@/lib/utils";
 
 type Group = "individual" | "business";
@@ -42,6 +52,8 @@ const Contacts = () => {
   const contactsQuery = useContacts();
   const review = useContactsNeedingReview();
   const shared = useSharedChannels();
+  // Only the ones still in play: a deal won or lost is not something the book needs to flag.
+  const openOpportunities = useOpenOpportunityContacts();
 
   // One number, because the banner is one sentence. Someone with two unconfirmed numbers and one
   // number shared across contacts has three things to look at, not two counts to add up.
@@ -218,6 +230,12 @@ const Contacts = () => {
                               aria-hidden="true"
                             />
                             Đã dùng AVORA
+                          </span>
+                        ) : null}
+                        {openOpportunities.has(entry.id) ? (
+                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground">
+                            <Briefcase className="h-3 w-3" strokeWidth={1.9} aria-hidden="true" />
+                            Cơ hội
                           </span>
                         ) : null}
                       </span>

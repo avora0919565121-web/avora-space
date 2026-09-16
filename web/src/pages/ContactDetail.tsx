@@ -15,6 +15,7 @@ import { useNavigate, useParams } from "react-router-dom";
 
 import { BusinessFields, IndividualFields } from "@/components/contacts/ContactForms";
 import { InvitePanel } from "@/components/contacts/InvitePanel";
+import { OpportunitySection } from "@/components/contacts/OpportunitySection";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -316,6 +317,10 @@ const ContactDetail = () => {
           {/* Left out entirely when there are none: a contact with one number has nothing extra
               to say, and an empty "other channels" box would imply something is missing. */}
           {extraChannels.length > 0 ? <ChannelsSection channels={extraChannels} /> : null}
+
+          {/* Always present, unlike the block above: "not a piece of business" is a fact worth
+              being able to change from here, so the empty state is one quiet button. */}
+          <OpportunitySection contactId={contact.id} contactName={contact.name} />
 
           {/* A company is not someone who signs in, so it is never offered an invitation. */}
           {canInviteContact(contact) ? (

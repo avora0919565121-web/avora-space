@@ -1125,6 +1125,47 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - 2026-09-16 — The four types get their own form rather than four more branches inside the thu/chi form.
   The required fields genuinely differ, and folding them together would put conditional inputs for loans and
   tax periods in front of somebody recording a bowl of phở.
+- 2026-09-16 — An opportunity is a record ABOUT a contact, not a field on one. Most of an address book is
+  family and friends who will never be business, one customer can be two separate deals at once, and a stage
+  written onto the contact row would print a sales word next to somebody's mother. A contact that is not an
+  opportunity therefore costs nothing but one quiet button.
+- 2026-09-16 — The opportunity book is private, deliberately, even when a deal is tied to a group
+  conversation. The group is discussing work; its members are not jointly watching one person's sales funnel.
+  So there is no exception in the rules for fellow participants — the four database rules are one sentence,
+  "yours to read, yours to change", and a shared thread does not widen it.
+- 2026-09-16 — Tying a deal to a conversation asks two questions, not one: are you the owner of this
+  opportunity, and are you still in that conversation. Checking only ownership would turn a guessable id into
+  a way to test whether a conversation exists. Untying is the same call with nothing named, because a link
+  that only goes one way traps whoever attached the wrong thread.
+- 2026-09-16 — The five stages move in any direction. Re-reading a customer as cooler than you thought and
+  stepping back from "đang chăm sóc" to "tiềm năng" is ordinary judgement, so the picker offers all five at
+  once rather than a next/previous pair that would imply a deal only ever improves.
+- 2026-09-16 — The address book badges what is still in play, never what once was. "Đối tác" and "không
+  thành" are both endings — one won, one lost — and neither is waiting on anybody, so neither marks a row.
+  A contact holding both a closed deal and a live one still counts as live: the badge answers "is there
+  anything open here", and last year's result should not hide today's work.
+- 2026-09-16 — A contact being a company does not decide whether it can be a lead. A freelancer is as much
+  a piece of business as a firm, so the section is offered on both. The contact type says who somebody is,
+  not whether there is business to be had with them.
+- 2026-09-16 — Nothing estimated reads as "chưa định giá", not as zero. A new lead usually has no price
+  yet, and "0 ₫" would claim the deal is worthless — a different statement from not having priced it.
+- 2026-09-16 — Opening a deal and dropping one are not symmetrical. Marking a contact is one press,
+  because it only starts watching something; removing takes two and says what survives — "liên hệ vẫn giữ
+  nguyên" — because the two things being confused there would cost somebody a contact.
+- 2026-09-16 — A task can point at an opportunity only if both belong to the same person, and the database
+  enforces that through the key itself rather than a rule written in a second place. Deleting an opportunity
+  cuts the link and leaves the task, which is why the cut names its column: a paired key would otherwise
+  blank the task's author too, and refuse the deletion with a message about a field nobody touched.
+- 2026-09-16 — Deleting a contact takes its opportunities with it. An opportunity must name a contact to
+  mean anything, and the alternative is a deletion that fails with a foreign-key complaint on a screen that
+  never mentions the word "cơ hội". A conversation disappearing is the opposite case and only clears the
+  link: the customer is still being tracked.
+- 2026-09-16 — The stage is not writable from the browser even by its owner. It travels through the one
+  call that knows the five permitted values, while the title and the estimate are editable in place — and
+  ownership fields are editable by nobody, since a direct write there would move a deal onto someone else's
+  contact in a way the row-level rules cannot see.
+- 2026-09-16 — "Dự án" is left as an empty column with no relationship attached. The module does not exist
+  yet, and inventing the connection now would mean either a table nobody uses or a link pointing at nothing.
 
 ## Out of scope
 
