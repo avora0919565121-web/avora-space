@@ -5,6 +5,13 @@ import { render } from "vitest-browser-react";
 import { vi } from "vitest";
 
 import { IMPORT_COLUMNS, MAX_IMPORT_ROWS } from "@/lib/contact-import";
+import {
+  headerSignature,
+  mappingStorageKey,
+  readRememberedMapping,
+  rememberMapping,
+  type ColumnMapping,
+} from "@/lib/contact-import-mapping";
 import type { Contact, IndividualDraft, InviteMethod } from "@/lib/contacts";
 
 const state = vi.hoisted(() => ({
@@ -1061,5 +1068,90 @@ describe("a file with somebody else's column names", () => {
     // Still on the mapping step, with the reason — the phone column was never chosen.
     await expect.element(screen.getByRole("alert")).toHaveTextContent("Không có dòng nào dùng được");
     await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+  });
+});
+
+/**
+ * What the remembering does when storage will not play along.
+ *
+ * Run in the browser rather than beside the matching rules, because these are the only two
+ * functions in that module that touch `localStorage` and the unit suite has no DOM at all —
+ * a stubbed storage object would be testing the stub. Safari in private mode throws outright
+ * on both reading and writing, and the whole feature exists only to save typing, so every
+ * failure here has to come out as "nothing was remembered" rather than as a broken import.
+ */
+describe("remembering a column layout when storage misbehaves", () => {
+  const header = ["Họ tên", "SĐT", "Ghi chú"];
+  const mapping: ColumnMapping = { ten: "Họ tên", dien_thoai: "SĐT" };
+
+  beforeEach(() => {
+    window.localStorage.clear();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    window.localStorage.clear();
+  });
+
+  test("reads back what it stored for the same set of headings", () => {
+    rememberMapping("u-me", header, mapping);
+
+    expect(readRememberedMapping("u-me", header)).toEqual(mapping);
+    // Order-insensitive: next month's export of the same report may shuffle its columns.
+    expect(readRememberedMapping("u-me", ["SĐT", "Ghi chú", "Họ tên"])).toEqual(mapping);
+  });
+
+  test("keeps one person's layouts away from another's", () => {
+    rememberMapping("u-me", header, mapping);
+
+    expect(readRememberedMapping("u-other", header)).toBeNull();
+  });
+
+  /**
+   * The memory is per exact layout, so a report that has since gained or lost a column is a
+   * different layout and matches nothing. That is the intended reading: a mapping made for a
+   * three-column export says nothing trustworthy about a two-column one.
+   */
+  test("remembers nothing once the file's set of columns has changed", () => {
+    rememberMapping("u-me", header, mapping);
+
+    expect(readRememberedMapping("u-me", ["Họ tên", "Ghi chú"])).toBeNull();
+  });
+
+  /**
+   * The one way a stale heading can still arrive: a value stored against these very headings
+   * that names a column the file does not have — an older format, or a signature collision.
+   * It is dropped rather than left pointing at nothing, which would read the wrong cells for
+   * every row, and what remains is still offered.
+   */
+  test("drops a remembered column this file does not actually have", () => {
+    window.localStorage.setItem(
+      mappingStorageKey("u-me", headerSignature(header)),
+      JSON.stringify({ v: 1, columns: { ten: "Họ tên", dien_thoai: "Số di động" } }),
+    );
+
+    expect(readRememberedMapping("u-me", header)).toEqual({ ten: "Họ tên" });
+  });
+
+  test("ignores a stored value written by something else", () => {
+    const key = mappingStorageKey("u-me", headerSignature(header));
+
+    window.localStorage.setItem(key, "{not json");
+    expect(readRememberedMapping("u-me", header)).toBeNull();
+
+    window.localStorage.setItem(key, JSON.stringify({ v: 1 }));
+    expect(readRememberedMapping("u-me", header)).toBeNull();
+  });
+
+  test("survives storage that refuses to be read or written", () => {
+    vi.spyOn(window.localStorage, "getItem").mockImplementation(() => {
+      throw new Error("storage disabled");
+    });
+    vi.spyOn(window.localStorage, "setItem").mockImplementation(() => {
+      throw new Error("storage disabled");
+    });
+
+    expect(readRememberedMapping("u-me", header)).toBeNull();
+    expect(() => rememberMapping("u-me", header, mapping)).not.toThrow();
   });
 });

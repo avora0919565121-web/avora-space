@@ -315,3 +315,4 @@ describe("identifying a layout", () => {
     expect(sanitizeMapping({ dien_thoai: "SĐT" }, ["S.Đ.T"])).toEqual({ dien_thoai: "S.Đ.T" });
   });
 });
+
