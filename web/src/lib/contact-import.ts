@@ -1,12 +1,5 @@
-import {
-  toBusinessDraft,
-  toIndividualDraft,
-  type BusinessDraft,
-  type Contact,
-  type ContactType,
-  type IndividualDraft,
-  type InviteMethod,
-} from "@/lib/contacts";
+import type { Contact, ContactType, InviteMethod } from "@/lib/contacts";
+import type { ImportedContactCandidate } from "@/lib/contact-candidates";
 import { normalizeEmail, normalizePhone } from "@/lib/contact-channels";
 
 /**
@@ -23,7 +16,9 @@ export const IMPORT_COLUMNS = [
   "loai",
   "ten",
   "dien_thoai",
+  "dien_thoai_2",
   "email",
+  "email_2",
   "ghi_chu",
   "ngay_sinh",
   "moi_quan_he",
@@ -70,7 +65,9 @@ const SAMPLE_ROWS: readonly string[][] = [
     "ca_nhan",
     "Nguyễn Văn An",
     "0912345678",
+    "0987111222",
     "an.nguyen@example.com",
+    "",
     SAMPLE_MARKER,
     "1990-03-15",
     "Bạn bè",
@@ -85,7 +82,9 @@ const SAMPLE_ROWS: readonly string[][] = [
     "doanh_nghiep",
     "Công ty TNHH An Phát",
     "02838220011",
+    "",
     "lienhe@anphat.example.com",
+    "",
     SAMPLE_MARKER,
     "",
     "",
@@ -225,18 +224,6 @@ export function mapHeaderRow(header: readonly string[]): Partial<Record<ImportCo
 
 export type ImportFields = Record<ImportColumn, string>;
 
-/** Which existing contact a row appears to be, and what gave it away. */
-export type DuplicateMatch = {
-  contactId: string;
-  contactName: string;
-  on: "phone" | "email";
-  /** Merging only makes sense into a contact of the same type. */
-  canMerge: boolean;
-};
-
-/** What to do about a row that matches something already in the book. */
-export type DuplicateChoice = "merge" | "skip" | "create";
-
 export type ImportRow = {
   /** The line as the person sees it in their spreadsheet, header included. */
   lineNumber: number;
@@ -248,7 +235,6 @@ export type ImportRow = {
   problems: string[];
   /** One of the template's example rows, left in the file by accident. */
   isSample: boolean;
-  duplicate: DuplicateMatch | null;
 };
 
 function emptyFields(): ImportFields {
@@ -318,8 +304,13 @@ function rowProblems(fields: ImportFields, kind: ContactType | null): string[] {
 
   if (!has("ten")) problems.push("Thiếu tên.");
 
+  // The second phone and email count as channels in their own right: a row carrying only
+  // `dien_thoai_2` is reachable, and refusing it would be pedantry about column order.
+  const hasAnyChannel: boolean =
+    has("dien_thoai") || has("dien_thoai_2") || has("email") || has("email_2");
+
   if (kind === "individual") {
-    if (!has("dien_thoai") && !has("email")) {
+    if (!hasAnyChannel) {
       problems.push("Cá nhân cần ít nhất số điện thoại hoặc email.");
     }
   }
@@ -327,12 +318,7 @@ function rowProblems(fields: ImportFields, kind: ContactType | null): string[] {
   if (kind === "business") {
     if (!has("ma_so_thue")) problems.push("Doanh nghiệp cần mã số thuế.");
     if (!has("nguoi_dai_dien")) problems.push("Doanh nghiệp cần người đại diện.");
-    if (
-      !has("dien_thoai") &&
-      !has("email") &&
-      !has("dien_thoai_dai_dien") &&
-      !has("email_dai_dien")
-    ) {
+    if (!hasAnyChannel && !has("dien_thoai_dai_dien") && !has("email_dai_dien")) {
       problems.push("Doanh nghiệp cần ít nhất một số điện thoại hoặc email.");
     }
   }
@@ -344,44 +330,6 @@ function rowProblems(fields: ImportFields, kind: ContactType | null): string[] {
   }
 
   return problems;
-}
-
-/** The contact this row would collide with, by phone first and then email. */
-export function findDuplicate(
-  fields: ImportFields,
-  kind: ContactType | null,
-  contacts: readonly Contact[],
-): DuplicateMatch | null {
-  const phone = normalizePhone(fields.dien_thoai);
-  const email = normalizeEmail(fields.email);
-
-  const byPhone =
-    phone.length === 0
-      ? undefined
-      : contacts.find((entry) => normalizePhone(entry.phone ?? "") === phone);
-  if (byPhone !== undefined) {
-    return {
-      contactId: byPhone.id,
-      contactName: byPhone.name,
-      on: "phone",
-      canMerge: kind === byPhone.contactType,
-    };
-  }
-
-  const byEmail =
-    email.length === 0
-      ? undefined
-      : contacts.find((entry) => normalizeEmail(entry.email ?? "") === email);
-  if (byEmail !== undefined) {
-    return {
-      contactId: byEmail.id,
-      contactName: byEmail.name,
-      on: "email",
-      canMerge: kind === byEmail.contactType,
-    };
-  }
-
-  return null;
 }
 
 /**
@@ -399,10 +347,7 @@ export type ImportReadResult =
  * a missing `loai` column means this is the wrong file, while a missing name means one line
  * needs fixing.
  */
-export function buildImportRows(
-  table: readonly string[][],
-  contacts: readonly Contact[],
-): ImportReadResult {
+export function buildImportRows(table: readonly string[][]): ImportReadResult {
   if (table.length === 0) return { kind: "refused", reason: "File này không có dòng nào." };
 
   const positions = mapHeaderRow(table[0]);
@@ -438,7 +383,6 @@ export function buildImportRows(
       name: fields.ten,
       problems: rowProblems(fields, kind),
       isSample: isSampleRow(fields),
-      duplicate: findDuplicate(fields, kind, contacts),
     };
   });
 
@@ -450,96 +394,53 @@ export function canImportRow(row: ImportRow): boolean {
   return row.problems.length === 0 && !row.isSample;
 }
 
-/** What the count line above the table says. */
+/**
+ * What the count line above the table says.
+ *
+ * Matches against the existing book are deliberately not counted here any more: the file no
+ * longer knows anything about duplicates. That comparison belongs to the shared pipeline, which
+ * checks every channel of every candidate against both the contact rows and the channel table —
+ * a file-only version of it would answer a narrower question and disagree.
+ */
 export function summarizeRows(rows: readonly ImportRow[]): {
   valid: number;
   invalid: number;
-  duplicate: number;
   sample: number;
 } {
   return {
     valid: rows.filter((row) => canImportRow(row)).length,
     invalid: rows.filter((row) => row.problems.length > 0).length,
-    duplicate: rows.filter((row) => canImportRow(row) && row.duplicate !== null).length,
     sample: rows.filter((row) => row.isSample).length,
   };
 }
 
-/** The default answer for a row that matched: never write a second copy without being asked. */
-export function defaultChoice(row: ImportRow): DuplicateChoice {
-  if (row.duplicate === null) return "create";
-  return "skip";
-}
-
-// ------------------------------------------------------------------ drafts
-
-export function rowToIndividualDraft(row: ImportRow): IndividualDraft {
-  return {
-    name: row.fields.ten,
-    phone: row.fields.dien_thoai,
-    email: row.fields.email,
-    dateOfBirth: toIsoDate(row.fields.ngay_sinh) ?? "",
-    relationshipTag: row.fields.moi_quan_he,
-    note: row.fields.ghi_chu,
-    employerContactId: null,
-  };
-}
-
-export function rowToBusinessDraft(row: ImportRow): BusinessDraft {
-  return {
-    name: row.fields.ten,
-    taxCode: row.fields.ma_so_thue,
-    representativeName: row.fields.nguoi_dai_dien,
-    phone: row.fields.dien_thoai,
-    email: row.fields.email,
-    representativePhone: row.fields.dien_thoai_dai_dien,
-    representativeEmail: row.fields.email_dai_dien,
-    businessAddress: row.fields.dia_chi,
-    industry: row.fields.nganh_nghe,
-    note: row.fields.ghi_chu,
-  };
-}
-
-/** Whichever of the two the existing value is, or the imported one when there is nothing yet. */
-function fill(existing: string, incoming: string): string {
-  return existing.trim().length > 0 ? existing : incoming.trim();
-}
-
 /**
- * Merging fills the gaps and nothing else.
+ * One validated line as the shared pipeline sees it.
  *
- * The whole draft is sent, not only the blank fields: `update_contact` replaces every column it
- * is given, so a "patch" of just the empty ones would blank out the name and phone that were
- * already there. Every existing value is therefore carried through untouched, and the imported
- * row is only allowed to supply what was missing.
+ * This is where the file stops being special. Everything past this point — matching against the
+ * book, asking about type, writing the extra channels, offering the invitations — is the same
+ * code the phone book goes through, so the two routes cannot drift apart in behaviour.
  */
-export function mergeIntoIndividual(existing: Contact, row: ImportRow): IndividualDraft {
-  const current = toIndividualDraft(existing);
-  const incoming = rowToIndividualDraft(row);
+export function rowToCandidate(row: ImportRow): ImportedContactCandidate {
   return {
-    ...current,
-    phone: fill(current.phone, incoming.phone),
-    email: fill(current.email, incoming.email),
-    note: fill(current.note, incoming.note),
-    dateOfBirth: fill(current.dateOfBirth, incoming.dateOfBirth),
-    relationshipTag: fill(current.relationshipTag, incoming.relationshipTag),
-  };
-}
-
-export function mergeIntoBusiness(existing: Contact, row: ImportRow): BusinessDraft {
-  const current = toBusinessDraft(existing);
-  const incoming = rowToBusinessDraft(row);
-  return {
-    ...current,
-    phone: fill(current.phone, incoming.phone),
-    email: fill(current.email, incoming.email),
-    note: fill(current.note, incoming.note),
-    taxCode: fill(current.taxCode, incoming.taxCode),
-    representativeName: fill(current.representativeName, incoming.representativeName),
-    representativePhone: fill(current.representativePhone, incoming.representativePhone),
-    representativeEmail: fill(current.representativeEmail, incoming.representativeEmail),
-    businessAddress: fill(current.businessAddress, incoming.businessAddress),
-    industry: fill(current.industry, incoming.industry),
+    name: row.fields.ten,
+    // Order matters: the first of each kind becomes the contact's primary channel.
+    phones: [row.fields.dien_thoai, row.fields.dien_thoai_2],
+    emails: [row.fields.email, row.fields.email_2],
+    // The file states the type outright, so the preview never asks again.
+    suggestedType: row.kind,
+    source: "import_csv",
+    extras: {
+      note: row.fields.ghi_chu,
+      dateOfBirth: toIsoDate(row.fields.ngay_sinh) ?? "",
+      relationshipTag: row.fields.moi_quan_he,
+      taxCode: row.fields.ma_so_thue,
+      representativeName: row.fields.nguoi_dai_dien,
+      representativePhone: row.fields.dien_thoai_dai_dien,
+      representativeEmail: row.fields.email_dai_dien,
+      businessAddress: row.fields.dia_chi,
+      industry: row.fields.nganh_nghe,
+    },
   };
 }
 

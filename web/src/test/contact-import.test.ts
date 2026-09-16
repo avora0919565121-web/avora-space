@@ -5,27 +5,25 @@ import { vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import {
+  candidateToBusinessDraft,
+  candidateToIndividualDraft,
+} from "@/lib/contact-candidates";
+import {
   buildImportRows,
   buildInviteCandidates,
   buildTemplateCsv,
   canImportRow,
-  defaultChoice,
-  findDuplicate,
   IMPORT_COLUMNS,
   MAX_IMPORT_ROWS,
   mapHeaderRow,
-  mergeIntoBusiness,
-  mergeIntoIndividual,
   normalizeEmail,
   normalizeHeader,
   normalizePhone,
   parseDelimitedText,
-  rowToBusinessDraft,
-  rowToIndividualDraft,
+  rowToCandidate,
   SAMPLE_MARKER,
   summarizeRows,
   toIsoDate,
-  type ImportRow,
 } from "@/lib/contact-import";
 import type { Contact } from "@/lib/contacts";
 
@@ -70,8 +68,8 @@ function line(cells: Partial<Record<(typeof IMPORT_COLUMNS)[number], string>>): 
   return IMPORT_COLUMNS.map((column) => cells[column] ?? "").join(",");
 }
 
-function rowsOf(table: string[][], contacts: readonly Contact[] = []): ImportRow[] {
-  const result = buildImportRows(table, contacts);
+function rowsOf(table: string[][]) {
+  const result = buildImportRows(table);
   if (result.kind === "refused") throw new Error(`refused: ${result.reason}`);
   return result.rows;
 }
@@ -161,13 +159,13 @@ describe("matching up the columns", () => {
   });
 
   it("refuses a file that is missing the two columns everything depends on", () => {
-    const result = buildImportRows(csv("ho_ten,so_dien_thoai", "Anh,0912345678"), []);
+    const result = buildImportRows(csv("ho_ten,so_dien_thoai", "Anh,0912345678"));
     expect(result.kind).toBe("refused");
     if (result.kind === "refused") expect(result.reason).toContain("thiếu cột loai hoặc ten");
   });
 
   it("refuses an empty file rather than showing an empty table", () => {
-    expect(buildImportRows([], []).kind).toBe("refused");
+    expect(buildImportRows([]).kind).toBe("refused");
   });
 });
 
@@ -296,11 +294,86 @@ describe("a birthday that came out of a spreadsheet", () => {
   it("leaves a blank birthday alone", () => {
     const rows = rowsOf(csv(HEADER, line({ loai: "ca_nhan", ten: "A", email: "a@e.com" })));
     expect(canImportRow(rows[0])).toBe(true);
-    expect(rowToIndividualDraft(rows[0]).dateOfBirth).toBe("");
+    expect(candidateToIndividualDraft(rowToCandidate(rows[0])).dateOfBirth).toBe("");
   });
 });
 
-describe("spotting someone already in the book", () => {
+describe("the second phone and email columns", () => {
+  it("carries both numbers through in the order the file listed them", () => {
+    const rows = rowsOf(
+      csv(
+        HEADER,
+        line({
+          loai: "ca_nhan",
+          ten: "Chị Hoa",
+          dien_thoai: "0912345678",
+          dien_thoai_2: "0987000111",
+          email: "hoa@example.com",
+          email_2: "hoa.work@example.com",
+        }),
+      ),
+    );
+    const candidate = rowToCandidate(rows[0]);
+    expect(candidate.phones).toEqual(["0912345678", "0987000111"]);
+    expect(candidate.emails).toEqual(["hoa@example.com", "hoa.work@example.com"]);
+  });
+
+  /** A row reachable only through the spare column is still reachable. */
+  it("accepts a person whose only number is in the second column", () => {
+    const rows = rowsOf(csv(HEADER, line({ loai: "ca_nhan", ten: "Anh", dien_thoai_2: "0987000111" })));
+    expect(canImportRow(rows[0])).toBe(true);
+  });
+
+  it("accepts a company reachable only through its second email", () => {
+    const rows = rowsOf(
+      csv(
+        HEADER,
+        line({
+          loai: "doanh_nghiep",
+          ten: "Công ty A",
+          ma_so_thue: "0301234567",
+          nguoi_dai_dien: "Chị Bích",
+          email_2: "kinhdoanh@example.com",
+        }),
+      ),
+    );
+    expect(canImportRow(rows[0])).toBe(true);
+  });
+
+  /** The file states its own type, so the shared preview must never ask again. */
+  it("passes the file's own type through as settled", () => {
+    const rows = rowsOf(
+      csv(
+        HEADER,
+        line({ loai: "ca_nhan", ten: "Người", email: "n@example.com" }),
+        line({
+          loai: "doanh_nghiep",
+          ten: "Công ty",
+          ma_so_thue: "0301234567",
+          nguoi_dai_dien: "Chị Bích",
+          email: "c@example.com",
+        }),
+      ),
+    );
+    expect(rows.map((row) => rowToCandidate(row).suggestedType)).toEqual([
+      "individual",
+      "business",
+    ]);
+  });
+
+  it("marks every candidate from a file as having come from a file", () => {
+    const rows = rowsOf(csv(HEADER, line({ loai: "ca_nhan", ten: "A", email: "a@e.com" })));
+    expect(rowToCandidate(rows[0]).source).toBe("import_csv");
+  });
+});
+
+/**
+ * Only the reading rules live here now. Matching against the address book moved to the shared
+ * pipeline (`contact-candidates.test.ts`), which compares every channel of a candidate against
+ * both the contact rows and the channel table — a file-only version would answer a narrower
+ * question and eventually disagree with it.
+ */
+describe("reading a value the way the rest of the app reads it", () => {
   it("treats the international and local forms of a number as the same phone", () => {
     expect(normalizePhone("+84 912 345 678")).toBe(normalizePhone("0912345678"));
     expect(normalizePhone("091-234-5678")).toBe("0912345678");
@@ -309,72 +382,6 @@ describe("spotting someone already in the book", () => {
   it("compares emails without regard to capitals", () => {
     expect(normalizeEmail("  Hoa@Example.COM ")).toBe("hoa@example.com");
   });
-
-  it("matches on a phone written differently in the file", () => {
-    const match = findDuplicate(
-      { ...blankFields(), dien_thoai: "+84 912 345 678" },
-      "individual",
-      [person({ id: "c1", name: "Chị Hoa", phone: "0912345678" })],
-    );
-    expect(match).toMatchObject({ contactId: "c1", on: "phone", canMerge: true });
-  });
-
-  it("matches on email when the phone is new", () => {
-    const match = findDuplicate(
-      { ...blankFields(), dien_thoai: "0999999999", email: "HOA@example.com" },
-      "individual",
-      [person({ id: "c1", name: "Chị Hoa", email: "hoa@example.com" })],
-    );
-    expect(match).toMatchObject({ contactId: "c1", on: "email" });
-  });
-
-  it("finds nobody when neither channel is known", () => {
-    expect(
-      findDuplicate({ ...blankFields(), dien_thoai: "0900000001" }, "individual", [
-        person({ id: "c1", name: "Ai đó", phone: "0912345678" }),
-      ]),
-    ).toBeNull();
-  });
-
-  /** A blank cell is not a match — otherwise every contact with no email would collide. */
-  it("does not match a blank cell against a contact with nothing written down", () => {
-    expect(findDuplicate(blankFields(), "individual", [person({ id: "c1", name: "Trống" })])).toBeNull();
-  });
-
-  /** Pouring a person's details into a company row would produce nonsense. */
-  it("refuses to offer a merge across the two kinds of contact", () => {
-    const match = findDuplicate(
-      { ...blankFields(), dien_thoai: "02838220011" },
-      "business",
-      [person({ id: "c1", name: "Chị Hoa", phone: "02838220011" })],
-    );
-    expect(match).toMatchObject({ canMerge: false });
-  });
-
-  it("defaults a matched row to being skipped, and an unmatched one to being created", () => {
-    const rows = rowsOf(
-      csv(
-        HEADER,
-        line({ loai: "ca_nhan", ten: "Chị Hoa", dien_thoai: "0912345678" }),
-        line({ loai: "ca_nhan", ten: "Người Mới", dien_thoai: "0900000001" }),
-      ),
-      [person({ id: "c1", name: "Chị Hoa", phone: "0912345678" })],
-    );
-    expect(defaultChoice(rows[0])).toBe("skip");
-    expect(defaultChoice(rows[1])).toBe("create");
-  });
-
-  it("counts the duplicates for the line above the table", () => {
-    const rows = rowsOf(
-      csv(
-        HEADER,
-        line({ loai: "ca_nhan", ten: "Chị Hoa", dien_thoai: "0912345678" }),
-        line({ loai: "ca_nhan", ten: "Người Mới", dien_thoai: "0900000001" }),
-      ),
-      [person({ id: "c1", name: "Chị Hoa", phone: "0912345678" })],
-    );
-    expect(summarizeRows(rows)).toMatchObject({ valid: 2, invalid: 0, duplicate: 1 });
-  });
 });
 
 describe("the size a file is allowed to be", () => {
@@ -382,14 +389,14 @@ describe("the size a file is allowed to be", () => {
     const body = Array.from({ length: MAX_IMPORT_ROWS }, (_unused, index) =>
       line({ loai: "ca_nhan", ten: `Người ${index}`, email: `n${index}@example.com` }),
     );
-    expect(buildImportRows(csv(HEADER, ...body), []).kind).toBe("rows");
+    expect(buildImportRows(csv(HEADER, ...body)).kind).toBe("rows");
   });
 
   it("refuses one row past it, and says how many it found", () => {
     const body = Array.from({ length: MAX_IMPORT_ROWS + 1 }, (_unused, index) =>
       line({ loai: "ca_nhan", ten: `Người ${index}`, email: `n${index}@example.com` }),
     );
-    const result = buildImportRows(csv(HEADER, ...body), []);
+    const result = buildImportRows(csv(HEADER, ...body));
     expect(result.kind).toBe("refused");
     if (result.kind === "refused") {
       expect(result.reason).toContain(String(MAX_IMPORT_ROWS + 1));
@@ -398,8 +405,8 @@ describe("the size a file is allowed to be", () => {
   });
 });
 
-describe("turning a row into something the server accepts", () => {
-  it("sends a person's own columns and nothing else", () => {
+describe("handing a row to the shared pipeline", () => {
+  it("carries a person's own columns through and nothing else", () => {
     const rows = rowsOf(
       csv(
         HEADER,
@@ -414,7 +421,7 @@ describe("turning a row into something the server accepts", () => {
         }),
       ),
     );
-    expect(rowToIndividualDraft(rows[0])).toEqual({
+    expect(candidateToIndividualDraft(rowToCandidate(rows[0]))).toEqual({
       name: "Chị Hoa",
       phone: "0912345678",
       email: "hoa@example.com",
@@ -425,7 +432,7 @@ describe("turning a row into something the server accepts", () => {
     });
   });
 
-  it("sends a company's tax code, representative and address", () => {
+  it("carries a company's tax code, representative and address through", () => {
     const rows = rowsOf(
       csv(
         HEADER,
@@ -440,7 +447,7 @@ describe("turning a row into something the server accepts", () => {
         }),
       ),
     );
-    expect(rowToBusinessDraft(rows[0])).toMatchObject({
+    expect(candidateToBusinessDraft(rowToCandidate(rows[0]))).toMatchObject({
       name: "Công ty An Phát",
       taxCode: "0301234567",
       representativeName: "Chị Bích",
@@ -465,66 +472,6 @@ describe("turning a row into something the server accepts", () => {
       ),
     );
     expect(rows.map((row) => row.kind)).toEqual(["individual", "business"]);
-  });
-});
-
-describe("merging into someone already there", () => {
-  const existing = person({
-    id: "c1",
-    name: "Chị Hoa",
-    phone: "0912345678",
-    note: "Ghi chú cũ",
-  });
-
-  function importedRow(cells: Partial<Record<(typeof IMPORT_COLUMNS)[number], string>>): ImportRow {
-    return rowsOf(csv(HEADER, line({ loai: "ca_nhan", ten: "Chị Hoa", ...cells })))[0];
-  }
-
-  it("fills in a field that was empty", () => {
-    const draft = mergeIntoIndividual(existing, importedRow({ email: "hoa@example.com" }));
-    expect(draft.email).toBe("hoa@example.com");
-  });
-
-  /**
-   * `update_contact` replaces every column it is given, so the merge has to carry the existing
-   * values through untouched — a patch of only the blank fields would blank out the rest.
-   */
-  it("never overwrites a field that already had something in it", () => {
-    const draft = mergeIntoIndividual(
-      existing,
-      importedRow({ dien_thoai: "0999999999", ghi_chu: "Ghi chú mới" }),
-    );
-    expect(draft.phone).toBe("0912345678");
-    expect(draft.note).toBe("Ghi chú cũ");
-  });
-
-  it("keeps the name and every other field the contact already had", () => {
-    const draft = mergeIntoIndividual(
-      person({ id: "c2", name: "Tên Cũ", phone: "0912345678", relationshipTag: "Bạn bè" }),
-      importedRow({ email: "x@example.com", moi_quan_he: "Đối tác" }),
-    );
-    expect(draft.name).toBe("Tên Cũ");
-    expect(draft.relationshipTag).toBe("Bạn bè");
-  });
-
-  it("fills a company's missing representative without touching its tax code", () => {
-    const draft = mergeIntoBusiness(
-      company({ id: "b1", name: "Công ty A", taxCode: "0301234567" }),
-      rowsOf(
-        csv(
-          HEADER,
-          line({
-            loai: "doanh_nghiep",
-            ten: "Công ty A",
-            ma_so_thue: "9999999999",
-            nguoi_dai_dien: "Chị Bích",
-            email: "a@example.com",
-          }),
-        ),
-      )[0],
-    );
-    expect(draft.taxCode).toBe("0301234567");
-    expect(draft.representativeName).toBe("Chị Bích");
   });
 });
 

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { buildInviteCandidates, type InviteCandidate } from "@/lib/contact-import";
 import type { Contact } from "@/lib/contacts";
-import { useBulkInvite, type BulkInviteOutcome } from "@/lib/use-contact-import";
+import { useBulkInvite, type BulkInviteOutcome } from "@/lib/use-candidate-import";
 import { cn } from "@/lib/utils";
 
 type BulkInvitePanelProps = {

@@ -1,5 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
-import { toVietnameseContactError, type Contact } from "@/lib/contacts";
+import { toVietnameseContactError, type Contact, type ContactType } from "@/lib/contacts";
 
 /**
  * The second, third and fourth way to reach someone.
@@ -216,6 +216,8 @@ export type ChannelMatch = {
   kind: ChannelKind;
   /** The stored value that matched, as written — so the screen can show what collided. */
   value: string;
+  /** Carried so a caller can refuse to pour a person's details into a company row. */
+  contactType: ContactType;
 };
 
 /**
@@ -243,6 +245,7 @@ export function buildChannelIndex(
         contactName: contact.name,
         kind: "phone",
         value: (contact.phone ?? "").trim(),
+        contactType: contact.contactType,
       });
     }
 
@@ -253,6 +256,7 @@ export function buildChannelIndex(
         contactName: contact.name,
         kind: "email",
         value: (contact.email ?? "").trim(),
+        contactType: contact.contactType,
       });
     }
   }
@@ -267,6 +271,7 @@ export function buildChannelIndex(
       contactName: owner.name,
       kind: channel.kind,
       value: channel.value,
+      contactType: owner.contactType,
     });
   }
 

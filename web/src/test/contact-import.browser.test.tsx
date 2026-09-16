@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { vi } from "vitest";
@@ -11,9 +12,19 @@ const state = vi.hoisted(() => ({
   created: [] as { type: string; name: string }[],
   saved: [] as { contactId: string; draft: unknown }[],
   invited: [] as { contactId: string; method: string }[],
+  channels: [] as {
+    contactId: string;
+    kind: string;
+    value: string;
+    source: string;
+    needsReview: boolean;
+  }[],
   createError: null as string | null,
+  navigated: [] as string[],
   nextId: 0,
 }));
+
+vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
 
 vi.mock("@/lib/use-contacts", () => ({
   useContacts: () => ({ data: state.contacts, isPending: false, isError: false }),
@@ -50,7 +61,45 @@ vi.mock("@/lib/use-contacts", () => ({
   }),
 }));
 
+// The channel table is reached through these two calls only: one to read what the book already
+// holds, one to file a value that did not fit on the contact row.
+vi.mock("@/lib/contact-channels", async () => {
+  const actual =
+    await vi.importActual<typeof import("@/lib/contact-channels")>("@/lib/contact-channels");
+  return {
+    ...actual,
+    fetchContactChannels: async () => [],
+    addContactChannel: async (input: {
+      contactId: string;
+      kind: string;
+      value: string;
+      source?: string;
+      needsReview?: boolean;
+    }) => {
+      state.channels.push({
+        contactId: input.contactId,
+        kind: input.kind,
+        value: input.value,
+        source: input.source ?? "manual",
+        needsReview: input.needsReview ?? false,
+      });
+      return { id: `ch-${state.channels.length}` };
+    },
+  };
+});
+
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
+  return {
+    ...actual,
+    useNavigate: () => (to: string) => {
+      state.navigated.push(to);
+    },
+  };
+});
+
 const { ImportContactsDialog } = await import("@/components/contacts/ImportContactsDialog");
+const { CHANNEL_REVIEW_ROUTE } = await import("@/lib/navigation");
 
 function blank(id: string, name: string): Contact {
   return {
@@ -91,7 +140,9 @@ async function openDialog() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return await render(
     <QueryClientProvider client={client}>
-      <ImportContactsDialog open onOpenChange={() => {}} />
+      <MemoryRouter>
+        <ImportContactsDialog open onOpenChange={() => {}} />
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -116,7 +167,9 @@ beforeEach(() => {
   state.created = [];
   state.saved = [];
   state.invited = [];
+  state.channels = [];
   state.createError = null;
+  state.navigated = [];
   state.nextId = 0;
 });
 
@@ -125,6 +178,17 @@ test("the first step offers the template before asking for a file", async () => 
 
   await expect.element(screen.getByRole("button", { name: "Tải file mẫu" })).toBeInTheDocument();
   await expect.element(screen.getByText(/Xoá 2 dòng đó trước khi nhập/)).toBeInTheDocument();
+});
+
+/**
+ * Absent rather than greyed out. This browser has no phone book, and a disabled button would
+ * pose a question it cannot answer — the file route below works everywhere.
+ */
+test("the phone book route is left out where the browser has none", async () => {
+  const screen = await openDialog();
+
+  await expect.element(screen.getByRole("button", { name: "Tải file mẫu" })).toBeInTheDocument();
+  expect(screen.container.ownerDocument.body.textContent).not.toContain("Chọn từ danh bạ máy");
 });
 
 test("a file lands in a preview that counts what it found", async () => {
@@ -139,9 +203,9 @@ test("a file lands in a preview that counts what it found", async () => {
     ),
   );
 
-  // Exact: the "Chọn tất cả 1 dòng hợp lệ" button contains the same words as the count.
-  await expect.element(screen.getByText("1 dòng hợp lệ", { exact: true })).toBeInTheDocument();
-  await expect.element(screen.getByText("1 dòng lỗi", { exact: true })).toBeInTheDocument();
+  await expect.element(screen.getByText("1 liên hệ sẵn sàng")).toBeInTheDocument();
+  // The line that could not be read is still accounted for, so nothing vanishes silently.
+  await expect.element(screen.getByText(/1 dòng trong file bị thiếu trường bắt buộc/)).toBeInTheDocument();
 });
 
 /** Nothing is written without a deliberate tick, so the button starts out unusable. */
@@ -150,7 +214,7 @@ test("nothing is ticked to begin with and the import button is disabled", async 
 
   await upload(screen, csvFile(HEADER, line({ loai: "ca_nhan", ten: "Chị Hoa", dien_thoai: "0912345678" })));
 
-  const importButton = screen.getByRole("button", { name: /Nhập 0 liên hệ/ });
+  const importButton = screen.getByRole("button", { name: /^Nhập 0 liên hệ/ });
   await expect.element(importButton).toBeDisabled();
   expect(document.querySelectorAll('[role="checkbox"][data-state="checked"]')).toHaveLength(0);
 });
@@ -162,22 +226,6 @@ test("ticking a row makes the button say how many will be written", async () => 
   await userEvent.click(screen.getByRole("checkbox", { name: /Chị Hoa/ }));
 
   await expect.element(screen.getByRole("button", { name: "Nhập 1 liên hệ đã chọn" })).toBeEnabled();
-});
-
-/**
- * A row that cannot be written has no checkbox at all rather than a disabled one — the same
- * rule the invite panel uses for a channel with no address.
- */
-test("a broken row is shown with its reason but cannot be ticked", async () => {
-  const screen = await openDialog();
-
-  await upload(screen, csvFile(HEADER, line({ loai: "ca_nhan", ten: "Thiếu Kênh" })));
-
-  await expect.element(screen.getByText("Thiếu Kênh")).toBeInTheDocument();
-  await expect
-    .element(screen.getByText("Cá nhân cần ít nhất số điện thoại hoặc email."))
-    .toBeInTheDocument();
-  expect(document.querySelectorAll('[role="checkbox"]')).toHaveLength(0);
 });
 
 test("a file without the columns it needs is refused as a whole", async () => {
@@ -224,6 +272,94 @@ test("each row is written as the type its own column named", async () => {
     { type: "individual", name: "Người Thường" },
     { type: "business", name: "Công ty An Phát" },
   ]);
+  // A file that states its own type is never asked about it again.
+  expect(state.navigated).toEqual([]);
+});
+
+describe("a row carrying two numbers", () => {
+  async function importBoth() {
+    const screen = await openDialog();
+    await upload(
+      screen,
+      csvFile(
+        HEADER,
+        line({
+          loai: "ca_nhan",
+          ten: "Chị Hoa",
+          dien_thoai: "0912345678",
+          dien_thoai_2: "0987000111",
+        }),
+      ),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /Chị Hoa/ }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+    return screen;
+  }
+
+  it("says which number becomes the main one before anything is written", async () => {
+    const screen = await openDialog();
+    await upload(
+      screen,
+      csvFile(
+        HEADER,
+        line({
+          loai: "ca_nhan",
+          ten: "Chị Hoa",
+          dien_thoai: "0912345678",
+          dien_thoai_2: "0987000111",
+        }),
+      ),
+    );
+
+    await expect.element(screen.getByText(/\+ 1 kênh phụ/)).toBeInTheDocument();
+    await expect
+      .element(screen.getByText(/Số đầu tiên được dùng làm kênh chính/))
+      .toBeInTheDocument();
+  });
+
+  /** The first of each kind goes on the contact row; everything after it is a channel. */
+  it("keeps the first number on the contact and files the second as a channel", async () => {
+    await importBoth();
+
+    expect(state.created).toEqual([{ type: "individual", name: "Chị Hoa" }]);
+    expect(state.channels).toEqual([
+      {
+        contactId: "new-1",
+        kind: "phone",
+        value: "0987000111",
+        source: "import_csv",
+        needsReview: true,
+      },
+    ]);
+  });
+
+  /**
+   * Two of a kind is the one thing an import cannot settle by itself, so the flow ends by
+   * handing the question over rather than leaving it to be discovered later.
+   */
+  it("ends by pointing at the numbers a person still has to choose between", async () => {
+    const screen = await importBoth();
+
+    await userEvent.click(screen.getByRole("button", { name: "Để sau" }));
+
+    await expect.element(screen.getByText(/1 liên hệ cần bạn xem lại/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Xem lại ngay/ }));
+    expect(state.navigated).toEqual([CHANNEL_REVIEW_ROUTE]);
+  });
+});
+
+/** With nothing left open, the same slot says so and goes back to the book. */
+test("a clean import ends on a plain confirmation instead of a question", async () => {
+  const screen = await openDialog();
+
+  await upload(screen, csvFile(HEADER, line({ loai: "ca_nhan", ten: "Chị Hoa", dien_thoai: "0912345678" })));
+  await userEvent.click(screen.getByRole("checkbox", { name: /Chị Hoa/ }));
+  await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+  await userEvent.click(screen.getByRole("button", { name: "Để sau" }));
+
+  await expect.element(screen.getByText(/không còn gì phải xem lại/)).toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Quay lại Liên hệ" })).toBeInTheDocument();
+  expect(state.channels).toEqual([]);
 });
 
 describe("a row that matches someone already in the book", () => {
@@ -236,7 +372,7 @@ describe("a row that matches someone already in the book", () => {
 
     await upload(screen, csvFile(HEADER, line({ loai: "ca_nhan", ten: "Hoa Mới", dien_thoai: "+84 912 345 678" })));
 
-    await expect.element(screen.getByText(/Trùng số điện thoại với/)).toBeInTheDocument();
+    await expect.element(screen.getByText(/Trùng số điện thoại/)).toBeInTheDocument();
     await expect.element(screen.getByRole("button", { name: "Bỏ qua" })).toHaveAttribute("aria-pressed", "true");
   });
 
@@ -257,9 +393,10 @@ describe("a row that matches someone already in the book", () => {
     await userEvent.click(screen.getByRole("checkbox", { name: /Hoa Mới/ }));
     await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
 
-    await expect.element(screen.getByRole("alert")).toHaveTextContent("Không có dòng nào được nhập");
+    await expect.element(screen.getByRole("alert")).toHaveTextContent("Không có liên hệ nào được nhập");
     expect(state.created).toEqual([]);
     expect(state.saved).toEqual([]);
+    expect(state.channels).toEqual([]);
   });
 
   test("fills the gaps in the existing contact when merge is chosen", async () => {
@@ -271,7 +408,7 @@ describe("a row that matches someone already in the book", () => {
     );
     await userEvent.click(screen.getByRole("checkbox", { name: /Hoa Mới/ }));
     await userEvent.click(screen.getByRole("button", { name: "Gộp" }));
-    await expect.element(screen.getByText(/không ghi đè dữ liệu đã có/)).toBeInTheDocument();
+    await expect.element(screen.getByText(/không ghi đè cái đã có/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
 
     expect(state.created).toEqual([]);
@@ -281,6 +418,33 @@ describe("a row that matches someone already in the book", () => {
       // The name and phone already there survive; only the missing email is filled in.
       draft: { name: "Chị Hoa", phone: "0912345678", email: "hoa@example.com" },
     });
+  });
+
+  /**
+   * Every value is offered to the channel call, which keeps only what is neither the primary
+   * channel nor already stored — that is how a merge can add a number without overwriting one.
+   */
+  test("hands the merged contact's numbers to the one place that can compare them", async () => {
+    const screen = await openDialog();
+
+    await upload(
+      screen,
+      csvFile(
+        HEADER,
+        line({
+          loai: "ca_nhan",
+          ten: "Hoa Mới",
+          dien_thoai: "0912345678",
+          dien_thoai_2: "0987000111",
+        }),
+      ),
+    );
+    await userEvent.click(screen.getByRole("checkbox", { name: /Hoa Mới/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Gộp" }));
+    await userEvent.click(screen.getByRole("button", { name: /^Nhập 1 liên hệ/ }));
+
+    expect(state.channels.map((entry) => entry.value)).toEqual(["0912345678", "0987000111"]);
+    expect(state.channels.every((entry) => entry.contactId === "c1")).toBe(true);
   });
 
   test("writes a second contact when create is chosen instead", async () => {
@@ -359,7 +523,7 @@ describe("inviting the people just imported", () => {
 });
 
 /** A refusal on one line is attributed to that line; the rest of the file still goes in. */
-test("a row the server refuses is reported by its line number", async () => {
+test("a row the server refuses is reported by where it came from", async () => {
   const screen = await openDialog();
 
   state.createError = "Liên hệ cần có tên.";

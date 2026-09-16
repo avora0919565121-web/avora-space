@@ -1,25 +1,38 @@
 import {
-  AlertTriangle,
-  Building2,
+  ArrowRight,
   CheckCircle2,
   Download,
   FileSpreadsheet,
-  UserRound,
+  Smartphone,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 
 import { BulkInvitePanel } from "@/components/contacts/BulkInvitePanel";
+import { CandidatePreview } from "@/components/contacts/CandidatePreview";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import {
+  buildCandidateRows,
+  defaultCandidateChoice,
+  summarizeCandidates,
+  type CandidateChoice,
+  type CandidateRow,
+  type ImportedContactCandidate,
+  type TypeDecision,
+} from "@/lib/contact-candidates";
+import {
+  DeviceContactsError,
+  isDeviceContactsSupported,
+  pickDeviceContacts,
+} from "@/lib/contact-device";
 import {
   buildImportRows,
   canImportRow,
-  defaultChoice,
   MAX_IMPORT_ROWS,
+  rowToCandidate,
   summarizeRows,
-  type DuplicateChoice,
   type ImportRow,
 } from "@/lib/contact-import";
 import {
@@ -29,55 +42,102 @@ import {
   readImportFile,
 } from "@/lib/contact-import-file";
 import type { Contact } from "@/lib/contacts";
-import { useContactImport, type ImportOutcome } from "@/lib/use-contact-import";
+import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
+import { useCandidateImport, type CandidateOutcome } from "@/lib/use-candidate-import";
+import { useChannelIndex } from "@/lib/use-contact-channels";
 import { useContacts } from "@/lib/use-contacts";
-import { cn } from "@/lib/utils";
 
 type ImportContactsDialogProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
 };
 
-type Step = "pick" | "preview" | "invite";
+type Step = "pick" | "preview" | "invite" | "done";
+
+/** What the file itself was wrong about, kept separate from the candidates it did yield. */
+type FileProblems = { invalid: number; sample: number } | null;
 
 /**
- * Importing an address book from a spreadsheet.
+ * Importing an address book, whichever way it arrives.
  *
- * Three steps, each one a decision rather than a wizard page: choose the file, read the table and
- * tick what should be written, then invite whoever is new. Nothing is stored between steps and
- * nothing survives the dialog closing — the uploaded file is read into memory, shown, and
- * forgotten, because these are other people's details and we are only passing them along.
+ * Four steps, each a decision rather than a wizard page: choose a source, review what would be
+ * written and tick it, invite whoever is new, then go wherever the result points. The two
+ * sources part company only at the first step — a spreadsheet is parsed and validated, a phone
+ * book is handed over by the operating system — and from the preview onwards they are the same
+ * code working on the same shape.
+ *
+ * Nothing survives the dialog closing. The file is read into memory, shown, and forgotten; the
+ * phone book entries likewise. These are other people's details and we are only passing them on.
  */
 export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialogProps) {
+  const navigate = useNavigate();
+
   const [step, setStep] = useState<Step>("pick");
-  const [rows, setRows] = useState<ImportRow[]>([]);
-  const [picked, setPicked] = useState<Set<number>>(new Set());
-  const [choices, setChoices] = useState<Record<number, DuplicateChoice>>({});
-  const [fileName, setFileName] = useState<string | null>(null);
+  const [rows, setRows] = useState<CandidateRow[]>([]);
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [choices, setChoices] = useState<Record<string, CandidateChoice>>({});
+  const [decisions, setDecisions] = useState<Record<string, TypeDecision>>({});
+  const [sourceLabel, setSourceLabel] = useState<string | null>(null);
+  const [fileProblems, setFileProblems] = useState<FileProblems>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isReading, setIsReading] = useState<boolean>(false);
-  const [outcome, setOutcome] = useState<ImportOutcome | null>(null);
+  const [outcome, setOutcome] = useState<CandidateOutcome | null>(null);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const contactsQuery = useContacts();
   const contacts: Contact[] = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
-  const { run, progress, isRunning } = useContactImport();
 
-  /**
-   * Everything read from the file is dropped the moment the dialog closes. There is no table,
-   * no cache and no draft kept anywhere: reopening starts from an empty file picker.
-   */
+  // Both the book and its extra channels have to be loaded before anything is compared: an
+  // index that is merely incomplete would report "not a duplicate" for someone already here.
+  const { index, isPending: isIndexPending } = useChannelIndex();
+  const { run, progress, isRunning } = useCandidateImport();
+
+  const canPick = !isIndexPending && !isReading;
+
   useEffect(() => {
     if (open) return;
     setStep("pick");
     setRows([]);
     setPicked(new Set());
     setChoices({});
-    setFileName(null);
+    setDecisions({});
+    setSourceLabel(null);
+    setFileProblems(null);
     setNotice(null);
     setOutcome(null);
     if (inputRef.current !== null) inputRef.current.value = "";
   }, [open]);
+
+  /** Both sources end here: candidates in, preview out. */
+  const startPreview = useCallback(
+    (
+      candidates: readonly ImportedContactCandidate[],
+      origins: readonly string[],
+      label: string,
+      problems: FileProblems,
+    ): void => {
+      const built = buildCandidateRows(candidates, index, origins);
+
+      if (built.length === 0) {
+        setNotice(
+          problems !== null && problems.invalid + problems.sample > 0
+            ? "Không có dòng nào dùng được. Mỗi dòng cần tên và ít nhất một số điện thoại hoặc email."
+            : "Không có liên hệ nào có tên kèm số điện thoại hoặc email.",
+        );
+        return;
+      }
+
+      setRows(built);
+      // Nothing is ticked: importing is a decision per entry, never a default.
+      setPicked(new Set());
+      setChoices(Object.fromEntries(built.map((row) => [row.key, defaultCandidateChoice(row)])));
+      setDecisions({});
+      setSourceLabel(label);
+      setFileProblems(problems);
+      setStep("preview");
+    },
+    [index],
+  );
 
   const chooseFile = useCallback(
     async (file: File): Promise<void> => {
@@ -85,19 +145,21 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
       setIsReading(true);
       try {
         const table = await readImportFile(file);
-        const result = buildImportRows(table, contacts);
+        const result = buildImportRows(table);
         if (result.kind === "refused") {
           setNotice(result.reason);
           return;
         }
-        setRows(result.rows);
-        // Nothing is ticked: importing is a decision per row, never a default.
-        setPicked(new Set());
-        setChoices(
-          Object.fromEntries(result.rows.map((row) => [row.lineNumber, defaultChoice(row)])),
+
+        const counts = summarizeRows(result.rows);
+        const usable: ImportRow[] = result.rows.filter((row) => canImportRow(row));
+
+        startPreview(
+          usable.map(rowToCandidate),
+          usable.map((row) => `Dòng ${row.lineNumber}`),
+          file.name,
+          { invalid: counts.invalid, sample: counts.sample },
         );
-        setFileName(file.name);
-        setStep("preview");
       } catch (error) {
         setNotice(
           error instanceof ImportFileError
@@ -109,45 +171,75 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
         if (inputRef.current !== null) inputRef.current.value = "";
       }
     },
-    [contacts],
+    [startPreview],
   );
 
-  const togglePicked = useCallback((lineNumber: number): void => {
+  const chooseDevice = useCallback(async (): Promise<void> => {
+    setNotice(null);
+    setIsReading(true);
+    try {
+      const candidates = await pickDeviceContacts();
+      if (candidates.length === 0) {
+        setNotice("Bạn chưa chọn liên hệ nào từ danh bạ máy.");
+        return;
+      }
+      startPreview(
+        candidates,
+        candidates.map((entry, position) => `Danh bạ ${position + 1}`),
+        "Danh bạ trên máy này",
+        null,
+      );
+    } catch (error) {
+      setNotice(
+        error instanceof DeviceContactsError
+          ? error.message
+          : "Không mở được danh bạ máy. Hãy thử lại, hoặc nhập bằng file.",
+      );
+    } finally {
+      setIsReading(false);
+    }
+  }, [startPreview]);
+
+  const togglePicked = useCallback((key: string): void => {
     setPicked((current) => {
       const next = new Set(current);
-      if (next.has(lineNumber)) next.delete(lineNumber);
-      else next.add(lineNumber);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
       return next;
     });
   }, []);
 
-  const importable = useMemo(() => rows.filter((row) => canImportRow(row)), [rows]);
-  const counts = useMemo(() => summarizeRows(rows), [rows]);
-
-  const allPicked = importable.length > 0 && picked.size === importable.length;
+  const counts = useMemo(() => summarizeCandidates(rows, decisions), [rows, decisions]);
 
   const toggleAll = useCallback((): void => {
-    setPicked((current) =>
-      current.size === importable.length ? new Set() : new Set(importable.map((row) => row.lineNumber)),
-    );
-  }, [importable]);
+    setPicked((current) => {
+      if (current.size === counts.ready) return new Set();
+      const ready = rows.filter((row) => {
+        const summary = summarizeCandidates([row], decisions);
+        return summary.ready === 1;
+      });
+      return new Set(ready.map((row) => row.key));
+    });
+  }, [rows, decisions, counts.ready]);
 
   const startImport = useCallback(async (): Promise<void> => {
     setNotice(null);
-    const chosen = rows.filter((row) => picked.has(row.lineNumber));
-    const result = await run(chosen, choices, contacts);
+    const chosen = rows.filter((row) => picked.has(row.key));
+    const result = await run(chosen, choices, decisions, contacts);
     setOutcome(result);
 
     if (result.created.length === 0 && result.merged.length === 0) {
       setNotice(
         result.failed.length > 0
-          ? `Không nhập được dòng nào. ${result.failed[0].reason}`
-          : "Không có dòng nào được nhập.",
+          ? `Không nhập được liên hệ nào. ${result.failed[0].reason}`
+          : "Không có liên hệ nào được nhập.",
       );
       return;
     }
     setStep("invite");
-  }, [rows, picked, choices, contacts, run]);
+  }, [rows, picked, choices, decisions, contacts, run]);
+
+  const total = (outcome?.created.length ?? 0) + (outcome?.merged.length ?? 0);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -158,14 +250,20 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
         <div className="flex items-start justify-between border-b border-border px-6 pb-4 pt-6">
           <div>
             <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">
-              {step === "invite" ? "Đã nhập xong" : "Nhập liên hệ từ file"}
+              {step === "pick"
+                ? "Nhập liên hệ"
+                : step === "preview"
+                  ? "Xem trước trước khi nhập"
+                  : step === "invite"
+                    ? "Đã nhập xong"
+                    : "Xong"}
             </DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
               {step === "pick"
-                ? "Tải file mẫu, điền vào, rồi tải lên — hỗ trợ .csv và .xlsx"
+                ? "Từ file bảng tính, hoặc thẳng từ danh bạ trên máy"
                 : step === "preview"
-                  ? (fileName ?? "Xem trước trước khi nhập")
-                  : `${(outcome?.created.length ?? 0) + (outcome?.merged.length ?? 0)} liên hệ đã vào danh bạ`}
+                  ? (sourceLabel ?? "Chọn những liên hệ muốn lưu")
+                  : `${total} liên hệ đã vào danh bạ`}
             </DialogDescription>
           </div>
           <button
@@ -182,24 +280,51 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
           {step === "pick" ? (
             <PickStep
               inputRef={inputRef}
+              canPick={canPick}
               isReading={isReading}
+              isIndexPending={isIndexPending}
               onFile={(file) => void chooseFile(file)}
+              onDevice={() => void chooseDevice()}
             />
           ) : step === "preview" ? (
-            <PreviewStep
-              rows={rows}
-              picked={picked}
-              choices={choices}
-              allPicked={allPicked}
-              counts={counts}
-              onToggle={togglePicked}
-              onToggleAll={toggleAll}
-              onChoice={(lineNumber, choice) =>
-                setChoices((current) => ({ ...current, [lineNumber]: choice }))
-              }
-            />
+            <>
+              {fileProblems !== null && fileProblems.invalid + fileProblems.sample > 0 ? (
+                <p className="mb-3 rounded-md border border-border bg-primary/[0.05] px-3 py-2.5 text-[12.5px] leading-relaxed text-foreground">
+                  {fileProblems.invalid > 0
+                    ? `${fileProblems.invalid} dòng trong file bị thiếu trường bắt buộc nên không hiện ở đây. `
+                    : ""}
+                  {fileProblems.sample > 0
+                    ? `${fileProblems.sample} dòng ví dụ của file mẫu đã được bỏ qua.`
+                    : ""}
+                </p>
+              ) : null}
+              <CandidatePreview
+                rows={rows}
+                picked={picked}
+                choices={choices}
+                decisions={decisions}
+                counts={counts}
+                onToggle={togglePicked}
+                onToggleAll={toggleAll}
+                onChoice={(key, choice) =>
+                  setChoices((current) => ({ ...current, [key]: choice }))
+                }
+                onDecision={(key, decision) =>
+                  setDecisions((current) => ({ ...current, [key]: decision }))
+                }
+              />
+            </>
+          ) : step === "invite" ? (
+            <InviteStep outcome={outcome} onDone={() => setStep("done")} />
           ) : (
-            <InviteStep outcome={outcome} onDone={() => onOpenChange(false)} />
+            <DoneStep
+              outcome={outcome}
+              onReview={() => {
+                onOpenChange(false);
+                navigate(CHANNEL_REVIEW_ROUTE);
+              }}
+              onClose={() => onOpenChange(false)}
+            />
           )}
 
           {notice !== null ? (
@@ -222,7 +347,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
                 setNotice(null);
               }}
             >
-              Chọn file khác
+              Chọn nguồn khác
             </Button>
             <Button
               className="press h-10 px-5"
@@ -242,23 +367,35 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
 
 function PickStep({
   inputRef,
+  canPick,
   isReading,
+  isIndexPending,
   onFile,
+  onDevice,
 }: {
   inputRef: React.RefObject<HTMLInputElement | null>;
+  canPick: boolean;
   isReading: boolean;
+  isIndexPending: boolean;
   onFile: (file: File) => void;
+  onDevice: () => void;
 }) {
+  // Absent rather than greyed out: a disabled button poses a question it cannot answer, and the
+  // file route below works on every browser.
+  const hasDevice = isDeviceContactsSupported();
+
   return (
     <div>
       <div className="rounded-xl border border-border bg-accent/20 p-5">
         <h3 className="text-[15px] font-semibold text-foreground">1. Tải file mẫu</h3>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
           File mẫu có sẵn 2 dòng ví dụ — một cá nhân, một doanh nghiệp.{" "}
-          <strong className="font-semibold text-foreground">Xoá 2 dòng đó trước khi nhập</strong>, cột{" "}
-          <code className="rounded bg-secondary px-1 py-0.5 text-[12.5px]">loai</code> chỉ nhận{" "}
+          <strong className="font-semibold text-foreground">Xoá 2 dòng đó trước khi nhập</strong>,
+          cột <code className="rounded bg-secondary px-1 py-0.5 text-[12.5px]">loai</code> chỉ nhận{" "}
           <code className="rounded bg-secondary px-1 py-0.5 text-[12.5px]">ca_nhan</code> hoặc{" "}
-          <code className="rounded bg-secondary px-1 py-0.5 text-[12.5px]">doanh_nghiep</code>.
+          <code className="rounded bg-secondary px-1 py-0.5 text-[12.5px]">doanh_nghiep</code>. Ai
+          có hai số thì điền thêm cột{" "}
+          <code className="rounded bg-secondary px-1 py-0.5 text-[12.5px]">dien_thoai_2</code>.
         </p>
         <Button
           variant="outline"
@@ -288,193 +425,39 @@ function PickStep({
         />
         <Button
           className="press mt-3.5 h-10 px-4"
-          disabled={isReading}
+          disabled={!canPick}
           onClick={() => inputRef.current?.click()}
         >
           <FileSpreadsheet className="mr-1.5 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-          {isReading ? "Đang đọc file…" : "Chọn file .csv hoặc .xlsx"}
+          {isReading ? "Đang đọc…" : "Chọn file .csv hoặc .xlsx"}
         </Button>
       </div>
-    </div>
-  );
-}
 
-function PreviewStep({
-  rows,
-  picked,
-  choices,
-  allPicked,
-  counts,
-  onToggle,
-  onToggleAll,
-  onChoice,
-}: {
-  rows: readonly ImportRow[];
-  picked: ReadonlySet<number>;
-  choices: Readonly<Record<number, DuplicateChoice>>;
-  allPicked: boolean;
-  counts: { valid: number; invalid: number; duplicate: number; sample: number };
-  onToggle: (lineNumber: number) => void;
-  onToggleAll: () => void;
-  onChoice: (lineNumber: number, choice: DuplicateChoice) => void;
-}) {
-  return (
-    <div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[13px]">
-        <span className="font-medium text-foreground">{counts.valid} dòng hợp lệ</span>
-        <span className={counts.invalid > 0 ? "text-primary" : "text-muted-foreground"}>
-          {counts.invalid} dòng lỗi
-        </span>
-        <span className="text-muted-foreground">{counts.duplicate} dòng trùng</span>
-        {counts.sample > 0 ? (
-          <span className="text-primary">{counts.sample} dòng ví dụ chưa xoá</span>
-        ) : null}
-      </div>
-
-      {counts.valid > 0 ? (
-        <button
-          type="button"
-          onClick={onToggleAll}
-          className="press mt-3 text-[13px] font-medium text-foreground underline underline-offset-4 transition-colors hover:text-primary"
-        >
-          {allPicked ? "Bỏ chọn tất cả" : `Chọn tất cả ${counts.valid} dòng hợp lệ`}
-        </button>
+      {hasDevice ? (
+        <div className="mt-4 rounded-xl border border-border p-5">
+          <h3 className="text-[15px] font-semibold text-foreground">Hoặc lấy từ danh bạ máy</h3>
+          <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+            Máy sẽ mở danh bạ của bạn để tự chọn ai muốn chia sẻ — AVORA chỉ nhận đúng những người
+            bạn chọn, không đọc cả danh bạ.
+          </p>
+          <Button
+            variant="outline"
+            className="press mt-3.5 h-10 px-4"
+            disabled={!canPick}
+            onClick={onDevice}
+          >
+            <Smartphone className="mr-1.5 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            {isReading ? "Đang mở…" : "Chọn từ danh bạ máy"}
+          </Button>
+        </div>
       ) : null}
 
-      <ul className="mt-3 divide-y divide-border overflow-hidden rounded-lg border border-border">
-        {rows.map((row) => {
-          const usable = canImportRow(row);
-          const isPicked = picked.has(row.lineNumber);
-          const choice = choices[row.lineNumber] ?? defaultChoice(row);
-
-          return (
-            <li
-              key={row.lineNumber}
-              className={cn("px-4 py-3", usable ? null : "bg-primary/[0.04]")}
-            >
-              <div className="flex items-start gap-3">
-                {/* A row that cannot be written has no checkbox at all: a disabled one would
-                    invite a click that can never do anything. */}
-                {usable ? (
-                  <Checkbox
-                    className="mt-0.5"
-                    checked={isPicked}
-                    onCheckedChange={() => onToggle(row.lineNumber)}
-                    aria-label={`Nhập dòng ${row.lineNumber}: ${row.name || "chưa có tên"}`}
-                  />
-                ) : (
-                  <AlertTriangle
-                    className="mt-0.5 h-4 w-4 shrink-0 text-primary"
-                    strokeWidth={1.9}
-                    aria-hidden="true"
-                  />
-                )}
-
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="tabular text-[12px] text-muted-foreground">
-                      Dòng {row.lineNumber}
-                    </span>
-                    {row.kind !== null ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11.5px] font-medium text-foreground/75">
-                        {row.kind === "individual" ? (
-                          <UserRound className="h-3 w-3" strokeWidth={1.9} aria-hidden="true" />
-                        ) : (
-                          <Building2 className="h-3 w-3" strokeWidth={1.9} aria-hidden="true" />
-                        )}
-                        {row.kind === "individual" ? "Cá nhân" : "Doanh nghiệp"}
-                      </span>
-                    ) : null}
-                    <span className="truncate text-[14.5px] font-semibold text-foreground">
-                      {row.name.length > 0 ? row.name : "(chưa có tên)"}
-                    </span>
-                  </div>
-
-                  <p className="mt-0.5 truncate text-[13px] text-muted-foreground">
-                    {[row.fields.dien_thoai, row.fields.email].filter((value) => value.length > 0).join(" · ") ||
-                      "Không có số điện thoại hoặc email"}
-                  </p>
-
-                  {row.isSample ? (
-                    <p className="mt-1.5 text-[12.5px] leading-relaxed text-primary">
-                      Đây là dòng ví dụ trong file mẫu — xoá khỏi file rồi tải lên lại.
-                    </p>
-                  ) : null}
-
-                  {row.problems.map((problem) => (
-                    <p key={problem} className="mt-1.5 text-[12.5px] leading-relaxed text-primary">
-                      {problem}
-                    </p>
-                  ))}
-
-                  {usable && row.duplicate !== null ? (
-                    <div className="mt-2 rounded-md border border-border bg-accent/25 px-3 py-2.5">
-                      <p className="text-[12.5px] text-foreground">
-                        Trùng {row.duplicate.on === "phone" ? "số điện thoại" : "email"} với{" "}
-                        <strong className="font-semibold">{row.duplicate.contactName}</strong>
-                      </p>
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {/* Merging is only offered when the two are the same kind of contact:
-                            a person's details cannot be poured into a company row. */}
-                        {row.duplicate.canMerge ? (
-                          <ChoiceChip
-                            label="Gộp"
-                            isActive={choice === "merge"}
-                            onClick={() => onChoice(row.lineNumber, "merge")}
-                          />
-                        ) : null}
-                        <ChoiceChip
-                          label="Bỏ qua"
-                          isActive={choice === "skip"}
-                          onClick={() => onChoice(row.lineNumber, "skip")}
-                        />
-                        <ChoiceChip
-                          label="Vẫn tạo mới"
-                          isActive={choice === "create"}
-                          onClick={() => onChoice(row.lineNumber, "create")}
-                        />
-                      </div>
-                      {choice === "merge" ? (
-                        <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
-                          Chỉ điền vào những ô đang trống của {row.duplicate.contactName} — không ghi
-                          đè dữ liệu đã có.
-                        </p>
-                      ) : null}
-                    </div>
-                  ) : null}
-                </div>
-              </div>
-            </li>
-          );
-        })}
-      </ul>
+      {isIndexPending ? (
+        <p className="mt-4 text-[13px] text-muted-foreground">
+          Đang tải danh bạ hiện có để đối chiếu trùng lặp…
+        </p>
+      ) : null}
     </div>
-  );
-}
-
-function ChoiceChip({
-  label,
-  isActive,
-  onClick,
-}: {
-  label: string;
-  isActive: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={isActive}
-      onClick={onClick}
-      className={cn(
-        "press rounded-md border px-2.5 py-1 text-[12.5px] font-medium transition-colors",
-        isActive
-          ? "border-primary/60 bg-card text-foreground"
-          : "border-transparent text-muted-foreground hover:bg-card/70",
-      )}
-    >
-      {label}
-    </button>
   );
 }
 
@@ -482,7 +465,7 @@ function InviteStep({
   outcome,
   onDone,
 }: {
-  outcome: ImportOutcome | null;
+  outcome: CandidateOutcome | null;
   onDone: () => void;
 }) {
   const fresh: Contact[] = useMemo(() => outcome?.created ?? [], [outcome]);
@@ -490,7 +473,11 @@ function InviteStep({
   return (
     <div>
       <div className="flex items-start gap-3 rounded-xl border border-border bg-accent/20 p-5">
-        <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-money-in" strokeWidth={1.9} aria-hidden="true" />
+        <CheckCircle2
+          className="mt-0.5 h-5 w-5 shrink-0 text-money-in"
+          strokeWidth={1.9}
+          aria-hidden="true"
+        />
         <div>
           <p className="text-[14.5px] font-semibold text-foreground">
             Đã nhập {outcome?.created.length ?? 0} liên hệ mới
@@ -498,12 +485,12 @@ function InviteStep({
           </p>
           {(outcome?.failed.length ?? 0) > 0 ? (
             <p className="mt-1 text-[13px] leading-relaxed text-primary">
-              {outcome?.failed.length} dòng không nhập được:{" "}
+              {outcome?.failed.length} liên hệ không nhập được:{" "}
               {outcome?.failed
                 .slice(0, 3)
-                .map((entry) => `dòng ${entry.lineNumber}`)
+                .map((entry) => entry.origin)
                 .join(", ")}
-              . Sửa lại trong file rồi nhập lại phần đó.
+              . Sửa lại rồi nhập lại phần đó.
             </p>
           ) : null}
         </div>
@@ -513,6 +500,59 @@ function InviteStep({
       <div className="mt-2">
         <BulkInvitePanel contacts={fresh} onDone={onDone} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * The one thing worth doing next.
+ *
+ * An import that could not decide which of someone's numbers is the real one has left a
+ * question open, and this is where it gets handed over rather than left to be discovered later.
+ * When there is nothing to settle, the same slot says so and goes back to the book — either way
+ * the flow ends on an action and never on a static list.
+ */
+function DoneStep({
+  outcome,
+  onReview,
+  onClose,
+}: {
+  outcome: CandidateOutcome | null;
+  onReview: () => void;
+  onClose: () => void;
+}) {
+  const needsReview = outcome?.needsReviewCount ?? 0;
+
+  if (needsReview > 0) {
+    return (
+      <div className="rounded-xl border border-border bg-accent/25 p-5">
+        <p className="text-[14.5px] font-semibold text-foreground">
+          {needsReview} liên hệ cần bạn xem lại
+        </p>
+        <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
+          Những người này có nhiều số điện thoại hoặc email. AVORA giữ lại tất cả nhưng chưa biết
+          cái nào là chính — bạn chọn giúp.
+        </p>
+        <Button className="press mt-4 h-10 gap-1.5 px-4" onClick={onReview}>
+          Xem lại ngay
+          <ArrowRight className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-xl border border-border bg-accent/20 p-5 text-center">
+      <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-card">
+        <CheckCircle2 className="h-6 w-6 text-money-in" strokeWidth={1.9} aria-hidden="true" />
+      </span>
+      <p className="mt-3 text-[14.5px] font-semibold text-foreground">Xong</p>
+      <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
+        Mọi liên hệ vừa nhập đã có kênh liên hệ rõ ràng — không còn gì phải xem lại.
+      </p>
+      <Button variant="outline" className="press mt-4 h-10 px-4" onClick={onClose}>
+        Quay lại Liên hệ
+      </Button>
     </div>
   );
 }

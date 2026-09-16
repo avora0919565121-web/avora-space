@@ -930,6 +930,47 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   tick the same names twice would be ceremony. Email leads where both channels exist — it carries a whole
   sentence and a link, and costs the sender nothing — and a channel the contact has no address for is never
   drawn, matching what the database would refuse anyway.
+- 2026-09-16 — A spreadsheet and a phone book become the same thing before anything is decided about them.
+  They disagree about almost everything — how they are read, what they may ask for, whether they know a
+  contact's type — but they agree completely on what follows: is this person already here, which number is
+  the real one, should they be invited. So each source only converts its own entries into one shared shape,
+  and every decision after that is written once. The alternative, two parallel flows sharing helpers, is how
+  the two would have slowly come to behave differently on the same data.
+- 2026-09-16 — The phone book route is absent where it cannot work rather than present and refusing. Only
+  one browser family exposes a contact picker at all, and the file route works everywhere — so on the rest
+  there is simply no button, the same rule already used for an invitation channel the contact has no address
+  for. A greyed-out button would pose a question it cannot answer.
+- 2026-09-16 — The device is asked what it can share before it is asked to share. Requesting a field a phone
+  book does not support rejects the entire request, so asking for "name, number, email" outright would yield
+  nothing at all on a device that withholds emails, instead of the numbers it was willing to give. Where
+  neither numbers nor emails are on offer the attempt stops with that said plainly, since a name alone is not
+  a contact and a picker whose every result would be discarded is worse than an explanation.
+- 2026-09-16 — Where the source states the type, it is never questioned; where it cannot, the question is
+  asked once, at the row. A filled-in `loai` column is the person's own word and the one fact that cannot be
+  edited later. A phone book has no notion of a company, so guessing from an organisation field would file
+  someone as a business on the strength of their employer being written down — instead a toggle, off by
+  default, opens exactly the two fields a company cannot exist without and holds the row back until they are
+  filled. Asking there beats a create call that fails one row at a time after the person has walked away.
+- 2026-09-16 — A duplicate is judged against every channel of every candidate, not the first of each kind.
+  The number that identifies someone already in the book is routinely not the one their file lists first, and
+  it may not be a primary channel at all — so all of them are compared against both the contact rows and the
+  channel table. A cheaper check would quietly write second copies of people already there.
+- 2026-09-16 — A merge hands every number it brought to the one place that can compare them. It cannot tell
+  which of them the existing contact already holds, and the channel call already refuses a value that repeats
+  the primary channel or something stored — so guessing locally would either lose a new number or store a
+  duplicate, while passing everything through adds only what is genuinely new.
+- 2026-09-16 — An entry with no way to reach anyone is left out of the table rather than listed as broken.
+  A spreadsheet line missing a field is a mistake its author can go and fix, so it is shown with its reason;
+  a phone book entry with no number is not a mistake at all, and showing it as an error would ask someone to
+  repair something they never wrote.
+- 2026-09-16 — A spare phone number does not fail its contact. If filing an extra channel is refused, the
+  person is already written down and reachable on their primary number, so the import keeps going and only
+  the channel is logged as lost — unwinding a good contact over a second phone number would cost more than it
+  saves.
+- 2026-09-16 — The flow ends on the one thing worth doing next, never on a static list. If the import could
+  not tell which of someone's numbers is the real one, that question is handed over with a way straight to it;
+  if nothing was left open, the same place says so and goes back to the address book. A summary that simply
+  stopped would leave the unresolved numbers to be discovered weeks later, by accident.
 
 ## Out of scope
 
