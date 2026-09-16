@@ -49,4 +49,8 @@
 ## 7. Khi không chắc
 
 Nếu một Prompt có vẻ mâu thuẫn với quy tắc trong file này, hoặc với những gì đã có sẵn trong code — dừng lại, báo lại trước khi tự quyết định cách xử lý.
+
+## 8. Tài liệu
+
+Nhật ký quyết định thiết kế lưu tại `DESIGN.md` ở gốc repo — không lưu trong `.rork/` vì thư mục đó bị gitignore.
 ---

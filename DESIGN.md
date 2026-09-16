@@ -1,0 +1,813 @@
+# AVORA — Design Contract
+
+## Direction
+
+AVORA is a desktop-first web app for private one-to-one text messaging between real people — no AI assistant, no group chat. A lightweight Nhiệm vụ module (Phase 3) adds personal to-dos and two-party 1-1 shared tasks, and a Tài chính module (Phase 4A) adds a household ledger — income, spending, accounts, eight reports — in the same paper language. The look is an editorial paper notebook that happens to deliver messages instantly:
+warm bone canvas, white surfaces, heavy ink typography, thin hairlines, and one terracotta accent used sparingly.
+Depth comes from paper-vs-surface contrast and hairlines only — never gradients, glow, or glassmorphism.
+
+## Palette & typography
+
+- Canvas (warm bone) `#F6F3EC` → `--background: 42 36% 95%`; a faint 22px dot grain (`.paper`) sits on it.
+- Surface (white) `#FFFFFF` → `--card`, `--popover`.
+- Ink `#1C1A17` → `--foreground`. Secondary warm grey `#6B635A` → `--muted-foreground`.
+- Hairline `#E6DFD3` → `--border`, `--input`.
+- Terracotta `#E0603C` → `--primary`, on `#FFF6F2` → `--primary-foreground`. Used ONLY for: primary buttons,
+  outgoing message bubbles, unread badges, and the active nav marker/label.
+- Soft wash `#F7E3DC` → `--accent` for hover and selected rows. Warm sand `#EFE7DA` → `--secondary` for avatars.
+- Online dot `#3F8F6B` → `--online`.
+- Ledger direction: money in `#3F8F6B` → `--money-in`, money out `#C0492A` → `--money-out`. The rust is
+  deliberately NOT the terracotta accent, so a figure can never be mistaken for a button.
+- Chart ink is one warm printed ramp, used in this order: `#E0603C #3F8F6B #C98A3E #5B7B8A #8C6A4A #7D8A4F
+  #D68A6F #4E6E7D #A8926F #6B635A`. Never a default blue-purple ramp, never a gradient fill.
+- Type: **Inter Tight** (Google Fonts) everywhere. Wordmark `AVORA` uppercase, weight 600, letter-spacing `0.34em`.
+  Screen titles 26–34px semibold tracking-tight; conversation names 15px semibold; previews/timestamps 13px muted;
+  message body 15px / 1.6. Timestamps and counters use tabular numerals (`.tabular`).
+- Shape: radius 10px (`--radius: 0.625rem`) on inputs, buttons, cards; message bubbles 16px with a 4px tail corner
+  on the sender side; avatars are perfect circles with initials. Gutters 24–40px.
+- Motion: `rise-in` for screen entrances, `bubble-in` staggered 60ms per message, `blink` typing dots,
+  `.press` scale-to-0.985 on tap. Nothing longer than 450ms.
+
+## Screens
+
+- **Đăng nhập / Đăng ký / Quên mật khẩu** (`/dang-nhap`, root, no site nav) — full-height split: left warm canvas
+  brand column (wordmark, "Nhắn tin riêng tư, tức thì!", © line), right white column with the form. One screen
+  covers three states via `?mode=dang-ky` and `?mode=quen-mat-khau`. In Quên mật khẩu only the email field shows,
+  with "Gửi liên kết đặt lại" and "Quay lại đăng nhập"; the terms line and "hoặc" divider are hidden there.
+- **Đặt lại mật khẩu** (`/dat-lai-mat-khau`, no site nav) — where the emailed link lands, same split layout with
+  "Đặt lại mật khẩu." as the brand headline. Three states: checking the link, the two-field form (new password +
+  confirmation), or a plain "Liên kết không dùng được" panel with a button to request a fresh email. On success it
+  confirms in green, notes that other devices were signed out, and moves to Tin nhắn after ~1.6s.
+- **Tin nhắn** (`/tin-nhan`, tab) — 320–360px white conversation column (title, search, new-chat icon button,
+  rows with avatar/name/last message/time/unread badge) plus a wide canvas region showing the empty state
+  ("Chọn một cuộc trò chuyện" + terracotta button). Real data; skeleton rows while loading, and an empty state
+  inviting the first conversation by email. Own last message is prefixed "Bạn: ".
+- **Cuộc trò chuyện** (`/tin-nhan/:id`, detail of Tin nhắn) — same list column with the active row on soft wash;
+  right region becomes the thread: white header (avatar, name, email), one date separator per day, bubbles,
+  pinned composer with terracotta Gửi. Real data. Outgoing bubbles appear instantly at 70% opacity with
+  "Đang gửi…" until the server confirms. A thread you cannot access shows "Không mở được cuộc trò chuyện".
+  Incoming messages appear on their own within a second, with the same 60ms staggered bubble entrance; the inbox
+  row jumps to the top at the same moment. Opening the thread clears its unread badge; the sender then sees
+  Đã xem under their newest message without reloading.
+- **Trò chuyện mới** (sheet over Tin nhắn and Liên hệ) — centered ~540px dialog over a warm ink scrim: title,
+  single exact-email field with a Tìm button, one result row, Huỷ + Bắt đầu trò chuyện. Real lookup.
+- **Liên hệ** (tab) — the people you already have a conversation with, on canvas; each row opens that thread.
+- **Nhiệm vụ** (`/nhiem-vu`, tab) — one screen read three ways, chosen by a segmented switch under the title:
+  **Theo hạn** (default) is a timeline of white day-cards (Hôm nay, then `9 thg 9`…) holding every task, personal
+  and shared together, each day ordered by clock then by whose work it is; **Theo người** is the original two-card
+  tree (Cá nhân, then Nhiệm vụ chung grouped by person with avatar + name) and is where the composer lives;
+  **Khẩn cấp** narrows to starred work only. Under the switch sits a row of category filter chips (coloured dot +
+  name, soft wash when active, plus Bỏ lọc); above it, any reminder that has come due appears as an amber-hairline
+  strip with Đã biết. A task row carries its deadline chip, then the clock when one was set, a repeat marker, an
+  amber star if flagged, and its category tag. Cá nhân rows keep the ink check bubble (strike + muted when done,
+  click to reopen); shared rows keep Chờ xác nhận to the creator, the terracotta Xác nhận button to the peer, and
+  the Đã xác nhận chip once accepted. The composer still leads with three stacked required fields (Tiêu đề, Mô tả
+  cụ thể, Hạn hoàn thành, each labelled with a terracotta asterisk) and the person picker on top for shared work,
+  then an optional block underneath — Giờ, Hạng mục, Nhắc trước, Lặp lại, and a Khẩn cấp toggle — with a submit
+  button that stays faint until the three required fields are filled. Every row says whose move it is in its own
+  weight — the reader's own work in ink at semibold, work somebody else is carrying lighter, italic and warm grey,
+  with the same fact in words for screen readers — while the order, the filters and every count stay untouched.
+- **Avora Space** (`/tong-quan`, tab) — the opening screen: the greeting with the day named beside it ("Chào buổi
+  sáng · Thứ ba, 15 thg 9"), the reader's name, then the day's thought on a hairline terracotta rule with a quiet
+  "Viết lời bình" line under it that opens a private field saved into Nhật ký. Below: a three-cell hairline strip
+  — Quá hạn / Hôm nay / Sắp tới, rust, warm and ink respectively, each zero in unscheduled grey — one sentence
+  naming the most pressing fact, the three scope cards (Cá nhân / 1-1 / Nhóm), "Xem tất cả nhiệm vụ", and last
+  who is waiting on a reply.
+- **Két sắt** (`/ket-sat`, tab) — the safe: one section strip (wordmark-cased "KÉT SẮT" over Tài chính / Mật khẩu)
+  above whichever half is open. Tài chính is the ledger below, unchanged; Mật khẩu is a Sắp ra mắt panel only.
+- **Tài chính** (`/ket-sat`, inside Két sắt) — one section with four inner tabs (Tổng quan, Giao dịch, Tài khoản, Báo cáo)
+  under a single title. Tổng quan is four stat cards (Tổng tài sản, Thu tháng này, Chi tháng này, Giá trị ròng)
+  above a two-column grid of charts: spending trend, category doughnut with a clickable legend, multi-line account
+  balance, this-month-vs-last bars, and a giving half-dial. A household-business card (Doanh thu / Chi phí / Lãi
+  gộp plus a trend line) appears above them the moment one transaction is flagged as business.
+- **Giao dịch** (`/ket-sat/giao-dich`) — the ledger on the left grouped by day with a per-day net, the unified
+  composer on the right. One form for both directions: a two-way Khoản chi / Khoản thu switch (green for in, rust
+  for out) that swaps the category list, then Tài khoản, Ngày, Số tiền, Hạng mục — the four required fields, each
+  marked with a terracotta asterisk — then optional diễn giải, a business block, a recurring block and a receipt.
+  Enter writes a newline; only Thêm giao dịch submits, and it stays faint until all four are filled. Due recurring
+  patterns surface as Thêm / Bỏ qua reminders above the form; nothing is ever charged automatically.
+- **Tài khoản** (`/ket-sat/tai-khoan`) — Tài sản / Nợ / Giá trị ròng (summed in the base currency), then account
+  rows (name, type, tags, last movement, balance) with edit and close, a separate Đã đóng list, and the two
+  category vocabularies as chips with inline add, edit and remove on the user's own ones only. An account's balance
+  reads in the account's OWN currency, with the base-currency figure as a small muted second line beneath it only
+  when the two differ; anything no rate can value says so instead of being counted as zero.
+- **Báo cáo** (`/ket-sat/bao-cao`) — a report picker, a date range with Tháng này / Tháng trước / Từ đầu năm /
+  12 tháng presets, Tạo báo cáo, then stats, a chart where one applies, and the table — with CSV and Excel beside
+  the title. When more than one currency is in play, a hairline strip under the title states the rates used
+  ("1 USD = 23.984,96 VND"), so a converted total can be checked rather than trusted.
+- **Cài đặt** (`/cai-dat`, tab) — same section strip pattern as Két sắt, over Hồ sơ / Avora AI. Hồ sơ is the
+  account screen below, unchanged; Avora AI is a Sắp ra mắt panel with no chat box and no assistant behind it.
+- **Hồ sơ** (`/cai-dat`, inside Cài đặt) — real signed-in confirmation: "Xin chào, {display_name}", email, profile card with editable
+  display name (RLS-scoped to the user), created date, then a Thiết lập card holding the two preferences the rest
+  of the app reads — Loại tiền báo cáo (twenty currencies grouped by region, with a live "1 USD ≈ …" line) and
+  Múi giờ — and Đăng xuất.
+- **Sắp ra mắt** (Mật khẩu, Avora AI) — one hairline square icon tile, a title, a single line of plain Vietnamese,
+  and a bordered "SẮP RA MẮT" pill. No form, no input, no fake preview: a half that cannot answer yet says so.
+- **Site navigation**: fixed 240px left rail on canvas with the AVORA mark beside the wordmark, then exactly five
+  places — Avora Space / Tin nhắn / Nhiệm vụ / Két sắt / Cài đặt — and a bottom block with the signed-in user and
+  Đăng xuất. Liên hệ is reached by the person icon in the Tin nhắn header, beside the new-chat action. Below `md`
+  the rail collapses to a top bar and the thread replaces the list column.
+
+## Decisions
+
+- 2026-09-05 — Product is human-to-human 1-1 chat only; no AI assistant, no groups, no tasks in v1.
+- 2026-09-05 — Warm paper palette chosen over dark/mint options.
+- 2026-09-05 — Build step 1 wires real Supabase email/password auth + `profiles` (RLS `auth.uid() = id`) only;
+  Tin nhắn, Cuộc trò chuyện, and Trò chuyện mới stay visual-only until the messaging step.
+- 2026-09-05 — Avatars render as initials on warm sand; no stock photography anywhere in the product.
+- 2026-09-05 — Tin nhắn, Cuộc trò chuyện, Trò chuyện mới and Liên hệ now read real data; the demo dataset is deleted.
+- 2026-09-05 — No browsable member directory: people are found by exact email only, never by partial search.
+  Liên hệ therefore lists only people you have already talked to.
+- 2026-09-05 — Presence dots, typing indicator, unread badges and the attachment button are removed until the
+  features behind them are real; the call/info icons in the thread header stay decorative.
+- 2026-09-05 — Until realtime lands, the inbox refreshes every 8s and an open thread every 4s.
+- 2026-09-05 — Superseded: messages now arrive over a live connection, so there is no periodic refresh while
+  the app is connected. Refreshing every 10s (inbox) / 5s (thread) is only a fallback when the live
+  connection is down.
+- 2026-09-05 — When the live connection drops, the app says so plainly: a quiet "Đang kết nối lại" marker beside
+  the Tin nhắn title and one hairline strip above the thread. No blocking overlay, no red alarm state — messages
+  stay readable and sendable throughout.
+- 2026-09-05 — Unread badges are back, now backed by a real per-person read marker: a terracotta pill on the
+  conversation row and a matching total beside Tin nhắn in the left rail. Unread rows also darken their preview
+  text and time to ink; read rows stay grey.
+- 2026-09-05 — A conversation counts as read only while its thread is open in a tab the user is actually looking
+  at. A thread left open in a background tab keeps collecting unread messages.
+- 2026-09-05 — Only your newest sent message carries a delivery receipt (Đã gửi → Đã xem, single then double
+  tick), in muted grey — never terracotta. Older messages carry none, so the thread stays quiet.
+- 2026-09-05 — Typing indicator stays out of scope for now; it is the next realtime feature if asked for.
+- 2026-09-05 — Password recovery answers the same way for every address ("Nếu email này đã đăng ký…"), so the
+  screen can never be used to check who has an AVORA account. No "email không tồn tại" message anywhere.
+- 2026-09-05 — A session opened by a reset link may reach nothing but the Đặt lại mật khẩu screen until the new
+  password is saved; the guard lives in the shared route gate, so it holds no matter which URL the link lands on.
+- 2026-09-05 — Saving a new password signs out every other device, and the screen says so plainly.
+- 2026-09-05 — Signup confirms by email. The screen never claims "tài khoản đã tạo" (untrue when the address
+  already had one) — it says an email was sent, the same answer for both cases, matching the reset screen.
+- 2026-09-05 — Signing in before confirming shows "Gửi lại email xác nhận" inside the error itself, so an
+  unconfirmed account is never a dead end.
+- 2026-09-05 — Brand tagline corrected by user: "Nhắn tin riêng tư, tức thì!" (dấu chấm than, không phải dấu chấm).
+  Applies to the auth screen headline and the meta/og description in index.html.
+- 2026-09-05 — An exhausted project mail quota never reads as "bạn thử quá nhiều lần" — the quota is shared, so
+  another person's signup can trigger it. It says the system cannot send email right now and to retry in about an
+  hour. The per-address cooldown keeps the short "đợi một lát" wording.
+- 2026-09-05 — Transactional emails are bilingual, Vietnamese first then English, in one message — the app is
+  Vietnamese but the address may be read anywhere. Approved wording lives in docs/email-templates/ (the canonical
+  copy; .rork/ is gitignored) and is pasted into the Supabase dashboard by the user.
+- 2026-09-05 — Emails never reuse Supabase's default phrasing ("Follow the link below to confirm this email
+  address…"). Each one names AVORA and states why it arrived, because that default wording is common in phishing
+  and gets flagged by corporate spam filters. Both emails also carry a reassurance line for the person who did
+  not ask for them.
+- 2026-09-07 — Phase 3 supersedes the v1 "no tasks" boundary (2026-09-05): personal + 1-1 shared tasks ship in
+  the same paper language. A shared task starts only when both parties agree — the creator's Gửi plus the peer's
+  Xác nhận — and stays untouched by direct edits while pending; only the peer can confirm, and either party can
+  finish. Third parties always see zero task rows, never an error.
+- 2026-09-07 — Tasks arrive over the same live connection as messages: a new shared task, the peer's Xác nhận and
+  either side marking it done all appear on the other person's screen without a refresh. Nothing about task state
+  is delivered by polling while the connection is up; the 10s refresh is only the offline fallback.
+- 2026-09-07 — Finishing a shared task now takes both people, mirroring how one starts: the person who took the
+  task reports it done, and the person who gave it approves. Supersedes the same-day line above allowing either
+  party to finish. The circle beside the task fills only halfway while approval is outstanding, so an unreviewed
+  claim can never look finished.
+- 2026-09-07 — A shared task shows a button only to the person whose turn it is; the other side sees a quiet
+  status word. No step ever asks both people to act, and no one can act twice in a row on the same task.
+- 2026-09-07 — The half-filled circle fills from its left edge, never from its centre: a centred fill reads as a
+  stripe, not as "half done". A finished task keeps its wording on screen rather than going blank, so the closed
+  state is something you can see, not just the absence of a prompt.
+- 2026-09-07 — Task wording splits by phase: the two opening states talk about taking the work (Chờ nhận việc,
+  Đang làm) and the two closing states about confirming it (Chờ xác nhận, Đã xác nhận). No two states ever share
+  a phrase — a repeated label would make different situations look identical.
+- 2026-09-07 — Whoever is waiting is told who they are waiting on ("Chờ người giao xác nhận"), not merely that
+  the task is waiting.
+- 2026-09-07 — Accepting a task and finishing a task get separate vocabularies, superseding the same-day wording
+  line above: the opening pair speaks of nhận việc (Chờ nhận việc, Đã nhận việc) and the closing pair of hoàn
+  thành (Chờ xác nhận hoàn thành, Đã hoàn thành). Bare "xác nhận" is never a state name again — it read as both
+  accepting and finishing. The accept button says Nhận việc, the closing one Xác nhận hoàn thành.
+- 2026-09-07 — Four states, four shapes: empty square (not taken on), ring with one check (taken on), half-filled
+  circle (reported done), solid disc with a double check (confirmed finished). The shape carries the meaning on
+  its own, so the words confirm what you already see instead of being the only clue.
+- 2026-09-07 — A personal task shows only the empty square or the finished disc. It has nobody to accept it and
+  nobody to review it, so a single check would claim a hand-off that does not exist.
+- 2026-09-07 — "Đang mở" counts every task the two people have not both closed, including one waiting on the
+  creator's confirmation: work stays counted while it is still someone's responsibility, and only a confirmed
+  task leaves the count. Section totals and per-person totals use that one rule, so they cannot disagree.
+- 2026-09-07 — Reviewing a done claim has two answers and both belong to the reviewer: approve it, or trả việc to
+  send the work back for redo. A returned task lands back on "đã nhận việc" with the claim cleared, so the person
+  doing the work can report again — a rejection is never a dead end and never a new task.
+- 2026-09-07 — Deleting is per person, not per task: each side of a shared task has its own bin, and the row only
+  leaves the database when both have let go of it. Nobody can delete work off someone else's list. While it is
+  one-sided the survivor is told plainly ("Người giao đã xoá"), because a task nobody will answer for anymore is
+  different from one that is merely waiting.
+- 2026-09-07 — "Xoá hẳn" appears only where one person owns the row outright, so it never destroys a copy someone
+  else still keeps. A shared task in the bin offers only Phục hồi, with a line naming who is still holding it.
+- 2026-09-07 — Deadlines are calendar days, never timestamps, and are always optional: most work has no promised
+  day, and "due today" must read the same at 08:00 and at 23:00.
+- 2026-09-07 — Urgency is carried by warm colour on the date itself, never by a red alarm and never by recolouring
+  the task's own words: overdue #E17A5F, due within three days #D68A6F, scheduled #666666, and unscheduled #CCCCCC
+  reading "Không có hạn". Body text stays ink so the list is legible at any urgency.
+- 2026-09-07 — Lists read in the order a worried person scans them: overdue, then nearly due, then scheduled, then
+  undated — and finished work sinks below all of it, however overdue it once was.
+- 2026-09-07 — The counter beside a collapsed branch is bold and coloured by the most pressing thing inside, so a
+  closed branch still admits it is hiding something late. At zero it goes faint and plain. A count above zero never
+  uses the unscheduled grey: nothing outstanding is allowed to look like nothing.
+- 2026-09-07 — Nhiệm vụ is one collapsible tree (section → person → tasks) that starts closed, with one exception:
+  a branch holding your move or something overdue opens itself. Collapsed-by-default keeps a long list calm;
+  the exception keeps it from hiding work you owe. Hand-collapsing a branch always wins over that rule.
+- 2026-09-07 — A person with no tasks is not listed at all. The tree shows relationships that currently carry work,
+  not a directory of contacts.
+- 2026-09-07 — A task is a title, a description of what is actually wanted, and a day it is due. All three are
+  required on both kinds of task; without them it is a note, not a task. The composer says so in one line and
+  keeps its button inert until all three carry something, so the form never invites a request it will refuse.
+- 2026-09-07 — Because the description is mandatory it is shown on the row, clamped to two lines, never hidden
+  behind a tap. A requirement nobody reads would be paperwork.
+- 2026-09-07 — A deadline may be today but never a day already past, and it is still a calendar day: "today" means
+  the same at 08:00 and at 23:00. Consequently the unscheduled #CCCCCC "Không có hạn" band no longer occurs on new
+  work — it survives in the code only so rows written before this rule still render.
+- 2026-09-07 — Deleting turns on authority, not on progress, refining the two lines below it: a request nobody has
+  accepted yet is the creator's to withdraw outright — no bin, no second copy, nothing to preserve — while after
+  acceptance both sides only ever soft delete. The button says "Xoá hẳn" in the first case, because a delete that
+  cannot be undone must not look like one that can.
+- 2026-09-07 — Deleting is not symmetric, superseding the equal-bins line above on who may delete when: the person
+  who asked for the work may withdraw it at any point, but the person doing it can only delete once the task is
+  confirmed finished — not merely reported finished. Otherwise unfinished work could be swept off the list before
+  anyone answered for it, which is the one thing the two-party flow exists to prevent. The bins stay per-person.
+  The refusal names whose word closes a task: "Chỉ có thể xoá khi người giao xác nhận việc đã hoàn thành."
+- 2026-09-07 — Where an action is not yours to take, the button is absent rather than present-and-refusing. The
+  assignee gets no delete control until the task closes; the refusal message exists only as a server backstop.
+- 2026-09-07 — Superseded by the authority rule above: the row is destroyed once both sides have let go, and the
+  extra "only if closed" condition is dropped. Since the assignee can only ever bin a confirmed-finished task,
+  a doubly-binned unfinished task cannot arise except by the creator withdrawing something never accepted.
+- 2026-09-07 — The avatar stays the largest circle in a row (44px) and the task-state circle is deliberately smaller
+  (32px): the person owns the row, the task's state is a detail inside it.
+- 2026-09-07 — Phase 4A supersedes the v1 boundary again: AVORA keeps a household ledger. It is one module in the
+  same paper language, reached from the same rail, not a second product bolted on.
+- 2026-09-07 — Money is carried as integer cents everywhere and only becomes a decimal at the database edge. A
+  ledger that cannot add up its own rows is worthless, and floating point cannot add 0.1 and 0.2.
+- 2026-09-07 — Income reads green and expense reads deep rust; neither is the terracotta accent, which stays for
+  buttons and navigation alone. Everyday spending is not an alarm, so an expense in a list is ink with a minus,
+  and rust is kept for the figures that summarise it.
+- 2026-09-07 — An account's balance is derived from its transactions and its opening balance, never stored as an
+  independent claim. The database recomputes it on every write and the client has no privilege to write the
+  column, so the number on screen cannot drift from the rows beneath it.
+- 2026-09-07 — A transaction is never deleted, only marked as an error: the row stays for audit and leaves every
+  total. Correcting a mistake must not be indistinguishable from hiding one.
+- 2026-09-07 — Closing an account hides it from balances and keeps every transaction it ever held. History belongs
+  to the ledger, not to the account.
+- 2026-09-07 — Four fields make a transaction — account, date, amount, category — and the submit button stays faint
+  until all four are filled. Diễn giải is optional: forcing a sentence onto every grocery run would stop people
+  recording them at all.
+- 2026-09-07 — Enter is for writing, not for sending, in the ledger as in Nhiệm vụ. Only the button commits, so a
+  half-finished amount cannot be posted by a stray keystroke.
+- 2026-09-07 — A recurring entry is a memory aid, never a standing order. AVORA notices the day has come and offers
+  it; a person still presses Thêm. Skipping is remembered locally, because nothing financial happened.
+- 2026-09-07 — The household business is one checkbox, not a mode. Ticking it on a single transaction is what makes
+  the lãi lỗ card, the P&L and the deductible list appear; until then the app never mentions business at all.
+- 2026-09-07 — P&L revenue is income actually flagged as business, not all income. Counting a salary as farm
+  revenue would make the one number a farmer relies on a lie.
+- 2026-09-07 — Category names are Vietnamese, because they are what the person reads and what the duplicate-name
+  rule protects; a stable English slug carries the meaning that reports match on. Reports never match display text.
+- 2026-09-07 — Every report is a pure function of the ledger and a date range, and the table, the CSV and the Excel
+  file are all rendered from that one result — an export can never disagree with the screen it came from.
+- 2026-09-07 — Exports carry bare numbers with the currency named once in the header, never a symbol glued to each
+  cell: a spreadsheet can only sum a column of numbers.
+- 2026-09-07 — One ledger, one currency, for now. Summing two currencies into a "total" would produce a figure that
+  means nothing, so a second currency is refused with a sentence saying why rather than quietly mis-adding.
+- 2026-09-07 — The giving dial is a half-arc that fills to 15%, coloured red under 5%, yellow through 10%, green
+  above — with white ticks on the two boundaries so the verdict is legible without reading the number.
+- 2026-09-08 — Phase 4B.1 supersedes "one ledger, one currency": AVORA now holds accounts in any of twenty
+  currencies and reports totals in one base currency of the person's choosing. The old rule was standing in for
+  conversion, not arguing against it — summing VND and USD is still forbidden, it is just done properly now.
+- 2026-09-08 — An account's balance is shown in the account's own currency, never converted in place. Converting
+  the headline figure would hide what is actually in the account; the base-currency value goes underneath, quietly,
+  and only when the two differ.
+- 2026-09-08 — A figure that cannot be valued reads as "chưa có tỷ giá", never as zero. A missing rate must not
+  quietly shrink someone's net worth, so unvalued accounts and entries are named and excluded, not absorbed.
+- 2026-09-08 — Exchange rates are anchored to USD in both directions and nothing else is stored; every cross rate
+  is derived. Hand-written cross pairs make the answer depend on which row is found first — the brief's own figures
+  disagreed by ~0.04% — and one anchor means one answer, with every round trip closing.
+- 2026-09-08 — Reports state the rates behind a converted total. A number nobody can check is a number nobody
+  should have to trust.
+- 2026-09-08 — A deadline is a day first and an hour only if the person says so. A task with no clock is due at the
+  END of its day, not 09:00: treating it otherwise would make work promised for today read as late by mid-morning,
+  which is why no existing deadline was given a time when the column arrived.
+- 2026-09-08 — The emergency star is a tiebreaker, never a promotion. It settles two tasks due at the same moment
+  and nothing more, so flagging something can never push it ahead of work that is genuinely due sooner.
+- 2026-09-08 — Theo hạn is the default reading of Nhiệm vụ, superseding the two-card tree as the landing view.
+  What is due soonest is the one ordering that is not a matter of taste; Theo người stays one tap away, and is
+  still where work gets created, because that is where you choose who it is for.
+- 2026-09-08 — Consent is per occurrence: a repeating shared task comes back as Chờ nhận việc every time. The peer
+  agreed to this week's standup, not to every standup for ever.
+- 2026-09-08 — A repeat's next date is counted from the original deadline and then walked into the future, so a
+  month-end task stays at month-end and a task finished three weeks late does not produce a successor born overdue.
+- 2026-09-08 — Reminders are per person, not per task, and are delivered in the app. AVORA has no mail, SMS or push
+  sender, so a reminder cannot reach a closed tab and the screen says so rather than implying a notification that
+  will never arrive. A reminder that could only fire after its own deadline is not offered at all.
+- 2026-09-08 — Task categories are private to their owner. A shared task carries its creator's label and the peer
+  simply sees none — a filing system is for the person who made it, not a fact about the work.
+- 2026-09-09 — Everyone has a Personal Journal: a conversation with exactly one participant, created at signup and
+  backfilled for existing accounts. Private notes belong in the same place as everything else you write, so the
+  journal is a real conversation rather than a separate note store. Asking for someone else's journal by id returns
+  nothing at all — emptiness, not an error, because a refusal would itself confirm the journal exists.
+- 2026-09-09 — A task's context snapshot is written once and can never be edited, by anyone, including the person
+  who created it. It copies the message text and the sender's name as they read at that moment, so deleting the
+  original message or renaming the sender cannot rewrite why the task exists. A record of what was said stops being
+  a record the moment it can be revised.
+- 2026-09-09 — Group identity lives beside the conversation, not inside it. A direct chat has no name and a journal
+  has no owner, so a name/owner only exists where those things mean something, and renaming a group never touches
+  the name of a task list inside it — the list was named by a person, for a reason of their own.
+- 2026-09-09 — A task list may have no name. "The list" is what most people mean when there is only one, and
+  demanding a title for it would be paperwork.
+- 2026-09-09 — Who may switch task lists on follows the shape of the room: in a 1-1 either person, in a group only
+  the owner, in a journal the person themselves. Members can always SEE the setting, so a rule they cannot change
+  is at least never invisible to them.
+- 2026-09-09 — Removing someone from a group is an owner's act alone. An admin may only ask, and the ask is a
+  visible record with a name on it; the owner's answer is stamped with who decided and when. Putting someone out
+  of a room is the kind of decision that should never be untraceable, and an admin who could do it silently would
+  make it exactly that.
+- 2026-09-09 — An owner may leave, but not before handing the group to someone else. The interface says so in
+  words on the button rather than letting the press fail — a rule the person meets as an error message is a rule
+  the design forgot to explain.
+- 2026-09-09 — A group's ownership can move, but only by transfer: the old owner steps down before the new one
+  steps up, so the group is never briefly ownerless and never briefly has two. Renaming a group still cannot
+  change who owns it — the only opening is the transfer itself.
+- 2026-09-09 — A private message that starts inside a group stays private from the group. The owner runs the room
+  but is not entitled to what two people say to each other in it, and the same pair gets a separate thread per
+  group so a conversation cannot follow them somewhere it was never meant to go. Deleting the group deletes those
+  threads with it.
+- 2026-09-09 — The group roster lives behind the info button of the conversation itself, not in a separate
+  management screen. A group is a room, and its member list belongs at the door of that room: open the panel and
+  the members are there, ranked by responsibility (owner, admin, members), each with exactly the buttons their
+  seat allows — nothing more, nothing hidden in a menu.
+- 2026-09-09 — Removing a person is always confirmed in words before it happens, and an admin's request names the
+  asker. The dialog says what will occur and, for an admin, that their name goes with the ask — the accountability
+  the database records should be visible at the moment of asking, not only afterwards.
+- 2026-09-09 — The member search only appears once a roster is large enough to need it (seven people). A filter box
+  above six names is decoration; above twenty it is the only way to find the person you came to deal with. The same
+  query filters the pending requests, so "who is this about" and "what is being asked about them" narrow together.
+- 2026-09-09 — An admin learns the owner's verdict on their request the moment it is made, wherever they are in the
+  app, not by reopening the roster to check. A request is a question addressed to a person; the answer should come
+  back to them, not wait on a shelf for them to notice.
+- 2026-09-09 — Tin nhắn is split into three named directions — Nhật ký, Chat 1-1, Chat group — because choosing who
+  you are writing to is a different decision from choosing what to say. One merged list forced the mode to be
+  inferred from an avatar; three tabs make the choice explicit and give each direction its own way to start
+  something new (an email for a person, a name plus emails for a group, nothing at all for the journal).
+- 2026-09-09 — Nhật ký opens itself. It is the one thread with exactly one possible participant, so asking the
+  person to pick it from a list would be asking a question with one answer. It carries no read receipt and no call
+  button either: there is nobody on the other side to have seen it or to ring.
+- 2026-09-09 — A group message wears its sender's name; a 1-1 message does not. With more than two people in a
+  room, an unattributed bubble is unreadable — and with exactly two, a name on every line is noise.
+- 2026-09-09 — In a group, an incoming bubble stands beside its sender's avatar — the same warm-sand initials
+  circle used everywhere else, aligned with the bottom of the bubble. The name above still carries the words; the
+  avatar answers "who" before reading begins. Own bubbles stay unaccompanied: the accent colour already says it is
+  you, and a mirror at the right edge would be answering a question nobody has.
+- 2026-09-09 — Group settings live behind one gear in the roster panel, and renaming is the owner's alone. The gear
+  is shown to every member with the rule spelled out rather than the menu hidden: a member who goes looking for the
+  setting should learn who can change it, not find nothing. A rename never touches membership or ownership —
+  ownership still moves only by transfer.
+- 2026-09-09 — A rename cannot be blank and cannot be a no-op: Save stays inert until the name actually differs,
+  and what gets stored is the words the owner meant with stray whitespace collapsed away. Re-saving the current
+  name is a write with nothing to say.
+- 2026-09-09 — Appointing and standing down the admin are buttons on the member's own row, visible from the owner's
+  seat only. Delegation is a statement about one person, so it belongs beside that person's name rather than in a
+  settings menu — and the seat that answers removal requests is the only seat that may hand out the right to raise
+  them.
+- 2026-09-09 — The group holds one admin seat, and the interface says so before the database has to. While the seat
+  is taken, the appoint button on other rows is disabled and names its current holder; freeing it is an explicit
+  "Thu hồi quyền" on the admin's row. A second appointment is refused by the rules either way — better read as a
+  sentence than as an error.
+- 2026-09-09 — One invite link per group, carried by a secret token in the URL. Every member may share it; only the
+  owner rotates or revokes it — the seat that decides who belongs decides which doors exist. Joining through a link
+  makes you a plain member, no approval and no form; opening a link while already a member simply opens the group.
+  A dead link reads as a sentence ("không còn hiệu lực"), and the invite page names the group and asks exactly one
+  question — join or not.
+- 2026-09-09 — Reading older messages is never interrupted. Opening a thread lands on its newest message with no
+  animation; anything you send is always followed; someone else's message only glides the view down while you are
+  already within ~96px of the live end. Otherwise the thread holds still and a small pill floats above the composer
+  — warm-sand when it is only an invitation back ("Tin nhắn mới nhất"), primary green with a count when messages
+  arrived out of sight ("3 tin nhắn mới", capped at 99+).
+- 2026-09-09 — Nothing in the database answers to a signed-out caller. Application functions are executable by
+  signed-in users only, and the trigger functions that enforce the rules answer to no one directly — they run when
+  the data changes, never on request. `ensure_default_categories` keeps its signed-in grant because Tài chính calls
+  it straight from the client to lay down a new user's default categories.
+- 2026-09-09 — One rule decides who sees a task: it is yours if you wrote it, or it is shared and you are in the
+  conversation it belongs to. The 1-1 and group cases were always the same sentence with a different noun, so they
+  are now written once. Every rule on Nhiệm vụ addresses signed-in users explicitly rather than relying on an empty
+  identity to fail the comparison.
+- 2026-09-09 — The rule-keeping helpers follow the same line as the rest: the four that only run when data changes
+  answer to nobody directly, while the two that genuinely compute something for a screen — the default finance
+  categories and a task's deadline instant — stay open to signed-in users. A signed-out visitor can no longer reach
+  a single function in the database.
+- 2026-09-09 — Creating a task follows the same three shapes as reading one, so the INSERT rules are written once
+  too: the row must be yours, and either it is personal with no conversation and starts confirmed, or it lives in a
+  conversation you belong to and starts awaiting confirmation. The shared 1-1 and group branches are one sentence,
+  and the participant lookup only runs for rows that get that far.
+- 2026-09-09 — In every thread — 1-1, nhóm and Nhật ký — Enter belongs to the message, not to sending. It opens a
+  new line like any other text box, the box grows with the draft up to a point and then scrolls, and a message
+  leaves only when Gửi is pressed. Gửi stays unavailable while the draft is empty, whitespace-only, or a send is
+  already in flight, so a blank message can never go out.
+- 2026-09-10 — Shared work now starts where it was agreed. A task for another person is raised only from inside the
+  conversation, with the message that prompted it copied onto the task and kept — the database refuses to let that
+  copy be edited later. Accepting, handing back, finishing and binning happen in that same thread, where both sides
+  can see what was actually said. Tab Nhiệm vụ becomes the place you read and arrange shared work rather than decide
+  it: one button back to its context, and dragging that changes this person's order alone.
+- 2026-09-10 — A group task names the one member carrying it. "The other person" is meaningful in a 1-1 and
+  meaningless in a group, so the row records an assignee outright; everyone else in the room can read the task but
+  is asked for nothing and has no bin for it. Older 1-1 rows keep working unchanged, where the assignee is still
+  simply whoever is not the creator.
+- 2026-09-10 — The list you check first is a matter of how you work, so the three readings can be dragged into any
+  order and the one at the front is what opens next time. The middle reading is "Theo đối tượng", not "Theo người":
+  it now groups by conversation, and a group is not a person.
+- 2026-09-10 — Tổng quan answers one question — where to look first — with three counts: Cá nhân, 1-1 and Nhóm.
+  Each block is a door into Tab Nhiệm vụ already narrowed to that kind of work, so the number tapped and the list
+  landed on are always the same set of tasks.
+- 2026-09-10 — A task can be raised from one particular message, not only from the end of the thread. Every bubble
+  offers it — on hover with a mouse, on a held finger by touch — and the task then quotes that message. The button
+  beside the box stays exactly as it was, quoting whatever was said last. Two doors, because "that thing you said
+  earlier" and "what we just agreed" are different questions.
+- 2026-09-10 — The panel inside a group chat is called "Nhiệm vụ chung" and holds only the viewer's own business:
+  what they were asked for, and what they are waiting on from others. A room of twelve generates work that has
+  nothing to do with you, and reading it each time you open the chat is noise. The room's full list — who is
+  carrying what — opens from the header as "Danh sách nhiệm vụ nhóm". A 1-1 is left whole: two people can never
+  make a list too long to read.
+- 2026-09-10 — The assignee box is typed into, not read through: names narrow as you type, with or without tone
+  marks, so "hoa" finds Hoà and "dat" finds Đạt. Several people can be named, each becoming a chip that can be
+  taken back off. Confirming with three people writes three separate tasks — same wording, same quoted message,
+  one assignee each — because a promise is between two people, and three of them finish at three different times.
+- 2026-09-10 — Time is chosen from a grid of five-minute marks rather than typed into the browser's own control.
+  A deadline is an intention, not a stopwatch: 16:05 and 16:07 mean the same thing to whoever reads it. The field
+  stays optional and stays a clock — empty until pressed, showing "16:05" beside the icon once set, with no box to
+  type digits into. This is the only time control in the app.
+- 2026-09-10 — A panel waiting on something that has already failed says so instead of spinning. The invite link
+  can only be fetched once the viewer's role is known, and the role comes from the member list, so a broken member
+  list used to leave "Đang tải liên kết…" on screen for ever — a loading line that was really an error, which is
+  what hid the fault. A blocked dependency now reads as its own state, names the member list as the cause, and
+  offers Thử lại. No surface in AVORA is allowed to describe a dead wait as loading.
+- 2026-09-10 — Qualifying a name with `pg_catalog.` is only correct for built-ins: `auth.users` lives in another
+  schema, and `pg_catalog.auth.users` is read by Postgres as database.schema.table and refused outright. A pinned
+  `search_path` is the right hardening and stays; the schema-qualified names beside it are what must be checked
+  after any advisory pass, because such a rewrite breaks a function at run time while leaving its grants intact.
+- 2026-09-10 — AVORA can be kept on a phone's home screen: same web app, one configuration layer, no second
+  codebase. Installed it is called AVORA (AVORA Space in full), opens standalone on the bone canvas with no
+  browser bar, and carries the folded-paper icon — including a maskable cut, so a round or squircle crop takes
+  paper, never a clipped fold. The status-bar tint is the canvas the app actually shows, not the terracotta
+  accent: the accent is for buttons and marks, and a coloured band across the top of every screen is not sparing.
+- 2026-09-10 — The service worker exists to make the app installable and for nothing else. It never touches a
+  Supabase response — messages, tasks and money are read from the network every time, never from a cache — and it
+  never handles the HTML document, so the build that loads is always the one just deployed. Static build output is
+  fetched network-first with the cache as an offline fallback only, and each new worker takes over immediately
+  instead of waiting for every tab to close. Offline reading stays out of scope: a cached ledger that quietly
+  disagrees with the server is worse than an honest failure to load.
+
+- 2026-09-11 — The main rail carries five places and no more: Avora Space (the dashboard, still on `/tong-quan`),
+  Tin nhắn, Nhiệm vụ, Két sắt, Cài đặt. Liên hệ moved out of the rail into the Tin nhắn header, because the people
+  you talk to belong beside the talking, not beside the sections. Two names are now containers rather than pages —
+  Két sắt holds Tài chính plus Mật khẩu, Cài đặt holds Hồ sơ plus Avora AI — and the halves inside them are
+  reached by a quiet section strip, deliberately flatter than the pills a page draws for its own contents, so the
+  two levels never read as the same row of tabs. Every renamed URL redirects to its new home with its query string
+  intact: a saved `/tai-chinh/giao-dich?thang=…` link still opens the same filtered ledger, never a 404 and never
+  an unfiltered one. `/tong-quan` was deliberately NOT renamed with its label — a live route is worth more than a
+  tidy slug.
+- 2026-09-11 — A half that exists in the navigation but not in the product shows one line and a SẮP RA MẮT pill,
+  never a disabled form. Mật khẩu stores nothing and Avora AI answers nothing; giving either an input would
+  promise a feature that cannot reply, which is the same dishonesty as a spinner over a failure.
+- 2026-09-11 — The brand is now the twin-fold chevron lockup: the mark alone (on bone) as app icon and favicon,
+  the mark beside the letter-spaced wordmark in the rail, and the full icon-plus-AVORA lockup centred on the sign-in
+  column at ~264px, width-capped with `h-auto` so it can never stretch. Icon files keep their published names, so
+  the PWA manifest and iOS meta are untouched and the service worker's rules stay exactly as chosen for v1.0; the
+  full lockup ships under a new filename rather than overwriting an existing public asset, because `public/` files
+  are served at stable, browser-cached URLs.
+- 2026-09-11 — Avora Space closes on two quiet lines below the task cards, in this order: who is waiting, then one
+  thought. The messages line counts CONVERSATIONS with something new, not messages — five unread from one person is
+  one person waiting — and reads "X cuộc trò chuyện có tin mới" as a full-width card with a dotted chevron row into
+  Tin nhắn. At zero it collapses to a single muted sentence, "Không có tin nhắn mới.", with no card and no link:
+  an empty inbox should feel like nothing to do, not like a button greyed out.
+- 2026-09-11 — Daily Thought is off until asked for (`khong_chon` is the default), and its wording is fixed data,
+  never generated: 30 scripture lines and 20 maxims, stored verbatim. Scripture carries the speaker's name and
+  NOTHING else — the book, chapter and verse live in the data file for checking the wording and can never reach the
+  screen, because the view model handed to the page has no field to hold them. Maxims are shown with no name at all.
+  The block is a bordered card on translucent bone with a hairline left rule down the quote, introduced by a line
+  that changes with the hour on the same boundaries as the greeting (before 11 / before 18 / after).
+- 2026-09-11 — The day's line is chosen by walking the list with a fixed stride that shares no factor with its
+  length, seeded by the reader's LOCAL calendar day. This makes three promises exact rather than likely: reopening
+  the app all day shows the same line, a new day always brings a different one, and every line appears once in any
+  run of 30 (or 20) days — not merely in laps counted from some epoch. A shuffled-per-lap scheme was tried first and
+  rejected: it can repeat a line across a lap boundary and leave others unseen for months.
+- 2026-09-11 — Superseded, on the owner's instruction: the thought now sits directly UNDER the greeting and the
+  reader's name, as part of being met by name, and is a hairline terracotta left rule rather than a card — the page
+  opens on a thought, not on a count. It shows the line and the speaker and NOTHING else: the introducing sentence
+  is deleted, not hidden, because the greeting above has already spoken and a second voice announcing each quote
+  turned one quiet line into a performance. The time-of-day intro wording is therefore gone from the product
+  entirely, along with the hour boundaries it needed. Who is waiting on a reply stays below the task cards: that is
+  something to act on, not something to sit with.
+- 2026-09-11 — Signing in lands on Avora Space, never on Tin nhắn. Opening on the inbox puts whoever wrote last in
+  charge of the reader's attention, which is the opposite of what this product is for; opening on Avora Space means
+  the first thing seen is what they chose to carry. All five paths home agree through one constant — sign-in,
+  sign-up, a finished password reset, the bare "/", and a dead link (whose button now reads "Về Avora Space").
+- 2026-09-11 — Since nothing redirects to the other tabs any more, the rail's badges are the ONLY reminder, so
+  Nhiệm vụ gained one beside Tin nhắn's. It counts only what is overdue or waiting on this person's own move — not
+  every open task — because a badge that is permanently lit is decoration, not information. A lit badge always
+  means "yes, go and look"; badges remind, they never redirect.
+- 2026-09-13 — Privileges are audited by probe, not by reading an advisor list. Two real holes were found that the
+  Security Advisor never reported: every table granted TRUNCATE to signed-in users (and TRUNCATE ignores Row Level
+  Security entirely, so a person could empty a table they cannot read one row of), and the RLS helper functions sat
+  in the API-exposed schema where they answered questions about strangers — "is that person in that room?". Both were
+  proven on throwaway tables before anything production was touched, and the TRUNCATE fix also changed the DEFAULT
+  privileges so the next table created cannot re-open the hole. The helpers moved to a `private` schema rather than
+  having EXECUTE revoked, because revoking it makes every guarded table silently unreadable.
+- 2026-09-13 — A SECURITY DEFINER function may accept an id, but never as a claim about who is calling: the actor
+  always comes from auth.uid(), and any id passed in is a target to be checked. All 60+ existing functions were read
+  against this rule and all of them hold it.
+- 2026-09-13 — The group Decision Log keeps two kinds in one place because they are the same idea at different
+  temperatures: a Meeting Note is a decision already made, a Poll is one still being made. Both guarantees live in the
+  database, not the interface. A finalized note is refused by a trigger for UPDATE and DELETE — proven by editing it
+  as the table owner and being refused — so "locked" holds for anyone with an API key, not just for people looking at
+  our screens. An open poll shows no tally because RLS hands the reader only their own ballot; the tally is genuinely
+  absent rather than hidden, which is why the entry carries null instead of zeroes. An empty tally and a concealed one
+  look identical on screen and only one of them is honest.
+- 2026-09-13 — Delegation is one permission for one record, spent on use and stamped with what it produced, so
+  "used" can never be claimed without something to show for it. A partial unique index allows at most one unspent
+  grant per person per kind, so repeated granting cannot quietly stockpile into an unlimited licence.
+- 2026-09-13 — Project mode is schema only: a flag on the group, objectives, deliverables, and two nullable columns
+  on tasks. Reads are granted, writes are NOT — the rules that will validate an objective arrive with the feature
+  that owns them, and granting INSERT early would leave a window where anyone in a group could write records nothing
+  yet checks. Unfiling is not deleting: removing an objective sets a task's link to null and never removes the work.
+- 2026-09-14 — "Important" and "how heavy" are opinions, not properties of a task, so they moved off `tasks` onto a
+  per-person row. The person who asked for the work and the person carrying it rarely agree about either, and under
+  the old single column one side's star silently reordered the other side's list. Each side now keeps its own reading
+  and neither can see or disturb the other's — proven by two accounts holding opposite values on the same task.
+- 2026-09-14 — The tab is "Quan trọng", not "Khẩn cấp": the deadline already answers urgency, and calling the tab
+  urgent made every important thing without a date look like it did not belong there. Calling your mother takes four
+  minutes, has no deadline, and is one of the more important things on the list.
+- 2026-09-14 — Nhiệm vụ nặng is the one list NOT ordered by deadline. It sorts by the room left after the work
+  itself is subtracted, because a four-hour job due tomorrow is in more trouble than a ten-minute errand due this
+  afternoon — ordering heavy work by date would put the wrong task first, which is the mistake the view exists to fix.
+- 2026-09-14 — A dashboard block now opens the reading that makes it meaningful, not just the filter. Sending a
+  "1-1" click into the deadline timeline showed the right tasks with the grouping that made the block make sense
+  nowhere in sight, so the screen appeared to have ignored what was clicked.
+- 2026-09-14 — Editing a live task is open to both parties and stops when a done claim is filed. At that point the
+  description IS the thing being reviewed, and rewriting it would mean judging finished work against wording that
+  changed after the fact. An edit that changes nothing closes the form without writing, because bumping updated_at
+  would tell the other side something happened when nothing did.
+- 2026-09-14 — A Meeting Note's structured fields are optional but their LABELS are not: minutes lose things because
+  nobody was reminded the field existed. Locking the note is also what hands out the work — an action item ticked
+  "Tạo Task" becomes a real task at finalize, never while the note is still a draft being argued with. A ticked line
+  missing a person or a date refuses the whole lock out loud rather than being skipped silently, and each line is
+  stamped with the task it produced so re-locking cannot issue the work twice.
+- 2026-09-14 — Đã thu hồi destroys the words, it does not hide them. The row survives so replies quoting it still
+  have something to point at, but the text is gone from the database — a withdrawal that leaves the words readable to
+  anyone with an API key is not a withdrawal. This forced the blank-content rule to become conditional (a live message
+  must carry text; only a tombstoned one may be empty) rather than weakening the recall to a flag.
+- 2026-09-14 — An edit is admitted out loud with "(đã chỉnh sửa)". A silent correction would let someone change what
+  they are on record as having said, which is a worse problem than the typo it fixes. Both edit and recall are refused
+  by the server past 24 hours, so the window is a rule rather than a hint the interface keeps.
+- 2026-09-14 — Per-message actions collapsed into one "…" menu. Four icons on every line of a conversation is
+  furniture; actions absent past their window beat actions offered and then refused, which teaches people not to
+  trust the menu.
+- 2026-09-14 — The quick reaction bar is not all positive. Sadness, sympathy and surprise belong in a real
+  conversation as much as approval does — a set that can only agree turns every reaction into applause, and then
+  nobody uses it to say anything true. Reactions have no stored count: the rows are the count.
+- 2026-09-14 — Typing and presence are carried by the socket and stored nowhere, so closing a tab makes both facts
+  disappear rather than leaving a stale "online" nobody can correct. There is deliberately no "last seen at": a
+  timestamp outlives the moment it described and becomes a log of when someone was at their desk. The typing
+  preference is one-directional — it silences what you send and never blinds you to others, because a privacy choice
+  that charges a price is one people leave switched off for the wrong reason.
+- 2026-09-14 — Mentions are stored as ids, never as the text "@Minh": display names change, so re-reading the words
+  later could resolve to a different person or to nobody. The ids follow the words — breaking up a name un-names that
+  person — and only recorded mentions light up, so typing "@nobody" cannot fake having named someone.
+- 2026-09-14 — The Gia đình mark is one-directional and invisible to its subject. Asking for confirmation would turn
+  "my mother" into a negotiation and a refusal into an insult; five fixed kinds rather than free text because the
+  record exists to be read by the mute rule, which cannot act on a relationship typed out by hand. Adoptive parents
+  and children sit inside `parent` and `child` — separate kinds would ask people to rank their own family.
+- 2026-09-14 — Pins come in two kinds because two needs were being confused: a group pin is the room speaking
+  (shared, limited, officer-only) and a personal pin is one person's bookmark that must not consume the room's space.
+  The limit of three is the feature — a wall of twenty pins is a second inbox. An officer is ASKED which audience they
+  mean rather than having "group" assumed, because silently publishing a private note to the whole room is the wrong
+  default in the more damaging direction.
+- 2026-09-14 — Muting AVORA is absolute: no family exception, no mention exception. An app that decided some of its
+  own notifications were too important to obey the switch would make the switch untrustworthy, and then nobody would
+  use it. Below it, family clears Tin nhắn and a tab, and being named clears a group only — in a 1-1 every message is
+  already addressed to you, so "@" would exempt everything and the mute would mean nothing.
+- 2026-09-14 — Every mute carries an end, and the per-tab layers get four fixed answers with no free-text box.
+  Silencing the whole app is a decision about your own day; silencing one group is a decision about the people in it,
+  who are left believing their messages arrive. There is NO mute for Nhiệm vụ anywhere — a task is a promise someone
+  is waiting on, and the way to make it quiet is to finish it.
+- 2026-09-15 — Depth for people who plan in depth, invisible weight for everyone else. Milestone, progress,
+  and dependencies are all empty by default and stay empty unless asked for, gathered in one quiet block
+  rather than sprinkled through the form. A plan where everything is a milestone has no milestones in it,
+  and a percentage nobody maintains is worse than no percentage at all — so none of them is ever required,
+  and leaving all of them alone is the ordinary outcome, not an unfinished task.
+- 2026-09-15 — An empty progress box and 0% mean different things and are stored differently. A task nobody
+  has estimated is not a task somebody reported as untouched; collapsing the two would turn every new task
+  into a public claim of no progress. Clearing an estimate is therefore its own explicit request, never a
+  side effect of setting some other field.
+- 2026-09-15 — A dependency is stated, never enforced. Recording that one piece of work waits on another is
+  a note about reality; turning it into a lock would mean the app telling someone they may not start their
+  own work. Finished tasks stay linkable for the same reason — "this waited on that, which is now delivered"
+  is exactly the history worth keeping.
+- 2026-09-15 — "Bắt đầu làm" is one person's own note, never an announcement. Two people carrying the same
+  shared task start at different moments, and one of them picking it up says nothing about whether the other
+  has — so it can never be a single column on the task. It changes no status, tells the other side nothing,
+  and mutes nothing; the indicator says "chỉ bạn thấy" because that is literally true.
+- 2026-09-15 — A suggestion is not a task and no longer pretends to be one: it lives in its own place
+  until somebody says yes. Writing the task the moment somebody asked put unanswered requests into the
+  receiver's deadlines, counters and badges as though they had already agreed — the app counted a question
+  as a commitment. The task is now created at the instant of "Tạo tác vụ" and not one moment sooner, and
+  "Bỏ qua" leaves no trace on any task list at all, because there was never anything there to remove.
+- 2026-09-15 — An accepted suggestion becomes a task that is already accepted, not one waiting to be.
+  The person pressing the button just agreed; asking them to confirm the thing they confirmed would be
+  ceremony. Both halves of the two-party record are written at once because both genuinely happened.
+- 2026-09-15 — A suggestion left unanswered past its proposed date stays answerable. Creating the task
+  later moved it under the rule that refuses past deadlines, which would have made "Tạo tác vụ" fail on a
+  two-day-old request and left "Bỏ qua" as the only button that worked — declining by timeout, which is not
+  an answer anybody gave. The task is created already overdue, exactly as an aged request always was.
+- 2026-09-15 — The asker gets their own heading, "Đã gợi ý, đang chờ", collapsed on arrival. Waiting on an
+  answer and having work underway are different states of mind, and only one of them is anybody's
+  responsibility yet; nothing under this heading is owed by the reader, so it must not compete with work
+  that is.
+- 2026-09-14 — A shared task is a suggestion, not an instruction, so the two buttons are named for what
+  they actually are: "Tạo tác vụ" and "Bỏ qua", above a line saying who asked. "Xác nhận / Xoá" framed
+  declining as deleting someone's request, which is why people left requests unanswered instead. Declining
+  belongs to the person asked and to nobody else — a creator who could "skip" on their behalf would be
+  withdrawing their own request while making it look like a refusal.
+- 2026-09-14 — Bỏ qua is a state, not a deletion. The row survives so the person who asked can see their
+  request was answered; erasing it would leave them unable to tell whether it ever arrived. A declined task
+  stays on the list with its own shape — dashed, neither the empty square (still waiting) nor the filled disc
+  (work somebody did) — and stops counting as open, because nobody is waiting on anyone any more.
+- 2026-09-14 — Declining offers the words, already addressed to the asker and sendable without a keystroke.
+  The hardest part of saying no is finding the sentence, and someone who cannot find it says nothing at all,
+  which reads as being ignored. The offered line promises to come back to the matter rather than refusing
+  outright, because that is usually what is true.
+- 2026-09-14 — Silence is allowed in a 1-1 and refused in a group, and the database enforces the asymmetry.
+  In a 1-1 the decline is visible on the task itself, so saying nothing still leaves the other person
+  informed; in a group the same silence leaves a room watching a request go unanswered with no way to tell
+  it was even seen. A group therefore has two options rather than three with one greyed out — an option
+  offered and then refused teaches people the menu cannot be trusted. A written reply may not be blank:
+  that is silence wearing the costume of a reply.
+- 2026-09-14 — A silent decline leaves a quiet centred line, not a message and not a system notice: nobody
+  said anything, so it gets no bubble, no sender and no reactions. It is derived from the task rather than
+  stored, since a silent decline creates nothing to store. The wording stops at "có lý do riêng của họ" —
+  choosing not to explain is a legitimate answer, and the thread must not imply an explanation is owed.
+- 2026-09-14 — Every shared task raised from a chat must carry the conversation it came from, enforced where
+  tasks are RAISED rather than as a NOT NULL column: eleven older tasks predate the in-chat flow and the
+  recurrence spawner copies rows forward without a snapshot, so a column constraint would have demanded a
+  fabricated quote for them. A suggestion with no trace of the exchange behind it is exactly what leaves the
+  receiver unable to tell what it refers to.
+- 2026-09-14 — An open poll is a question, so it stays answerable: while it is open a person may change their choice
+  as often as they like, with no confirm step, because the point of asking is to learn what people think rather than
+  to catch them at their first instinct. One person holds exactly one ballot row, so a change MOVES that row — "the
+  last vote counts" is true by construction rather than by a tie-break rule elsewhere. Once the poll closes the
+  ballot is fixed, because the result is published by then and a late change would rewrite something the room has
+  already read. This narrowed an existing absolute rule: a ballot was immutable against every UPDATE, and the honest
+  rule turned out to be immutable-once-closed. A vote can be moved but never withdrawn — there is no taking a ballot
+  back out of the box, and the moment someone first answered is kept even as their choice moves.
+- 2026-09-15 — Finishing asks one question, always, and never requires an answer. "Việc này mang lại điều gì?"
+  appears at every completion (personal and shared alike) because the answer is what makes work worth reading back;
+  but an empty box completes the task exactly the same as a full one, because demanding an essay before letting
+  someone tick a checkbox would teach people to tick without opening the dialog at all.
+- 2026-09-15 — An empty answer and a named result are stored differently, and the blank one is honest. A task
+  completed without an output stays null and simply does not appear in Báo cáo — it is not a task with an empty
+  result. The output is written once, at the claim; once the creator has reviewed, the record is closed and no
+  retry can rewrite what was already judged.
+- 2026-09-15 — Re-opening a task keeps the old output. It is a record of what happened last time, and the next
+  completion overwrites it; erasing it by hand would be a separate decision, not a side effect of reopening.
+- 2026-09-15 — Báo cáo is a section, not a view mode: it sits between the working lists and the bin, collapsed on
+  arrival, holding only work that closed AND named what it brought, newest first. A task finished without an output
+  has nothing to read back and gains no entry by merely being finished; what this person has binned is gone from
+  their day however good its result was; and a group's completed result stays visible to anyone who can read the
+  task, because a delivered result is worth seeing regardless of whose hands produced it.
+- 2026-09-15 — A completed result lands in the journal by copying, not by moving. The journal is the one place
+  nobody else reads, which is exactly why a result goes there; forwarding twice is ordinary journaling, not a bug,
+  and the task itself keeps its result.
+- 2026-09-15 — Celebrations are ephemeral by design. Confetti plays only on the screen of the person who finished
+  the work; the milestone burst rides a realtime broadcast that nothing in the database remembers — no table, no
+  unread counter, no history. The burst topic itself is not access-controlled, so its payload carries only opaque
+  ids and each receiver reconstructs the meaning from their own caches: a non-participant reconstructs nothing.
+- 2026-09-15 — Withdrawing your own question is not declining somebody's request. "Rút lại" belongs to the
+  proposer alone and is deliberately a different action from "Bỏ qua": taking a question back says nothing about
+  how the person asked would have answered, and must never be recorded as a refusal on their behalf. No task is
+  deleted — none was ever created. It gets one confirmation and no second chance.
+- 2026-09-15 — A question still open may be reworded; a question answered may not. Editing a suggestion moves
+  only the wording — title, description, deadline — by the same rules the ask was born under. Who is being asked
+  and the quoted exchange are not parameters, because changing them would be asking a different question, not
+  editing this one. Once accepted, skipped or withdrawn, the record stands as what it was when it was answered:
+  a retractable edit would let a proposer rewrite an offer after the other person had already relied on it.
+- 2026-09-15 — A decline answered with words quotes what it declines. The reply is sent as an ordinary message
+  that answers the very message the suggestion came out of, so the ask and its answer read together even with
+  other talk in between; a suggestion raised in an empty thread has nothing to quote and its reply stands alone.
+  A silent 1-1 decline still sends nothing — the annotation on the suggestion remains the whole answer.
+- 2026-09-15 — Every task row says whose move it is, in its own weight. The reader's own work — their to-do, or
+  shared work they were asked to carry — is ink at semibold; work somebody else is carrying is lighter, italic and
+  warm grey. Italic does what colour alone cannot, because muted grey is already what finished and binned rows
+  wear. This is a reading, not a ranking: it is deliberately NOT the tier that orders the list (two tasks in one
+  tier can be in different hands), and it changes no sort, no filter and no count — nothing is hidden, everything
+  stays exactly where its deadline put it. A finished or binned row ignores the distinction entirely: a closed task
+  is nobody's next move, and bolding it would claim something is still owed. The weight is only a hint, so every
+  row carrying it also carries the fact in words for anyone who cannot see two type weights apart.
+- 2026-09-15 — Avora Space opens with the day named beside the greeting and three numbers that PARTITION what is
+  open: late, due today, ahead. A partition, not three statistics — they always sum to the total the sentence
+  beneath them states, so the page can never argue with itself, and they count exactly what every other open
+  counter on the screen counts. Undated work is ahead, never late: someone should not be punished for writing
+  something down without committing to a day. A zero sits in the unscheduled grey, because nothing overdue is good
+  news and must not look like an alarm. Under them, one sentence names the single most pressing fact rather than
+  repeating the strip in words.
+- 2026-09-15 — The day's thought can be answered, and the answer belongs to the journal. The field stays shut
+  behind one quiet line: a thought that arrives with an open text box beside it is homework, and this page sets
+  none. What is written goes to the journal — the one thread nobody else can read — with the line it answers
+  quoted above it, because a reflection read back a month later has to carry what it was reflecting on. Still no
+  book, chapter or verse: the view model has no field to put one in. No new screen either, and an empty note is
+  refused rather than saved — silence is a legitimate answer to a thought and should leave no entry at all.
+- 2026-09-15 — On Avora Space the name is not a headline. The greeting, name and day read as one sentence at one
+  size with only the name in semibold; a name set alone at display size takes the page's voice away from the
+  thought, and the thought is what this page is for. Accordingly the thought itself is the largest text on the
+  screen — larger than the greeting, larger than the sentence under the pulse strip — because a quotation meant
+  to be sat with cannot read like a caption.
+- 2026-09-15 — A celebration waits for the person who was not there. The live burst only ever reached whoever
+  happened to be looking, which is almost nobody: shared work closes while the other person is asleep or in
+  another part of the app. Closing a two-party task now records the moment in the database, and the next time
+  that person opens the conversation it plays — once, then it is marked seen and never greets them again. It is
+  emphatically NOT a notification: no text, no badge, no unread count, nothing to dismiss, and nothing to act on.
+  A celebration that nags is not a celebration. It is also not retroactive archaeology: past a week the confetti
+  stops firing, because applause for something finished a fortnight ago reads as confusion rather than joy — the
+  row stays as the record that it happened. The realtime burst is untouched and still fires instantly for anyone
+  present, so the two paths cover "there" and "not there" without either replacing the other.
+- 2026-09-15 — Only finished work may celebrate, and only the database may say so. The row is written by a
+  trigger on the crossing into done, never by a client: a task closes once, the task's own id is the key, so a
+  retried completion cannot mint a second party. Shared and genuinely accepted work only — an unconfirmed task
+  that somehow reaches done was never a promise between two people, so closing it is not news for a room. A
+  personal task celebrates nobody else; there is no room to tell. Reading is scoped to the room it happened in
+  and having-seen-it is scoped to the one person, with no update and no delete on either: seeing something is not
+  undoable, and a client that could un-see a celebration could replay it forever.
+- 2026-09-15 — A milestone is applause, not a bigger pop. Three waves in sequence, thrown to alternating sides
+  of the screen, where ordinary work gets one — several pops read as a room clapping, while one huge pop reads as
+  the same event with more confetti. Capped at five: past that the screen is merely busy and the waves start
+  delaying whatever the person wanted to do next. Someone returning to a week of finished work gets one generous
+  celebration rather than forty, because the point is the welcome, not the arithmetic.
+- 2026-09-15 — Confetti belongs to the screen, not to the panel the button was in. The canvas is parented to the
+  document and sits above every overlay, so a milestone closed from inside a sheet, a dialog or the chat task
+  panel fills the whole window instead of being a few squares trapped in a box — the celebration is for the
+  person, and they are not looking at a panel, they are looking at Avora.
+- 2026-09-15 — Dropping a feeling has weight. Every emoji in the picker answers a press with the same small
+  scale-down-and-overshoot — not just the heart: the bar is deliberately not all-positive, and a press that only
+  feels alive when you agree teaches people that only agreement counts. One bounces at a time, because two moving
+  at once would make it ambiguous which face took the tap, which is the animation's entire job. The reaction is
+  saved the instant the button is pressed and the sheet waits out the bounce rather than the network — the pause
+  is the animation's, never the data's — and it stands down entirely for anyone who has asked for calmer motion.
+- 2026-09-15 — The daily maxim belongs to the calendar, not to a shuffle. Danh ngôn v0.2 is 365 lines, one per
+  day of the year in order, and the year itself turns the wheel: offset = year × 137 mod 365, so the same date
+  opens a different line each year while a year never repeats a line. 137 is coprime with 365, so the same date
+  takes 365 years to come back around. v0.2's own edit is honored in the text: no "hơn / nhất" — a line states
+  what is true and does not need to rank itself above something else to be honest.
+- 2026-09-15 — Scripture is paused, not deleted. The picker stops offering it, but it stays a working category:
+  someone who chose it before the pause keeps seeing their verse every day, and their own picker still lists it —
+  hiding it from them would silently rewrite what their saved setting means. The pause only stops new selections.
+  The old "Không chọn" becomes "Ẩn", which says what it does, and someone who never chose anything now opens on
+  the maxims — a thought, not a blank. The old default ('khong_chon') was the stored value for both "never chose"
+  and "explicitly chose nothing", so those could not be told apart; existing rows were moved to the maxims and
+  anyone who wants the quiet back is one tap from "Ẩn".
+- 2026-09-15 — A leap year's extra day is not given its own line. Day 366 repeats day 365's maxim: the list is
+  shaped by the 365-day year, and December 31st should read the year's last line, not a 366th thought invented
+  for a calendar quirk.
+- 2026-09-15 — Cài đặt is four siblings, not one page wearing four hats. Thiết lập and Thông báo left the
+  profile — the account a person IS and the app's behaviour around them are two different questions, and a
+  screen that mixes them makes the second one feel hidden. Hồ sơ keeps only the person and their way out;
+  every option moved verbatim, value for value. The strip of tabs is the map, so a section that exists only
+  as a promise (Avora AI) sits in the same row as the ones that answer.
+- 2026-09-15 — Tin nhắn's strip is a roadmap, and it says so honestly. Five tabs in reading order: Nhật ký,
+  1-1, Nhóm, Dự án, Email. The two that are not built yet borrow the same "Sắp ra mắt" screen as Mật khẩu
+  and Avora AI — one line, no inputs — because a placeholder that pretended to have a function would be a
+  door into a wall. Their labels name what they will be, not what they are.
+- 2026-09-15 — The desktop columns answer the hand. On web, the rail and the list can be dragged wider or
+  narrower, the choice is remembered per device (never in the account), and it stays inside a range where
+  every column still works — a layout someone can render unusable is a layout that will be made unusable.
+  Double-clicking a handle gives the default back, because a customization people cannot undo they will not
+  make. The phone keeps its single column and never sees a handle.
+- 2026-09-15 — A contact is either a person or a company, and the record says which from birth. `contact_type`
+  is required with no default: a row that has not decided what it is would let every later rule guess. Each
+  type carries only its own fields (a person has a birthday, a company has a tax code and a representative),
+  and the required set differs — a person needs one way to reach them, a company needs its tax code, its
+  representative, and one channel among the four it may have.
+- 2026-09-15 — Validation lives in the database, not in the form. `create_contact` is the only door: it takes
+  the owner from the session rather than from the client, and rejects an incomplete contact before a row
+  exists. The cross-row rules Postgres cannot express as CHECK (an employer must be a company; only a person
+  can have an employer or a linked account) are triggers, so they hold whether the write came from the app,
+  a script, or a future screen nobody has written yet.
+- 2026-09-15 — An invitation is a person-to-person act. Only an individual contact can be invited (a company
+  is not someone who signs in), only its owner can invite, and accepting is a single privileged step — the
+  table itself grants no UPDATE, so a status cannot be flipped by hand. Accepting writes both directions at
+  once: the inviter's contact gains the link, and the person accepting gets their own contact pointing back.
+  A relationship only one side can see is not a relationship.
+
+## Out of scope
+
+Dark mode, media upload outside finance receipts, voice or video calls (the call icon is decorative
+for now), AI features, heavy project management (the lightweight Nhiệm vụ module ships, now with clocks,
+categories, reminders and repeats; boards, teams and dependencies stay out), and any social feed. Task reminders
+delivered outside the app — email, SMS or push to a closed tab — need a scheduled worker and a push subscription,
+and are not built. Group chat is now creatable and manageable from the interface (three-way Tin nhắn tabs, roster panel with roles,
+removal requests, ownership transfer, renaming, appointing and standing down the admin, invite links, leaving, and
+group-tied private messages). Joining through an invite link requires being signed in — a signed-out visitor is
+sent to the sign-in screen and must reopen the link afterwards. Task lists and context snapshots exist in the database
+with their rules enforced there, but have no screens yet; the recurring-task spawner also stays a database trigger
+rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,
+tax fields and quarterly estimates, automatic posting of recurring entries, and automatic rate fetching (rates are
+seeded and updated by hand) all stay out for now. The installed app is a wrapper over the live site, not an
+offline product: no cached messages, tasks or balances, no background sync, and no push notifications. Purple gradients, glassmorphism, drop shadows, and stock
+illustration are deliberately avoided.
