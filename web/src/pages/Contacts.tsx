@@ -1,4 +1,4 @@
-import { Building2, CheckCircle2, Plus, Search, Upload, UserRound } from "lucide-react";
+import { AlertCircle, Building2, CheckCircle2, Plus, Search, Upload, UserRound } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
@@ -12,6 +12,8 @@ import {
   splitContacts,
   type Contact,
 } from "@/lib/contacts";
+import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
+import { useContactsNeedingReview } from "@/lib/use-contact-channels";
 import { useContacts } from "@/lib/use-contacts";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +39,7 @@ const Contacts = () => {
   const [isImportOpen, setIsImportOpen] = useState<boolean>(false);
 
   const contactsQuery = useContacts();
+  const review = useContactsNeedingReview();
 
   const { individuals, businesses } = useMemo(
     () => splitContacts(contactsQuery.data ?? []),
@@ -84,6 +87,31 @@ const Contacts = () => {
             </button>
           </div>
         </header>
+
+        {/* Only ever shown when there is something to do about it — a count of zero is not news. */}
+        {review.count > 0 ? (
+          <button
+            type="button"
+            onClick={() => navigate(CHANNEL_REVIEW_ROUTE)}
+            className="press mt-6 flex w-full items-center gap-3 rounded-xl border border-border bg-card px-5 py-3.5 text-left transition-colors hover:bg-accent/35"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/60">
+              <AlertCircle
+                className="h-[18px] w-[18px] text-accent-foreground"
+                strokeWidth={1.8}
+                aria-hidden="true"
+              />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-[14.5px] font-medium text-foreground">
+                {review.count} liên hệ cần bạn xem lại
+              </span>
+              <span className="block text-[13px] text-muted-foreground">
+                Nhiều số điện thoại hoặc email chưa được xác nhận
+              </span>
+            </span>
+          </button>
+        ) : null}
 
         <nav aria-label="Loại liên hệ" className="mt-7">
           <ul className="flex flex-wrap gap-1">

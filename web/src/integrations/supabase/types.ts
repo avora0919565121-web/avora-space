@@ -211,6 +211,46 @@ export type Database = {
           },
         ]
       }
+      contact_channel: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          kind: string
+          label: string | null
+          needs_review: boolean
+          owner_user_id: string
+          source: string
+          updated_at: string
+          value: string
+          value_normalized: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          label?: string | null
+          needs_review?: boolean
+          owner_user_id: string
+          source?: string
+          updated_at?: string
+          value: string
+        }
+        Update: {
+          label?: string | null
+          needs_review?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_channel_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_invite: {
         Row: {
           accepted_at: string | null
@@ -1981,6 +2021,35 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      add_contact_channel: {
+        Args: {
+          p_contact_id: string
+          p_kind: string
+          p_label?: string
+          p_needs_review?: boolean
+          p_source?: string
+          p_value: string
+        }
+        Returns: {
+          contact_id: string
+          created_at: string
+          id: string
+          kind: string
+          label: string | null
+          needs_review: boolean
+          owner_user_id: string
+          source: string
+          updated_at: string
+          value: string
+          value_normalized: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "contact_channel"
           isOneToOne: true
           isSetofReturn: false
         }

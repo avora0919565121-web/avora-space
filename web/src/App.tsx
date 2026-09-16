@@ -12,6 +12,7 @@ import { ChatRealtimeProvider } from "@/lib/realtime";
 
 import AcceptContactInvite from "./pages/AcceptContactInvite";
 import Auth from "./pages/Auth";
+import ContactChannelReview from "./pages/ContactChannelReview";
 import ContactDetail from "./pages/ContactDetail";
 import Contacts from "./pages/Contacts";
 import Dashboard from "./pages/Dashboard";
@@ -71,6 +72,8 @@ const App = () => (
                 </Route>
 
                 <Route path="/lien-he" element={<Contacts />} />
+                {/* Above the :contactId route on purpose — otherwise it reads as a contact id. */}
+                <Route path="/lien-he/can-xem-lai" element={<ContactChannelReview />} />
                 <Route path="/lien-he/:contactId" element={<ContactDetail />} />
                 {/* Signed-in on purpose: accepting links two accounts, so there must be a second one. */}
                 <Route path="/loi-moi-lien-he/:token" element={<AcceptContactInvite />} />

@@ -881,6 +881,34 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   the person's own explicit word on whether a row is a human being or a company, which is the one fact that
   can never be edited afterwards. Inferring it from whether a tax code happened to be filled in would put
   that permanent decision in our hands, silently, hundreds of rows at a time.
+- 2026-09-16 — A person has one name but several numbers, so the extra ones live in their own table while
+  the contact row keeps holding the primary phone and email. Widening the contact row was the other option
+  and was rejected: every screen, every stored procedure and every invitation rule already reads those two
+  fields, and they would all have had to learn which of several numbers counts. The result is that a contact
+  with a single number stores nothing at all in the new table — the simple case pays nothing for the
+  complicated one.
+- 2026-09-16 — Two numbers written differently are one number. `+84 912 345 678` and `0912345678` reach the
+  same person, so someone who stored one form and imported the other must end up with one contact rather
+  than two. The rule that decides this now exists in the database as well as in the app, because the table
+  itself refuses duplicates and has to agree with the screen that predicted them — if the two ever drifted,
+  the preview would promise a merge that the database then stored twice.
+- 2026-09-16 — An import can tell that someone has three numbers; it cannot tell which one they answer.
+  Rather than guess and quietly promote the wrong one, every channel arriving from a file or a phone book is
+  marked as unconfirmed, and a separate screen is where the one person who knows settles it. Guessing would
+  have been invisible and wrong; asking at import time would have stopped a bulk action to interrogate
+  someone about hundreds of rows.
+- 2026-09-16 — Owning a contact and owning its channels is checked twice, in two different ways. The row
+  carries its owner so the permission rule is a comparison rather than a lookup, and a separate check makes
+  sure that owner always matches the contact's — otherwise someone could attach their own number to a
+  stranger's contact, since both halves would look legitimate on their own.
+- 2026-09-16 — Correcting a number is removing it and adding it again, not editing it in place. Only the
+  confirmation mark and the label can be changed after the fact, which keeps the record of where each value
+  came from honest: a number that arrived from a phone book cannot quietly become something else while still
+  claiming that origin.
+- 2026-09-16 — Adding a channel that is already there is not an error. A file routinely repeats the same
+  number in two columns, and failing the whole batch over something harmless would punish the person for
+  their spreadsheet's habits — so a repeat quietly returns what is already stored, and a value that merely
+  restates the contact's primary channel adds nothing at all.
 - 2026-09-16 — Nothing is ticked when the table opens, not even the rows that are perfectly valid. An import
   writes to the address book in bulk, so the tick is where the person takes responsibility for each row; a
   pre-ticked table would make "import everything" the accidental default and the review a formality.

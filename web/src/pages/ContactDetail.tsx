@@ -1,5 +1,15 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Building2, CheckCircle2, MessageCircle, Pencil, UserRound } from "lucide-react";
+import {
+  AlertCircle,
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  Mail,
+  MessageCircle,
+  Pencil,
+  Phone,
+  UserRound,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
@@ -23,7 +33,14 @@ import {
   type Contact,
   type IndividualDraft,
 } from "@/lib/contacts";
+import {
+  channelSourceLabel,
+  channelsOf,
+  type ChannelKind,
+  type ContactChannel,
+} from "@/lib/contact-channels";
 import { peerLabel } from "@/lib/initials";
+import { useContactChannels } from "@/lib/use-contact-channels";
 import { useContactActions, useContacts } from "@/lib/use-contacts";
 
 /**
@@ -44,6 +61,7 @@ const ContactDetail = () => {
   const { user } = useAuth();
 
   const contactsQuery = useContacts();
+  const channelsQuery = useContactChannels();
   const { saveIndividual, saveBusiness, isWorking } = useContactActions();
 
   const contacts: Contact[] = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
@@ -121,6 +139,11 @@ const ContactDetail = () => {
   const staff: Contact[] = useMemo(
     () => (contact !== null && contact.contactType === "business" ? staffOf(contacts, contact.id) : []),
     [contacts, contact],
+  );
+
+  const extraChannels: ContactChannel[] = useMemo(
+    () => (contact === null ? [] : channelsOf(channelsQuery.data ?? [], contact.id)),
+    [channelsQuery.data, contact],
   );
 
   if (contactsQuery.isPending) {
@@ -290,6 +313,10 @@ const ContactDetail = () => {
             </p>
           ) : null}
 
+          {/* Left out entirely when there are none: a contact with one number has nothing extra
+              to say, and an empty "other channels" box would imply something is missing. */}
+          {extraChannels.length > 0 ? <ChannelsSection channels={extraChannels} /> : null}
+
           {/* A company is not someone who signs in, so it is never offered an invitation. */}
           {canInviteContact(contact) ? (
             <div className="mt-5">
@@ -394,6 +421,55 @@ function StaffSection({ staff }: { staff: readonly Contact[] }) {
         </ul>
       )}
     </section>
+  );
+}
+
+/**
+ * The other ways to reach this contact.
+ *
+ * Separate from the block above because those fields are the contact's primary channels — the
+ * ones invitations and messages actually use. Mixing a second number into that list would make
+ * it ambiguous which one the app will pick.
+ */
+function ChannelsSection({ channels }: { channels: readonly ContactChannel[] }) {
+  return (
+    <section className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+      <header className="border-b border-border px-5 py-3.5">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Kênh liên hệ khác</h2>
+      </header>
+      <ul>
+        {channels.map((channel) => (
+          <li
+            key={channel.id}
+            className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0"
+          >
+            <ChannelIcon kind={channel.kind} />
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14.5px] text-foreground">{channel.value}</span>
+              <span className="block truncate text-[12px] text-muted-foreground">
+                {channel.label !== null ? `${channel.label} · ` : ""}
+                {channelSourceLabel(channel.source)}
+              </span>
+            </span>
+            {channel.needsReview ? (
+              <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/60 px-2 py-0.5 text-[11.5px] font-medium text-accent-foreground">
+                <AlertCircle className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                Chưa xác nhận
+              </span>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function ChannelIcon({ kind }: { kind: ChannelKind }) {
+  const Icon = kind === "phone" ? Phone : Mail;
+  return (
+    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground/70">
+      <Icon className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+    </span>
   );
 }
 

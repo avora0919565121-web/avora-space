@@ -24,6 +24,14 @@ export type NavEntry = {
  */
 export const HOME_ROUTE = "/tong-quan";
 
+/**
+ * Where the unconfirmed channels of an import are settled.
+ *
+ * Kept as a constant because two screens link to it and it sits above `/lien-he/:contactId` in
+ * the route table — a literal typed twice could drift into being read as a contact id.
+ */
+export const CHANNEL_REVIEW_ROUTE = "/lien-he/can-xem-lai";
+
 /** The main rail. Liên hệ deliberately is NOT here: it opens from Tin nhắn. */
 export const NAV_ITEMS: readonly NavEntry[] = [
   { to: "/tong-quan", label: "Avora Space" },

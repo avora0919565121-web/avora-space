@@ -7,6 +7,7 @@ import {
   type IndividualDraft,
   type InviteMethod,
 } from "@/lib/contacts";
+import { normalizeEmail, normalizePhone } from "@/lib/contact-channels";
 
 /**
  * Bringing an address book in from a file.
@@ -256,18 +257,14 @@ function emptyFields(): ImportFields {
   return fields;
 }
 
-/** Digits only, with the international form folded onto the local one. */
-export function normalizePhone(raw: string): string {
-  const digits = raw.replace(/[^\d+]/g, "");
-  // +84 912 345 678 and 0912345678 are the same phone; a person who stored one and imported
-  // the other means one contact, not two.
-  const local = digits.replace(/^(\+?84)/, "0");
-  return local.replace(/\D/g, "");
-}
-
-export function normalizeEmail(raw: string): string {
-  return raw.trim().toLowerCase();
-}
+/**
+ * Re-exported rather than defined here.
+ *
+ * These two rules now also live in the database, as `private.normalize_channel`, because the
+ * channel table compares values with them. Keeping a second copy in this file would mean three
+ * places to change and two chances to disagree about whether `+84` and `0` are the same phone.
+ */
+export { normalizeEmail, normalizePhone };
 
 /**
  * A date the database will accept, or null when there is nothing usable.
