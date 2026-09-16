@@ -9,6 +9,7 @@ import {
   buildContactInviteLink,
   businessDraftProblem,
   contactInviteState,
+  contactInviteTimedOut,
   canInviteContact,
   canMessageContact,
   canSubmitBusiness,
@@ -30,6 +31,7 @@ import {
   toBusinessDraft,
   toIndividualDraft,
   toVietnameseContactError,
+  CONTACT_INVITE_TTL_DAYS,
   EMPTY_BUSINESS_DRAFT,
   EMPTY_INDIVIDUAL_DRAFT,
   RELATIONSHIP_SUGGESTIONS,
@@ -337,6 +339,56 @@ describe("an invitation on its way", () => {
 
   it("finds the one still waiting", () => {
     expect(pendingInvite([invite({ status: "accepted" }), invite({ id: "i2" })])?.id).toBe("i2");
+  });
+
+  /**
+   * An invitation is good for two weeks. The rule that decides lives in the database — this copy
+   * exists so the sender's own panel does not claim someone is still deciding on a link that
+   * can no longer be accepted.
+   */
+  describe(`running out of time after ${CONTACT_INVITE_TTL_DAYS} days`, () => {
+    const sent = (daysAgo: number, hours: number = 0): ContactInvite =>
+      invite({
+        invitedAt: new Date(
+          Date.UTC(2026, 8, 30, 12, 0, 0) - ((daysAgo * 24 + hours) * 60 * 60 * 1000),
+        ).toISOString(),
+      });
+
+    const now = new Date(Date.UTC(2026, 8, 30, 12, 0, 0));
+
+    it("keeps an invitation alive right up to the deadline", () => {
+      expect(contactInviteTimedOut(sent(13, 23), now)).toBe(false);
+      expect(contactInviteTimedOut(sent(0), now)).toBe(false);
+    });
+
+    it("lets it go once the deadline has passed", () => {
+      expect(contactInviteTimedOut(sent(14, 1), now)).toBe(true);
+      expect(contactInviteTimedOut(sent(60), now)).toBe(true);
+    });
+
+    /** Only a pending invitation can time out; the other two already have an outcome. */
+    it("leaves an invitation that already ended alone, however old", () => {
+      expect(contactInviteTimedOut({ ...sent(99), status: "accepted" }, now)).toBe(false);
+      expect(contactInviteTimedOut({ ...sent(99), status: "expired" }, now)).toBe(false);
+    });
+
+    /**
+     * The sender's panel hides the invite buttons while something is pending, so a timed-out row
+     * counting as "waiting" would strand them: told someone is still deciding, unable to re-ask.
+     */
+    it("stops holding the sender back once an invitation has expired", () => {
+      expect(pendingInvite([sent(20)], now)).toBeNull();
+      expect(pendingInvite([sent(1)], now)?.id).toBe("i1");
+    });
+
+    it("prefers a fresh invitation over one that ran out", () => {
+      const fresh = { ...sent(2), id: "fresh" };
+      expect(pendingInvite([sent(30), fresh], now)?.id).toBe("fresh");
+    });
+
+    it("does not treat an unreadable date as expired", () => {
+      expect(contactInviteTimedOut(invite({ invitedAt: "not-a-date" }), now)).toBe(false);
+    });
   });
 
   it("reports nothing waiting when every invitation is settled", () => {

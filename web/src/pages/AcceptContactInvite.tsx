@@ -1,11 +1,23 @@
-import { CheckCircle2, Clock, Loader2, UserRoundPlus } from "lucide-react";
+import {
+  CheckCircle2,
+  Clock,
+  Loader2,
+  SearchX,
+  Share2,
+  UserRoundCheck,
+  UserRoundPlus,
+} from "lucide-react";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { Button } from "@/components/ui/button";
-import { contactInviteState, type ContactInviteState } from "@/lib/contacts";
+import {
+  CONTACT_INVITE_TTL_DAYS,
+  contactInviteState,
+  type ContactInviteState,
+} from "@/lib/contacts";
 import { useAcceptContactInvite, useContactInvitePreview } from "@/lib/use-contacts";
 
 /**
@@ -141,18 +153,29 @@ function Closed({ state, onHome }: { state: ContactInviteState | null; onHome: (
             ? "Liên hệ này đã được kết nối"
             : "Lời mời không còn hiệu lực";
 
+  // "Hết hạn" and "không tồn tại" are deliberately different sentences: an expired link was
+  // real and the sender can simply send another, while an unknown one never existed at all.
   const body: string =
     kind === "accepted"
       ? "Ai đó đã chấp nhận lời mời này rồi. Nếu là bạn, người mời đã có trong danh bạ của bạn."
       : kind === "expired"
-        ? "Hãy xin người mời gửi lại một lời mời mới."
+        ? `Lời mời chỉ dùng được trong ${CONTACT_INVITE_TTL_DAYS} ngày kể từ khi gửi. Hãy xin người mời gửi lại một lời mời mới — lần này sẽ có liên kết mới.`
         : kind === "own"
           ? "Bạn không thể tự chấp nhận lời mời mình gửi. Hãy chuyển liên kết này cho người bạn muốn mời."
           : kind === "linked"
             ? "Người mời đã kết nối liên hệ này với một tài khoản khác."
             : "Liên kết này không tồn tại hoặc đã bị thay thế. Hãy xin người mời một liên kết mới.";
 
-  const Icon = kind === "accepted" ? CheckCircle2 : Clock;
+  const Icon =
+    kind === "accepted"
+      ? CheckCircle2
+      : kind === "expired"
+        ? Clock
+        : kind === "own"
+          ? Share2
+          : kind === "linked"
+            ? UserRoundCheck
+            : SearchX;
 
   return (
     <>

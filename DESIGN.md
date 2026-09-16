@@ -842,6 +842,22 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   left open while something changed elsewhere refuses honestly rather than writing half a link — and the
   screen re-reads itself afterwards, so a stale invitation is never left sitting next to its own refusal.
   Accepting lands on the address book, where the contact it just created is the proof it worked.
+- 2026-09-16 — An invitation is good for 14 days. Both the preview and the acceptance already had a branch
+  for an expired invitation, but nothing ever set that state, so in practice no invitation ever ran out — a
+  link messaged once stayed acceptable forever. Expiry is now decided in one shared place both of them call,
+  so the screen and the acceptance cannot drift: a link the screen calls expired is one acceptance also
+  refuses.
+- 2026-09-16 — Running out of time is worked out when read, not written down. It follows from when the
+  invitation was sent, so storing it would mean writing to the table every time someone opens an old link —
+  and leaving a never-opened one marked "waiting" forever, the same row meaning two things depending on
+  whether anyone happened to visit. Nothing has to run on a schedule when the answer can always be computed.
+- 2026-09-16 — Expiry and never-existed stay separate sentences. An expired link was real and the sender can
+  simply send another, so it says so and names the 14 days; an unknown token never existed, and telling
+  someone to ask for a new link is only useful when there was an old one.
+- 2026-09-16 — A timed-out invitation stops counting as one still waiting. The sender's panel replaces the
+  invite buttons with a status while something is pending, so a link that had quietly run out would have
+  stranded them twice over: still told the person was deciding, and unable to ask again. Only an invitation
+  that can still be accepted holds those buttons back.
 
 ## Out of scope
 

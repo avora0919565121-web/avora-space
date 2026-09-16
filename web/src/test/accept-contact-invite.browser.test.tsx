@@ -118,12 +118,18 @@ test("the sender opening their own link is told to pass it on", async () => {
   expect(screen.container.textContent).not.toContain("Không thể tự chấp nhận");
 });
 
-test("an expired invitation asks for a new one rather than offering itself", async () => {
+/**
+ * Expiry and never-existed are different facts and must read differently: an expired link was
+ * real and the sender can simply send another, while an unknown token never existed at all.
+ */
+test("an expired invitation names its deadline instead of reading as a dead link", async () => {
   state.preview = preview({ status: "expired" });
   const screen = await open();
 
   await expect.element(screen.getByText("Lời mời đã hết hạn")).toBeInTheDocument();
+  expect(screen.container.textContent).toContain("14 ngày");
   expect(screen.container.textContent).toContain("gửi lại một lời mời mới");
+  expect(screen.container.textContent).not.toContain("không tồn tại");
 });
 
 test("an invitation someone else already claimed says so", async () => {

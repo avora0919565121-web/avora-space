@@ -111,6 +111,27 @@ export const contactKeys = {
 /** Where an invited person lands when they open the link. */
 export const CONTACT_INVITE_PATH = "/loi-moi-lien-he";
 
+/**
+ * How long an invitation stays good for. Mirrors `contact_invite_timed_out` in the database,
+ * which is the rule that actually decides — this copy only keeps the sender's own screen from
+ * claiming someone is still waiting on a link that can no longer be accepted.
+ */
+export const CONTACT_INVITE_TTL_DAYS = 14;
+
+/**
+ * Whether an invitation has run out of time.
+ *
+ * Timing out is derived from when it was sent, not an event anyone caused, so it is computed
+ * on read rather than stored — otherwise the same row would mean different things depending on
+ * whether someone happened to open the link.
+ */
+export function contactInviteTimedOut(invite: ContactInvite, now: Date = new Date()): boolean {
+  if (invite.status !== "pending") return false;
+  const sent = new Date(invite.invitedAt).getTime();
+  if (Number.isNaN(sent)) return false;
+  return now.getTime() - sent > CONTACT_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;
+}
+
 /** What the person holding an invitation link is allowed to know before deciding. */
 export type ContactInvitePreview = {
   inviterName: string;
@@ -444,9 +465,20 @@ export async function fetchContactInvites(contactId: string): Promise<ContactInv
   }));
 }
 
-/** The invitation still waiting to be accepted, if there is one. */
-export function pendingInvite(invites: readonly ContactInvite[]): ContactInvite | null {
-  return invites.find((entry) => entry.status === "pending") ?? null;
+/**
+ * The invitation still waiting to be accepted, if there is one.
+ *
+ * One that has run out of time does not count as waiting: the sender's panel hides the invite
+ * buttons while something is pending, so treating a timed-out row as live would strand them —
+ * still told "đang chờ" about a link nobody can accept, and unable to send a fresh one.
+ */
+export function pendingInvite(
+  invites: readonly ContactInvite[],
+  now: Date = new Date(),
+): ContactInvite | null {
+  return (
+    invites.find((entry) => entry.status === "pending" && !contactInviteTimedOut(entry, now)) ?? null
+  );
 }
 
 /**
