@@ -37,6 +37,9 @@ export const NAV_ITEMS: readonly NavEntry[] = [
   { to: "/tong-quan", label: "Avora Space" },
   { to: "/tin-nhan", label: "Tin nhắn" },
   { to: "/nhiem-vu", label: "Nhiệm vụ" },
+  // Above Két sắt, below Nhiệm vụ: the HUB is work being done, and it belongs beside the
+  // other doing screens rather than beside the one that keeps things safe.
+  { to: "/business-hub", label: "Business HUB" },
   { to: "/ket-sat", label: "Két sắt" },
   { to: "/cai-dat", label: "Cài đặt" },
 ];

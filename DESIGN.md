@@ -1198,6 +1198,72 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   would put on display precisely what the vault exists to keep. It reuses the rail's existing badge rather
   than a new one, so the three tabs that ask for attention ask in the same voice.
 
+## Business HUB
+
+- 2026-09-17 — Business HUB is a separate book from the opportunity one, not a generalisation of it. An
+  opportunity is a specific claim — a contact being turned into business, through stages the app understands
+  and can badge an address-book row with. A HUB table is whatever its owner says it is: building sites,
+  suppliers, machines under repair. Merging them would force every table to answer sales questions, and
+  would put a stage word on a list of scaffolding.
+- 2026-09-17 — One owner, no sharing, exactly like Tài chính cá nhân. Sharing a table is not a feature that
+  can be added halfway: it opens who may rename a column under someone else's records, whose record is whose,
+  and what happens to a person removed from a table they filled in. Shipping a partial answer to those would
+  be worse than shipping none.
+- 2026-09-17 — The first visit lands in a working table called "Bảng tổng hợp" that nobody had to create.
+  Opening a new area onto an empty page with a "create your first table" button sets homework before the
+  person knows what a table here even is. The default is made by the server under a per-user lock, because
+  two tabs opened at once both see "no tables yet" and would otherwise both create one.
+- 2026-09-17 — The shape of a table lives on the table, the values live on the records. Keeping the column
+  definitions in one place means renaming a column is one write rather than a thousand; keeping the values
+  on each record means adding a column touches no existing data at all. That is what makes "+ Thêm cột" safe
+  to press on a table that already holds a year of work.
+- 2026-09-17 — A column's key is issued by the server and never derived from its label. Labels get renamed,
+  and two columns can honestly share one ("Ghi chú" twice), while the key is what every stored value points
+  at. A key built from the label would turn renaming a column into silently emptying it.
+- 2026-09-17 — Four column kinds, and they stay four in v1. Every extra kind is a promise about how the
+  value sorts, totals and validates — cheap to add to a picker, expensive to withdraw once somebody's data
+  is inside it.
+- 2026-09-17 — A value of the wrong kind is refused, but a value under a key the table no longer defines is
+  ignored. The first is worth interrupting someone for: a Số column holding "abc" is a column that no longer
+  adds up, and the person typing it deserves to know immediately. The second is just the residue of a column
+  that was removed, and failing a save over it would block an edit nobody can understand.
+- 2026-09-17 — An empty cell is stored as nothing, never as an empty word or a zero. "Nobody has filled this
+  in" and "this is worth 0" are different facts, and a table that confuses them reports wrong totals.
+- 2026-09-17 — Trạng thái has no fixed list, unlike the opportunity stages. The suggested four are there so
+  a new board has columns to drag between, but the database stores whatever word is used and the board builds
+  its columns from the data — so a table about construction runs on "Đang thi công" without asking. An
+  unknown status is shown exactly as typed rather than folded into "Khác", which would merge three of
+  somebody's columns into one.
+- 2026-09-17 — Bảng and Kanban are two ways of looking at the same records, not two places. Nothing is saved
+  or lost by switching, and the board groups by status only: a board that can group by any column brings its
+  own set of questions (where records with no value go, what orders the columns) and status is the grouping
+  people actually reach for.
+- 2026-09-17 — The empty table still draws its columns. The seven default columns ARE what a new table is
+  offering, and hiding them until the first record would open the HUB on a blank page — the exact problem
+  the default table was created to avoid.
+- 2026-09-17 — The 1.000-record ceiling is counted in the database, and the screen only repeats it. A limit
+  enforced in the interface is not a limit; it is a suggestion that any other path ignores. The count skips
+  records that were put away, so "hãy dọn bớt trước khi thêm" is advice that actually works — and restoring
+  one is checked against the ceiling too, since that is otherwise a way around it.
+- 2026-09-17 — Only SELECT is granted on both tables; every write goes through a function. Granting INSERT
+  directly would be a door around both the ceiling and the check that a record's table belongs to the same
+  person, and the row policies stay underneath as the ceiling on every path regardless.
+- 2026-09-17 — Ownership is checked by a trigger as well as by the functions. Row policies can only compare
+  the owner column to the session, so without it someone could create a record of THEIR own pointing at
+  somebody ELSE's table — the owner matches, the table id does not belong to them, and the policy sees
+  nothing wrong. The same hole crm_opportunity closes the same way.
+- 2026-09-17 — Editing a record sends a patch, not a list of arguments. With nullable arguments "leave the
+  note alone" and "clear the note" are the same call; with a patch, a key that is present is written and a
+  key that is absent is untouched. A key nobody recognises is refused outright rather than skipped, because
+  silently ignoring a misspelled field lets someone believe they saved something.
+- 2026-09-17 — Putting a table away leaves its records alone. Marking a thousand records and then having to
+  un-mark exactly the right thousand is how things get lost; the table carries the state, and its contents
+  come back with it.
+- 2026-09-17 — Business Space only reads. It answers "what is asking for me across everything I keep" and
+  then hands over to the table holding the answer — a place that both summarises and edits ends up a worse
+  version of both. Its three windows are the same three Tài chính uses for money that is due, so the same
+  shape means the same thing wherever it appears.
+
 ## Out of scope
 
 Dark mode, media upload outside finance receipts, voice or video calls (the call icon is decorative
@@ -1209,7 +1275,10 @@ removal requests, ownership transfer, renaming, appointing and standing down the
 group-tied private messages). Joining through an invite link requires being signed in — a signed-out visitor is
 sent to the sign-in screen and must reopen the link afterwards. Task lists and context snapshots exist in the database
 with their rules enforced there, but have no screens yet; the recurring-task spawner also stays a database trigger
-rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,
+rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Business HUB: Timeline,
+Calendar, Gantt and responsibility-matrix views, sharing a table with anyone, tying a record to a contact, and opening
+`project_id` onto a real Dự án screen all stay out of v1 — the column exists and stays empty until that module is real.
+In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,
 tax fields and quarterly estimates, automatic posting of recurring entries, and automatic rate fetching (rates are
 seeded and updated by hand) all stay out for now. The installed app is a wrapper over the live site, not an
 offline product: no cached messages, tasks or balances, no background sync, and no push notifications. Purple gradients, glassmorphism, drop shadows, and stock

@@ -12,6 +12,7 @@ import { ChatRealtimeProvider } from "@/lib/realtime";
 
 import AcceptContactInvite from "./pages/AcceptContactInvite";
 import Auth from "./pages/Auth";
+import BusinessHub from "./pages/BusinessHub";
 import ContactChannelReview from "./pages/ContactChannelReview";
 import ContactDetail from "./pages/ContactDetail";
 import Contacts from "./pages/Contacts";
@@ -55,6 +56,7 @@ const App = () => (
                 <Route path="/tin-nhan/:conversationId" element={<Messages />} />
                 <Route path="/loi-moi/:token" element={<JoinGroup />} />
                 <Route path="/nhiem-vu" element={<Tasks />} />
+                <Route path="/business-hub" element={<BusinessHub />} />
 
                 <Route path="/ket-sat" element={<Vault />}>
                   <Route index element={<Finance />} />

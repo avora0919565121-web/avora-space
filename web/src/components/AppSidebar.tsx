@@ -1,4 +1,12 @@
-import { LayoutGrid, ListTodo, LogOut, MessageSquareText, Settings, Vault } from "lucide-react";
+import {
+  Briefcase,
+  LayoutGrid,
+  ListTodo,
+  LogOut,
+  MessageSquareText,
+  Settings,
+  Vault,
+} from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useMemo, useRef } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
@@ -21,6 +29,9 @@ const NAV_ICONS: Readonly<Record<string, LucideIcon>> = {
   "/tong-quan": LayoutGrid,
   "/tin-nhan": MessageSquareText,
   "/nhiem-vu": ListTodo,
+  // A briefcase, shared with nothing else in the rail: Vault keeps the safe, ListTodo the
+  // task list, MessageSquareText the inbox.
+  "/business-hub": Briefcase,
   "/ket-sat": Vault,
   "/cai-dat": Settings,
 };

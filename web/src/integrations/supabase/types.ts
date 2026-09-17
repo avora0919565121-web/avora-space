@@ -98,6 +98,101 @@ export type Database = {
         }
         Relationships: []
       }
+      business_hub_record: {
+        Row: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          extension_fields?: Json
+          id?: string
+          next_action_date?: string | null
+          notes?: string | null
+          owner_user_id: string
+          priority?: string
+          project_id?: string | null
+          status?: string
+          table_id: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          extension_fields?: Json
+          id?: string
+          next_action_date?: string | null
+          notes?: string | null
+          owner_user_id?: string
+          priority?: string
+          project_id?: string | null
+          status?: string
+          table_id?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "business_hub_record_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "business_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      business_hub_table: {
+        Row: {
+          column_defs: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          column_defs?: Json
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name: string
+          owner_user_id: string
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          column_defs?: Json
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          name?: string
+          owner_user_id?: string
+          position?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           applies_to: Database["public"]["Enums"]["category_scope"]
@@ -236,10 +331,20 @@ export type Database = {
           source?: string
           updated_at?: string
           value: string
+          value_normalized?: string
         }
         Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
           label?: string | null
           needs_review?: boolean
+          owner_user_id?: string
+          source?: string
+          updated_at?: string
+          value?: string
+          value_normalized?: string
         }
         Relationships: [
           {
@@ -460,7 +565,14 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          contact_id?: string
+          conversation_id?: string | null
+          created_at?: string
           estimated_value?: number | null
+          id?: string
+          owner_user_id?: string
+          project_id?: string | null
+          stage?: string
           title?: string
           updated_at?: string
         }
@@ -1805,13 +1917,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transactions_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "contact"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "transactions_base_currency_fkey"
             columns: ["base_currency"]
             isOneToOne: false
@@ -1823,6 +1928,13 @@ export type Database = {
             columns: ["category_id"]
             isOneToOne: false
             referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contact"
             referencedColumns: ["id"]
           },
           {
@@ -1863,6 +1975,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -1881,6 +1994,59 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      add_business_hub_column: {
+        Args: {
+          p_label: string
+          p_options?: string[]
+          p_table_id: string
+          p_type: string
+        }
+        Returns: {
+          column_defs: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          position: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      add_contact_channel: {
+        Args: {
+          p_contact_id: string
+          p_kind: string
+          p_label?: string
+          p_needs_review?: boolean
+          p_source?: string
+          p_value: string
+        }
+        Returns: {
+          contact_id: string
+          created_at: string
+          id: string
+          kind: string
+          label: string | null
+          needs_review: boolean
+          owner_user_id: string
+          source: string
+          updated_at: string
+          value: string
+          value_normalized: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "contact_channel"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -1934,6 +2100,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -1979,6 +2146,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2024,6 +2192,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2045,6 +2214,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      contact_invite_timed_out: {
+        Args: { p_invited_at: string; p_status: string }
+        Returns: boolean
       }
       convert_currency: {
         Args: { p_amount: number; p_from: string; p_on?: string; p_to: string }
@@ -2085,6 +2258,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2107,31 +2281,57 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      add_contact_channel: {
+      create_business_hub_record: {
         Args: {
-          p_contact_id: string
-          p_kind: string
-          p_label?: string
-          p_needs_review?: boolean
-          p_source?: string
-          p_value: string
+          p_category?: string
+          p_extension_fields?: Json
+          p_next_action_date?: string
+          p_notes?: string
+          p_priority?: string
+          p_status?: string
+          p_table_id: string
+          p_tags?: string[]
+          p_title: string
         }
         Returns: {
-          contact_id: string
+          category: string | null
           created_at: string
+          deleted_at: string | null
+          extension_fields: Json
           id: string
-          kind: string
-          label: string | null
-          needs_review: boolean
+          next_action_date: string | null
+          notes: string | null
           owner_user_id: string
-          source: string
+          priority: string
+          project_id: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
           updated_at: string
-          value: string
-          value_normalized: string
         }
         SetofOptions: {
           from: "*"
-          to: "contact_channel"
+          to: "business_hub_record"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_business_hub_table: {
+        Args: { p_name: string }
+        Returns: {
+          column_defs: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          position: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2184,17 +2384,54 @@ export type Database = {
         Args: { p_contact_id: string; p_method: string }
         Returns: string
       }
+      create_direct_conversation: {
+        Args: { other_user_id: string }
+        Returns: string
+      }
+      create_group_conversation: {
+        Args: { p_member_ids?: string[]; p_name: string }
+        Returns: string
+      }
+      create_group_decision: {
+        Args: {
+          p_body?: string
+          p_conversation_id: string
+          p_decision_id?: string
+          p_kind: string
+          p_options?: string[]
+          p_title: string
+        }
+        Returns: {
+          body: string
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          kind: string
+          settled_at: string | null
+          settled_by: string | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "group_decisions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       create_obligation_transaction: {
         Args: {
           p_account_id: string
           p_amount: number
           p_business_related?: boolean
-          p_contact_id?: string | null
-          p_description?: string | null
+          p_contact_id?: string
+          p_description?: string
           p_due_date: string
-          p_tax_period_end?: string | null
-          p_tax_period_start?: string | null
-          p_transaction_date?: string | null
+          p_tax_period_end?: string
+          p_tax_period_start?: string
+          p_transaction_date?: string
           p_type: Database["public"]["Enums"]["transaction_type"]
         }
         Returns: {
@@ -2235,84 +2472,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      settle_transaction: {
-        Args: { p_amount: number; p_transaction_id: string }
-        Returns: {
-          account_id: string
-          amount: number
-          amount_in_base_currency: number | null
-          amount_settled: number
-          base_currency: string | null
-          business_purpose: string | null
-          business_related: boolean
-          category_id: string | null
-          contact_id: string | null
-          conversion_rate: number | null
-          created_at: string
-          currency: string | null
-          deleted_at: string | null
-          description: string | null
-          due_date: string | null
-          id: string
-          is_recurring: boolean
-          receipt_url: string | null
-          recurring_frequency:
-            | Database["public"]["Enums"]["recurring_frequency"]
-            | null
-          recurring_label: string | null
-          status: string
-          tax_period_end: string | null
-          tax_period_start: string | null
-          transaction_date: string
-          type: Database["public"]["Enums"]["transaction_type"]
-          updated_at: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "transactions"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      detach_contact_channel: {
-        Args: { p_contact_id: string; p_kind: string; p_value: string }
-        Returns: {
-          business_address: string | null
-          contact_type: string
-          created_at: string
-          date_of_birth: string | null
-          email: string | null
-          employer_contact_id: string | null
-          id: string
-          industry: string | null
-          linked_user_id: string | null
-          name: string
-          note: string | null
-          owner_user_id: string
-          phone: string | null
-          relationship_tag: string | null
-          representative_email: string | null
-          representative_name: string | null
-          representative_phone: string | null
-          tax_code: string | null
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "contact"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      create_direct_conversation: {
-        Args: { other_user_id: string }
-        Returns: string
-      }
       create_opportunity: {
         Args: {
           p_contact_id: string
-          p_estimated_value?: number | null
+          p_estimated_value?: number
           p_title: string
         }
         Returns: {
@@ -2330,84 +2493,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "crm_opportunity"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      link_opportunity_conversation: {
-        Args: {
-          p_conversation_id: string | null
-          p_opportunity_id: string
-        }
-        Returns: {
-          contact_id: string
-          conversation_id: string | null
-          created_at: string
-          estimated_value: number | null
-          id: string
-          owner_user_id: string
-          project_id: string | null
-          stage: string
-          title: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "crm_opportunity"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      update_opportunity_stage: {
-        Args: { p_opportunity_id: string; p_stage: string }
-        Returns: {
-          contact_id: string
-          conversation_id: string | null
-          created_at: string
-          estimated_value: number | null
-          id: string
-          owner_user_id: string
-          project_id: string | null
-          stage: string
-          title: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "crm_opportunity"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      create_group_conversation: {
-        Args: { p_member_ids?: string[]; p_name: string }
-        Returns: string
-      }
-      create_group_decision: {
-        Args: {
-          p_body?: string
-          p_conversation_id: string
-          p_decision_id?: string
-          p_kind: string
-          p_options?: string[]
-          p_title: string
-        }
-        Returns: {
-          body: string
-          conversation_id: string
-          created_at: string
-          created_by: string
-          id: string
-          kind: string
-          settled_at: string | null
-          settled_by: string | null
-          status: string
-          title: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "group_decisions"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2450,6 +2535,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2547,6 +2633,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2565,6 +2652,51 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      delete_business_hub_record: {
+        Args: { p_record_id: string }
+        Returns: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_record"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      delete_business_hub_table: {
+        Args: { p_table_id: string }
+        Returns: {
+          column_defs: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          position: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2592,6 +2724,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2610,6 +2743,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      detach_contact_channel: {
+        Args: { p_contact_id: string; p_kind: string; p_value: string }
+        Returns: {
+          business_address: string | null
+          contact_type: string
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          employer_contact_id: string | null
+          id: string
+          industry: string | null
+          linked_user_id: string | null
+          name: string
+          note: string | null
+          owner_user_id: string
+          phone: string | null
+          relationship_tag: string | null
+          representative_email: string | null
+          representative_name: string | null
+          representative_phone: string | null
+          tax_code: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "contact"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2664,6 +2827,25 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "task_suggestions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      ensure_default_business_hub_table: {
+        Args: never
+        Returns: {
+          column_defs: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          position: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2772,6 +2954,27 @@ export type Database = {
         Args: { target_conversation_id: string }
         Returns: undefined
       }
+      link_opportunity_conversation: {
+        Args: { p_conversation_id: string; p_opportunity_id: string }
+        Returns: {
+          contact_id: string
+          conversation_id: string | null
+          created_at: string
+          estimated_value: number | null
+          id: string
+          owner_user_id: string
+          project_id: string | null
+          stage: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       list_group_members: {
         Args: { p_conversation_id: string }
         Returns: {
@@ -2823,6 +3026,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2872,6 +3076,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -2917,6 +3122,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3006,6 +3212,25 @@ export type Database = {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: undefined
       }
+      rename_business_hub_table: {
+        Args: { p_name: string; p_table_id: string }
+        Returns: {
+          column_defs: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          position: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       rename_group_conversation: {
         Args: { p_conversation_id: string; p_name: string }
         Returns: string
@@ -3041,6 +3266,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3059,6 +3285,51 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      restore_business_hub_record: {
+        Args: { p_record_id: string }
+        Returns: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_record"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      restore_business_hub_table: {
+        Args: { p_table_id: string }
+        Returns: {
+          column_defs: Json
+          created_at: string
+          deleted_at: string | null
+          id: string
+          name: string
+          owner_user_id: string
+          position: number
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3086,6 +3357,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3131,6 +3403,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3176,6 +3449,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3221,6 +3495,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3300,6 +3575,46 @@ export type Database = {
         }
         Returns: undefined
       }
+      settle_transaction: {
+        Args: { p_amount: number; p_transaction_id: string }
+        Returns: {
+          account_id: string
+          amount: number
+          amount_in_base_currency: number | null
+          amount_settled: number
+          base_currency: string | null
+          business_purpose: string | null
+          business_related: boolean
+          category_id: string | null
+          contact_id: string | null
+          conversion_rate: number | null
+          created_at: string
+          currency: string | null
+          deleted_at: string | null
+          description: string | null
+          due_date: string | null
+          id: string
+          is_recurring: boolean
+          receipt_url: string | null
+          recurring_frequency:
+            | Database["public"]["Enums"]["recurring_frequency"]
+            | null
+          recurring_label: string | null
+          status: string
+          tax_period_end: string | null
+          tax_period_start: string | null
+          transaction_date: string
+          type: Database["public"]["Enums"]["transaction_type"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "transactions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       skip_shared_task: {
         Args: { p_silent?: boolean; p_task_id: string }
         Returns: {
@@ -3323,6 +3638,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3383,6 +3699,32 @@ export type Database = {
       transfer_group_ownership: {
         Args: { new_owner_user_id: string; target_conversation_id: string }
         Returns: undefined
+      }
+      update_business_hub_record: {
+        Args: { p_patch: Json; p_record_id: string }
+        Returns: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "business_hub_record"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       update_contact: {
         Args: {
@@ -3451,6 +3793,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_opportunity_stage: {
+        Args: { p_opportunity_id: string; p_stage: string }
+        Returns: {
+          contact_id: string
+          conversation_id: string | null
+          created_at: string
+          estimated_value: number | null
+          id: string
+          owner_user_id: string
+          project_id: string | null
+          stage: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       update_shared_task_details: {
         Args: {
           p_deadline: string
@@ -3481,6 +3844,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string
@@ -3531,6 +3895,7 @@ export type Database = {
           is_important: boolean
           is_milestone: boolean
           objective_id: string | null
+          opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
           recurrence: string

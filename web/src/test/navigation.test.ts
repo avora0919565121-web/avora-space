@@ -11,14 +11,26 @@ import {
 } from "@/lib/navigation";
 
 describe("the main navigation", () => {
-  it("offers exactly the five places, in order", () => {
+  it("offers exactly the six places, in order", () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       "Avora Space",
       "Tin nhắn",
       "Nhiệm vụ",
+      "Business HUB",
       "Két sắt",
       "Cài đặt",
     ]);
+  });
+
+  /**
+   * Business HUB sits among the screens where work gets done, not beside the one that keeps
+   * things safe. Két sắt and Cài đặt stay last because they are where someone goes
+   * occasionally, not where they spend a working day.
+   */
+  it("puts Business HUB with the doing screens, above Két sắt", () => {
+    const labels = NAV_ITEMS.map((item) => item.label);
+    expect(labels.indexOf("Business HUB")).toBeGreaterThan(labels.indexOf("Nhiệm vụ"));
+    expect(labels.indexOf("Business HUB")).toBeLessThan(labels.indexOf("Két sắt"));
   });
 
   it("keeps the dashboard on the route it was published under", () => {
