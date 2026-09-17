@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient, type QueryClient, type UseQueryR
 import { useAuth } from "@/lib/auth";
 import { useChatRealtime } from "@/lib/realtime";
 import { saveTaskFlag, taskFlagKeys, upsertFlagRow, type TaskFlagRow } from "@/lib/task-flags";
+import type { TaskContextSnapshot } from "@/lib/task-context";
 import {
   confirmSharedTask,
   createPersonalTask,
@@ -20,6 +21,7 @@ import {
   skipSharedTask,
   setPersonalTaskDone,
   taskKeys,
+  todayIso,
   updatePersonalTaskDetails,
   updatePersonalTaskPlan,
   updateSharedTaskDetails,
@@ -108,8 +110,16 @@ export function useTaskActions() {
   };
 
   const addPersonal = useMutation({
-    mutationFn: ({ userId, draft }: { userId: string; draft: TaskDraft }) =>
-      createPersonalTask(userId, draft),
+    mutationFn: ({
+      userId,
+      draft,
+      contextSnapshot,
+    }: {
+      userId: string;
+      draft: TaskDraft;
+      /** Set when the task was raised from a journal note rather than the Nhiệm vụ page. */
+      contextSnapshot?: TaskContextSnapshot | null;
+    }) => createPersonalTask(userId, draft, todayIso(), contextSnapshot ?? null),
     onSuccess: (task, variables) => {
       applyOwnResult(task);
       void applyOwnFlags(task.id, variables.draft);

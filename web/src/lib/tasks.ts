@@ -1482,6 +1482,13 @@ export async function createPersonalTask(
   userId: string,
   draft: TaskDraft,
   today: string = todayIso(),
+  /**
+   * The journal note this task came out of, when it was raised from the thread rather than
+   * from the Nhiệm vụ page. A personal task may never carry a `conversation_id` — the table
+   * refuses it — so the journal it belongs to travels in the snapshot instead, which is what
+   * "Xem trong ngữ cảnh" reads to find its way back.
+   */
+  contextSnapshot: TaskContextSnapshot | null = null,
 ): Promise<TaskItem> {
   const clean = validateTaskDraft(draft, today);
   if (!clean.value) throw new Error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
@@ -1494,6 +1501,7 @@ export async function createPersonalTask(
       title: clean.value.title,
       description: clean.value.description,
       status: "confirmed",
+      context_snapshot: contextSnapshot === null ? null : snapshotToJson(contextSnapshot),
       deadline_date: clean.value.deadline,
       deadline_time: clean.value.deadlineTime,
       deadline_tz: browserTimezone(),

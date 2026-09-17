@@ -59,6 +59,15 @@ export function isProjectTab(tab: MessageTab): tab is "projects" {
 export const JOURNAL_TITLE = "Nhật ký của bạn";
 export const JOURNAL_SUBTITLE = "Chỉ mình bạn đọc được";
 
+/**
+ * Names the group a private thread was opened from, in the address bar.
+ *
+ * Two people share one conversation wherever they open it from, so "I came here from Nhóm X"
+ * is a property of this visit rather than of the thread. Kept in the URL so a reload does not
+ * silently turn the next private message into an ordinary one.
+ */
+export const ORIGIN_GROUP_PARAM = "tu-nhom";
+
 /** Which tab a thread belongs under. */
 export function tabOfKind(kind: ConversationKind): MessageTab {
   if (kind === "personal") return "journal";
@@ -139,6 +148,14 @@ export type ChatMessage = {
    * "was I named in this?", and an empty array means "nobody was" — never "we did not record".
    */
   mentionedUserIds?: string[];
+  /**
+   * The group this private message was actually spoken inside, or null for an ordinary one.
+   *
+   * Two people keep a single conversation wherever they open it from, so the tie to a group
+   * lives here rather than on the thread. It is what makes deleting a group take the private
+   * messages born in it and leave the rest of the conversation untouched.
+   */
+  originGroupId?: string | null;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
 };

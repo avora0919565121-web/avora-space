@@ -148,6 +148,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       editedAt: row.edited_at === null ? null : toIsoTimestamp(row.edited_at),
       deletedAt: row.deleted_at === null ? null : toIsoTimestamp(row.deleted_at),
       replyToMessageId: row.reply_to_message_id,
+      originGroupId: row.origin_group_id,
     });
 
     /**

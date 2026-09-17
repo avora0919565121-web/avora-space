@@ -107,8 +107,13 @@ type GroupInfoSheetProps = {
   peerEmail?: string | null;
   /** The other person in a 1-1 — who the Gia đình mark is about. Absent in a group. */
   peerId?: string | null;
-  /** Opens another thread (the private one started with "Nhắn riêng"). */
-  onOpenConversation: (conversationId: string) => void;
+  /**
+   * Opens another thread (the private one started with "Nhắn riêng").
+   *
+   * The group is passed along because the pair now share ONE conversation wherever they open
+   * it from: what ties a private message to this room is the message itself, not the thread.
+   */
+  onOpenConversation: (conversationId: string, originGroupId?: string | null) => void;
   /** Called after the viewer leaves the group, once the thread is no longer theirs to read. */
   onLeft: () => void;
 };
@@ -291,7 +296,7 @@ export function GroupInfoSheet({
     onSuccess: (directConversationId: string) => {
       onOpenChange(false);
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
-      onOpenConversation(directConversationId);
+      onOpenConversation(directConversationId, conversationId);
     },
     onError: (error: Error) => toast.error(error.message),
   });

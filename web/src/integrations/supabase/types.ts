@@ -517,6 +517,7 @@ export type Database = {
       conversations: {
         Row: {
           created_at: string
+          deleted_at: string | null
           direct_key: string | null
           id: string
           related_group_id: string | null
@@ -524,6 +525,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          deleted_at?: string | null
           direct_key?: string | null
           id?: string
           related_group_id?: string | null
@@ -531,6 +533,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          deleted_at?: string | null
           direct_key?: string | null
           id?: string
           related_group_id?: string | null
@@ -1132,6 +1135,38 @@ export type Database = {
           },
         ]
       }
+      message_recall_request: {
+        Row: {
+          created_at: string
+          id: string
+          message_id: string
+          requested_by: string
+          resolved_at: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message_id: string
+          requested_by: string
+          resolved_at?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message_id?: string
+          requested_by?: string
+          resolved_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_recall_request_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       messages: {
         Row: {
           content: string
@@ -1141,6 +1176,7 @@ export type Database = {
           edited_at: string | null
           id: string
           mentioned_user_ids: string[]
+          origin_group_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -1152,6 +1188,7 @@ export type Database = {
           edited_at?: string | null
           id?: string
           mentioned_user_ids?: string[]
+          origin_group_id?: string | null
           reply_to_message_id?: string | null
           sender_id: string
         }
@@ -1163,6 +1200,7 @@ export type Database = {
           edited_at?: string | null
           id?: string
           mentioned_user_ids?: string[]
+          origin_group_id?: string | null
           reply_to_message_id?: string | null
           sender_id?: string
         }
@@ -1170,6 +1208,13 @@ export type Database = {
           {
             foreignKeyName: "messages_conversation_id_fkey"
             columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_origin_group_id_fkey"
+            columns: ["origin_group_id"]
             isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
@@ -1782,6 +1827,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -1819,6 +1865,7 @@ export type Database = {
           completed_confirmed_at?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
+          context_lost_reason?: string | null
           context_snapshot?: Json | null
           conversation_id?: string | null
           created_at?: string
@@ -1856,6 +1903,7 @@ export type Database = {
           completed_confirmed_at?: string | null
           confirmed_at?: string | null
           confirmed_by?: string | null
+          context_lost_reason?: string | null
           context_snapshot?: Json | null
           conversation_id?: string | null
           created_at?: string
@@ -2085,6 +2133,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -2250,6 +2299,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -2296,6 +2346,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -2362,6 +2413,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -2428,6 +2480,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -2735,6 +2788,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -2833,6 +2887,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -2924,6 +2979,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3003,6 +3059,7 @@ export type Database = {
           edited_at: string | null
           id: string
           mentioned_user_ids: string[]
+          origin_group_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -3242,6 +3299,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3292,6 +3350,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3338,6 +3397,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3422,6 +3482,7 @@ export type Database = {
           edited_at: string | null
           id: string
           mentioned_user_ids: string[]
+          origin_group_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -3482,6 +3543,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3573,6 +3635,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3619,6 +3682,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3665,6 +3729,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3711,6 +3776,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -3854,6 +3920,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -4060,6 +4127,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string
@@ -4111,6 +4179,7 @@ export type Database = {
           completed_confirmed_at: string | null
           confirmed_at: string | null
           confirmed_by: string | null
+          context_lost_reason: string | null
           context_snapshot: Json | null
           conversation_id: string | null
           created_at: string

@@ -13,6 +13,7 @@ import { memberLabel } from "@/lib/member-search";
 import { buildContextSnapshot, type ContextMessage } from "@/lib/task-context";
 import type { SuggestionTarget } from "@/lib/task-suggestions";
 import { isTaskDraftComplete, todayIso, validateTaskDraft, type TaskDraft } from "@/lib/tasks";
+import { useTaskActions } from "@/lib/use-tasks";
 import { useSuggestionActions } from "@/lib/use-task-suggestions";
 import { cn } from "@/lib/utils";
 
@@ -61,8 +62,15 @@ export function TaskFromChatDialog({
 }: TaskFromChatDialogProps) {
   const { user } = useAuth();
   const { propose } = useSuggestionActions();
+  const { addPersonal } = useTaskActions();
   const today = todayIso();
   const isGroup = conversationKind === "group";
+  /**
+   * A journal note has nobody to ask, so it never becomes a suggestion: the task is the
+   * writer's own and is created outright. Everything the dialog says has to follow, or it
+   * offers to "send" work to the only person already holding it.
+   */
+  const isJournal = conversationKind === "personal";
 
   const [draft, setDraft] = useState<TaskDraft>({ title: "", description: "", deadline: "" });
   const [deadlineTime, setDeadlineTime] = useState<string>("");
@@ -98,7 +106,8 @@ export function TaskFromChatDialog({
   const takesOwnWork: boolean = user?.id !== undefined && assigneeIds.includes(user.id);
   const othersAsked: number = assigneeIds.filter((id) => id !== user?.id).length;
 
-  const complete = isTaskDraftComplete(draft) && assigneeIds.length > 0;
+  const isWorking = propose.isPending || addPersonal.isPending;
+  const complete = isTaskDraftComplete(draft) && (isJournal || assigneeIds.length > 0);
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
@@ -107,7 +116,7 @@ export function TaskFromChatDialog({
       toast.error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
       return;
     }
-    if (assigneeIds.length === 0) {
+    if (!isJournal && assigneeIds.length === 0) {
       toast.error("Hãy chọn ít nhất một người đảm trách nhiệm vụ này.");
       return;
     }
@@ -121,6 +130,36 @@ export function TaskFromChatDialog({
       senderName: contextSenderName,
       userResponse: clean.value.description,
     });
+
+    /*
+     * A journal task skips the whole handshake: no suggestion, no waiting, straight onto the
+     * writer's own list. The note it came from travels in the snapshot, because a personal
+     * task is forbidden a conversation of its own — that is how "Xem trong ngữ cảnh" finds
+     * its way back to the journal afterwards.
+     */
+    if (isJournal) {
+      if (user?.id === undefined) {
+        toast.error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+        return;
+      }
+      try {
+        await addPersonal.mutateAsync({
+          userId: user.id,
+          draft: {
+            title: clean.value.title,
+            description: clean.value.description,
+            deadline: clean.value.deadline,
+            deadlineTime: clean.value.deadlineTime,
+          },
+          contextSnapshot,
+        });
+        toast.success("Đã thêm vào nhiệm vụ cá nhân của bạn.");
+        onOpenChange(false);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Không thêm được nhiệm vụ.");
+      }
+      return;
+    }
 
     /**
      * Several people means several suggestions, not one suggestion with several owners. Each
@@ -179,12 +218,14 @@ export function TaskFromChatDialog({
         <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
           <div className="min-w-0">
             <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">
-              Gợi ý nhiệm vụ
+              {isJournal ? "Nhiệm vụ cá nhân" : "Gợi ý nhiệm vụ"}
             </DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
-              {takesOwnWork && othersAsked === 0
-                ? `Tự nhận việc vừa trao đổi trong ${conversationName} — vào việc ngay, không chờ ai duyệt`
-                : `Đề xuất việc vừa trao đổi trong ${conversationName} — người nhận sẽ quyết định`}
+              {isJournal
+                ? "Việc của riêng bạn, ghi từ Nhật ký — vào việc ngay, không chờ ai duyệt"
+                : takesOwnWork && othersAsked === 0
+                  ? `Tự nhận việc vừa trao đổi trong ${conversationName} — vào việc ngay, không chờ ai duyệt`
+                  : `Đề xuất việc vừa trao đổi trong ${conversationName} — người nhận sẽ quyết định`}
             </DialogDescription>
           </div>
           <button
@@ -200,7 +241,7 @@ export function TaskFromChatDialog({
         {contextMessage !== null ? (
           <div className="mx-5 mb-1 rounded-[10px] border border-border bg-secondary/40 px-3.5 py-2.5 sm:mx-6">
             <p className="text-[12px] font-medium text-muted-foreground">
-              Gắn với tin nhắn của {contextSenderName}
+              {isJournal ? "Gắn với ghi chú này" : `Gắn với tin nhắn của ${contextSenderName}`}
             </p>
             <p className="mt-1 line-clamp-3 whitespace-pre-wrap text-[13px] leading-5 text-foreground">
               {contextMessage.content}
@@ -271,6 +312,9 @@ export function TaskFromChatDialog({
             </div>
           </div>
 
+          {/* A journal task has one possible owner, so naming them would be a field with one
+              answer. It is left out entirely rather than shown as a disabled box. */}
+          {isJournal ? null : (
           <div>
             <label
               htmlFor="chat-task-assignee"
@@ -298,6 +342,7 @@ export function TaskFromChatDialog({
               </p>
             )}
           </div>
+          )}
 
           <div className="flex items-center justify-end gap-3 pt-1">
             <button
@@ -309,18 +354,28 @@ export function TaskFromChatDialog({
             </button>
             <button
               type="submit"
-              disabled={!complete || propose.isPending}
-              title={complete ? undefined : "Cần đủ tiêu đề, mô tả, hạn hoàn thành và người nhận gợi ý"}
+              disabled={!complete || isWorking}
+              title={
+                complete
+                  ? undefined
+                  : isJournal
+                    ? "Cần đủ tiêu đề, mô tả và hạn hoàn thành"
+                    : "Cần đủ tiêu đề, mô tả, hạn hoàn thành và người nhận gợi ý"
+              }
               className="press flex h-12 items-center gap-2 rounded-[10px] bg-primary px-5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {propose.isPending ? (
+              {isWorking ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
-              {propose.isPending
-                ? "Đang gửi…"
-                : takesOwnWork && othersAsked === 0
-                  ? "Nhận việc này"
-                  : "Gửi gợi ý"}
+              {isWorking
+                ? isJournal
+                  ? "Đang thêm…"
+                  : "Đang gửi…"
+                : isJournal
+                  ? "Thêm nhiệm vụ"
+                  : takesOwnWork && othersAsked === 0
+                    ? "Nhận việc này"
+                    : "Gửi gợi ý"}
             </button>
           </div>
         </form>

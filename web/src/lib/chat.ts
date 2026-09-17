@@ -39,6 +39,7 @@ export {
   messageBodyText,
   MESSAGE_EDIT_WINDOW_MS,
   MESSAGE_TABS,
+  ORIGIN_GROUP_PARAM,
   PLACEHOLDER_TABS,
   isPlaceholderTab,
   isProjectTab,
@@ -142,7 +143,7 @@ export async function markConversationRead(conversationId: string): Promise<stri
 
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id";
 
 /** Full thread, oldest first. RLS returns nothing for conversations you are not in. */
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
@@ -165,6 +166,7 @@ export async function fetchMessages(conversationId: string): Promise<ChatMessage
     deletedAt: row.deleted_at,
     replyToMessageId: row.reply_to_message_id,
     mentionedUserIds: row.mentioned_user_ids ?? [],
+    originGroupId: row.origin_group_id,
   }));
 }
 
@@ -212,6 +214,7 @@ export async function searchMessages(
     deletedAt: row.deleted_at,
     replyToMessageId: row.reply_to_message_id,
     mentionedUserIds: row.mentioned_user_ids ?? [],
+    originGroupId: row.origin_group_id,
   }));
 }
 
@@ -298,6 +301,11 @@ export async function sendMessage(
   content: string,
   replyToMessageId: string | null = null,
   mentionedUserIds: readonly string[] = [],
+  /**
+   * Set only when the thread was opened from inside a group's member list. The server checks
+   * the claim against real membership, so this is a hint it verifies, never a fact it trusts.
+   */
+  originGroupId: string | null = null,
 ): Promise<ChatMessage> {
   const trimmed = content.trim();
   const { data, error } = await supabase
@@ -308,6 +316,7 @@ export async function sendMessage(
       content: trimmed,
       reply_to_message_id: replyToMessageId,
       mentioned_user_ids: [...mentionedUserIds],
+      origin_group_id: originGroupId,
     })
     .select(MESSAGE_COLUMNS)
     .single();
@@ -324,6 +333,7 @@ export async function sendMessage(
     deletedAt: data.deleted_at,
     replyToMessageId: data.reply_to_message_id,
     mentionedUserIds: data.mentioned_user_ids ?? [],
+    originGroupId: data.origin_group_id,
   };
 }
 

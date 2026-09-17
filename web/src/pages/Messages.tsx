@@ -6,6 +6,7 @@ import {
   CheckCheck,
   ChevronLeft,
   FolderKanban,
+  Hand,
   Info,
   ListPlus,
   ListTodo,
@@ -91,6 +92,7 @@ import {
   isRecalled,
   isSeenByPeer,
   lastOutgoingId,
+  ORIGIN_GROUP_PARAM,
   markConversationRead,
   matchesConversationQuery,
   messageBodyText,
@@ -119,6 +121,8 @@ import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote } from "@/lib
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
 import { useThreadPins } from "@/lib/use-pins";
+import { recallRequestNote } from "@/lib/recall-requests";
+import { useRecallRequests } from "@/lib/use-recall-requests";
 import type { MessageTaskSummary } from "@/lib/message-tasks";
 import { useMessageTasks } from "@/lib/use-message-tasks";
 import { useThreadReactions } from "@/lib/use-reactions";
@@ -301,6 +305,16 @@ const Messages = () => {
 
   const newestMessage: ChatMessage | null = messages.length > 0 ? messages[messages.length - 1] : null;
 
+  /**
+   * The group this visit came from, when the thread was opened from a group's member list.
+   *
+   * Only meaningful in a 1-1: a pair keeps one conversation wherever they open it from, so
+   * what ties a message to a room is the message itself. Null everywhere else, which is what
+   * makes an ordinary message ordinary.
+   */
+  const originGroupId: string | null =
+    activeKind === "direct" ? searchParams.get(ORIGIN_GROUP_PARAM) : null;
+
   // Arriving from "Xem trong ngữ cảnh": which task sent us here, and what it remembers.
   const highlightTaskId: string | null = searchParams.get(CONTEXT_TASK_PARAM);
   const { data: allTasks } = useTasks();
@@ -467,6 +481,19 @@ const Messages = () => {
     isWorking: isPinning,
   } = useThreadPins(conversationId);
 
+  /**
+   * Open "please take that back" asks in this thread.
+   *
+   * RLS narrows this to the asks each person is party to, so the sender sees what was asked of
+   * them and an asker sees their own — nobody can read the room for who objected to whom.
+   */
+  const {
+    askedBy: recallAsksFor,
+    hasAskedFor: hasAskedRecall,
+    ask: askRecall,
+    resolve: resolveRecallAsk,
+  } = useRecallRequests(conversationId);
+
   /** The message awaiting a "for the room, or for me?" answer. */
   const [pinChoiceMessageId, setPinChoiceMessageId] = useState<string | null>(null);
 
@@ -617,6 +644,7 @@ const Messages = () => {
         content,
         replyTarget?.id ?? null,
         extractMentionedIds(content, mentionable),
+        originGroupId,
       );
     },
     onMutate: async (content: string) => {
@@ -713,8 +741,10 @@ const Messages = () => {
    */
   const recallMutation = useMutation({
     mutationFn: (messageId: string) => recallMessage(messageId),
-    onSuccess: () => {
+    onSuccess: (_result, messageId) => {
       toast.success("Đã thu hồi tin nhắn.");
+      // Withdrawing IS the answer to any outstanding ask, so none should keep showing.
+      void resolveRecallAsk(messageId).catch(() => undefined);
       if (conversationId) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
       }
@@ -771,18 +801,47 @@ const Messages = () => {
         return;
       }
 
+      /*
+        Asking someone else to take a message back. It sends a note and stops there: the words
+        belong to whoever wrote them, so nothing is withdrawn automatically and the sender is
+        never overruled.
+      */
+      if (action === "request-recall") {
+        void askRecall(message.id)
+          .then(() => toast.success("Đã gửi đề nghị. Người gửi sẽ tự quyết định."))
+          .catch((error: unknown) =>
+            toast.error(error instanceof Error ? error.message : "Không gửi được đề nghị."),
+          );
+        return;
+      }
+
       // Recall destroys the text for everyone, so it asks first — this is the one action on a
       // message that cannot be walked back.
       if (window.confirm("Thu hồi tin nhắn này? Nội dung sẽ bị xoá với cả hai bên.")) {
         recallMutation.mutate(message.id);
       }
     },
-    [openTaskDialogFor, recallMutation, activeKind, myGroupRole, addPin, removePin, pinOf],
+    [
+      openTaskDialogFor,
+      recallMutation,
+      activeKind,
+      myGroupRole,
+      addPin,
+      removePin,
+      pinOf,
+      askRecall,
+    ],
   );
 
   const openConversation = useCallback(
-    (nextId: string): void => {
-      navigate(`/tin-nhan/${nextId}`);
+    (nextId: string, originGroupId?: string | null): void => {
+      // Opening a pair's thread from inside a group carries the room along, so the next
+      // message written here is recorded as having been said in that room.
+      navigate(
+        originGroupId == null
+          ? `/tin-nhan/${nextId}`
+          : `/tin-nhan/${nextId}?${ORIGIN_GROUP_PARAM}=${encodeURIComponent(originGroupId)}`,
+      );
     },
     [navigate],
   );
@@ -1403,9 +1462,10 @@ const Messages = () => {
                               ? (senderNames.get(message.senderId) ?? "Thành viên")
                               : null;
                             // Work is agreed as often by the reply as by the request, so a task
-                            // can be raised from either side's bubble — but not from a journal
-                            // note (no one to give it to) or a message still in flight.
-                            const canRaiseTask = activeKind !== "personal" && message.pending !== true;
+                            // can be raised from either side's bubble. A journal note counts too:
+                            // there is nobody to ask, so it becomes the writer's own task outright
+                            // rather than a suggestion. Only a message still in flight is refused.
+                            const canRaiseTask = message.pending !== true;
                             const recalled = isRecalled(message);
                             const isBeingEdited = editingMessageId === message.id;
                             // A journal has nobody to react to you, and a withdrawn message has
@@ -1420,6 +1480,26 @@ const Messages = () => {
                             const isPinnedForMe =
                               pinOf(message.id, "personal") !== null ||
                               (canPinForGroup(myGroupRole) && pinOf(message.id, "group") !== null);
+                            // Asking someone to take a message back only makes sense on somebody
+                            // else's words, in a thread that has somebody else in it. Your own
+                            // message already has "Thu hồi", and a journal has nobody to ask.
+                            const canRequestRecall =
+                              activeKind !== "personal" &&
+                              !outgoing &&
+                              message.pending !== true &&
+                              !recalled;
+                            // What the sender is being asked, in names rather than a count —
+                            // "somebody objected" invites suspicion of everyone in the room.
+                            const recallAsks = outgoing && !recalled ? recallAsksFor(message.id) : [];
+                            const recallAskNote =
+                              recallAsks.length === 0
+                                ? null
+                                : recallRequestNote(
+                                    recallAsks.map(
+                                      (entry) =>
+                                        senderNames.get(entry.requestedBy) ?? "Một thành viên",
+                                    ),
+                                  );
                             // Looked up live rather than snapshotted, so a quote follows what
                             // happens to the original afterwards.
                             const quotedParent =
@@ -1547,6 +1627,8 @@ const Messages = () => {
                                       outgoing={outgoing}
                                       canPin={canPinThis}
                                       isPinned={isPinnedForMe}
+                                      canRequestRecall={canRequestRecall}
+                                      hasRequestedRecall={hasAskedRecall(message.id)}
                                       onAction={(action) => handleMessageAction(message, action)}
                                       reactionPicker={
                                         canReact ? (
@@ -1603,6 +1685,44 @@ const Messages = () => {
                                       </div>
                                     </MessageActionsAffordance>
                                   )}
+
+                                  {/*
+                                    Someone has asked the sender to take this back. Only the
+                                    sender sees it, and it decides nothing: the two answers are
+                                    "Thu hồi" in the menu above, or keeping the message as it is.
+                                    Either way the ask stops — an unanswerable notice that never
+                                    goes away would be a way of nagging rather than asking.
+                                  */}
+                                  {recallAskNote !== null ? (
+                                    <div
+                                      className={cn(
+                                        "mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground",
+                                        outgoing ? "justify-end" : "justify-start",
+                                      )}
+                                    >
+                                      <Hand
+                                        className="h-3.5 w-3.5 shrink-0"
+                                        strokeWidth={1.8}
+                                        aria-hidden="true"
+                                      />
+                                      <span>{recallAskNote}</span>
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          void resolveRecallAsk(message.id).catch((error: unknown) =>
+                                            toast.error(
+                                              error instanceof Error
+                                                ? error.message
+                                                : "Không bỏ qua được đề nghị.",
+                                            ),
+                                          );
+                                        }}
+                                        className="press rounded-[6px] px-1.5 py-0.5 font-medium text-foreground underline decoration-border underline-offset-2 transition-colors hover:decoration-foreground"
+                                      >
+                                        Giữ nguyên
+                                      </button>
+                                    </div>
+                                  ) : null}
 
                                   {/*
                                     What people said back without saying anything. Shown under
@@ -1759,18 +1879,24 @@ const Messages = () => {
                   ariaLabel={activeKind === "personal" ? "Ghi vào nhật ký" : `Nhắn tin cho ${threadTitle}`}
                   mentionCandidates={mentionable}
                   leadingAction={
-                    activeKind === "personal" ? undefined : (
-                      <button
-                        type="button"
-                        onClick={() => openTaskDialogFor(null)}
-                        aria-label="Tạo nhiệm vụ từ cuộc trò chuyện này"
-                        title="Tạo nhiệm vụ từ cuộc trò chuyện này"
-                        className="press flex h-12 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/50 sm:px-4"
-                      >
-                        <ListPlus className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
-                        <span className="hidden sm:inline">Nhiệm vụ</span>
-                      </button>
-                    )
+                    <button
+                      type="button"
+                      onClick={() => openTaskDialogFor(null)}
+                      aria-label={
+                        activeKind === "personal"
+                          ? "Tạo nhiệm vụ cá nhân từ nhật ký"
+                          : "Tạo nhiệm vụ từ cuộc trò chuyện này"
+                      }
+                      title={
+                        activeKind === "personal"
+                          ? "Tạo nhiệm vụ cá nhân từ nhật ký"
+                          : "Tạo nhiệm vụ từ cuộc trò chuyện này"
+                      }
+                      className="press flex h-12 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/50 sm:px-4"
+                    >
+                      <ListPlus className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
+                      <span className="hidden sm:inline">Nhiệm vụ</span>
+                    </button>
                   }
                 />
               </div>
@@ -1825,7 +1951,7 @@ const Messages = () => {
         }}
       />
 
-      {conversationId && activeKind !== "personal" ? (
+      {conversationId ? (
         <TaskFromChatDialog
           open={isTaskDialogOpen}
           onOpenChange={(next) => {

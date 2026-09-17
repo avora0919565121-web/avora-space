@@ -1,4 +1,4 @@
-import { ListPlus, MoreHorizontal, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
+import { Hand, ListPlus, MoreHorizontal, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -12,7 +12,14 @@ import { canEditMessage, canRecallMessage, canReplyToMessage, type ChatMessage }
 import { cn } from "@/lib/utils";
 
 /** Everything that can be done to a single message. */
-export type MessageAction = "reply" | "task" | "edit" | "recall" | "pin" | "unpin";
+export type MessageAction =
+  | "reply"
+  | "task"
+  | "edit"
+  | "recall"
+  | "request-recall"
+  | "pin"
+  | "unpin";
 
 /**
  * Everything you can do to one message, in one place.
@@ -32,6 +39,8 @@ export function MessageActionsMenu({
   canRaiseTask,
   canPin = false,
   isPinned = false,
+  canRequestRecall = false,
+  hasRequestedRecall = false,
   onAction,
   open,
   onOpenChange,
@@ -45,6 +54,10 @@ export function MessageActionsMenu({
   canPin?: boolean;
   /** True when this message is already pinned for an audience the viewer can clear. */
   isPinned?: boolean;
+  /** True on someone else's message in a shared thread — never on your own, never in a journal. */
+  canRequestRecall?: boolean;
+  /** True once this person has asked, so the menu reports it instead of inviting a second ask. */
+  hasRequestedRecall?: boolean;
   onAction: (action: MessageAction) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -55,8 +68,13 @@ export function MessageActionsMenu({
   const showRecall = canRecallMessage(message, viewerId);
   const showTask = canRaiseTask && message.pending !== true && message.deletedAt == null;
   const showPin = canPin && message.pending !== true && message.deletedAt == null;
+  // Asking has no time limit of its own: a message that still says something can still be
+  // objected to, long after its author's own 24-hour window to take it back has closed.
+  const showRequestRecall =
+    canRequestRecall && message.pending !== true && message.deletedAt == null;
 
-  if (!showReply && !showEdit && !showRecall && !showTask && !showPin) return null;
+  if (!showReply && !showEdit && !showRecall && !showTask && !showPin && !showRequestRecall)
+    return null;
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -108,6 +126,20 @@ export function MessageActionsMenu({
             Thu hồi
           </DropdownMenuItem>
         ) : null}
+        {/*
+          Asking, not doing. The words belong to whoever wrote them, so this sends a note and
+          stops — the sender decides. Shown as already-asked rather than hidden, so pressing it
+          twice reports the truth instead of looking like it failed.
+        */}
+        {showRequestRecall ? (
+          <DropdownMenuItem
+            onSelect={() => onAction("request-recall")}
+            disabled={hasRequestedRecall}
+          >
+            <Hand className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            {hasRequestedRecall ? "Đã đề nghị thu hồi" : "Đề nghị thu hồi"}
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -127,6 +159,8 @@ export function MessageActionsAffordance({
   canRaiseTask,
   canPin = false,
   isPinned = false,
+  canRequestRecall = false,
+  hasRequestedRecall = false,
   outgoing,
   onAction,
   reactionPicker,
@@ -137,6 +171,8 @@ export function MessageActionsAffordance({
   canRaiseTask: boolean;
   canPin?: boolean;
   isPinned?: boolean;
+  canRequestRecall?: boolean;
+  hasRequestedRecall?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
   /**
@@ -167,6 +203,8 @@ export function MessageActionsAffordance({
         canRaiseTask={canRaiseTask}
         canPin={canPin}
         isPinned={isPinned}
+        canRequestRecall={canRequestRecall}
+        hasRequestedRecall={hasRequestedRecall}
         onAction={onAction}
         open={isOpen}
         onOpenChange={setIsOpen}

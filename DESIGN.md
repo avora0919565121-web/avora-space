@@ -1350,6 +1350,23 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   closed laptop means losing the only record of what was agreed. The autosave never closes the editor, never
   toasts on success and never steals focus — it is happening while somebody is still typing — and it says the
   time it last saved rather than a bare "Đã lưu", because a time is a fact the person can check.
+- 2026-09-17 — A note in the journal can become a task, and it becomes one outright. Everywhere else "Nhiệm vụ"
+  raises a suggestion, because somebody else has to agree to carry it; a journal has nobody to ask, so the same
+  button that opened a question there opened nothing at all. The dialog drops the assignee field entirely rather
+  than showing it filled in and disabled — a field with one possible answer is not a question. The note travels
+  with the task so "Xem trong ngữ cảnh" leads back to the line that prompted it.
+- 2026-09-17 — Two people have one conversation, wherever they open it from. Reversing the 09-09 rule: a separate
+  thread per group meant the same pair's words were scattered across as many places as they had rooms in common,
+  and the inbox showed those places as identical rows with no way to tell them apart. What the old design was
+  protecting — a private word inside a group not outliving that group — is a fact about the MESSAGE, not about
+  the conversation, so it now lives there: a message knows which room it was spoken in, and deleting the room
+  takes those messages and leaves the rest of the conversation whole. The server checks that claim against real
+  membership; a client cannot assert that a message came from a room its sender was never in.
+- 2026-09-17 — Anyone can ask the sender to take a message back, and that is all it does. Asking is not deleting:
+  the words belong to whoever wrote them, so the ask arrives as a quiet line under their own bubble with two ways
+  out — withdraw it, or keep it — and either answer ends the matter. It names who asked rather than counting them,
+  because "ai đó phản đối" invites suspicion of everyone in the room. No limit on asking: if it becomes a way to
+  badger people, that is a rule to write once there is evidence for it, not a guess to build in now.
 
 ## Out of scope
 
@@ -1359,7 +1376,8 @@ categories, reminders and repeats; boards, teams and dependencies stay out), and
 delivered outside the app — email, SMS or push to a closed tab — need a scheduled worker and a push subscription,
 and are not built. Group chat is now creatable and manageable from the interface (three-way Tin nhắn tabs, roster panel with roles,
 removal requests, ownership transfer, renaming, appointing and standing down the admin, invite links, leaving, and
-group-tied private messages). Joining through an invite link requires being signed in — a signed-out visitor is
+private messages started from a group's roster — which now land in the pair's single shared conversation, tagged
+with the room they were sent from). Joining through an invite link requires being signed in — a signed-out visitor is
 sent to the sign-in screen and must reopen the link afterwards. Task lists and context snapshots exist in the database
 with their rules enforced there, but have no screens yet; the recurring-task spawner also stays a database trigger
 rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Business HUB: Timeline,
