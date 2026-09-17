@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { AssigneePicker } from "@/components/chat/AssigneePicker";
 import { TimeField } from "@/components/tasks/TimeField";
+import { useAutoList } from "@/hooks/use-auto-list";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import type { ConversationKind } from "@/lib/chat";
@@ -66,6 +67,9 @@ export function TaskFromChatDialog({
   const [draft, setDraft] = useState<TaskDraft>({ title: "", description: "", deadline: "" });
   const [deadlineTime, setDeadlineTime] = useState<string>("");
   const [assignees, setAssignees] = useState<GroupMember[]>([]);
+  const descriptionKeyDown = useAutoList((next) =>
+    setDraft((current) => ({ ...current, description: next })),
+  );
 
   useEffect(() => {
     if (open) return;
@@ -83,6 +87,16 @@ export function TaskFromChatDialog({
   const assigneeNames: string = isGroup
     ? assignees.map((member) => memberLabel(member)).join(", ")
     : peerName;
+
+  /**
+   * Whether the author named themselves among the assignees.
+   *
+   * That half is not a question: work you take on yourself has nobody to answer it, so the
+   * server creates the task immediately. Everything the dialog says afterwards has to tell
+   * the two apart, or the person is told they "sent a suggestion" to themselves.
+   */
+  const takesOwnWork: boolean = user?.id !== undefined && assigneeIds.includes(user.id);
+  const othersAsked: number = assigneeIds.filter((id) => id !== user?.id).length;
 
   const complete = isTaskDraftComplete(draft) && assigneeIds.length > 0;
 
@@ -134,10 +148,16 @@ export function TaskFromChatDialog({
         });
         created.push(assigneeId);
       }
+      // Named for what actually happened: a suggestion still waits on somebody, a task the
+      // author took on already exists.
       toast.success(
-        created.length > 1
-          ? `Đã gửi ${created.length} gợi ý tới ${assigneeNames}.`
-          : `Đã gợi ý việc này cho ${assigneeNames}.`,
+        takesOwnWork && othersAsked === 0
+          ? "Đã thêm nhiệm vụ của bạn trong nhóm này."
+          : takesOwnWork
+            ? `Đã nhận việc của bạn và gợi ý cho ${othersAsked} người khác.`
+            : created.length > 1
+              ? `Đã gửi ${created.length} gợi ý tới ${assigneeNames}.`
+              : `Đã gợi ý việc này cho ${assigneeNames}.`,
       );
       onOpenChange(false);
     } catch (error) {
@@ -162,7 +182,9 @@ export function TaskFromChatDialog({
               Gợi ý nhiệm vụ
             </DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
-              Đề xuất việc vừa trao đổi trong {conversationName} — người nhận sẽ quyết định
+              {takesOwnWork && othersAsked === 0
+                ? `Tự nhận việc vừa trao đổi trong ${conversationName} — vào việc ngay, không chờ ai duyệt`
+                : `Đề xuất việc vừa trao đổi trong ${conversationName} — người nhận sẽ quyết định`}
             </DialogDescription>
           </div>
           <button
@@ -215,7 +237,8 @@ export function TaskFromChatDialog({
               rows={3}
               maxLength={2000}
               onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))}
-              placeholder="Bạn cần gì? Kết quả dự kiến là gì?"
+              onKeyDown={descriptionKeyDown}
+              placeholder="Bạn cần gì? Kết quả dự kiến là gì? Gõ “- ” để gạch đầu dòng"
               className={cn(FIELD_CLASS, "resize-y py-2.5 leading-6")}
             />
           </div>
@@ -262,6 +285,9 @@ export function TaskFromChatDialog({
                 selected={assignees}
                 onChange={setAssignees}
                 selfId={user?.id}
+                // Only a group: a 1-1 has no picker at all, and the other person is the
+                // only one there is to ask.
+                allowSelf
               />
             ) : (
               <p
@@ -290,7 +316,11 @@ export function TaskFromChatDialog({
               {propose.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
               ) : null}
-              {propose.isPending ? "Đang gửi…" : "Gửi gợi ý"}
+              {propose.isPending
+                ? "Đang gửi…"
+                : takesOwnWork && othersAsked === 0
+                  ? "Nhận việc này"
+                  : "Gửi gợi ý"}
             </button>
           </div>
         </form>

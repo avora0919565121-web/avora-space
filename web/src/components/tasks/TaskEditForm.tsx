@@ -2,6 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { TimeField } from "@/components/tasks/TimeField";
+import { useAutoList } from "@/hooks/use-auto-list";
 import {
   isSharedTask,
   isTaskEditUnchanged,
@@ -39,6 +40,7 @@ export function TaskEditForm({
   const [description, setDescription] = useState<string>(task.description);
   const [deadline, setDeadline] = useState<string>(task.deadline ?? "");
   const [deadlineTime, setDeadlineTime] = useState<string>(task.deadlineTime ?? "");
+  const descriptionKeyDown = useAutoList(setDescription);
 
   const save = async (): Promise<void> => {
     const clean = validateTaskEdit({ title, description, deadline, deadlineTime }, today);
@@ -92,6 +94,7 @@ export function TaskEditForm({
           id={`edit-description-${task.id}`}
           value={description}
           onChange={(event) => setDescription(event.target.value)}
+          onKeyDown={descriptionKeyDown}
           rows={2}
           maxLength={2000}
           className={cn(FIELD_CLASS, "resize-y py-2 leading-5")}

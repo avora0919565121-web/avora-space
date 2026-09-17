@@ -1,6 +1,7 @@
 import { CalendarClock, ChevronRight, ListChecks, Plus, X } from "lucide-react";
 import { useState } from "react";
 
+import { useAutoList } from "@/hooks/use-auto-list";
 import { peerLabel } from "@/lib/initials";
 import type { GroupMember } from "@/lib/groups";
 import {
@@ -94,9 +95,17 @@ export function MeetingNoteSummary({
 
       {details.actionItems.length > 0 ? (
         <SummaryBlock label="Việc cần làm">
+          {/*
+            Numbered by position, not by anything stored. "Dòng 3" is how people refer to a row
+            out loud while reading a note together, and without a number they have to count.
+            It is display only: deleting a row renumbers the rest, exactly as a reader expects.
+          */}
           <ul className="space-y-1">
             {details.actionItems.map((item, index) => (
               <li key={index} className="flex flex-wrap items-baseline gap-x-1.5">
+                <span className="tabular text-[12px] font-medium text-muted-foreground">
+                  {index + 1}.
+                </span>
                 <span>{item.description}</span>
                 {item.assigneeId !== null ? (
                   <span className="text-[12px] text-muted-foreground">
@@ -291,6 +300,14 @@ function ActionItemRow({
       )}
     >
       <div className="flex items-start gap-2">
+        {/* The same number the finished note will show, so a row keeps its identity between
+            writing it and reading it back. */}
+        <span
+          aria-hidden="true"
+          className="tabular mt-2 w-4 shrink-0 text-right text-[12px] font-medium text-muted-foreground"
+        >
+          {index + 1}.
+        </span>
         <input
           value={item.description}
           onChange={(event) => onChange({ ...item, description: event.target.value })}
@@ -394,6 +411,18 @@ export function MeetingNoteFields({
 
   const patch = (part: Partial<MeetingNoteDetails>): void => onChange({ ...details, ...part });
 
+  // The long boxes of a note are where people write several things down, so Enter keeps a
+  // list going in each of them.
+  const decisionsKeyDown = useAutoList((next) =>
+    patch({ decisionsMade: next.slice(0, MEETING_DECISIONS_MAX_LENGTH) }),
+  );
+  const objectiveKeyDown = useAutoList((next) =>
+    patch({ objective: next.slice(0, MEETING_OBJECTIVE_MAX_LENGTH) }),
+  );
+  const risksKeyDown = useAutoList((next) =>
+    patch({ risksIssues: next.slice(0, MEETING_RISKS_MAX_LENGTH) }),
+  );
+
   const toggleAttendee = (userId: string): void => {
     const present = details.attendeeIds.includes(userId);
     patch({
@@ -425,8 +454,9 @@ export function MeetingNoteFields({
           onChange={(event) =>
             patch({ decisionsMade: event.target.value.slice(0, MEETING_DECISIONS_MAX_LENGTH) })
           }
+          onKeyDown={decisionsKeyDown}
           rows={3}
-          placeholder="Nhóm đã quyết điều gì?"
+          placeholder="Nhóm đã quyết điều gì? Gõ “- ” để gạch đầu dòng"
           className={cn(INPUT_CLASS, "resize-none")}
         />
       </div>
@@ -527,6 +557,7 @@ export function MeetingNoteFields({
               onChange={(event) =>
                 patch({ objective: event.target.value.slice(0, MEETING_OBJECTIVE_MAX_LENGTH) })
               }
+              onKeyDown={objectiveKeyDown}
               rows={2}
               placeholder="Buổi họp này để làm gì?"
               className={cn(INPUT_CLASS, "resize-none")}
@@ -592,6 +623,7 @@ export function MeetingNoteFields({
               onChange={(event) =>
                 patch({ risksIssues: event.target.value.slice(0, MEETING_RISKS_MAX_LENGTH) })
               }
+              onKeyDown={risksKeyDown}
               rows={2}
               placeholder="Điều gì có thể chệch hướng?"
               className={cn(INPUT_CLASS, "resize-none")}

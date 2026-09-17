@@ -12,8 +12,14 @@ type AssigneePickerProps = {
   /** Everyone chosen so far, in the order they were picked. */
   selected: readonly GroupMember[];
   onChange: (next: GroupMember[]) => void;
-  /** The person doing the choosing, who is never a candidate for their own shared task. */
+  /** The person doing the choosing. A candidate for their own work only when `allowSelf`. */
   selfId: string | undefined;
+  /**
+   * Whether the chooser may name themselves. True in a group, where taking work on yourself
+   * is a real answer to "who is doing this"; false in a 1-1, where the only other person in
+   * the room is the one being asked.
+   */
+  allowSelf?: boolean;
 };
 
 /**
@@ -24,7 +30,14 @@ type AssigneePickerProps = {
  * chosen becomes a chip you can take back off before committing. Choosing several people
  * creates several separate tasks: one promise per person, each finished on its own.
  */
-export function AssigneePicker({ id, members, selected, onChange, selfId }: AssigneePickerProps) {
+export function AssigneePicker({
+  id,
+  members,
+  selected,
+  onChange,
+  selfId,
+  allowSelf = false,
+}: AssigneePickerProps) {
   const [query, setQuery] = useState<string>("");
   const [highlight, setHighlight] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -32,8 +45,8 @@ export function AssigneePicker({ id, members, selected, onChange, selfId }: Assi
   const selectedIds = useMemo(() => selected.map((member) => member.userId), [selected]);
 
   const matches = useMemo(
-    () => searchAssignees(members, query, { excludeUserIds: selectedIds, selfId }),
-    [members, query, selectedIds, selfId],
+    () => searchAssignees(members, query, { excludeUserIds: selectedIds, selfId, allowSelf }),
+    [members, query, selectedIds, selfId, allowSelf],
   );
 
   const add = (member: GroupMember): void => {
@@ -73,7 +86,7 @@ export function AssigneePicker({ id, members, selected, onChange, selfId }: Assi
     }
   };
 
-  const hasCandidates = members.some((member) => member.userId !== selfId);
+  const hasCandidates = members.some((member) => allowSelf || member.userId !== selfId);
 
   if (!hasCandidates) {
     return (
@@ -151,6 +164,11 @@ export function AssigneePicker({ id, members, selected, onChange, selfId }: Assi
                     className="block truncate text-[14px] font-medium text-foreground"
                   >
                     {memberLabel(member)}
+                    {/* Naming yourself behaves differently — the work starts straight away
+                        rather than waiting on an answer — so the row says which one you are. */}
+                    {member.userId === selfId ? (
+                      <span className="font-normal text-muted-foreground"> (bạn)</span>
+                    ) : null}
                   </span>
                   {member.email !== null ? (
                     <span className="block truncate text-[12px] text-muted-foreground">{member.email}</span>

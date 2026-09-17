@@ -53,6 +53,7 @@ import {
   type MessageAction,
 } from "@/components/chat/MessageActionsMenu";
 import { MessageReactions, ReactionPicker } from "@/components/chat/MessageReactions";
+import { MessageTaskDot } from "@/components/chat/MessageTaskDot";
 import { PinChoiceDialog, PinnedStrip } from "@/components/chat/PinnedStrip";
 import { NewProjectDialog } from "@/components/projects/NewProjectDialog";
 import { ProjectList } from "@/components/projects/ProjectList";
@@ -118,6 +119,8 @@ import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote } from "@/lib
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
 import { useThreadPins } from "@/lib/use-pins";
+import type { MessageTaskSummary } from "@/lib/message-tasks";
+import { useMessageTasks } from "@/lib/use-message-tasks";
 import { useThreadReactions } from "@/lib/use-reactions";
 import { useThreadCelebrations } from "@/lib/use-task-celebrations";
 import { useProfileSettings } from "@/lib/use-settings";
@@ -194,7 +197,9 @@ const Messages = () => {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   /** A result just jumped to, lit briefly so the eye can find it among its neighbours. */
   const [flashedMessageId, setFlashedMessageId] = useState<string | null>(null);
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  /** A suggestion the reader asked to see, from the dot on the message it came out of. */
+  const [focusedSuggestionId, setFocusedSuggestionId] = useState<string | null>(null);
   const threadScrollRef = useRef<HTMLDivElement | null>(null);
   // Whether the reader is watching the live end of the thread, and how many messages have
   // landed since they last were — together they decide the jump-to-newest pill.
@@ -367,6 +372,38 @@ const Messages = () => {
   const { groupsFor: reactionGroupsFor, toggle: toggleReaction } = useThreadReactions(
     activeKind === "personal" ? undefined : conversationId,
     messageIds,
+  );
+
+  /**
+   * Which messages in this thread already produced work.
+   *
+   * Read in one batch beside the reactions, and for the same reason. A journal is left out:
+   * it has nobody to suggest anything to, so it can hold none of these.
+   */
+  const { markFor: taskMarkFor } = useMessageTasks(
+    activeKind === "personal" ? undefined : conversationId,
+    messageIds,
+  );
+
+  /**
+   * Pressing the dot opens the thing itself, not a description of it.
+   *
+   * Work that exists goes through the same context parameter "Xem trong ngụ cảnh" uses, so the
+   * task panel opens and points at the row. Work still waiting on an answer has no task to
+   * open, so the suggestion panel is unfolded onto it instead.
+   */
+  const openTaskMark = useCallback(
+    (mark: MessageTaskSummary): void => {
+      if (mark.taskId !== null) {
+        setFocusedSuggestionId(null);
+        const next = new URLSearchParams(searchParams);
+        next.set(CONTEXT_TASK_PARAM, mark.taskId);
+        setSearchParams(next, { replace: true });
+        return;
+      }
+      setFocusedSuggestionId(mark.suggestionId);
+    },
+    [searchParams, setSearchParams],
   );
 
   /**
@@ -1590,6 +1627,18 @@ const Messages = () => {
                                     {/* An edit is admitted out loud: a silent one would let
                                         someone change what they are on record as saying. */}
                                     {isEdited(message) ? <span>(đã chỉnh sửa)</span> : null}
+                                    {/* Work that came out of this message. Nothing is shown
+                                        when nothing came of it. */}
+                                    {(() => {
+                                      const mark = taskMarkFor(message.id);
+                                      if (mark === null) return null;
+                                      return (
+                                        <MessageTaskDot
+                                          summary={mark}
+                                          onOpen={() => openTaskMark(mark)}
+                                        />
+                                      );
+                                    })()}
                                     {showsReceipt ? (
                                       <span className="flex items-center gap-1">
                                         {seen ? (
@@ -1646,6 +1695,7 @@ const Messages = () => {
                   peerName={threadTitle}
                   members={groupMembersQuery.data ?? []}
                   onSendMessage={sendPlainMessage}
+                  focusedSuggestionId={focusedSuggestionId}
                 />
               )}
 

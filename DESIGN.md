@@ -1307,6 +1307,49 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - 2026-09-17 — A project whose conversation has not loaded yet is held back rather than guessed at. Filing it
   under the wrong heading would misstate who can read it, which is the one thing that list must never do; it
   appears as soon as the inbox answers.
+- 2026-09-17 — Taking work on yourself inside a group is allowed, and it is not a suggestion. A suggestion is a
+  question asked of somebody else, so naming yourself was refused outright — which left a member volunteering
+  for something the group had just discussed with no way through the chat at all. They had to open a detached
+  personal task that no longer remembered the message it came from. A 1-1 keeps the old rule: there is exactly
+  one other person in the room, so naming yourself there is a slip rather than a choice.
+- 2026-09-17 — Self-assigned work still writes a suggestion row, born already accepted. The message link and the
+  context snapshot live on that row, and every reader — the chat panel, the mark on the message — already knows
+  how to read it. The task itself is created by calling the ordinary acceptance path, so there is exactly one
+  piece of code that turns an agreement into a task rather than a second one drifting out of step with it.
+- 2026-09-17 — The rule against assigning yourself moved from a CHECK constraint to a trigger. Deciding now needs
+  the conversation's type, which lives in another table and a CHECK cannot see. The guarantee was worth keeping
+  rather than dropping: the RPC is the only write path today, but the table should not depend on that staying true.
+- 2026-09-17 — A message that produced work is marked with one dot beside its time, and nothing else. A system
+  line would put words in the room that nobody said, and a notification would tell everyone twice — once by the
+  task, once by an announcement about it. A mark answers "what came of this" for whoever scrolls past, and says
+  nothing at all to anybody who does not.
+- 2026-09-17 — The dot is orange when any of the work is the reader's own and green when it is somebody else's,
+  using the two colours the app already speaks rather than inventing a third. Their own promise is why they would
+  look twice at an old message, so it wins whenever one message produced work for several people.
+- 2026-09-17 — Only pending and accepted work is marked. A suggestion that was declined or withdrawn is not work
+  anybody is carrying, and a dot for it would say something is happening when nothing is — so skipping or taking
+  a request back removes the mark, which is the same rule the panel above the composer already follows.
+- 2026-09-17 — Several pieces of work from one message stay one dot, with a count beside it. A row of dots would
+  be counting rather than saying the one thing worth knowing. Pressing it opens the task when one exists and the
+  pending question when it does not, because a mark that leads nowhere is worse than no mark.
+- 2026-09-17 — Enter continues a list in every box where notes are written up: a task's description and the three
+  long fields of a meeting note. Enter on an empty marker ends the list instead, which is how every editor people
+  already know behaves — without it a list can only be escaped by deleting characters by hand. What is stored
+  stays plain text: the dashes and numbers are literally what was typed, so the note reads the same everywhere it
+  is quoted. This is deliberately not a rich-text editor.
+- 2026-09-17 — Action items are numbered by position, and the number is display only. "Dòng 3" is how people refer
+  to a row out loud while reading a note together; storing the number would mean deleting a row leaves a gap, when
+  what a reader expects is for the rest to renumber.
+- 2026-09-17 — Sổ quyết định opens as a centred window on a wide screen and stays a full-height sheet on a phone.
+  A 448px column pinned to the right edge is the wrong shape for a meeting note — an action item carries a
+  description, a person, a date and a tick, and each was wrapping onto four lines while most of the screen sat
+  empty. The heading stays put while the log scrolls, so a long note never leaves the reader wondering which
+  group they are in.
+- 2026-09-17 — A draft saves itself a couple of seconds after the typing stops, and "Lưu nháp" stays exactly where
+  it was. A meeting note is written WHILE the meeting happens: the window is open for an hour, and losing it to a
+  closed laptop means losing the only record of what was agreed. The autosave never closes the editor, never
+  toasts on success and never steals focus — it is happening while somebody is still typing — and it says the
+  time it last saved rather than a bare "Đã lưu", because a time is a fact the person can check.
 
 ## Out of scope
 
@@ -1324,6 +1367,9 @@ Calendar, Gantt and responsibility-matrix views, sharing a table with anyone, an
 v1; `project_id` now has a real Dự án module behind it and is wired as a foreign key, but no HUB screen writes it yet.
 In Dự án: a calendar view, budgets tied to `financial_item`, review history, and deleting an objective, deliverable or
 project all stay out of v1 — the three tiers can be renamed and added to, never removed.
+The mark on a message that produced work stays a mark: no system line in the thread, no notification and no push.
+Auto-list in a note is Enter-continuation only — no rich text, no formatting toolbar, and nothing stored but the
+characters typed.
 In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,
 tax fields and quarterly estimates, automatic posting of recurring entries, and automatic rate fetching (rates are
 seeded and updated by hand) all stay out for now. The installed app is a wrapper over the live site, not an

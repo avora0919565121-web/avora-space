@@ -44,6 +44,13 @@ type ChatSuggestionPanelProps = {
    * beside the ask rather than loose at the bottom of the thread.
    */
   onSendMessage: (content: string, replyToMessageId?: string | null) => Promise<void>;
+  /**
+   * A suggestion the reader asked to see, from the dot on the message it came out of.
+   *
+   * It unfolds the panel and marks that one row, which is the whole answer to "what came of
+   * this message" when the work is still a question nobody has answered.
+   */
+  focusedSuggestionId?: string | null;
 };
 
 /**
@@ -60,6 +67,7 @@ export function ChatSuggestionPanel({
   peerName,
   members,
   onSendMessage,
+  focusedSuggestionId = null,
 }: ChatSuggestionPanelProps) {
   const { user } = useAuth();
   const { data: suggestions } = useTaskSuggestions();
@@ -75,7 +83,10 @@ export function ChatSuggestionPanel({
   // An unanswered question aimed at this person opens the panel; one they are merely waiting
   // on does not — the other side is holding that, and nothing is being asked of the reader.
   const awaitingMe = pending.some((entry) => canAnswerSuggestion(entry, userId));
-  const isOpen = isOpenOverride ?? awaitingMe;
+  // Being sent here to look at one particular question opens the panel too, whoever it
+  // belongs to — otherwise the dot would appear to do nothing.
+  const isFocusedHere = pending.some((entry) => entry.id === focusedSuggestionId);
+  const isOpen = isFocusedHere ? true : (isOpenOverride ?? awaitingMe);
 
   if (pending.length === 0) return null;
 
@@ -122,6 +133,7 @@ export function ChatSuggestionPanel({
                 peerName={peerName}
                 members={members}
                 onSendMessage={onSendMessage}
+                isHighlighted={suggestion.id === focusedSuggestionId}
               />
             ))}
           </ul>
@@ -151,6 +163,7 @@ function SuggestionRow({
   peerName,
   members,
   onSendMessage,
+  isHighlighted = false,
 }: {
   suggestion: TaskSuggestion;
   userId: string | undefined;
@@ -159,6 +172,8 @@ function SuggestionRow({
   peerName: string;
   members: readonly GroupMember[];
   onSendMessage: (content: string, replyToMessageId?: string | null) => Promise<void>;
+  /** Set when the reader arrived here from the dot on the message this came out of. */
+  isHighlighted?: boolean;
 }) {
   const { accept, skip, withdraw } = useSuggestionActions();
   const [isSkipOpen, setIsSkipOpen] = useState<boolean>(false);
@@ -223,7 +238,12 @@ function SuggestionRow({
   }, [withdraw, suggestion.id]);
 
   return (
-    <li className="rounded-[10px] border border-dashed border-border bg-card px-3 py-2.5">
+    <li
+      className={cn(
+        "rounded-[10px] border border-dashed bg-card px-3 py-2.5 transition-colors",
+        isHighlighted ? "border-primary/60 bg-primary/5" : "border-border",
+      )}
+    >
       <div className="flex items-start gap-3">
         {/*
           A dashed outline, not a task bubble. Nothing here has been agreed to yet, and giving

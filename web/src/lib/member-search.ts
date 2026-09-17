@@ -36,16 +36,24 @@ export function memberMatchesQuery(member: GroupMember, query: string): boolean 
 
 /**
  * The suggestion list under the assignee box: members matching what is typed, minus the
- * people already chosen and minus the person doing the choosing. Work you give yourself is a
- * personal task, so the author never appears among the candidates.
+ * people already chosen.
+ *
+ * The author is left out by default, because a suggestion is something you ask of someone
+ * else. `allowSelf` is how a group says otherwise: volunteering for work the group just
+ * discussed is not a request anybody has to answer, and refusing it forced people to make a
+ * detached personal task that no longer remembered the conversation it came from.
  */
 export function searchAssignees(
   members: readonly GroupMember[],
   query: string,
-  options: { excludeUserIds: readonly string[]; selfId?: string | undefined },
+  options: {
+    excludeUserIds: readonly string[];
+    selfId?: string | undefined;
+    allowSelf?: boolean;
+  },
 ): GroupMember[] {
   return members
-    .filter((member) => member.userId !== options.selfId)
+    .filter((member) => options.allowSelf === true || member.userId !== options.selfId)
     .filter((member) => !options.excludeUserIds.includes(member.userId))
     .filter((member) => memberMatchesQuery(member, query));
 }

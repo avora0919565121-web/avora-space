@@ -25,6 +25,7 @@ import {
 } from "@/lib/chat";
 import { groupKeys, type GroupMember } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
+import { messageTaskKeys } from "@/lib/message-tasks";
 import {
   removeSuggestion,
   suggestionFromRealtimeRow,
@@ -115,6 +116,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
     queryClient.removeQueries({ queryKey: ["conversation-peer"] });
     queryClient.removeQueries({ queryKey: taskKeys.all });
     queryClient.removeQueries({ queryKey: suggestionKeys.all });
+    queryClient.removeQueries({ queryKey: messageTaskKeys.all });
   }, [userId, queryClient]);
 
   useEffect(() => {
@@ -133,6 +135,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: ["messages"] });
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
       void queryClient.invalidateQueries({ queryKey: suggestionKeys.all });
+      void queryClient.invalidateQueries({ queryKey: messageTaskKeys.all });
     };
 
     /** One realtime row to a message, with the three after-the-fact fields carried through. */
@@ -273,6 +276,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
           suggestionKeys.list,
           removeSuggestion(cached, deletedId),
         );
+        void queryClient.invalidateQueries({ queryKey: messageTaskKeys.all });
         return;
       }
 
@@ -281,6 +285,14 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
         suggestionKeys.list,
         upsertSuggestion(cached, suggestion),
       );
+
+      /**
+       * The mark on the original message is read from these same rows, so every change to a
+       * suggestion can change it: raising one puts a dot there, and skipping or withdrawing
+       * takes it away. It is a separate query because it is fetched per thread, so patching
+       * the list above does not reach it.
+       */
+      void queryClient.invalidateQueries({ queryKey: messageTaskKeys.all });
 
       // Accepting creates a task in the same breath. The tasks socket delivers it too, but only
       // to people RLS lets read it — refreshing here keeps the two views from disagreeing for

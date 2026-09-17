@@ -95,6 +95,38 @@ describe("searchAssignees", () => {
   it("returns nothing rather than everything when the query matches no one", () => {
     expect(searchAssignees(EVERYONE, "zzz", { excludeUserIds: [], selfId: "u-me" })).toEqual([]);
   });
+
+  /**
+   * Volunteering for work discussed in a group is a real answer to "who is doing this", and
+   * there is nobody to ask for permission. Leaving it out forced people into a detached
+   * personal task that no longer remembered the conversation it came from.
+   */
+  it("offers the chooser themselves when the room allows it", () => {
+    const found = searchAssignees(EVERYONE, "", {
+      excludeUserIds: [],
+      selfId: "u-me",
+      allowSelf: true,
+    });
+    expect(found.map((entry) => entry.userId)).toEqual(["u-hoa", "u-dung", "u-dat", "u-me"]);
+  });
+
+  it("still drops the chooser once they have picked themselves", () => {
+    const found = searchAssignees(EVERYONE, "", {
+      excludeUserIds: ["u-me"],
+      selfId: "u-me",
+      allowSelf: true,
+    });
+    expect(found.map((entry) => entry.userId)).not.toContain("u-me");
+  });
+
+  it("narrows to the chooser's own name like anybody else's", () => {
+    const found = searchAssignees(EVERYONE, "chinh toi", {
+      excludeUserIds: [],
+      selfId: "u-me",
+      allowSelf: true,
+    });
+    expect(found.map((entry) => entry.userId)).toEqual(["u-me"]);
+  });
 });
 
 describe("memberLabel", () => {

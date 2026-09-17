@@ -62,7 +62,19 @@ export function useSuggestionActions() {
       target: SuggestionTarget;
       draft: { title: string; description: string; deadline: string; deadlineTime: string | null };
     }) => createTaskSuggestion(target, draft),
-    onSuccess: applyOwnResult,
+    /**
+     * Work someone took on themselves comes back already accepted, with its task alongside.
+     *
+     * Only the suggestion list would be patched otherwise, and the task — which genuinely
+     * exists from this moment — would not appear under "Nhiệm vụ của tôi" until something
+     * else happened to refetch it.
+     */
+    onSuccess: (suggestion) => {
+      applyOwnResult(suggestion);
+      if (suggestion.status === "accepted" && suggestion.acceptedTaskId !== null) {
+        void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+      }
+    },
   });
 
   /**

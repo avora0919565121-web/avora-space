@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookLock, Check, KeyRound, Lock, Plus, ScrollText, Vote, X } from "lucide-react";
-import { useMemo, useState, type FormEvent } from "react";
+import { BookLock, Check, KeyRound, Loader2, Lock, Plus, ScrollText, Vote, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -10,7 +10,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import { useAuth } from "@/lib/auth";
 import {
   canDelegate,
@@ -69,6 +71,21 @@ const KIND_LABEL: Record<DecisionKind, string> = {
 };
 
 /**
+ * How long the typing has to stop before a draft saves itself.
+ *
+ * Long enough that it is not a request per keystroke, short enough that a closed laptop or a
+ * dropped connection loses a sentence rather than a meeting.
+ */
+const DRAFT_AUTOSAVE_MS = 2500;
+
+/** `09:24` — when the draft last went to the server, said the shortest way. */
+function savedClock(at: Date): string {
+  const hours = `${at.getHours()}`.padStart(2, "0");
+  const minutes = `${at.getMinutes()}`.padStart(2, "0");
+  return `${hours}:${minutes}`;
+}
+
+/**
  * The group's decision log: what was agreed, and what is still being decided.
  *
  * The two rules that matter are enforced in the database, not here, and this screen is written to
@@ -103,6 +120,13 @@ export function GroupDecisionSheet({
    */
   const [composeDetails, setComposeDetails] = useState<MeetingNoteDetails>(emptyDetails(""));
   const [editDetails, setEditDetails] = useState<MeetingNoteDetails>(emptyDetails(""));
+  /** When the open draft last reached the server by itself, shown beside the buttons. */
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  /** Keeps a failing autosave from raising the same complaint every couple of seconds. */
+  const autosaveFailedRef = useRef<boolean>(false);
+
+  /** A wide window gets a centred window; a phone keeps the full-height sheet. */
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
 
   const myRole: GroupRole | undefined = members.find((member) => member.userId === userId)?.role;
 
@@ -193,6 +217,35 @@ export function GroupDecisionSheet({
   });
 
   /**
+   * The same save, made without being asked.
+   *
+   * Kept as its own mutation rather than reusing the one above, because the two mean different
+   * things to the person: pressing "Lưu nháp" is a decision and closes the editor, while this
+   * one must never close anything, never toast on success, and never steal focus — it is
+   * happening while they are still typing. Only the failure is worth interrupting for, and
+   * even that is said once rather than every two seconds.
+   */
+  const autosaveMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      await updateDraft(entryId, editTitle, editBody);
+      await saveMeetingNoteDetails({ ...editDetails, decisionId: entryId });
+    },
+    onSuccess: () => {
+      setLastSavedAt(new Date());
+      autosaveFailedRef.current = false;
+      void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.details(conversationId) });
+    },
+    onError: (error: Error) => {
+      // A locked note refuses the write, and that is not a fault worth shouting about: the
+      // finalize path already told the person their note is closed.
+      if (autosaveFailedRef.current) return;
+      autosaveFailedRef.current = true;
+      console.error("[decisions] autosave failed", error);
+      toast.error("Chưa tự lưu được bản nháp. Bấm “Lưu nháp” để thử lại.");
+    },
+  });
+
+  /**
    * Locking a note is also what hands out the work it recorded, so the message says how many
    * tasks it produced. Silently creating three tasks would be a surprise; saying so is not.
    */
@@ -276,7 +329,32 @@ export function GroupDecisionSheet({
     setEditTitle(entry.title);
     setEditBody(entry.body);
     setEditDetails(detailsByNote.get(entry.id) ?? emptyDetails(entry.id));
+    setLastSavedAt(null);
+    autosaveFailedRef.current = false;
   };
+
+  /**
+   * A draft saves itself a couple of seconds after the typing stops.
+   *
+   * A meeting note is written WHILE a meeting happens — the window stays open for an hour, and
+   * losing it to a closed laptop means losing the only record of what was agreed. So the
+   * explicit "Lưu nháp" button stays exactly where it was, and this runs underneath it.
+   *
+   * Deliberately skipped while another write is in flight, so a slow connection queues one
+   * save rather than stacking a save per keystroke behind it.
+   */
+  useEffect(() => {
+    if (editingId === null) return;
+    if (autosaveMutation.isPending || saveDraftMutation.isPending || finalizeMutation.isPending) {
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      autosaveMutation.mutate(editingId);
+    }, DRAFT_AUTOSAVE_MS);
+    return () => window.clearTimeout(timer);
+    // The draft's CONTENT is the trigger: every edit restarts the clock.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingId, editTitle, editBody, editDetails]);
 
   const submitCompose = (event: FormEvent): void => {
     event.preventDefault();
@@ -288,21 +366,21 @@ export function GroupDecisionSheet({
   const canOpenNote = canOpenDecision(myRole, "meeting_note", grants, userId);
   const canOpenPoll = canOpenDecision(myRole, "poll", grants, userId);
 
-  return (
-    <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md">
-        <div className="border-b border-border px-5 py-5">
-          <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">
-            Sổ quyết định
-          </SheetTitle>
-          <SheetDescription className="mt-1 text-[13px] text-muted-foreground">
-            {entries.length === 0
-              ? `Chưa có ghi chép nào trong ${groupName}`
-              : `${entries.length} mục trong ${groupName}`}
-          </SheetDescription>
-        </div>
+  const headingText: string =
+    entries.length === 0
+      ? `Chưa có ghi chép nào trong ${groupName}`
+      : `${entries.length} mục trong ${groupName}`;
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+  /**
+   * Everything below the heading, written once and framed twice.
+   *
+   * A phone keeps the full-height sheet it always had. A wide window gets a centred dialog
+   * instead: a 448px column pinned to the right edge is the wrong shape for a meeting note —
+   * the action-item rows alone carry a description, a person, a date and a tick, and they were
+   * wrapping onto four lines each while most of the screen sat empty.
+   */
+  const logBody: ReactNode = (
+    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 lg:px-6">
           {/* Opening something new */}
           {composing === null ? (
             <div className="mb-5 flex gap-2">
@@ -564,13 +642,14 @@ export function GroupDecisionSheet({
                             onChange={setEditDetails}
                             startExpanded={hasAnyDetail(editDetails)}
                           />
-                          <div className="mt-2 flex gap-2">
+                          <div className="mt-2 flex flex-wrap items-center gap-2">
                             <button
                               type="button"
+                              disabled={saveDraftMutation.isPending}
                               onClick={() => saveDraftMutation.mutate(entry.id)}
-                              className="press rounded-[8px] border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground hover:bg-accent/40"
+                              className="press rounded-[8px] border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground hover:bg-accent/40 disabled:opacity-50"
                             >
-                              Lưu nháp
+                              {saveDraftMutation.isPending ? "Đang lưu…" : "Lưu nháp"}
                             </button>
                             <button
                               type="button"
@@ -579,6 +658,30 @@ export function GroupDecisionSheet({
                             >
                               Đóng
                             </button>
+                            {/*
+                              Says the draft is being looked after, without claiming more than
+                              it can: a time is a fact the person can check against their own
+                              memory, where "Đã lưu" alone would be a promise with no evidence.
+                            */}
+                            <span
+                              aria-live="polite"
+                              className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground"
+                            >
+                              {autosaveMutation.isPending ? (
+                                <>
+                                  <Loader2
+                                    className="h-3 w-3 animate-spin"
+                                    strokeWidth={2}
+                                    aria-hidden="true"
+                                  />
+                                  Đang tự lưu…
+                                </>
+                              ) : lastSavedAt !== null ? (
+                                `Đã tự lưu lúc ${savedClock(lastSavedAt)}`
+                              ) : (
+                                "Tự lưu khi bạn ngừng gõ"
+                              )}
+                            </span>
                           </div>
                         </div>
                       ) : (
@@ -720,7 +823,54 @@ export function GroupDecisionSheet({
               })}
             </ul>
           )}
+    </div>
+  );
+
+  if (isDesktop) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent
+          showCloseButton={false}
+          className="flex max-h-[90vh] w-full max-w-4xl flex-col gap-0 overflow-hidden rounded-xl border-border bg-card p-0"
+        >
+          {/* Stays put while the log scrolls underneath, so a long note never leaves the
+              reader wondering which group they are looking at. */}
+          <div className="flex shrink-0 items-start justify-between gap-3 border-b border-border px-6 py-5">
+            <div className="min-w-0">
+              <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">
+                Sổ quyết định
+              </DialogTitle>
+              <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
+                {headingText}
+              </DialogDescription>
+            </div>
+            <button
+              type="button"
+              aria-label="Đóng"
+              onClick={() => onOpenChange(false)}
+              className="press -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+            >
+              <X className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
+            </button>
+          </div>
+          {logBody}
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md">
+        <div className="shrink-0 border-b border-border px-5 py-5">
+          <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">
+            Sổ quyết định
+          </SheetTitle>
+          <SheetDescription className="mt-1 text-[13px] text-muted-foreground">
+            {headingText}
+          </SheetDescription>
         </div>
+        {logBody}
       </SheetContent>
     </Sheet>
   );

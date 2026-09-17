@@ -198,3 +198,68 @@ test("the wording names it a suggestion, because the other person still decides"
   expect(screen.container.textContent).not.toContain("Giao việc");
   expect(screen.container.textContent).not.toContain("Người đảm trách");
 });
+
+/**
+ * Taking work on yourself in a group is not a question anybody has to answer, and the dialog
+ * has to stop calling it one — being told you "sent a suggestion" to yourself is nonsense.
+ */
+test("naming yourself in a group stops calling the work a suggestion", async () => {
+  const screen = await renderDialog();
+
+  await userEvent.click(screen.getByRole("combobox"));
+  await userEvent.click(screen.getByRole("option", { name: /Chính tôi/ }));
+
+  await expect.element(screen.getByRole("button", { name: "Nhận việc này" })).toBeVisible();
+  // The dialog is portalled to the body, so the copy is looked up there rather than in the
+  // render container, which holds only the mount point.
+  await expect.element(screen.getByText(/vào việc ngay/)).toBeVisible();
+});
+
+test("taking it on yourself still raises exactly one row, through the same path", async () => {
+  const screen = await renderDialog();
+  await fillAndAssign(screen, [/Chính tôi/]);
+
+  await userEvent.click(screen.getByRole("button", { name: "Nhận việc này" }));
+
+  await vi.waitFor(() => expect(state.calls).toHaveLength(1));
+  expect(state.calls[0].target.assigneeId).toBe("u-me");
+  // The message it came out of travels with it, which is the whole reason for going through
+  // the conversation rather than making a detached personal task.
+  expect(state.calls[0].target.messageId).toBe("m-42");
+  await vi.waitFor(() => expect(state.toasts).toHaveLength(1));
+  expect(state.toasts[0]).toContain("Đã thêm nhiệm vụ của bạn");
+});
+
+test("mixing yourself with other people says both things happened", async () => {
+  const screen = await renderDialog();
+  await fillAndAssign(screen, [/Chính tôi/, /Hòa|Hoà/]);
+
+  // Several people are involved, so it is a send again rather than a plain self-assignment.
+  await userEvent.click(screen.getByRole("button", { name: "Gửi gợi ý" }));
+
+  await vi.waitFor(() => expect(state.calls).toHaveLength(2));
+  await vi.waitFor(() => expect(state.toasts).toHaveLength(1));
+  expect(state.toasts[0]).toContain("Đã nhận việc của bạn");
+  expect(state.toasts[0]).toContain("1 người khác");
+});
+
+test("a 1-1 never offers you to yourself", async () => {
+  const screen = await render(
+    <TaskFromChatDialog
+      open
+      onOpenChange={() => {}}
+      conversationId="conv-direct"
+      conversationKind="direct"
+      conversationName="Nguyễn Thị Hoà"
+      peerId="u-hoa"
+      peerName="Nguyễn Thị Hoà"
+      members={MEMBERS}
+      contextMessage={MESSAGE}
+      contextSenderName="Nguyễn Thị Hoà"
+    />,
+  );
+
+  // There is no picker at all in a 1-1: the other person is the only one there is to ask.
+  expect(screen.container.querySelector('[role="combobox"]')).toBeNull();
+  await expect.element(screen.getByRole("button", { name: "Gửi gợi ý" })).toBeVisible();
+});

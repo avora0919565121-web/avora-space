@@ -16,7 +16,13 @@ const MEMBERS: GroupMember[] = [
   member("u-me", "Chính tôi", "me@avora.vn"),
 ];
 
-function Harness({ onChange }: { onChange?: (ids: string[]) => void }) {
+function Harness({
+  onChange,
+  allowSelf = false,
+}: {
+  onChange?: (ids: string[]) => void;
+  allowSelf?: boolean;
+}) {
   const [selected, setSelected] = useState<GroupMember[]>([]);
   return (
     <div style={{ width: 375, padding: 16 }}>
@@ -25,6 +31,7 @@ function Harness({ onChange }: { onChange?: (ids: string[]) => void }) {
         members={MEMBERS}
         selected={selected}
         selfId="u-me"
+        allowSelf={allowSelf}
         onChange={(next) => {
           setSelected(next);
           onChange?.(next.map((entry) => entry.userId));
@@ -64,12 +71,35 @@ test("đ is folded too, so 'dat' finds Đạt", async () => {
   expect(optionNames()).toEqual(["Đặng Văn Đạt"]);
 });
 
-test("the author is never offered their own task", async () => {
+test("in a 1-1 the author is never offered their own task", async () => {
   const screen = await render(<Harness />);
   await userEvent.click(screen.getByRole("combobox"));
 
   expect(optionNames()).not.toContain("Chính tôi");
   expect(optionNames()).toHaveLength(3);
+});
+
+/**
+ * A group is the one room where naming yourself means something: taking work on in front of
+ * everybody, with nobody left to ask.
+ */
+test("a group lets somebody take the work on themselves", async () => {
+  const screen = await render(<Harness allowSelf />);
+  await userEvent.click(screen.getByRole("combobox"));
+
+  expect(optionNames()).toHaveLength(4);
+  // And says which one is them, because choosing it behaves differently.
+  await expect.element(screen.getByRole("option", { name: /Chính tôi \(bạn\)/ })).toBeVisible();
+});
+
+test("choosing yourself works like choosing anybody else", async () => {
+  const picked: string[][] = [];
+  const screen = await render(<Harness allowSelf onChange={(ids) => picked.push(ids)} />);
+
+  await userEvent.click(screen.getByRole("combobox"));
+  await userEvent.click(screen.getByRole("option", { name: /Chính tôi/ }));
+
+  expect(picked[picked.length - 1]).toEqual(["u-me"]);
 });
 
 test("several people can be chosen, each becoming a chip", async () => {
