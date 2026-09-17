@@ -38,3 +38,19 @@ export function groupTasksByAssignee(
 
   return sections.filter((section) => section.tasks.length > 0);
 }
+
+/**
+ * Applies the "only this person" pick to the grouped sections.
+ *
+ * A pick names a section key, so it follows the same grouping the list itself shows: picking
+ * a member keeps exactly their section, picking the unassigned pile keeps that pile. Null is
+ * the resting state — everything. A member whose last task moved on stops matching, and the
+ * empty answer is the caller's cue to say so in words rather than draw a blank panel.
+ */
+export function filterMemberSections(
+  sections: readonly MemberTasks[],
+  selectedKey: string | null,
+): MemberTasks[] {
+  if (selectedKey === null) return [...sections];
+  return sections.filter((section) => section.key === selectedKey);
+}

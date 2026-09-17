@@ -1,12 +1,12 @@
-import { ListTodo } from "lucide-react";
-import { useMemo } from "react";
+import { ListTodo, X } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
-import { groupTasksByAssignee } from "@/lib/group-task-list";
+import { filterMemberSections, groupTasksByAssignee } from "@/lib/group-task-list";
 import type { GroupMember } from "@/lib/groups";
 import { contextLink } from "@/lib/task-context";
 import {
@@ -49,6 +49,13 @@ export function GroupTaskListSheet({
   const { data: tasks } = useTasks();
   const userId: string | undefined = user?.id;
   const today = todayIso();
+  /** The member the list is narrowed to, or null for "everyone". Keyed like the sections are. */
+  const [pickedKey, setPickedKey] = useState<string | null>(null);
+
+  // Closing the sheet forgets the pick, so reopening reads the whole room again.
+  useEffect(() => {
+    if (!open) setPickedKey(null);
+  }, [open]);
 
   const threadTasks: TaskItem[] = useMemo(() => {
     const kept = partitionByBin(tasks ?? [], userId).kept;
@@ -65,6 +72,10 @@ export function GroupTaskListSheet({
   );
 
   const openCount = threadTasks.filter((task) => isOpenTask(task, userId)).length;
+  const visibleSections = useMemo(
+    () => filterMemberSections(sections, pickedKey),
+    [sections, pickedKey],
+  );
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -80,6 +91,60 @@ export function GroupTaskListSheet({
           </SheetDescription>
         </div>
 
+        {/*
+          One chip per person the list already groups by. The bar only earns its place when
+          there is more than one answer — a single member has nothing to narrow.
+        */}
+        {sections.length > 1 ? (
+          <div className="flex flex-wrap items-center gap-1.5 border-b border-border px-5 py-3">
+            <button
+              type="button"
+              onClick={() => setPickedKey(null)}
+              aria-pressed={pickedKey === null}
+              className={cn(
+                "press rounded-full border px-2.5 py-1 text-[12px] transition-colors",
+                pickedKey === null
+                  ? "border-foreground/25 bg-accent text-foreground"
+                  : "border-border bg-card text-muted-foreground hover:bg-accent/40",
+              )}
+            >
+              Tất cả
+            </button>
+            {sections.map((section) => {
+              const active = pickedKey === section.key;
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  onClick={() => setPickedKey(active ? null : section.key)}
+                  aria-pressed={active}
+                  className={cn(
+                    "press flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] transition-colors",
+                    active
+                      ? "border-foreground/25 bg-accent text-foreground"
+                      : "border-border bg-card text-muted-foreground hover:bg-accent/40",
+                  )}
+                >
+                  {section.name}
+                  <span className="tabular text-[11px] text-muted-foreground/80">{section.tasks.length}</span>
+                </button>
+              );
+            })}
+            {pickedKey !== null ? (
+              <button
+                type="button"
+                onClick={() => setPickedKey(null)}
+                title="Bỏ lọc"
+                aria-label="Bỏ lọc theo người đảm trách"
+                className="press flex items-center gap-1 rounded-full px-2 py-1 text-[12px] text-muted-foreground hover:text-foreground"
+              >
+                <X className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
+                Bỏ lọc
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
           {sections.length === 0 ? (
             <div className="py-16 text-center">
@@ -93,9 +158,16 @@ export function GroupTaskListSheet({
                 này”.
               </p>
             </div>
+          ) : visibleSections.length === 0 ? (
+            <div className="py-16 text-center">
+              <p className="text-[14px] text-muted-foreground">
+                Người này hiện không đảm trách việc nào. Có thể việc của họ vừa được hoàn tất hoặc
+                xoá — bấm “Tất cả” để xem lại cả nhóm.
+              </p>
+            </div>
           ) : (
             <ul className="space-y-6">
-              {sections.map((section) => (
+              {visibleSections.map((section) => (
                 <li key={section.key}>
                   <div className="mb-2 flex items-center gap-2.5">
                     <InitialsAvatar name={section.name} size="sm" />
