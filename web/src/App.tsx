@@ -25,6 +25,7 @@ import JoinGroup from "./pages/JoinGroup";
 import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
+import ProjectDetail from "./pages/ProjectDetail";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import SettingsAssistant from "./pages/SettingsAssistant";
@@ -56,6 +57,7 @@ const App = () => (
                 <Route path="/tin-nhan/:conversationId" element={<Messages />} />
                 <Route path="/loi-moi/:token" element={<JoinGroup />} />
                 <Route path="/nhiem-vu" element={<Tasks />} />
+                <Route path="/du-an/:projectId" element={<ProjectDetail />} />
                 <Route path="/business-hub" element={<BusinessHub />} />
 
                 <Route path="/ket-sat" element={<Vault />}>

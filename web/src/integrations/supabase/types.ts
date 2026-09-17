@@ -152,6 +152,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "business_hub_record_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "business_hub_record_table_id_fkey"
             columns: ["table_id"]
             isOneToOne: false
@@ -591,6 +598,13 @@ export type Database = {
             referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "crm_opportunity_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
         ]
       }
       currencies: {
@@ -667,6 +681,8 @@ export type Database = {
       }
       deliverables: {
         Row: {
+          confirmed_at: string | null
+          confirmed_by: string | null
           created_at: string
           id: string
           objective_id: string
@@ -676,6 +692,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           id?: string
           objective_id: string
@@ -685,6 +703,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          confirmed_at?: string | null
+          confirmed_by?: string | null
           created_at?: string
           id?: string
           objective_id?: string
@@ -1190,6 +1210,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          project_id: string | null
           sort_order: number
           status: string
           title: string
@@ -1200,6 +1221,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          project_id?: string | null
           sort_order?: number
           status?: string
           title: string
@@ -1210,6 +1232,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          project_id?: string | null
           sort_order?: number
           status?: string
           title?: string
@@ -1221,6 +1244,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "objectives_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1263,6 +1293,102 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "currencies"
             referencedColumns: ["code"]
+          },
+        ]
+      }
+      project_tasks: {
+        Row: {
+          created_at: string
+          deliverable_id: string
+          linked_by: string
+          project_id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          deliverable_id: string
+          linked_by: string
+          project_id: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          deliverable_id?: string
+          linked_by?: string
+          project_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_tasks_deliverable_id_fkey"
+            columns: ["deliverable_id"]
+            isOneToOne: false
+            referencedRelation: "deliverables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      projects: {
+        Row: {
+          assumptions: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          purpose: string | null
+          scope: string | null
+          status: string
+          success_criteria: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assumptions?: string | null
+          conversation_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          purpose?: string | null
+          scope?: string | null
+          status?: string
+          success_criteria?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assumptions?: string | null
+          conversation_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          purpose?: string | null
+          scope?: string | null
+          status?: string
+          success_criteria?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -2051,6 +2177,46 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      add_deliverable: {
+        Args: { p_objective_id: string; p_title: string }
+        Returns: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          objective_id: string
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "deliverables"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      add_objective: {
+        Args: { p_project_id: string; p_title: string }
+        Returns: {
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          project_id: string | null
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "objectives"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       cast_group_vote: {
         Args: { p_decision_id: string; p_option_id: string }
         Returns: undefined
@@ -2165,6 +2331,26 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      confirm_deliverable: {
+        Args: { p_deliverable_id: string }
+        Returns: {
+          confirmed_at: string | null
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          objective_id: string
+          sort_order: number
+          status: string
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "deliverables"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2493,6 +2679,36 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_project: {
+        Args: {
+          p_assumptions?: string
+          p_conversation_id: string
+          p_first_objective_title: string
+          p_purpose?: string
+          p_scope?: string
+          p_success_criteria?: string
+          p_title: string
+        }
+        Returns: {
+          assumptions: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          purpose: string | null
+          scope: string | null
+          status: string
+          success_criteria: string | null
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "projects"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2971,6 +3187,22 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      link_task_to_project: {
+        Args: { p_deliverable_id: string; p_task_id: string }
+        Returns: {
+          created_at: string
+          deliverable_id: string
+          linked_by: string
+          project_id: string
+          task_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_tasks"
           isOneToOne: true
           isSetofReturn: false
         }

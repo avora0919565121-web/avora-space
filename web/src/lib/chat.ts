@@ -41,6 +41,7 @@ export {
   MESSAGE_TABS,
   PLACEHOLDER_TABS,
   isPlaceholderTab,
+  isProjectTab,
   quotePreview,
   RECALLED_MESSAGE_NOTE,
   tabOfKind,

@@ -26,7 +26,7 @@ export type ConversationSummary = {
   sortAt: string;
 };
 
-/** The directions Tin nhắn is split into. "projects" and "email" are named in the strip but not built yet. */
+/** The directions Tin nhắn is split into. "email" is named in the strip but not built yet. */
 export type MessageTab = "journal" | "direct" | "group" | "projects" | "email";
 
 export const MESSAGE_TABS: readonly { readonly id: MessageTab; readonly label: string }[] = [
@@ -38,10 +38,22 @@ export const MESSAGE_TABS: readonly { readonly id: MessageTab; readonly label: s
 ];
 
 /** The tabs that exist only as a promise in the strip, with no function behind them yet. */
-export const PLACEHOLDER_TABS: readonly MessageTab[] = ["projects", "email"];
+export const PLACEHOLDER_TABS: readonly MessageTab[] = ["email"];
 
-export function isPlaceholderTab(tab: MessageTab): tab is "projects" | "email" {
+export function isPlaceholderTab(tab: MessageTab): tab is "email" {
   return PLACEHOLDER_TABS.includes(tab);
+}
+
+/**
+ * Whether a tab lists projects rather than conversations.
+ *
+ * Dự án reads from its own query, not from the inbox: a project is not a thread, so it has no
+ * last message, no unread count and no place in `filterConversationsByTab`. The tab still
+ * belongs in the same strip because that is where people look for the work they share with
+ * someone — but everything below the strip comes from elsewhere.
+ */
+export function isProjectTab(tab: MessageTab): tab is "projects" {
+  return tab === "projects";
 }
 
 export const JOURNAL_TITLE = "Nhật ký của bạn";

@@ -2,6 +2,7 @@ import {
   CalendarDays,
   BookOpen,
   ChevronRight,
+  FolderKanban,
   GripVertical,
   Loader2,
   MessagesSquare,
@@ -35,6 +36,7 @@ import { TaskViewTabs } from "@/components/tasks/TaskViewTabs";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import type { TaskCategory } from "@/lib/task-categories";
+import { projectLink } from "@/lib/projects";
 import { contextLink, contextTarget } from "@/lib/task-context";
 import { forwardTaskOutputToJournal, completedDayLabel } from "@/lib/task-report";
 import { applyManualOrder, defaultViewMode } from "@/lib/task-order";
@@ -106,6 +108,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { useSharedTaskOrder, useViewOrder } from "@/lib/use-task-order";
+import { useTaskProjectLinks } from "@/lib/use-projects";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
@@ -452,6 +455,8 @@ function SharedRow({
   const note = sharedTaskNote(task, userId);
   const target = contextTarget(task.contextSnapshot, task.conversationId);
   const voice = taskVoice(task, userId);
+  /** Set when this task was linked to a deliverable — then the project is its first context. */
+  const projectOf = useTaskProjectLinks().get(task.id);
 
   return (
     <li
@@ -540,6 +545,18 @@ function SharedRow({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5 pl-11 sm:pl-0">
+        {/* A task inside a project answers "why am I doing this" with the project, so that
+            comes first; the conversation it was agreed in stays available beside it. */}
+        {projectOf !== undefined ? (
+          <button
+            type="button"
+            onClick={() => navigate(projectLink(projectOf.projectId))}
+            className="press flex h-12 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
+          >
+            <FolderKanban className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Xem trong dự án
+          </button>
+        ) : null}
         {target !== null ? (
           <button
             type="button"

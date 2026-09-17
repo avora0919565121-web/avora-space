@@ -1263,6 +1263,50 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   then hands over to the table holding the answer — a place that both summarises and edits ends up a worse
   version of both. Its three windows are the same three Tài chính uses for money that is due, so the same
   shape means the same thing wherever it appears.
+- 2026-09-17 — Dự án reuses the `objectives` and `deliverables` tables that already existed, rather than
+  creating `project_objectives` and `project_deliverables` beside them. Both tables were already keyed to a
+  conversation and already had `tasks.objective_id`/`tasks.deliverable_id` pointing at them. A parallel pair
+  would have produced two Objective→Deliverable trees meaning the same thing, and left those two task
+  columns dead forever. Only what was genuinely missing is new: `projects`, `objectives.project_id`, the two
+  sign-off columns, and the join table.
+- 2026-09-17 — A project lives INSIDE a conversation, and that is the whole permission model. The
+  conversation decides who it belongs to: a journal makes it private, a 1-1 thread makes it two people's, a
+  group makes it the group's. There is no project type and no project membership list — a second source for
+  "who can see this" could only ever disagree with the one that actually applies. `conversation_id` is
+  therefore not editable in place: moving a project between threads would silently change its readers,
+  something row policies cannot see because the row is still "yours".
+- 2026-09-17 — Tasks are attached through a join table, not through `tasks.deliverable_id`. The existing
+  policy only allows UPDATE on a personal task, so writing that column would have worked for private work
+  and silently failed for every 1-1 and group task — half the product. The join table also means taking a
+  task out of a project deletes one row and leaves the task, its history and its confirmations untouched.
+- 2026-09-17 — Percent complete is computed on read, never stored. A saved number needs a trigger on `tasks`
+  to stay honest, and disagrees with the checklist the moment anything is linked, unlinked or reopened. A
+  deliverable counts finished tasks over linked tasks, an objective averages its deliverables unweighted, and
+  a project averages its objectives — invented weights would read as precision the number does not have. An
+  empty deliverable reads 0%, because averaging "no tasks" as complete makes a new project look finished.
+- 2026-09-17 — A confirmed deliverable reads 100% however its tasks stand. Sign-off is a person's judgement
+  that the result was delivered, and it outranks the checklist that led there; otherwise an accepted
+  deliverable shows as unfinished forever.
+- 2026-09-17 — Anyone in the conversation may add objectives, deliverables and task links; only the person
+  who opened the project may sign a deliverable off. Noticing what the work needs is what a room does
+  together, but "this result was achieved" is a claim about the project, and it belongs to whoever answers
+  for it. That refusal returns the code `avora_project_not_owner` rather than a sentence, so the screen can
+  hide the button and explain who can press it instead of showing the same warning as every other failure.
+- 2026-09-17 — Confirming twice is not an error. Two people on two machines pressing the same button is not
+  an incident worth a dialog, so a second call returns the deliverable unchanged.
+- 2026-09-17 — Task actions stay in the chat the task was made in. The project screen reads the work; Confirm,
+  Return and Hoàn thành stay where both sides can see what was actually agreed, and each task row links back
+  to that thread rather than duplicating the buttons here.
+- 2026-09-17 — Projects get their own 📁 strip above a thread, separate from pinned messages. A pin says "read
+  this line again"; a project says "this is what we are building". Folding them together would mean one
+  collapse hides both, and neither count could be trusted to mean anything.
+- 2026-09-17 — The create form requires a title and a first objective, and nothing else. A project with no
+  objective is an empty name: the detail screen would open onto three blank tiers with no next step to
+  suggest. The four charter questions stay folded away and all stay optional — people open a project when
+  they have an intention, not a scope document.
+- 2026-09-17 — A project whose conversation has not loaded yet is held back rather than guessed at. Filing it
+  under the wrong heading would misstate who can read it, which is the one thing that list must never do; it
+  appears as soon as the inbox answers.
 
 ## Out of scope
 
@@ -1276,8 +1320,10 @@ group-tied private messages). Joining through an invite link requires being sign
 sent to the sign-in screen and must reopen the link afterwards. Task lists and context snapshots exist in the database
 with their rules enforced there, but have no screens yet; the recurring-task spawner also stays a database trigger
 rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Business HUB: Timeline,
-Calendar, Gantt and responsibility-matrix views, sharing a table with anyone, tying a record to a contact, and opening
-`project_id` onto a real Dự án screen all stay out of v1 — the column exists and stays empty until that module is real.
+Calendar, Gantt and responsibility-matrix views, sharing a table with anyone, and tying a record to a contact stay out of
+v1; `project_id` now has a real Dự án module behind it and is wired as a foreign key, but no HUB screen writes it yet.
+In Dự án: a calendar view, budgets tied to `financial_item`, review history, and deleting an objective, deliverable or
+project all stay out of v1 — the three tiers can be renamed and added to, never removed.
 In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,
 tax fields and quarterly estimates, automatic posting of recurring entries, and automatic rate fetching (rates are
 seeded and updated by hand) all stay out for now. The installed app is a wrapper over the live site, not an

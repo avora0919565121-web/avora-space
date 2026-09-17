@@ -10,6 +10,7 @@ import {
   formatUnreadBadge,
   isNearThreadBottom,
   isPlaceholderTab,
+  isProjectTab,
   isSeenByPeer,
   JOURNAL_TITLE,
   lastOutgoingId,
@@ -307,7 +308,7 @@ describe("message tabs", () => {
     memberCount: 5,
   });
 
-  it("offers the five directions in reading order — two of them still promises", () => {
+  it("offers the five directions in reading order — one of them still a promise", () => {
     expect(MESSAGE_TABS.map((tab) => tab.id)).toEqual([
       "journal",
       "direct",
@@ -324,12 +325,22 @@ describe("message tabs", () => {
     ]);
   });
 
-  it("names exactly the two tabs that are placeholders, and nothing else", () => {
-    expect(isPlaceholderTab("projects")).toBe(true);
+  it("names exactly the one tab that is still a placeholder, and nothing else", () => {
     expect(isPlaceholderTab("email")).toBe(true);
+    // Dự án was a placeholder until the project module shipped. It must not read as one
+    // any more, or the tab would render "Sắp ra mắt" over a list that now has rows in it.
+    expect(isPlaceholderTab("projects")).toBe(false);
     expect(isPlaceholderTab("journal")).toBe(false);
     expect(isPlaceholderTab("direct")).toBe(false);
     expect(isPlaceholderTab("group")).toBe(false);
+  });
+
+  it("marks Dự án as the one tab reading from somewhere other than the inbox", () => {
+    expect(isProjectTab("projects")).toBe(true);
+    expect(isProjectTab("journal")).toBe(false);
+    expect(isProjectTab("direct")).toBe(false);
+    expect(isProjectTab("group")).toBe(false);
+    expect(isProjectTab("email")).toBe(false);
   });
 
   it("files each kind of thread under its own tab", () => {
@@ -343,7 +354,8 @@ describe("message tabs", () => {
     expect(filterConversationsByTab(inbox, "journal").map((item) => item.conversationId)).toEqual(["j1"]);
     expect(filterConversationsByTab(inbox, "direct").map((item) => item.conversationId)).toEqual(["d1"]);
     expect(filterConversationsByTab(inbox, "group").map((item) => item.conversationId)).toEqual(["g1"]);
-    // The placeholder tabs hold no threads at all — they are not built yet.
+    // Email holds no threads: it is not built yet. Dự án holds none either, for a different
+    // reason — a project is not a conversation, so it is never filed by this function at all.
     expect(filterConversationsByTab(inbox, "projects")).toEqual([]);
     expect(filterConversationsByTab(inbox, "email")).toEqual([]);
     expect(unreadForTab(inbox, "projects")).toBe(0);

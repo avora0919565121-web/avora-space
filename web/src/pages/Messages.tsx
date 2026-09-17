@@ -21,7 +21,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
-/** The one "Sắp ra mắt" screen a placeholder tab shows, in both panes it can appear in. */
+/** The one "Sắp ra mắt" screen the remaining placeholder tab shows, in both panes. */
 function PlaceholderComingSoon({ id }: { id: MessageTab }) {
   if (!isPlaceholderTab(id)) return null;
   const content = PLACEHOLDER_CONTENT[id];
@@ -54,6 +54,9 @@ import {
 } from "@/components/chat/MessageActionsMenu";
 import { MessageReactions, ReactionPicker } from "@/components/chat/MessageReactions";
 import { PinChoiceDialog, PinnedStrip } from "@/components/chat/PinnedStrip";
+import { NewProjectDialog } from "@/components/projects/NewProjectDialog";
+import { ProjectList } from "@/components/projects/ProjectList";
+import { ProjectStrip } from "@/components/projects/ProjectStrip";
 import { ThreadSearch } from "@/components/chat/ThreadSearch";
 import {
   extractMentionedIds,
@@ -83,6 +86,7 @@ import {
   isEdited,
   isNearThreadBottom,
   isPlaceholderTab,
+  isProjectTab,
   isRecalled,
   isSeenByPeer,
   lastOutgoingId,
@@ -109,6 +113,7 @@ import {
   DELETED_MESSAGE_NOTE,
   isOriginalMessageMissing,
 } from "@/lib/task-context";
+import { projectLink } from "@/lib/projects";
 import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote } from "@/lib/tasks";
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
@@ -116,6 +121,7 @@ import { useThreadPins } from "@/lib/use-pins";
 import { useThreadReactions } from "@/lib/use-reactions";
 import { useThreadCelebrations } from "@/lib/use-task-celebrations";
 import { useProfileSettings } from "@/lib/use-settings";
+import { useProjects } from "@/lib/use-projects";
 import { useTasks } from "@/lib/use-tasks";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { typingText, useThreadPresence } from "@/lib/use-thread-presence";
@@ -128,19 +134,13 @@ import { cn } from "@/lib/utils";
 const OFFLINE_THREAD_POLL_MS = 5_000;
 
 /**
- * The two directions that are named in the strip but not built yet. One screen each,
- * borrowed from the same "Sắp ra mắt" page Mật khẩu and Avora AI use — no inputs, no
- * promise of a function that cannot answer.
+ * The one direction still named in the strip but not built. Borrowed from the same
+ * "Sắp ra mắt" page Mật khẩu and Avora AI use — no inputs, no promise of a function
+ * that cannot answer.
  */
 const PLACEHOLDER_CONTENT: Readonly<
-  Record<"projects" | "email", { icon: LucideIcon; title: string; description: string }>
+  Record<"email", { icon: LucideIcon; title: string; description: string }>
 > = {
-  projects: {
-    icon: FolderKanban,
-    title: "Dự án",
-    description:
-      "Một nơi gom việc, tài liệu và cuộc trò chuyện cho từng dự án — đang được xây, chưa mở ở đây.",
-  },
   email: {
     icon: Mail,
     title: "Email",
@@ -160,13 +160,22 @@ const Messages = () => {
 
   const [query, setQuery] = useState<string>("");
   const [activeTab, setActiveTab] = useState<MessageTab>("direct");
-  /** A direction named in the strip but not built yet: Dự án, Email. */
+  /** A direction named in the strip but not built yet: Email. */
   const isPlaceholder = isPlaceholderTab(activeTab);
+  /** Dự án lists projects rather than threads, so the pane below the strip changes entirely. */
+  const isProjects = isProjectTab(activeTab);
   // Desktop only: the list column's width, as the reader last dragged it.
   const listColumn = useColumnWidth(LIST_COLUMN);
   const listSectionRef = useRef<HTMLElement | null>(null);
   const [isNewChatOpen, setIsNewChatOpen] = useState<boolean>(false);
   const [isNewGroupOpen, setIsNewGroupOpen] = useState<boolean>(false);
+  /**
+   * Which conversation a new project will live in, or null when the dialog is closed.
+   *
+   * Held as the conversation rather than as a boolean because the same dialog serves all three
+   * kinds: the tab opens it on the journal, a thread opens it on itself.
+   */
+  const [projectTarget, setProjectTarget] = useState<ConversationSummary | null>(null);
   const [isInfoOpen, setIsInfoOpen] = useState<boolean>(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<boolean>(false);
   const [isGroupTasksOpen, setIsGroupTasksOpen] = useState<boolean>(false);
@@ -210,6 +219,21 @@ const Messages = () => {
   const activeSummary: ConversationSummary | undefined = useMemo(
     () => conversations.find((item) => item.conversationId === conversationId),
     [conversations, conversationId],
+  );
+
+  const projectsQuery = useProjects();
+  const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
+
+  /** The projects belonging to the thread on screen, for the 📁 Dự án strip above it. */
+  const threadProjects = useMemo(
+    () => projects.filter((project) => project.conversationId === conversationId),
+    [projects, conversationId],
+  );
+
+  /** The journal, which is where a personal project is opened from the tab. */
+  const journalSummary: ConversationSummary | undefined = useMemo(
+    () => conversations.find((item) => item.kind === "personal"),
+    [conversations],
   );
 
   // A thread can be opened straight from its URL before the inbox has loaded.
@@ -765,9 +789,13 @@ const Messages = () => {
       setActiveTab(tab);
       setQuery("");
 
-      // Nothing lives behind these two yet — the strip is a roadmap, so the tab
+      // Nothing lives behind Email yet — the strip is a roadmap, so the tab
       // only turns its own page and touches neither the inbox nor the router.
       if (isPlaceholderTab(tab)) return;
+
+      // Dự án reads its own list and opens onto /du-an/:id, so it leaves any thread in the
+      // URL alone rather than navigating away from what the reader was looking at.
+      if (isProjectTab(tab)) return;
 
       if (tab !== "journal") {
         navigate("/tin-nhan");
@@ -789,8 +817,16 @@ const Messages = () => {
   // that thread actually belongs to, or the list beside it would contradict the header.
   useEffect(() => {
     if (!activeSummary) return;
+    // A reader who switched to Dự án is not sent back to the thread's own tab: the project
+    // list is what they asked for, and the thread stays open beside it.
+    if (isProjectTab(activeTab)) return;
     setActiveTab(tabOfKind(activeSummary.kind));
-  }, [activeSummary]);
+  }, [activeSummary, activeTab]);
+
+  /** Arriving back from a project detail screen lands on the tab that listed it. */
+  useEffect(() => {
+    if (searchParams.get("tab") === "du-an") setActiveTab("projects");
+  }, [searchParams]);
 
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col md:flex-row">
@@ -799,7 +835,7 @@ const Messages = () => {
         style={listColumn.isDesktop ? { width: listColumn.width } : undefined}
         className={cn(
           "relative flex min-h-0 w-full flex-col border-border bg-card md:w-[360px] md:shrink-0 md:border-r",
-          conversationId && !isPlaceholder ? "hidden md:flex" : "flex",
+          conversationId && !isPlaceholder && !isProjects ? "hidden md:flex" : "flex",
         )}
         aria-label="Danh sách cuộc trò chuyện"
       >
@@ -882,7 +918,7 @@ const Messages = () => {
             })}
           </div>
 
-          {activeTab === "journal" || isPlaceholder ? null : (
+          {activeTab === "journal" || isPlaceholder || isProjects ? null : (
             <label className="relative mt-4 block">
               <span className="sr-only">Tìm cuộc trò chuyện</span>
               <Search
@@ -905,6 +941,38 @@ const Messages = () => {
              Desktop gets the full-width one in the detail pane instead. */
           <div className="flex min-h-0 flex-1 flex-col md:hidden">
             <PlaceholderComingSoon id={activeTab} />
+          </div>
+        ) : isProjects ? (
+          <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+            {projectsQuery.isError ? (
+              <div className="px-6 py-10 text-center">
+                <p className="text-[14px] text-muted-foreground">{projectsQuery.error.message}</p>
+                <button
+                  type="button"
+                  onClick={() => void projectsQuery.refetch()}
+                  className="press mt-3 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
+                >
+                  Thử lại
+                </button>
+              </div>
+            ) : (
+              <ProjectList
+                projects={projects}
+                conversations={conversations}
+                activeProjectId={undefined}
+                isPending={projectsQuery.isPending || conversationsQuery.isPending}
+                onNewProject={() => {
+                  // A personal project needs the journal to exist first; it is created on
+                  // demand exactly as the Nhật ký tab does it.
+                  if (journalSummary === undefined) {
+                    journalMutation.mutate();
+                    toast.info("Đang mở nhật ký của bạn, thử lại sau một giây nhé.");
+                    return;
+                  }
+                  setProjectTarget(journalSummary);
+                }}
+              />
+            )}
           </div>
         ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
@@ -1046,11 +1114,23 @@ const Messages = () => {
       <section
         className={cn(
           "paper min-h-0 flex-1 flex-col",
-          conversationId && !isPlaceholder ? "flex" : "hidden md:flex",
+          conversationId && !isPlaceholder && !isProjects ? "flex" : "hidden md:flex",
         )}
       >
         {isPlaceholder ? (
           <PlaceholderComingSoon id={activeTab} />
+        ) : isProjects && !conversationId ? (
+          <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card text-muted-foreground">
+              <FolderKanban className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
+            </span>
+            <h2 className="mt-6 text-[22px] font-semibold tracking-tight text-foreground">
+              Chọn một dự án
+            </h2>
+            <p className="mt-2 max-w-sm text-[15px] leading-relaxed text-muted-foreground">
+              Mỗi dự án mở ra ba tầng: mục tiêu, kết quả cần giao, và nhiệm vụ dẫn tới từng kết quả.
+            </p>
+          </div>
         ) : conversationId ? (
           isUnknownConversation ? (
             <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
@@ -1197,6 +1277,16 @@ const Messages = () => {
                 onJumpTo={jumpToMessage}
                 onUnpin={removePin}
                 isWorking={isPinning}
+              />
+
+              {/* Its own strip, below the pins and never folded into them: a pin says "read
+                  this again", a project says "this is what we are building". */}
+              <ProjectStrip
+                projects={threadProjects}
+                canCreate={activeSummary !== undefined}
+                onNewProject={() => {
+                  if (activeSummary !== undefined) setProjectTarget(activeSummary);
+                }}
               />
 
               {!isLive ? (
@@ -1664,6 +1754,26 @@ const Messages = () => {
 
       <NewChatDialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen} onCreated={openConversation} />
       <NewGroupDialog open={isNewGroupOpen} onOpenChange={setIsNewGroupOpen} onCreated={openConversation} />
+
+      {/* One dialog for all three kinds: the conversation it is given decides which it opens. */}
+      <NewProjectDialog
+        open={projectTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) setProjectTarget(null);
+        }}
+        conversationId={projectTarget?.conversationId}
+        conversationLabel={
+          projectTarget === null
+            ? ""
+            : projectTarget.kind === "personal"
+              ? "Nhật ký của bạn"
+              : conversationTitle(projectTarget)
+        }
+        onCreated={(projectId) => {
+          setProjectTarget(null);
+          navigate(projectLink(projectId));
+        }}
+      />
 
       {conversationId && activeKind !== "personal" ? (
         <TaskFromChatDialog
