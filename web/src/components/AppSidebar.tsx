@@ -8,9 +8,11 @@ import { ResizeHandle } from "@/components/ResizeHandle";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
+import { obligationAttention } from "@/lib/finance";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { countTasksNeedingAttention, todayIso } from "@/lib/tasks";
 import { useTotalUnread } from "@/lib/use-conversations";
+import { useTransactions } from "@/lib/use-finance";
 import { useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +38,7 @@ export function AppSidebar() {
   const navigate = useNavigate();
   const unreadTotal = useTotalUnread();
   const { data: tasks } = useTasks();
+  const { data: transactions } = useTransactions();
   // Desktop only: the rail's width, as the reader last dragged it.
   const navColumn = useColumnWidth(NAV_COLUMN);
   const asideRef = useRef<HTMLElement | null>(null);
@@ -47,10 +50,23 @@ export function AppSidebar() {
     [tasks, user?.id],
   );
 
+  /**
+   * Money that is late or due within the week.
+   *
+   * A count and nothing else. This badge sits OUTSIDE Két sắt, on every screen in the app — an
+   * amount, a lender's name or even the word tax would put on display exactly what the vault
+   * exists to keep. The number says there is something to look at; the looking happens inside.
+   */
+  const vaultAttention: number = useMemo(
+    () => obligationAttention(transactions ?? [], todayIso()).total,
+    [transactions],
+  );
+
   /** What each tab is asking for right now, if anything. */
   const badges: Readonly<Record<string, { count: number; label: string }>> = {
     "/tin-nhan": { count: unreadTotal, label: `${unreadTotal} tin nhắn chưa đọc` },
     "/nhiem-vu": { count: taskAttention, label: `${taskAttention} nhiệm vụ cần bạn xử lý` },
+    "/ket-sat": { count: vaultAttention, label: `${vaultAttention} khoản tới hạn` },
   };
 
   const handleSignOut = async (): Promise<void> => {

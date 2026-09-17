@@ -1166,6 +1166,37 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   contact in a way the row-level rules cannot see.
 - 2026-09-16 — "Dự án" is left as an empty column with no relationship attached. The module does not exist
   yet, and inventing the connection now would mean either a table nobody uses or a link pointing at nothing.
+- 2026-09-17 — Tổng quan now opens with what money is asking for, above the four figures rather than
+  instead of them. Borrowing, lending and tax existed in full but were invisible outside the Giao dịch list,
+  so the one question a person actually opens a ledger with — is anything due — had no answer on the screen
+  meant to answer it.
+- 2026-09-17 — Late is a column of its own, never a share of "sắp tới". This is the rule Nhiệm vụ already
+  follows: a thing that is past its day is a different kind of fact from a thing that is coming, and folding
+  the two into one number lets the late one hide inside it. The three counts are a partition — overdue,
+  today, the next seven days — so they always add up and nothing is counted twice or left out.
+- 2026-09-17 — The strip shows counts and no amounts. It exists to send somebody to a list, and a figure
+  here would only be a worse copy of the one on the screen it leads to. Each number is a button for the same
+  reason: a count nobody can act on is just anxiety. A number at zero is not a button at all, since offering
+  to open an empty list is a promise the screen cannot keep.
+- 2026-09-17 — Tapping a number filters the existing ledger instead of opening a screen of its own. The
+  filter lives in the address, beside the month and category filters that were already there, so the three
+  due counts are a way into what exists rather than a fourth place where obligations are listed.
+- 2026-09-17 — Giá trị ròng now counts what is owed each way, and counts it exactly once. Money lent out
+  has already left the account, so what is still to come back is an asset nothing else records; money
+  borrowed is already sitting in the account, so what is still to repay is a debt nothing else records.
+  Recording either now leaves a person exactly as wealthy as they were a minute before, which is what makes
+  the figure trustworthy.
+- 2026-09-17 — Tax is deliberately left out of that sum. A tax bill lowers the balance the day it is
+  written — the money is treated as gone — so adding the unsettled remainder as a debt would subtract the
+  same money twice. An obligation booked against a credit card or loan account is skipped for the same
+  reason: that account's own balance already carries it.
+- 2026-09-17 — The account-based figure is computed first and the obligations folded on afterwards, as a
+  separate step. The older number keeps its own meaning and can still be read alone, and the accounts a
+  missing exchange rate could not value survive the folding instead of being quietly dropped.
+- 2026-09-17 — Két sắt's badge carries a number and nothing else. It is visible on every screen in the app,
+  outside the vault, before anything has been unlocked — an amount, a lender's name, or even the word thuế
+  would put on display precisely what the vault exists to keep. It reuses the rail's existing badge rather
+  than a new one, so the three tabs that ask for attention ask in the same voice.
 
 ## Out of scope
 

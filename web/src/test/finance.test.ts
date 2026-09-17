@@ -44,11 +44,18 @@ import {
   validateTransactionDraft,
   entryCategoryName,
   isObligationType,
+  hasOpenObligations,
   movementEntries,
+  netWorthInBase,
+  obligationAttention,
   obligationEntries,
+  obligationPosition,
   obligationStatusOf,
   obligationTotals,
+  obligationWindowOf,
+  obligationsDueIn,
   outstandingCents,
+  withObligationPosition,
   type Account,
   type Category,
   type LedgerEntry,
@@ -1072,5 +1079,197 @@ describe("the obligation summary answers who owes whom", () => {
     const totals = obligationTotals(settled, "2026-09-05");
     expect(totals.owedCents).toBe(0);
     expect(totals.dueToYouCents).toBe(100_000);
+  });
+});
+
+// ---------------------------------------------------------------- what is due
+
+/** A due date relative to a fixed "today", so the windows can be stated plainly. */
+const TODAY = "2026-09-15";
+
+function due(id: string, dueDate: string, overrides: Partial<Transaction> = {}): Transaction {
+  return makeTransaction({
+    id,
+    type: "vay",
+    categoryId: null,
+    amountCents: 100_000,
+    settledCents: 0,
+    date: "2026-09-01",
+    dueDate,
+    status: "ke_hoach",
+    ...overrides,
+  });
+}
+
+describe("which obligations are pressing today", () => {
+  it("calls a date already past overdue", () => {
+    expect(obligationWindowOf(due("a", "2026-09-14"), TODAY)).toBe("qua_han");
+  });
+
+  it("calls the day itself today, not part of the week ahead", () => {
+    expect(obligationWindowOf(due("a", TODAY), TODAY)).toBe("hom_nay");
+  });
+
+  it("reaches a full seven days forward", () => {
+    expect(obligationWindowOf(due("a", "2026-09-16"), TODAY)).toBe("tuan_nay");
+    expect(obligationWindowOf(due("a", "2026-09-22"), TODAY)).toBe("tuan_nay");
+  });
+
+  it("stops at the eighth day, which nobody has to act on yet", () => {
+    expect(obligationWindowOf(due("a", "2026-09-23"), TODAY)).toBeNull();
+  });
+
+  it("leaves out an obligation that is already paid off", () => {
+    expect(obligationWindowOf(due("a", "2026-09-14", { settledCents: 100_000 }), TODAY)).toBeNull();
+  });
+
+  it("still counts one that is only part paid, because the rest is due the same day", () => {
+    expect(obligationWindowOf(due("a", "2026-09-14", { settledCents: 60_000 }), TODAY)).toBe("qua_han");
+  });
+
+  it("ignores a row marked as an error, wherever its date falls", () => {
+    expect(
+      obligationWindowOf(due("a", "2026-09-14", { deletedAt: "2026-09-10T00:00:00Z" }), TODAY),
+    ).toBeNull();
+  });
+
+  it("never presses about an ordinary expense, which already happened", () => {
+    expect(obligationWindowOf(makeTransaction({ dueDate: "2026-09-14" }), TODAY)).toBeNull();
+  });
+
+  it("says nothing about an obligation with no date, because nothing was promised", () => {
+    expect(obligationWindowOf(due("a", TODAY, { dueDate: null }), TODAY)).toBeNull();
+  });
+
+  it("counts all four kinds, not just the ones with a person attached", () => {
+    for (const type of ["vay", "cho_vay", "thue_ca_nhan", "thue_kinh_doanh"] as const) {
+      expect(obligationWindowOf(due("a", TODAY, { type }), TODAY)).toBe("hom_nay");
+    }
+  });
+});
+
+describe("the three due numbers are a partition, so overdue can never hide", () => {
+  const entries: Transaction[] = [
+    due("late-1", "2026-09-01"),
+    due("late-2", "2026-09-14", { type: "thue_ca_nhan" }),
+    due("now", TODAY, { type: "cho_vay" }),
+    due("soon", "2026-09-20"),
+    due("far", "2026-11-01"),
+    due("paid", "2026-09-02", { settledCents: 100_000 }),
+    makeTransaction({ id: "lunch" }),
+  ];
+
+  it("keeps late apart from due today rather than folding them together", () => {
+    const attention = obligationAttention(entries, TODAY);
+    expect(attention.overdue).toBe(2);
+    expect(attention.today).toBe(1);
+    expect(attention.week).toBe(1);
+  });
+
+  it("adds up to the total, so nothing is counted twice or dropped", () => {
+    const attention = obligationAttention(entries, TODAY);
+    expect(attention.overdue + attention.today + attention.week).toBe(attention.total);
+    expect(attention.total).toBe(4);
+  });
+
+  it("is silent on a ledger with nothing pressing", () => {
+    expect(obligationAttention([due("far", "2026-12-01")], TODAY)).toEqual({
+      overdue: 0,
+      today: 0,
+      week: 0,
+      total: 0,
+    });
+  });
+
+  it("hands back the very rows behind one number, for the list it opens", () => {
+    expect(obligationsDueIn(entries, "qua_han", TODAY).map((entry) => entry.id)).toEqual([
+      "late-1",
+      "late-2",
+    ]);
+    expect(obligationsDueIn(entries, "hom_nay", TODAY).map((entry) => entry.id)).toEqual(["now"]);
+  });
+
+  it("knows whether a ledger uses obligations at all", () => {
+    expect(hasOpenObligations(entries)).toBe(true);
+    expect(hasOpenObligations([makeTransaction({ id: "lunch" })])).toBe(false);
+    // Everything paid off is not "uses obligations" for the strip's purposes.
+    expect(hasOpenObligations([due("paid", "2026-09-02", { settledCents: 100_000 })])).toBe(false);
+  });
+});
+
+describe("net worth counts what is owed each way, and counts it once", () => {
+  const accounts = [makeAccount()];
+
+  it("adds money lent out, which has left the account but is still yours", () => {
+    const entries = ledgerOf([CHO_VAY]);
+    const position = obligationPosition(entries);
+    expect(position.receivableCents).toBe(100_000);
+    expect(position.payableCents).toBe(0);
+  });
+
+  it("adds money borrowed as a debt, because the cash is already in the account", () => {
+    const position = obligationPosition(ledgerOf([VAY]));
+    expect(position.payableCents).toBe(300_000);
+    expect(position.receivableCents).toBe(0);
+  });
+
+  it("counts only the part still outstanding", () => {
+    const position = obligationPosition(ledgerOf([{ ...VAY, settledCents: 120_000 }]));
+    expect(position.payableCents).toBe(180_000);
+  });
+
+  it("leaves tax alone: the balance already fell when it was written", () => {
+    const position = obligationPosition(ledgerOf([THUE]));
+    expect(position.payableCents).toBe(0);
+    expect(position.receivableCents).toBe(0);
+  });
+
+  it("skips one booked against a liability account, whose balance already carries it", () => {
+    const card = makeAccount({ id: "acc-card", type: "credit_card" });
+    const entries = buildLedger([{ ...VAY, accountId: "acc-card" }], [makeAccount(), card], [makeCategory()]);
+    expect(obligationPosition(entries).payableCents).toBe(0);
+  });
+
+  it("ignores a row marked as an error", () => {
+    const voided = buildLedger(
+      [{ ...VAY, deletedAt: "2026-09-10T00:00:00Z" }],
+      [makeAccount()],
+      [makeCategory()],
+    );
+    expect(obligationPosition(voided).payableCents).toBe(0);
+  });
+
+  it("folds the two into the account figure without disturbing it", () => {
+    const entries = ledgerOf([VAY, CHO_VAY]);
+    const fromAccounts = netWorthInBase(accounts, entries, "2026-12-31", "USD", {});
+    const whole = withObligationPosition(fromAccounts, obligationPosition(entries));
+
+    // 500000 opening + 300000 borrowed - 100000 lent
+    expect(fromAccounts.assetsCents).toBe(700_000);
+    expect(whole.assetsCents).toBe(800_000);
+    expect(whole.liabilitiesCents).toBe(300_000);
+    expect(whole.netCents).toBe(500_000);
+  });
+
+  it("leaves a person exactly as wealthy as before they borrowed and lent", () => {
+    const plain = netWorthInBase(accounts, [], "2026-12-31", "USD", {});
+    const entries = ledgerOf([VAY, CHO_VAY]);
+    const whole = withObligationPosition(
+      netWorthInBase(accounts, entries, "2026-12-31", "USD", {}),
+      obligationPosition(entries),
+    );
+    expect(whole.netCents).toBe(plain.netCents);
+  });
+
+  it("keeps the accounts that could not be valued, whatever is folded on top", () => {
+    const fromAccounts = netWorthInBase(
+      [makeAccount({ id: "acc-eu", currency: "EUR" })],
+      [],
+      "2026-12-31",
+      "USD",
+      {},
+    );
+    const whole = withObligationPosition(fromAccounts, { receivableCents: 5, payableCents: 0 });
+    expect(whole.unvalued.map((account) => account.id)).toEqual(["acc-eu"]);
   });
 });

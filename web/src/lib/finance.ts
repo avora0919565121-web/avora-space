@@ -850,6 +850,150 @@ export function obligationTotals(
   return { owedCents: owed, dueToYouCents: dueToYou, overdueCount: overdue, dueSoonCount: dueSoon };
 }
 
+// ---------------------------------------------------------------- what is due
+
+/**
+ * The least an obligation must expose to be placed on a calendar.
+ *
+ * Structural on purpose: the sidebar badge reads raw transactions while the finance screens
+ * read a built ledger, and both must count the same thing. `deletedAt` is part of the shape
+ * rather than the caller's job, so no screen can forget to drop a row marked as an error.
+ */
+export type DatedObligation = Pick<
+  Transaction,
+  "type" | "amountCents" | "settledCents" | "dueDate" | "deletedAt"
+>;
+
+/**
+ * The three buckets of pressing money, as a partition rather than three statistics.
+ *
+ * Overdue stands apart from due-today for the same reason it does in Nhiệm vụ: a thing that
+ * is already late is a different kind of fact from a thing that is due, and folding them into
+ * one number lets the late one hide inside it. The buckets never overlap, so the three always
+ * add up to `total` and no obligation can be counted twice.
+ */
+export type ObligationWindow = "qua_han" | "hom_nay" | "tuan_nay";
+
+export const OBLIGATION_WINDOWS: readonly ObligationWindow[] = ["qua_han", "hom_nay", "tuan_nay"] as const;
+
+export const OBLIGATION_WINDOW_LABELS: Record<ObligationWindow, string> = {
+  qua_han: "Quá hạn",
+  hom_nay: "Hôm nay",
+  tuan_nay: "7 ngày tới",
+};
+
+export function isObligationWindow(value: string): value is ObligationWindow {
+  return (OBLIGATION_WINDOWS as readonly string[]).includes(value);
+}
+
+/** How far ahead "sắp tới" looks. A week is what a person can still act on. */
+export const DUE_SOON_DAYS = 7;
+
+/**
+ * Which bucket an obligation falls in today, or null when it is not pressing.
+ *
+ * A part-paid obligation still counts: the remainder has the same due date as the whole did.
+ * An obligation with no due date is never pressing — nothing was promised about when.
+ */
+export function obligationWindowOf(entry: DatedObligation, today: string = todayIso()): ObligationWindow | null {
+  if (entry.deletedAt !== null) return null;
+  if (!isObligationType(entry.type)) return null;
+  if (entry.dueDate === null) return null;
+  if (outstandingCents(entry) === 0) return null;
+  if (entry.dueDate < today) return "qua_han";
+  if (entry.dueDate === today) return "hom_nay";
+  if (entry.dueDate <= addDaysIso(today, DUE_SOON_DAYS)) return "tuan_nay";
+  return null;
+}
+
+/** The obligations behind one number, for the list the number links to. */
+export function obligationsDueIn<T extends DatedObligation>(
+  entries: readonly T[],
+  window: ObligationWindow,
+  today: string = todayIso(),
+): T[] {
+  return entries.filter((entry) => obligationWindowOf(entry, today) === window);
+}
+
+export type ObligationAttention = {
+  overdue: number;
+  today: number;
+  week: number;
+  /** The three above, added up — what a badge carries. */
+  total: number;
+};
+
+/** How much is asking to be paid or collected right now. */
+export function obligationAttention(
+  entries: readonly DatedObligation[],
+  today: string = todayIso(),
+): ObligationAttention {
+  const attention: ObligationAttention = { overdue: 0, today: 0, week: 0, total: 0 };
+  for (const entry of entries) {
+    const window = obligationWindowOf(entry, today);
+    if (window === null) continue;
+    if (window === "qua_han") attention.overdue += 1;
+    else if (window === "hom_nay") attention.today += 1;
+    else attention.week += 1;
+    attention.total += 1;
+  }
+  return attention;
+}
+
+/** Whether this ledger uses obligations at all — what decides if the due strip belongs on screen. */
+export function hasOpenObligations(entries: readonly DatedObligation[]): boolean {
+  return entries.some(
+    (entry) => entry.deletedAt === null && isObligationType(entry.type) && outstandingCents(entry) > 0,
+  );
+}
+
+/**
+ * What borrowing and lending add to a balance sheet, beyond what the accounts already say.
+ *
+ * Only the two that leave something outstanding after the cash has moved:
+ *
+ * - `cho_vay` took money out of an account and put it in someone else's hands. The account
+ *   is already lighter, so the amount still to come back is an asset nothing else records.
+ * - `vay` put money into an account. The account is already heavier, so the amount still to
+ *   repay is a debt nothing else records.
+ *
+ * Tax is deliberately absent. A tax bill lowers the account balance the day it is written —
+ * the money is treated as gone — so counting the unsettled remainder again would subtract the
+ * same money twice and quietly understate someone's worth.
+ *
+ * Obligations booked against a liability account are skipped for the same reason: that
+ * account's own balance already carries the debt, and net worth must not count it twice.
+ */
+export type ObligationPosition = {
+  receivableCents: number;
+  payableCents: number;
+};
+
+export function obligationPosition(entries: readonly LedgerEntry[]): ObligationPosition {
+  let receivable = 0;
+  let payable = 0;
+  for (const entry of entries) {
+    if (entry.deletedAt !== null) continue;
+    if (entry.type !== "vay" && entry.type !== "cho_vay") continue;
+    if (isLiabilityAccount(entry.account.type)) continue;
+    const left = outstandingCents(entry);
+    if (left === 0) continue;
+    if (entry.type === "cho_vay") receivable += left;
+    else payable += left;
+  }
+  return { receivableCents: receivable, payableCents: payable };
+}
+
+/**
+ * Net worth with what is owed each way folded in. Left as a separate step so the
+ * account-based figure stays exactly what it was and can still be read on its own.
+ */
+export function withObligationPosition<T extends NetWorth>(net: T, position: ObligationPosition): T {
+  const assets = net.assetsCents + position.receivableCents;
+  const liabilities = net.liabilitiesCents + position.payableCents;
+  return { ...net, assetsCents: assets, liabilitiesCents: liabilities, netCents: assets - liabilities };
+}
+
 export type GivingBand = "low" | "fair" | "generous" | "none";
 
 /** Red under 5%, yellow through 10%, green above it. */

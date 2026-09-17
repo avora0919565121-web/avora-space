@@ -48,9 +48,12 @@ import {
   formatMonthLong,
   groupByDay,
   isObligationType,
+  isObligationWindow,
   monthKey,
+  OBLIGATION_WINDOW_LABELS,
   obligationStatusOf,
   obligationTotals,
+  obligationWindowOf,
   outstandingCents,
   recurringSuggestions,
   searchEntries,
@@ -194,9 +197,13 @@ const FinanceTransactions = () => {
   const [settling, setSettling] = useState<LedgerEntry | null>(null);
   const [settleAmount, setSettleAmount] = useState<string>("");
 
+  const today = todayIso();
   const monthFilter = searchParams.get("thang");
   const categoryFilter = searchParams.get("hang_muc");
   const accountFilter = searchParams.get("tai_khoan");
+  // Where Tổng quan sends someone who tapped one of the three due numbers.
+  const dueRaw = searchParams.get("can_lam");
+  const dueFilter = dueRaw !== null && isObligationWindow(dueRaw) ? dueRaw : null;
 
   const open = useMemo(() => activeAccounts(accounts), [accounts]);
   const usable = useMemo(() => activeCategories(categories), [categories]);
@@ -206,14 +213,15 @@ const FinanceTransactions = () => {
     if (monthFilter !== null) list = entriesInRange(list, startOfMonth(monthFilter), endOfMonth(monthFilter));
     if (categoryFilter !== null) list = list.filter((entry) => entry.categoryId === categoryFilter);
     if (accountFilter !== null) list = list.filter((entry) => entry.accountId === accountFilter);
+    if (dueFilter !== null) list = list.filter((entry) => obligationWindowOf(entry, today) === dueFilter);
     return searchEntries(list, query);
-  }, [accountFilter, allEntries, categoryFilter, entries, monthFilter, query, showVoided]);
+  }, [accountFilter, allEntries, categoryFilter, dueFilter, entries, monthFilter, query, showVoided, today]);
 
   const days = useMemo(() => groupByDay(visible), [visible]);
 
   const suggestions = useMemo(
-    () => recurringSuggestions(entries, todayIso(), dismissed),
-    [dismissed, entries],
+    () => recurringSuggestions(entries, today, dismissed),
+    [dismissed, entries, today],
   );
 
   const clearFilter = useCallback(
@@ -321,6 +329,9 @@ const FinanceTransactions = () => {
       label: accounts.find((account) => account.id === accountFilter)?.name ?? "Tài khoản",
     });
   }
+  if (dueFilter !== null) {
+    filterChips.push({ key: "can_lam", label: OBLIGATION_WINDOW_LABELS[dueFilter] });
+  }
 
   return (
     <FinancePage>
@@ -427,7 +438,7 @@ const FinanceTransactions = () => {
                   <section key={day.date}>
                     <header className="flex items-baseline justify-between gap-3 bg-background/70 px-5 py-1.5">
                       <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        {day.date === todayIso() ? "Hôm nay" : formatDayVi(day.date)}
+                        {day.date === today ? "Hôm nay" : formatDayVi(day.date)}
                       </h3>
                       <Money cents={day.netCents} currency={currency} signed className="text-[12.5px] font-medium" />
                     </header>

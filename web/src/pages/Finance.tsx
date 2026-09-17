@@ -11,6 +11,7 @@ import {
   SpendingTrendChart,
   type PieDatum,
 } from "@/components/finance/FinanceCharts";
+import { DueStrip } from "@/components/finance/DueStrip";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { CategoryDialog } from "@/components/finance/dialogs";
 import { FinanceHeader, FinancePage, Money, Panel, StatCard } from "@/components/finance/primitives";
@@ -23,13 +24,18 @@ import {
   formatMonthShort,
   givingRatio,
   hasBusinessActivity,
+  hasOpenObligations,
   isLiabilityAccount,
   monthKey,
   netWorthInBase,
+  obligationAttention,
+  obligationPosition,
   startOfMonth,
   todayIso,
   totalsFor,
+  withObligationPosition,
   type CategoryScope,
+  type ObligationWindow,
 } from "@/lib/finance";
 import { convertCents } from "@/lib/currency";
 import { monthlyComparison, spendingTrend } from "@/lib/finance-reports";
@@ -60,10 +66,20 @@ const Finance = () => {
   const monthTotals = useMemo(() => totalsFor(monthEntries), [monthEntries]);
   const allTotals = useMemo(() => totalsFor(baseEntries), [baseEntries]);
 
-  const netWorth = useMemo(
+  // Accounts first, exactly as before, then what is still owed each way folded on top: the
+  // account-based figure keeps its own meaning and the two can never be mixed up.
+  const accountNetWorth = useMemo(
     () => netWorthInBase(accounts, entries, today, currency, rates),
     [accounts, entries, today, currency, rates],
   );
+  const position = useMemo(() => obligationPosition(baseEntries), [baseEntries]);
+  const netWorth = useMemo(
+    () => withObligationPosition(accountNetWorth, position),
+    [accountNetWorth, position],
+  );
+
+  const attention = useMemo(() => obligationAttention(baseEntries, today), [baseEntries, today]);
+  const anyObligations = useMemo(() => hasOpenObligations(baseEntries), [baseEntries]);
   const assetsOnly = useMemo(
     () =>
       open
@@ -118,6 +134,13 @@ const Finance = () => {
     [navigate],
   );
 
+  const openDue = useCallback(
+    (window: ObligationWindow): void => {
+      goToTransactions({ can_lam: window });
+    },
+    [goToTransactions],
+  );
+
   return (
     <FinancePage>
       <FinanceHeader
@@ -166,7 +189,9 @@ const Finance = () => {
         </Panel>
       ) : (
         <>
-          <div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {anyObligations ? <DueStrip attention={attention} onOpen={openDue} /> : null}
+
+          <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               label="Tổng tài sản"
               value={<Money cents={assetsOnly} currency={currency} tone="ink" />}
@@ -195,6 +220,17 @@ const Finance = () => {
                 netWorth.liabilitiesCents > 0 ? (
                   <>
                     Đã trừ nợ <Money cents={netWorth.liabilitiesCents} currency={currency} tone="muted" />
+                    {position.receivableCents > 0 ? (
+                      <>
+                        {" · đã cộng "}
+                        <Money cents={position.receivableCents} currency={currency} tone="muted" /> cho vay
+                      </>
+                    ) : null}
+                  </>
+                ) : position.receivableCents > 0 ? (
+                  <>
+                    Đã cộng <Money cents={position.receivableCents} currency={currency} tone="muted" /> cho vay
+                    chưa thu về
                   </>
                 ) : (
                   "Không có khoản nợ nào"
