@@ -428,7 +428,7 @@ export function canConfirmSharedTask(task: TaskItem, userId: string | undefined)
  * Whether this task is a suggestion waiting on the person it was suggested to.
  *
  * A shared task starts as a request, not an instruction: the creator asks, and the assignee
- * decides. This is what turns "Xác nhận / Xoá" into "Tạo tác vụ / Bỏ qua" — the same two
+ * decides. This is what turns "Xác nhận / Xoá" into "Tạo nhiệm vụ / Bỏ qua" — the same two
  * decisions, named for what they actually are. A task someone wrote for themselves has nobody
  * to suggest anything to, so it never reaches this shape.
  */

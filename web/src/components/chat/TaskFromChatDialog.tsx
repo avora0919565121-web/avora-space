@@ -159,7 +159,7 @@ export function TaskFromChatDialog({
         <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
           <div className="min-w-0">
             <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">
-              Gợi ý tác vụ
+              Gợi ý nhiệm vụ
             </DialogTitle>
             <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
               Đề xuất việc vừa trao đổi trong {conversationName} — người nhận sẽ quyết định

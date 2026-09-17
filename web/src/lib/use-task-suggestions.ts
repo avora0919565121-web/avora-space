@@ -66,7 +66,7 @@ export function useSuggestionActions() {
   });
 
   /**
-   * "Tạo tác vụ". Two caches move at once, and they must move together: the suggestion stops
+   * "Tạo nhiệm vụ". Two caches move at once, and they must move together: the suggestion stops
    * being a question and the task starts existing. Patching only one would leave the screen
    * showing an unanswered request beside the task it just became.
    */

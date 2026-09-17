@@ -1047,7 +1047,10 @@ describe("a file with somebody else's column names", () => {
     await userEvent.click(screen.getByRole("button", { name: "Chọn nguồn khác" }));
     await upload(screen, foreignFile(["Cột X", "Cột Y"].join(","), "Anh Bình,0987000111"));
 
-    expect(document.querySelector<HTMLSelectElement>("#map-ten")?.value).toBe("");
+    // Wait for the second file's mapping step to actually be on screen. Reading the select
+    // straight after the upload can catch the first file's render and pass for the wrong reason.
+    await expect.element(screen.getByText("Ghép cột trong file của bạn")).toBeInTheDocument();
+    await expect.poll(() => document.querySelector<HTMLSelectElement>("#map-ten")?.value).toBe("");
     expect(document.body.textContent).not.toContain("Đã dùng lại cách ghép cột");
   });
 

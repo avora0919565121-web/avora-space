@@ -80,7 +80,7 @@ export function ChatSuggestionPanel({
   if (pending.length === 0) return null;
 
   return (
-    <section aria-label="Gợi ý tác vụ" className="border-t border-border bg-card px-5 md:px-10">
+    <section aria-label="Gợi ý nhiệm vụ" className="border-t border-border bg-card px-5 md:px-10">
       <div className="mx-auto max-w-2xl">
         <button
           type="button"
@@ -98,7 +98,7 @@ export function ChatSuggestionPanel({
           />
           <Lightbulb className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
           <span className="min-w-0 flex-1 truncate text-[14px] font-semibold text-foreground">
-            Gợi ý tác vụ
+            Gợi ý nhiệm vụ
           </span>
           <span
             className={cn(
@@ -207,9 +207,9 @@ function SuggestionRow({
   const handleAccept = useCallback(async (): Promise<void> => {
     try {
       await accept.mutateAsync(suggestion.id);
-      toast.success("Đã tạo tác vụ.");
+      toast.success("Đã tạo nhiệm vụ.");
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không tạo được tác vụ.");
+      toast.error(error instanceof Error ? error.message : "Không tạo được nhiệm vụ.");
     }
   }, [accept, suggestion.id]);
 
@@ -273,7 +273,7 @@ function SuggestionRow({
             disabled={accept.isPending}
             className="press h-12 rounded-[10px] bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
           >
-            Tạo tác vụ
+            Tạo nhiệm vụ
           </button>
           <button
             type="button"
@@ -340,7 +340,7 @@ function SuggestionRow({
             <AlertDialogTitle className="text-foreground">Rút lại gợi ý này?</AlertDialogTitle>
             <AlertDialogDescription>
               “{suggestion.title}” sẽ ngừng chờ câu trả lời và biến mất khỏi danh sách của cả hai
-              bên. Không có tác vụ nào bị xoá — nó chưa từng tồn tại.
+              bên. Không có nhiệm vụ nào bị xoá — nó chưa từng tồn tại.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

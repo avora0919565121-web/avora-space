@@ -609,13 +609,13 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - 2026-09-15 — A suggestion is not a task and no longer pretends to be one: it lives in its own place
   until somebody says yes. Writing the task the moment somebody asked put unanswered requests into the
   receiver's deadlines, counters and badges as though they had already agreed — the app counted a question
-  as a commitment. The task is now created at the instant of "Tạo tác vụ" and not one moment sooner, and
+  as a commitment. The task is now created at the instant of "Tạo nhiệm vụ" and not one moment sooner, and
   "Bỏ qua" leaves no trace on any task list at all, because there was never anything there to remove.
 - 2026-09-15 — An accepted suggestion becomes a task that is already accepted, not one waiting to be.
   The person pressing the button just agreed; asking them to confirm the thing they confirmed would be
   ceremony. Both halves of the two-party record are written at once because both genuinely happened.
 - 2026-09-15 — A suggestion left unanswered past its proposed date stays answerable. Creating the task
-  later moved it under the rule that refuses past deadlines, which would have made "Tạo tác vụ" fail on a
+  later moved it under the rule that refuses past deadlines, which would have made "Tạo nhiệm vụ" fail on a
   two-day-old request and left "Bỏ qua" as the only button that worked — declining by timeout, which is not
   an answer anybody gave. The task is created already overdue, exactly as an aged request always was.
 - 2026-09-15 — The asker gets their own heading, "Đã gợi ý, đang chờ", collapsed on arrival. Waiting on an
@@ -623,7 +623,7 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   responsibility yet; nothing under this heading is owed by the reader, so it must not compete with work
   that is.
 - 2026-09-14 — A shared task is a suggestion, not an instruction, so the two buttons are named for what
-  they actually are: "Tạo tác vụ" and "Bỏ qua", above a line saying who asked. "Xác nhận / Xoá" framed
+  they actually are: "Tạo nhiệm vụ" and "Bỏ qua", above a line saying who asked. "Xác nhận / Xoá" framed
   declining as deleting someone's request, which is why people left requests unanswered instead. Declining
   belongs to the person asked and to nobody else — a creator who could "skip" on their behalf would be
   withdrawing their own request while making it look like a refusal.

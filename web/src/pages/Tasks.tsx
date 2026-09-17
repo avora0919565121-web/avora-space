@@ -1138,7 +1138,7 @@ function ProposedSection({
               <AlertDialogTitle className="text-foreground">Rút lại gợi ý này?</AlertDialogTitle>
               <AlertDialogDescription>
                 “{withdrawTarget.title}” sẽ ngừng chờ câu trả lời và biến mất khỏi danh sách của
-                cả hai bên. Không có tác vụ nào bị xoá — nó chưa từng tồn tại.
+                cả hai bên. Không có nhiệm vụ nào bị xoá — nó chưa từng tồn tại.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>

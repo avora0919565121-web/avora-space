@@ -193,7 +193,7 @@ test("the wording names it a suggestion, because the other person still decides"
   const screen = await renderDialog();
 
   // "Giao việc" told the receiver a decision had already been made about their time.
-  await expect.element(screen.getByText("Gợi ý tác vụ")).toBeVisible();
+  await expect.element(screen.getByText("Gợi ý nhiệm vụ")).toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Gửi gợi ý" })).toBeVisible();
   expect(screen.container.textContent).not.toContain("Giao việc");
   expect(screen.container.textContent).not.toContain("Người đảm trách");

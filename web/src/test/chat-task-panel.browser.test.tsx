@@ -147,7 +147,7 @@ test("a group task the viewer must accept still reaches them", async () => {
   const screen = await panel("mine");
 
   // A suggestion offers the two real answers, named for what they are.
-  await expect.element(screen.getByRole("button", { name: "Tạo tác vụ" })).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Tạo nhiệm vụ" })).toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Bỏ qua" })).toBeVisible();
   // And says who asked, so declining does not read as refusing an order.
   await expect.element(screen.getByText("Sếp Minh đã gợi ý việc này")).toBeVisible();
@@ -186,7 +186,7 @@ test("a declined task stays on the list and says so", async () => {
   await expect.element(screen.getByText("Việc đã bỏ qua")).toBeVisible();
   await expect.element(screen.getByText("Bạn đã bỏ qua")).toBeVisible();
   // And it is answered, so neither decision is offered a second time.
-  expect(screen.container.textContent).not.toContain("Tạo tác vụ");
+  expect(screen.container.textContent).not.toContain("Tạo nhiệm vụ");
   expect(screen.container.textContent).not.toContain("Bỏ qua việc này");
 });
 

@@ -29,7 +29,7 @@ export type MessageComposerProps = {
   placeholder: string;
   ariaLabel: string;
   isSending: boolean;
-  /** Sits on the same line as the text box — where the "+ Tác vụ" button goes in a chat. */
+  /** Sits on the same line as the text box — where the "+ Nhiệm vụ" button goes in a chat. */
   leadingAction?: ReactNode;
   /**
    * Who can be named here. Empty outside a group: a 1-1 has one other person, so naming them

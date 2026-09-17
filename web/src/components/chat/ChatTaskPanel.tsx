@@ -222,7 +222,7 @@ function ChatTaskRow({
   const permanent = deleteIsPermanent(task, userId);
   const deadline = deadlineLabel(task.deadline, today);
   // A suggestion is somebody else's request awaiting this person's answer, which is what
-  // turns "Xác nhận/Xoá" into "Tạo tác vụ/Bỏ qua" and earns the note above the buttons.
+  // turns "Xác nhận/Xoá" into "Tạo nhiệm vụ/Bỏ qua" and earns the note above the buttons.
   const suggested = isSuggestion(task, userId);
   const askedBy = creatorLabel(task, members, peerName, userId);
   // Whose move it is, in the row's own weight. In a group panel this is the difference
@@ -384,7 +384,7 @@ function ChatTaskRow({
               disabled={confirmShared.isPending}
               className="press h-12 rounded-[10px] bg-primary px-4 text-[13px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
             >
-              Tạo tác vụ
+              Tạo nhiệm vụ
             </button>
           ) : null}
           {canSkip ? (
