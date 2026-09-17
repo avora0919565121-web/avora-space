@@ -63,8 +63,8 @@ export function MessageActionsMenu({
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Tác vụ cho tin nhắn: ${message.content.slice(0, 60)}`}
-          title="Tác vụ"
+          aria-label={`Nhiệm vụ cho tin nhắn: ${message.content.slice(0, 60)}`}
+          title="Nhiệm vụ"
           className={cn(
             "press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 group-hover:opacity-100 motion-reduce:transition-none",
             className,

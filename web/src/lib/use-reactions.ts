@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth";
 import {
@@ -85,6 +86,7 @@ export function useThreadReactions(
     },
     onError: (error: Error, _variables, context) => {
       console.error("[reactions] could not save", error);
+      toast.error("Không lưu được cảm xúc, thử lại nhé.");
       const previous = (context as { previous?: MessageReaction[] } | undefined)?.previous;
       if (previous !== undefined) queryClient.setQueryData<MessageReaction[]>(queryKey, previous);
     },

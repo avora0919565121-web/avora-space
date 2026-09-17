@@ -1623,12 +1623,12 @@ const Messages = () => {
                       <button
                         type="button"
                         onClick={() => openTaskDialogFor(null)}
-                        aria-label="Tạo tác vụ từ cuộc trò chuyện này"
-                        title="Tạo tác vụ từ cuộc trò chuyện này"
+                        aria-label="Tạo nhiệm vụ từ cuộc trò chuyện này"
+                        title="Tạo nhiệm vụ từ cuộc trò chuyện này"
                         className="press flex h-12 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/50 sm:px-4"
                       >
                         <ListPlus className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
-                        <span className="hidden sm:inline">Tác vụ</span>
+                        <span className="hidden sm:inline">Nhiệm vụ</span>
                       </button>
                     )
                   }

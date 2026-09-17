@@ -967,7 +967,7 @@ function SharedSection({
             </div>
           ) : (
             <p className="px-5 pb-3 text-[14px] text-muted-foreground">
-              Chưa có nhiệm vụ chung nào. Mở một cuộc trò chuyện và bấm “Tác vụ” để giao việc.
+              Chưa có nhiệm vụ chung nào. Mở một cuộc trò chuyện và bấm “Nhiệm vụ” để giao việc.
             </p>
           )}
         </div>
