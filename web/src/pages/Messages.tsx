@@ -49,6 +49,10 @@ import { GroupDecisionSheet } from "@/components/chat/GroupDecisionSheet";
 import { GroupInfoSheet } from "@/components/chat/GroupInfoSheet";
 import { GroupTaskListSheet } from "@/components/chat/GroupTaskListSheet";
 import { MessageComposer } from "@/components/chat/MessageComposer";
+import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
+import { MessageAttachments } from "@/components/chat/MessageAttachments";
+import { ForwardDialog } from "@/components/chat/ForwardDialog";
+import { SelectionBar } from "@/components/chat/SelectionBar";
 import {
   MessageActionsAffordance,
   type MessageAction,
@@ -66,6 +70,23 @@ import {
   splitMentions,
 } from "@/lib/mentions";
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
+import {
+  attachmentKeys,
+  sendMessageWithAttachments,
+  stageAttachment,
+  uploadStagedAttachment,
+  MAX_ATTACHMENTS_PER_MESSAGE,
+  type AttachmentPermission,
+  type StagedAttachment,
+} from "@/lib/attachments";
+import { useThreadAttachments } from "@/lib/use-attachments";
+import { useVoiceRecorder } from "@/lib/use-voice-recorder";
+import {
+  deleteJournalMessages,
+  deleteSummaryText,
+  forwardedFromLabel,
+  toggleSelected,
+} from "@/lib/forwarding";
 import { useAuth } from "@/lib/auth";
 import { useChatRealtime } from "@/lib/realtime";
 import { useConversations } from "@/lib/use-conversations";
@@ -193,6 +214,21 @@ const Messages = () => {
    */
   const [taskSourceMessage, setTaskSourceMessage] = useState<ChatMessage | null>(null);
   const [draft, setDraft] = useState<string>("");
+  /**
+   * Files chosen but not yet sent. Held here rather than inside the composer so that leaving
+   * the thread genuinely abandons them — a file staged in one conversation must never follow
+   * the reader into another one.
+   */
+  const [staged, setStaged] = useState<StagedAttachment[]>([]);
+  const [isUploading, setIsUploading] = useState<boolean>(false);
+  /**
+   * Picking several messages at once. Off by default: a tick box on every bubble would make
+   * reading a conversation feel like auditing one.
+   */
+  const [isSelecting, setIsSelecting] = useState<boolean>(false);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isForwardOpen, setIsForwardOpen] = useState<boolean>(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   /** The message the next send will answer, shown as a quote above the composer. */
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   /** Which bubble is currently open for correction, and the text being corrected. */
@@ -494,6 +530,103 @@ const Messages = () => {
     resolve: resolveRecallAsk,
   } = useRecallRequests(conversationId);
 
+  /** The files already in this thread, and the short-lived links that render them. */
+  const { attachmentsOf, urlOf: attachmentUrlOf } = useThreadAttachments(conversationId);
+
+  const recorder = useVoiceRecorder();
+
+  /**
+   * Takes files from the picker into the composer.
+   *
+   * Each one is reported on its own: three photos where one is too large should attach two
+   * and say why the third did not, rather than refusing all three.
+   */
+  const stageFiles = useCallback(
+    async (files: readonly File[]): Promise<void> => {
+      if (files.length === 0) return;
+      const room = MAX_ATTACHMENTS_PER_MESSAGE - staged.length;
+      if (room <= 0) {
+        toast.error(`Mỗi tin nhắn chỉ gửi được tối đa ${MAX_ATTACHMENTS_PER_MESSAGE} tệp.`);
+        return;
+      }
+      if (files.length > room) {
+        toast.error(`Chỉ thêm được ${room} tệp nữa cho tin nhắn này.`);
+      }
+
+      for (const file of files.slice(0, room)) {
+        try {
+          const item = await stageAttachment(file);
+          setStaged((current) => [...current, item]);
+        } catch (error: unknown) {
+          toast.error(error instanceof Error ? error.message : "Không đính kèm được tệp này.");
+        }
+      }
+    },
+    [staged.length],
+  );
+
+  const removeStaged = useCallback((localId: string): void => {
+    setStaged((current) => {
+      const target = current.find((item) => item.localId === localId);
+      if (target?.previewUrl != null) URL.revokeObjectURL(target.previewUrl);
+      return current.filter((item) => item.localId !== localId);
+    });
+  }, []);
+
+  const setStagedPermission = useCallback(
+    (localId: string, permission: AttachmentPermission): void => {
+      setStaged((current) =>
+        current.map((item) => (item.localId === localId ? { ...item, permission } : item)),
+      );
+    },
+    [],
+  );
+
+  const startRecording = useCallback((): void => {
+    void recorder.start().catch(() => {
+      toast.error("Không dùng được micro. Kiểm tra quyền truy cập trong trình duyệt.");
+    });
+  }, [recorder]);
+
+  const stopRecording = useCallback((): void => {
+    void recorder
+      .stop()
+      .then(async (result) => {
+        if (result === null) return;
+        const extension = result.blob.type.includes("mp4") ? "m4a" : "webm";
+        const file = new File([result.blob], `tin-nhan-thoai.${extension}`, {
+          type: result.blob.type,
+        });
+        const item = await stageAttachment(file, {
+          isRecording: true,
+          durationSeconds: result.durationSeconds,
+        });
+        setStaged((current) => [...current, item]);
+      })
+      .catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : "Không lưu được bản ghi.");
+      });
+  }, [recorder]);
+
+  /**
+   * Leaving a thread abandons whatever was staged in it.
+   *
+   * A file chosen for one conversation must never arrive in another, and a half-finished
+   * recording has no business surviving the screen it was started on.
+   */
+  useEffect(() => {
+    return () => {
+      recorder.cancel();
+      setStaged((current) => {
+        current.forEach((item) => {
+          if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
+        });
+        return [];
+      });
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId]);
+
   /** The message awaiting a "for the room, or for me?" answer. */
   const [pinChoiceMessageId, setPinChoiceMessageId] = useState<string | null>(null);
 
@@ -634,18 +767,43 @@ const Messages = () => {
   }, [conversationId, userId, isTabVisible, newestPeerMessageAt, queryClient, markRead]);
 
   const sendMutation = useMutation({
-    mutationFn: async (content: string): Promise<ChatMessage> => {
+    mutationFn: async (content: string): Promise<void> => {
       if (!conversationId || !userId) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
       // Read off the finished text rather than tracked as chips: deleting part of a name
       // un-names that person, which is what someone editing the sentence expects.
-      return sendMessage(
-        conversationId,
-        userId,
-        content,
-        replyTarget?.id ?? null,
-        extractMentionedIds(content, mentionable),
-        originGroupId,
-      );
+      const mentioned = extractMentionedIds(content, mentionable);
+
+      if (staged.length === 0) {
+        await sendMessage(
+          conversationId,
+          userId,
+          content,
+          replyTarget?.id ?? null,
+          mentioned,
+          originGroupId,
+        );
+        return;
+      }
+
+      // Files go up first, then the message and its pointers land together in one statement.
+      // A message that mentions a file nobody uploaded would be worse than a failed send.
+      setIsUploading(true);
+      try {
+        const uploaded = [];
+        for (const item of staged) {
+          uploaded.push(await uploadStagedAttachment(conversationId, item));
+        }
+        await sendMessageWithAttachments({
+          conversationId,
+          content,
+          replyToMessageId: replyTarget?.id ?? null,
+          mentionedUserIds: mentioned,
+          originGroupId,
+          attachments: uploaded,
+        });
+      } finally {
+        setIsUploading(false);
+      }
     },
     onMutate: async (content: string) => {
       if (!conversationId || !userId) return { previous: undefined };
@@ -659,6 +817,8 @@ const Messages = () => {
         content: content.trim(),
         createdAt: new Date().toISOString(),
         replyToMessageId: replyTarget?.id ?? null,
+        // Keeps a caption-less photo from rendering as an empty bubble while it uploads.
+        attachmentCount: staged.length,
         pending: true,
       };
       queryClient.setQueryData<ChatMessage[]>(key, [...(previous ?? []), optimistic]);
@@ -670,8 +830,21 @@ const Messages = () => {
       }
       toast.error(error.message);
     },
+    onSuccess: () => {
+      // The files are gone from the composer only once they are genuinely sent; a failed
+      // send leaves them staged so the person can try again without re-choosing them.
+      setStaged((current) => {
+        current.forEach((item) => {
+          if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
+        });
+        return [];
+      });
+    },
     onSettled: () => {
-      if (conversationId) void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+      if (conversationId) {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+        void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(conversationId) });
+      }
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
     },
   });
@@ -679,7 +852,8 @@ const Messages = () => {
   /** The composer hands over an already-trimmed message; the send path itself is unchanged. */
   const handleSend = useCallback(
     (content: string): void => {
-      if (content.length === 0 || sendMutation.isPending) return;
+      // A message with no words but a photo attached is a real message.
+      if ((content.length === 0 && staged.length === 0) || sendMutation.isPending) return;
       setDraft("");
       // The quote belongs to the message that was just sent, not to the next one.
       setReplyTarget(null);
@@ -688,7 +862,7 @@ const Messages = () => {
       clearTyping();
       sendMutation.mutate(content);
     },
-    [sendMutation, clearTyping],
+    [sendMutation, clearTyping, staged.length],
   );
 
   /**
@@ -758,6 +932,20 @@ const Messages = () => {
     (message: ChatMessage, action: MessageAction): void => {
       if (action === "reply") {
         setReplyTarget(message);
+        return;
+      }
+      /*
+        Forwarding one message is the same act as forwarding several, so it opens the same
+        picker with a selection of one rather than a second, simpler dialog.
+      */
+      if (action === "forward") {
+        setSelectedIds([message.id]);
+        setIsForwardOpen(true);
+        return;
+      }
+      if (action === "select") {
+        setIsSelecting(true);
+        setSelectedIds([message.id]);
         return;
       }
       if (action === "task") {
@@ -832,6 +1020,42 @@ const Messages = () => {
       askRecall,
     ],
   );
+
+  /** Clearing the selection without acting on it. */
+  const cancelSelection = useCallback((): void => {
+    setIsSelecting(false);
+    setSelectedIds([]);
+  }, []);
+
+  const deleteJournalMutation = useMutation({
+    mutationFn: (ids: readonly string[]) => deleteJournalMessages(ids),
+    onSuccess: (count: number) => {
+      toast.success(deleteSummaryText(count));
+      cancelSelection();
+      if (conversationId) {
+        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+        void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(conversationId) });
+      }
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  /**
+   * Deleting notes from a journal.
+   *
+   * Asks first and says how many, because this one genuinely cannot be undone — unlike
+   * everywhere else in chat, there is no tombstone left behind to recover the sense of.
+   */
+  const confirmDeleteSelected = useCallback((): void => {
+    if (selectedIds.length === 0) return;
+    const question =
+      selectedIds.length === 1
+        ? "Xoá ghi chú này? Không khôi phục được."
+        : `Xoá ${selectedIds.length} ghi chú? Không khôi phục được.`;
+    if (!window.confirm(question)) return;
+    deleteJournalMutation.mutate(selectedIds);
+  }, [selectedIds, deleteJournalMutation]);
 
   const openConversation = useCallback(
     (nextId: string, originGroupId?: string | null): void => {
@@ -1510,6 +1734,19 @@ const Messages = () => {
                             // followed. Not bubbles: nobody said this, so it gets no sender,
                             // no side and no reactions.
                             const skipNotices = silentSkipsByMessage.get(message.id) ?? [];
+                            // Only a message that still exists can be carried anywhere.
+                            const canForwardThis = message.pending !== true && !recalled;
+                            const isSelected = selectedIds.includes(message.id);
+                            // Where a forwarded message came from. The name is stored beside
+                            // the id, so the label survives the original being withdrawn.
+                            const forwardedNote =
+                              message.originContentId == null || recalled
+                                ? null
+                                : forwardedFromLabel(
+                                    message.originSenderId == null
+                                      ? null
+                                      : (senderNames.get(message.originSenderId) ?? null),
+                                  );
                             return (
                               <Fragment key={message.id}>
                               <li
@@ -1523,8 +1760,39 @@ const Messages = () => {
                                   quotedMessageId === message.id || flashedMessageId === message.id
                                     ? "bg-primary/10 ring-1 ring-primary/40"
                                     : "",
+                                  isSelecting ? "cursor-pointer" : "",
+                                  isSelected ? "bg-primary/10" : "",
                                 )}
+                                onClick={
+                                  isSelecting && canForwardThis
+                                    ? () =>
+                                        setSelectedIds((current) =>
+                                          toggleSelected(current, message.id),
+                                        )
+                                    : undefined
+                                }
                               >
+                                {/*
+                                  While picking, every eligible bubble carries its own tick.
+                                  A withdrawn message has none: there is nothing left to carry.
+                                */}
+                                {isSelecting ? (
+                                  <span className="shrink-0 self-center pr-1">
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      disabled={!canForwardThis}
+                                      onChange={() =>
+                                        setSelectedIds((current) =>
+                                          toggleSelected(current, message.id),
+                                        )
+                                      }
+                                      onClick={(event) => event.stopPropagation()}
+                                      aria-label={`Chọn tin nhắn: ${messageBodyText(message).slice(0, 40)}`}
+                                      className="h-4 w-4 accent-primary disabled:opacity-40"
+                                    />
+                                  </span>
+                                ) : null}
                                 {senderLabel ? (
                                   <div className="shrink-0 pb-5" aria-hidden="true">
                                     <InitialsAvatar name={senderLabel} size="sm" />
@@ -1629,6 +1897,7 @@ const Messages = () => {
                                       isPinned={isPinnedForMe}
                                       canRequestRecall={canRequestRecall}
                                       hasRequestedRecall={hasAskedRecall(message.id)}
+                                      canForward={canForwardThis}
                                       onAction={(action) => handleMessageAction(message, action)}
                                       reactionPicker={
                                         canReact ? (
@@ -1639,6 +1908,32 @@ const Messages = () => {
                                         ) : null
                                       }
                                     >
+                                      {/*
+                                        Files sit above the words, as their own blocks rather
+                                        than inside the bubble: a photo boxed in a coloured
+                                        speech bubble reads as decoration instead of content.
+                                      */}
+                                      {/*
+                                        A forwarded message says so before it says anything
+                                        else. Without this, someone else's words read as the
+                                        forwarder's own — which is how a quote becomes a claim.
+                                      */}
+                                      {forwardedNote !== null ? (
+                                        <span className="mb-1 block px-1 text-[11.5px] italic text-muted-foreground">
+                                          {forwardedNote}
+                                        </span>
+                                      ) : null}
+                                      <MessageAttachments
+                                        attachments={attachmentsOf(message.id)}
+                                        urlOf={attachmentUrlOf}
+                                        outgoing={outgoing}
+                                      />
+                                      {/*
+                                        A caption-less photo draws no bubble at all — an empty
+                                        coloured rectangle under the image would be a bubble
+                                        pretending there were words.
+                                      */}
+                                      {message.content.trim() === "" ? null : (
                                       <div
                                         className={cn(
                                           "whitespace-pre-wrap break-words rounded-bubble px-4 py-2.5 text-[15px] leading-relaxed",
@@ -1646,6 +1941,7 @@ const Messages = () => {
                                             ? "rounded-br-[4px] bg-primary text-primary-foreground"
                                             : "rounded-bl-[4px] border border-border bg-card text-foreground",
                                           message.pending ? "opacity-70" : "",
+                                          attachmentsOf(message.id).length > 0 ? "mt-1.5" : "",
                                         )}
                                       >
                                         {/*
@@ -1683,6 +1979,7 @@ const Messages = () => {
                                           ),
                                         )}
                                       </div>
+                                      )}
                                     </MessageActionsAffordance>
                                   )}
 
@@ -1790,8 +2087,24 @@ const Messages = () => {
                 )}
               </div>
 
+              {/*
+                While picking, the selection bar takes the spot the jump-to-newest pill uses.
+                Both floating at once would overlap, and the one the person is actively using
+                wins.
+              */}
+              {isSelecting ? (
+                <SelectionBar
+                  count={selectedIds.length}
+                  canDelete={activeKind === "personal"}
+                  onForward={() => setIsForwardOpen(true)}
+                  onDelete={confirmDeleteSelected}
+                  onCancel={cancelSelection}
+                  isWorking={deleteJournalMutation.isPending}
+                />
+              ) : null}
+
               {/* A quiet way back to the live end: only offered while the reader has left it. */}
-              {!isThreadAtBottom && messages.length > 0 ? (
+              {!isSelecting && !isThreadAtBottom && messages.length > 0 ? (
                 <button
                   type="button"
                   onClick={jumpToNewest}
@@ -1874,10 +2187,49 @@ const Messages = () => {
                     else notifyTyping();
                   }}
                   onSend={handleSend}
-                  isSending={sendMutation.isPending}
+                  isSending={sendMutation.isPending || isUploading}
                   placeholder={activeKind === "personal" ? "Ghi vào nhật ký…" : `Nhắn tin cho ${threadTitle}…`}
                   ariaLabel={activeKind === "personal" ? "Ghi vào nhật ký" : `Nhắn tin cho ${threadTitle}`}
                   mentionCandidates={mentionable}
+                  attachmentCount={staged.length}
+                  attachmentSlot={
+                    <StagedAttachmentBar
+                      items={staged}
+                      onRemove={removeStaged}
+                      onPermissionChange={setStagedPermission}
+                      isSending={sendMutation.isPending || isUploading}
+                    />
+                  }
+                  trailingAction={
+                    <>
+                      {/*
+                        Hidden rather than styled: a file input cannot be made to look like
+                        the rest of the composer, so the paperclip drives it instead.
+                      */}
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        multiple
+                        hidden
+                        onChange={(event) => {
+                          const chosen = Array.from(event.target.files ?? []);
+                          // Reset first, so choosing the same file twice still fires.
+                          event.target.value = "";
+                          void stageFiles(chosen);
+                        }}
+                      />
+                      <AttachActions
+                        onPickFiles={() => fileInputRef.current?.click()}
+                        isRecording={recorder.isRecording}
+                        elapsedSeconds={recorder.elapsedSeconds}
+                        canRecord={!recorder.isUnsupported}
+                        onStartRecording={startRecording}
+                        onStopRecording={stopRecording}
+                        onCancelRecording={recorder.cancel}
+                        disabled={sendMutation.isPending || isUploading}
+                      />
+                    </>
+                  }
                   leadingAction={
                     <button
                       type="button"
@@ -1930,6 +2282,26 @@ const Messages = () => {
 
       <NewChatDialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen} onCreated={openConversation} />
       <NewGroupDialog open={isNewGroupOpen} onOpenChange={setIsNewGroupOpen} onCreated={openConversation} />
+
+      {/*
+        Forwarding leaves the selection behind once it succeeds: the messages have gone where
+        they were going, and keeping the ticks would invite sending them twice.
+      */}
+      <ForwardDialog
+        open={isForwardOpen}
+        onOpenChange={(next) => {
+          setIsForwardOpen(next);
+          // Closing the picker without choosing keeps the ticks, so a mis-tap costs nothing.
+          if (!next && !isSelecting) setSelectedIds([]);
+        }}
+        messageIds={selectedIds}
+        conversations={conversations}
+        currentConversationId={conversationId}
+        onForwarded={() => {
+          cancelSelection();
+          void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+        }}
+      />
 
       {/* One dialog for all three kinds: the conversation it is given decides which it opens. */}
       <NewProjectDialog

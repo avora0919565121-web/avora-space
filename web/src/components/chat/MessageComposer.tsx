@@ -36,6 +36,15 @@ export type MessageComposerProps = {
    * says nothing the message did not already say.
    */
   mentionCandidates?: readonly MentionCandidate[];
+  /**
+   * How many files are waiting to go with this message. A photo with no caption is a real
+   * message, so this is what lets "Gửi" light up on an empty text box.
+   */
+  attachmentCount?: number;
+  /** The paperclip and microphone, on the same line as the text box. */
+  trailingAction?: ReactNode;
+  /** Thumbnails of what is attached, drawn above the box. */
+  attachmentSlot?: ReactNode;
 };
 
 /**
@@ -54,9 +63,12 @@ export function MessageComposer({
   isSending,
   leadingAction,
   mentionCandidates = [],
+  attachmentCount = 0,
+  trailingAction,
+  attachmentSlot,
 }: MessageComposerProps) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
-  const canSend: boolean = canSendDraft(value, isSending);
+  const canSend: boolean = canSendDraft(value, isSending, attachmentCount);
 
   /**
    * The "@…" being typed, if any, and which suggestion is selected.
@@ -115,9 +127,9 @@ export function MessageComposer({
   }, [value]);
 
   const submit = useCallback((): void => {
-    if (!canSendDraft(value, isSending)) return;
+    if (!canSendDraft(value, isSending, attachmentCount)) return;
     onSend(value.trim());
-  }, [value, isSending, onSend]);
+  }, [value, isSending, attachmentCount, onSend]);
 
   const handleSubmit = useCallback(
     (event: FormEvent<HTMLFormElement>): void => {
@@ -176,13 +188,15 @@ export function MessageComposer({
   );
 
   return (
-    <form
-      className="mx-auto flex max-w-2xl items-end gap-3"
-      onSubmit={handleSubmit}
-      onKeyDown={blockEnterSubmit}
-    >
-      {leadingAction}
-      <div className="relative min-w-0 flex-1">
+    <>
+      {attachmentSlot}
+      <form
+        className="mx-auto flex max-w-2xl items-end gap-3"
+        onSubmit={handleSubmit}
+        onKeyDown={blockEnterSubmit}
+      >
+        {leadingAction}
+        <div className="relative min-w-0 flex-1">
         {/*
           The suggestion list sits above the box rather than below it: the composer is already
           at the bottom of the screen, and a list below would be off it.
@@ -237,13 +251,15 @@ export function MessageComposer({
           className="min-h-12 w-full resize-none rounded-md border border-border bg-card px-4 py-3.5 text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
         />
       </div>
-      <button
-        type="submit"
-        disabled={!canSend}
-        className="press h-12 shrink-0 rounded-md bg-primary px-6 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
-      >
-        Gửi
-      </button>
-    </form>
+        {trailingAction}
+        <button
+          type="submit"
+          disabled={!canSend}
+          className="press h-12 shrink-0 rounded-md bg-primary px-6 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
+        >
+          Gửi
+        </button>
+      </form>
+    </>
   );
 }

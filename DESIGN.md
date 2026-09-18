@@ -1367,10 +1367,46 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   out — withdraw it, or keep it — and either answer ends the matter. It names who asked rather than counting them,
   because "ai đó phản đối" invites suspicion of everyone in the room. No limit on asking: if it becomes a way to
   badger people, that is a rule to write once there is evidence for it, not a guess to build in now.
+- 2026-09-17 — A photo with no caption is a message; an empty message still is not. The rule that a message must
+  say something now reads "words OR a file", and the count it checks is written by the database rather than by
+  the app — a caller cannot claim an attachment it never made in order to post nothing. Because the file and the
+  message have to arrive together for that rule to hold, sending them is one operation rather than two.
+- 2026-09-17 — Who may do what with a file is decided on the file, before it is sent, and never widens afterwards.
+  Each attachment carries one of three rungs — look at it, carry it further inside AVORA, take it out of AVORA —
+  set in the composer while changing it still costs nothing. "Cho tải về" is the default, because an ordinary
+  document sent to a colleague is meant to be usable and narrowing it should be the deliberate act. A file marked
+  "chỉ xem" has no download button anywhere, and the app says so plainly rather than pretending the file is
+  locked: a determined reader can always photograph a screen, and implying otherwise would be a promise the
+  product cannot keep.
+- 2026-09-17 — A file exists once, however many conversations point at it. Forwarding adds a pointer, not a copy,
+  so carrying a 20MB deck into four threads costs 20MB and not 80. Access follows the pointers: you can read a
+  file when some conversation you are in points at it, which is also what makes taking the message back take the
+  file with it. Withdrawing a message deletes its pointers — without that, "thu hồi" would destroy the words and
+  leave the photo readable, which is the opposite of what people ask for.
+- 2026-09-17 — Photos are shrunk on the sender's device before they are sent. A phone camera produces six
+  megabytes of something that is read at 400px wide in a chat; re-encoding puts that cost once on the person who
+  chose to send it, rather than on every reader's data plan. A picture that would not get smaller is left alone,
+  and an animation is never re-encoded into a still.
+- 2026-09-17 — A forwarded message says where it came from, one hop back and no further. "Đã chuyển tiếp từ Minh"
+  is what a reader needs to judge what they are looking at; a full chain of who passed what to whom would be a
+  record of people's behaviour that nobody asked to be kept. The original author is stored beside the message
+  rather than looked up through it, so the attribution survives the original being withdrawn. Files marked
+  "chỉ xem" do not travel, and the copy says so in place of them — a file silently missing from a forward is
+  worse than a forward that admits what it could not bring. Mentions are not carried either: naming someone in a
+  room they are not in would notify nobody and read as a summons from a conversation they cannot see.
+- 2026-09-17 — Picking several messages is a mode you turn on, not tick boxes that are always there. A checkbox
+  on every bubble makes reading a conversation feel like auditing one. Once on, a bar floats over the thread
+  rather than replacing the composer, so the conversation stays readable while choosing — which is the whole
+  point of picking things out of it.
+- 2026-09-17 — "Xoá" exists only in the journal, and is absent rather than greyed out everywhere else. A journal
+  note is nobody else's record, so deleting it leaves nothing behind. A message in a shared thread is part of
+  something two people took part in, and the honest instrument there is "Thu hồi", which leaves a visible gap
+  both can see. A disabled "Xoá" in a chat would suggest the app is withholding a power it has; it does not
+  have one.
 
 ## Out of scope
 
-Dark mode, media upload outside finance receipts, voice or video calls (the call icon is decorative
+Dark mode, voice or video calls (the call icon is decorative
 for now), AI features, heavy project management (the lightweight Nhiệm vụ module ships, now with clocks,
 categories, reminders and repeats; boards, teams and dependencies stay out), and any social feed. Task reminders
 delivered outside the app — email, SMS or push to a closed tab — need a scheduled worker and a push subscription,
@@ -1386,6 +1422,10 @@ v1; `project_id` now has a real Dự án module behind it and is wired as a fore
 In Dự án: a calendar view, budgets tied to `financial_item`, review history, and deleting an objective, deliverable or
 project all stay out of v1 — the three tiers can be renamed and added to, never removed.
 The mark on a message that produced work stays a mark: no system line in the thread, no notification and no push.
+Chat attachments cover images, files and voice notes; video capture, stickers, GIFs, and editing or annotating an
+image in the app stay out. A file's permission is fixed when it is sent — there is no revoking a file already
+delivered, and no ask-for-an-upgrade flow. Forwarding records one hop, never a chain, and cannot start a new
+conversation: the destination must already exist.
 Auto-list in a note is Enter-continuation only — no rich text, no formatting toolbar, and nothing stored but the
 characters typed.
 In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,

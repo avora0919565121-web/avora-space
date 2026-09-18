@@ -156,6 +156,24 @@ export type ChatMessage = {
    * messages born in it and leave the rest of the conversation untouched.
    */
   originGroupId?: string | null;
+  /**
+   * How many files this message carries.
+   *
+   * Kept on the message rather than counted from the attachment rows because the surfaces
+   * that have no room to draw a file — the inbox line, a reply quote — still need to know a
+   * wordless message is not an empty one. Maintained server-side; the client cannot write it.
+   */
+  attachmentCount?: number;
+  /**
+   * The message this one was forwarded from, and who originally said it.
+   *
+   * A single hop rather than a chain: "Đã chuyển tiếp từ Minh" is what a reader needs to
+   * judge what they are looking at, and a recursive history of every hop would be a record
+   * of who passed what to whom that nobody asked to be kept. The sender is stored beside
+   * the id so the label survives the original being withdrawn.
+   */
+  originContentId?: string | null;
+  originSenderId?: string | null;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
 };
@@ -178,8 +196,18 @@ export function isEdited(message: Pick<ChatMessage, "editedAt" | "deletedAt">): 
  * What a bubble should read. A withdrawn message shows the note in place of its words, which
  * is why every surface asks this rather than reading `content` directly.
  */
-export function messageBodyText(message: Pick<ChatMessage, "content" | "deletedAt">): string {
-  return isRecalled(message) ? RECALLED_MESSAGE_NOTE : message.content;
+export function messageBodyText(
+  message: Pick<ChatMessage, "content" | "deletedAt" | "attachmentCount">,
+): string {
+  if (isRecalled(message)) return RECALLED_MESSAGE_NOTE;
+  // A photo sent without a caption has no words to show, but it is not nothing. Surfaces
+  // with no room for the file itself say what arrived instead of rendering a blank line.
+  if (message.content.trim() === "" && (message.attachmentCount ?? 0) > 0) {
+    return (message.attachmentCount ?? 0) > 1
+      ? `${message.attachmentCount} tệp đính kèm`
+      : "Tệp đính kèm";
+  }
+  return message.content;
 }
 
 /** How long a message stays yours to correct or take back. Mirrors the database's own window. */
@@ -277,7 +305,7 @@ export function isSearchable(query: string): boolean {
 
 /** The short version of a quoted message, for the block above a reply. */
 export function quotePreview(
-  message: Pick<ChatMessage, "content" | "deletedAt">,
+  message: Pick<ChatMessage, "content" | "deletedAt" | "attachmentCount">,
   maxLength: number = 80,
 ): string {
   const text = messageBodyText(message);
@@ -523,12 +551,17 @@ export function threadScrollDecision(input: {
 
 /**
  * Enter writes a new line, so the button is the only way a message leaves the composer.
- * It stays unavailable while the draft is empty or nothing but whitespace, and while a
- * send is already in flight, so a blank message can never be sent.
+ * It stays unavailable while a send is already in flight, so a blank message can never be
+ * sent — but a photo with no caption is a real message, so an attached file counts as
+ * something to send just as words do.
  */
-export function canSendDraft(draft: string, isSending: boolean): boolean {
+export function canSendDraft(
+  draft: string,
+  isSending: boolean,
+  attachmentCount: number = 0,
+): boolean {
   if (isSending) return false;
-  return draft.trim().length > 0;
+  return draft.trim().length > 0 || attachmentCount > 0;
 }
 
 /** Label on the jump-to-newest pill while messages arrived out of sight. */

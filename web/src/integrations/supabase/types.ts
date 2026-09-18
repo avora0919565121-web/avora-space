@@ -1064,6 +1064,82 @@ export type Database = {
           },
         ]
       }
+      message_attachments: {
+        Row: {
+          attached_by: string
+          byte_size: number
+          conversation_id: string
+          created_at: string
+          duration_seconds: number | null
+          file_name: string
+          height: number | null
+          id: string
+          kind: string
+          message_id: string
+          mime_type: string
+          origin_message_id: string | null
+          permission: string
+          storage_path: string
+          width: number | null
+        }
+        Insert: {
+          attached_by: string
+          byte_size: number
+          conversation_id: string
+          created_at?: string
+          duration_seconds?: number | null
+          file_name: string
+          height?: number | null
+          id?: string
+          kind: string
+          message_id: string
+          mime_type: string
+          origin_message_id?: string | null
+          permission?: string
+          storage_path: string
+          width?: number | null
+        }
+        Update: {
+          attached_by?: string
+          byte_size?: number
+          conversation_id?: string
+          created_at?: string
+          duration_seconds?: number | null
+          file_name?: string
+          height?: number | null
+          id?: string
+          kind?: string
+          message_id?: string
+          mime_type?: string
+          origin_message_id?: string | null
+          permission?: string
+          storage_path?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_attachments_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_attachments_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_attachments_origin_message_id_fkey"
+            columns: ["origin_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_pins: {
         Row: {
           conversation_id: string
@@ -1169,6 +1245,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          attachment_count: number
           content: string
           conversation_id: string
           created_at: string
@@ -1176,11 +1253,14 @@ export type Database = {
           edited_at: string | null
           id: string
           mentioned_user_ids: string[]
+          origin_content_id: string | null
           origin_group_id: string | null
+          origin_sender_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
         Insert: {
+          attachment_count?: number
           content: string
           conversation_id: string
           created_at?: string
@@ -1188,11 +1268,14 @@ export type Database = {
           edited_at?: string | null
           id?: string
           mentioned_user_ids?: string[]
+          origin_content_id?: string | null
           origin_group_id?: string | null
+          origin_sender_id?: string | null
           reply_to_message_id?: string | null
           sender_id: string
         }
         Update: {
+          attachment_count?: number
           content?: string
           conversation_id?: string
           created_at?: string
@@ -1200,7 +1283,9 @@ export type Database = {
           edited_at?: string | null
           id?: string
           mentioned_user_ids?: string[]
+          origin_content_id?: string | null
           origin_group_id?: string | null
+          origin_sender_id?: string | null
           reply_to_message_id?: string | null
           sender_id?: string
         }
@@ -1210,6 +1295,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_origin_content_id_fkey"
+            columns: ["origin_content_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
           {
@@ -2972,6 +3064,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_journal_messages: {
+        Args: { p_message_ids: string[] }
+        Returns: number
+      }
       delete_shared_task: {
         Args: { p_task_id: string }
         Returns: {
@@ -3052,6 +3148,7 @@ export type Database = {
       edit_message: {
         Args: { p_content: string; p_message_id: string }
         Returns: {
+          attachment_count: number
           content: string
           conversation_id: string
           created_at: string
@@ -3059,7 +3156,9 @@ export type Database = {
           edited_at: string | null
           id: string
           mentioned_user_ids: string[]
+          origin_content_id: string | null
           origin_group_id: string | null
+          origin_sender_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -3178,6 +3277,11 @@ export type Database = {
           email: string
           user_id: string
         }[]
+      }
+      forward_blocked_note: { Args: never; Returns: string }
+      forward_messages: {
+        Args: { p_message_ids: string[]; p_target_conversation_id: string }
+        Returns: Json
       }
       get_conversation_peer: {
         Args: { p_conversation_id: string }
@@ -3475,6 +3579,7 @@ export type Database = {
       recall_message: {
         Args: { p_message_id: string }
         Returns: {
+          attachment_count: number
           content: string
           conversation_id: string
           created_at: string
@@ -3482,7 +3587,9 @@ export type Database = {
           edited_at: string | null
           id: string
           mentioned_user_ids: string[]
+          origin_content_id: string | null
           origin_group_id: string | null
+          origin_sender_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -3865,6 +3972,37 @@ export type Database = {
         }
       }
       seed_finance_categories: { Args: { p_user_id: string }; Returns: number }
+      send_message_with_attachments: {
+        Args: {
+          p_attachments?: Json
+          p_content: string
+          p_conversation_id: string
+          p_mentioned_user_ids?: string[]
+          p_origin_group_id?: string
+          p_reply_to_message_id?: string
+        }
+        Returns: {
+          attachment_count: number
+          content: string
+          conversation_id: string
+          created_at: string
+          deleted_at: string | null
+          edited_at: string | null
+          id: string
+          mentioned_user_ids: string[]
+          origin_content_id: string | null
+          origin_group_id: string | null
+          origin_sender_id: string | null
+          reply_to_message_id: string | null
+          sender_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       set_group_admin: {
         Args: {
           make_admin: boolean

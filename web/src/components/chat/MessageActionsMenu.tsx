@@ -1,4 +1,15 @@
-import { Hand, ListPlus, MoreHorizontal, Pencil, Pin, PinOff, Reply, Trash2 } from "lucide-react";
+import {
+  CheckSquare,
+  Forward,
+  Hand,
+  ListPlus,
+  MoreHorizontal,
+  Pencil,
+  Pin,
+  PinOff,
+  Reply,
+  Trash2,
+} from "lucide-react";
 import { useState } from "react";
 
 import {
@@ -18,6 +29,8 @@ export type MessageAction =
   | "edit"
   | "recall"
   | "request-recall"
+  | "forward"
+  | "select"
   | "pin"
   | "unpin";
 
@@ -41,6 +54,7 @@ export function MessageActionsMenu({
   isPinned = false,
   canRequestRecall = false,
   hasRequestedRecall = false,
+  canForward = false,
   onAction,
   open,
   onOpenChange,
@@ -50,6 +64,8 @@ export function MessageActionsMenu({
   viewerId: string | undefined;
   /** False in a journal, where there is nobody to give a task to. */
   canRaiseTask: boolean;
+  /** False for a withdrawn or still-sending message: there is nothing to carry yet. */
+  canForward?: boolean;
   /** False for a withdrawn message: there are no words left to point at. */
   canPin?: boolean;
   /** True when this message is already pinned for an audience the viewer can clear. */
@@ -72,8 +88,17 @@ export function MessageActionsMenu({
   // objected to, long after its author's own 24-hour window to take it back has closed.
   const showRequestRecall =
     canRequestRecall && message.pending !== true && message.deletedAt == null;
+  const showForward = canForward && message.pending !== true && message.deletedAt == null;
 
-  if (!showReply && !showEdit && !showRecall && !showTask && !showPin && !showRequestRecall)
+  if (
+    !showReply &&
+    !showEdit &&
+    !showRecall &&
+    !showTask &&
+    !showPin &&
+    !showRequestRecall &&
+    !showForward
+  )
     return null;
 
   return (
@@ -102,6 +127,22 @@ export function MessageActionsMenu({
           <DropdownMenuItem onSelect={() => onAction("task")}>
             <ListPlus className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
             Tạo task
+          </DropdownMenuItem>
+        ) : null}
+        {/*
+          Carrying one message, and the way into carrying several. Selecting starts from the
+          message the menu was opened on, so the first tick is already made.
+        */}
+        {showForward ? (
+          <DropdownMenuItem onSelect={() => onAction("forward")}>
+            <Forward className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Chuyển tiếp
+          </DropdownMenuItem>
+        ) : null}
+        {showForward ? (
+          <DropdownMenuItem onSelect={() => onAction("select")}>
+            <CheckSquare className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Chọn nhiều tin
           </DropdownMenuItem>
         ) : null}
         {showPin ? (
@@ -161,6 +202,7 @@ export function MessageActionsAffordance({
   isPinned = false,
   canRequestRecall = false,
   hasRequestedRecall = false,
+  canForward = false,
   outgoing,
   onAction,
   reactionPicker,
@@ -173,6 +215,7 @@ export function MessageActionsAffordance({
   isPinned?: boolean;
   canRequestRecall?: boolean;
   hasRequestedRecall?: boolean;
+  canForward?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
   /**
@@ -205,6 +248,7 @@ export function MessageActionsAffordance({
         isPinned={isPinned}
         canRequestRecall={canRequestRecall}
         hasRequestedRecall={hasRequestedRecall}
+        canForward={canForward}
         onAction={onAction}
         open={isOpen}
         onOpenChange={setIsOpen}

@@ -10,6 +10,7 @@ import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { attachmentKeys } from "@/lib/attachments";
 import { useAuth } from "@/lib/auth";
 import {
   applyMessageEditToInbox,
@@ -149,6 +150,9 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       deletedAt: row.deleted_at === null ? null : toIsoTimestamp(row.deleted_at),
       replyToMessageId: row.reply_to_message_id,
       originGroupId: row.origin_group_id,
+      attachmentCount: row.attachment_count ?? 0,
+      originContentId: row.origin_content_id,
+      originSenderId: row.origin_sender_id,
     });
 
     /**
@@ -186,6 +190,15 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       const thread = queryClient.getQueryData<ChatMessage[]>(threadKey);
       if (thread) {
         queryClient.setQueryData<ChatMessage[]>(threadKey, mergeIncomingMessage(thread, incoming));
+      }
+
+      // The message row arrives on its own stream; the files hanging off it do not. Without
+      // this, a photo sent to someone watching the thread would land as an empty bubble and
+      // stay that way until they reloaded.
+      if ((incoming.attachmentCount ?? 0) > 0) {
+        void queryClient.invalidateQueries({
+          queryKey: attachmentKeys.thread(incoming.conversationId),
+        });
       }
 
       // A thread open in a background tab is not being read, so it still counts as unread.
