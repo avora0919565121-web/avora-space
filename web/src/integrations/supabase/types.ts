@@ -1107,6 +1107,7 @@ export type Database = {
       }
       message_attachments: {
         Row: {
+          algorithm_version: string | null
           attached_by: string
           byte_size: number
           conversation_id: string
@@ -1115,6 +1116,7 @@ export type Database = {
           file_name: string
           height: number | null
           id: string
+          key_version: number | null
           kind: string
           message_id: string
           mime_type: string
@@ -1124,6 +1126,7 @@ export type Database = {
           width: number | null
         }
         Insert: {
+          algorithm_version?: string | null
           attached_by: string
           byte_size: number
           conversation_id: string
@@ -1132,6 +1135,7 @@ export type Database = {
           file_name: string
           height?: number | null
           id?: string
+          key_version?: number | null
           kind: string
           message_id: string
           mime_type: string
@@ -1141,6 +1145,7 @@ export type Database = {
           width?: number | null
         }
         Update: {
+          algorithm_version?: string | null
           attached_by?: string
           byte_size?: number
           conversation_id?: string
@@ -1149,6 +1154,7 @@ export type Database = {
           file_name?: string
           height?: number | null
           id?: string
+          key_version?: number | null
           kind?: string
           message_id?: string
           mime_type?: string
@@ -1286,6 +1292,7 @@ export type Database = {
       }
       messages: {
         Row: {
+          algorithm_version: string | null
           attachment_count: number
           content: string
           conversation_id: string
@@ -1293,6 +1300,7 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
           origin_group_id: string | null
@@ -1302,6 +1310,7 @@ export type Database = {
           sender_id: string
         }
         Insert: {
+          algorithm_version?: string | null
           attachment_count?: number
           content: string
           conversation_id: string
@@ -1309,6 +1318,7 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          key_version?: number | null
           mentioned_user_ids?: string[]
           origin_content_id?: string | null
           origin_group_id?: string | null
@@ -1318,6 +1328,7 @@ export type Database = {
           sender_id: string
         }
         Update: {
+          algorithm_version?: string | null
           attachment_count?: number
           content?: string
           conversation_id?: string
@@ -1325,6 +1336,7 @@ export type Database = {
           deleted_at?: string | null
           edited_at?: string | null
           id?: string
+          key_version?: number | null
           mentioned_user_ids?: string[]
           origin_content_id?: string | null
           origin_group_id?: string | null
@@ -3366,6 +3378,7 @@ export type Database = {
       edit_message: {
         Args: { p_content: string; p_message_id: string }
         Returns: {
+          algorithm_version: string | null
           attachment_count: number
           content: string
           conversation_id: string
@@ -3373,6 +3386,7 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
           origin_group_id: string | null
@@ -3843,6 +3857,7 @@ export type Database = {
       recall_message: {
         Args: { p_message_id: string }
         Returns: {
+          algorithm_version: string | null
           attachment_count: number
           content: string
           conversation_id: string
@@ -3850,6 +3865,7 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
           origin_group_id: string | null
@@ -4311,6 +4327,7 @@ export type Database = {
           p_reply_to_message_id?: string
         }
         Returns: {
+          algorithm_version: string | null
           attachment_count: number
           content: string
           conversation_id: string
@@ -4318,6 +4335,7 @@ export type Database = {
           deleted_at: string | null
           edited_at: string | null
           id: string
+          key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
           origin_group_id: string | null
@@ -4715,6 +4733,70 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      update_shared_task_schedule: {
+        Args: {
+          p_end_at: string
+          p_estimated_duration_minutes: number
+          p_location: string
+          p_requires_presence: boolean
+          p_start_at: string
+          p_task_id: string
+          p_travel_duration_minutes: number
+        }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_lost_reason: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          deliverable_id: string | null
+          departure_reminder_at: string | null
+          description: string
+          done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
+          id: string
+          is_important: boolean
+          is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
+          objective_id: string | null
+          opportunity_id: string | null
+          output_value: string | null
+          progress_percent: number | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          requires_presence: boolean
+          skipped_at: string | null
+          skipped_silently: boolean
+          start_at: string | null
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          travel_duration_minutes: number | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       withdraw_task_invitation: {
         Args: { p_participant_id: string }
         Returns: undefined
@@ -4920,3 +5002,4 @@ export const Constants = {
     },
   },
 } as const
+

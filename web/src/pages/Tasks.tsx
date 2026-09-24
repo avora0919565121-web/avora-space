@@ -18,6 +18,15 @@ import { toast } from "sonner";
 import { celebrate } from "@/lib/confetti";
 import { TaskHubNav } from "@/components/tasks/TaskHubNav";
 import { TaskHubSectionView } from "@/components/tasks/TaskHubSectionView";
+import { CalendarView } from "@/components/tasks/CalendarView";
+import {
+  CALENDAR_DAY_PARAM,
+  CALENDAR_MODE_PARAM,
+  calendarModeSlug,
+  parseCalendarMode,
+  parseIsoDay,
+  type CalendarMode,
+} from "@/lib/calendar-view";
 import { sectionBySlug, tasksForSection, TASK_HUB_PARAM, type TaskHubSection, type TaskHubSectionId } from "@/lib/task-hub";
 import { usePendingInvitationCount } from "@/lib/use-task-collab";
 
@@ -1540,10 +1549,27 @@ export default function Tasks() {
     (section: TaskHubSection): void => {
       const next = new URLSearchParams(searchParams);
       next.set(TASK_HUB_PARAM, section.slug);
+      if (section.id !== "calendar") {
+        next.delete(CALENDAR_MODE_PARAM);
+        next.delete(CALENDAR_DAY_PARAM);
+      }
       setSearchParams(next, { replace: true });
     },
     [searchParams, setSearchParams],
   );
+
+  /** Lịch keeps its view and day in the address, so a link (e.g. from Avora Space) lands exactly. */
+  const calendarMode: CalendarMode = parseCalendarMode(searchParams.get(CALENDAR_MODE_PARAM));
+  const calendarAnchor: string = parseIsoDay(searchParams.get(CALENDAR_DAY_PARAM)) ?? today;
+  const setCalendarParam = useCallback(
+    (key: string, value: string): void => {
+      const next = new URLSearchParams(searchParams);
+      next.set(key, value);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+  const navigate = useNavigate();
 
   const { personal, sharedGroups, binned } = useMemo(() => {
     const all = filterByScope(tasks ?? [], scope);
@@ -1645,6 +1671,25 @@ export default function Tasks() {
   );
   const openTask = useCallback((task: TaskItem): void => setOpenTaskId(task.id), []);
 
+  /**
+   * Lịch never edits. A task with a conversation goes back to where it was agreed; a personal
+   * task with no thread opens in Nhiệm vụ — the calendar itself stays read-only.
+   */
+  const openFromCalendar = useCallback(
+    (task: TaskItem): void => {
+      const target = contextTarget(task.contextSnapshot, task.conversationId);
+      if (target !== null) {
+        navigate(contextLink(target.conversationId, task.id));
+        return;
+      }
+      const next = new URLSearchParams();
+      next.set(TASK_HUB_PARAM, "viec");
+      setSearchParams(next, { replace: true });
+      setOpenTaskId(task.id);
+    },
+    [navigate, setSearchParams],
+  );
+
   const { data: conversations } = useConversations();
   const namedGroups = useMemo<NamedGroup[]>(() => {
     const options = conversations ?? [];
@@ -1678,6 +1723,15 @@ export default function Tasks() {
               <div className="flex justify-center py-16" role="status" aria-label="Đang tải nhiệm vụ">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
+            ) : hubSection.id === "calendar" ? (
+              <CalendarView
+                mode={calendarMode}
+                anchor={calendarAnchor}
+                today={today}
+                onModeChange={(mode) => setCalendarParam(CALENDAR_MODE_PARAM, calendarModeSlug(mode))}
+                onAnchorChange={(day) => setCalendarParam(CALENDAR_DAY_PARAM, day)}
+                onOpenContext={openFromCalendar}
+              />
             ) : (
               <TaskHubSectionView section={hubSection} tasks={tasks ?? []} userId={userId} today={today} onOpen={openTask} />
             )}

@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { AssigneePicker } from "@/components/chat/AssigneePicker";
 import { TimeField } from "@/components/tasks/TimeField";
+import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
 import { useAutoList } from "@/hooks/use-auto-list";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
@@ -292,14 +293,23 @@ export function TaskFromChatDialog({
               >
                 Hạn hoàn thành
               </label>
-              <input
-                id="chat-task-deadline"
-                type="date"
-                value={draft.deadline}
-                min={today}
-                onChange={(event) => setDraft((current) => ({ ...current, deadline: event.target.value }))}
-                className={cn(FIELD_CLASS, "h-12 text-[14px]")}
-              />
+              <div className="flex items-center gap-2">
+                <input
+                  id="chat-task-deadline"
+                  type="date"
+                  value={draft.deadline}
+                  min={today}
+                  onChange={(event) => setDraft((current) => ({ ...current, deadline: event.target.value }))}
+                  className={cn(FIELD_CLASS, "h-12 min-w-0 flex-1 text-[14px]")}
+                />
+                {/* Fill-in helper only: picking a day sets this field, it never creates anything. */}
+                <CalendarPeekButton
+                  label="Xem lịch để chọn ngày hạn"
+                  className="h-12 w-12"
+                  initialDay={draft.deadline === "" ? null : draft.deadline}
+                  onPickDay={(day) => setDraft((current) => ({ ...current, deadline: day }))}
+                />
+              </div>
             </div>
             <div>
               <label

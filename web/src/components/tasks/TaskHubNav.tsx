@@ -2,7 +2,7 @@ import { TASK_HUB_SECTIONS, type TaskHubSection, type TaskHubSectionId } from "@
 import { cn } from "@/lib/utils";
 
 /**
- * The nine places Nhiệm vụ can be read from, as one scrollable strip. The chosen section's
+ * The ten places Nhiệm vụ can be read from, as one scrollable strip. The chosen section's
  * one-line description sits under it, so every place says what it holds before it is read.
  */
 export function TaskHubNav({

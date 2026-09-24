@@ -1,4 +1,4 @@
-import { Bell, CalendarClock, ChevronRight, Loader2, MailOpen, MessagesSquare, Table2 } from "lucide-react";
+import { Bell, CalendarClock, CalendarDays, ChevronRight, Loader2, MailOpen, MessagesSquare, Table2 } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
@@ -220,9 +220,20 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
-                <Link to="/nhiem-vu" className="mt-2 inline-block text-[13px] font-medium text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">
-                  Xem tất cả nhiệm vụ
-                </Link>
+                <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <Link to="/nhiem-vu" className="inline-flex min-h-10 items-center text-[13px] font-medium text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">
+                    Xem tất cả nhiệm vụ
+                  </Link>
+                  {/* Straight into Lịch, Day view, today — the same day this block is about. */}
+                  <Link
+                    to={`/nhiem-vu?muc=lich&xem=ngay&ngay=${today}`}
+                    aria-label="Xem lịch hôm nay"
+                    className="press inline-flex min-h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/30"
+                  >
+                    <CalendarDays className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                    Xem lịch
+                  </Link>
+                </div>
               </>
             )}
           </Block>

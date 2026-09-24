@@ -16,6 +16,9 @@ export {
   conversationsWithUnread,
   conversationSubtitle,
   conversationTitle,
+  FAILED_SEND_ID_PREFIX,
+  failedSendIdOf,
+  failedSendToMessage,
   filterConversationsByTab,
   formatClock,
   formatDayLabel,
@@ -52,9 +55,11 @@ export {
   totalUnread,
   unreadForTab,
   unreadSummaryText,
+  withFailedSends,
 } from "@/lib/chat-cache";
 export type {
   ChatMessage,
+  FailedSend,
   ConversationKind,
   ConversationSummary,
   MessageDayGroup,

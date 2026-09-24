@@ -4,6 +4,7 @@ import {
   BookLock,
   Check,
   CheckCheck,
+  CircleAlert,
   ChevronLeft,
   FolderKanban,
   Hand,
@@ -125,9 +126,12 @@ import {
   tabOfKind,
   threadScrollDecision,
   unreadForTab,
+  failedSendIdOf,
+  withFailedSends,
   type ChatMessage,
   type ConversationKind,
   type ConversationSummary,
+  type FailedSend,
   type MessageTab,
 } from "@/lib/chat";
 import { LIST_COLUMN, useColumnWidth } from "@/lib/column-width";
@@ -155,6 +159,7 @@ import { useTasks } from "@/lib/use-tasks";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { typingText, useThreadPresence } from "@/lib/use-thread-presence";
 import { cn } from "@/lib/utils";
+import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
 
 /**
  * Realtime is the delivery path. This interval only engages while the socket is down
@@ -332,7 +337,17 @@ const Messages = () => {
     return names;
   }, [groupMembersQuery.data]);
 
-  const messages: ChatMessage[] = useMemo(() => messagesQuery.data ?? [], [messagesQuery.data]);
+  /**
+   * Sends that failed, kept on screen where they were written until they go through or are
+   * dropped. In memory only: they survive switching threads, not a reload.
+   */
+  const [failedSends, setFailedSends] = useState<FailedSend[]>([]);
+  /** The files a failed send was carrying, so a retry sends exactly what was attached. */
+  const failedFilesRef = useRef<Map<string, StagedAttachment[]>>(new Map());
+  const messages: ChatMessage[] = useMemo(
+    () => withFailedSends(messagesQuery.data ?? [], failedSends, conversationId),
+    [messagesQuery.data, failedSends, conversationId],
+  );
   const dayGroups = useMemo(() => groupMessagesByDay(messages), [messages]);
   const peerLastReadAt: string | null = activeSummary?.peerLastReadAt ?? null;
   const lastOwnMessageId: string | null = useMemo(
@@ -767,19 +782,32 @@ const Messages = () => {
     markRead(conversationId);
   }, [conversationId, userId, isTabVisible, newestPeerMessageAt, queryClient, markRead]);
 
+  /**
+   * One send, described completely up front — words, quote, files — so a failed one can be sent
+   * again exactly as it was, whatever the composer holds by then. `retryOf` names the failed
+   * bubble being retried; it keeps its place and simply reads "Đang gửi…" again.
+   */
+  type SendPayload = {
+    conversationId: string;
+    content: string;
+    replyToMessageId: string | null;
+    files: StagedAttachment[];
+    retryOf: string | null;
+  };
+
   const sendMutation = useMutation({
-    mutationFn: async (content: string): Promise<void> => {
-      if (!conversationId || !userId) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+    mutationFn: async (payload: SendPayload): Promise<void> => {
+      if (!userId) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
       // Read off the finished text rather than tracked as chips: deleting part of a name
       // un-names that person, which is what someone editing the sentence expects.
-      const mentioned = extractMentionedIds(content, mentionable);
+      const mentioned = extractMentionedIds(payload.content, mentionable);
 
-      if (staged.length === 0) {
+      if (payload.files.length === 0) {
         await sendMessage(
-          conversationId,
+          payload.conversationId,
           userId,
-          content,
-          replyTarget?.id ?? null,
+          payload.content,
+          payload.replyToMessageId,
           mentioned,
           originGroupId,
         );
@@ -791,13 +819,13 @@ const Messages = () => {
       setIsUploading(true);
       try {
         const uploaded = [];
-        for (const item of staged) {
-          uploaded.push(await uploadStagedAttachment(conversationId, item));
+        for (const item of payload.files) {
+          uploaded.push(await uploadStagedAttachment(payload.conversationId, item));
         }
         await sendMessageWithAttachments({
-          conversationId,
-          content,
-          replyToMessageId: replyTarget?.id ?? null,
+          conversationId: payload.conversationId,
+          content: payload.content,
+          replyToMessageId: payload.replyToMessageId,
           mentionedUserIds: mentioned,
           originGroupId,
           attachments: uploaded,
@@ -806,46 +834,76 @@ const Messages = () => {
         setIsUploading(false);
       }
     },
-    onMutate: async (content: string) => {
-      if (!conversationId || !userId) return { previous: undefined };
-      const key = chatKeys.messages(conversationId);
+    onMutate: async (payload: SendPayload) => {
+      if (!userId) return { previous: undefined, createdAt: new Date().toISOString() };
+      if (payload.retryOf !== null) {
+        const retryId = payload.retryOf;
+        setFailedSends((current) =>
+          current.map((send) => (send.localId === retryId ? { ...send, isRetrying: true } : send)),
+        );
+        return { previous: undefined, createdAt: new Date().toISOString() };
+      }
+      const key = chatKeys.messages(payload.conversationId);
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<ChatMessage[]>(key);
+      const createdAt = new Date().toISOString();
       const optimistic: ChatMessage = {
         id: `pending-${Date.now()}`,
-        conversationId,
+        conversationId: payload.conversationId,
         senderId: userId,
-        content: content.trim(),
-        createdAt: new Date().toISOString(),
-        replyToMessageId: replyTarget?.id ?? null,
+        content: payload.content.trim(),
+        createdAt,
+        replyToMessageId: payload.replyToMessageId,
         // Keeps a caption-less photo from rendering as an empty bubble while it uploads.
-        attachmentCount: staged.length,
+        attachmentCount: payload.files.length,
         pending: true,
       };
       queryClient.setQueryData<ChatMessage[]>(key, [...(previous ?? []), optimistic]);
-      return { previous };
+      return { previous, createdAt };
     },
-    onError: (error: Error, _content, context) => {
-      if (conversationId && context?.previous) {
-        queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(conversationId), context.previous);
+    onError: (error: Error, payload, context) => {
+      // Take the in-flight bubble back out of the cache — but not the message: it stays on
+      // screen, in the same place, marked "Gửi lỗi", until it is sent again.
+      if (context?.previous) {
+        queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(payload.conversationId), context.previous);
       }
-      toast.error(error.message);
+      if (payload.retryOf !== null) {
+        const retryId = payload.retryOf;
+        setFailedSends((current) =>
+          current.map((send) => (send.localId === retryId ? { ...send, isRetrying: false } : send)),
+        );
+      } else if (userId) {
+        const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        if (payload.files.length > 0) failedFilesRef.current.set(localId, payload.files);
+        setFailedSends((current) => [
+          ...current,
+          {
+            localId,
+            conversationId: payload.conversationId,
+            senderId: userId,
+            content: payload.content.trim(),
+            createdAt: context?.createdAt ?? new Date().toISOString(),
+            replyToMessageId: payload.replyToMessageId,
+            attachmentCount: payload.files.length,
+          },
+        ]);
+      }
+      // Said once, quietly; the bubble itself carries the state from here on.
+      toast.error(error.message || "Tin chưa gửi được. Chạm vào tin để gửi lại.");
     },
-    onSuccess: () => {
-      // The files are gone from the composer only once they are genuinely sent; a failed
-      // send leaves them staged so the person can try again without re-choosing them.
-      setStaged((current) => {
-        current.forEach((item) => {
-          if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
-        });
-        return [];
+    onSuccess: (_result, payload) => {
+      if (payload.retryOf !== null) {
+        const retryId = payload.retryOf;
+        failedFilesRef.current.delete(retryId);
+        setFailedSends((current) => current.filter((send) => send.localId !== retryId));
+      }
+      payload.files.forEach((item) => {
+        if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
       });
     },
-    onSettled: () => {
-      if (conversationId) {
-        void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
-        void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(conversationId) });
-      }
+    onSettled: (_result, _error, payload) => {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.conversationId) });
+      void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(payload.conversationId) });
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
     },
   });
@@ -854,17 +912,52 @@ const Messages = () => {
   const handleSend = useCallback(
     (content: string): void => {
       // A message with no words but a photo attached is a real message.
-      if ((content.length === 0 && staged.length === 0) || sendMutation.isPending) return;
+      if ((content.length === 0 && staged.length === 0) || sendMutation.isPending || !conversationId) return;
+      const files = staged;
       setDraft("");
+      // The files travel with this message now — into the thread, or into its failed bubble —
+      // so the composer is free for the next one either way.
+      setStaged([]);
       // The quote belongs to the message that was just sent, not to the next one.
       setReplyTarget(null);
       // The message has arrived, so "still typing" is now false — say so at once rather than
       // letting the indicator time out a few seconds later.
       clearTyping();
-      sendMutation.mutate(content);
+      sendMutation.mutate({
+        conversationId,
+        content,
+        replyToMessageId: replyTarget?.id ?? null,
+        files,
+        retryOf: null,
+      });
     },
-    [sendMutation, clearTyping, staged.length],
+    [sendMutation, clearTyping, staged, conversationId, replyTarget],
   );
+
+  /** Tapping a failed bubble sends the very same message again, from where it sits. */
+  const retryFailedSend = useCallback(
+    (localId: string): void => {
+      const send = failedSends.find((entry) => entry.localId === localId);
+      if (send === undefined || send.isRetrying === true || sendMutation.isPending) return;
+      sendMutation.mutate({
+        conversationId: send.conversationId,
+        content: send.content,
+        replyToMessageId: send.replyToMessageId,
+        files: failedFilesRef.current.get(localId) ?? [],
+        retryOf: localId,
+      });
+    },
+    [failedSends, sendMutation],
+  );
+
+  /** Letting a failed message go. Only ever offered on the person's own unsent bubble. */
+  const discardFailedSend = useCallback((localId: string): void => {
+    failedFilesRef.current.get(localId)?.forEach((item) => {
+      if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
+    });
+    failedFilesRef.current.delete(localId);
+    setFailedSends((current) => current.filter((send) => send.localId !== localId));
+  }, []);
 
   /**
    * Sends one ordinary message that did not come from the composer.
@@ -1937,8 +2030,18 @@ const Messages = () => {
                                             ? "rounded-br-[4px] bg-primary text-primary-foreground"
                                             : "rounded-bl-[4px] border border-border bg-card text-foreground",
                                           message.pending ? "opacity-70" : "",
+                                          message.failed === true ? "cursor-pointer" : "",
                                           attachmentsOf(message.id).length > 0 ? "mt-1.5" : "",
                                         )}
+                                        // A failed bubble is itself the retry: tapping it sends the same words again.
+                                        onClick={
+                                          message.failed === true
+                                            ? () => {
+                                                const localId = failedSendIdOf(message);
+                                                if (localId !== null) retryFailedSend(localId);
+                                              }
+                                            : undefined
+                                        }
                                       >
                                         {/*
                                           Only names that were genuinely recorded as mentions
@@ -2036,7 +2139,38 @@ const Messages = () => {
                                     />
                                   ) : null}
                                   <span className="tabular mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
-                                    {message.pending ? "Đang gửi…" : formatClock(message.createdAt)}
+                                    {message.failed === true ? (
+                                      <>
+                                        {/* Amber and small, not red: nothing is lost, it just has not gone yet. */}
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const localId = failedSendIdOf(message);
+                                            if (localId !== null) retryFailedSend(localId);
+                                          }}
+                                          aria-label="Gửi lỗi. Chạm để gửi lại tin này"
+                                          className="press inline-flex min-h-8 items-center gap-1 rounded-[6px] px-1 text-muted-foreground hover:text-foreground"
+                                        >
+                                          <CircleAlert className="h-3.5 w-3.5 text-task-due-soon" strokeWidth={1.9} aria-hidden="true" />
+                                          Gửi lỗi · Chạm để gửi lại
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const localId = failedSendIdOf(message);
+                                            if (localId !== null) discardFailedSend(localId);
+                                          }}
+                                          aria-label="Bỏ tin chưa gửi được này"
+                                          className="press inline-flex min-h-8 items-center rounded-[6px] px-1 text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground"
+                                        >
+                                          Bỏ
+                                        </button>
+                                      </>
+                                    ) : message.pending ? (
+                                      "Đang gửi…"
+                                    ) : (
+                                      formatClock(message.createdAt)
+                                    )}
                                     {/* An edit is admitted out loud: a silent one would let
                                         someone change what they are on record as saying. */}
                                     {isEdited(message) ? <span>(đã chỉnh sửa)</span> : null}
@@ -2227,6 +2361,7 @@ const Messages = () => {
                     </>
                   }
                   leadingAction={
+                    <>
                     <button
                       type="button"
                       onClick={() => openTaskDialogFor(null)}
@@ -2245,6 +2380,9 @@ const Messages = () => {
                       <ListPlus className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
                       <span className="hidden sm:inline">Nhiệm vụ</span>
                     </button>
+                    {/* A quick, read-only look at the calendar; closing it leaves the draft untouched. */}
+                    {activeKind === "personal" ? null : <CalendarPeekButton className="h-12 w-12" />}
+                    </>
                   }
                 />
               </div>

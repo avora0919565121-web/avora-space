@@ -176,7 +176,67 @@ export type ChatMessage = {
   originSenderId?: string | null;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
+  /**
+   * True when the send failed and the bubble is being kept so it can be sent again. Always
+   * paired with `pending`, so every guard that refuses an unsent message refuses this one too.
+   */
+  failed?: boolean;
 };
+
+/**
+ * A message that did not reach the server, kept on screen where it was written.
+ *
+ * Lives outside the query cache on purpose: the cache is refetched after every send, and a
+ * failed message is exactly the one the server has never heard of — it would be wiped.
+ */
+export type FailedSend = {
+  localId: string;
+  conversationId: string;
+  senderId: string;
+  content: string;
+  /** When it was first written. Kept on retry, so the bubble does not jump. */
+  createdAt: string;
+  replyToMessageId: string | null;
+  attachmentCount: number;
+  /** A retry is on its way: the bubble reads "Đang gửi…" again, in the same place. */
+  isRetrying?: boolean;
+};
+
+export const FAILED_SEND_ID_PREFIX = "failed-";
+
+export function failedSendToMessage(send: FailedSend): ChatMessage {
+  return {
+    id: `${FAILED_SEND_ID_PREFIX}${send.localId}`,
+    conversationId: send.conversationId,
+    senderId: send.senderId,
+    content: send.content,
+    createdAt: send.createdAt,
+    replyToMessageId: send.replyToMessageId,
+    attachmentCount: send.attachmentCount,
+    pending: true,
+    failed: send.isRetrying !== true,
+  };
+}
+
+/**
+ * The thread as it should read: what the server has, plus this conversation's failed sends in
+ * the places they were written. Returns the same array when there is nothing to add.
+ */
+export function withFailedSends(
+  thread: ChatMessage[],
+  failed: readonly FailedSend[],
+  conversationId: string | undefined,
+): ChatMessage[] {
+  const mine = failed.filter((send) => send.conversationId === conversationId);
+  if (mine.length === 0) return thread;
+  return [...thread, ...mine.map(failedSendToMessage)].sort(compareMessages);
+}
+
+/** The failed-send id behind a bubble, or null for any other message. */
+export function failedSendIdOf(message: Pick<ChatMessage, "id">): string | null {
+  if (!message.id.startsWith(FAILED_SEND_ID_PREFIX)) return null;
+  return message.id.slice(FAILED_SEND_ID_PREFIX.length);
+}
 
 /** Stands in for the words of a withdrawn message, wherever they would have been shown. */
 export const RECALLED_MESSAGE_NOTE = "Tin nhắn đã được thu hồi.";

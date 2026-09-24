@@ -250,6 +250,8 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
      * pending_confirmation → confirmed → done_pending_review → done flow.
      */
     const handleTaskChange = (payload: RealtimePostgresChangesPayload<TaskRow>): void => {
+      // Lịch holds date-bounded slices; a changed row may enter or leave any of them.
+      void queryClient.invalidateQueries({ queryKey: taskKeys.rangeRoot });
       const cached = queryClient.getQueryData<TaskItem[]>(taskKeys.list);
       // Nothing rendered yet: the next mount fetches fresh data anyway.
       if (!cached) return;

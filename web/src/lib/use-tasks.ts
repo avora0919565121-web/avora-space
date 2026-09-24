@@ -1,4 +1,13 @@
-import { useMutation, useQuery, useQueryClient, type QueryClient, type UseQueryResult } from "@tanstack/react-query";
+import {
+  keepPreviousData,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+  type UseQueryResult,
+} from "@tanstack/react-query";
+
+import { instantBounds } from "@/lib/calendar-view";
 
 import { useAuth } from "@/lib/auth";
 import { useChatRealtime } from "@/lib/realtime";
@@ -10,6 +19,7 @@ import {
   createSharedTask,
   deleteSharedTask,
   fetchTasks,
+  fetchTasksInRange,
   isTaskGone,
   markSharedTaskDone,
   purgePersonalTask,
@@ -41,6 +51,25 @@ export { taskKeys };
  * so tasks degrade to polling instead of going silent.
  */
 export const OFFLINE_TASKS_POLL_MS = 10_000;
+
+/**
+ * Only the tasks Lịch needs for the days on screen — a date-bounded query over `tasks`, never a
+ * copy of them. Keeps the previous range on screen while the next one loads, so stepping a month
+ * forward does not flash an empty grid.
+ */
+export function useTasksInRange(from: string, to: string): UseQueryResult<TaskItem[], Error> {
+  const { user } = useAuth();
+  const { isLive } = useChatRealtime();
+  const { startIso, endIso } = instantBounds(from, to);
+
+  return useQuery<TaskItem[], Error>({
+    queryKey: taskKeys.range(from, to),
+    queryFn: () => fetchTasksInRange(from, to, startIso, endIso),
+    enabled: Boolean(user?.id),
+    placeholderData: keepPreviousData,
+    refetchInterval: isLive ? false : OFFLINE_TASKS_POLL_MS,
+  });
+}
 
 /** The signed-in user's tasks, shared by the Nhiệm vụ screen through one query key. */
 export function useTasks(): UseQueryResult<TaskItem[], Error> {
@@ -93,6 +122,7 @@ export function useTaskActions() {
    * user sees the change even if their own realtime echo is delayed or dropped.
    */
   const applyOwnResult = (task: TaskItem): void => {
+    void queryClient.invalidateQueries({ queryKey: taskKeys.rangeRoot });
     const current = queryClient.getQueryData<TaskItem[]>(taskKeys.list);
     if (!current) {
       void queryClient.invalidateQueries({ queryKey: taskKeys.all });
@@ -104,6 +134,7 @@ export function useTaskActions() {
   };
 
   const dropFromCache = (taskId: string): void => {
+    void queryClient.invalidateQueries({ queryKey: taskKeys.rangeRoot });
     const current = queryClient.getQueryData<TaskItem[]>(taskKeys.list);
     if (current) queryClient.setQueryData<TaskItem[]>(taskKeys.list, removeTask(current, taskId));
     else void queryClient.invalidateQueries({ queryKey: taskKeys.all });

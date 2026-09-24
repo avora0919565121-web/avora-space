@@ -3,7 +3,7 @@ import type { TaskParticipant } from "@/lib/task-collab";
 import { isDeletedFor, isOpenTask, isTaskGone, taskPriority, type TaskItem } from "@/lib/tasks";
 
 /**
- * Task Hub — the nine places Nhiệm vụ can be read from.
+ * Task Hub — the ten places Nhiệm vụ can be read from.
  *
  * Each is a lens over the same tasks, never a second copy of them. Order, words and the one-line
  * description of every section live here so the nav, the page and the tests all read one list.
@@ -13,6 +13,7 @@ export type TaskHubSectionId =
   | "tasks"
   | "events"
   | "upcoming"
+  | "calendar"
   | "overdue"
   | "invitations"
   | "drafts"
@@ -37,6 +38,7 @@ export const TASK_HUB_SECTIONS: readonly TaskHubSection[] = [
   { id: "tasks", slug: "viec", label: "Tasks", description: "Mọi việc đang mở, đọc theo cách bạn quen.", empty: "Chưa có việc nào đang mở." },
   { id: "events", slug: "su-kien", label: "Events", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
   { id: "upcoming", slug: "sap-toi", label: "Upcoming", description: "Bảy ngày tới trên một trang: khối là sự kiện, vạch là hạn chót.", empty: "Bảy ngày tới đang trống." },
+  { id: "calendar", slug: "lich", label: "Lịch", description: "Ngày, tuần, tháng, năm — chỉ để xem. Chạm một việc để về đúng chỗ nó được bàn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
   { id: "overdue", slug: "qua-han", label: "Overdue", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
   { id: "invitations", slug: "loi-moi", label: "Invitations", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
   { id: "drafts", slug: "nhap", label: "Drafts", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },
@@ -110,17 +112,24 @@ function addDays(iso: string, days: number): string {
   return `${date.getFullYear()}-${month}-${dayOfMonth}`;
 }
 
+/**
+ * Upcoming reads open work only. Lịch also draws what already closed (`includeDone`), dimmed —
+ * a calendar with last week's finished work erased would misreport what those days held.
+ * Skipped work is never drawn: it was declined, not done.
+ */
 export function calendarProjection(
   tasks: readonly TaskItem[],
   userId: string | undefined,
   fromDay: string,
   days: number = 7,
+  options: { includeDone?: boolean } = {},
 ): CalendarDay[] {
   const range: CalendarDay[] = Array.from({ length: days }, (_, index) => ({ day: addDays(fromDay, index), entries: [] }));
   const index = new Map<string, CalendarDay>(range.map((entry) => [entry.day, entry]));
 
   for (const task of kept(tasks, userId)) {
-    if (!isOpenTask(task, userId)) continue;
+    const drawable = isOpenTask(task, userId) || (options.includeDone === true && task.status === "done");
+    if (!drawable) continue;
     if (task.requiresPresence && task.startAt !== null) {
       const slot = index.get(localDayOf(task.startAt));
       if (slot !== undefined) slot.entries.push({ kind: "block", task, day: slot.day, startAt: task.startAt, endAt: task.endAt });

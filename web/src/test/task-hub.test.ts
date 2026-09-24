@@ -55,9 +55,9 @@ function makeTask(overrides: Partial<TaskItem> & { id: string }): TaskItem {
 const at = (day: number, hour: number): string => new Date(2026, 8, day, hour, 0).toISOString();
 
 describe("Task Hub sections", () => {
-  it("has the nine sections in order, each with a description", () => {
+  it("has the ten sections in order, each with a description", () => {
     expect(TASK_HUB_SECTIONS.map((section) => section.label)).toEqual([
-      "My Day", "Tasks", "Events", "Upcoming", "Overdue", "Invitations", "Drafts", "Completed", "Trash",
+      "My Day", "Tasks", "Events", "Upcoming", "Lịch", "Overdue", "Invitations", "Drafts", "Completed", "Trash",
     ]);
     for (const section of TASK_HUB_SECTIONS) expect(section.description.length).toBeGreaterThan(0);
   });

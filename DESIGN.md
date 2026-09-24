@@ -1426,6 +1426,22 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   projects tasks, drawing an Event as a block from start to end and anything else as a marker on its deadline day.
   Invitations to take part run beside `assignee_id`, never instead of it; only the task's creator invites, only
   people already in the conversation, and nothing — the assistant included — invites anyone on its own.
+- 2026-09-24 — A shared task's schedule is edited by the same two people who may reword it (creator + assignee,
+  while pending or confirmed), through one RPC that re-checks that on the server. No new approval step: the
+  schedule is part of what was agreed, and the people allowed to change the words are the ones allowed to change
+  the when and where. Turning "Cần tôi có mặt" off clears start, end, place and travel together.
+- 2026-09-24 — Lịch (Ngày / Tuần / Tháng / Năm) is a view and nothing else. It queries `tasks` for the days on
+  screen only, draws finished work dimmed (a past week with its work erased would misreport it) and never draws
+  skipped work. Tapping a task goes to its context; Lịch has no edit or delete. The quick-look sheet opened from a
+  chat or a task panel is the same view without a way out; opened from a task form, tapping a day only fills the
+  deadline field — it is never a way to create a task. It fades rather than slides, because the motion tokens allow
+  opacity only.
+- 2026-09-24 — A message that fails to send stays where it was written, marked "Gửi lỗi" in amber rather than red:
+  nothing is lost, it just has not gone yet. Tapping it sends the same words, quote and files again from the same
+  place. Failed sends live in memory beside the query cache, not in it, because the cache is refetched after every
+  send and the server has never heard of this message. They survive switching threads but not a reload.
+- 2026-09-24 — Trust Phase 1 (ADR-020): `messages` and `message_attachments` carry nullable `key_version` and
+  `algorithm_version`, written in pairs and only by the server. Nothing is encrypted yet; null means plaintext.
 
 ## Out of scope
 
@@ -1450,8 +1466,8 @@ image in the app stay out. A file's permission is fixed when it is sent — ther
 delivered, and no ask-for-an-upgrade flow. Forwarding records one hop, never a chain, and cannot start a new
 conversation: the destination must already exist.
 Real weather for the Avora Space wash (needs a provider), an in-app Space Rhythm setting, task Drafts (shown as
-"Sắp có"), map pins from latitude/longitude, schedule editing on shared tasks, and delivering departure reminders
-outside the app all stay out for now.
+"Sắp có"), map pins from latitude/longitude, and delivering departure reminders outside the app all stay out for
+now. End-to-end encryption of chat is Phase 2+: the placeholder columns exist, no key exchange or encryption does.
 Auto-list in a note is Enter-continuation only — no rich text, no formatting toolbar, and nothing stored but the
 characters typed.
 In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,

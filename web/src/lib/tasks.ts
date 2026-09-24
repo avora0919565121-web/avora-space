@@ -19,6 +19,9 @@ import {
 export const taskKeys = {
   all: ["tasks"] as const,
   list: ["tasks", "list"] as const,
+  /** Lịch reads only the days on screen; every range sits under this root. */
+  rangeRoot: ["tasks", "range"] as const,
+  range: (from: string, to: string) => ["tasks", "range", from, to] as const,
 };
 
 /**
@@ -1538,6 +1541,32 @@ function toTaskItem(row: TaskRow): TaskItem {
   };
 }
 
+/**
+ * The tasks Lịch draws for a span of days: anything due inside it, plus any Event starting inside
+ * it. RLS decides visibility exactly as for the full list; this only narrows the days.
+ *
+ * `startIso`/`endIso` are the local midnights bounding the span, so an Event at 23:30 local time
+ * lands on its own day whatever the UTC date says.
+ */
+export async function fetchTasksInRange(
+  from: string,
+  to: string,
+  startIso: string,
+  endIso: string,
+): Promise<TaskItem[]> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select(TASK_COLUMNS)
+    .or(
+      `and(deadline_date.gte.${from},deadline_date.lte.${to}),and(requires_presence.eq.true,start_at.gte."${startIso}",start_at.lt."${endIso}")`,
+    )
+    .order("created_at", { ascending: true })
+    .order("id", { ascending: true });
+
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => toTaskItem(row as TaskRow));
+}
+
 /** Every task visible to the caller: their personal ones plus shared ones from their 1-1s. */
 export async function fetchTasks(): Promise<TaskItem[]> {
   const { data, error } = await supabase
@@ -1861,8 +1890,8 @@ export async function updatePersonalTaskPlan(
  * The schedule half of a task: how long it should take, and — for an Event — when and where
  * to be present. Independent of the deadline; `undefined` leaves a field alone, `null` clears it.
  *
- * Personal tasks only. RLS already limits direct updates to the owner's own personal rows, so a
- * shared task's schedule is not writable from here.
+ * Personal tasks write it directly (RLS limits that to the owner); shared tasks go through
+ * `updateSharedTaskSchedule`, which re-checks the party rule on the server.
  */
 export type TaskSchedulePatch = {
   estimatedDurationMinutes?: number | null;
@@ -1873,6 +1902,55 @@ export type TaskSchedulePatch = {
   travelDurationMinutes?: number | null;
   departureReminderAt?: string | null;
 };
+
+function scheduleErrorMessage(message: string): string | null {
+  const normalized = message.toLowerCase();
+  if (normalized.includes("tasks_event_needs_start") || normalized.includes("avora_event_needs_start")) return "Sự kiện cần giờ bắt đầu.";
+  if (normalized.includes("tasks_event_end_after_start")) return "Giờ kết thúc phải sau giờ bắt đầu.";
+  if (normalized.includes("tasks_departure_before_start")) return "Giờ nhắc lên đường phải trước giờ bắt đầu.";
+  if (normalized.includes("tasks_estimated_duration_range")) return "Thời lượng phải từ 1 phút đến 7 ngày.";
+  if (normalized.includes("tasks_travel_duration")) return "Thời gian di chuyển tối đa 24 giờ.";
+  if (normalized.includes("avora_task_not_party")) return "Chỉ người giao việc và người nhận việc sửa được lịch.";
+  if (normalized.includes("avora_task_edit_closed")) return "Việc đã báo xong hoặc đã đóng nên không sửa lịch được nữa.";
+  return null;
+}
+
+/**
+ * The whole schedule of a shared task, written in one go through an RPC.
+ *
+ * Same party rule as rewording (creator + assignee, while pending or confirmed). Unlike the
+ * personal path, every field is sent: the form always holds the full picture, and the server
+ * clears when/where when the task stops being an Event and derives the departure time itself.
+ */
+export async function updateSharedTaskSchedule(
+  taskId: string,
+  schedule: {
+    estimatedDurationMinutes: number | null;
+    requiresPresence: boolean;
+    startAt: string | null;
+    endAt: string | null;
+    location: string | null;
+    travelDurationMinutes: number | null;
+  },
+): Promise<TaskItem> {
+  // The generated types mark every argument as non-null; null is how "not set" is said here.
+  const args = {
+    p_task_id: taskId,
+    p_estimated_duration_minutes: schedule.estimatedDurationMinutes,
+    p_requires_presence: schedule.requiresPresence,
+    p_start_at: schedule.startAt,
+    p_end_at: schedule.endAt,
+    p_location: schedule.location,
+    p_travel_duration_minutes: schedule.travelDurationMinutes,
+  } as unknown as Database["public"]["Functions"]["update_shared_task_schedule"]["Args"];
+  const { data, error } = await supabase.rpc("update_shared_task_schedule", args);
+  if (error) {
+    const friendly = scheduleErrorMessage(error.message);
+    if (friendly !== null) throw new Error(friendly);
+    throw fail(error.code, error.message);
+  }
+  return toTaskItem(data as unknown as TaskRow);
+}
 
 export async function updatePersonalTaskSchedule(
   taskId: string,
@@ -1894,11 +1972,8 @@ export async function updatePersonalTaskSchedule(
     .select(TASK_COLUMNS)
     .single();
   if (error) {
-    const normalized = error.message.toLowerCase();
-    if (normalized.includes("tasks_event_needs_start")) throw new Error("Sự kiện cần giờ bắt đầu.");
-    if (normalized.includes("tasks_event_end_after_start")) throw new Error("Giờ kết thúc phải sau giờ bắt đầu.");
-    if (normalized.includes("tasks_departure_before_start")) throw new Error("Giờ nhắc lên đường phải trước giờ bắt đầu.");
-    if (normalized.includes("tasks_estimated_duration_range")) throw new Error("Thời lượng phải từ 1 phút đến 7 ngày.");
+    const friendly = scheduleErrorMessage(error.message);
+    if (friendly !== null) throw new Error(friendly);
     throw fail(error.code, error.message);
   }
   return toTaskItem(data as TaskRow);

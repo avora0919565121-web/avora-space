@@ -4,12 +4,21 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { useQueryClient } from "@tanstack/react-query";
+import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
 import { useAuth } from "@/lib/auth";
+import { localDayOf } from "@/lib/space-blocks";
 import { fetchGroupMembers, groupKeys } from "@/lib/groups";
 import { checklistProgress, nextChecklistPosition } from "@/lib/task-collab";
 import { inviteTaskParticipant, withdrawTaskInvitation } from "@/lib/task-collab-api";
 import { formatDuration, parseDurationInput } from "@/lib/task-flags";
-import { isSharedTask, taskKeys, updatePersonalTaskSchedule, type TaskItem, type TaskSchedulePatch } from "@/lib/tasks";
+import {
+  isSharedTask,
+  taskKeys,
+  updatePersonalTaskSchedule,
+  updateSharedTaskSchedule,
+  type TaskItem,
+  type TaskSchedulePatch,
+} from "@/lib/tasks";
 import {
   taskCollabKeys,
   useChecklist,
@@ -49,8 +58,14 @@ function Heading({ title, note }: { title: string; note: string }) {
   );
 }
 
-/** Duration and, when it asks you to be present, the Event's when and where. Personal tasks. */
+/**
+ * Duration and, when it asks you to be present, the Event's when and where.
+ *
+ * Personal tasks write straight to their row; shared tasks go through the same party rule as
+ * rewording (creator + assignee, while pending or confirmed), re-checked on the server.
+ */
 function ScheduleBlock({ task }: { task: TaskItem }) {
+  const shared = isSharedTask(task);
   const queryClient = useQueryClient();
   const [duration, setDuration] = useState<string>(task.estimatedDurationMinutes?.toString() ?? "");
   const [isEvent, setIsEvent] = useState<boolean>(task.requiresPresence);
@@ -79,7 +94,18 @@ function ScheduleBlock({ task }: { task: TaskItem }) {
     };
     setIsSaving(true);
     try {
-      await updatePersonalTaskSchedule(task.id, patch);
+      if (shared) {
+        await updateSharedTaskSchedule(task.id, {
+          estimatedDurationMinutes: patch.estimatedDurationMinutes ?? null,
+          requiresPresence: patch.requiresPresence ?? false,
+          startAt: patch.startAt ?? null,
+          endAt: patch.endAt ?? null,
+          location: patch.location ?? null,
+          travelDurationMinutes: patch.travelDurationMinutes ?? null,
+        });
+      } else {
+        await updatePersonalTaskSchedule(task.id, patch);
+      }
       await queryClient.invalidateQueries({ queryKey: taskKeys.all });
       toast.success("Đã lưu lịch.");
     } catch (error) {
@@ -91,7 +117,14 @@ function ScheduleBlock({ task }: { task: TaskItem }) {
 
   return (
     <form onSubmit={(event) => void save(event)} className="space-y-3 rounded-[10px] border border-border bg-card p-3">
-      <Heading title="Thời lượng & lịch" note="Ước lượng việc mất bao lâu — tách hẳn khỏi hạn hoàn thành." />
+      <Heading
+        title="Thời lượng & lịch"
+        note={
+          shared
+            ? "Lịch chung của việc này — người giao và người nhận đều sửa được, hai bên cùng thấy."
+            : "Ước lượng việc mất bao lâu — tách hẳn khỏi hạn hoàn thành."
+        }
+      />
       <div>
         <label htmlFor="prep-duration" className="text-[12.5px] text-muted-foreground">
           Dự kiến mất (phút)
@@ -134,7 +167,7 @@ function ScheduleBlock({ task }: { task: TaskItem }) {
   );
 }
 
-/** A read-only line of the schedule, for shared tasks and for anyone not allowed to edit. */
+/** A read-only line of the schedule, for anyone not allowed to edit it (bystanders, closed work). */
 function ScheduleSummary({ task }: { task: TaskItem }) {
   const duration = formatDuration(task.estimatedDurationMinutes);
   if (duration === null && !task.requiresPresence) return null;
@@ -321,7 +354,13 @@ export function TaskPrepPanel({ task, canEdit }: { task: TaskItem; canEdit: bool
   const shared = isSharedTask(task);
   return (
     <div className="space-y-3">
-      {!shared && canEdit ? <ScheduleBlock key={task.id} task={task} /> : <ScheduleSummary task={task} />}
+      <div className="flex items-center gap-3 rounded-[10px] border border-border bg-card px-3 py-2">
+        <p className="min-w-0 flex-1 text-[12.5px] leading-5 text-muted-foreground">
+          Chuẩn bị & cùng làm — xem nhanh lịch để tránh trùng giờ, chỉ xem không sửa.
+        </p>
+        <CalendarPeekButton initialDay={task.startAt !== null ? localDayOf(task.startAt) : task.deadline} />
+      </div>
+      {canEdit ? <ScheduleBlock key={task.id} task={task} /> : <ScheduleSummary task={task} />}
       <ChecklistBlock task={task} canEdit={canEdit} />
       <ResourcesBlock task={task} canEdit={canEdit} />
       {shared ? <ParticipantsBlock task={task} /> : null}
