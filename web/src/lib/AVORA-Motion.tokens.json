@@ -1,0 +1,17 @@
+{
+  "$description": "AVORA motion tokens. The only durations and easings new UI may use. Opacity only: no bounce, overshoot, scale, translate, parallax, autoplay or looping pulse at any rhythm.",
+  "duration": {
+    "quick": 150,
+    "gentle": 280
+  },
+  "easing": {
+    "out": "cubic-bezier(0.2, 0, 0, 1)"
+  },
+  "property": {
+    "allowed": ["opacity"]
+  },
+  "rhythm": {
+    "tinh": { "duration": "quick", "properties": ["opacity"] },
+    "can_bang": { "duration": "gentle", "properties": ["opacity"] }
+  }
+}

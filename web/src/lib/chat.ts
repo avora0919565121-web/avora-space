@@ -312,6 +312,11 @@ export async function sendMessage(
    * the claim against real membership, so this is a hint it verifies, never a fact it trusts.
    */
   originGroupId: string | null = null,
+  /**
+   * The Daily Thought this line answers (`category:YYYY-MM-DD`). Journal only — the database
+   * refuses it on any other kind of conversation.
+   */
+  replyToDailyThoughtId: string | null = null,
 ): Promise<ChatMessage> {
   const trimmed = content.trim();
   const { data, error } = await supabase
@@ -323,6 +328,7 @@ export async function sendMessage(
       reply_to_message_id: replyToMessageId,
       mentioned_user_ids: [...mentionedUserIds],
       origin_group_id: originGroupId,
+      reply_to_daily_thought_id: replyToDailyThoughtId,
     })
     .select(MESSAGE_COLUMNS)
     .single();

@@ -1,4 +1,4 @@
-import { ChevronRight, FolderKanban, Plus } from "lucide-react";
+import { ChevronRight, FolderKanban } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -22,19 +22,19 @@ const GROUPS: readonly {
     kind: "personal",
     emoji: "📌",
     label: "Cá nhân",
-    empty: "Chưa có dự án riêng nào. Mở một dự án từ đây hoặc từ Nhật ký.",
+    empty: "Chưa có dự án riêng nào.",
   },
   {
     kind: "direct",
     emoji: "👥",
     label: "1-1",
-    empty: "Chưa có dự án nào với một người. Mở dự án ngay trong cuộc trò chuyện 1-1.",
+    empty: "Chưa có dự án nào với một người.",
   },
   {
     kind: "group",
     emoji: "👨‍👩‍👧‍👦",
     label: "Nhóm",
-    empty: "Chưa có dự án nhóm nào. Mở dự án ngay trong nhóm.",
+    empty: "Chưa có dự án nhóm nào. Chạm “Tạo dự án” ngay trong nhóm để bắt đầu.",
   },
 ];
 
@@ -86,14 +86,11 @@ export function ProjectList({
   projects,
   conversations,
   activeProjectId,
-  onNewProject,
   isPending,
 }: {
   projects: readonly Project[];
   conversations: readonly ConversationSummary[];
   activeProjectId: string | undefined;
-  /** Opens the create dialog for a personal project; the other two start inside a chat. */
-  onNewProject: () => void;
   isPending: boolean;
 }) {
   const [closed, setClosed] = useState<ReadonlySet<ProjectGroupKind>>(new Set());
@@ -127,14 +124,10 @@ export function ProjectList({
 
   return (
     <div className="px-1 pb-6">
-      <button
-        type="button"
-        onClick={onNewProject}
-        className="press mx-2 mt-1 flex w-[calc(100%-1rem)] items-center gap-2 rounded-lg border border-dashed border-border px-4 py-3 text-left transition-colors hover:bg-accent/40"
-      >
-        <Plus className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={2} aria-hidden="true" />
-        <span className="text-[13.5px] font-medium text-foreground">Dự án riêng mới</span>
-      </button>
+      {/* Projects are opened only inside a group now; existing personal and 1-1 ones stay listed. */}
+      <p className="mx-3 mt-1 text-[12.5px] leading-relaxed text-muted-foreground">
+        Dự án là việc của nhóm. Chạm một dự án để mở.
+      </p>
 
       {GROUPS.map((group) => {
         const items = grouped[group.kind];

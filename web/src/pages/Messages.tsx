@@ -63,6 +63,7 @@ import { PinChoiceDialog, PinnedStrip } from "@/components/chat/PinnedStrip";
 import { NewProjectDialog } from "@/components/projects/NewProjectDialog";
 import { ProjectList } from "@/components/projects/ProjectList";
 import { ProjectStrip } from "@/components/projects/ProjectStrip";
+import { TableStrip } from "@/components/projects/TableStrip";
 import { ThreadSearch } from "@/components/chat/ThreadSearch";
 import {
   extractMentionedIds,
@@ -1281,16 +1282,6 @@ const Messages = () => {
                 conversations={conversations}
                 activeProjectId={undefined}
                 isPending={projectsQuery.isPending || conversationsQuery.isPending}
-                onNewProject={() => {
-                  // A personal project needs the journal to exist first; it is created on
-                  // demand exactly as the Nhật ký tab does it.
-                  if (journalSummary === undefined) {
-                    journalMutation.mutate();
-                    toast.info("Đang mở nhật ký của bạn, thử lại sau một giây nhé.");
-                    return;
-                  }
-                  setProjectTarget(journalSummary);
-                }}
               />
             )}
           </div>
@@ -1601,13 +1592,18 @@ const Messages = () => {
 
               {/* Its own strip, below the pins and never folded into them: a pin says "read
                   this again", a project says "this is what we are building". */}
-              <ProjectStrip
-                projects={threadProjects}
-                canCreate={activeSummary !== undefined}
-                onNewProject={() => {
-                  if (activeSummary !== undefined) setProjectTarget(activeSummary);
-                }}
-              />
+              {/* Projects are group work; the journal and 1-1 threads show the person's tables. */}
+              {activeKind === "group" ? (
+                <ProjectStrip
+                  projects={threadProjects}
+                  canCreate={activeSummary !== undefined}
+                  onNewProject={() => {
+                    if (activeSummary !== undefined) setProjectTarget(activeSummary);
+                  }}
+                />
+              ) : activeSummary !== undefined ? (
+                <TableStrip />
+              ) : null}
 
               {!isLive ? (
                 <p

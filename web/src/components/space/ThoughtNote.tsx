@@ -18,7 +18,14 @@ import { saveThoughtNote, THOUGHT_NOTE_MAX_LEN } from "@/lib/thought-note";
  * near a task, a report or another person. No new screen, either: a reflection interrupted by
  * navigation is a reflection abandoned.
  */
-export function ThoughtNote({ thought }: { thought: DailyThoughtView }) {
+export function ThoughtNote({
+  thought,
+  thoughtKey = null,
+}: {
+  thought: DailyThoughtView;
+  /** Which day's thought this answers, so the journal line can remember it. */
+  thoughtKey?: string | null;
+}) {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -31,7 +38,7 @@ export function ThoughtNote({ thought }: { thought: DailyThoughtView }) {
     if (user === null || user === undefined) return;
     setIsSaving(true);
     try {
-      const conversationId = await saveThoughtNote(user.id, thought, note);
+      const conversationId = await saveThoughtNote(user.id, thought, note, thoughtKey);
       // Cleared and closed on success: the page returns to being a page to read, and the
       // words now live where they were sent rather than in two places at once.
       setNote("");

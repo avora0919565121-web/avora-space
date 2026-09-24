@@ -2,7 +2,8 @@ import { Flag } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-import { celebrate, MILESTONE_BURSTS } from "@/lib/confetti";
+import { celebrate } from "@/lib/confetti";
+import { currentRhythm, motionFor } from "@/lib/motion";
 import { onMilestoneBurst, warmMilestoneChannel, type MilestoneBurstEvent } from "@/lib/milestone-burst";
 import { useConversations } from "@/lib/use-conversations";
 import { useTasks } from "@/lib/use-tasks";
@@ -29,7 +30,9 @@ export function MilestoneBurstLayer() {
   const { data: conversations } = useConversations();
   const { data: tasks } = useTasks();
   const [burst, setBurst] = useState<BurstView | null>(null);
+  const [isShown, setIsShown] = useState<boolean>(false);
   const clearRef = useRef<number | null>(null);
+  const fadeRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -42,14 +45,19 @@ export function MilestoneBurstLayer() {
       const task = tasks?.find((entry) => entry.id === event.taskId);
       const title: string | null = task?.title ?? null;
       setBurst({ title, at: Date.now() });
+      setIsShown(false);
+      // Two frames so the card starts transparent, then fades in. Opacity only, once.
+      requestAnimationFrame(() => requestAnimationFrame(() => setIsShown(true)));
 
-      // Whoever is looking when it lands gets the same several-wave celebration the person
-      // who closed it got — the overlay names what happened, the confetti is the feeling.
-      celebrate("milestone", MILESTONE_BURSTS);
+      // Live, and only live: this fires the moment a milestone closes, never on load.
+      celebrate("milestone");
 
       toast.success(title === null ? "Một cột mốc vừa hoàn thành 🏁" : `Cột mốc hoàn thành: ${title} 🏁`);
 
+      const { durationMs } = motionFor(currentRhythm());
       if (clearRef.current !== null) window.clearTimeout(clearRef.current);
+      if (fadeRef.current !== null) window.clearTimeout(fadeRef.current);
+      fadeRef.current = window.setTimeout(() => setIsShown(false), BURST_VISIBLE_MS - durationMs);
       clearRef.current = window.setTimeout(() => setBurst(null), BURST_VISIBLE_MS);
     });
   }, [user?.id, conversations, tasks]);
@@ -57,6 +65,7 @@ export function MilestoneBurstLayer() {
   useEffect(
     () => () => {
       if (clearRef.current !== null) window.clearTimeout(clearRef.current);
+      if (fadeRef.current !== null) window.clearTimeout(fadeRef.current);
     },
     [],
   );
@@ -68,9 +77,9 @@ export function MilestoneBurstLayer() {
       key={burst.at}
       aria-hidden="true"
       className="pointer-events-none fixed inset-0 z-[90] flex items-center justify-center"
+      style={{ opacity: isShown ? 1 : 0, transition: motionFor(currentRhythm()).transition }}
     >
-      <div className="animate-burst-ring absolute h-40 w-40 rounded-full border-2 border-[#e8b13a]" />
-      <div className="animate-burst-pop relative flex flex-col items-center gap-2 rounded-[16px] border border-border bg-card/95 px-6 py-5 shadow-lg">
+      <div className="relative flex flex-col items-center gap-2 rounded-[16px] border border-border bg-card/95 px-6 py-5 shadow-lg">
         <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fdf3d7] text-[#b98a2f]">
           <Flag className="h-6 w-6" strokeWidth={1.8} aria-hidden="true" />
         </span>

@@ -3,13 +3,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { celebrate, MILESTONE_BURSTS } from "@/lib/confetti";
+import { celebrate } from "@/lib/confetti";
 import { forwardTaskOutputToJournal } from "@/lib/task-report";
 
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
 import { StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
+import { TaskPrepPanel } from "@/components/tasks/TaskPrepPanel";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 import { contextLink, contextTarget } from "@/lib/task-context";
@@ -91,9 +92,8 @@ export function TaskDetailSheet({
       .mutateAsync({ taskId: task.id, done: true, output })
       .then(() => {
         toast.success("Đã đánh dấu hoàn thành.");
-        // Fired from inside an open sheet: the confetti canvas lives on the document body,
-        // so a milestone fills the screen rather than the panel it was closed from.
-        celebrate(task.isMilestone ? "milestone" : "task", task.isMilestone ? MILESTONE_BURSTS : 1);
+        // Only here, right after the completion is confirmed: never on load or on re-reading.
+        celebrate(task.isMilestone ? "milestone" : "task");
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra. Thử lại nhé.");
@@ -227,6 +227,8 @@ export function TaskDetailSheet({
                 different mode, so the plan steps aside while the wording is being fixed.
               */}
               {canEdit ? <TaskPlanFields task={task} /> : null}
+
+              <TaskPrepPanel task={task} canEdit={canEdit && !done} />
 
               <StartButton task={task} />
             </>

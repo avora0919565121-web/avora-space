@@ -1,5 +1,6 @@
 import { KanbanSquare, Loader2, Plus, Table2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AddColumnDialog } from "@/components/business/AddColumnDialog";
@@ -24,6 +25,9 @@ import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban";
 
+/** The query parameter that opens the HUB on one table. */
+export const HUB_TABLE_PARAM = "bang";
+
 /**
  * Business HUB — the tables someone keeps for running their own work.
  *
@@ -35,9 +39,12 @@ const BusinessHub = () => {
   const { tables, records, isPending, isError, error } = useBusinessHub();
   const actions = useBusinessHubActions();
 
-  const [activeId, setActiveId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  // Avora Space's Planning corner links straight to a table with `?bang=<id>`.
+  const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM));
   const [view, setView] = useState<ViewMode>("table");
-  const [isNewTableOpen, setIsNewTableOpen] = useState<boolean>(false);
+  // "+ Bảng mới" in the journal and 1-1 threads arrives here with `?moi=1`.
+  const [isNewTableOpen, setIsNewTableOpen] = useState<boolean>(() => searchParams.get("moi") === "1");
   const [isAddColumnOpen, setIsAddColumnOpen] = useState<boolean>(false);
   const [isRecordOpen, setIsRecordOpen] = useState<boolean>(false);
   const [editing, setEditing] = useState<BusinessRecord | null>(null);

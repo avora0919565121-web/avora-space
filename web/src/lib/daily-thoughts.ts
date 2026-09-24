@@ -364,6 +364,19 @@ export type DailyThoughtView = {
  * The whole block, ready to render. The screen calls only this, and `DailyThoughtView` has no
  * field for a reference, so a book-chapter-verse cannot reach the interface by accident.
  */
+/**
+ * A stable name for the thought shown on a given day, e.g. `danh_ngon:2026-09-24`.
+ *
+ * Thoughts are picked on the device and have no row of their own, so a journal line answering
+ * one remembers it by this key. Category plus local day is enough: the pick is deterministic
+ * for that pair, so the key always resolves back to the same line.
+ */
+export function dailyThoughtKey(category: DailyThoughtCategory, date: Date): string {
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${category}:${date.getFullYear()}-${month}-${day}`;
+}
+
 export function dailyThoughtView(
   category: DailyThoughtCategory,
   date: Date,

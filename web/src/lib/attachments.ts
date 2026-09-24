@@ -160,7 +160,7 @@ export function safeStorageName(name: string): string {
     .normalize("NFKD")
     .replace(/[^\w.\- ]+/g, "")
     .replace(/\s+/g, "-")
-    .replace(/^[.\-]+/, "")
+    .replace(/^[.-]+/, "")
     .slice(-120);
   return cleaned === "" ? "tep" : cleaned;
 }

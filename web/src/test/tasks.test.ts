@@ -74,6 +74,15 @@ function makeTask(overrides: Partial<TaskItem>): TaskItem {
     recurrenceSpawnedAt: null,
     deletedByCreator: false,
     deletedByPeer: false,
+    estimatedDurationMinutes: null,
+    requiresPresence: false,
+    startAt: null,
+    endAt: null,
+    location: null,
+    latitude: null,
+    longitude: null,
+    travelDurationMinutes: null,
+    departureReminderAt: null,
     createdAt: "2026-09-07T00:00:00Z",
     ...overrides,
   };
@@ -959,6 +968,15 @@ describe("taskFromRealtimeRow", () => {
       deleted_by_peer: false,
       created_at: "2026-09-07 09:00:00",
       updated_at: "2026-09-07 10:00:00",
+      estimated_duration_minutes: null,
+      requires_presence: false,
+      start_at: null,
+      end_at: null,
+      location: null,
+      latitude: null,
+      longitude: null,
+      travel_duration_minutes: null,
+      departure_reminder_at: null,
     });
 
     expect(task.createdAt.endsWith("Z")).toBe(true);
@@ -1013,6 +1031,15 @@ describe("taskFromRealtimeRow", () => {
       deleted_by_peer: true,
       created_at: "2026-09-07 09:00:00",
       updated_at: "2026-09-07 12:00:00",
+      estimated_duration_minutes: null,
+      requires_presence: false,
+      start_at: null,
+      end_at: null,
+      location: null,
+      latitude: null,
+      longitude: null,
+      travel_duration_minutes: null,
+      departure_reminder_at: null,
     });
 
     expect(task.status).toBe("done");

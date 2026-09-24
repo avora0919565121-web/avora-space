@@ -1403,6 +1403,29 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   something two people took part in, and the honest instrument there is "Thu hồi", which leaves a visible gap
   both can see. A disabled "Xoá" in a chat would suggest the app is withholding a power it has; it does not
   have one.
+- 2026-09-24 — The first open of a new calendar day starts at Avora Space, wherever the app was left. The test is
+  the local date, not time away: 23:59 to 00:01 is a new morning, six hours on the same day is not. An invite link
+  opened on a new day still wins — a link is an explicit intent — and a same-day return is left exactly as before.
+- 2026-09-24 — Avora Space is six blocks in an order held as data (`SPACE_BLOCK_ORDER`), each saying in one line
+  what it holds and what tapping does. Only Planning and Invitations hide when empty: a standing "0 lời mời" is
+  permanent noise for everyone never invited. The rest say their empty state aloud, because "nothing today" is news.
+  The three scope cards were folded away: the pulse strip now heads "Cần chú ý hôm nay".
+- 2026-09-24 — The reminders block reads each person's own reminders, not a field on the task. On shared work each
+  side sets their own nudges; a single task-level `remind_at` would have imposed one person's reminder on the other.
+- 2026-09-24 — The ambient wash behind Avora Space is a state, not an animation: computed once when the screen
+  opens, never refreshed, never moving. With no weather source yet, the time of day stands in for it.
+- 2026-09-24 — Motion now has one source, `AVORA-Motion.tokens.json`: two durations, one easing, opacity only.
+  Rhythm follows the device's reduce-motion setting (reduced → Tĩnh, short; otherwise Cân bằng, gentle) until AVORA
+  has a setting of its own. Confetti and the scaling milestone card are gone: finishing work now brings one soft
+  wash that fades in and out once, fired only right after a completion is confirmed. Waiting celebrations are marked
+  seen without playing — an effect on opening a room would be an effect for work finished before the screen existed.
+- 2026-09-24 — Projects are group work. `create_project` refuses anything but a group; existing personal and 1-1
+  projects stay readable. The journal and 1-1 threads show the person's own Business HUB tables instead — tables
+  belong to the person, not to a conversation, so the strip reads the same in every such thread.
+- 2026-09-24 — An Event is a task with `requires_presence`, same row, same id. The calendar owns no data: it
+  projects tasks, drawing an Event as a block from start to end and anything else as a marker on its deadline day.
+  Invitations to take part run beside `assignee_id`, never instead of it; only the task's creator invites, only
+  people already in the conversation, and nothing — the assistant included — invites anyone on its own.
 
 ## Out of scope
 
@@ -1426,6 +1449,9 @@ Chat attachments cover images, files and voice notes; video capture, stickers, G
 image in the app stay out. A file's permission is fixed when it is sent — there is no revoking a file already
 delivered, and no ask-for-an-upgrade flow. Forwarding records one hop, never a chain, and cannot start a new
 conversation: the destination must already exist.
+Real weather for the Avora Space wash (needs a provider), an in-app Space Rhythm setting, task Drafts (shown as
+"Sắp có"), map pins from latitude/longitude, schedule editing on shared tasks, and delivering departure reminders
+outside the app all stay out for now.
 Auto-list in a note is Enter-continuation only — no rich text, no formatting toolbar, and nothing stored but the
 characters typed.
 In Tài chính: budgets and envelopes, transfers between accounts, sole-proprietor accounting,

@@ -136,6 +136,20 @@ export type TaskItem = {
   deletedByCreator: boolean;
   deletedByPeer: boolean;
   createdAt: string;
+  /** How long the work is expected to take, in minutes. Independent of the deadline. */
+  estimatedDurationMinutes: number | null;
+  /**
+   * True makes this task an Event: something you have to be present for. Same row, same id —
+   * the calendar draws it as a block from `startAt` to `endAt` instead of a deadline marker.
+   */
+  requiresPresence: boolean;
+  startAt: string | null;
+  endAt: string | null;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  travelDurationMinutes: number | null;
+  departureReminderAt: string | null;
 };
 
 /**
@@ -1316,6 +1330,15 @@ type TaskRow = {
   deleted_by_creator: boolean;
   deleted_by_peer: boolean;
   created_at: string;
+  estimated_duration_minutes: number | null;
+  requires_presence: boolean | null;
+  start_at: string | null;
+  end_at: string | null;
+  location: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  travel_duration_minutes: number | null;
+  departure_reminder_at: string | null;
 };
 
 /** Postgres hands back whatever JSON was stored; only a usable shape becomes a pattern. */
@@ -1358,7 +1381,14 @@ function isSameTask(a: TaskItem, b: TaskItem): boolean {
     a.recurrence === b.recurrence &&
     a.deletedByCreator === b.deletedByCreator &&
     a.deletedByPeer === b.deletedByPeer &&
-    a.conversationId === b.conversationId
+    a.conversationId === b.conversationId &&
+    a.estimatedDurationMinutes === b.estimatedDurationMinutes &&
+    a.requiresPresence === b.requiresPresence &&
+    a.startAt === b.startAt &&
+    a.endAt === b.endAt &&
+    a.location === b.location &&
+    a.travelDurationMinutes === b.travelDurationMinutes &&
+    a.departureReminderAt === b.departureReminderAt
   );
 }
 
@@ -1423,11 +1453,56 @@ export function taskFromRealtimeRow(row: Database["public"]["Tables"]["tasks"]["
     deletedByCreator: row.deleted_by_creator,
     deletedByPeer: row.deleted_by_peer,
     createdAt: toIsoTimestamp(row.created_at),
+    ...eventFieldsOf(row, true),
+  };
+}
+
+type EventFieldsRow = Pick<
+  TaskRow,
+  | "estimated_duration_minutes"
+  | "requires_presence"
+  | "start_at"
+  | "end_at"
+  | "location"
+  | "latitude"
+  | "longitude"
+  | "travel_duration_minutes"
+  | "departure_reminder_at"
+>;
+
+/** The duration and Event fields, shared by the fetch and realtime mappers. */
+function eventFieldsOf(
+  row: Partial<EventFieldsRow>,
+  normalize: boolean,
+): Pick<
+  TaskItem,
+  | "estimatedDurationMinutes"
+  | "requiresPresence"
+  | "startAt"
+  | "endAt"
+  | "location"
+  | "latitude"
+  | "longitude"
+  | "travelDurationMinutes"
+  | "departureReminderAt"
+> {
+  const stamp = (value: string | null | undefined): string | null =>
+    value === null || value === undefined ? null : normalize ? toIsoTimestamp(value) : value;
+  return {
+    estimatedDurationMinutes: row.estimated_duration_minutes ?? null,
+    requiresPresence: row.requires_presence ?? false,
+    startAt: stamp(row.start_at),
+    endAt: stamp(row.end_at),
+    location: row.location ?? null,
+    latitude: row.latitude ?? null,
+    longitude: row.longitude ?? null,
+    travelDurationMinutes: row.travel_duration_minutes ?? null,
+    departureReminderAt: stamp(row.departure_reminder_at),
   };
 }
 
 const TASK_COLUMNS =
-  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, is_milestone, progress_percent, output_value, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at";
+  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, is_milestone, progress_percent, output_value, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at, estimated_duration_minutes, requires_presence, start_at, end_at, location, latitude, longitude, travel_duration_minutes, departure_reminder_at";
 
 function toTaskItem(row: TaskRow): TaskItem {
   return {
@@ -1459,6 +1534,7 @@ function toTaskItem(row: TaskRow): TaskItem {
     deletedByCreator: row.deleted_by_creator,
     deletedByPeer: row.deleted_by_peer,
     createdAt: row.created_at,
+    ...eventFieldsOf(row, false),
   };
 }
 
@@ -1778,6 +1854,53 @@ export async function updatePersonalTaskPlan(
     .select(TASK_COLUMNS)
     .single();
   if (error) throw fail(error.code, error.message);
+  return toTaskItem(data as TaskRow);
+}
+
+/**
+ * The schedule half of a task: how long it should take, and — for an Event — when and where
+ * to be present. Independent of the deadline; `undefined` leaves a field alone, `null` clears it.
+ *
+ * Personal tasks only. RLS already limits direct updates to the owner's own personal rows, so a
+ * shared task's schedule is not writable from here.
+ */
+export type TaskSchedulePatch = {
+  estimatedDurationMinutes?: number | null;
+  requiresPresence?: boolean;
+  startAt?: string | null;
+  endAt?: string | null;
+  location?: string | null;
+  travelDurationMinutes?: number | null;
+  departureReminderAt?: string | null;
+};
+
+export async function updatePersonalTaskSchedule(
+  taskId: string,
+  patch: TaskSchedulePatch,
+): Promise<TaskItem> {
+  const fields: Database["public"]["Tables"]["tasks"]["Update"] = { updated_at: new Date().toISOString() };
+  if (patch.estimatedDurationMinutes !== undefined) fields.estimated_duration_minutes = patch.estimatedDurationMinutes;
+  if (patch.requiresPresence !== undefined) fields.requires_presence = patch.requiresPresence;
+  if (patch.startAt !== undefined) fields.start_at = patch.startAt;
+  if (patch.endAt !== undefined) fields.end_at = patch.endAt;
+  if (patch.location !== undefined) fields.location = patch.location;
+  if (patch.travelDurationMinutes !== undefined) fields.travel_duration_minutes = patch.travelDurationMinutes;
+  if (patch.departureReminderAt !== undefined) fields.departure_reminder_at = patch.departureReminderAt;
+
+  const { data, error } = await supabase
+    .from("tasks")
+    .update(fields)
+    .eq("id", taskId)
+    .select(TASK_COLUMNS)
+    .single();
+  if (error) {
+    const normalized = error.message.toLowerCase();
+    if (normalized.includes("tasks_event_needs_start")) throw new Error("Sự kiện cần giờ bắt đầu.");
+    if (normalized.includes("tasks_event_end_after_start")) throw new Error("Giờ kết thúc phải sau giờ bắt đầu.");
+    if (normalized.includes("tasks_departure_before_start")) throw new Error("Giờ nhắc lên đường phải trước giờ bắt đầu.");
+    if (normalized.includes("tasks_estimated_duration_range")) throw new Error("Thời lượng phải từ 1 phút đến 7 ngày.");
+    throw fail(error.code, error.message);
+  }
   return toTaskItem(data as TaskRow);
 }
 

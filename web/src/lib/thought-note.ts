@@ -23,18 +23,30 @@ export function thoughtNoteContent(thought: DailyThoughtView, note: string): str
  * private belongs. An empty note is refused rather than sent: silence is a legitimate answer
  * to a thought, and it should leave no entry at all.
  *
+ * The line also carries the thought's key, so the journal knows which day's thought it
+ * answers even after the wording on screen has moved on.
+ *
  * Returns the journal's conversation id, so the caller can offer to open it.
  */
 export async function saveThoughtNote(
   userId: string,
   thought: DailyThoughtView,
   note: string,
+  thoughtKey: string | null = null,
 ): Promise<string> {
   const trimmed = note.trim();
   if (trimmed === "") throw new Error("Chưa có gì để lưu.");
   if (trimmed.length > THOUGHT_NOTE_MAX_LEN)
     throw new Error(`Lời bình dài quá ${THOUGHT_NOTE_MAX_LEN} ký tự.`);
   const conversationId = await ensureJournalConversation();
-  await sendMessage(conversationId, userId, thoughtNoteContent(thought, trimmed));
+  await sendMessage(
+    conversationId,
+    userId,
+    thoughtNoteContent(thought, trimmed),
+    null,
+    [],
+    null,
+    thoughtKey,
+  );
   return conversationId;
 }

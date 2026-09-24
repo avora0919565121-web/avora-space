@@ -15,7 +15,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { celebrate, MILESTONE_BURSTS } from "@/lib/confetti";
+import { celebrate } from "@/lib/confetti";
+import { TaskHubNav } from "@/components/tasks/TaskHubNav";
+import { TaskHubSectionView } from "@/components/tasks/TaskHubSectionView";
+import { sectionBySlug, tasksForSection, TASK_HUB_PARAM, type TaskHubSection, type TaskHubSectionId } from "@/lib/task-hub";
+import { usePendingInvitationCount } from "@/lib/use-task-collab";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
@@ -397,14 +401,8 @@ function PersonalRow({
           void run(
             togglePersonalDone
               .mutateAsync({ taskId: task.id, done: true, output })
-              // A milestone is several pops in a row, on the whole screen — the canvas is
-              // parented to the document, so no open dialog or panel can clip it.
-              .then(() =>
-                celebrate(
-                  task.isMilestone ? "milestone" : "task",
-                  task.isMilestone ? MILESTONE_BURSTS : 1,
-                ),
-              ),
+              // Once, right after the completion is confirmed — never on load.
+              .then(() => celebrate(task.isMilestone ? "milestone" : "task")),
           );
         }}
       />
@@ -1526,6 +1524,27 @@ export default function Tasks() {
   // This person's own marks, which now break ties in every ordering on this page.
   const flags = useTaskFlagIndex();
 
+  /** Which Task Hub section is open. "Tasks" is the existing four readings, unchanged. */
+  const hubSection: TaskHubSection = sectionBySlug(searchParams.get(TASK_HUB_PARAM));
+  const invitationCount = usePendingInvitationCount();
+  const hubCounts = useMemo<Partial<Record<TaskHubSectionId, number>>>(() => {
+    const list = tasks ?? [];
+    return {
+      my_day: tasksForSection("my_day", list, userId, today).length,
+      overdue: tasksForSection("overdue", list, userId, today).length,
+      events: tasksForSection("events", list, userId, today).length,
+      invitations: invitationCount,
+    };
+  }, [tasks, userId, today, invitationCount]);
+  const selectHubSection = useCallback(
+    (section: TaskHubSection): void => {
+      const next = new URLSearchParams(searchParams);
+      next.set(TASK_HUB_PARAM, section.slug);
+      setSearchParams(next, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
   const { personal, sharedGroups, binned } = useMemo(() => {
     const all = filterByScope(tasks ?? [], scope);
     const split = partitionByBin(all, userId);
@@ -1647,7 +1666,25 @@ export default function Tasks() {
     <div className="paper min-h-screen flex-1 md:h-screen md:overflow-y-auto">
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
         <h1 className="text-[26px] font-semibold tracking-tight text-foreground sm:text-[28px]">Nhiệm vụ</h1>
-        <p className="mt-1 text-[14px] text-muted-foreground">
+
+        <div className="mt-4">
+          <TaskHubNav active={hubSection} counts={hubCounts} onChange={selectHubSection} />
+        </div>
+
+        {hubSection.id !== "tasks" ? (
+          <div className="mt-5 space-y-3 pb-10">
+            <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} />
+            {isLoading ? (
+              <div className="flex justify-center py-16" role="status" aria-label="Đang tải nhiệm vụ">
+                <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <TaskHubSectionView section={hubSection} tasks={tasks ?? []} userId={userId} today={today} onOpen={openTask} />
+            )}
+          </div>
+        ) : (
+        <>
+        <p className="mt-4 text-[14px] text-muted-foreground">
           {mode === "deadline"
             ? "Tất cả việc của bạn theo thứ tự phải làm trước."
             : mode === "relationship"
@@ -1740,6 +1777,8 @@ export default function Tasks() {
 
             {binned.length > 0 ? <BinSection tasks={binned} userId={userId} today={today} /> : null}
           </div>
+        )}
+        </>
         )}
       </div>
 

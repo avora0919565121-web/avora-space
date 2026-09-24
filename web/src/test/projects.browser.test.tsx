@@ -64,14 +64,13 @@ const CONVERSATIONS: ConversationSummary[] = [
   }),
 ];
 
-async function renderList(projects: Project[], onNewProject: () => void = () => {}) {
+async function renderList(projects: Project[]) {
   return await render(
     <MemoryRouter>
       <ProjectList
         projects={projects}
         conversations={CONVERSATIONS}
         activeProjectId={undefined}
-        onNewProject={onNewProject}
         isPending={false}
       />
     </MemoryRouter>,
@@ -130,14 +129,10 @@ describe("the Dự án tab groups projects by who can see them", () => {
     await expect.element(screen.getByText(/Chưa có dự án nhóm nào/)).toBeInTheDocument();
   });
 
-  test("offers to open a personal project, the one kind that starts outside a chat", async () => {
-    let opened = 0;
-    const screen = await renderList([], () => {
-      opened += 1;
-    });
-
-    await screen.getByRole("button", { name: "Dự án riêng mới" }).click();
-    expect(opened).toBe(1);
+  test("no longer offers to open a personal project — projects start inside a group", async () => {
+    await renderList([]);
+    expect(document.body.textContent).not.toContain("Dự án riêng mới");
+    expect(document.body.textContent).toContain("Dự án là việc của nhóm");
   });
 
   test("holds back a project whose conversation it cannot place, rather than mislabelling it", async () => {

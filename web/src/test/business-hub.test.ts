@@ -52,6 +52,7 @@ function record(
     priority: "trung_binh",
     category: null,
     nextActionDate: null,
+    remindAt: null,
     tags: [],
     notes: null,
     extensionFields: {},

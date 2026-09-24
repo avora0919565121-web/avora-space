@@ -110,6 +110,7 @@ export type Database = {
           owner_user_id: string
           priority: string
           project_id: string | null
+          remind_at: string | null
           status: string
           table_id: string
           tags: string[]
@@ -127,6 +128,7 @@ export type Database = {
           owner_user_id: string
           priority?: string
           project_id?: string | null
+          remind_at?: string | null
           status?: string
           table_id: string
           tags?: string[]
@@ -144,6 +146,7 @@ export type Database = {
           owner_user_id?: string
           priority?: string
           project_id?: string | null
+          remind_at?: string | null
           status?: string
           table_id?: string
           tags?: string[]
@@ -238,6 +241,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      checklist_items: {
+        Row: {
+          completed: boolean
+          completed_at: string | null
+          content: string
+          created_at: string
+          item_id: string
+          position: number
+          task_id: string
+        }
+        Insert: {
+          completed?: boolean
+          completed_at?: string | null
+          content: string
+          created_at?: string
+          item_id?: string
+          position?: number
+          task_id: string
+        }
+        Update: {
+          completed?: boolean
+          completed_at?: string | null
+          content?: string
+          created_at?: string
+          item_id?: string
+          position?: number
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_items_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       contact: {
         Row: {
@@ -1256,6 +1297,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -1271,6 +1313,7 @@ export type Database = {
           origin_content_id?: string | null
           origin_group_id?: string | null
           origin_sender_id?: string | null
+          reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
           sender_id: string
         }
@@ -1286,6 +1329,7 @@ export type Database = {
           origin_content_id?: string | null
           origin_group_id?: string | null
           origin_sender_id?: string | null
+          reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
           sender_id?: string
         }
@@ -1401,6 +1445,7 @@ export type Database = {
           display_name: string | null
           hide_typing_signal: boolean
           id: string
+          last_opened_date: string | null
           timezone: string
         }
         Insert: {
@@ -1411,6 +1456,7 @@ export type Database = {
           display_name?: string | null
           hide_typing_signal?: boolean
           id: string
+          last_opened_date?: string | null
           timezone?: string
         }
         Update: {
@@ -1421,6 +1467,7 @@ export type Database = {
           display_name?: string | null
           hide_typing_signal?: boolean
           id?: string
+          last_opened_date?: string | null
           timezone?: string
         }
         Relationships: [
@@ -1790,6 +1837,44 @@ export type Database = {
           },
         ]
       }
+      task_participants: {
+        Row: {
+          id: string
+          invitation_status: string
+          invited_at: string
+          invited_by: string
+          responded_at: string | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          invitation_status?: string
+          invited_at?: string
+          invited_by: string
+          responded_at?: string | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          id?: string
+          invitation_status?: string
+          invited_at?: string
+          invited_by?: string
+          responded_at?: string | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_participants_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_reminders: {
         Row: {
           created_at: string
@@ -1827,6 +1912,38 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "task_reminders_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_resources: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          resource_id: string
+          task_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string
+          resource_id?: string
+          task_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          resource_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_resources_task_id_fkey"
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
@@ -1930,11 +2047,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -1943,12 +2066,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -1968,11 +2094,17 @@ export type Database = {
           deleted_by_creator?: boolean
           deleted_by_peer?: boolean
           deliverable_id?: string | null
+          departure_reminder_at?: string | null
           description?: string
           done_at?: string | null
+          end_at?: string | null
+          estimated_duration_minutes?: number | null
           id?: string
           is_important?: boolean
           is_milestone?: boolean
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
           objective_id?: string | null
           opportunity_id?: string | null
           output_value?: string | null
@@ -1981,12 +2113,15 @@ export type Database = {
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
           recurrence_spawned_at?: string | null
+          requires_presence?: boolean
           skipped_at?: string | null
           skipped_silently?: boolean
+          start_at?: string | null
           status?: string
           task_category_id?: string | null
           task_list_id?: string | null
           title: string
+          travel_duration_minutes?: number | null
           type: string
           updated_at?: string
         }
@@ -2006,11 +2141,17 @@ export type Database = {
           deleted_by_creator?: boolean
           deleted_by_peer?: boolean
           deliverable_id?: string | null
+          departure_reminder_at?: string | null
           description?: string
           done_at?: string | null
+          end_at?: string | null
+          estimated_duration_minutes?: number | null
           id?: string
           is_important?: boolean
           is_milestone?: boolean
+          latitude?: number | null
+          location?: string | null
+          longitude?: number | null
           objective_id?: string | null
           opportunity_id?: string | null
           output_value?: string | null
@@ -2019,12 +2160,15 @@ export type Database = {
           recurrence_origin_id?: string | null
           recurrence_pattern?: Json | null
           recurrence_spawned_at?: string | null
+          requires_presence?: boolean
           skipped_at?: string | null
           skipped_silently?: boolean
+          start_at?: string | null
           status?: string
           task_category_id?: string | null
           task_list_id?: string | null
           title?: string
+          travel_duration_minutes?: number | null
           type?: string
           updated_at?: string
         }
@@ -2236,11 +2380,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -2249,12 +2399,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -2402,11 +2555,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -2415,12 +2574,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -2449,11 +2611,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -2462,12 +2630,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -2516,11 +2687,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -2529,12 +2706,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -2583,11 +2763,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -2596,12 +2782,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -2635,6 +2824,7 @@ export type Database = {
           owner_user_id: string
           priority: string
           project_id: string | null
+          remind_at: string | null
           status: string
           table_id: string
           tags: string[]
@@ -2891,11 +3081,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -2904,12 +3100,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -2990,11 +3189,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3003,12 +3208,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3032,6 +3240,7 @@ export type Database = {
           owner_user_id: string
           priority: string
           project_id: string | null
+          remind_at: string | null
           status: string
           table_id: string
           tags: string[]
@@ -3086,11 +3295,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3099,12 +3314,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3159,6 +3377,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -3319,6 +3538,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      invite_task_participant: {
+        Args: { p_task_id: string; p_user_id: string }
+        Returns: {
+          id: string
+          invitation_status: string
+          invited_at: string
+          invited_by: string
+          responded_at: string | null
+          task_id: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_participants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       is_task_assignee: {
         Args: {
           p_task: Database["public"]["Tables"]["tasks"]["Row"]
@@ -3414,11 +3651,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3427,12 +3670,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3465,11 +3711,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3478,12 +3730,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3512,11 +3767,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3525,12 +3786,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3590,6 +3854,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -3643,6 +3908,24 @@ export type Database = {
         Args: { approve: boolean; target_request_id: string }
         Returns: undefined
       }
+      respond_task_invitation: {
+        Args: { p_accept: boolean; p_participant_id: string }
+        Returns: {
+          id: string
+          invitation_status: string
+          invited_at: string
+          invited_by: string
+          responded_at: string | null
+          task_id: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "task_participants"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       restore_1_1_task: {
         Args: { p_task_id: string }
         Returns: {
@@ -3661,11 +3944,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3674,12 +3963,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3703,6 +3995,7 @@ export type Database = {
           owner_user_id: string
           priority: string
           project_id: string | null
+          remind_at: string | null
           status: string
           table_id: string
           tags: string[]
@@ -3753,11 +4046,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3766,12 +4065,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3800,11 +4102,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3813,12 +4121,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3847,11 +4158,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3860,12 +4177,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3894,11 +4214,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -3907,12 +4233,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -3993,6 +4322,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
         }
@@ -4069,11 +4399,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -4082,12 +4418,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -4150,6 +4489,7 @@ export type Database = {
           owner_user_id: string
           priority: string
           project_id: string | null
+          remind_at: string | null
           status: string
           table_id: string
           tags: string[]
@@ -4276,11 +4616,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -4289,12 +4635,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -4328,11 +4677,17 @@ export type Database = {
           deleted_by_creator: boolean
           deleted_by_peer: boolean
           deliverable_id: string | null
+          departure_reminder_at: string | null
           description: string
           done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
           id: string
           is_important: boolean
           is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
           objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
@@ -4341,12 +4696,15 @@ export type Database = {
           recurrence_origin_id: string | null
           recurrence_pattern: Json | null
           recurrence_spawned_at: string | null
+          requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          start_at: string | null
           status: string
           task_category_id: string | null
           task_list_id: string | null
           title: string
+          travel_duration_minutes: number | null
           type: string
           updated_at: string
         }
@@ -4356,6 +4714,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      withdraw_task_invitation: {
+        Args: { p_participant_id: string }
+        Returns: undefined
       }
       withdraw_task_suggestion: {
         Args: { p_suggestion_id: string }

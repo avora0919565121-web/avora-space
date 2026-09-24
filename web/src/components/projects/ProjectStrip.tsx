@@ -11,6 +11,10 @@ import { cn } from "@/lib/utils";
  * Deliberately NOT part of the pinned-messages strip. A pin says "read this line again"; a
  * project says "this is what we are building". Folding them together would mean one collapse
  * hides both, and the count on the strip could no longer be trusted to mean either.
+ *
+ * Group threads only: projects are group work. Shown even when the room has none yet, because
+ * this strip is where "Tạo dự án" lives — hiding it until a project exists would leave no way
+ * to open the first one.
  */
 export function ProjectStrip({
   projects,
@@ -24,7 +28,7 @@ export function ProjectStrip({
 }) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
-  if (projects.length === 0) return null;
+  if (projects.length === 0 && !canCreate) return null;
 
   return (
     <section
@@ -53,8 +57,9 @@ export function ProjectStrip({
           <span className="tabular text-[11.5px] text-muted-foreground">{projects.length}</span>
           {!isOpen ? (
             <span className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
-              {projects[0].title}
-              {projects.length > 1 ? ` +${projects.length - 1}` : ""}
+              {projects.length === 0
+                ? "Chạm để tạo dự án đầu tiên cho nhóm"
+                : `${projects[0].title}${projects.length > 1 ? ` +${projects.length - 1}` : ""}`}
             </span>
           ) : null}
         </button>
@@ -90,7 +95,7 @@ export function ProjectStrip({
                     strokeWidth={2.1}
                     aria-hidden="true"
                   />
-                  <span className="text-[13px] text-muted-foreground">Dự án mới ở đây</span>
+                  <span className="text-[13px] text-muted-foreground">Tạo dự án</span>
                 </button>
               </li>
             ) : null}

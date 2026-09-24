@@ -394,7 +394,10 @@ describe("an invitation on its way", () => {
   });
 
   it("finds the one still waiting", () => {
-    expect(pendingInvite([invite({ status: "accepted" }), invite({ id: "i2" })])?.id).toBe("i2");
+    // A fixed "now" inside the 14-day window, so the fixture does not expire with the calendar.
+    expect(
+      pendingInvite([invite({ status: "accepted" }), invite({ id: "i2" })], new Date("2026-09-12T00:00:00Z"))?.id,
+    ).toBe("i2");
   });
 
   /**

@@ -3,11 +3,14 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { useAuth } from "@/lib/auth";
+import { useNewDayLanding } from "@/lib/use-new-day-landing";
 
 /** Gate for every signed-in screen; renders the shared site navigation around the page. */
 export function RequireAuth() {
   const { session, isLoading, isRecovering } = useAuth();
   const location = useLocation();
+  // Before any early return, so the hook order never changes between renders.
+  useNewDayLanding(session !== null && !isRecovering ? session?.user.id : undefined);
 
   if (isLoading) {
     return (

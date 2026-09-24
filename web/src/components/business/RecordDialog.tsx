@@ -34,10 +34,21 @@ type Draft = {
   priority: RecordPriority;
   category: string;
   nextActionDate: string;
+  /** `YYYY-MM-DDTHH:MM` in local time, as a datetime-local input speaks it. */
+  remindAt: string;
   tags: string;
   notes: string;
   extension: Record<string, string>;
 };
+
+/** An ISO instant as the local `YYYY-MM-DDTHH:MM` a datetime-local field shows. */
+function toLocalInput(iso: string | null | undefined): string {
+  if (iso === null || iso === undefined) return "";
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return "";
+  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60_000);
+  return local.toISOString().slice(0, 16);
+}
 
 function draftOf(record: BusinessRecord | null, columns: readonly ColumnDef[]): Draft {
   const extension: Record<string, string> = {};
@@ -52,6 +63,7 @@ function draftOf(record: BusinessRecord | null, columns: readonly ColumnDef[]): 
     priority: record?.priority ?? "trung_binh",
     category: record?.category ?? "",
     nextActionDate: record?.nextActionDate ?? "",
+    remindAt: toLocalInput(record?.remindAt),
     tags: (record?.tags ?? []).join(", "),
     notes: record?.notes ?? "",
     extension,
@@ -130,6 +142,7 @@ export function RecordDialog({
           priority: draft.priority,
           category: draft.category.trim().length === 0 ? null : draft.category.trim(),
           nextActionDate: draft.nextActionDate.length === 0 ? null : draft.nextActionDate,
+          remindAt: draft.remindAt.length === 0 ? null : new Date(draft.remindAt).toISOString(),
           tags: draft.tags
             .split(",")
             .map((tag) => tag.trim())
@@ -242,6 +255,22 @@ export function RecordDialog({
                 className={fieldClass}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="record-remind-at" className={labelClass}>
+              Nhắc tôi xem lại
+            </label>
+            <input
+              id="record-remind-at"
+              type="datetime-local"
+              value={draft.remindAt}
+              onChange={(event) => setField("remindAt", event.target.value)}
+              className={fieldClass}
+            />
+            <p className="mt-1 text-[12.5px] text-muted-foreground">
+              Tới lúc đó, mục này sẽ hiện ở Góc hoạch định trên Avora Space. Để trống nếu không cần.
+            </p>
           </div>
 
           <div>

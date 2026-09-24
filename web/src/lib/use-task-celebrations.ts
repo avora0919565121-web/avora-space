@@ -2,21 +2,17 @@ import { useEffect, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { useAuth } from "@/lib/auth";
-import { burstsFor, celebrationKeys, fetchPendingCelebrations, hasMilestone, markCelebrationsSeen } from "@/lib/task-celebrations";
-import { celebrate } from "@/lib/confetti";
+import { celebrationKeys, fetchPendingCelebrations, markCelebrationsSeen } from "@/lib/task-celebrations";
 import { useDocumentVisible } from "@/lib/use-document-visible";
 
 /**
- * Plays the celebrations that were waiting in a conversation, once.
+ * Settles the celebrations that were waiting in a conversation — without playing them.
  *
- * This is the other half of the live burst, not a replacement for it: whoever is looking
- * when work closes still sees it immediately over realtime. This covers the far more common
- * case — nobody was there — by keeping the moment until they next open the room.
- *
- * Three rules make it a celebration rather than a notification:
- *  - it fires only when the conversation is actually on screen (a hidden tab is not visiting),
- *  - it is marked seen straight after playing, so it never greets the same person twice,
- *  - a failed write leaves it pending, because replaying beats losing it.
+ * The completion effect belongs to the moment someone actually confirms the work. Replaying it
+ * when a room is opened later would be an effect on load for work finished before the screen
+ * appeared, which is exactly what it must not do. The waiting entries are still marked seen, so
+ * nothing piles up and nothing plays late. The live moment is unchanged: whoever confirms sees
+ * it, and whoever is looking when a milestone closes sees it over realtime.
  */
 export function useThreadCelebrations(conversationId: string | undefined): void {
   const { user } = useAuth();
@@ -38,7 +34,7 @@ export function useThreadCelebrations(conversationId: string | undefined): void 
     },
   });
 
-  /** Which task ids this page has already celebrated, so a refetch cannot replay them. */
+  /** Which task ids this page has already settled, so a refetch cannot resend the write. */
   const playedRef = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -48,7 +44,6 @@ export function useThreadCelebrations(conversationId: string | undefined): void 
 
     for (const entry of pending) playedRef.current.add(entry.taskId);
 
-    celebrate(hasMilestone(pending) ? "milestone" : "task", burstsFor(pending));
     markSeen(pending.map((entry) => entry.taskId));
   }, [conversationId, userId, isVisible, data, markSeen]);
 }

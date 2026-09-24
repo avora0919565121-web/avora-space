@@ -98,6 +98,11 @@ export type BusinessRecord = {
   priority: RecordPriority;
   category: string | null;
   nextActionDate: string | null;
+  /**
+   * When the owner asked to have this record brought back on Avora Space. Separate from
+   * `nextActionDate`: one is when the work is due, the other is when to think about it.
+   */
+  remindAt: string | null;
   tags: readonly string[];
   notes: string | null;
   extensionFields: Readonly<Record<string, ExtensionValue>>;
@@ -171,6 +176,7 @@ type RecordRow = {
   priority: string;
   category: string | null;
   next_action_date: string | null;
+  remind_at?: string | null;
   tags: string[] | null;
   notes: string | null;
   extension_fields: unknown;
@@ -255,6 +261,7 @@ function toRecord(row: RecordRow): BusinessRecord {
     priority: isRecordPriority(row.priority) ? row.priority : "trung_binh",
     category: row.category,
     nextActionDate: row.next_action_date,
+    remindAt: row.remind_at ?? null,
     tags: row.tags ?? [],
     notes: row.notes,
     extensionFields: parseExtensionFields(row.extension_fields),
@@ -575,6 +582,8 @@ export type NewRecordInput = {
   priority?: RecordPriority;
   category?: string | null;
   nextActionDate?: string | null;
+  /** Set in a second call: the create RPC's signature is left untouched. */
+  remindAt?: string | null;
   tags?: readonly string[];
   notes?: string | null;
   extensionFields?: Readonly<Record<string, ExtensionValue>>;
@@ -595,7 +604,9 @@ export async function createBusinessRecord(input: NewRecordInput): Promise<Busin
       input.extensionFields === undefined ? undefined : { ...input.extensionFields },
   });
   if (error) throw fail(error.code, error.message);
-  return toRecord(data as unknown as RecordRow);
+  const created = toRecord(data as unknown as RecordRow);
+  if (input.remindAt === undefined || input.remindAt === null) return created;
+  return updateBusinessRecord(created.id, { remindAt: input.remindAt });
 }
 
 export type RecordPatch = {
@@ -604,6 +615,8 @@ export type RecordPatch = {
   priority?: RecordPriority;
   category?: string | null;
   nextActionDate?: string | null;
+  /** An ISO instant, or null to clear. */
+  remindAt?: string | null;
   tags?: readonly string[];
   notes?: string | null;
   extensionFields?: Readonly<Record<string, ExtensionValue>>;
@@ -627,6 +640,7 @@ export async function updateBusinessRecord(
   if (patch.priority !== undefined) body.priority = patch.priority;
   if (patch.category !== undefined) body.category = patch.category;
   if (patch.nextActionDate !== undefined) body.next_action_date = patch.nextActionDate;
+  if (patch.remindAt !== undefined) body.remind_at = patch.remindAt;
   if (patch.tags !== undefined) body.tags = [...patch.tags];
   if (patch.notes !== undefined) body.notes = patch.notes;
   if (patch.extensionFields !== undefined) body.extension_fields = { ...patch.extensionFields };
