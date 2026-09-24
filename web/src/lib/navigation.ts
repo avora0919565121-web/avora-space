@@ -39,7 +39,7 @@ export const NAV_ITEMS: readonly NavEntry[] = [
   { to: "/nhiem-vu", label: "Nhiệm vụ" },
   // Above Két sắt, below Nhiệm vụ: the HUB is work being done, and it belongs beside the
   // other doing screens rather than beside the one that keeps things safe.
-  { to: "/business-hub", label: "Business HUB" },
+  { to: "/ke-hoach", label: "Kế hoạch" },
   { to: "/ket-sat", label: "Két sắt" },
   { to: "/cai-dat", label: "Cài đặt" },
 ];
@@ -68,6 +68,7 @@ export const LEGACY_ROUTES: Readonly<Record<string, string>> = {
   "/tai-chinh/tai-khoan": "/ket-sat/tai-khoan",
   "/tai-chinh/bao-cao": "/ket-sat/bao-cao",
   "/ho-so": "/cai-dat",
+  "/business-hub": "/ke-hoach",
 };
 
 /**

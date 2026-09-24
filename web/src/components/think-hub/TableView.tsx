@@ -4,16 +4,19 @@ import {
   cellValue,
   priorityLabel,
   statusLabel,
-  type BusinessRecord,
+  type ThinkRecord,
   type ColumnDef,
-} from "@/lib/business-hub";
+} from "@/lib/think-hub";
 import { cn } from "@/lib/utils";
 
 type TableViewProps = {
-  records: readonly BusinessRecord[];
+  records: readonly ThinkRecord[];
   columns: readonly ColumnDef[];
-  onOpenRecord: (record: BusinessRecord) => void;
-  onAddColumn: () => void;
+  onOpenRecord: (record: ThinkRecord) => void;
+  /** Absent when the viewer does not own the table: only its owner reshapes it. */
+  onAddColumn?: () => void;
+  /** Renames by the column's permanent id; absent for anyone but the owner. */
+  onRenameColumn?: (column: ColumnDef) => void;
   today: string;
 };
 
@@ -28,6 +31,7 @@ export function TableView({
   columns,
   onOpenRecord,
   onAddColumn,
+  onRenameColumn,
   today,
 }: TableViewProps) {
   const headClass =
@@ -61,11 +65,23 @@ export function TableView({
               Ghi chú
             </th>
             {columns.map((column) => (
-              <th key={column.key} scope="col" className={headClass}>
-                {column.label}
+              <th key={column.id} scope="col" className={headClass}>
+                {onRenameColumn !== undefined ? (
+                  <button
+                    type="button"
+                    onClick={() => onRenameColumn(column)}
+                    title="Đổi tên cột"
+                    className="press rounded px-1 -mx-1 uppercase tracking-wide transition-colors hover:bg-accent/40 hover:text-foreground"
+                  >
+                    {column.label}
+                  </button>
+                ) : (
+                  column.label
+                )}
               </th>
             ))}
             <th scope="col" className="px-2 py-2.5 text-right">
+              {onAddColumn !== undefined ? (
               <button
                 type="button"
                 onClick={onAddColumn}
@@ -74,6 +90,7 @@ export function TableView({
                 <Plus className="h-[14px] w-[14px]" strokeWidth={2} aria-hidden="true" />
                 Thêm cột
               </button>
+              ) : null}
             </th>
           </tr>
         </thead>
@@ -83,7 +100,7 @@ export function TableView({
               {/* The columns stay on screen above this: an empty table still has to show the
                   shape it is offering, or there is nothing to decide about before writing. */}
               <td colSpan={8 + columns.length} className="px-3 py-8 text-center text-[14.5px] text-muted-foreground">
-                Bảng này chưa có mục nào. Bấm "Thêm mục" để ghi mục đầu tiên.
+                Bảng này chưa có Hạng mục nào. Bấm "Thêm Hạng mục" để ghi cái đầu tiên.
               </td>
             </tr>
           ) : null}
@@ -129,7 +146,7 @@ export function TableView({
                   <span className="line-clamp-2">{record.notes ?? ""}</span>
                 </td>
                 {columns.map((column) => (
-                  <td key={column.key} className={cn(cellClass, "text-muted-foreground")}>
+                  <td key={column.id} className={cn(cellClass, "text-muted-foreground")}>
                     {cellValue(record, column)}
                   </td>
                 ))}

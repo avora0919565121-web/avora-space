@@ -16,21 +16,21 @@ describe("the main navigation", () => {
       "Avora Space",
       "Tin nhắn",
       "Nhiệm vụ",
-      "Business HUB",
+      "Kế hoạch",
       "Két sắt",
       "Cài đặt",
     ]);
   });
 
   /**
-   * Business HUB sits among the screens where work gets done, not beside the one that keeps
+   * Think Hub sits among the screens where work gets done, not beside the one that keeps
    * things safe. Két sắt and Cài đặt stay last because they are where someone goes
    * occasionally, not where they spend a working day.
    */
-  it("puts Business HUB with the doing screens, above Két sắt", () => {
+  it("puts Think Hub with the doing screens, above Két sắt", () => {
     const labels = NAV_ITEMS.map((item) => item.label);
-    expect(labels.indexOf("Business HUB")).toBeGreaterThan(labels.indexOf("Nhiệm vụ"));
-    expect(labels.indexOf("Business HUB")).toBeLessThan(labels.indexOf("Két sắt"));
+    expect(labels.indexOf("Kế hoạch")).toBeGreaterThan(labels.indexOf("Nhiệm vụ"));
+    expect(labels.indexOf("Kế hoạch")).toBeLessThan(labels.indexOf("Két sắt"));
   });
 
   it("keeps the dashboard on the route it was published under", () => {

@@ -320,7 +320,7 @@ const FinanceTransactions = () => {
   if (categoryFilter !== null) {
     filterChips.push({
       key: "hang_muc",
-      label: categories.find((category) => category.id === categoryFilter)?.name ?? "Hạng mục",
+      label: categories.find((category) => category.id === categoryFilter)?.name ?? "Danh mục",
     });
   }
   if (accountFilter !== null) {
@@ -390,7 +390,7 @@ const FinanceTransactions = () => {
                 <input
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Tìm theo diễn giải, hạng mục hoặc tài khoản"
+                  placeholder="Tìm theo diễn giải, danh mục hoặc tài khoản"
                   className={cn(inputClass, "pl-9")}
                 />
               </label>
@@ -598,7 +598,7 @@ const FinanceTransactions = () => {
                 </dd>
               </div>
               <div className="flex justify-between gap-4">
-                <dt className="text-muted-foreground">Hạng mục</dt>
+                <dt className="text-muted-foreground">Danh mục</dt>
                 <dd className="flex items-center gap-2 text-foreground">
                   <span
                     aria-hidden="true"

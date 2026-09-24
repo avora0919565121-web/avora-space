@@ -112,8 +112,8 @@ export const REPORT_DEFINITIONS: readonly ReportDefinition[] = [
   },
   {
     id: "category-breakdown",
-    label: "Phân bổ theo hạng mục",
-    description: "Tỉ trọng từng hạng mục trong tổng thu và tổng chi.",
+    label: "Phân bổ theo danh mục",
+    description: "Tỉ trọng từng danh mục trong tổng thu và tổng chi.",
     kind: "personal",
   },
   {
@@ -365,11 +365,11 @@ function buildCategoryBreakdown(context: ReportContext): ReportResult {
 
   return {
     id: "category-breakdown",
-    title: "Phân bổ theo hạng mục",
+    title: "Phân bổ theo danh mục",
     subtitle: rangeSubtitle(context.from, context.to),
     columns: [
       { key: "group", label: "Nhóm", kind: "text" },
-      { key: "category", label: "Hạng mục", kind: "text" },
+      { key: "category", label: "Danh mục", kind: "text" },
       { key: "amount", label: "Số tiền", kind: "money" },
       { key: "share", label: "Tỉ trọng", kind: "percent" },
     ],
@@ -378,7 +378,7 @@ function buildCategoryBreakdown(context: ReportContext): ReportResult {
       { label: "Tổng thu", value: totals.incomeCents, kind: "money", tone: "positive" },
       { label: "Tổng chi", value: totals.expenseCents, kind: "money", tone: "negative" },
       {
-        label: "Hạng mục đã dùng",
+        label: "Danh mục đã dùng",
         value: incomeTotals.length + expenseTotals.length,
         kind: "count",
         tone: "neutral",
@@ -479,7 +479,7 @@ function buildAccountStatement(context: ReportContext): ReportResult {
     columns: [
       { key: "date", label: "Ngày", kind: "date" },
       { key: "description", label: "Diễn giải", kind: "text" },
-      { key: "category", label: "Hạng mục", kind: "text" },
+      { key: "category", label: "Danh mục", kind: "text" },
       { key: "income", label: "Thu", kind: "money" },
       { key: "expense", label: "Chi", kind: "money" },
       { key: "balance", label: "Số dư", kind: "money" },
@@ -651,7 +651,7 @@ function buildGiving(context: ReportContext): ReportResult {
     subtitle: rangeSubtitle(context.from, context.to),
     columns: [
       { key: "date", label: "Ngày", kind: "date" },
-      { key: "category", label: "Hạng mục", kind: "text" },
+      { key: "category", label: "Danh mục", kind: "text" },
       { key: "description", label: "Diễn giải", kind: "text" },
       { key: "amount", label: "Số tiền", kind: "money" },
     ],
@@ -872,7 +872,7 @@ function buildDeductibleSummary(context: ReportContext): ReportResult {
     subtitle: rangeSubtitle(context.from, context.to),
     columns: [
       { key: "date", label: "Ngày", kind: "date" },
-      { key: "category", label: "Hạng mục", kind: "text" },
+      { key: "category", label: "Danh mục", kind: "text" },
       { key: "description", label: "Diễn giải", kind: "text" },
       { key: "purpose", label: "Mục đích kinh doanh", kind: "text" },
       { key: "amount", label: "Số tiền", kind: "money" },

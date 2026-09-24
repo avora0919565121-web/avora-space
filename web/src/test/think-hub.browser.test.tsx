@@ -1,13 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, test, vi } from "vitest";
 import { userEvent } from "vitest/browser";
+import { MemoryRouter } from "react-router-dom";
 import { render } from "vitest-browser-react";
 
-import type { BusinessRecord, BusinessTable, RecordPatch } from "@/lib/business-hub";
+import type { ThinkRecord, ThinkTable, RecordPatch } from "@/lib/think-hub";
 
 const state = vi.hoisted(() => ({
-  tables: [] as BusinessTable[],
-  records: [] as BusinessRecord[],
+  tables: [] as ThinkTable[],
+  records: [] as ThinkRecord[],
   ensured: 0,
   createdTables: [] as string[],
   createdRecords: [] as { tableId: string; title: string; extension: unknown }[],
@@ -18,18 +19,21 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
+vi.mock("@/lib/use-conversations", () => ({ useConversations: () => ({ data: [] }) }));
+vi.mock("@/lib/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
 
 // The reads and writes are the boundary; everything above them is the reasoning this file is
 // about — what a first visit shows, what the two views do with the same records, and what
 // happens at the ceiling.
-vi.mock("@/lib/business-hub", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/business-hub")>("@/lib/business-hub");
+vi.mock("@/lib/think-hub", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/think-hub")>("@/lib/think-hub");
 
-  function table(over: Partial<BusinessTable> & { id: string; name: string }): BusinessTable {
+  function table(over: Partial<ThinkTable> & { id: string; name: string }): ThinkTable {
     return {
       ownerUserId: "u-me",
       position: 0,
       columns: [],
+      projectId: null, conversationId: null, parentRecordId: null, depth: 1, purpose: null, 
       createdAt: "2026-09-01T00:00:00Z",
       updatedAt: "2026-09-01T00:00:00Z",
       deletedAt: null,
@@ -39,22 +43,22 @@ vi.mock("@/lib/business-hub", async () => {
 
   return {
     ...actual,
-    fetchBusinessTables: async () => state.tables,
-    fetchBusinessRecords: async () => state.records,
+    fetchThinkTables: async () => state.tables,
+    fetchThinkRecords: async () => state.records,
     ensureDefaultTable: async () => {
       state.ensured += 1;
       const row = table({ id: "t-default", name: "Bảng tổng hợp" });
       state.tables = [row];
       return row;
     },
-    createBusinessTable: async (name: string) => {
+    createThinkTable: async ({ name }: { name: string }) => {
       state.createdTables.push(name);
       state.nextId += 1;
       const row = table({ id: `t-new-${state.nextId}`, name, position: state.tables.length });
       state.tables = [...state.tables, row];
       return row;
     },
-    addBusinessColumn: async (input: {
+    addThinkColumn: async (input: {
       tableId: string;
       label: string;
       type: string;
@@ -70,6 +74,7 @@ vi.mock("@/lib/business-hub", async () => {
               columns: [
                 ...entry.columns,
                 {
+                  id: key,
                   key,
                   label: input.label,
                   type: input.type as "text" | "number" | "date" | "select",
@@ -79,9 +84,9 @@ vi.mock("@/lib/business-hub", async () => {
             }
           : entry,
       );
-      return state.tables.find((entry) => entry.id === input.tableId) as BusinessTable;
+      return state.tables.find((entry) => entry.id === input.tableId) as ThinkTable;
     },
-    createBusinessRecord: async (input: {
+    createThinkRecord: async (input: {
       tableId: string;
       title: string;
       status?: string;
@@ -94,7 +99,7 @@ vi.mock("@/lib/business-hub", async () => {
         extension: input.extensionFields,
       });
       state.nextId += 1;
-      const row: BusinessRecord = {
+      const row: ThinkRecord = {
         id: `r-new-${state.nextId}`,
         tableId: input.tableId,
         ownerUserId: "u-me",
@@ -115,21 +120,21 @@ vi.mock("@/lib/business-hub", async () => {
       state.records = [row, ...state.records];
       return row;
     },
-    updateBusinessRecord: async (recordId: string, patch: RecordPatch) => {
+    updateThinkRecord: async (recordId: string, patch: RecordPatch) => {
       state.patched.push({ recordId, patch });
       state.records = state.records.map((entry) =>
         entry.id === recordId ? { ...entry, ...patch, tags: patch.tags ?? entry.tags } : entry,
       );
-      return state.records.find((entry) => entry.id === recordId) as BusinessRecord;
+      return state.records.find((entry) => entry.id === recordId) as ThinkRecord;
     },
   };
 });
 
-const BusinessHub = (await import("@/pages/BusinessHub")).default;
+const ThinkHub = (await import("@/pages/ThinkHub")).default;
 
 function record(
-  over: Partial<BusinessRecord> & { id: string; tableId: string },
-): BusinessRecord {
+  over: Partial<ThinkRecord> & { id: string; tableId: string },
+): ThinkRecord {
   return {
     ownerUserId: "u-me",
     title: "Một mục",
@@ -150,12 +155,13 @@ function record(
 }
 
 function businessTable(
-  over: Partial<BusinessTable> & { id: string; name: string },
-): BusinessTable {
+  over: Partial<ThinkTable> & { id: string; name: string },
+): ThinkTable {
   return {
     ownerUserId: "u-me",
     position: 0,
     columns: [],
+    projectId: null, conversationId: null, parentRecordId: null, depth: 1, purpose: null, 
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
@@ -168,7 +174,9 @@ async function open() {
   return await render(
     <div style={{ width: 1100 }}>
       <QueryClientProvider client={client}>
-        <BusinessHub />
+        <MemoryRouter>
+          <ThinkHub />
+        </MemoryRouter>
       </QueryClientProvider>
     </div>,
   );
@@ -317,7 +325,7 @@ test("a record is written with only a title", async () => {
   state.tables = [businessTable({ id: "t-1", name: "Bảng tổng hợp" })];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Thêm mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Kho Long Biên");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -332,12 +340,12 @@ test("a cell left blank is saved as nothing at all", async () => {
     businessTable({
       id: "t-1",
       name: "Bảng tổng hợp",
-      columns: [{ key: "col_1", label: "Giá trị", type: "number" }],
+      columns: [{ id: "col_1", key: "col_1", label: "Giá trị", type: "number" }],
     }),
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Thêm mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Chưa định giá");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -349,12 +357,12 @@ test("a number column refuses a word, and says which column it means", async () 
     businessTable({
       id: "t-1",
       name: "Bảng tổng hợp",
-      columns: [{ key: "col_1", label: "Giá trị", type: "number" }],
+      columns: [{ id: "col_1", key: "col_1", label: "Giá trị", type: "number" }],
     }),
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Thêm mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Khách sạn ABC");
   await userEvent.fill(screen.getByLabelText("Giá trị"), "nhiều lắm");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
@@ -378,10 +386,10 @@ test("a full table says so instead of opening the form", async () => {
     .element(screen.getByText(/Bảng đã đầy 1\.000 mục, hãy dọn bớt trước khi thêm\./))
     .toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole("button", { name: "Thêm mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
 
   expect(state.createdRecords).toEqual([]);
-  expect(screen.container.textContent).not.toContain("Mục mới");
+  expect(screen.container.textContent).not.toContain("Hạng mục mới");
 });
 
 /** A table one short of the ceiling behaves completely normally. */
@@ -394,7 +402,7 @@ test("a table one record short of the ceiling still accepts one", async () => {
   const screen = await open();
   expect(screen.container.textContent).not.toContain("Bảng đã đầy");
 
-  await userEvent.click(screen.getByRole("button", { name: "Thêm mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Mục cuối cùng");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -441,7 +449,7 @@ test("the overview counts what is due across all the tables at once", async () =
 
   const screen = await open();
 
-  const space = screen.getByRole("region", { name: "Business Space" });
+  const space = screen.getByRole("region", { name: "Tổng quan kế hoạch" });
   await expect.element(space).toBeInTheDocument();
   await expect
     .element(screen.getByText(/3 mục cần theo dõi, trong đó 1 mục đã quá hạn\./))

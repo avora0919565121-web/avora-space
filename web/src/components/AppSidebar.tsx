@@ -31,7 +31,7 @@ const NAV_ICONS: Readonly<Record<string, LucideIcon>> = {
   "/nhiem-vu": ListTodo,
   // A briefcase, shared with nothing else in the rail: Vault keeps the safe, ListTodo the
   // task list, MessageSquareText the inbox.
-  "/business-hub": Briefcase,
+  "/ke-hoach": Briefcase,
   "/ket-sat": Vault,
   "/cai-dat": Settings,
 };

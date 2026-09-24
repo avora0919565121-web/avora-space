@@ -182,11 +182,11 @@ const FinanceAccounts = () => {
         const result = await removeCategory.mutateAsync(category.id);
         toast.success(
           result.retired
-            ? "Hạng mục đã có giao dịch nên được ẩn đi, lịch sử giữ nguyên."
-            : "Đã xoá hạng mục.",
+            ? "Danh mục đã có giao dịch nên được ẩn đi, lịch sử giữ nguyên."
+            : "Đã xoá danh mục.",
         );
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không xoá được hạng mục.");
+        toast.error(error instanceof Error ? error.message : "Không xoá được danh mục.");
       }
     },
     [removeCategory],
@@ -337,8 +337,8 @@ const FinanceAccounts = () => {
       ) : null}
 
       <div className="mt-3 grid gap-3 lg:grid-cols-2">
-        <Panel title="Hạng mục thu">{renderCategoryList(incomeCategories, "income")}</Panel>
-        <Panel title="Hạng mục chi">{renderCategoryList(expenseCategories, "expense")}</Panel>
+        <Panel title="Danh mục thu">{renderCategoryList(incomeCategories, "income")}</Panel>
+        <Panel title="Danh mục chi">{renderCategoryList(expenseCategories, "expense")}</Panel>
       </div>
 
       <AccountDialog

@@ -1442,6 +1442,34 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   send and the server has never heard of this message. They survive switching threads but not a reload.
 - 2026-09-24 — Trust Phase 1 (ADR-020): `messages` and `message_attachments` carry nullable `key_version` and
   `algorithm_version`, written in pairs and only by the server. Nothing is encrypted yet; null means plaintext.
+- 2026-09-24 — Business HUB is Think Hub (ADR-001): tables `think_hub_table` / `think_hub_record`, nav label
+  "Kế hoạch" at `/ke-hoach` (the old `/business-hub` redirects). A record is called "Hạng mục" on screen
+  (ADR-022); Tài chính's income/expense categories became "Danh mục" so the two never share a word.
+- 2026-09-24 — A Think Hub table has exactly one scope — personal (Diary), one 1-1 or group conversation, or one
+  project — and the scope is the permission: the people who can read that place can read and add Hạng mục; only
+  the table's owner renames it, reshapes columns or puts it away. Clients hold SELECT only; every write is a server
+  function that re-checks scope. A Hạng mục must be written from its table's own scope (a group table cannot take a
+  Diary record even from someone who can read both), and the picker lists only in-scope tables.
+- 2026-09-24 — Sub-tables grow from one Hạng mục, inherit the parent's scope, and stop at depth 3 (ADR-004, ADR-006).
+  A new one suggests "Theo dõi cho: [Hạng mục]" as its purpose, freely editable. Each project owns exactly one root
+  table, made with the project; that root has no purpose of its own and reads the project's Kim chỉ nam / Mục tiêu.
+  Every column carries an `id` issued once; renaming a column changes only its label, never where values live.
+- 2026-09-24 — Objectives and deliverables are gone (ADR-005). Project structure is Hạng mục → Task only:
+  `project_tasks.record_id` is nullable on purpose, so ad-hoc work raised in the project stays in its list. Tasks
+  handed out from the project screen use the same two-step group handshake as chat. The single test project
+  (HANA-2607, in a Diary) was deleted with its tiers, with the owner's go-ahead.
+- 2026-09-24 — Project Charter: title, Kim chỉ nam (`value_orientation`), Mục tiêu (`objective`), start date and
+  target end date are all required and none is pre-filled. Scope and assumptions stay optional text. Success
+  criteria are their own rows, added over the project's life, each measured by % or by a finalized meeting note,
+  and soft-deleted. Closing keeps the status word `done` and is allowed only when every live criterion has its
+  evidence and no non-skipped task is due after the target end. Only the opener adds criteria, records results and
+  closes; dates and status are not client-writable. Nothing records a result or closes on anyone's behalf.
+- 2026-09-24 — Sub-groups use `conversations.parent_group_id` + `group_depth` (1–3, ADR-007); `related_group_id`
+  keeps its older meaning (the group a 1-1 was opened from). Owner or admin of the parent opens one through
+  `create_sub_group`, becomes its owner, and may only bring people already in the parent. Membership never flows
+  down the tree (ADR-014). No screen opens a sub-group yet.
+- 2026-09-24 — The Dự án tab has two sections: "Bảng của tôi" (personal and 1-1 root tables as a folded tree that
+  opens into Hạng mục in place) and "Nhóm" (group projects). The always-empty Cá nhân and 1-1 sections are gone.
 
 ## Out of scope
 
@@ -1455,11 +1483,10 @@ private messages started from a group's roster — which now land in the pair's 
 with the room they were sent from). Joining through an invite link requires being signed in — a signed-out visitor is
 sent to the sign-in screen and must reopen the link afterwards. Task lists and context snapshots exist in the database
 with their rules enforced there, but have no screens yet; the recurring-task spawner also stays a database trigger
-rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Business HUB: Timeline,
-Calendar, Gantt and responsibility-matrix views, sharing a table with anyone, and tying a record to a contact stay out of
-v1; `project_id` now has a real Dự án module behind it and is wired as a foreign key, but no HUB screen writes it yet.
-In Dự án: a calendar view, budgets tied to `financial_item`, review history, and deleting an objective, deliverable or
-project all stay out of v1 — the three tiers can be renamed and added to, never removed.
+rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Kế hoạch: Timeline,
+Calendar, Gantt, mindmap and responsibility-matrix views, and tying a Hạng mục to a contact stay out of v1. In Dự án:
+a calendar view, budgets tied to `financial_item`, editing the dates after opening, the leader's closing message and
+the private Check-Adjust screen (ADR-021), and deleting a project stay out of v1. Sub-groups have no screen yet.
 The mark on a message that produced work stays a mark: no system line in the thread, no notification and no push.
 Chat attachments cover images, files and voice notes; video capture, stickers, GIFs, and editing or annotating an
 image in the app stay out. A file's permission is fixed when it is sent — there is no revoking a file already

@@ -358,21 +358,21 @@ export function CategoryDialog({
     async (event: FormEvent<HTMLFormElement>): Promise<void> => {
       event.preventDefault();
       if (check.name === null) {
-        toast.error(check.error ?? "Tên hạng mục không hợp lệ.");
+        toast.error(check.error ?? "Tên danh mục không hợp lệ.");
         return;
       }
       const draft: CategoryDraft = { name: check.name, appliesTo: scope, color };
       try {
         if (editing) {
           await editCategory.mutateAsync({ categoryId: editing.id, draft });
-          toast.success("Đã cập nhật hạng mục.");
+          toast.success("Đã cập nhật danh mục.");
         } else {
           await addCategory.mutateAsync(draft);
-          toast.success("Đã thêm hạng mục.");
+          toast.success("Đã thêm danh mục.");
         }
         onOpenChange(false);
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không lưu được hạng mục.");
+        toast.error(error instanceof Error ? error.message : "Không lưu được danh mục.");
       }
     },
     [addCategory, check.error, check.name, color, editCategory, editing, onOpenChange, scope],
@@ -382,16 +382,16 @@ export function CategoryDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[460px]">
         <DialogTitle className="text-[20px] font-semibold tracking-tight">
-          {editing ? "Sửa hạng mục" : "Hạng mục mới"}
+          {editing ? "Sửa danh mục" : "Danh mục mới"}
         </DialogTitle>
         <DialogDescription className="text-[14px] text-muted-foreground">
-          Hạng mục riêng của bạn xuất hiện cùng danh sách có sẵn trong mọi biểu mẫu.
+          Danh mục riêng của bạn xuất hiện cùng danh sách có sẵn trong mọi biểu mẫu.
         </DialogDescription>
 
         <form onSubmit={(event) => void handleSubmit(event)} className="mt-4 space-y-4">
           <div>
             <FieldLabel htmlFor="cat-name" required>
-              Tên hạng mục
+              Tên danh mục
             </FieldLabel>
             <input
               id="cat-name"
@@ -426,7 +426,7 @@ export function CategoryDialog({
             </div>
             {editing !== null ? (
               <p className="mt-1 text-[12.5px] text-muted-foreground">
-                Không đổi được bên của một hạng mục đã có giao dịch.
+                Không đổi được bên của một danh mục đã có giao dịch.
               </p>
             ) : null}
           </div>
@@ -470,7 +470,7 @@ export function CategoryDialog({
               )}
             >
               {isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-              {editing ? "Lưu" : "Thêm hạng mục"}
+              {editing ? "Lưu" : "Thêm danh mục"}
             </button>
           </div>
         </form>

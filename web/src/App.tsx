@@ -12,7 +12,7 @@ import { ChatRealtimeProvider } from "@/lib/realtime";
 
 import AcceptContactInvite from "./pages/AcceptContactInvite";
 import Auth from "./pages/Auth";
-import BusinessHub from "./pages/BusinessHub";
+import ThinkHub from "./pages/ThinkHub";
 import ContactChannelReview from "./pages/ContactChannelReview";
 import ContactDetail from "./pages/ContactDetail";
 import Contacts from "./pages/Contacts";
@@ -58,7 +58,7 @@ const App = () => (
                 <Route path="/loi-moi/:token" element={<JoinGroup />} />
                 <Route path="/nhiem-vu" element={<Tasks />} />
                 <Route path="/du-an/:projectId" element={<ProjectDetail />} />
-                <Route path="/business-hub" element={<BusinessHub />} />
+                <Route path="/ke-hoach" element={<ThinkHub />} />
 
                 <Route path="/ket-sat" element={<Vault />}>
                   <Route index element={<Finance />} />
@@ -88,6 +88,7 @@ const App = () => (
                 <Route path="/tai-chinh/tai-khoan" element={<LegacyRedirect />} />
                 <Route path="/tai-chinh/bao-cao" element={<LegacyRedirect />} />
                 <Route path="/ho-so" element={<LegacyRedirect />} />
+                <Route path="/business-hub" element={<LegacyRedirect />} />
               </Route>
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />

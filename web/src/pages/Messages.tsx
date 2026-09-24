@@ -1695,7 +1695,7 @@ const Messages = () => {
                   }}
                 />
               ) : activeSummary !== undefined ? (
-                <TableStrip />
+                <TableStrip conversationId={activeKind === "direct" ? activeSummary.conversationId : null} />
               ) : null}
 
               {!isLive ? (
@@ -2437,20 +2437,14 @@ const Messages = () => {
         }}
       />
 
-      {/* One dialog for all three kinds: the conversation it is given decides which it opens. */}
+      {/* Projects open only in a group (ADR-002); the strip that opens this dialog is group-only. */}
       <NewProjectDialog
         open={projectTarget !== null}
         onOpenChange={(next) => {
           if (!next) setProjectTarget(null);
         }}
         conversationId={projectTarget?.conversationId}
-        conversationLabel={
-          projectTarget === null
-            ? ""
-            : projectTarget.kind === "personal"
-              ? "Nhật ký của bạn"
-              : conversationTitle(projectTarget)
-        }
+        conversationLabel={projectTarget === null ? "" : conversationTitle(projectTarget)}
         onCreated={(projectId) => {
           setProjectTarget(null);
           navigate(projectLink(projectId));

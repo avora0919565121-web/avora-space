@@ -327,7 +327,7 @@ export function TransactionForm({
         <div>
           <div className="flex items-baseline justify-between gap-2">
             <FieldLabel htmlFor="txn-category" required>
-              Hạng mục
+              Danh mục
             </FieldLabel>
             {onRequestCategory ? (
               <button
@@ -335,7 +335,7 @@ export function TransactionForm({
                 onClick={() => onRequestCategory(draft.type)}
                 className="press text-[12.5px] font-medium text-primary hover:underline"
               >
-                + Hạng mục mới
+                + Danh mục mới
               </button>
             ) : null}
           </div>
@@ -498,7 +498,7 @@ export function TransactionForm({
           <button
             type="submit"
             disabled={!complete || isWorking || isUploading}
-            title={complete ? undefined : "Điền tài khoản, ngày, số tiền và hạng mục trước"}
+            title={complete ? undefined : "Điền tài khoản, ngày, số tiền và danh mục trước"}
             className={cn(
               "press inline-flex items-center gap-2 rounded-md px-5 py-2.5 text-[14px] font-semibold transition-colors",
               complete && !isWorking

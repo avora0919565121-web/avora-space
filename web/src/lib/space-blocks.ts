@@ -1,4 +1,4 @@
-import type { BusinessRecord, BusinessTable } from "@/lib/business-hub";
+import type { ThinkRecord, ThinkTable } from "@/lib/think-hub";
 import type { TaskReminder } from "@/lib/task-reminders";
 import { isOpenTask, taskPriority, type TaskItem } from "@/lib/tasks";
 
@@ -62,7 +62,7 @@ export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = 
   },
   planning: {
     title: "Góc hoạch định",
-    description: "Các mục trong Business HUB bạn hẹn xem lại đã tới lúc.",
+    description: "Các hạng mục trong Kế hoạch bạn hẹn xem lại đã tới lúc.",
     hint: "Chạm tên bảng để mở thẳng bảng đó.",
     empty: null,
   },
@@ -174,15 +174,15 @@ export type PlanningCount = {
 };
 
 /**
- * Business HUB records whose planning reminder has come due, counted per table.
+ * Think Hub records whose planning reminder has come due, counted per table.
  *
  * "Due" means at or before the end of the viewer's today: Avora Space is read once in the
  * morning, and a reminder set for 15:00 belongs on that morning's page, not only after 15:00.
  * Tables keep their own arranged order; a deleted table's records are not counted.
  */
 export function planningCounts(
-  records: readonly BusinessRecord[],
-  tables: readonly BusinessTable[],
+  records: readonly ThinkRecord[],
+  tables: readonly ThinkTable[],
   now: Date = new Date(),
 ): PlanningCount[] {
   const endOfToday = new Date(now);

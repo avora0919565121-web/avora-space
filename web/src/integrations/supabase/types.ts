@@ -98,111 +98,6 @@ export type Database = {
         }
         Relationships: []
       }
-      business_hub_record: {
-        Row: {
-          category: string | null
-          created_at: string
-          deleted_at: string | null
-          extension_fields: Json
-          id: string
-          next_action_date: string | null
-          notes: string | null
-          owner_user_id: string
-          priority: string
-          project_id: string | null
-          remind_at: string | null
-          status: string
-          table_id: string
-          tags: string[]
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          extension_fields?: Json
-          id?: string
-          next_action_date?: string | null
-          notes?: string | null
-          owner_user_id: string
-          priority?: string
-          project_id?: string | null
-          remind_at?: string | null
-          status?: string
-          table_id: string
-          tags?: string[]
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          category?: string | null
-          created_at?: string
-          deleted_at?: string | null
-          extension_fields?: Json
-          id?: string
-          next_action_date?: string | null
-          notes?: string | null
-          owner_user_id?: string
-          priority?: string
-          project_id?: string | null
-          remind_at?: string | null
-          status?: string
-          table_id?: string
-          tags?: string[]
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "business_hub_record_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "business_hub_record_table_id_fkey"
-            columns: ["table_id"]
-            isOneToOne: false
-            referencedRelation: "business_hub_table"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      business_hub_table: {
-        Row: {
-          column_defs: Json
-          created_at: string
-          deleted_at: string | null
-          id: string
-          name: string
-          owner_user_id: string
-          position: number
-          updated_at: string
-        }
-        Insert: {
-          column_defs?: Json
-          created_at?: string
-          deleted_at?: string | null
-          id?: string
-          name: string
-          owner_user_id: string
-          position?: number
-          updated_at?: string
-        }
-        Update: {
-          column_defs?: Json
-          created_at?: string
-          deleted_at?: string | null
-          id?: string
-          name?: string
-          owner_user_id?: string
-          position?: number
-          updated_at?: string
-        }
-        Relationships: []
-      }
       categories: {
         Row: {
           applies_to: Database["public"]["Enums"]["category_scope"]
@@ -560,7 +455,9 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           direct_key: string | null
+          group_depth: number
           id: string
+          parent_group_id: string | null
           related_group_id: string | null
           type: string
         }
@@ -568,7 +465,9 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           direct_key?: string | null
+          group_depth?: number
           id?: string
+          parent_group_id?: string | null
           related_group_id?: string | null
           type?: string
         }
@@ -576,11 +475,20 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           direct_key?: string | null
+          group_depth?: number
           id?: string
+          parent_group_id?: string | null
           related_group_id?: string | null
           type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "conversations_parent_group_id_fkey"
+            columns: ["parent_group_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "conversations_related_group_id_fkey"
             columns: ["related_group_id"]
@@ -720,50 +628,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "currencies"
             referencedColumns: ["code"]
-          },
-        ]
-      }
-      deliverables: {
-        Row: {
-          confirmed_at: string | null
-          confirmed_by: string | null
-          created_at: string
-          id: string
-          objective_id: string
-          sort_order: number
-          status: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          confirmed_at?: string | null
-          confirmed_by?: string | null
-          created_at?: string
-          id?: string
-          objective_id: string
-          sort_order?: number
-          status?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          confirmed_at?: string | null
-          confirmed_by?: string | null
-          created_at?: string
-          id?: string
-          objective_id?: string
-          sort_order?: number
-          status?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "deliverables_objective_id_fkey"
-            columns: ["objective_id"]
-            isOneToOne: false
-            referencedRelation: "objectives"
-            referencedColumns: ["id"]
           },
         ]
       }
@@ -1397,57 +1261,6 @@ export type Database = {
         }
         Relationships: []
       }
-      objectives: {
-        Row: {
-          conversation_id: string
-          created_at: string
-          created_by: string
-          id: string
-          project_id: string | null
-          sort_order: number
-          status: string
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          conversation_id: string
-          created_at?: string
-          created_by: string
-          id?: string
-          project_id?: string | null
-          sort_order?: number
-          status?: string
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          conversation_id?: string
-          created_at?: string
-          created_by?: string
-          id?: string
-          project_id?: string | null
-          sort_order?: number
-          status?: string
-          title?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "objectives_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "objectives_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -1492,41 +1305,98 @@ export type Database = {
           },
         ]
       }
+      project_success_criteria: {
+        Row: {
+          actual_percent: number | null
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          description: string
+          id: string
+          measurement_type: string
+          meeting_note_id: string | null
+          project_id: string
+          target_percent: number | null
+          updated_at: string
+        }
+        Insert: {
+          actual_percent?: number | null
+          created_at?: string
+          created_by: string
+          deleted_at?: string | null
+          description: string
+          id?: string
+          measurement_type: string
+          meeting_note_id?: string | null
+          project_id: string
+          target_percent?: number | null
+          updated_at?: string
+        }
+        Update: {
+          actual_percent?: number | null
+          created_at?: string
+          created_by?: string
+          deleted_at?: string | null
+          description?: string
+          id?: string
+          measurement_type?: string
+          meeting_note_id?: string | null
+          project_id?: string
+          target_percent?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_success_criteria_meeting_note_id_fkey"
+            columns: ["meeting_note_id"]
+            isOneToOne: false
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_success_criteria_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_tasks: {
         Row: {
           created_at: string
-          deliverable_id: string
           linked_by: string
           project_id: string
+          record_id: string | null
           task_id: string
         }
         Insert: {
           created_at?: string
-          deliverable_id: string
           linked_by: string
           project_id: string
+          record_id?: string | null
           task_id: string
         }
         Update: {
           created_at?: string
-          deliverable_id?: string
           linked_by?: string
           project_id?: string
+          record_id?: string | null
           task_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "project_tasks_deliverable_id_fkey"
-            columns: ["deliverable_id"]
-            isOneToOne: false
-            referencedRelation: "deliverables"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "project_tasks_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_tasks_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
             referencedColumns: ["id"]
           },
           {
@@ -1545,12 +1415,14 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
-          purpose: string | null
+          objective: string
           scope: string | null
+          start_date: string
           status: string
-          success_criteria: string | null
+          target_end_date: string
           title: string
           updated_at: string
+          value_orientation: string
         }
         Insert: {
           assumptions?: string | null
@@ -1558,12 +1430,14 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
-          purpose?: string | null
+          objective: string
           scope?: string | null
+          start_date: string
           status?: string
-          success_criteria?: string | null
+          target_end_date: string
           title: string
           updated_at?: string
+          value_orientation: string
         }
         Update: {
           assumptions?: string | null
@@ -1571,12 +1445,14 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
-          purpose?: string | null
+          objective?: string
           scope?: string | null
+          start_date?: string
           status?: string
-          success_criteria?: string | null
+          target_end_date?: string
           title?: string
           updated_at?: string
+          value_orientation?: string
         }
         Relationships: [
           {
@@ -2058,7 +1934,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -2070,7 +1945,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -2105,7 +1979,6 @@ export type Database = {
           deadline_tz?: string
           deleted_by_creator?: boolean
           deleted_by_peer?: boolean
-          deliverable_id?: string | null
           departure_reminder_at?: string | null
           description?: string
           done_at?: string | null
@@ -2117,7 +1990,6 @@ export type Database = {
           latitude?: number | null
           location?: string | null
           longitude?: number | null
-          objective_id?: string | null
           opportunity_id?: string | null
           output_value?: string | null
           progress_percent?: number | null
@@ -2152,7 +2024,6 @@ export type Database = {
           deadline_tz?: string
           deleted_by_creator?: boolean
           deleted_by_peer?: boolean
-          deliverable_id?: string | null
           departure_reminder_at?: string | null
           description?: string
           done_at?: string | null
@@ -2164,7 +2035,6 @@ export type Database = {
           latitude?: number | null
           location?: string | null
           longitude?: number | null
-          objective_id?: string | null
           opportunity_id?: string | null
           output_value?: string | null
           progress_percent?: number | null
@@ -2193,20 +2063,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "tasks_deliverable_id_fkey"
-            columns: ["deliverable_id"]
-            isOneToOne: false
-            referencedRelation: "deliverables"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "tasks_objective_id_fkey"
-            columns: ["objective_id"]
-            isOneToOne: false
-            referencedRelation: "objectives"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "tasks_opportunity_fkey"
             columns: ["opportunity_id", "creator_id"]
             isOneToOne: false
@@ -2232,6 +2088,148 @@ export type Database = {
             columns: ["task_list_id"]
             isOneToOne: false
             referencedRelation: "task_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      think_hub_record: {
+        Row: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          remind_at: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          extension_fields?: Json
+          id?: string
+          next_action_date?: string | null
+          notes?: string | null
+          owner_user_id: string
+          priority?: string
+          project_id?: string | null
+          remind_at?: string | null
+          status?: string
+          table_id: string
+          tags?: string[]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          extension_fields?: Json
+          id?: string
+          next_action_date?: string | null
+          notes?: string | null
+          owner_user_id?: string
+          priority?: string
+          project_id?: string | null
+          remind_at?: string | null
+          status?: string
+          table_id?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_record_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_record_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      think_hub_table: {
+        Row: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        Insert: {
+          column_defs?: Json
+          conversation_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          depth?: number
+          id?: string
+          name: string
+          owner_user_id: string
+          parent_record_id?: string | null
+          position?: number
+          project_id?: string | null
+          purpose?: string | null
+          updated_at?: string
+        }
+        Update: {
+          column_defs?: Json
+          conversation_id?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          depth?: number
+          id?: string
+          name?: string
+          owner_user_id?: string
+          parent_record_id?: string | null
+          position?: number
+          project_id?: string | null
+          purpose?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_table_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_table_parent_record_id_fkey"
+            columns: ["parent_record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_table_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -2391,7 +2389,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -2403,7 +2400,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -2426,30 +2422,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      add_business_hub_column: {
-        Args: {
-          p_label: string
-          p_options?: string[]
-          p_table_id: string
-          p_type: string
-        }
-        Returns: {
-          column_defs: Json
-          created_at: string
-          deleted_at: string | null
-          id: string
-          name: string
-          owner_user_id: string
-          position: number
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "business_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2483,42 +2455,58 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      add_deliverable: {
-        Args: { p_objective_id: string; p_title: string }
+      add_project_success_criterion: {
+        Args: {
+          p_description: string
+          p_measurement_type: string
+          p_project_id: string
+          p_target_percent?: number
+        }
         Returns: {
-          confirmed_at: string | null
-          confirmed_by: string | null
+          actual_percent: number | null
           created_at: string
+          created_by: string
+          deleted_at: string | null
+          description: string
           id: string
-          objective_id: string
-          sort_order: number
-          status: string
-          title: string
+          measurement_type: string
+          meeting_note_id: string | null
+          project_id: string
+          target_percent: number | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
-          to: "deliverables"
+          to: "project_success_criteria"
           isOneToOne: true
           isSetofReturn: false
         }
       }
-      add_objective: {
-        Args: { p_project_id: string; p_title: string }
+      add_think_hub_column: {
+        Args: {
+          p_label: string
+          p_options?: string[]
+          p_table_id: string
+          p_type: string
+        }
         Returns: {
-          conversation_id: string
+          column_defs: Json
+          conversation_id: string | null
           created_at: string
-          created_by: string
+          deleted_at: string | null
+          depth: number
           id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
           project_id: string | null
-          sort_order: number
-          status: string
-          title: string
+          purpose: string | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
-          to: "objectives"
+          to: "think_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2549,6 +2537,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      close_project: {
+        Args: { p_project_id: string }
+        Returns: {
+          assumptions: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          id: string
+          objective: string
+          scope: string | null
+          start_date: string
+          status: string
+          target_end_date: string
+          title: string
+          updated_at: string
+          value_orientation: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       confirm_1_1_task: {
         Args: { p_task_id: string }
         Returns: {
@@ -2566,7 +2578,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -2578,7 +2589,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -2622,7 +2632,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -2634,7 +2643,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -2661,26 +2669,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      confirm_deliverable: {
-        Args: { p_deliverable_id: string }
-        Returns: {
-          confirmed_at: string | null
-          confirmed_by: string | null
-          created_at: string
-          id: string
-          objective_id: string
-          sort_order: number
-          status: string
-          title: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "deliverables"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       confirm_shared_task: {
         Args: { p_task_id: string }
         Returns: {
@@ -2698,7 +2686,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -2710,7 +2697,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -2774,7 +2760,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -2786,7 +2771,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -2809,62 +2793,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      create_business_hub_record: {
-        Args: {
-          p_category?: string
-          p_extension_fields?: Json
-          p_next_action_date?: string
-          p_notes?: string
-          p_priority?: string
-          p_status?: string
-          p_table_id: string
-          p_tags?: string[]
-          p_title: string
-        }
-        Returns: {
-          category: string | null
-          created_at: string
-          deleted_at: string | null
-          extension_fields: Json
-          id: string
-          next_action_date: string | null
-          notes: string | null
-          owner_user_id: string
-          priority: string
-          project_id: string | null
-          remind_at: string | null
-          status: string
-          table_id: string
-          tags: string[]
-          title: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "business_hub_record"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      create_business_hub_table: {
-        Args: { p_name: string }
-        Returns: {
-          column_defs: Json
-          created_at: string
-          deleted_at: string | null
-          id: string
-          name: string
-          owner_user_id: string
-          position: number
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "business_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3034,11 +2962,12 @@ export type Database = {
         Args: {
           p_assumptions?: string
           p_conversation_id: string
-          p_first_objective_title: string
-          p_purpose?: string
+          p_objective: string
           p_scope?: string
-          p_success_criteria?: string
+          p_start_date: string
+          p_target_end_date: string
           p_title: string
+          p_value_orientation: string
         }
         Returns: {
           assumptions: string | null
@@ -3046,16 +2975,83 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
-          purpose: string | null
+          objective: string
           scope: string | null
+          start_date: string
           status: string
-          success_criteria: string | null
+          target_end_date: string
           title: string
           updated_at: string
+          value_orientation: string
         }
         SetofOptions: {
           from: "*"
           to: "projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_project_task: {
+        Args: {
+          p_assignee_id: string
+          p_context_snapshot?: Json
+          p_deadline: string
+          p_deadline_time?: string
+          p_deadline_tz?: string
+          p_description: string
+          p_project_id: string
+          p_record_id: string
+          p_task_id: string
+          p_title: string
+        }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_lost_reason: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          departure_reminder_at: string | null
+          description: string
+          done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
+          id: string
+          is_important: boolean
+          is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
+          opportunity_id: string | null
+          output_value: string | null
+          progress_percent: number | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          requires_presence: boolean
+          skipped_at: string | null
+          skipped_silently: boolean
+          start_at: string | null
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          travel_duration_minutes: number | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3092,7 +3088,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -3104,7 +3099,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -3130,6 +3124,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      create_sub_group: {
+        Args: {
+          p_member_ids?: string[]
+          p_name: string
+          p_parent_group_id: string
+        }
+        Returns: string
       }
       create_task_suggestion: {
         Args: {
@@ -3169,6 +3171,93 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      create_think_hub_record: {
+        Args: {
+          p_category?: string
+          p_extension_fields?: Json
+          p_next_action_date?: string
+          p_notes?: string
+          p_priority?: string
+          p_scope_conversation_id?: string
+          p_scope_project_id?: string
+          p_status?: string
+          p_table_id: string
+          p_tags?: string[]
+          p_title: string
+        }
+        Returns: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          remind_at: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_record"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_think_hub_sub_table: {
+        Args: { p_name?: string; p_purpose?: string; p_record_id: string }
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_think_hub_table: {
+        Args: { p_conversation_id?: string; p_name: string; p_purpose?: string }
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       currency_rate_at: {
         Args: { p_from: string; p_on?: string; p_to: string }
         Returns: number
@@ -3200,7 +3289,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -3212,7 +3300,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -3239,7 +3326,87 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      delete_business_hub_record: {
+      delete_journal_messages: {
+        Args: { p_message_ids: string[] }
+        Returns: number
+      }
+      delete_project_success_criterion: {
+        Args: { p_criterion_id: string }
+        Returns: {
+          actual_percent: number | null
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          description: string
+          id: string
+          measurement_type: string
+          meeting_note_id: string | null
+          project_id: string
+          target_percent: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_success_criteria"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      delete_shared_task: {
+        Args: { p_task_id: string }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_lost_reason: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          departure_reminder_at: string | null
+          description: string
+          done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
+          id: string
+          is_important: boolean
+          is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
+          opportunity_id: string | null
+          output_value: string | null
+          progress_percent: number | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          requires_presence: boolean
+          skipped_at: string | null
+          skipped_silently: boolean
+          start_at: string | null
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          travel_duration_minutes: number | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      delete_think_hub_record: {
         Args: { p_record_id: string }
         Returns: {
           category: string | null
@@ -3261,86 +3428,31 @@ export type Database = {
         }
         SetofOptions: {
           from: "*"
-          to: "business_hub_record"
+          to: "think_hub_record"
           isOneToOne: true
           isSetofReturn: false
         }
       }
-      delete_business_hub_table: {
+      delete_think_hub_table: {
         Args: { p_table_id: string }
         Returns: {
           column_defs: Json
+          conversation_id: string | null
           created_at: string
           deleted_at: string | null
+          depth: number
           id: string
           name: string
           owner_user_id: string
+          parent_record_id: string | null
           position: number
+          project_id: string | null
+          purpose: string | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
-          to: "business_hub_table"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      delete_journal_messages: {
-        Args: { p_message_ids: string[] }
-        Returns: number
-      }
-      delete_shared_task: {
-        Args: { p_task_id: string }
-        Returns: {
-          assignee_id: string | null
-          completed_confirmed_at: string | null
-          confirmed_at: string | null
-          confirmed_by: string | null
-          context_lost_reason: string | null
-          context_snapshot: Json | null
-          conversation_id: string | null
-          created_at: string
-          creator_id: string
-          deadline_date: string
-          deadline_time: string | null
-          deadline_tz: string
-          deleted_by_creator: boolean
-          deleted_by_peer: boolean
-          deliverable_id: string | null
-          departure_reminder_at: string | null
-          description: string
-          done_at: string | null
-          end_at: string | null
-          estimated_duration_minutes: number | null
-          id: string
-          is_important: boolean
-          is_milestone: boolean
-          latitude: number | null
-          location: string | null
-          longitude: number | null
-          objective_id: string | null
-          opportunity_id: string | null
-          output_value: string | null
-          progress_percent: number | null
-          recurrence: string
-          recurrence_origin_id: string | null
-          recurrence_pattern: Json | null
-          recurrence_spawned_at: string | null
-          requires_presence: boolean
-          skipped_at: string | null
-          skipped_silently: boolean
-          start_at: string | null
-          status: string
-          task_category_id: string | null
-          task_list_id: string | null
-          title: string
-          travel_duration_minutes: number | null
-          type: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "tasks"
+          to: "think_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -3436,25 +3548,6 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      ensure_default_business_hub_table: {
-        Args: never
-        Returns: {
-          column_defs: Json
-          created_at: string
-          deleted_at: string | null
-          id: string
-          name: string
-          owner_user_id: string
-          position: number
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "business_hub_table"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
       ensure_default_categories: {
         Args: never
         Returns: {
@@ -3479,6 +3572,30 @@ export type Database = {
       ensure_default_task_categories: {
         Args: { p_user: string }
         Returns: undefined
+      }
+      ensure_default_think_hub_table: {
+        Args: never
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       ensure_personal_journal: { Args: { p_user_id: string }; Returns: string }
       finalize_meeting_note: {
@@ -3604,12 +3721,12 @@ export type Database = {
         }
       }
       link_task_to_project: {
-        Args: { p_deliverable_id: string; p_task_id: string }
+        Args: { p_project_id: string; p_record_id?: string; p_task_id: string }
         Returns: {
           created_at: string
-          deliverable_id: string
           linked_by: string
           project_id: string
+          record_id: string | null
           task_id: string
         }
         SetofOptions: {
@@ -3664,7 +3781,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -3676,7 +3792,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -3724,7 +3839,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -3736,7 +3850,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -3780,7 +3893,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -3792,7 +3904,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -3885,6 +3996,32 @@ export type Database = {
         Args: { p_account_id: string }
         Returns: undefined
       }
+      record_project_success_criterion: {
+        Args: {
+          p_actual_percent?: number
+          p_criterion_id: string
+          p_meeting_note_id?: string
+        }
+        Returns: {
+          actual_percent: number | null
+          created_at: string
+          created_by: string
+          deleted_at: string | null
+          description: string
+          id: string
+          measurement_type: string
+          meeting_note_id: string | null
+          project_id: string
+          target_percent: number | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_success_criteria"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       refresh_transaction_base_amounts: {
         Args: { p_user: string }
         Returns: number
@@ -3893,28 +4030,57 @@ export type Database = {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: undefined
       }
-      rename_business_hub_table: {
-        Args: { p_name: string; p_table_id: string }
+      rename_group_conversation: {
+        Args: { p_conversation_id: string; p_name: string }
+        Returns: string
+      }
+      rename_think_hub_column: {
+        Args: { p_column_id: string; p_label: string; p_table_id: string }
         Returns: {
           column_defs: Json
+          conversation_id: string | null
           created_at: string
           deleted_at: string | null
+          depth: number
           id: string
           name: string
           owner_user_id: string
+          parent_record_id: string | null
           position: number
+          project_id: string | null
+          purpose: string | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
-          to: "business_hub_table"
+          to: "think_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
       }
-      rename_group_conversation: {
-        Args: { p_conversation_id: string; p_name: string }
-        Returns: string
+      rename_think_hub_table: {
+        Args: { p_name: string; p_table_id: string }
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       request_remove_participant: {
         Args: { target_conversation_id: string; target_user_id: string }
@@ -3959,7 +4125,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -3971,7 +4136,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -3994,52 +4158,6 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      restore_business_hub_record: {
-        Args: { p_record_id: string }
-        Returns: {
-          category: string | null
-          created_at: string
-          deleted_at: string | null
-          extension_fields: Json
-          id: string
-          next_action_date: string | null
-          notes: string | null
-          owner_user_id: string
-          priority: string
-          project_id: string | null
-          remind_at: string | null
-          status: string
-          table_id: string
-          tags: string[]
-          title: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "business_hub_record"
-          isOneToOne: true
-          isSetofReturn: false
-        }
-      }
-      restore_business_hub_table: {
-        Args: { p_table_id: string }
-        Returns: {
-          column_defs: Json
-          created_at: string
-          deleted_at: string | null
-          id: string
-          name: string
-          owner_user_id: string
-          position: number
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "business_hub_table"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -4061,7 +4179,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4073,7 +4190,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4100,6 +4216,57 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      restore_think_hub_record: {
+        Args: { p_record_id: string }
+        Returns: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          remind_at: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_record"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      restore_think_hub_table: {
+        Args: { p_table_id: string }
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       return_1_1_task: {
         Args: { p_task_id: string }
         Returns: {
@@ -4117,7 +4284,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4129,7 +4295,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4173,7 +4338,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4185,7 +4349,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4229,7 +4392,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4241,7 +4403,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4359,6 +4520,30 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_think_hub_table_purpose: {
+        Args: { p_purpose: string; p_table_id: string }
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       settle_transaction: {
         Args: { p_amount: number; p_transaction_id: string }
         Returns: {
@@ -4416,7 +4601,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4428,7 +4612,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4493,33 +4676,6 @@ export type Database = {
       transfer_group_ownership: {
         Args: { new_owner_user_id: string; target_conversation_id: string }
         Returns: undefined
-      }
-      update_business_hub_record: {
-        Args: { p_patch: Json; p_record_id: string }
-        Returns: {
-          category: string | null
-          created_at: string
-          deleted_at: string | null
-          extension_fields: Json
-          id: string
-          next_action_date: string | null
-          notes: string | null
-          owner_user_id: string
-          priority: string
-          project_id: string | null
-          remind_at: string | null
-          status: string
-          table_id: string
-          tags: string[]
-          title: string
-          updated_at: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "business_hub_record"
-          isOneToOne: true
-          isSetofReturn: false
-        }
       }
       update_contact: {
         Args: {
@@ -4633,7 +4789,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4645,7 +4800,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4694,7 +4848,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4706,7 +4859,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4758,7 +4910,6 @@ export type Database = {
           deadline_tz: string
           deleted_by_creator: boolean
           deleted_by_peer: boolean
-          deliverable_id: string | null
           departure_reminder_at: string | null
           description: string
           done_at: string | null
@@ -4770,7 +4921,6 @@ export type Database = {
           latitude: number | null
           location: string | null
           longitude: number | null
-          objective_id: string | null
           opportunity_id: string | null
           output_value: string | null
           progress_percent: number | null
@@ -4793,6 +4943,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_think_hub_record: {
+        Args: { p_patch: Json; p_record_id: string }
+        Returns: {
+          category: string | null
+          created_at: string
+          deleted_at: string | null
+          extension_fields: Json
+          id: string
+          next_action_date: string | null
+          notes: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          remind_at: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_record"
           isOneToOne: true
           isSetofReturn: false
         }

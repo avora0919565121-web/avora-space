@@ -21,7 +21,7 @@ import {
 import { PULSE_LABELS, pulseSentence, spaceDateLabel, taskPulse } from "@/lib/space-summary";
 import { contextLink } from "@/lib/task-context";
 import { deadlineLabel, todayIso, type TaskItem } from "@/lib/tasks";
-import { useBusinessRecords, useBusinessTables } from "@/lib/use-business-hub";
+import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { useConversations } from "@/lib/use-conversations";
 import { useDailyThoughtCategory } from "@/lib/use-settings";
 import { usePendingInvitationCount } from "@/lib/use-task-collab";
@@ -109,8 +109,8 @@ export default function Dashboard() {
   const { data: tasks, isLoading } = useTasks();
   const { data: conversations } = useConversations();
   const { data: reminders } = useTaskReminders();
-  const { data: hubRecords } = useBusinessRecords();
-  const { data: hubTables } = useBusinessTables();
+  const { data: hubRecords } = useThinkRecords();
+  const { data: hubTables } = useThinkTables();
   const invitationCount = usePendingInvitationCount();
   const thoughtCategory = useDailyThoughtCategory();
   const userId: string | undefined = user?.id;
@@ -269,7 +269,7 @@ export default function Dashboard() {
               {planning.map((entry) => (
                 <Link
                   key={entry.tableId}
-                  to={`/business-hub?bang=${encodeURIComponent(entry.tableId)}`}
+                  to={`/ke-hoach?bang=${encodeURIComponent(entry.tableId)}`}
                   className="press flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] text-foreground transition-colors hover:bg-accent/30"
                 >
                   {entry.tableName}

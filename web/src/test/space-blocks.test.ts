@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
-import type { BusinessRecord, BusinessTable } from "@/lib/business-hub";
+import type { ThinkRecord, ThinkTable } from "@/lib/think-hub";
 import { dailyThoughtKey } from "@/lib/daily-thoughts";
 import { currentRhythm, motionFor } from "@/lib/motion";
 import { AMBIENT_ALPHA, ambientTone, dayPart } from "@/lib/space-ambient";
@@ -64,7 +64,7 @@ function makeTask(overrides: Partial<TaskItem> & { id: string }): TaskItem {
   };
 }
 
-function record(overrides: Partial<BusinessRecord> & { id: string; tableId: string }): BusinessRecord {
+function record(overrides: Partial<ThinkRecord> & { id: string; tableId: string }): ThinkRecord {
   return {
     ownerUserId: ME,
     title: "Mục",
@@ -84,8 +84,8 @@ function record(overrides: Partial<BusinessRecord> & { id: string; tableId: stri
   };
 }
 
-function table(id: string, name: string, deletedAt: string | null = null): BusinessTable {
-  return { id, ownerUserId: ME, name, position: 0, columns: [], createdAt: "", updatedAt: "", deletedAt };
+function table(id: string, name: string, deletedAt: string | null = null): ThinkTable {
+  return { id, ownerUserId: ME, name, position: 0, columns: [], projectId: null, conversationId: null, parentRecordId: null, depth: 1, purpose: null,  createdAt: "", updatedAt: "", deletedAt };
 }
 
 describe("Avora Space block order", () => {

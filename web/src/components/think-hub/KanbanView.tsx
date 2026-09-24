@@ -1,11 +1,11 @@
 import { useMemo } from "react";
 
-import { groupByStatus, priorityLabel, type BusinessRecord } from "@/lib/business-hub";
+import { groupByStatus, priorityLabel, type ThinkRecord } from "@/lib/think-hub";
 import { cn } from "@/lib/utils";
 
 type KanbanViewProps = {
-  records: readonly BusinessRecord[];
-  onOpenRecord: (record: BusinessRecord) => void;
+  records: readonly ThinkRecord[];
+  onOpenRecord: (record: ThinkRecord) => void;
   today: string;
 };
 
@@ -37,7 +37,7 @@ export function KanbanView({ records, onOpenRecord, today }: KanbanViewProps) {
           <div className="flex flex-col gap-2 p-3">
             {column.records.length === 0 ? (
               <p className="px-1 py-4 text-center text-[13px] text-muted-foreground">
-                Chưa có mục nào
+                Chưa có Hạng mục nào
               </p>
             ) : (
               column.records.map((record) => {

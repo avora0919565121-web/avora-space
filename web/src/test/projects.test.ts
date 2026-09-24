@@ -5,22 +5,24 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import {
-  canConfirmDeliverable,
-  deliverableProgress,
-  deliverablesOf,
+  canClose,
+  charterProblem,
+  closeBlockers,
+  closeBlockerSentence,
+  EMPTY_CHARTER,
+  isCriterionRecorded,
+  isProjectOwner,
   isTaskComplete,
-  objectiveProgress,
   projectLink,
   projectProgress,
   taskIdsOf,
+  taskProgress,
   toVietnameseProjectError,
-  type Deliverable,
-  type Objective,
   type Project,
   type ProjectTaskLink,
-  type ProjectTree,
+  type SuccessCriterion,
 } from "@/lib/projects";
-import { groupProjects, type ProjectGroupKind } from "@/lib/use-projects";
+import { groupProjectsOnly } from "@/lib/use-projects";
 
 const OWNER = "u1";
 const MEMBER = "u2";
@@ -31,10 +33,12 @@ function project(overrides: Partial<Project> = {}): Project {
     conversationId: "c1",
     createdBy: OWNER,
     title: "Ra mắt bản thử",
-    purpose: null,
+    valueOrientation: "Phục vụ khách",
+    objective: "Giao đúng hạn",
     scope: null,
-    successCriteria: null,
     assumptions: null,
+    startDate: "2026-09-20",
+    targetEndDate: "2026-10-20",
     status: "active",
     createdAt: "2026-09-17T08:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
@@ -42,258 +46,161 @@ function project(overrides: Partial<Project> = {}): Project {
   };
 }
 
-function objective(overrides: Partial<Objective> = {}): Objective {
+function link(taskId: string, recordId: string | null): ProjectTaskLink {
+  return { taskId, projectId: "p1", recordId, linkedBy: OWNER };
+}
+
+function criterion(overrides: Partial<SuccessCriterion> = {}): SuccessCriterion {
   return {
-    id: "o1",
+    id: "c1",
     projectId: "p1",
-    conversationId: "c1",
-    createdBy: OWNER,
-    title: "Chốt phạm vi",
-    status: "active",
-    sortOrder: 0,
+    description: "Doanh số",
+    measurementType: "percentage",
+    targetPercent: 100,
+    actualPercent: null,
+    meetingNoteId: null,
+    createdAt: "2026-09-20T00:00:00Z",
     ...overrides,
   };
 }
 
-function deliverable(overrides: Partial<Deliverable> = {}): Deliverable {
-  return {
-    id: "d1",
-    objectiveId: "o1",
-    title: "Bản mô tả phạm vi",
-    status: "active",
-    sortOrder: 0,
-    confirmedBy: null,
-    confirmedAt: null,
-    ...overrides,
+describe("the charter a project is opened with", () => {
+  const full = {
+    ...EMPTY_CHARTER,
+    title: "HANA",
+    valueOrientation: "Ánh sáng tốt hơn",
+    objective: "Lắp xong 40 đèn",
+    startDate: "2026-09-25",
+    targetEndDate: "2026-11-01",
   };
-}
 
-function link(taskId: string, deliverableId: string): ProjectTaskLink {
-  return { taskId, projectId: "p1", deliverableId, linkedBy: OWNER };
-}
+  it("accepts the four required answers and two dates", () => {
+    expect(charterProblem(full)).toBeNull();
+  });
 
-function tree(overrides: Partial<ProjectTree> = {}): ProjectTree {
-  return {
-    project: project(),
-    objectives: [objective()],
-    deliverables: [deliverable()],
-    links: [],
-    ...overrides,
-  };
-}
+  it("asks for Kim chỉ nam and Mục tiêu separately", () => {
+    expect(charterProblem({ ...full, valueOrientation: "  " })).toMatch(/Kim chỉ nam/);
+    expect(charterProblem({ ...full, objective: "" })).toMatch(/Mục tiêu/);
+  });
 
-/** Only a fully closed task counts; the statuses before it are still somebody's turn. */
-describe("what counts as finished work", () => {
+  it("never fills a date in for the person — both must be chosen", () => {
+    expect(EMPTY_CHARTER.startDate).toBe("");
+    expect(EMPTY_CHARTER.targetEndDate).toBe("");
+    expect(charterProblem({ ...full, startDate: "" })).toMatch(/ngày bắt đầu/);
+    expect(charterProblem({ ...full, targetEndDate: "" })).toMatch(/kết thúc/);
+  });
+
+  it("refuses an end before the start", () => {
+    expect(charterProblem({ ...full, targetEndDate: "2026-09-01" })).toMatch(/không được trước/);
+  });
+});
+
+describe("tasks under Hạng mục and ad-hoc", () => {
+  const links = [link("t1", "r1"), link("t2", "r1"), link("t3", null)];
+
+  it("files tasks under their record, and ad-hoc ones under null", () => {
+    expect(taskIdsOf(links, "r1")).toEqual(["t1", "t2"]);
+    expect(taskIdsOf(links, null)).toEqual(["t3"]);
+  });
+
   it("counts only a task both sides have closed", () => {
     expect(isTaskComplete("done")).toBe(true);
     expect(isTaskComplete("done_pending_review")).toBe(false);
-    expect(isTaskComplete("confirmed")).toBe(false);
-    expect(isTaskComplete("pending_confirmation")).toBe(false);
-    expect(isTaskComplete("skipped")).toBe(false);
-  });
-});
-
-describe("deliverable progress", () => {
-  it("reads 0% with nothing linked rather than claiming completion", () => {
-    // An empty deliverable is the start of the work, not the end of it. Averaging "no tasks"
-    // as 100% would make a brand-new project read as finished.
-    expect(deliverableProgress(deliverable(), [], new Map())).toBe(0);
   });
 
-  it("counts finished tasks against every task linked", () => {
-    const links = [link("t1", "d1"), link("t2", "d1"), link("t3", "d1"), link("t4", "d1")];
+  it("computes progress from the tasks, leaving skipped work out", () => {
     const statuses = new Map([
       ["t1", "done"],
-      ["t2", "done"],
-      ["t3", "confirmed"],
-      ["t4", "pending_confirmation"],
-    ]);
-    expect(deliverableProgress(deliverable(), links, statuses)).toBe(50);
-  });
-
-  it("ignores tasks linked to a different deliverable", () => {
-    const links = [link("t1", "d1"), link("t2", "d2")];
-    const statuses = new Map([
-      ["t1", "done"],
-      ["t2", "pending_confirmation"],
-    ]);
-    expect(deliverableProgress(deliverable(), links, statuses)).toBe(100);
-  });
-
-  it("reads 100% once signed off, whatever its unfinished tasks say", () => {
-    // Confirmation is a person's judgement that the result was delivered, and it outranks the
-    // checklist that led there — otherwise an accepted deliverable shows as unfinished forever.
-    const confirmed = deliverable({
-      confirmedBy: OWNER,
-      confirmedAt: "2026-09-17T09:00:00.000Z",
-      status: "done",
-    });
-    const links = [link("t1", "d1"), link("t2", "d1")];
-    const statuses = new Map([
-      ["t1", "pending_confirmation"],
       ["t2", "confirmed"],
+      ["t3", "skipped"],
     ]);
-    expect(deliverableProgress(confirmed, links, statuses)).toBe(100);
+    expect(taskProgress(["t1", "t2"], statuses)).toBe(50);
+    expect(projectProgress(links, statuses)).toBe(50);
   });
 
-  it("rounds to whole percentages so the bar and its number agree", () => {
-    const links = [link("t1", "d1"), link("t2", "d1"), link("t3", "d1")];
-    const statuses = new Map([
-      ["t1", "done"],
-      ["t2", "pending_confirmation"],
-      ["t3", "pending_confirmation"],
-    ]);
-    expect(deliverableProgress(deliverable(), links, statuses)).toBe(33);
+  it("reads 0% with nothing linked rather than claiming completion", () => {
+    expect(projectProgress([], new Map())).toBe(0);
   });
 });
 
-describe("objective and project progress", () => {
-  it("averages an objective's deliverables without weighting them", () => {
-    const shape = tree({
-      deliverables: [deliverable({ id: "d1" }), deliverable({ id: "d2" })],
-      links: [link("t1", "d1"), link("t2", "d2"), link("t3", "d2")],
-    });
-    const statuses = new Map([
-      ["t1", "done"],
-      ["t2", "done"],
-      ["t3", "pending_confirmation"],
+describe("closing a project", () => {
+  it("needs evidence on every criterion of the right kind", () => {
+    expect(isCriterionRecorded(criterion())).toBe(false);
+    expect(isCriterionRecorded(criterion({ actualPercent: 80 }))).toBe(true);
+    expect(isCriterionRecorded(criterion({ measurementType: "meeting_confirmation", targetPercent: null }))).toBe(false);
+    expect(
+      isCriterionRecorded(criterion({ measurementType: "meeting_confirmation", targetPercent: null, meetingNoteId: "m1" })),
+    ).toBe(true);
+  });
+
+  it("blocks on open criteria and on tasks due after the target end", () => {
+    const tasks = new Map([
+      ["t1", { status: "confirmed", deadline: "2026-10-30" }],
+      ["t2", { status: "skipped", deadline: "2026-12-01" }],
+      ["t3", { status: "done", deadline: "2026-10-10" }],
     ]);
-    // d1 is 100%, d2 is 50% — the objective is the plain average of the two.
-    expect(objectiveProgress(objective(), shape, statuses)).toBe(75);
+    const blockers = closeBlockers(
+      { project: project(), criteria: [criterion()], links: [link("t1", "r1"), link("t2", null), link("t3", null)] },
+      tasks,
+    );
+    expect(blockers).toEqual({ openCriteria: 1, lateTasks: 1 });
+    expect(canClose(blockers)).toBe(false);
+    expect(closeBlockerSentence(blockers)).toBe("Còn 1 tiêu chí chưa có kết quả và 1 nhiệm vụ có hạn sau ngày kết thúc.");
   });
 
-  it("reads an objective with no deliverables as 0%, not as finished", () => {
-    expect(objectiveProgress(objective(), { deliverables: [], links: [] }, new Map())).toBe(0);
+  it("lets a project with no criteria and no late work close", () => {
+    const blockers = closeBlockers({ project: project(), criteria: [], links: [] }, new Map());
+    expect(canClose(blockers)).toBe(true);
+    expect(closeBlockerSentence(blockers)).toBeNull();
   });
 
-  it("averages the project across its objectives", () => {
-    const shape = tree({
-      objectives: [objective({ id: "o1" }), objective({ id: "o2", sortOrder: 1 })],
-      deliverables: [
-        deliverable({ id: "d1", objectiveId: "o1" }),
-        deliverable({ id: "d2", objectiveId: "o2" }),
-      ],
-      links: [link("t1", "d1"), link("t2", "d2")],
-    });
-    const statuses = new Map([
-      ["t1", "done"],
-      ["t2", "pending_confirmation"],
-    ]);
-    expect(projectProgress(shape, statuses)).toBe(50);
-  });
-
-  it("reads a project with no objectives as 0% instead of dividing by zero", () => {
-    expect(projectProgress(tree({ objectives: [], deliverables: [] }), new Map())).toBe(0);
+  it("is the opener's decision alone", () => {
+    expect(isProjectOwner(project(), OWNER)).toBe(true);
+    expect(isProjectOwner(project(), MEMBER)).toBe(false);
+    expect(isProjectOwner(project(), undefined)).toBe(false);
   });
 });
 
-describe("reading the tree", () => {
-  it("returns a deliverable's tasks and nobody else's", () => {
-    const shape = tree({ links: [link("t1", "d1"), link("t2", "d2"), link("t3", "d1")] });
-    expect(taskIdsOf(shape, "d1")).toEqual(["t1", "t3"]);
-  });
-
-  it("keeps deliverables in the order they were thought of, not alphabetical", () => {
-    const shape = tree({
-      deliverables: [
-        deliverable({ id: "d2", title: "An", sortOrder: 1 }),
-        deliverable({ id: "d1", title: "Zed", sortOrder: 0 }),
-      ],
-    });
-    expect(deliverablesOf(shape, "o1").map((item) => item.id)).toEqual(["d1", "d2"]);
-  });
-});
-
-describe("who may sign off a deliverable", () => {
-  it("allows the person who opened the project and nobody else", () => {
-    expect(canConfirmDeliverable(project(), OWNER)).toBe(true);
-    expect(canConfirmDeliverable(project(), MEMBER)).toBe(false);
-    // Signed out: the button must not appear at all rather than fail on the server.
-    expect(canConfirmDeliverable(project(), undefined)).toBe(false);
-  });
-});
-
-describe("grouping projects by who can see them", () => {
-  it("files each project under the kind of conversation it lives in", () => {
-    const kinds = new Map<string, ProjectGroupKind>([
-      ["c-journal", "personal"],
-      ["c-direct", "direct"],
+describe("the Dự án tab lists group projects only", () => {
+  it("keeps projects in a group and holds back anything else or unknown", () => {
+    const kinds = new Map([
       ["c-group", "group"],
+      ["c-journal", "personal"],
     ]);
-    const grouped = groupProjects(
+    const result = groupProjectsOnly(
       [
-        project({ id: "p1", conversationId: "c-journal" }),
-        project({ id: "p2", conversationId: "c-direct" }),
-        project({ id: "p3", conversationId: "c-group" }),
-        project({ id: "p4", conversationId: "c-group" }),
+        project({ id: "a", conversationId: "c-group" }),
+        project({ id: "b", conversationId: "c-journal" }),
+        project({ id: "c", conversationId: "c-unknown" }),
       ],
       (id) => kinds.get(id),
     );
-
-    expect(grouped.personal.map((item) => item.id)).toEqual(["p1"]);
-    expect(grouped.direct.map((item) => item.id)).toEqual(["p2"]);
-    expect(grouped.group.map((item) => item.id)).toEqual(["p3", "p4"]);
-  });
-
-  it("holds back a project whose conversation has not loaded rather than guessing", () => {
-    // Guessing would put it under the wrong heading, which would misstate who can read it —
-    // the one thing this screen must never do. It appears as soon as the inbox answers.
-    const grouped = groupProjects([project({ conversationId: "unknown" })], () => undefined);
-    expect(grouped.personal).toEqual([]);
-    expect(grouped.direct).toEqual([]);
-    expect(grouped.group).toEqual([]);
+    expect(result.map((entry) => entry.id)).toEqual(["a"]);
   });
 });
 
 describe("the database's refusals, in words someone can act on", () => {
-  it("explains the ownership rule instead of repeating its error code", () => {
-    expect(toVietnameseProjectError("P0001", "avora_project_not_owner")).toBe(
-      "Chỉ người mở dự án mới xác nhận được kết quả này.",
-    );
+  it("explains each close blocker", () => {
+    expect(toVietnameseProjectError("P0001", "avora_project_criteria_open")).toMatch(/tiêu chí/);
+    expect(toVietnameseProjectError("P0001", "avora_project_task_past_end")).toMatch(/sau ngày kết thúc/);
   });
 
-  it("names the missing title and the missing first objective separately", () => {
-    expect(toVietnameseProjectError("P0001", "Dự án cần một tiêu đề")).toBe(
-      "Dự án cần một tiêu đề.",
-    );
-    expect(toVietnameseProjectError("P0001", "Dự án cần mục tiêu đầu tiên")).toBe(
-      "Hãy đặt mục tiêu đầu tiên.",
-    );
-  });
-
-  it("turns a lost membership into the reason the action failed", () => {
-    expect(
-      toVietnameseProjectError("P0001", "Bạn không còn trong cuộc trò chuyện của dự án này"),
-    ).toBe("Bạn không còn trong cuộc trò chuyện của dự án này.");
-  });
-
-  it("explains the personal-task rule rather than showing a constraint name", () => {
-    expect(
-      toVietnameseProjectError("P0001", "Việc riêng chỉ nối được vào dự án riêng của chính bạn"),
-    ).toBe("Việc riêng chỉ nối được vào dự án riêng của bạn.");
+  it("explains the ownership and group-only rules", () => {
+    expect(toVietnameseProjectError("P0001", "avora_project_not_owner")).toMatch(/người mở dự án/);
+    expect(toVietnameseProjectError("P0001", "avora_project_group_only")).toMatch(/Nhóm/);
   });
 
   it("asks the reader to report a permission gap instead of blaming them", () => {
-    expect(toVietnameseProjectError("42501", "permission denied for table projects")).toBe(
-      "Máy chủ chưa cho phép thao tác này. Vui lòng báo lại cho chúng tôi.",
-    );
-  });
-
-  it("tells someone to check their network when the request never left", () => {
-    expect(toVietnameseProjectError(undefined, "Failed to fetch")).toBe(
-      "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.",
-    );
+    expect(toVietnameseProjectError("42501", "permission denied")).toMatch(/báo lại/);
   });
 
   it("falls back to one plain sentence for anything unrecognised", () => {
-    expect(toVietnameseProjectError("XX000", "some internal detail")).toBe(
-      "Có lỗi xảy ra. Vui lòng thử lại.",
-    );
+    expect(toVietnameseProjectError(undefined, "something odd")).toBe("Có lỗi xảy ra. Vui lòng thử lại.");
   });
 });
 
 describe("where a project lives", () => {
   it("addresses a project by its id", () => {
-    expect(projectLink("abc-123")).toBe("/du-an/abc-123");
+    expect(projectLink("p-9")).toBe("/du-an/p-9");
   });
 });

@@ -1,28 +1,78 @@
-import { expect, test, describe, beforeEach } from "vitest";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { beforeEach, describe, expect, test, vi } from "vitest";
+import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
-import { vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
 import type { ConversationSummary } from "@/lib/chat";
 import type { Project } from "@/lib/projects";
+import type { ThinkRecord, ThinkTable } from "@/lib/think-hub";
+
+const state = vi.hoisted(() => ({
+  tables: [] as ThinkTable[],
+  records: [] as ThinkRecord[],
+}));
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
+vi.mock("@/lib/use-think-hub", () => ({
+  useThinkTables: () => ({ data: state.tables, isPending: false }),
+  useThinkRecords: () => ({ data: state.records, isPending: false }),
+}));
 
 const { ProjectList } = await import("@/components/projects/ProjectList");
 
 function project(overrides: Partial<Project> = {}): Project {
   return {
     id: "p1",
-    conversationId: "c-journal",
+    conversationId: "c-group",
     createdBy: "u-me",
     title: "Ra mắt bản thử",
-    purpose: null,
+    valueOrientation: "Phục vụ khách",
+    objective: "Giao hàng đúng hạn",
     scope: null,
-    successCriteria: null,
     assumptions: null,
+    startDate: "2026-09-20",
+    targetEndDate: "2026-10-20",
     status: "active",
     createdAt: "2026-09-17T08:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
+    ...overrides,
+  };
+}
+
+function table(overrides: Partial<ThinkTable> & { id: string; name: string }): ThinkTable {
+  return {
+    ownerUserId: "u-me",
+    position: 0,
+    columns: [],
+    projectId: null,
+    conversationId: null,
+    parentRecordId: null,
+    depth: 1,
+    purpose: null,
+    createdAt: "2026-09-01T00:00:00Z",
+    updatedAt: "2026-09-01T00:00:00Z",
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+function record(overrides: Partial<ThinkRecord> & { id: string; tableId: string; title: string }): ThinkRecord {
+  return {
+    ownerUserId: "u-me",
+    status: "moi",
+    priority: "trung_binh",
+    category: null,
+    nextActionDate: null,
+    remindAt: null,
+    tags: [],
+    notes: null,
+    extensionFields: {},
+    projectId: null,
+    createdAt: "2026-09-02T00:00:00Z",
+    updatedAt: "2026-09-02T00:00:00Z",
+    deletedAt: null,
     ...overrides,
   };
 }
@@ -48,101 +98,74 @@ function conversation(overrides: Partial<ConversationSummary> = {}): Conversatio
 
 const CONVERSATIONS: ConversationSummary[] = [
   conversation(),
-  conversation({
-    conversationId: "c-direct",
-    kind: "direct",
-    peerId: "u-ngoc",
-    peerName: "Ngọc",
-    peerEmail: "ngoc@vidu.com",
-    memberCount: 2,
-  }),
-  conversation({
-    conversationId: "c-group",
-    kind: "group",
-    groupName: "Nhóm sản phẩm",
-    memberCount: 4,
-  }),
+  conversation({ conversationId: "c-direct", kind: "direct", peerId: "u-ngoc", peerName: "Ngọc", memberCount: 2 }),
+  conversation({ conversationId: "c-group", kind: "group", groupName: "Nhóm sản phẩm", memberCount: 4 }),
 ];
 
 async function renderList(projects: Project[]) {
+  const client = new QueryClient();
   return await render(
-    <MemoryRouter>
-      <ProjectList
-        projects={projects}
-        conversations={CONVERSATIONS}
-        activeProjectId={undefined}
-        isPending={false}
-      />
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <ProjectList projects={projects} conversations={CONVERSATIONS} activeProjectId={undefined} isPending={false} />
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
-describe("the Dự án tab groups projects by who can see them", () => {
+describe("the Dự án tab: my tables, then group projects", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
+    state.tables = [];
+    state.records = [];
   });
 
-  test("shows the three headings, so nobody has to guess who a project is shared with", async () => {
+  test("shows exactly two sections — the empty Cá nhân and 1-1 project sections are gone", async () => {
     const screen = await renderList([]);
-
-    // Exact matching: the heading "1-1" is also a substring of the empty-state sentence
-    // underneath it, and "Nhóm" of the group's own name.
-    await expect.element(screen.getByText("Cá nhân", { exact: true })).toBeInTheDocument();
-    await expect.element(screen.getByText("1-1", { exact: true })).toBeInTheDocument();
+    await expect.element(screen.getByText("Bảng của tôi", { exact: true })).toBeInTheDocument();
     await expect.element(screen.getByText("Nhóm", { exact: true })).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("Cá nhân");
+    expect(document.body.textContent).not.toContain("Chưa có dự án nào với một người");
   });
 
-  test("names each project under its own group, and says who else is in it", async () => {
-    const screen = await renderList([
-      project({ id: "p1", conversationId: "c-journal", title: "Dọn nhà cửa" }),
-      project({ id: "p2", conversationId: "c-direct", title: "Hợp tác với Ngọc" }),
-      project({ id: "p3", conversationId: "c-group", title: "Ra mắt bản thử" }),
-    ]);
-
-    await expect.element(screen.getByText("Dọn nhà cửa")).toBeInTheDocument();
-    await expect.element(screen.getByText("Hợp tác với Ngọc")).toBeInTheDocument();
-    await expect.element(screen.getByText("Ra mắt bản thử")).toBeInTheDocument();
-
-    // A personal project says so plainly; the other two name the room they belong to.
-    await expect.element(screen.getByText("Chỉ mình bạn")).toBeInTheDocument();
-    // Exact: the peer's name also appears inside the project title "Hợp tác với Ngọc".
-    await expect.element(screen.getByText("Ngọc", { exact: true })).toBeInTheDocument();
-    await expect.element(screen.getByText("Nhóm sản phẩm")).toBeInTheDocument();
-  });
-
-  test("points each row at its project", async () => {
-    const screen = await renderList([project({ id: "p-42", title: "Dọn nhà cửa" })]);
-
-    const link = screen.getByRole("link", { name: /Dọn nhà cửa/ });
-    await expect.element(link).toHaveAttribute("href", "/du-an/p-42");
-  });
-
-  test("explains each empty group instead of leaving a blank column", async () => {
+  test("lists my personal and 1-1 tables, but not a group's or a project's", async () => {
+    state.tables = [
+      table({ id: "t-mine", name: "Sổ riêng" }),
+      table({ id: "t-direct", name: "Bảng với Ngọc", conversationId: "c-direct" }),
+      table({ id: "t-group", name: "Bảng của nhóm", conversationId: "c-group" }),
+      table({ id: "t-project", name: "Bảng dự án", projectId: "p1" }),
+      table({ id: "t-other", name: "Bảng người khác", ownerUserId: "u-other" }),
+    ];
     const screen = await renderList([]);
-
-    await expect
-      .element(screen.getByText(/Chưa có dự án riêng nào/))
-      .toBeInTheDocument();
-    await expect
-      .element(screen.getByText(/Chưa có dự án nào với một người/))
-      .toBeInTheDocument();
-    await expect.element(screen.getByText(/Chưa có dự án nhóm nào/)).toBeInTheDocument();
+    await expect.element(screen.getByText("Sổ riêng")).toBeInTheDocument();
+    await expect.element(screen.getByText("Bảng với Ngọc")).toBeInTheDocument();
+    await expect.element(screen.getByText("1-1 với Ngọc")).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("Bảng của nhóm");
+    expect(document.body.textContent).not.toContain("Bảng dự án");
+    expect(document.body.textContent).not.toContain("Bảng người khác");
   });
 
-  test("no longer offers to open a personal project — projects start inside a group", async () => {
-    await renderList([]);
-    expect(document.body.textContent).not.toContain("Dự án riêng mới");
-    expect(document.body.textContent).toContain("Dự án là việc của nhóm");
+  test("unfolds a table into its Hạng mục in place, without leaving the tab", async () => {
+    state.tables = [table({ id: "t-mine", name: "Sổ riêng" })];
+    state.records = [record({ id: "r1", tableId: "t-mine", title: "Gọi nhà cung cấp" })];
+    const screen = await renderList([]);
+    expect(document.body.textContent).not.toContain("Gọi nhà cung cấp");
+    await userEvent.click(screen.getByRole("button", { name: /Sổ riêng/ }));
+    await expect.element(screen.getByText("Gọi nhà cung cấp")).toBeInTheDocument();
+  });
+
+  test("lists only projects living in a group, each pointing at its page", async () => {
+    const screen = await renderList([
+      project({ id: "p-42", conversationId: "c-group", title: "Ra mắt bản thử" }),
+      project({ id: "p-old", conversationId: "c-journal", title: "Dự án cũ trong Nhật ký" }),
+    ]);
+    const link = screen.getByRole("link", { name: /Ra mắt bản thử/ });
+    await expect.element(link).toHaveAttribute("href", "/du-an/p-42");
+    expect(document.body.textContent).not.toContain("Dự án cũ trong Nhật ký");
   });
 
   test("holds back a project whose conversation it cannot place, rather than mislabelling it", async () => {
-    // Filing it under the wrong heading would misstate who can read it. It appears as soon as
-    // the inbox answers for that conversation.
-    const screen = await renderList([
-      project({ id: "p-unknown", conversationId: "c-not-loaded", title: "Dự án lạ" }),
-    ]);
-
-    await expect.element(screen.getByText(/Chưa có dự án riêng nào/)).toBeInTheDocument();
+    await renderList([project({ id: "p-unknown", conversationId: "c-not-loaded", title: "Dự án lạ" })]);
     expect(document.body.textContent).not.toContain("Dự án lạ");
   });
 });

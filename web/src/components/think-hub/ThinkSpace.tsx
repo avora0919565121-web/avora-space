@@ -4,14 +4,14 @@ import {
   attentionSentence,
   hubAttention,
   recordCountOf,
-  type BusinessRecord,
-  type BusinessTable,
+  type ThinkRecord,
+  type ThinkTable,
   type HubAttention,
-} from "@/lib/business-hub";
+} from "@/lib/think-hub";
 
-type BusinessSpaceProps = {
-  tables: readonly BusinessTable[];
-  records: readonly BusinessRecord[];
+type ThinkSpaceProps = {
+  tables: readonly ThinkTable[];
+  records: readonly ThinkRecord[];
   today: string;
   /** Opening a table from the overview — the overview itself only ever reads. */
   onOpenTable: (tableId: string) => void;
@@ -25,7 +25,7 @@ const WINDOW_LABELS: readonly { key: "overdue" | "today" | "week"; label: string
 ] as const;
 
 /**
- * Business Space — the fixed overview of the whole HUB.
+ * Think Space — the fixed overview of the whole HUB.
  *
  * Read-only on purpose. It answers "what is asking for me across everything I keep" and then
  * hands over to the table that holds the answer; a place that both summarises and edits ends
@@ -34,13 +34,13 @@ const WINDOW_LABELS: readonly { key: "overdue" | "today" | "week"; label: string
  * The three windows are the same three Tài chính uses for money that is due — late, today,
  * this week — so a person reads the same shape whichever part of AVORA is talking.
  */
-export function BusinessSpace({ tables, records, today, onOpenTable }: BusinessSpaceProps) {
+export function ThinkSpace({ tables, records, today, onOpenTable }: ThinkSpaceProps) {
   const attention: HubAttention = useMemo(() => hubAttention(records, today), [records, today]);
 
   return (
-    <section aria-label="Business Space" className="rounded-xl border border-border bg-card p-5">
+    <section aria-label="Tổng quan kế hoạch" className="rounded-xl border border-border bg-card p-5">
       <header>
-        <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Business Space</h2>
+        <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Tổng quan</h2>
         <p className="mt-1 text-[14.5px] text-muted-foreground">
           {attentionSentence(attention, tables.length)}
         </p>

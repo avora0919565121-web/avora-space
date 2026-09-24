@@ -49,13 +49,13 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
   if (normalized.includes("avora_txn_date_future")) return "Ngày giao dịch không thể ở tương lai.";
   if (normalized.includes("avora_txn_account_not_yours")) return "Tài khoản này không thuộc về bạn.";
   if (normalized.includes("avora_txn_account_closed")) return "Tài khoản này đã đóng, không ghi thêm được.";
-  if (normalized.includes("avora_txn_category_not_yours")) return "Hạng mục này không thuộc về bạn.";
-  if (normalized.includes("avora_txn_category_removed")) return "Hạng mục này đã bị xoá.";
+  if (normalized.includes("avora_txn_category_not_yours")) return "Danh mục này không thuộc về bạn.";
+  if (normalized.includes("avora_txn_category_removed")) return "Danh mục này đã bị xoá.";
   if (normalized.includes("avora_txn_category_type_mismatch"))
-    return "Hạng mục không khớp với loại giao dịch (thu hay chi).";
+    return "Danh mục không khớp với loại giao dịch (thu hay chi).";
   if (normalized.includes("avora_txn_description_max_len")) return "Diễn giải quá dài.";
   if (normalized.includes("avora_txn_purpose_max_len")) return "Mục đích kinh doanh quá dài.";
-  if (normalized.includes("avora_txn_category_required")) return "Hãy chọn hạng mục.";
+  if (normalized.includes("avora_txn_category_required")) return "Hãy chọn danh mục.";
 
   if (normalized.includes("avora_txn_due_date_required")) return "Hãy chọn ngày đến hạn.";
   if (normalized.includes("avora_txn_contact_required"))
@@ -73,19 +73,19 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
   if (normalized.includes("avora_txn_voided"))
     return "Khoản này đã được đánh dấu nhầm nên không ghi thêm được.";
 
-  if (normalized.includes("avora_category_name_required")) return "Tên hạng mục là bắt buộc.";
-  if (normalized.includes("avora_category_name_max_len")) return "Tên hạng mục quá dài.";
-  if (normalized.includes("avora_category_color_invalid")) return "Màu hạng mục không hợp lệ.";
+  if (normalized.includes("avora_category_name_required")) return "Tên danh mục là bắt buộc.";
+  if (normalized.includes("avora_category_name_max_len")) return "Tên danh mục quá dài.";
+  if (normalized.includes("avora_category_color_invalid")) return "Màu danh mục không hợp lệ.";
   if (normalized.includes("avora_category_in_use"))
-    return "Hạng mục này đã có giao dịch nên chỉ có thể ẩn đi, không xoá hẳn.";
+    return "Danh mục này đã có giao dịch nên chỉ có thể ẩn đi, không xoá hẳn.";
 
   if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
 
   if (code === "23505" && normalized.includes("accounts_user_name_uniq"))
     return "Bạn đã có một tài khoản trùng tên.";
-  if (code === "23505" && normalized.includes("categories_user_name_uniq")) return "Hạng mục này đã có rồi.";
+  if (code === "23505" && normalized.includes("categories_user_name_uniq")) return "Danh mục này đã có rồi.";
   if (code === "23505") return "Dữ liệu này đã tồn tại.";
-  if (code === "23503") return "Không tìm thấy tài khoản hoặc hạng mục liên quan.";
+  if (code === "23503") return "Không tìm thấy tài khoản hoặc danh mục liên quan.";
   if (code === "23514") return "Giá trị không hợp lệ. Hãy kiểm tra lại số tiền.";
   if (code === "42501" || normalized.includes("permission denied"))
     return "Máy chủ chưa cho phép thao tác này. Vui lòng báo lại cho chúng tôi.";

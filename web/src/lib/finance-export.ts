@@ -169,7 +169,7 @@ function buildChartSheet(chart: ReportChart, currency: string): SheetData | null
     if (chart.slices.length === 0) return null;
     const rows: XlsxRow[] = [
       [
-        { value: "Hạng mục", fontWeight: "bold", backgroundColor: HEADER_FILL },
+        { value: "Danh mục", fontWeight: "bold", backgroundColor: HEADER_FILL },
         { value: "Số tiền", fontWeight: "bold", backgroundColor: HEADER_FILL, align: "right" },
       ],
     ];

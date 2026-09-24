@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { COLUMN_TYPES, columnTypeLabel, type ColumnType } from "@/lib/business-hub";
+import { COLUMN_TYPES, columnTypeLabel, type ColumnType } from "@/lib/think-hub";
 import { cn } from "@/lib/utils";
 
 type AddColumnDialogProps = {
@@ -76,13 +76,13 @@ export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddCol
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
           <div>
             <label
-              htmlFor="business-column-label"
+              htmlFor="think-column-label"
               className="text-[13px] font-medium text-muted-foreground"
             >
               Tên cột
             </label>
             <input
-              id="business-column-label"
+              id="think-column-label"
               value={label}
               onChange={(event) => setLabel(event.target.value)}
               autoFocus
@@ -117,13 +117,13 @@ export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddCol
           {type === "select" ? (
             <div>
               <label
-                htmlFor="business-column-options"
+                htmlFor="think-column-options"
                 className="text-[13px] font-medium text-muted-foreground"
               >
                 Các lựa chọn
               </label>
               <textarea
-                id="business-column-options"
+                id="think-column-options"
                 value={options}
                 onChange={(event) => setOptions(event.target.value)}
                 rows={3}

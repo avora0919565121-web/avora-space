@@ -2,16 +2,17 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 
 /**
- * Business HUB — the tables someone keeps for running their own work.
+ * Think Hub ("Kế hoạch" on screen) — the tables people keep to think their work through.
  *
- * A private ledger, like Tài chính and the opportunity book: a table belongs to exactly one
- * person, is never shared, and nobody else can read a row of it. There are no members, no
- * invitations and no roles here on purpose — sharing a table is a different product with
- * different questions (who may rename a column, whose record is whose), and answering them
- * halfway would be worse than not answering them at all.
+ * A table belongs to exactly one scope, and the scope is the whole permission model:
+ *   - personal (the Diary): only its owner reads it;
+ *   - a conversation (1-1 or group): everyone in that conversation reads it;
+ *   - a project: everyone in the project's group reads it, and each project has exactly one root.
+ * A sub-table grows out of one record ("Hạng mục"), inherits its parent's scope, and stops at
+ * three levels deep. Writes go only through server functions that re-check all of this.
  *
  * Deliberately NOT the opportunity book. An opportunity is a specific thing — a contact being
- * turned into business, with stages the app understands. A Business HUB table is whatever its
+ * turned into business, with stages the app understands. A Think Hub table is whatever its
  * owner says it is: a list of building sites, of suppliers, of machines being repaired. The
  * app supplies the shape, the person supplies the meaning.
  */
@@ -67,6 +68,8 @@ export function columnTypeLabel(type: ColumnType): string {
  * silently emptying it.
  */
 export type ColumnDef = {
+  /** Issued once when the column is made and never changed; renaming a column only changes its label. */
+  id: string;
   key: string;
   label: string;
   type: ColumnType;
@@ -77,18 +80,30 @@ export type ColumnDef = {
 /** A value a person typed into an extension column. Null is "nobody has filled this in". */
 export type ExtensionValue = string | number | null;
 
-export type BusinessTable = {
+/** Which scope a table lives in — derived from its columns, never stored separately. */
+export type TableScope = "personal" | "conversation" | "project";
+
+/** Deepest a sub-table chain may go: a root table is level 1. */
+export const MAX_TABLE_DEPTH = 3;
+
+export type ThinkTable = {
   id: string;
   ownerUserId: string;
   name: string;
   position: number;
   columns: readonly ColumnDef[];
+  projectId: string | null;
+  conversationId: string | null;
+  /** The record this sub-table grew out of. Null for a root table. */
+  parentRecordId: string | null;
+  depth: number;
+  purpose: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
 };
 
-export type BusinessRecord = {
+export type ThinkRecord = {
   id: string;
   tableId: string;
   ownerUserId: string;
@@ -106,17 +121,17 @@ export type BusinessRecord = {
   tags: readonly string[];
   notes: string | null;
   extensionFields: Readonly<Record<string, ExtensionValue>>;
-  /** Reserved. The Dự án module does not exist yet, so nothing writes this. */
+  /** Legacy column, unused: a record's project comes from its table. */
   projectId: string | null;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
 };
 
-export const businessHubKeys = {
-  all: ["business-hub"] as const,
-  tables: ["business-hub", "tables"] as const,
-  records: ["business-hub", "records"] as const,
+export const thinkHubKeys = {
+  all: ["think-hub"] as const,
+  tables: ["think-hub", "tables"] as const,
+  records: ["think-hub", "records"] as const,
 };
 
 /** How many records one table holds before it stops accepting new ones. */
@@ -162,6 +177,11 @@ type TableRow = {
   name: string;
   position: number;
   column_defs: unknown;
+  project_id?: string | null;
+  conversation_id?: string | null;
+  parent_record_id?: string | null;
+  depth?: number | null;
+  purpose?: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
@@ -210,15 +230,17 @@ export function parseColumnDefs(raw: unknown): ColumnDef[] {
     if (key.length === 0 || label.trim().length === 0) continue;
     if (seen.has(key)) continue;
     if (!isColumnType(item.type)) continue;
+    // Columns made before ids existed were given their key as id by the migration.
+    const id = typeof item.id === "string" && item.id.length > 0 ? item.id : key;
 
     if (item.type === "select") {
       const options = Array.isArray(item.options)
         ? item.options.filter((option): option is string => typeof option === "string")
         : [];
       if (options.length === 0) continue;
-      defs.push({ key, label, type: "select", options });
+      defs.push({ id, key, label, type: "select", options });
     } else {
-      defs.push({ key, label, type: item.type });
+      defs.push({ id, key, label, type: item.type });
     }
     seen.add(key);
   }
@@ -236,20 +258,25 @@ export function parseExtensionFields(raw: unknown): Record<string, ExtensionValu
   return values;
 }
 
-function toTable(row: TableRow): BusinessTable {
+function toTable(row: TableRow): ThinkTable {
   return {
     id: row.id,
     ownerUserId: row.owner_user_id,
     name: row.name,
     position: row.position,
     columns: parseColumnDefs(row.column_defs),
+    projectId: row.project_id ?? null,
+    conversationId: row.conversation_id ?? null,
+    parentRecordId: row.parent_record_id ?? null,
+    depth: row.depth ?? 1,
+    purpose: row.purpose ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
   };
 }
 
-function toRecord(row: RecordRow): BusinessRecord {
+function toRecord(row: RecordRow): ThinkRecord {
   return {
     id: row.id,
     tableId: row.table_id,
@@ -275,7 +302,7 @@ function toRecord(row: RecordRow): BusinessRecord {
 // ------------------------------------------------------------------ reading shapes
 
 /** The tables to show, in the order they were arranged. Deleted ones stay out. */
-export function visibleTables(tables: readonly BusinessTable[]): BusinessTable[] {
+export function visibleTables(tables: readonly ThinkTable[]): ThinkTable[] {
   return tables
     .filter((table) => table.deletedAt === null)
     .sort((left, right) =>
@@ -285,30 +312,131 @@ export function visibleTables(tables: readonly BusinessTable[]): BusinessTable[]
     );
 }
 
+/** Which scope a table belongs to. */
+export function tableScope(table: Pick<ThinkTable, "projectId" | "conversationId">): TableScope {
+  if (table.projectId !== null) return "project";
+  if (table.conversationId !== null) return "conversation";
+  return "personal";
+}
+
+/**
+ * Where a record is being written: the Diary (both null), one conversation, or one project.
+ * The server refuses a record whose table does not sit in exactly this scope.
+ */
+export type RecordScope = {
+  conversationId: string | null;
+  projectId: string | null;
+};
+
+export const PERSONAL_SCOPE: RecordScope = { conversationId: null, projectId: null };
+
+/** The scope a record written into this table must declare. */
+export function scopeOfTable(table: Pick<ThinkTable, "projectId" | "conversationId">): RecordScope {
+  return { conversationId: table.conversationId, projectId: table.projectId };
+}
+
+/** Only the tables a record may be filed into from this scope — the same rule the server applies. */
+export function tablesInScope(tables: readonly ThinkTable[], scope: RecordScope): ThinkTable[] {
+  return visibleTables(tables).filter(
+    (table) => table.conversationId === scope.conversationId && table.projectId === scope.projectId,
+  );
+}
+
+/** Root tables only — what a list of "tables" shows before anything is unfolded. */
+export function rootTables(tables: readonly ThinkTable[]): ThinkTable[] {
+  return visibleTables(tables).filter((table) => table.parentRecordId === null);
+}
+
+/** The sub-tables grown from one record. */
+export function subTablesOf(tables: readonly ThinkTable[], recordId: string): ThinkTable[] {
+  return visibleTables(tables).filter((table) => table.parentRecordId === recordId);
+}
+
+/** Whether a record in this table can grow a sub-table. The server decides too. */
+export function canGrowSubTable(table: Pick<ThinkTable, "depth">): boolean {
+  return table.depth < MAX_TABLE_DEPTH;
+}
+
+/** The purpose a new sub-table suggests, editable before it is saved. */
+export function suggestedSubTablePurpose(recordTitle: string): string {
+  return `Theo dõi cho: ${recordTitle.trim()}`;
+}
+
+export type AncestryStep = {
+  table: ThinkTable;
+  /** The Hạng mục in this table that the next step grew from; null on the last step. */
+  viaRecord: ThinkRecord | null;
+};
+
+/**
+ * The chain from a table's root down to the table itself, for the breadcrumb above a sub-table.
+ * Stops quietly at anything it cannot see rather than guessing a parent.
+ */
+export function tableAncestry(
+  tables: readonly ThinkTable[],
+  records: readonly ThinkRecord[],
+  tableId: string,
+): AncestryStep[] {
+  const byId = new Map(tables.map((table) => [table.id, table] as const));
+  const recordById = new Map(records.map((record) => [record.id, record] as const));
+  const steps: AncestryStep[] = [];
+  let current = byId.get(tableId);
+  let via: ThinkRecord | null = null;
+  for (let guard = 0; current !== undefined && guard < MAX_TABLE_DEPTH + 1; guard += 1) {
+    steps.unshift({ table: current, viaRecord: via });
+    if (current.parentRecordId === null) break;
+    const parentRecord = recordById.get(current.parentRecordId);
+    if (parentRecord === undefined) break;
+    via = parentRecord;
+    current = byId.get(parentRecord.tableId);
+  }
+  return steps;
+}
+
+/** The line shown when the three-level limit is reached. */
+export const DEPTH_LIMIT_MESSAGE =
+  "Đã đạt giới hạn 3 tầng, dùng thêm cột hoặc Hạng mục mới thay vì tầng sâu hơn.";
+
+/**
+ * "Bảng của tôi": the viewer's personal tables plus the tables of their 1-1 conversations,
+ * roots only. Group and project tables belong to the room and are listed there instead.
+ */
+export function myTables(
+  tables: readonly ThinkTable[],
+  userId: string | undefined,
+  isDirect: (conversationId: string) => boolean,
+): ThinkTable[] {
+  return rootTables(tables).filter((table) => {
+    if (table.projectId !== null) return false;
+    if (table.conversationId === null) return table.ownerUserId === userId;
+    return isDirect(table.conversationId);
+  });
+}
+
 /** The live records of one table, newest first. */
 export function recordsOf(
-  records: readonly BusinessRecord[],
+  records: readonly ThinkRecord[],
   tableId: string,
-): BusinessRecord[] {
+): ThinkRecord[] {
   return records
     .filter((record) => record.tableId === tableId && record.deletedAt === null)
     .sort((left, right) => right.createdAt.localeCompare(left.createdAt));
 }
 
 /** How full a table is — what the "+ Thêm mục" button reads before it refuses. */
-export function recordCountOf(records: readonly BusinessRecord[], tableId: string): number {
+export function recordCountOf(records: readonly ThinkRecord[], tableId: string): number {
   return records.filter((record) => record.tableId === tableId && record.deletedAt === null).length;
 }
 
 /** Whether this table can still take a new record. The server decides too; this only warns. */
-export function isTableFull(records: readonly BusinessRecord[], tableId: string): boolean {
+export function isTableFull(records: readonly ThinkRecord[], tableId: string): boolean {
   return recordCountOf(records, tableId) >= RECORD_LIMIT;
 }
 
 export type StatusColumn = {
   status: string;
   label: string;
-  records: readonly BusinessRecord[];
+  records: readonly ThinkRecord[];
 };
 
 /**
@@ -319,8 +447,8 @@ export type StatusColumn = {
  * is a board that says nothing. Anything a person actually typed gets its own column at the
  * end, in first-seen order, because the alternative is quietly hiding their records.
  */
-export function groupByStatus(records: readonly BusinessRecord[]): StatusColumn[] {
-  const buckets = new Map<string, BusinessRecord[]>();
+export function groupByStatus(records: readonly ThinkRecord[]): StatusColumn[] {
+  const buckets = new Map<string, ThinkRecord[]>();
   for (const status of SUGGESTED_STATUSES) buckets.set(status, []);
 
   for (const record of records) {
@@ -338,7 +466,7 @@ export function groupByStatus(records: readonly BusinessRecord[]): StatusColumn[
 }
 
 /** What a cell shows for one extension column of one record. */
-export function cellValue(record: BusinessRecord, column: ColumnDef): string {
+export function cellValue(record: ThinkRecord, column: ColumnDef): string {
   const value = record.extensionFields[column.key];
   if (value === null || value === undefined) return "";
   if (column.type === "number" && typeof value === "number") {
@@ -366,7 +494,7 @@ export type HubAttention = {
  * promised about when.
  */
 export function hubAttention(
-  records: readonly BusinessRecord[],
+  records: readonly ThinkRecord[],
   today: string,
   withinDays: number = 7,
 ): HubAttention {
@@ -425,45 +553,59 @@ export function attentionSentence(attention: HubAttention, tableCount: number): 
 export function toVietnameseHubError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
 
-  if (normalized.includes("avora_business_hub_record_limit"))
+  if (normalized.includes("avora_think_hub_record_limit"))
     return `Bảng đã đầy ${RECORD_LIMIT.toLocaleString("vi-VN")} mục, hãy dọn bớt trước khi thêm.`;
-  if (normalized.includes("avora_business_hub_table_name_required"))
+  if (normalized.includes("avora_think_hub_table_name_required"))
     return "Bảng cần một cái tên.";
-  if (normalized.includes("avora_business_hub_record_title_required"))
+  if (normalized.includes("avora_think_hub_record_title_required"))
     return "Mục này cần một tiêu đề.";
-  if (normalized.includes("avora_business_hub_record_status_required"))
+  if (normalized.includes("avora_think_hub_record_status_required"))
     return "Mục này cần một trạng thái.";
-  if (normalized.includes("avora_business_hub_column_label_required"))
+  if (normalized.includes("avora_think_hub_column_label_required"))
     return "Cột cần một cái tên.";
-  if (normalized.includes("avora_business_hub_column_options_required"))
+  if (normalized.includes("avora_think_hub_column_options_required"))
     return "Cột dạng chọn cần ít nhất một lựa chọn.";
-  if (normalized.includes("avora_business_hub_column_type_invalid"))
+  if (normalized.includes("avora_think_hub_column_type_invalid"))
     return "Kiểu cột này không hợp lệ.";
-  if (normalized.includes("avora_business_hub_column_key_taken"))
+  if (normalized.includes("avora_think_hub_column_key_taken"))
     return "Cột này đã tồn tại trong bảng.";
-  if (normalized.includes("avora_business_hub_column_limit"))
+  if (normalized.includes("avora_think_hub_column_limit"))
     return "Bảng đã đủ số cột mở rộng cho phép.";
-  if (normalized.includes("avora_business_hub_value_not_number"))
+  if (normalized.includes("avora_think_hub_value_not_number"))
     return "Cột này chỉ nhận số.";
-  if (normalized.includes("avora_business_hub_value_not_date"))
+  if (normalized.includes("avora_think_hub_value_not_date"))
     return "Cột này chỉ nhận ngày.";
-  if (normalized.includes("avora_business_hub_value_not_option"))
+  if (normalized.includes("avora_think_hub_value_not_option"))
     return "Giá trị này không nằm trong danh sách của cột.";
-  if (normalized.includes("avora_business_hub_value_not_text"))
+  if (normalized.includes("avora_think_hub_value_not_text"))
     return "Cột này chỉ nhận chữ.";
-  if (normalized.includes("avora_business_hub_priority_invalid"))
+  if (normalized.includes("avora_think_hub_priority_invalid"))
     return "Độ ưu tiên này không hợp lệ.";
-  if (normalized.includes("avora_business_hub_record_deleted"))
+  if (normalized.includes("avora_think_hub_record_deleted"))
     return "Mục này đã được cất đi.";
   if (
-    normalized.includes("avora_business_hub_table_not_yours") ||
-    normalized.includes("avora_business_hub_table_missing")
+    normalized.includes("avora_think_hub_table_not_yours") ||
+    normalized.includes("avora_think_hub_table_missing")
   )
     return "Bảng này không còn nữa.";
-  if (normalized.includes("avora_business_hub_record_not_yours"))
+  if (normalized.includes("avora_think_hub_record_not_yours"))
     return "Mục này không còn nữa.";
-  if (normalized.includes("avora_business_hub_patch_field"))
+  if (normalized.includes("avora_think_hub_patch_field"))
     return "Không sửa được trường này.";
+  if (normalized.includes("avora_think_hub_depth_limit")) return DEPTH_LIMIT_MESSAGE;
+  if (normalized.includes("avora_think_hub_table_out_of_scope"))
+    return "Bảng này thuộc một nơi khác. Hãy chọn bảng của đúng cuộc trò chuyện hoặc dự án này.";
+  if (normalized.includes("avora_think_hub_scope_invalid"))
+    return "Bảng chung chỉ mở được trong cuộc 1-1 hoặc Nhóm.";
+  if (normalized.includes("avora_think_hub_purpose_inherited"))
+    return "Bảng gốc của dự án dùng Kim chỉ nam và Mục tiêu của dự án.";
+  if (normalized.includes("avora_think_hub_project_root_locked"))
+    return "Bảng gốc của dự án không cất đi được.";
+  if (normalized.includes("avora_think_hub_column_missing")) return "Cột này không còn nữa.";
+  if (normalized.includes("avora_think_hub_column_id_immutable"))
+    return "Không đổi được kiểu của một cột đã có dữ liệu.";
+  if (normalized.includes("avora_not_a_participant"))
+    return "Bạn không còn trong cuộc trò chuyện này.";
   if (normalized.includes("avora_not_signed_in"))
     return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (code === "42501" || normalized.includes("permission denied"))
@@ -475,16 +617,16 @@ export function toVietnameseHubError(code: string | undefined, message: string):
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[business-hub] ${code ?? "unknown"}: ${message}`);
+  console.error(`[think-hub] ${code ?? "unknown"}: ${message}`);
   return new Error(toVietnameseHubError(code, message));
 }
 
 // ------------------------------------------------------------------ reading
 
-/** Every table the viewer owns, deleted ones included so a restore has something to show. */
-export async function fetchBusinessTables(): Promise<BusinessTable[]> {
+/** Every table the viewer can read — their own, their conversations', their projects'. Deleted ones included. */
+export async function fetchThinkTables(): Promise<ThinkTable[]> {
   const { data, error } = await supabase
-    .from("business_hub_table")
+    .from("think_hub_table")
     .select("*")
     .order("position", { ascending: true });
 
@@ -492,10 +634,10 @@ export async function fetchBusinessTables(): Promise<BusinessTable[]> {
   return (data ?? []).map((row) => toTable(row as TableRow));
 }
 
-/** Every record the viewer owns, across all their tables. */
-export async function fetchBusinessRecords(): Promise<BusinessRecord[]> {
+/** Every live record in every table the viewer can read. */
+export async function fetchThinkRecords(): Promise<ThinkRecord[]> {
   const { data, error } = await supabase
-    .from("business_hub_record")
+    .from("think_hub_record")
     .select("*")
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
@@ -507,27 +649,80 @@ export async function fetchBusinessRecords(): Promise<BusinessRecord[]> {
 // ------------------------------------------------------------------ writing
 
 /** The table someone lands in on their first visit. Safe to call on every visit. */
-export async function ensureDefaultTable(): Promise<BusinessTable> {
-  const { data, error } = await supabase.rpc("ensure_default_business_hub_table");
+export async function ensureDefaultTable(): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("ensure_default_think_hub_table");
   if (error) throw fail(error.code, error.message);
   return toTable(data as unknown as TableRow);
 }
 
-/** A new table, placed after the ones already there. */
-export async function createBusinessTable(name: string): Promise<BusinessTable> {
-  const { data, error } = await supabase.rpc("create_business_hub_table", {
-    p_name: name.trim(),
+/**
+ * A new standalone table — personal when `conversationId` is null, otherwise shared with that
+ * 1-1 or group. A project's root table is made with the project, never here.
+ */
+export async function createThinkTable(input: {
+  name: string;
+  purpose?: string | null;
+  conversationId?: string | null;
+}): Promise<ThinkTable> {
+  const purpose = input.purpose?.trim() ?? "";
+  const { data, error } = await supabase.rpc("create_think_hub_table", {
+    p_name: input.name.trim(),
+    p_purpose: purpose.length === 0 ? undefined : purpose,
+    p_conversation_id: input.conversationId ?? undefined,
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/**
+ * A sub-table grown from one record. It inherits the parent's scope on the server. `purpose`
+ * undefined takes the suggested "Theo dõi cho: …"; an empty string deliberately leaves it blank.
+ */
+export async function createThinkSubTable(input: {
+  recordId: string;
+  name?: string;
+  purpose?: string;
+}): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("create_think_hub_sub_table", {
+    p_record_id: input.recordId,
+    p_name: input.name?.trim() || undefined,
+    p_purpose: input.purpose === undefined ? undefined : input.purpose.trim(),
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/** Rewrites a table's purpose. A project's root table has none of its own and is refused. */
+export async function setThinkTablePurpose(tableId: string, purpose: string): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("set_think_hub_table_purpose", {
+    p_table_id: tableId,
+    p_purpose: purpose.trim(),
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/** Renames a column by its permanent id. The values stored under it are untouched. */
+export async function renameThinkColumn(input: {
+  tableId: string;
+  columnId: string;
+  label: string;
+}): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("rename_think_hub_column", {
+    p_table_id: input.tableId,
+    p_column_id: input.columnId,
+    p_label: input.label.trim(),
   });
   if (error) throw fail(error.code, error.message);
   return toTable(data as unknown as TableRow);
 }
 
 /** Renames a table. */
-export async function renameBusinessTable(
+export async function renameThinkTable(
   tableId: string,
   name: string,
-): Promise<BusinessTable> {
-  const { data, error } = await supabase.rpc("rename_business_hub_table", {
+): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("rename_think_hub_table", {
     p_table_id: tableId,
     p_name: name.trim(),
   });
@@ -536,8 +731,8 @@ export async function renameBusinessTable(
 }
 
 /** Puts a table away. Its records go with it and come back with it. */
-export async function deleteBusinessTable(tableId: string): Promise<BusinessTable> {
-  const { data, error } = await supabase.rpc("delete_business_hub_table", {
+export async function deleteThinkTable(tableId: string): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("delete_think_hub_table", {
     p_table_id: tableId,
   });
   if (error) throw fail(error.code, error.message);
@@ -545,8 +740,8 @@ export async function deleteBusinessTable(tableId: string): Promise<BusinessTabl
 }
 
 /** Takes a table back out. */
-export async function restoreBusinessTable(tableId: string): Promise<BusinessTable> {
-  const { data, error } = await supabase.rpc("restore_business_hub_table", {
+export async function restoreThinkTable(tableId: string): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("restore_think_hub_table", {
     p_table_id: tableId,
   });
   if (error) throw fail(error.code, error.message);
@@ -554,18 +749,18 @@ export async function restoreBusinessTable(tableId: string): Promise<BusinessTab
 }
 
 /** Adds one extension column to one table. Existing records keep every value they had. */
-export async function addBusinessColumn(input: {
+export async function addThinkColumn(input: {
   tableId: string;
   label: string;
   type: ColumnType;
   options?: readonly string[];
-}): Promise<BusinessTable> {
+}): Promise<ThinkTable> {
   const options =
     input.type === "select"
       ? (input.options ?? []).map((option) => option.trim()).filter((option) => option.length > 0)
       : undefined;
 
-  const { data, error } = await supabase.rpc("add_business_hub_column", {
+  const { data, error } = await supabase.rpc("add_think_hub_column", {
     p_table_id: input.tableId,
     p_label: input.label.trim(),
     p_type: input.type,
@@ -577,6 +772,8 @@ export async function addBusinessColumn(input: {
 
 export type NewRecordInput = {
   tableId: string;
+  /** Where this record is being written from. The server checks it against the table's own scope. */
+  scope: RecordScope;
   title: string;
   status?: string;
   priority?: RecordPriority;
@@ -590,8 +787,8 @@ export type NewRecordInput = {
 };
 
 /** A new record. The 1.000 ceiling is enforced server-side, not here. */
-export async function createBusinessRecord(input: NewRecordInput): Promise<BusinessRecord> {
-  const { data, error } = await supabase.rpc("create_business_hub_record", {
+export async function createThinkRecord(input: NewRecordInput): Promise<ThinkRecord> {
+  const { data, error } = await supabase.rpc("create_think_hub_record", {
     p_table_id: input.tableId,
     p_title: input.title.trim(),
     p_status: input.status ?? undefined,
@@ -602,11 +799,13 @@ export async function createBusinessRecord(input: NewRecordInput): Promise<Busin
     p_notes: input.notes ?? undefined,
     p_extension_fields:
       input.extensionFields === undefined ? undefined : { ...input.extensionFields },
+    p_scope_conversation_id: input.scope.conversationId ?? undefined,
+    p_scope_project_id: input.scope.projectId ?? undefined,
   });
   if (error) throw fail(error.code, error.message);
   const created = toRecord(data as unknown as RecordRow);
   if (input.remindAt === undefined || input.remindAt === null) return created;
-  return updateBusinessRecord(created.id, { remindAt: input.remindAt });
+  return updateThinkRecord(created.id, { remindAt: input.remindAt });
 }
 
 export type RecordPatch = {
@@ -629,10 +828,10 @@ export type RecordPatch = {
  * left alone. That distinction is the whole point of sending a patch: with eight nullable
  * arguments, "leave the note as it was" and "clear the note" are the same call.
  */
-export async function updateBusinessRecord(
+export async function updateThinkRecord(
   recordId: string,
   patch: RecordPatch,
-): Promise<BusinessRecord> {
+): Promise<ThinkRecord> {
   const body: Record<string, Json> = {};
 
   if (patch.title !== undefined) body.title = patch.title.trim();
@@ -649,7 +848,7 @@ export async function updateBusinessRecord(
     throw new Error("Không có gì để lưu.");
   }
 
-  const { data, error } = await supabase.rpc("update_business_hub_record", {
+  const { data, error } = await supabase.rpc("update_think_hub_record", {
     p_record_id: recordId,
     p_patch: body,
   });
@@ -658,8 +857,8 @@ export async function updateBusinessRecord(
 }
 
 /** Puts a record away. The space it held opens back up. */
-export async function deleteBusinessRecord(recordId: string): Promise<BusinessRecord> {
-  const { data, error } = await supabase.rpc("delete_business_hub_record", {
+export async function deleteThinkRecord(recordId: string): Promise<ThinkRecord> {
+  const { data, error } = await supabase.rpc("delete_think_hub_record", {
     p_record_id: recordId,
   });
   if (error) throw fail(error.code, error.message);
@@ -667,8 +866,8 @@ export async function deleteBusinessRecord(recordId: string): Promise<BusinessRe
 }
 
 /** Takes a record back out, if the table still has room for it. */
-export async function restoreBusinessRecord(recordId: string): Promise<BusinessRecord> {
-  const { data, error } = await supabase.rpc("restore_business_hub_record", {
+export async function restoreThinkRecord(recordId: string): Promise<ThinkRecord> {
+  const { data, error } = await supabase.rpc("restore_think_hub_record", {
     p_record_id: recordId,
   });
   if (error) throw fail(error.code, error.message);

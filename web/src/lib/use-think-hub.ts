@@ -3,59 +3,63 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 
 import { useAuth } from "@/lib/auth";
 import {
-  addBusinessColumn,
-  businessHubKeys,
-  createBusinessRecord,
-  createBusinessTable,
-  deleteBusinessRecord,
-  deleteBusinessTable,
+  addThinkColumn,
+  thinkHubKeys,
+  createThinkRecord,
+  createThinkSubTable,
+  createThinkTable,
+  deleteThinkRecord,
+  deleteThinkTable,
   ensureDefaultTable,
-  fetchBusinessRecords,
-  fetchBusinessTables,
+  fetchThinkRecords,
+  fetchThinkTables,
   recordsOf,
-  renameBusinessTable,
-  restoreBusinessRecord,
-  restoreBusinessTable,
-  updateBusinessRecord,
+  renameThinkColumn,
+  renameThinkTable,
+  restoreThinkRecord,
+  restoreThinkTable,
+  rootTables,
+  setThinkTablePurpose,
+  updateThinkRecord,
   visibleTables,
-  type BusinessRecord,
-  type BusinessTable,
+  type ThinkRecord,
+  type ThinkTable,
   type ColumnType,
   type NewRecordInput,
   type RecordPatch,
-} from "@/lib/business-hub";
+} from "@/lib/think-hub";
 
 /**
- * Every table the viewer owns, in one query.
+ * Every table the viewer can read, in one query.
  *
  * Read whole rather than one at a time, like the address book and the opportunity list: the
  * tab strip needs all of them on every screen of the HUB, and a query per table would turn
  * switching tabs into a request per tab.
  */
-export function useBusinessTables(): UseQueryResult<BusinessTable[], Error> {
+export function useThinkTables(): UseQueryResult<ThinkTable[], Error> {
   const { user } = useAuth();
 
-  return useQuery<BusinessTable[], Error>({
-    queryKey: businessHubKeys.tables,
-    queryFn: fetchBusinessTables,
+  return useQuery<ThinkTable[], Error>({
+    queryKey: thinkHubKeys.tables,
+    queryFn: fetchThinkTables,
     enabled: Boolean(user?.id),
     staleTime: 60_000,
   });
 }
 
 /**
- * Every record the viewer owns, across every table.
+ * Every record the viewer can read, across every table.
  *
  * One query for the whole HUB rather than one per table: the overview counts what is due
  * across all tables at once, and the ceiling warning needs the count of a table before
  * anybody opens it.
  */
-export function useBusinessRecords(): UseQueryResult<BusinessRecord[], Error> {
+export function useThinkRecords(): UseQueryResult<ThinkRecord[], Error> {
   const { user } = useAuth();
 
-  return useQuery<BusinessRecord[], Error>({
-    queryKey: businessHubKeys.records,
-    queryFn: fetchBusinessRecords,
+  return useQuery<ThinkRecord[], Error>({
+    queryKey: thinkHubKeys.records,
+    queryFn: fetchThinkRecords,
     enabled: Boolean(user?.id),
     staleTime: 60_000,
   });
@@ -66,25 +70,36 @@ export function useBusinessRecords(): UseQueryResult<BusinessRecord[], Error> {
  *
  * The default table is created by the server, which is also where "are there none" is decided —
  * two tabs opening the HUB at the same moment both see an empty list, and only the lock inside
- * `ensure_default_business_hub_table` stops that from leaving two empty tables behind.
+ * `ensure_default_think_hub_table` stops that from leaving two empty tables behind.
  */
-export function useBusinessHub(): {
-  tables: BusinessTable[];
-  records: BusinessRecord[];
+export function useThinkHub(): {
+  tables: ThinkTable[];
+  records: ThinkRecord[];
   isPending: boolean;
   isError: boolean;
   error: Error | null;
 } {
-  const tablesQuery = useBusinessTables();
-  const recordsQuery = useBusinessRecords();
+  const tablesQuery = useThinkTables();
+  const recordsQuery = useThinkRecords();
   const queryClient = useQueryClient();
 
+  const { user } = useAuth();
   const tables = useMemo(() => visibleTables(tablesQuery.data ?? []), [tablesQuery.data]);
+  // Only a personal root table counts: a group's or a project's tables are not the viewer's own,
+  // and somebody with only shared tables still needs a place of their own to start.
+  const hasPersonalRoot = useMemo(
+    () =>
+      rootTables(tables).some(
+        (table) =>
+          table.projectId === null && table.conversationId === null && table.ownerUserId === user?.id,
+      ),
+    [tables, user?.id],
+  );
 
   const ensureMutation = useMutation({
     mutationFn: ensureDefaultTable,
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: businessHubKeys.tables });
+      void queryClient.invalidateQueries({ queryKey: thinkHubKeys.tables });
     },
   });
 
@@ -97,11 +112,11 @@ export function useBusinessHub(): {
   useEffect(() => {
     // Only once the list has actually come back empty. Firing while it is still loading
     // would create a second table for somebody who already has one.
-    if (!tablesQuery.isSuccess || tables.length > 0) return;
+    if (!tablesQuery.isSuccess || hasPersonalRoot) return;
     if (askedRef.current) return;
     askedRef.current = true;
     ensure();
-  }, [tablesQuery.isSuccess, tables.length, ensure]);
+  }, [tablesQuery.isSuccess, hasPersonalRoot, ensure]);
 
   return {
     tables,
@@ -113,8 +128,8 @@ export function useBusinessHub(): {
 }
 
 /** The live records of one table, newest first. */
-export function useTableRecords(tableId: string | undefined): BusinessRecord[] {
-  const query = useBusinessRecords();
+export function useTableRecords(tableId: string | undefined): ThinkRecord[] {
+  const query = useThinkRecords();
   return useMemo(
     () => (tableId === undefined ? [] : recordsOf(query.data ?? [], tableId)),
     [query.data, tableId],
@@ -128,47 +143,71 @@ export function useTableRecords(tableId: string | undefined): BusinessRecord[] {
  * shows, and adding a record changes what the overview counts, so keeping two caches in step
  * by hand would be a bug waiting for the first screen somebody forgot.
  */
-export function useBusinessHubActions(): {
-  createTable: (name: string) => Promise<BusinessTable>;
-  renameTable: (tableId: string, name: string) => Promise<BusinessTable>;
-  removeTable: (tableId: string) => Promise<BusinessTable>;
-  restoreTable: (tableId: string) => Promise<BusinessTable>;
+export function useThinkHubActions(): {
+  createTable: (input: {
+    name: string;
+    purpose?: string | null;
+    conversationId?: string | null;
+  }) => Promise<ThinkTable>;
+  createSubTable: (input: { recordId: string; name?: string; purpose?: string }) => Promise<ThinkTable>;
+  setPurpose: (tableId: string, purpose: string) => Promise<ThinkTable>;
+  renameColumn: (input: { tableId: string; columnId: string; label: string }) => Promise<ThinkTable>;
+  renameTable: (tableId: string, name: string) => Promise<ThinkTable>;
+  removeTable: (tableId: string) => Promise<ThinkTable>;
+  restoreTable: (tableId: string) => Promise<ThinkTable>;
   addColumn: (input: {
     tableId: string;
     label: string;
     type: ColumnType;
     options?: readonly string[];
-  }) => Promise<BusinessTable>;
-  createRecord: (input: NewRecordInput) => Promise<BusinessRecord>;
-  updateRecord: (recordId: string, patch: RecordPatch) => Promise<BusinessRecord>;
-  removeRecord: (recordId: string) => Promise<BusinessRecord>;
-  restoreRecord: (recordId: string) => Promise<BusinessRecord>;
+  }) => Promise<ThinkTable>;
+  createRecord: (input: NewRecordInput) => Promise<ThinkRecord>;
+  updateRecord: (recordId: string, patch: RecordPatch) => Promise<ThinkRecord>;
+  removeRecord: (recordId: string) => Promise<ThinkRecord>;
+  restoreRecord: (recordId: string) => Promise<ThinkRecord>;
   isWorking: boolean;
 } {
   const queryClient = useQueryClient();
 
   const invalidate = useCallback((): void => {
-    void queryClient.invalidateQueries({ queryKey: businessHubKeys.all });
+    void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
   }, [queryClient]);
 
   const createTableMutation = useMutation({
-    mutationFn: (name: string) => createBusinessTable(name),
+    mutationFn: (input: { name: string; purpose?: string | null; conversationId?: string | null }) =>
+      createThinkTable(input),
+    onSuccess: invalidate,
+  });
+
+  const createSubTableMutation = useMutation({
+    mutationFn: (input: { recordId: string; name?: string; purpose?: string }) => createThinkSubTable(input),
+    onSuccess: invalidate,
+  });
+
+  const purposeMutation = useMutation({
+    mutationFn: ({ tableId, purpose }: { tableId: string; purpose: string }) =>
+      setThinkTablePurpose(tableId, purpose),
+    onSuccess: invalidate,
+  });
+
+  const renameColumnMutation = useMutation({
+    mutationFn: (input: { tableId: string; columnId: string; label: string }) => renameThinkColumn(input),
     onSuccess: invalidate,
   });
 
   const renameTableMutation = useMutation({
     mutationFn: ({ tableId, name }: { tableId: string; name: string }) =>
-      renameBusinessTable(tableId, name),
+      renameThinkTable(tableId, name),
     onSuccess: invalidate,
   });
 
   const removeTableMutation = useMutation({
-    mutationFn: (tableId: string) => deleteBusinessTable(tableId),
+    mutationFn: (tableId: string) => deleteThinkTable(tableId),
     onSuccess: invalidate,
   });
 
   const restoreTableMutation = useMutation({
-    mutationFn: (tableId: string) => restoreBusinessTable(tableId),
+    mutationFn: (tableId: string) => restoreThinkTable(tableId),
     onSuccess: invalidate,
   });
 
@@ -178,35 +217,49 @@ export function useBusinessHubActions(): {
       label: string;
       type: ColumnType;
       options?: readonly string[];
-    }) => addBusinessColumn(input),
+    }) => addThinkColumn(input),
     onSuccess: invalidate,
   });
 
   const createRecordMutation = useMutation({
-    mutationFn: (input: NewRecordInput) => createBusinessRecord(input),
+    mutationFn: (input: NewRecordInput) => createThinkRecord(input),
     onSuccess: invalidate,
   });
 
   const updateRecordMutation = useMutation({
     mutationFn: ({ recordId, patch }: { recordId: string; patch: RecordPatch }) =>
-      updateBusinessRecord(recordId, patch),
+      updateThinkRecord(recordId, patch),
     onSuccess: invalidate,
   });
 
   const removeRecordMutation = useMutation({
-    mutationFn: (recordId: string) => deleteBusinessRecord(recordId),
+    mutationFn: (recordId: string) => deleteThinkRecord(recordId),
     onSuccess: invalidate,
   });
 
   const restoreRecordMutation = useMutation({
-    mutationFn: (recordId: string) => restoreBusinessRecord(recordId),
+    mutationFn: (recordId: string) => restoreThinkRecord(recordId),
     onSuccess: invalidate,
   });
 
   return {
     createTable: useCallback(
-      (name: string) => createTableMutation.mutateAsync(name),
+      (input: { name: string; purpose?: string | null; conversationId?: string | null }) =>
+        createTableMutation.mutateAsync(input),
       [createTableMutation],
+    ),
+    createSubTable: useCallback(
+      (input: { recordId: string; name?: string; purpose?: string }) =>
+        createSubTableMutation.mutateAsync(input),
+      [createSubTableMutation],
+    ),
+    setPurpose: useCallback(
+      (tableId: string, purpose: string) => purposeMutation.mutateAsync({ tableId, purpose }),
+      [purposeMutation],
+    ),
+    renameColumn: useCallback(
+      (input: { tableId: string; columnId: string; label: string }) => renameColumnMutation.mutateAsync(input),
+      [renameColumnMutation],
     ),
     renameTable: useCallback(
       (tableId: string, name: string) => renameTableMutation.mutateAsync({ tableId, name }),
@@ -244,6 +297,9 @@ export function useBusinessHubActions(): {
     ),
     isWorking:
       createTableMutation.isPending ||
+      createSubTableMutation.isPending ||
+      purposeMutation.isPending ||
+      renameColumnMutation.isPending ||
       renameTableMutation.isPending ||
       removeTableMutation.isPending ||
       restoreTableMutation.isPending ||

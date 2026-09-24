@@ -1,64 +1,66 @@
 import { supabase } from "@/integrations/supabase/client";
+import { buildContextSnapshot, snapshotToJson } from "@/lib/task-context";
+import { browserTimezone } from "@/lib/task-schedule";
+import { todayIso, validateTaskDraft } from "@/lib/tasks";
 
 /**
- * A project: the three-tier spine of Objective → Deliverable → Task.
+ * A project: group work with a charter, measured against success criteria, carried out as Tasks.
  *
- * A project LIVES INSIDE a conversation rather than beside one, and that is the whole
- * permission model. The conversation it sits in decides who it belongs to — a journal makes a
- * private project, a 1-1 thread makes a two-person one, a group makes the group's. There is no
- * "project type" column and no project membership list: the people already in the room are the
- * people who see it, which is the same rule tasks have always followed.
+ * A project lives inside one group conversation (ADR-002) and the people in that group are the
+ * people who see it. Its thinking lives in exactly one root Think Hub table, made together with
+ * the project; each record ("Hạng mục") there can carry Tasks. A Task with no record is ad-hoc
+ * work that came up in the project's chat — ordinary, and still counted.
+ *
+ * There is no Objective/Deliverable tier any more (ADR-005): structure is Record → Task only.
  */
 export type ProjectStatus = "active" | "done" | "archived";
 
-/**
- * The four charter questions, all optional.
- *
- * People open a project when they have an intention, not a scope document. Requiring these at
- * creation would turn a ten-second action into an essay, so the create form keeps them
- * collapsed and the database lets every one of them be empty.
- */
 export type Project = {
   id: string;
   conversationId: string;
   createdBy: string;
   title: string;
-  purpose: string | null;
+  /** Kim chỉ nam — the direction the work serves. Required at creation. */
+  valueOrientation: string;
+  /** Mục tiêu — what this project sets out to achieve. Required at creation. */
+  objective: string;
   scope: string | null;
-  successCriteria: string | null;
   assumptions: string | null;
+  /** Chosen by the person opening the project; never defaulted to today. */
+  startDate: string;
+  targetEndDate: string;
   status: ProjectStatus;
   createdAt: string;
   updatedAt: string;
 };
 
-export type Objective = {
+export type MeasurementType = "percentage" | "meeting_confirmation";
+
+export type SuccessCriterion = {
   id: string;
-  projectId: string | null;
-  conversationId: string;
-  createdBy: string;
-  title: string;
-  status: ProjectStatus;
-  sortOrder: number;
+  projectId: string;
+  description: string;
+  measurementType: MeasurementType;
+  targetPercent: number | null;
+  actualPercent: number | null;
+  /** A finalized meeting note in the project's group, for `meeting_confirmation`. */
+  meetingNoteId: string | null;
+  createdAt: string;
 };
 
-export type Deliverable = {
-  id: string;
-  objectiveId: string;
-  title: string;
-  status: ProjectStatus;
-  sortOrder: number;
-  /** Who signed this off, and when. Both null together, or both set together. */
-  confirmedBy: string | null;
-  confirmedAt: string | null;
-};
-
-/** One row of the join table: this task belongs to that deliverable. */
+/** One row of the join table: this task belongs to that project, under that record or none. */
 export type ProjectTaskLink = {
   taskId: string;
   projectId: string;
-  deliverableId: string;
+  /** Null = ad-hoc task. */
+  recordId: string | null;
   linkedBy: string;
+};
+
+export type ProjectDetail = {
+  project: Project;
+  criteria: SuccessCriterion[];
+  links: ProjectTaskLink[];
 };
 
 type ProjectRow = {
@@ -66,52 +68,52 @@ type ProjectRow = {
   conversation_id: string;
   created_by: string;
   title: string;
-  purpose: string | null;
+  value_orientation: string;
+  objective: string;
   scope: string | null;
-  success_criteria: string | null;
   assumptions: string | null;
+  start_date: string;
+  target_end_date: string;
   status: string;
   created_at: string;
   updated_at: string;
 };
 
-type ObjectiveRow = {
+type CriterionRow = {
   id: string;
-  project_id: string | null;
-  conversation_id: string;
-  created_by: string;
-  title: string;
-  status: string;
-  sort_order: number;
-};
-
-type DeliverableRow = {
-  id: string;
-  objective_id: string;
-  title: string;
-  status: string;
-  sort_order: number;
-  confirmed_by: string | null;
-  confirmed_at: string | null;
+  project_id: string;
+  description: string;
+  measurement_type: string;
+  target_percent: number | string | null;
+  actual_percent: number | string | null;
+  meeting_note_id: string | null;
+  created_at: string;
 };
 
 type ProjectTaskRow = {
   task_id: string;
   project_id: string;
-  deliverable_id: string;
+  record_id: string | null;
   linked_by: string;
 };
 
 export const projectKeys = {
   all: ["projects"] as const,
   list: ["projects", "list"] as const,
-  tree: (projectId: string) => ["projects", "tree", projectId] as const,
+  detail: (projectId: string) => ["projects", "detail", projectId] as const,
+  taskLinks: ["projects", "task-links"] as const,
 };
 
 function toStatus(value: string): ProjectStatus {
-  // An unreadable status reads as 'active' rather than throwing: a row that exists is worth
-  // showing, and 'active' is the one value that claims no progress has been made.
+  // An unreadable status reads as 'active': a row that exists is worth showing, and 'active'
+  // is the one value that claims no progress has been made.
   return value === "done" || value === "archived" ? value : "active";
+}
+
+function toNumber(value: number | string | null): number | null {
+  if (value === null) return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function toProject(row: ProjectRow): Project {
@@ -120,37 +122,28 @@ function toProject(row: ProjectRow): Project {
     conversationId: row.conversation_id,
     createdBy: row.created_by,
     title: row.title,
-    purpose: row.purpose,
+    valueOrientation: row.value_orientation,
+    objective: row.objective,
     scope: row.scope,
-    successCriteria: row.success_criteria,
     assumptions: row.assumptions,
+    startDate: row.start_date,
+    targetEndDate: row.target_end_date,
     status: toStatus(row.status),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
 }
 
-function toObjective(row: ObjectiveRow): Objective {
+function toCriterion(row: CriterionRow): SuccessCriterion {
   return {
     id: row.id,
     projectId: row.project_id,
-    conversationId: row.conversation_id,
-    createdBy: row.created_by,
-    title: row.title,
-    status: toStatus(row.status),
-    sortOrder: row.sort_order,
-  };
-}
-
-function toDeliverable(row: DeliverableRow): Deliverable {
-  return {
-    id: row.id,
-    objectiveId: row.objective_id,
-    title: row.title,
-    status: toStatus(row.status),
-    sortOrder: row.sort_order,
-    confirmedBy: row.confirmed_by,
-    confirmedAt: row.confirmed_at,
+    description: row.description,
+    measurementType: row.measurement_type === "meeting_confirmation" ? "meeting_confirmation" : "percentage",
+    targetPercent: toNumber(row.target_percent),
+    actualPercent: toNumber(row.actual_percent),
+    meetingNoteId: row.meeting_note_id,
+    createdAt: row.created_at,
   };
 }
 
@@ -158,41 +151,51 @@ function toProjectTaskLink(row: ProjectTaskRow): ProjectTaskLink {
   return {
     taskId: row.task_id,
     projectId: row.project_id,
-    deliverableId: row.deliverable_id,
+    recordId: row.record_id,
     linkedBy: row.linked_by,
   };
 }
 
-/** Raised when somebody who did not open the project tries to sign off a deliverable. */
-export const NOT_PROJECT_OWNER = "avora_project_not_owner";
+// ------------------------------------------------------------------ errors
 
 /** The database's refusals, in words the person reading them can act on. */
 export function toVietnameseProjectError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
 
-  if (normalized.includes(NOT_PROJECT_OWNER))
-    return "Chỉ người mở dự án mới xác nhận được kết quả này.";
-  if (normalized.includes("dự án cần một tiêu đề")) return "Dự án cần một tiêu đề.";
-  if (normalized.includes("dự án cần mục tiêu đầu tiên")) return "Hãy đặt mục tiêu đầu tiên.";
-  if (normalized.includes("mục tiêu cần một tiêu đề")) return "Mục tiêu cần một tiêu đề.";
-  if (normalized.includes("kết quả cần một tiêu đề")) return "Kết quả cần một tiêu đề.";
-  if (normalized.includes("chỉ mở được dự án trong cuộc trò chuyện"))
+  if (normalized.includes("avora_project_not_owner"))
+    return "Chỉ người mở dự án mới làm được việc này.";
+  if (normalized.includes("avora_project_title_required")) return "Dự án cần một tiêu đề.";
+  if (normalized.includes("avora_project_value_required")) return "Hãy viết Kim chỉ nam của dự án.";
+  if (normalized.includes("avora_project_objective_required")) return "Hãy viết Mục tiêu của dự án.";
+  if (normalized.includes("avora_project_dates_required"))
+    return "Hãy chọn ngày bắt đầu và ngày kết thúc dự kiến.";
+  if (normalized.includes("avora_project_dates_order"))
+    return "Ngày kết thúc dự kiến không được trước ngày bắt đầu.";
+  if (normalized.includes("avora_project_group_only")) return "Dự án chỉ mở được trong Nhóm.";
+  if (normalized.includes("avora_project_closed")) return "Dự án đã đóng, không thay đổi được nữa.";
+  if (normalized.includes("avora_project_criteria_open"))
+    return "Còn tiêu chí thành công chưa có kết quả. Ghi kết quả hoặc bỏ tiêu chí trước khi đóng.";
+  if (normalized.includes("avora_project_task_past_end"))
+    return "Còn nhiệm vụ có hạn sau ngày kết thúc dự kiến.";
+  if (normalized.includes("avora_project_record_foreign"))
+    return "Hạng mục này không thuộc dự án đang mở.";
+  if (normalized.includes("avora_project_task_foreign_conversation"))
+    return "Nhiệm vụ này thuộc cuộc trò chuyện khác.";
+  if (normalized.includes("avora_project_missing")) return "Dự án này không còn nữa.";
+  if (normalized.includes("avora_criterion_description_required"))
+    return "Tiêu chí cần một dòng mô tả.";
+  if (normalized.includes("avora_criterion_type_invalid")) return "Cách đo này không hợp lệ.";
+  if (normalized.includes("avora_criterion_evidence_mismatch"))
+    return "Kết quả không khớp với cách đo của tiêu chí.";
+  if (normalized.includes("avora_criterion_meeting_note_invalid"))
+    return "Chỉ gắn được biên bản họp đã chốt của nhóm này.";
+  if (normalized.includes("avora_task_assignee_required") || normalized.includes("avora_task_assignee_not_participant"))
+    return "Hãy chọn một thành viên của nhóm để giao việc.";
+  if (normalized.includes("avora_task_self_assign")) return "Việc giao đi cần một người khác nhận.";
+  if (normalized.includes("avora_task_deadline_past")) return "Hạn không được ở quá khứ.";
+  if (normalized.includes("avora_not_a_participant"))
     return "Bạn không còn trong cuộc trò chuyện này.";
-  if (normalized.includes("bạn không còn trong cuộc trò chuyện"))
-    return "Bạn không còn trong cuộc trò chuyện của dự án này.";
-  if (normalized.includes("việc riêng chỉ nối được vào dự án riêng"))
-    return "Việc riêng chỉ nối được vào dự án riêng của bạn.";
-  if (normalized.includes("việc phải cùng cuộc trò chuyện"))
-    return "Việc này thuộc cuộc trò chuyện khác.";
-  if (normalized.includes("việc phải được nối vào kết quả của chính dự án"))
-    return "Kết quả này không thuộc dự án đang mở.";
-  if (normalized.includes("mục tiêu phải thuộc cùng cuộc trò chuyện"))
-    return "Mục tiêu này thuộc cuộc trò chuyện khác.";
-  if (normalized.includes("không tìm thấy dự án")) return "Dự án này không còn nữa.";
-  if (normalized.includes("không tìm thấy mục tiêu")) return "Mục tiêu này không còn nữa.";
-  if (normalized.includes("không tìm thấy kết quả")) return "Kết quả này không còn nữa.";
-  if (normalized.includes("không tìm thấy việc")) return "Việc này không còn nữa.";
-  if (normalized.includes("chưa đăng nhập"))
+  if (normalized.includes("avora_not_signed_in"))
     return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (code === "42501" || normalized.includes("permission denied"))
     return "Máy chủ chưa cho phép thao tác này. Vui lòng báo lại cho chúng tôi.";
@@ -202,36 +205,57 @@ export function toVietnameseProjectError(code: string | undefined, message: stri
   return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 
-/** Whether a failure was the ownership rule, so the screen can explain instead of just warning. */
-export function isNotOwnerError(error: unknown): boolean {
-  if (!(error instanceof Error)) return false;
-  return error.message.includes("Chỉ người mở dự án");
-}
-
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[projects] ${code ?? "unknown"}: ${message}`);
+  console.error(`[projects] ${code ?? "unknown"}`);
   return new Error(toVietnameseProjectError(code, message));
 }
 
-// ------------------------------------------------------------------ progress
+// ------------------------------------------------------------------ charter
+
+export type CharterDraft = {
+  title: string;
+  valueOrientation: string;
+  objective: string;
+  startDate: string;
+  targetEndDate: string;
+  scope: string;
+  assumptions: string;
+};
+
+export const EMPTY_CHARTER: CharterDraft = {
+  title: "",
+  valueOrientation: "",
+  objective: "",
+  startDate: "",
+  targetEndDate: "",
+  scope: "",
+  assumptions: "",
+};
 
 /**
- * Percent complete is COMPUTED, never stored.
- *
- * A stored percentage is a second source of truth that drifts the moment a task is linked,
- * unlinked or reopened — and it would need a trigger on `tasks`, which this module is not
- * allowed to touch. Deriving it on read costs nothing at these sizes and cannot go stale.
+ * The first thing still missing from a charter, or null when it can be opened. The same four
+ * fields and the same date rule the server enforces — the button explains before the server refuses.
  */
-export type ProjectTree = {
-  project: Project;
-  objectives: Objective[];
-  deliverables: Deliverable[];
-  links: ProjectTaskLink[];
-};
+export function charterProblem(draft: CharterDraft): string | null {
+  if (draft.title.trim().length === 0) return "Dự án cần một tiêu đề.";
+  if (draft.valueOrientation.trim().length === 0) return "Hãy viết Kim chỉ nam của dự án.";
+  if (draft.objective.trim().length === 0) return "Hãy viết Mục tiêu của dự án.";
+  if (draft.startDate.length === 0) return "Hãy chọn ngày bắt đầu.";
+  if (draft.targetEndDate.length === 0) return "Hãy chọn ngày kết thúc dự kiến.";
+  if (draft.targetEndDate < draft.startDate) return "Ngày kết thúc dự kiến không được trước ngày bắt đầu.";
+  return null;
+}
+
+// ------------------------------------------------------------------ progress and closing
 
 /** A task counts toward progress once it is fully closed — claimed AND accepted. */
 export function isTaskComplete(status: string): boolean {
   return status === "done";
+}
+
+/** Skipped work is neither progress nor a blocker. */
+function isCounted(status: string | undefined): boolean {
+  return status !== undefined && status !== "skipped";
 }
 
 function percent(done: number, total: number): number {
@@ -239,83 +263,85 @@ function percent(done: number, total: number): number {
   return Math.round((done / total) * 100);
 }
 
-/**
- * How far one deliverable has come: finished tasks over linked tasks.
- *
- * A signed-off deliverable reads 100% whatever its tasks say. Confirmation is a person's
- * judgement that the result was delivered, and it outranks the checklist that led there —
- * otherwise a deliverable could be accepted and still show as unfinished forever.
- */
-export function deliverableProgress(
-  deliverable: Deliverable,
-  links: readonly ProjectTaskLink[],
-  taskStatusById: ReadonlyMap<string, string>,
-): number {
-  if (deliverable.confirmedAt !== null || deliverable.status === "done") return 100;
-
-  const mine = links.filter((link) => link.deliverableId === deliverable.id);
-  const done = mine.filter((link) => isTaskComplete(taskStatusById.get(link.taskId) ?? "")).length;
-  return percent(done, mine.length);
+/** The task ids filed under one record, or the ad-hoc ones when `recordId` is null. */
+export function taskIdsOf(links: readonly ProjectTaskLink[], recordId: string | null): string[] {
+  return links.filter((link) => link.recordId === recordId).map((link) => link.taskId);
 }
 
 /**
- * An objective's progress is the plain average of its deliverables.
- *
- * Unweighted on purpose: weighting would need someone to estimate effort per deliverable, and
- * a made-up weight reads as precision the number does not have.
+ * Finished over counted tasks — computed on read, never stored, so it cannot drift from the
+ * tasks themselves. Skipped work leaves the count.
  */
-export function objectiveProgress(
-  objective: Objective,
-  tree: Pick<ProjectTree, "deliverables" | "links">,
-  taskStatusById: ReadonlyMap<string, string>,
+export function taskProgress(
+  taskIds: readonly string[],
+  statusById: ReadonlyMap<string, string>,
 ): number {
-  const mine = tree.deliverables.filter((item) => item.objectiveId === objective.id);
-  if (mine.length === 0) return 0;
-  const total = mine.reduce(
-    (sum, item) => sum + deliverableProgress(item, tree.links, taskStatusById),
-    0,
-  );
-  return Math.round(total / mine.length);
+  const counted = taskIds.filter((id) => isCounted(statusById.get(id)));
+  const done = counted.filter((id) => isTaskComplete(statusById.get(id) ?? "")).length;
+  return percent(done, counted.length);
 }
 
-/** And the project is the average of its objectives, by the same reasoning. */
+/** The whole project: every linked task, records and ad-hoc alike, counts once. */
 export function projectProgress(
-  tree: ProjectTree,
-  taskStatusById: ReadonlyMap<string, string>,
+  links: readonly ProjectTaskLink[],
+  statusById: ReadonlyMap<string, string>,
 ): number {
-  if (tree.objectives.length === 0) return 0;
-  const total = tree.objectives.reduce(
-    (sum, objective) => sum + objectiveProgress(objective, tree, taskStatusById),
-    0,
+  return taskProgress(
+    links.map((link) => link.taskId),
+    statusById,
   );
-  return Math.round(total / tree.objectives.length);
 }
 
-/** The deliverables of one objective, in the order they were thought of. */
-export function deliverablesOf(
-  tree: Pick<ProjectTree, "deliverables">,
-  objectiveId: string,
-): Deliverable[] {
-  return tree.deliverables
-    .filter((item) => item.objectiveId === objectiveId)
-    .sort((left, right) => left.sortOrder - right.sortOrder);
+/** Whether a criterion has its evidence: a measured number, or a finalized meeting note. */
+export function isCriterionRecorded(criterion: SuccessCriterion): boolean {
+  return criterion.measurementType === "percentage"
+    ? criterion.actualPercent !== null
+    : criterion.meetingNoteId !== null;
 }
 
-/** The ids of the tasks linked to one deliverable. */
-export function taskIdsOf(tree: Pick<ProjectTree, "links">, deliverableId: string): string[] {
-  return tree.links
-    .filter((link) => link.deliverableId === deliverableId)
-    .map((link) => link.taskId);
+export type CloseBlockers = {
+  openCriteria: number;
+  lateTasks: number;
+};
+
+/**
+ * What still stands between a project and "done" — the same two rules `close_project` checks:
+ * every live criterion has its evidence, and no counted task is due after the target end date.
+ */
+export function closeBlockers(
+  detail: Pick<ProjectDetail, "project" | "criteria" | "links">,
+  taskById: ReadonlyMap<string, { status: string; deadline: string | null }>,
+): CloseBlockers {
+  const openCriteria = detail.criteria.filter((criterion) => !isCriterionRecorded(criterion)).length;
+  let lateTasks = 0;
+  for (const link of detail.links) {
+    const task = taskById.get(link.taskId);
+    if (task === undefined || task.status === "skipped" || task.deadline === null) continue;
+    if (task.deadline > detail.project.targetEndDate) lateTasks += 1;
+  }
+  return { openCriteria, lateTasks };
 }
 
-/** Only the person who opened a project signs off its deliverables. */
-export function canConfirmDeliverable(project: Project, viewerId: string | undefined): boolean {
+export function canClose(blockers: CloseBlockers): boolean {
+  return blockers.openCriteria === 0 && blockers.lateTasks === 0;
+}
+
+/** The one line under a disabled "Đóng dự án" button. */
+export function closeBlockerSentence(blockers: CloseBlockers): string | null {
+  const parts: string[] = [];
+  if (blockers.openCriteria > 0) parts.push(`${blockers.openCriteria} tiêu chí chưa có kết quả`);
+  if (blockers.lateTasks > 0) parts.push(`${blockers.lateTasks} nhiệm vụ có hạn sau ngày kết thúc`);
+  return parts.length === 0 ? null : `Còn ${parts.join(" và ")}.`;
+}
+
+/** Only the person who opened a project records results, adds criteria and closes it. */
+export function isProjectOwner(project: Pick<Project, "createdBy">, viewerId: string | undefined): boolean {
   return viewerId !== undefined && project.createdBy === viewerId;
 }
 
 // ------------------------------------------------------------------ reading
 
-/** Every project the viewer can see. RLS returns the ones in their conversations. */
+/** Every project the viewer can see. RLS returns the ones in their groups. */
 export async function fetchProjects(): Promise<Project[]> {
   const { data, error } = await supabase
     .from("projects")
@@ -326,225 +352,203 @@ export async function fetchProjects(): Promise<Project[]> {
   return (data ?? []).map((row) => toProject(row as ProjectRow));
 }
 
-/**
- * One project with its objectives, deliverables and task links.
- *
- * Four small queries rather than one nested select: each is a plain indexed lookup that RLS
- * can answer directly, and a failure names the tier it happened on instead of collapsing the
- * whole screen into one unreadable error.
- */
-export async function fetchProjectTree(projectId: string): Promise<ProjectTree | null> {
+/** One project with its live success criteria and task links. */
+export async function fetchProjectDetail(projectId: string): Promise<ProjectDetail | null> {
   const projectResult = await supabase.from("projects").select("*").eq("id", projectId).maybeSingle();
   if (projectResult.error) throw fail(projectResult.error.code, projectResult.error.message);
   if (projectResult.data === null) return null;
 
-  const objectivesResult = await supabase
-    .from("objectives")
-    .select("id, project_id, conversation_id, created_by, title, status, sort_order")
-    .eq("project_id", projectId)
-    .order("sort_order", { ascending: true });
-  if (objectivesResult.error) throw fail(objectivesResult.error.code, objectivesResult.error.message);
-
-  const objectives = (objectivesResult.data ?? []).map((row) => toObjective(row as ObjectiveRow));
-  const objectiveIds = objectives.map((item) => item.id);
-
-  const deliverables: Deliverable[] = [];
-  if (objectiveIds.length > 0) {
-    const deliverablesResult = await supabase
-      .from("deliverables")
-      .select("id, objective_id, title, status, sort_order, confirmed_by, confirmed_at")
-      .in("objective_id", objectiveIds)
-      .order("sort_order", { ascending: true });
-    if (deliverablesResult.error)
-      throw fail(deliverablesResult.error.code, deliverablesResult.error.message);
-    for (const row of deliverablesResult.data ?? []) {
-      deliverables.push(toDeliverable(row as DeliverableRow));
-    }
-  }
-
-  const linksResult = await supabase
-    .from("project_tasks")
-    .select("task_id, project_id, deliverable_id, linked_by")
-    .eq("project_id", projectId);
+  const [criteriaResult, linksResult] = await Promise.all([
+    supabase
+      .from("project_success_criteria")
+      .select("id, project_id, description, measurement_type, target_percent, actual_percent, meeting_note_id, created_at")
+      .eq("project_id", projectId)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: true }),
+    supabase.from("project_tasks").select("task_id, project_id, record_id, linked_by").eq("project_id", projectId),
+  ]);
+  if (criteriaResult.error) throw fail(criteriaResult.error.code, criteriaResult.error.message);
   if (linksResult.error) throw fail(linksResult.error.code, linksResult.error.message);
 
   return {
     project: toProject(projectResult.data as ProjectRow),
-    objectives,
-    deliverables,
+    criteria: (criteriaResult.data ?? []).map((row) => toCriterion(row as CriterionRow)),
     links: (linksResult.data ?? []).map((row) => toProjectTaskLink(row as ProjectTaskRow)),
   };
 }
 
-/** Which projects a task belongs to, so a task row can point back at its project. */
+/** Which project each task belongs to, so a task row can point back at its project. */
 export async function fetchTaskProjectLinks(): Promise<ProjectTaskLink[]> {
-  const { data, error } = await supabase
-    .from("project_tasks")
-    .select("task_id, project_id, deliverable_id, linked_by");
-
+  const { data, error } = await supabase.from("project_tasks").select("task_id, project_id, record_id, linked_by");
   if (error) throw fail(error.code, error.message);
   return (data ?? []).map((row) => toProjectTaskLink(row as ProjectTaskRow));
 }
 
 // ------------------------------------------------------------------ writing
 
-export type ProjectCharter = {
-  purpose?: string;
-  scope?: string;
-  successCriteria?: string;
-  assumptions?: string;
-};
-
-/**
- * Opens a project together with its first objective.
- *
- * The two titles travel together because a project with no objective is an empty name: the
- * detail screen would open onto three blank tiers with nothing to suggest a next step.
- */
-export async function createProject(input: {
-  conversationId: string;
-  title: string;
-  firstObjectiveTitle: string;
-  charter?: ProjectCharter;
-}): Promise<Project> {
-  const title = input.title.trim();
-  const objectiveTitle = input.firstObjectiveTitle.trim();
-  if (title.length === 0) throw new Error("Dự án cần một tiêu đề.");
-  if (objectiveTitle.length === 0) throw new Error("Hãy đặt mục tiêu đầu tiên.");
+/** Opens a project in a group, with its charter and its one root table. */
+export async function createProject(conversationId: string, draft: CharterDraft): Promise<Project> {
+  const problem = charterProblem(draft);
+  if (problem !== null) throw new Error(problem);
 
   const { data, error } = await supabase.rpc("create_project", {
-    p_conversation_id: input.conversationId,
-    p_title: title,
-    p_first_objective_title: objectiveTitle,
-    p_purpose: input.charter?.purpose?.trim() ?? undefined,
-    p_scope: input.charter?.scope?.trim() ?? undefined,
-    p_success_criteria: input.charter?.successCriteria?.trim() ?? undefined,
-    p_assumptions: input.charter?.assumptions?.trim() ?? undefined,
+    p_conversation_id: conversationId,
+    p_title: draft.title.trim(),
+    p_value_orientation: draft.valueOrientation.trim(),
+    p_objective: draft.objective.trim(),
+    p_start_date: draft.startDate,
+    p_target_end_date: draft.targetEndDate,
+    p_scope: draft.scope.trim() || undefined,
+    p_assumptions: draft.assumptions.trim() || undefined,
   });
 
   if (error) throw fail(error.code, error.message);
   return toProject(data as unknown as ProjectRow);
 }
 
-/** Adds an objective. Anyone in the conversation can — objectives are what a room notices. */
-export async function addObjective(projectId: string, title: string): Promise<Objective> {
-  const clean = title.trim();
-  if (clean.length === 0) throw new Error("Mục tiêu cần một tiêu đề.");
-
-  const { data, error } = await supabase.rpc("add_objective", {
-    p_project_id: projectId,
-    p_title: clean,
-  });
-
-  if (error) throw fail(error.code, error.message);
-  return toObjective(data as unknown as ObjectiveRow);
-}
-
-/** Adds a deliverable under an objective. */
-export async function addDeliverable(objectiveId: string, title: string): Promise<Deliverable> {
-  const clean = title.trim();
-  if (clean.length === 0) throw new Error("Kết quả cần một tiêu đề.");
-
-  const { data, error } = await supabase.rpc("add_deliverable", {
-    p_objective_id: objectiveId,
-    p_title: clean,
-  });
-
-  if (error) throw fail(error.code, error.message);
-  return toDeliverable(data as unknown as DeliverableRow);
-}
-
-/**
- * Points an existing task at a deliverable.
- *
- * Never creates a task: tasks are born in the journal or in a chat, with their own context and
- * confirmation handshake. Linking again moves the task rather than failing — replanning is
- * ordinary, not an error.
- */
-export async function linkTaskToProject(
-  taskId: string,
-  deliverableId: string,
-): Promise<ProjectTaskLink> {
-  const { data, error } = await supabase.rpc("link_task_to_project", {
-    p_task_id: taskId,
-    p_deliverable_id: deliverableId,
-  });
-
-  if (error) throw fail(error.code, error.message);
-  return toProjectTaskLink(data as unknown as ProjectTaskRow);
-}
-
-/**
- * Takes a task back out of a project.
- *
- * Deletes the join row only — the task itself, its history and its confirmations are untouched.
- * That separation is the reason the join table exists instead of a column on `tasks`.
- */
-export async function unlinkTaskFromProject(taskId: string): Promise<void> {
-  const { error } = await supabase.from("project_tasks").delete().eq("task_id", taskId);
-  if (error) throw fail(error.code, error.message);
-}
-
-/** Signs off a deliverable. The server refuses anyone but the project's owner. */
-export async function confirmDeliverable(deliverableId: string): Promise<Deliverable> {
-  const { data, error } = await supabase.rpc("confirm_deliverable", {
-    p_deliverable_id: deliverableId,
-  });
-
-  if (error) throw fail(error.code, error.message);
-  return toDeliverable(data as unknown as DeliverableRow);
-}
-
-/** Rewrites the charter, or the title. Owner only, enforced by RLS. */
-export async function updateProjectDetails(input: {
-  projectId: string;
-  title?: string;
-  charter?: ProjectCharter;
-}): Promise<void> {
-  // Typed field by field rather than as a loose record: the columns writable in place are
-  // exactly the five below, and an index signature would let a typo compile into a silent no-op.
-  const patch: {
+/** Rewords the charter. Owner only (RLS); dates and status are not writable here. */
+export async function updateProjectCharter(
+  projectId: string,
+  patch: { title?: string; valueOrientation?: string; objective?: string; scope?: string; assumptions?: string },
+): Promise<void> {
+  const body: {
     title?: string;
-    purpose?: string | null;
+    value_orientation?: string;
+    objective?: string;
     scope?: string | null;
-    success_criteria?: string | null;
     assumptions?: string | null;
   } = {};
-
-  if (input.title !== undefined) {
-    const trimmed = input.title.trim();
-    if (trimmed.length === 0) throw new Error("Dự án cần một tiêu đề.");
-    patch.title = trimmed;
+  if (patch.title !== undefined) {
+    if (patch.title.trim().length === 0) throw new Error("Dự án cần một tiêu đề.");
+    body.title = patch.title.trim();
   }
-  if (input.charter?.purpose !== undefined)
-    patch.purpose = input.charter.purpose.trim() || null;
-  if (input.charter?.scope !== undefined) patch.scope = input.charter.scope.trim() || null;
-  if (input.charter?.successCriteria !== undefined)
-    patch.success_criteria = input.charter.successCriteria.trim() || null;
-  if (input.charter?.assumptions !== undefined)
-    patch.assumptions = input.charter.assumptions.trim() || null;
+  if (patch.valueOrientation !== undefined) {
+    if (patch.valueOrientation.trim().length === 0) throw new Error("Hãy viết Kim chỉ nam của dự án.");
+    body.value_orientation = patch.valueOrientation.trim();
+  }
+  if (patch.objective !== undefined) {
+    if (patch.objective.trim().length === 0) throw new Error("Hãy viết Mục tiêu của dự án.");
+    body.objective = patch.objective.trim();
+  }
+  if (patch.scope !== undefined) body.scope = patch.scope.trim() || null;
+  if (patch.assumptions !== undefined) body.assumptions = patch.assumptions.trim() || null;
+  if (Object.keys(body).length === 0) return;
 
-  if (Object.keys(patch).length === 0) return;
-
-  const { error } = await supabase.from("projects").update(patch).eq("id", input.projectId);
+  const { error } = await supabase.from("projects").update(body).eq("id", projectId);
   if (error) throw fail(error.code, error.message);
 }
 
-/** Renames an objective or a deliverable in place. Any member of the conversation may. */
-export async function renameObjective(objectiveId: string, title: string): Promise<void> {
-  const clean = title.trim();
-  if (clean.length === 0) throw new Error("Mục tiêu cần một tiêu đề.");
-  const { error } = await supabase.from("objectives").update({ title: clean }).eq("id", objectiveId);
+export async function addSuccessCriterion(input: {
+  projectId: string;
+  description: string;
+  measurementType: MeasurementType;
+  targetPercent: number | null;
+}): Promise<void> {
+  if (input.description.trim().length === 0) throw new Error("Tiêu chí cần một dòng mô tả.");
+  const { error } = await supabase.rpc("add_project_success_criterion", {
+    p_project_id: input.projectId,
+    p_description: input.description.trim(),
+    p_measurement_type: input.measurementType,
+    p_target_percent: input.measurementType === "percentage" ? (input.targetPercent ?? undefined) : undefined,
+  });
   if (error) throw fail(error.code, error.message);
 }
 
-export async function renameDeliverable(deliverableId: string, title: string): Promise<void> {
-  const clean = title.trim();
-  if (clean.length === 0) throw new Error("Kết quả cần một tiêu đề.");
-  const { error } = await supabase
-    .from("deliverables")
-    .update({ title: clean })
-    .eq("id", deliverableId);
+/**
+ * Records the evidence for a criterion. Always a person's own action — the owner types the
+ * number or picks the meeting note; nothing records it on their behalf.
+ */
+export async function recordSuccessCriterion(input: {
+  criterionId: string;
+  actualPercent?: number | null;
+  meetingNoteId?: string | null;
+}): Promise<void> {
+  const { error } = await supabase.rpc("record_project_success_criterion", {
+    p_criterion_id: input.criterionId,
+    p_actual_percent: input.actualPercent ?? undefined,
+    p_meeting_note_id: input.meetingNoteId ?? undefined,
+  });
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Soft-deletes a criterion: it leaves the list and the close check, the row stays. */
+export async function deleteSuccessCriterion(criterionId: string): Promise<void> {
+  const { error } = await supabase.rpc("delete_project_success_criterion", { p_criterion_id: criterionId });
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Closes a project. The server re-checks every blocker and refuses anyone but the owner. */
+export async function closeProject(projectId: string): Promise<Project> {
+  const { data, error } = await supabase.rpc("close_project", { p_project_id: projectId });
+  if (error) throw fail(error.code, error.message);
+  return toProject(data as unknown as ProjectRow);
+}
+
+export type ProjectTaskInput = {
+  project: Pick<Project, "id" | "conversationId">;
+  groupName: string;
+  /** Null files it as ad-hoc work. */
+  recordId: string | null;
+  assigneeId: string;
+  title: string;
+  description: string;
+  deadline: string;
+  deadlineTime?: string;
+};
+
+/**
+ * Hands out a Task from the project screen. Same path as a group task raised in chat —
+ * pending until the assignee confirms — then filed under the chosen record, or ad-hoc.
+ */
+export async function createProjectTask(input: ProjectTaskInput, today: string = todayIso()): Promise<string> {
+  const clean = validateTaskDraft(
+    {
+      title: input.title,
+      description: input.description,
+      deadline: input.deadline,
+      deadlineTime: input.deadlineTime,
+    },
+    today,
+  );
+  if (!clean.value) throw new Error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
+
+  const snapshot = buildContextSnapshot({
+    conversationType: "group",
+    conversationId: input.project.conversationId,
+    conversationName: input.groupName,
+    message: null,
+    senderName: "",
+    userResponse: clean.value.description,
+  });
+
+  const taskId = crypto.randomUUID();
+  const { error } = await supabase.rpc("create_project_task", {
+    p_project_id: input.project.id,
+    p_record_id: input.recordId ?? undefined,
+    p_task_id: taskId,
+    p_title: clean.value.title,
+    p_description: clean.value.description,
+    p_deadline: clean.value.deadline,
+    p_assignee_id: input.assigneeId,
+    p_deadline_time: clean.value.deadlineTime ?? undefined,
+    p_deadline_tz: browserTimezone(),
+    p_context_snapshot: snapshotToJson(snapshot),
+  });
+  if (error) throw fail(error.code, error.message);
+  return taskId;
+}
+
+/** Moves an existing task under another record of the same project, or back to ad-hoc. */
+export async function linkTaskToProject(
+  taskId: string,
+  projectId: string,
+  recordId: string | null,
+): Promise<void> {
+  const { error } = await supabase.rpc("link_task_to_project", {
+    p_task_id: taskId,
+    p_project_id: projectId,
+    p_record_id: recordId ?? undefined,
+  });
   if (error) throw fail(error.code, error.message);
 }
 

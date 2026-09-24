@@ -8,24 +8,27 @@ import { useCallback, useMemo } from "react";
 
 import { useAuth } from "@/lib/auth";
 import {
-  addDeliverable,
-  addObjective,
-  confirmDeliverable,
+  addSuccessCriterion,
+  closeProject,
   createProject,
+  createProjectTask,
+  deleteSuccessCriterion,
+  fetchProjectDetail,
   fetchProjects,
-  fetchProjectTree,
   fetchTaskProjectLinks,
   linkTaskToProject,
   projectKeys,
-  renameDeliverable,
-  renameObjective,
-  unlinkTaskFromProject,
-  updateProjectDetails,
+  recordSuccessCriterion,
+  updateProjectCharter,
+  type CharterDraft,
+  type MeasurementType,
   type Project,
-  type ProjectCharter,
+  type ProjectDetail,
+  type ProjectTaskInput,
   type ProjectTaskLink,
-  type ProjectTree,
 } from "@/lib/projects";
+import { taskKeys } from "@/lib/tasks";
+import { thinkHubKeys } from "@/lib/think-hub";
 
 export { projectKeys };
 
@@ -41,15 +44,13 @@ export function useProjects(): UseQueryResult<Project[], Error> {
   });
 }
 
-/** One project with all three tiers, for the detail screen. */
-export function useProjectTree(
-  projectId: string | undefined,
-): UseQueryResult<ProjectTree | null, Error> {
+/** One project with its criteria and task links, for the detail screen. */
+export function useProjectDetail(projectId: string | undefined): UseQueryResult<ProjectDetail | null, Error> {
   const { user } = useAuth();
 
-  return useQuery<ProjectTree | null, Error>({
-    queryKey: projectKeys.tree(projectId ?? "none"),
-    queryFn: () => fetchProjectTree(projectId ?? ""),
+  return useQuery<ProjectDetail | null, Error>({
+    queryKey: projectKeys.detail(projectId ?? "none"),
+    queryFn: () => fetchProjectDetail(projectId ?? ""),
     enabled: Boolean(user?.id) && projectId !== undefined,
   });
 }
@@ -57,14 +58,13 @@ export function useProjectTree(
 /**
  * Which project each task belongs to, read once for the whole task list.
  *
- * One query rather than one per row: the Nhiệm vụ screen asks this of every task it draws, and
- * a request per row would turn scrolling into traffic.
+ * One query rather than one per row: the Nhiệm vụ screen asks this of every task it draws.
  */
 export function useTaskProjectLinks(): ReadonlyMap<string, ProjectTaskLink> {
   const { user } = useAuth();
 
   const query = useQuery<ProjectTaskLink[], Error>({
-    queryKey: ["projects", "task-links"],
+    queryKey: projectKeys.taskLinks,
     queryFn: fetchTaskProjectLinks,
     enabled: Boolean(user?.id),
     staleTime: 30_000,
@@ -77,200 +77,172 @@ export function useTaskProjectLinks(): ReadonlyMap<string, ProjectTaskLink> {
   }, [query.data]);
 }
 
-/**
- * The three groups the Dự án tab reads in: your own, one-to-one, and groups.
- *
- * Grouping is derived from the conversation each project lives in rather than from a column on
- * the project — the conversation IS the ownership, so a second field could only disagree with it.
- */
-export type ProjectGroupKind = "personal" | "direct" | "group";
-
-export function groupProjects(
+/** Projects are group work (ADR-002): the tab lists only those living in a group. */
+export function groupProjectsOnly(
   projects: readonly Project[],
-  kindOf: (conversationId: string) => ProjectGroupKind | undefined,
-): Record<ProjectGroupKind, Project[]> {
-  const groups: Record<ProjectGroupKind, Project[]> = { personal: [], direct: [], group: [] };
-  for (const project of projects) {
-    const kind = kindOf(project.conversationId);
-    // A project whose conversation has not loaded yet is not guessed at: showing it under the
-    // wrong heading would misstate who can see it, which is the one thing this screen must
-    // never do. It appears as soon as the inbox answers.
-    if (kind === undefined) continue;
-    groups[kind].push(project);
-  }
-  return groups;
+  kindOf: (conversationId: string) => string | undefined,
+): Project[] {
+  // A project whose conversation has not loaded yet is held back rather than guessed at.
+  return projects.filter((project) => kindOf(project.conversationId) === "group");
 }
 
-/** Opening a project, growing it, signing off a deliverable, and rewording any tier. */
+/** Opening a project, its charter, its criteria, its tasks, and closing it. */
 export function useProjectActions(): {
-  create: (input: {
-    conversationId: string;
-    title: string;
-    firstObjectiveTitle: string;
-    charter?: ProjectCharter;
-  }) => Promise<Project>;
-  addObjective: (projectId: string, title: string) => Promise<void>;
-  addDeliverable: (projectId: string, objectiveId: string, title: string) => Promise<void>;
-  linkTask: (projectId: string, taskId: string, deliverableId: string) => Promise<void>;
-  unlinkTask: (projectId: string, taskId: string) => Promise<void>;
-  confirm: (projectId: string, deliverableId: string) => Promise<void>;
-  updateDetails: (input: {
+  create: (conversationId: string, draft: CharterDraft) => Promise<Project>;
+  updateCharter: (
+    projectId: string,
+    patch: { title?: string; valueOrientation?: string; objective?: string; scope?: string; assumptions?: string },
+  ) => Promise<void>;
+  addCriterion: (input: {
     projectId: string;
-    title?: string;
-    charter?: ProjectCharter;
+    description: string;
+    measurementType: MeasurementType;
+    targetPercent: number | null;
   }) => Promise<void>;
-  renameObjective: (projectId: string, objectiveId: string, title: string) => Promise<void>;
-  renameDeliverable: (projectId: string, deliverableId: string, title: string) => Promise<void>;
+  recordCriterion: (
+    projectId: string,
+    input: { criterionId: string; actualPercent?: number | null; meetingNoteId?: string | null },
+  ) => Promise<void>;
+  deleteCriterion: (projectId: string, criterionId: string) => Promise<void>;
+  createTask: (input: ProjectTaskInput) => Promise<string>;
+  moveTask: (projectId: string, taskId: string, recordId: string | null) => Promise<void>;
+  close: (projectId: string) => Promise<Project>;
   isWorking: boolean;
 } {
   const queryClient = useQueryClient();
 
-  /**
-   * A change to any tier invalidates that project's tree and the list.
-   *
-   * The task links query too: linking a task changes what the Nhiệm vụ screen should say about
-   * it, and leaving that cache alone is how a task ends up claiming it belongs nowhere.
-   */
   const invalidate = useCallback(
     (projectId?: string): void => {
       void queryClient.invalidateQueries({ queryKey: projectKeys.list });
-      void queryClient.invalidateQueries({ queryKey: ["projects", "task-links"] });
+      void queryClient.invalidateQueries({ queryKey: projectKeys.taskLinks });
       if (projectId !== undefined) {
-        void queryClient.invalidateQueries({ queryKey: projectKeys.tree(projectId) });
+        void queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
       }
     },
     [queryClient],
   );
 
   const createMutation = useMutation({
-    mutationFn: (input: {
-      conversationId: string;
-      title: string;
-      firstObjectiveTitle: string;
-      charter?: ProjectCharter;
-    }) => createProject(input),
-    onSuccess: (project: Project) => invalidate(project.id),
+    mutationFn: ({ conversationId, draft }: { conversationId: string; draft: CharterDraft }) =>
+      createProject(conversationId, draft),
+    onSuccess: (project: Project) => {
+      invalidate(project.id);
+      // The project's root table was made in the same call.
+      void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
+    },
   });
 
-  const objectiveMutation = useMutation({
-    mutationFn: ({ projectId, title }: { projectId: string; title: string }) =>
-      addObjective(projectId, title),
-    onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const deliverableMutation = useMutation({
-    mutationFn: ({ objectiveId, title }: { projectId: string; objectiveId: string; title: string }) =>
-      addDeliverable(objectiveId, title),
-    onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const linkMutation = useMutation({
-    mutationFn: ({ taskId, deliverableId }: { projectId: string; taskId: string; deliverableId: string }) =>
-      linkTaskToProject(taskId, deliverableId),
-    onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const unlinkMutation = useMutation({
-    mutationFn: ({ taskId }: { projectId: string; taskId: string }) => unlinkTaskFromProject(taskId),
-    onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const confirmMutation = useMutation({
-    mutationFn: ({ deliverableId }: { projectId: string; deliverableId: string }) =>
-      confirmDeliverable(deliverableId),
-    onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const detailsMutation = useMutation({
-    mutationFn: (input: { projectId: string; title?: string; charter?: ProjectCharter }) =>
-      updateProjectDetails(input),
-    onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const renameObjectiveMutation = useMutation({
-    mutationFn: ({ objectiveId, title }: { projectId: string; objectiveId: string; title: string }) =>
-      renameObjective(objectiveId, title),
-    onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const renameDeliverableMutation = useMutation({
+  const charterMutation = useMutation({
     mutationFn: ({
-      deliverableId,
-      title,
+      projectId,
+      patch,
     }: {
       projectId: string;
-      deliverableId: string;
-      title: string;
-    }) => renameDeliverable(deliverableId, title),
+      patch: { title?: string; valueOrientation?: string; objective?: string; scope?: string; assumptions?: string };
+    }) => updateProjectCharter(projectId, patch),
     onSuccess: (_result, variables) => invalidate(variables.projectId),
+  });
+
+  const addCriterionMutation = useMutation({
+    mutationFn: (input: {
+      projectId: string;
+      description: string;
+      measurementType: MeasurementType;
+      targetPercent: number | null;
+    }) => addSuccessCriterion(input),
+    onSuccess: (_result, variables) => invalidate(variables.projectId),
+  });
+
+  const recordCriterionMutation = useMutation({
+    mutationFn: ({
+      input,
+    }: {
+      projectId: string;
+      input: { criterionId: string; actualPercent?: number | null; meetingNoteId?: string | null };
+    }) => recordSuccessCriterion(input),
+    onSuccess: (_result, variables) => invalidate(variables.projectId),
+  });
+
+  const deleteCriterionMutation = useMutation({
+    mutationFn: ({ criterionId }: { projectId: string; criterionId: string }) => deleteSuccessCriterion(criterionId),
+    onSuccess: (_result, variables) => invalidate(variables.projectId),
+  });
+
+  const createTaskMutation = useMutation({
+    mutationFn: (input: ProjectTaskInput) => createProjectTask(input),
+    onSuccess: (_result, variables) => {
+      invalidate(variables.project.id);
+      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+    },
+  });
+
+  const moveTaskMutation = useMutation({
+    mutationFn: ({ projectId, taskId, recordId }: { projectId: string; taskId: string; recordId: string | null }) =>
+      linkTaskToProject(taskId, projectId, recordId),
+    onSuccess: (_result, variables) => invalidate(variables.projectId),
+  });
+
+  const closeMutation = useMutation({
+    mutationFn: (projectId: string) => closeProject(projectId),
+    onSuccess: (project: Project) => invalidate(project.id),
   });
 
   return {
     create: useCallback(
-      (input: {
-        conversationId: string;
-        title: string;
-        firstObjectiveTitle: string;
-        charter?: ProjectCharter;
-      }) => createMutation.mutateAsync(input),
+      (conversationId: string, draft: CharterDraft) => createMutation.mutateAsync({ conversationId, draft }),
       [createMutation],
     ),
-    addObjective: useCallback(
-      async (projectId: string, title: string) => {
-        await objectiveMutation.mutateAsync({ projectId, title });
+    updateCharter: useCallback(
+      async (
+        projectId: string,
+        patch: { title?: string; valueOrientation?: string; objective?: string; scope?: string; assumptions?: string },
+      ) => {
+        await charterMutation.mutateAsync({ projectId, patch });
       },
-      [objectiveMutation],
+      [charterMutation],
     ),
-    addDeliverable: useCallback(
-      async (projectId: string, objectiveId: string, title: string) => {
-        await deliverableMutation.mutateAsync({ projectId, objectiveId, title });
+    addCriterion: useCallback(
+      async (input: {
+        projectId: string;
+        description: string;
+        measurementType: MeasurementType;
+        targetPercent: number | null;
+      }) => {
+        await addCriterionMutation.mutateAsync(input);
       },
-      [deliverableMutation],
+      [addCriterionMutation],
     ),
-    linkTask: useCallback(
-      async (projectId: string, taskId: string, deliverableId: string) => {
-        await linkMutation.mutateAsync({ projectId, taskId, deliverableId });
+    recordCriterion: useCallback(
+      async (
+        projectId: string,
+        input: { criterionId: string; actualPercent?: number | null; meetingNoteId?: string | null },
+      ) => {
+        await recordCriterionMutation.mutateAsync({ projectId, input });
       },
-      [linkMutation],
+      [recordCriterionMutation],
     ),
-    unlinkTask: useCallback(
-      async (projectId: string, taskId: string) => {
-        await unlinkMutation.mutateAsync({ projectId, taskId });
+    deleteCriterion: useCallback(
+      async (projectId: string, criterionId: string) => {
+        await deleteCriterionMutation.mutateAsync({ projectId, criterionId });
       },
-      [unlinkMutation],
+      [deleteCriterionMutation],
     ),
-    confirm: useCallback(
-      async (projectId: string, deliverableId: string) => {
-        await confirmMutation.mutateAsync({ projectId, deliverableId });
+    createTask: useCallback((input: ProjectTaskInput) => createTaskMutation.mutateAsync(input), [createTaskMutation]),
+    moveTask: useCallback(
+      async (projectId: string, taskId: string, recordId: string | null) => {
+        await moveTaskMutation.mutateAsync({ projectId, taskId, recordId });
       },
-      [confirmMutation],
+      [moveTaskMutation],
     ),
-    updateDetails: useCallback(
-      (input: { projectId: string; title?: string; charter?: ProjectCharter }) =>
-        detailsMutation.mutateAsync(input),
-      [detailsMutation],
-    ),
-    renameObjective: useCallback(
-      async (projectId: string, objectiveId: string, title: string) => {
-        await renameObjectiveMutation.mutateAsync({ projectId, objectiveId, title });
-      },
-      [renameObjectiveMutation],
-    ),
-    renameDeliverable: useCallback(
-      async (projectId: string, deliverableId: string, title: string) => {
-        await renameDeliverableMutation.mutateAsync({ projectId, deliverableId, title });
-      },
-      [renameDeliverableMutation],
-    ),
+    close: useCallback((projectId: string) => closeMutation.mutateAsync(projectId), [closeMutation]),
     isWorking:
       createMutation.isPending ||
-      objectiveMutation.isPending ||
-      deliverableMutation.isPending ||
-      linkMutation.isPending ||
-      unlinkMutation.isPending ||
-      confirmMutation.isPending ||
-      detailsMutation.isPending ||
-      renameObjectiveMutation.isPending ||
-      renameDeliverableMutation.isPending,
+      charterMutation.isPending ||
+      addCriterionMutation.isPending ||
+      recordCriterionMutation.isPending ||
+      deleteCriterionMutation.isPending ||
+      createTaskMutation.isPending ||
+      moveTaskMutation.isPending ||
+      closeMutation.isPending,
   };
 }

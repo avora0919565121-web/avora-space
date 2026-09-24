@@ -22,19 +22,30 @@ import {
   SUGGESTED_STATUSES,
   toVietnameseHubError,
   visibleTables,
-  type BusinessRecord,
-  type BusinessTable,
+  type ThinkRecord,
+  type ThinkTable,
   type ColumnDef,
-} from "@/lib/business-hub";
+  canGrowSubTable,
+  DEPTH_LIMIT_MESSAGE,
+  myTables,
+  PERSONAL_SCOPE,
+  rootTables,
+  scopeOfTable,
+  subTablesOf,
+  suggestedSubTablePurpose,
+  tableScope,
+  tablesInScope,
+} from "@/lib/think-hub";
 
 const ME = "u-me";
 
-function table(overrides: Partial<BusinessTable> & { id: string }): BusinessTable {
+function table(overrides: Partial<ThinkTable> & { id: string }): ThinkTable {
   return {
     ownerUserId: ME,
     name: "Bảng tổng hợp",
     position: 0,
     columns: [],
+    projectId: null, conversationId: null, parentRecordId: null, depth: 1, purpose: null, 
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
@@ -43,8 +54,8 @@ function table(overrides: Partial<BusinessTable> & { id: string }): BusinessTabl
 }
 
 function record(
-  overrides: Partial<BusinessRecord> & { id: string; tableId: string },
-): BusinessRecord {
+  overrides: Partial<ThinkRecord> & { id: string; tableId: string },
+): ThinkRecord {
   return {
     ownerUserId: ME,
     title: "Một mục",
@@ -67,14 +78,15 @@ function record(
 describe("reading the column shape a table stored", () => {
   it("keeps a well-formed definition of every kind", () => {
     const defs = parseColumnDefs([
-      { key: "col_a", label: "Ghi chú", type: "text" },
-      { key: "col_b", label: "Giá trị", type: "number" },
-      { key: "col_c", label: "Ngày ký", type: "date" },
-      { key: "col_d", label: "Khu vực", type: "select", options: ["Bắc", "Nam"] },
+      { id: "col_a", key: "col_a", label: "Ghi chú", type: "text" },
+      { id: "col_b", key: "col_b", label: "Giá trị", type: "number" },
+      { id: "col_c", key: "col_c", label: "Ngày ký", type: "date" },
+      { id: "col_d", key: "col_d", label: "Khu vực", type: "select", options: ["Bắc", "Nam"] },
     ]);
 
     expect(defs).toHaveLength(4);
     expect(defs[3]).toEqual({
+      id: "col_d",
       key: "col_d",
       label: "Khu vực",
       type: "select",
@@ -89,13 +101,13 @@ describe("reading the column shape a table stored", () => {
    */
   it("drops only the broken definitions and keeps the rest", () => {
     const defs = parseColumnDefs([
-      { key: "col_a", label: "Giữ lại", type: "text" },
+      { id: "col_a", key: "col_a", label: "Giữ lại", type: "text" },
       { key: "", label: "Không có khoá", type: "text" },
-      { key: "col_c", label: "   ", type: "text" },
-      { key: "col_d", label: "Kiểu lạ", type: "phone" },
+      { id: "col_c", key: "col_c", label: "   ", type: "text" },
+      { id: "col_d", key: "col_d", label: "Kiểu lạ", type: "phone" },
       null,
       "chuỗi lạc",
-      { key: "col_e", label: "Cũng giữ", type: "number" },
+      { id: "col_e", key: "col_e", label: "Cũng giữ", type: "number" },
     ]);
 
     expect(defs.map((def) => def.key)).toEqual(["col_a", "col_e"]);
@@ -103,16 +115,16 @@ describe("reading the column shape a table stored", () => {
 
   /** A select with nothing to pick is a cell nobody can ever fill, so it is not a column. */
   it("drops a select column that has no options", () => {
-    expect(parseColumnDefs([{ key: "col_a", label: "Rỗng", type: "select", options: [] }])).toEqual(
+    expect(parseColumnDefs([{ id: "col_a", key: "col_a", label: "Rỗng", type: "select", options: [] }])).toEqual(
       [],
     );
-    expect(parseColumnDefs([{ key: "col_b", label: "Thiếu", type: "select" }])).toEqual([]);
+    expect(parseColumnDefs([{ id: "col_b", key: "col_b", label: "Thiếu", type: "select" }])).toEqual([]);
   });
 
   it("keeps the first of two definitions sharing a key", () => {
     const defs = parseColumnDefs([
-      { key: "col_a", label: "Bản đầu", type: "text" },
-      { key: "col_a", label: "Bản sau", type: "number" },
+      { id: "col_a", key: "col_a", label: "Bản đầu", type: "text" },
+      { id: "col_a", key: "col_a", label: "Bản sau", type: "number" },
     ]);
 
     expect(defs).toHaveLength(1);
@@ -162,7 +174,7 @@ describe("which tables belong on screen and in what order", () => {
 });
 
 describe("which records belong to a table", () => {
-  const records: BusinessRecord[] = [
+  const records: ThinkRecord[] = [
     record({ id: "r1", tableId: "t1", createdAt: "2026-09-01T00:00:00Z" }),
     record({ id: "r2", tableId: "t1", createdAt: "2026-09-03T00:00:00Z" }),
     record({ id: "r3", tableId: "t2" }),
@@ -181,7 +193,7 @@ describe("which records belong to a table", () => {
 });
 
 describe("the ceiling on one table", () => {
-  function fill(count: number, extra: Partial<BusinessRecord> = {}): BusinessRecord[] {
+  function fill(count: number, extra: Partial<ThinkRecord> = {}): ThinkRecord[] {
     return Array.from({ length: count }, (_, index) =>
       record({ id: `r${index}`, tableId: "t1", ...extra }),
     );
@@ -282,8 +294,8 @@ describe("what a status is called", () => {
 });
 
 describe("what a cell shows", () => {
-  const numberColumn: ColumnDef = { key: "col_n", label: "Giá trị", type: "number" };
-  const textColumn: ColumnDef = { key: "col_t", label: "Ghi chú", type: "text" };
+  const numberColumn: ColumnDef = { id: "col_n", key: "col_n", label: "Giá trị", type: "number" };
+  const textColumn: ColumnDef = { id: "col_t", key: "col_t", label: "Ghi chú", type: "text" };
 
   it("writes a number the Vietnamese way", () => {
     const entry = record({ id: "r1", tableId: "t1", extensionFields: { col_n: 1234567 } });
@@ -420,29 +432,29 @@ describe("what the labels read", () => {
 describe("turning the database's refusals into something actionable", () => {
   /** The one a person is most likely to meet, and the only one that tells them what to do. */
   it("explains a full table with the number and the way out", () => {
-    expect(toVietnameseHubError("P0001", "avora_business_hub_record_limit")).toBe(
+    expect(toVietnameseHubError("P0001", "avora_think_hub_record_limit")).toBe(
       "Bảng đã đầy 1.000 mục, hãy dọn bớt trước khi thêm.",
     );
   });
 
   it("explains each refusal about the shape of a column", () => {
-    expect(toVietnameseHubError("P0001", "avora_business_hub_column_options_required")).toBe(
+    expect(toVietnameseHubError("P0001", "avora_think_hub_column_options_required")).toBe(
       "Cột dạng chọn cần ít nhất một lựa chọn.",
     );
-    expect(toVietnameseHubError("P0001", "avora_business_hub_value_not_number")).toBe(
+    expect(toVietnameseHubError("P0001", "avora_think_hub_value_not_number")).toBe(
       "Cột này chỉ nhận số.",
     );
-    expect(toVietnameseHubError("P0001", "avora_business_hub_value_not_option")).toBe(
+    expect(toVietnameseHubError("P0001", "avora_think_hub_value_not_option")).toBe(
       "Giá trị này không nằm trong danh sách của cột.",
     );
   });
 
   /** Somebody else's table is indistinguishable from one that is gone, and should read that way. */
   it("does not hint that another person's table exists", () => {
-    expect(toVietnameseHubError("P0001", "avora_business_hub_table_not_yours")).toBe(
+    expect(toVietnameseHubError("P0001", "avora_think_hub_table_not_yours")).toBe(
       "Bảng này không còn nữa.",
     );
-    expect(toVietnameseHubError("P0001", "avora_business_hub_record_not_yours")).toBe(
+    expect(toVietnameseHubError("P0001", "avora_think_hub_record_not_yours")).toBe(
       "Mục này không còn nữa.",
     );
   });
@@ -463,5 +475,45 @@ describe("turning the database's refusals into something actionable", () => {
     expect(toVietnameseHubError(undefined, "chuyện lạ")).toBe(
       "Có lỗi xảy ra. Vui lòng thử lại.",
     );
+  });
+});
+
+describe("scope, sub-tables and column ids", () => {
+  const base = { ownerUserId: ME, position: 0, columns: [], purpose: null, createdAt: "", updatedAt: "", deletedAt: null };
+  const personal: ThinkTable = { ...base, id: "p", name: "Riêng", projectId: null, conversationId: null, parentRecordId: null, depth: 1 };
+  const direct: ThinkTable = { ...base, id: "d", name: "1-1", projectId: null, conversationId: "c-d", parentRecordId: null, depth: 1 };
+  const group: ThinkTable = { ...base, id: "g", name: "Nhóm", projectId: null, conversationId: "c-g", parentRecordId: null, depth: 1 };
+  const projectRoot: ThinkTable = { ...base, id: "pr", name: "Dự án", projectId: "p1", conversationId: null, parentRecordId: null, depth: 1 };
+  const sub: ThinkTable = { ...base, id: "s", name: "Con", projectId: null, conversationId: "c-g", parentRecordId: "r1", depth: 2 };
+  const deep: ThinkTable = { ...sub, id: "s3", parentRecordId: "r2", depth: 3 };
+  const all = [personal, direct, group, projectRoot, sub, deep];
+
+  it("offers only the tables of the scope a record is written from", () => {
+    expect(tablesInScope(all, PERSONAL_SCOPE).map((t) => t.id)).toEqual(["p"]);
+    expect(tablesInScope(all, { conversationId: "c-g", projectId: null }).map((t) => t.id)).toEqual(["g", "s", "s3"]);
+    expect(tablesInScope(all, { conversationId: null, projectId: "p1" }).map((t) => t.id)).toEqual(["pr"]);
+    expect(tableScope(projectRoot)).toBe("project");
+    expect(tableScope(direct)).toBe("conversation");
+    expect(scopeOfTable(sub)).toEqual({ conversationId: "c-g", projectId: null });
+  });
+
+  it("stops a sub-table chain at the third level, with the reason", () => {
+    expect(canGrowSubTable(sub)).toBe(true);
+    expect(canGrowSubTable(deep)).toBe(false);
+    expect(DEPTH_LIMIT_MESSAGE).toMatch(/3 tầng/);
+    expect(suggestedSubTablePurpose(" Nhập khẩu ")).toBe("Theo dõi cho: Nhập khẩu");
+    expect(subTablesOf(all, "r1").map((t) => t.id)).toEqual(["s"]);
+    expect(rootTables(all).map((t) => t.id)).toEqual(["p", "d", "g", "pr"]);
+  });
+
+  it("puts my personal and 1-1 roots under Bảng của tôi, nothing shared with a room", () => {
+    const other: ThinkTable = { ...personal, id: "o", ownerUserId: "u-other" };
+    const result = myTables([...all, other], ME, (id) => id === "c-d");
+    expect(result.map((t) => t.id)).toEqual(["p", "d"]);
+  });
+
+  it("gives an old column its key as id, so renaming never loses its values", () => {
+    const [def] = parseColumnDefs([{ key: "col_old", label: "Giá", type: "number" }]);
+    expect(def.id).toBe("col_old");
   });
 });

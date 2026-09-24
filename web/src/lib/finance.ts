@@ -424,9 +424,9 @@ export function validateAccountName(raw: string, existing: readonly Account[], e
 
 export function validateCategoryName(raw: string, existing: readonly Category[], editingId?: string): { name: string | null; error: string | null } {
   const trimmed = raw.trim();
-  if (trimmed.length === 0) return { name: null, error: "Tên hạng mục là bắt buộc." };
+  if (trimmed.length === 0) return { name: null, error: "Tên danh mục là bắt buộc." };
   if (trimmed.length > CATEGORY_NAME_MAX_LEN) {
-    return { name: null, error: `Tên hạng mục quá dài (tối đa ${CATEGORY_NAME_MAX_LEN} ký tự).` };
+    return { name: null, error: `Tên danh mục quá dài (tối đa ${CATEGORY_NAME_MAX_LEN} ký tự).` };
   }
   const clash = existing.some(
     (category) =>
@@ -434,7 +434,7 @@ export function validateCategoryName(raw: string, existing: readonly Category[],
       category.deletedAt === null &&
       category.name.trim().toLowerCase() === trimmed.toLowerCase(),
   );
-  if (clash) return { name: null, error: "Hạng mục này đã có rồi." };
+  if (clash) return { name: null, error: "Danh mục này đã có rồi." };
   return { name: trimmed, error: null };
 }
 
@@ -485,7 +485,7 @@ export type DraftValidation = { field: keyof TransactionDraft | null; error: str
 
 export function validateTransactionDraft(draft: TransactionDraft, today: string = todayIso()): DraftValidation {
   if (draft.accountId === "") return { field: "accountId", error: "Hãy chọn tài khoản." };
-  if (draft.categoryId === "") return { field: "categoryId", error: "Hãy chọn hạng mục." };
+  if (draft.categoryId === "") return { field: "categoryId", error: "Hãy chọn danh mục." };
   const date = validateTransactionDate(draft.date, today);
   if (date.error !== null) return { field: "date", error: date.error };
   const amount = validateAmount(draft.amount);
