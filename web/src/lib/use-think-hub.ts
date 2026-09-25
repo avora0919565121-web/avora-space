@@ -14,8 +14,11 @@ import {
   fetchThinkRecords,
   fetchThinkTables,
   recordsOf,
+  fetchRecordTaskLinks,
   renameThinkColumn,
   renameThinkTable,
+  setThinkColumnHidden,
+  setThinkColumnWidth,
   restoreThinkRecord,
   restoreThinkTable,
   rootTables,
@@ -27,6 +30,7 @@ import {
   type ColumnType,
   type NewRecordInput,
   type RecordPatch,
+  type RecordTaskLink,
 } from "@/lib/think-hub";
 
 /**
@@ -62,6 +66,17 @@ export function useThinkRecords(): UseQueryResult<ThinkRecord[], Error> {
     queryFn: fetchThinkRecords,
     enabled: Boolean(user?.id),
     staleTime: 60_000,
+  });
+}
+
+/** Task ↔ Hạng mục links for tables outside a project (project tables use project_tasks). */
+export function useRecordTaskLinks(): UseQueryResult<RecordTaskLink[], Error> {
+  const { user } = useAuth();
+  return useQuery<RecordTaskLink[], Error>({
+    queryKey: thinkHubKeys.recordTasks,
+    queryFn: fetchRecordTaskLinks,
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
   });
 }
 
@@ -152,6 +167,8 @@ export function useThinkHubActions(): {
   createSubTable: (input: { recordId: string; name?: string; purpose?: string }) => Promise<ThinkTable>;
   setPurpose: (tableId: string, purpose: string) => Promise<ThinkTable>;
   renameColumn: (input: { tableId: string; columnId: string; label: string }) => Promise<ThinkTable>;
+  setColumnWidth: (input: { tableId: string; columnId: string; width: number | null }) => Promise<ThinkTable>;
+  setColumnHidden: (input: { tableId: string; columnId: string; hidden: boolean }) => Promise<ThinkTable>;
   renameTable: (tableId: string, name: string) => Promise<ThinkTable>;
   removeTable: (tableId: string) => Promise<ThinkTable>;
   restoreTable: (tableId: string) => Promise<ThinkTable>;
@@ -187,6 +204,16 @@ export function useThinkHubActions(): {
   const purposeMutation = useMutation({
     mutationFn: ({ tableId, purpose }: { tableId: string; purpose: string }) =>
       setThinkTablePurpose(tableId, purpose),
+    onSuccess: invalidate,
+  });
+
+  const widthMutation = useMutation({
+    mutationFn: (input: { tableId: string; columnId: string; width: number | null }) => setThinkColumnWidth(input),
+    onSuccess: invalidate,
+  });
+
+  const hiddenMutation = useMutation({
+    mutationFn: (input: { tableId: string; columnId: string; hidden: boolean }) => setThinkColumnHidden(input),
     onSuccess: invalidate,
   });
 
@@ -257,6 +284,14 @@ export function useThinkHubActions(): {
       (tableId: string, purpose: string) => purposeMutation.mutateAsync({ tableId, purpose }),
       [purposeMutation],
     ),
+    setColumnWidth: useCallback(
+      (input: { tableId: string; columnId: string; width: number | null }) => widthMutation.mutateAsync(input),
+      [widthMutation],
+    ),
+    setColumnHidden: useCallback(
+      (input: { tableId: string; columnId: string; hidden: boolean }) => hiddenMutation.mutateAsync(input),
+      [hiddenMutation],
+    ),
     renameColumn: useCallback(
       (input: { tableId: string; columnId: string; label: string }) => renameColumnMutation.mutateAsync(input),
       [renameColumnMutation],
@@ -300,6 +335,7 @@ export function useThinkHubActions(): {
       createSubTableMutation.isPending ||
       purposeMutation.isPending ||
       renameColumnMutation.isPending ||
+      hiddenMutation.isPending ||
       renameTableMutation.isPending ||
       removeTableMutation.isPending ||
       restoreTableMutation.isPending ||

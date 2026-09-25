@@ -1,6 +1,6 @@
 import { localDayOf } from "@/lib/space-blocks";
 import type { TaskParticipant } from "@/lib/task-collab";
-import { isDeletedFor, isOpenTask, isTaskGone, taskPriority, type TaskItem } from "@/lib/tasks";
+import { isDeletedFor, isOnMyDay, isOpenTask, isTaskGone, taskPriority, type TaskFlagIndex, type TaskItem } from "@/lib/tasks";
 
 /**
  * Task Hub — the ten places Nhiệm vụ can be read from.
@@ -34,16 +34,16 @@ export type TaskHubSection = {
 export const TASK_HUB_PARAM = "muc";
 
 export const TASK_HUB_SECTIONS: readonly TaskHubSection[] = [
-  { id: "my_day", slug: "hom-nay", label: "My Day", description: "Việc và cuộc hẹn của riêng hôm nay — chạm một dòng để mở.", empty: "Hôm nay nhẹ nhàng, chưa có gì cần làm." },
-  { id: "tasks", slug: "viec", label: "Tasks", description: "Mọi việc đang mở, đọc theo cách bạn quen.", empty: "Chưa có việc nào đang mở." },
-  { id: "events", slug: "su-kien", label: "Events", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
-  { id: "upcoming", slug: "sap-toi", label: "Upcoming", description: "Bảy ngày tới trên một trang: khối là sự kiện, vạch là hạn chót.", empty: "Bảy ngày tới đang trống." },
+  { id: "my_day", slug: "hom-nay", label: "Hôm nay", description: "Việc và cuộc hẹn của riêng hôm nay — chạm một dòng để mở.", empty: "Hôm nay nhẹ nhàng, chưa có gì cần làm." },
+  { id: "tasks", slug: "viec", label: "Việc", description: "Mọi việc đang mở, đọc theo cách bạn quen.", empty: "Chưa có việc nào đang mở." },
+  { id: "events", slug: "su-kien", label: "Sự kiện", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
+  { id: "upcoming", slug: "sap-toi", label: "Sắp tới", description: "Bảy ngày tới trên một trang: khối là sự kiện, vạch là hạn chót.", empty: "Bảy ngày tới đang trống." },
   { id: "calendar", slug: "lich", label: "Lịch", description: "Ngày, tuần, tháng, năm — chỉ để xem. Chạm một việc để về đúng chỗ nó được bàn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
-  { id: "overdue", slug: "qua-han", label: "Overdue", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
-  { id: "invitations", slug: "loi-moi", label: "Invitations", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
-  { id: "drafts", slug: "nhap", label: "Drafts", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },
-  { id: "completed", slug: "hoan-thanh", label: "Completed", description: "Việc đã xong, mới nhất lên trước.", empty: "Chưa có việc nào hoàn thành." },
-  { id: "trash", slug: "thung-rac", label: "Trash", description: "Việc bạn đã xoá — chạm để khôi phục.", empty: "Thùng rác trống." },
+  { id: "overdue", slug: "qua-han", label: "Quá hạn", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
+  { id: "invitations", slug: "loi-moi", label: "Lời mời", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
+  { id: "drafts", slug: "nhap", label: "Nháp", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },
+  { id: "completed", slug: "hoan-thanh", label: "Đã xong", description: "Việc đã xong, mới nhất lên trước.", empty: "Chưa có việc nào hoàn thành." },
+  { id: "trash", slug: "thung-rac", label: "Thùng rác", description: "Việc bạn đã xoá — chạm để khôi phục.", empty: "Thùng rác trống." },
 ];
 
 export function sectionBySlug(slug: string | null): TaskHubSection {
@@ -64,6 +64,8 @@ export function tasksForSection(
   tasks: readonly TaskItem[],
   userId: string | undefined,
   today: string,
+  /** The viewer's own flags, for tasks they put on "Hôm nay" themselves. */
+  flags?: TaskFlagIndex,
 ): TaskItem[] {
   const live = kept(tasks, userId);
   switch (id) {
@@ -72,6 +74,7 @@ export function tasksForSection(
         (task) =>
           isOpenTask(task, userId) &&
           (task.deadline === today ||
+            (flags !== undefined && isOnMyDay(flags, task.id, today)) ||
             (task.requiresPresence && task.startAt !== null && localDayOf(task.startAt) === today)),
       );
     case "events":

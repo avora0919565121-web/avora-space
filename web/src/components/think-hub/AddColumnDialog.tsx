@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { COLUMN_TYPES, columnTypeLabel, type ColumnType } from "@/lib/think-hub";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ type AddColumnDialogProps = {
  * showed an options box would ask everyone adding a plain text column to ignore a field.
  */
 export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddColumnDialogProps) {
+  const { isSubmitting, guard } = useSubmitGuard();
   const [label, setLabel] = useState<string>("");
   const [type, setType] = useState<ColumnType>("text");
   const [options, setOptions] = useState<string>("");
@@ -56,13 +58,15 @@ export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddCol
 
       setNotice(null);
       try {
-        await onAdd({ label: trimmed, type, options: type === "select" ? parsed : undefined });
+        await guard(async () => {
+          await onAdd({ label: trimmed, type, options: type === "select" ? parsed : undefined });
+        });
         onOpenChange(false);
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
     },
-    [label, type, options, onAdd, onOpenChange],
+    [label, type, options, onAdd, onOpenChange, guard],
   );
 
   return (
@@ -146,7 +150,7 @@ export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddCol
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Để sau
             </Button>
-            <Button type="submit" disabled={isWorking}>
+            <Button type="submit" disabled={isWorking || isSubmitting}>
               {isWorking ? "Đang thêm…" : "Thêm cột"}
             </Button>
           </div>

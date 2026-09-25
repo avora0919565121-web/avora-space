@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Table2 } from "lucide-react";
+import { ListPlus, Table2 } from "lucide-react";
 
 import {
   DEPTH_LIMIT_MESSAGE,
@@ -43,6 +44,8 @@ type RecordDialogProps = {
   canGrowSubTable?: boolean;
   onCreateSubTable?: (input: { name: string; purpose: string }) => Promise<void>;
   onOpenTable?: (tableId: string) => void;
+  /** "Tạo tác vụ" for an existing Hạng mục; absent when the table is read-only. */
+  onQuickTask?: () => void;
 };
 
 /**
@@ -85,14 +88,16 @@ function SubTableSection({
                 className="press flex min-h-10 w-full items-center gap-2 rounded-md px-2 py-2 text-left text-[14px] text-foreground transition-colors hover:bg-accent/40"
               >
                 <Table2 className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-                <span className="min-w-0 flex-1 truncate">{table.name}</span>
+                <span className="min-w-0 flex-1 truncate">Mở bảng con: {table.name}</span>
               </button>
             </li>
           ))}
         </ul>
       ) : null}
 
-      {!canGrow ? (
+      {subTables.length > 0 ? (
+        <p className="mt-1 text-[12.5px] text-muted-foreground">Mỗi Hạng mục có đúng một bảng con.</p>
+      ) : !canGrow ? (
         <p className="mt-2 text-[12.5px] leading-relaxed text-muted-foreground">{DEPTH_LIMIT_MESSAGE}</p>
       ) : isOpen ? (
         <div className="mt-2 space-y-3 rounded-lg border border-dashed border-border p-3.5">
@@ -212,9 +217,11 @@ export function RecordDialog({
   canGrowSubTable,
   onCreateSubTable,
   onOpenTable,
+  onQuickTask,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
+  const { isSubmitting, guard } = useSubmitGuard();
 
   useEffect(() => {
     if (!open) return;
@@ -262,6 +269,7 @@ export function RecordDialog({
       }
 
       setNotice(null);
+      await guard(async () => {
       try {
         await onSave({
           title,
@@ -281,8 +289,9 @@ export function RecordDialog({
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
+      });
     },
-    [draft, columns, onSave, onOpenChange],
+    [draft, columns, onSave, onOpenChange, guard],
   );
 
   const fieldClass =
@@ -504,11 +513,24 @@ export function RecordDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Để sau
             </Button>
-            <Button type="submit" disabled={isWorking}>
+            <Button type="submit" disabled={isWorking || isSubmitting}>
               {isWorking ? "Đang lưu…" : "Lưu"}
             </Button>
           </div>
         </form>
+
+        {record !== null && onQuickTask !== undefined ? (
+          <div className="mt-5 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={onQuickTask}
+              className="press inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3.5 py-2 text-[13.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
+            >
+              <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              Tạo tác vụ từ Hạng mục này
+            </button>
+          </div>
+        ) : null}
 
         {record !== null && subTables !== undefined ? (
           <SubTableSection

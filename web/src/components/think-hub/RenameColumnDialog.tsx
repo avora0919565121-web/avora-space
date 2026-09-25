@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import type { ColumnDef } from "@/lib/think-hub";
 
@@ -19,6 +20,7 @@ export function RenameColumnDialog({
   onRename: (column: ColumnDef, label: string) => Promise<void>;
   isWorking: boolean;
 }) {
+  const { isSubmitting, guard } = useSubmitGuard();
   const [label, setLabel] = useState<string>("");
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -36,13 +38,15 @@ export function RenameColumnDialog({
         return;
       }
       try {
-        await onRename(column, label);
+        await guard(async () => {
+          await onRename(column, label);
+        });
         onOpenChange(false);
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Không đổi được tên cột.");
       }
     },
-    [column, label, onRename, onOpenChange],
+    [column, label, onRename, onOpenChange, guard],
   );
 
   return (
@@ -70,7 +74,7 @@ export function RenameColumnDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Để sau
             </Button>
-            <Button type="submit" disabled={isWorking}>
+            <Button type="submit" disabled={isWorking || isSubmitting}>
               Lưu
             </Button>
           </div>

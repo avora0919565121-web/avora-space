@@ -26,6 +26,7 @@ function project(overrides: Partial<Project> = {}): Project {
   return {
     id: "p1",
     conversationId: "c-group",
+    parentGroupId: null,
     createdBy: "u-me",
     title: "Ra mắt bản thử",
     valueOrientation: "Phục vụ khách",
@@ -35,6 +36,10 @@ function project(overrides: Partial<Project> = {}): Project {
     startDate: "2026-09-20",
     targetEndDate: "2026-10-20",
     status: "active",
+    closedAt: null,
+    thanksMessageId: null,
+    deletedAt: null,
+    deleteReason: null,
     createdAt: "2026-09-17T08:00:00.000Z",
     updatedAt: "2026-09-17T08:00:00.000Z",
     ...overrides,

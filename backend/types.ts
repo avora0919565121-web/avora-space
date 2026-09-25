@@ -1172,6 +1172,7 @@ export type Database = {
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
+          system_kind: string | null
         }
         Insert: {
           algorithm_version?: string | null
@@ -1190,6 +1191,7 @@ export type Database = {
           reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
           sender_id: string
+          system_kind?: string | null
         }
         Update: {
           algorithm_version?: string | null
@@ -1208,6 +1210,7 @@ export type Database = {
           reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
           sender_id?: string
+          system_kind?: string | null
         }
         Relationships: [
           {
@@ -1302,6 +1305,41 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "currencies"
             referencedColumns: ["code"]
+          },
+        ]
+      }
+      project_check_adjust: {
+        Row: {
+          close_reason: string
+          created_at: string
+          note: string | null
+          owner_id: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          close_reason: string
+          created_at?: string
+          note?: string | null
+          owner_id: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          close_reason?: string
+          created_at?: string
+          note?: string | null
+          owner_id?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_check_adjust_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -1411,45 +1449,60 @@ export type Database = {
       projects: {
         Row: {
           assumptions: string | null
+          closed_at: string | null
           conversation_id: string
           created_at: string
           created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           objective: string
           scope: string | null
           start_date: string
           status: string
           target_end_date: string
+          thanks_message_id: string | null
           title: string
           updated_at: string
           value_orientation: string
         }
         Insert: {
           assumptions?: string | null
+          closed_at?: string | null
           conversation_id: string
           created_at?: string
           created_by: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           objective: string
           scope?: string | null
           start_date: string
           status?: string
           target_end_date: string
+          thanks_message_id?: string | null
           title: string
           updated_at?: string
           value_orientation: string
         }
         Update: {
           assumptions?: string | null
+          closed_at?: string | null
           conversation_id?: string
           created_at?: string
           created_by?: string
+          delete_reason?: string | null
+          deleted_at?: string | null
+          deleted_by?: string | null
           id?: string
           objective?: string
           scope?: string | null
           start_date?: string
           status?: string
           target_end_date?: string
+          thanks_message_id?: string | null
           title?: string
           updated_at?: string
           value_orientation?: string
@@ -1460,6 +1513,13 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "projects_thanks_message_id_fkey"
+            columns: ["thanks_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
             referencedColumns: ["id"]
           },
         ]
@@ -1643,6 +1703,7 @@ export type Database = {
           created_at: string
           duration_minutes: number | null
           is_important: boolean
+          my_day_on: string | null
           started_at: string | null
           task_id: string
           updated_at: string
@@ -1652,6 +1713,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           is_important?: boolean
+          my_day_on?: string | null
           started_at?: string | null
           task_id: string
           updated_at?: string
@@ -1661,6 +1723,7 @@ export type Database = {
           created_at?: string
           duration_minutes?: number | null
           is_important?: boolean
+          my_day_on?: string | null
           started_at?: string | null
           task_id?: string
           updated_at?: string
@@ -2164,6 +2227,42 @@ export type Database = {
           },
         ]
       }
+      think_hub_record_tasks: {
+        Row: {
+          created_at: string
+          linked_by: string
+          record_id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string
+          linked_by: string
+          record_id: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string
+          linked_by?: string
+          record_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_record_tasks_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_record_tasks_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       think_hub_table: {
         Row: {
           column_defs: Json
@@ -2541,15 +2640,49 @@ export type Database = {
         Args: { p_project_id: string }
         Returns: {
           assumptions: string | null
+          closed_at: string | null
           conversation_id: string
           created_at: string
           created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           objective: string
           scope: string | null
           start_date: string
           status: string
           target_end_date: string
+          thanks_message_id: string | null
+          title: string
+          updated_at: string
+          value_orientation: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      close_project_early: {
+        Args: { p_project_id: string; p_reason: string }
+        Returns: {
+          assumptions: string | null
+          closed_at: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          objective: string
+          scope: string | null
+          start_date: string
+          status: string
+          target_end_date: string
+          thanks_message_id: string | null
           title: string
           updated_at: string
           value_orientation: string
@@ -2971,15 +3104,20 @@ export type Database = {
         }
         Returns: {
           assumptions: string | null
+          closed_at: string | null
           conversation_id: string
           created_at: string
           created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
           id: string
           objective: string
           scope: string | null
           start_date: string
           status: string
           target_end_date: string
+          thanks_message_id: string | null
           title: string
           updated_at: string
           value_orientation: string
@@ -3000,6 +3138,69 @@ export type Database = {
           p_deadline_tz?: string
           p_description: string
           p_project_id: string
+          p_record_id: string
+          p_task_id: string
+          p_title: string
+        }
+        Returns: {
+          assignee_id: string | null
+          completed_confirmed_at: string | null
+          confirmed_at: string | null
+          confirmed_by: string | null
+          context_lost_reason: string | null
+          context_snapshot: Json | null
+          conversation_id: string | null
+          created_at: string
+          creator_id: string
+          deadline_date: string
+          deadline_time: string | null
+          deadline_tz: string
+          deleted_by_creator: boolean
+          deleted_by_peer: boolean
+          departure_reminder_at: string | null
+          description: string
+          done_at: string | null
+          end_at: string | null
+          estimated_duration_minutes: number | null
+          id: string
+          is_important: boolean
+          is_milestone: boolean
+          latitude: number | null
+          location: string | null
+          longitude: number | null
+          opportunity_id: string | null
+          output_value: string | null
+          progress_percent: number | null
+          recurrence: string
+          recurrence_origin_id: string | null
+          recurrence_pattern: Json | null
+          recurrence_spawned_at: string | null
+          requires_presence: boolean
+          skipped_at: string | null
+          skipped_silently: boolean
+          start_at: string | null
+          status: string
+          task_category_id: string | null
+          task_list_id: string | null
+          title: string
+          travel_duration_minutes: number | null
+          type: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      create_record_task: {
+        Args: {
+          p_assignee_id?: string
+          p_deadline: string
+          p_deadline_time?: string
+          p_deadline_tz?: string
+          p_description: string
           p_record_id: string
           p_task_id: string
           p_title: string
@@ -3330,6 +3531,39 @@ export type Database = {
         Args: { p_message_ids: string[] }
         Returns: number
       }
+      delete_project: {
+        Args: {
+          p_confirm_title: string
+          p_project_id: string
+          p_reason: string
+        }
+        Returns: {
+          assumptions: string | null
+          closed_at: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          objective: string
+          scope: string | null
+          start_date: string
+          status: string
+          target_end_date: string
+          thanks_message_id: string | null
+          title: string
+          updated_at: string
+          value_orientation: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_project_success_criterion: {
         Args: { p_criterion_id: string }
         Returns: {
@@ -3506,6 +3740,7 @@ export type Database = {
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
+          system_kind: string | null
         }
         SetofOptions: {
           from: "*"
@@ -3687,6 +3922,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      is_project_root_owner: {
+        Args: { p_project_id: string }
+        Returns: boolean
+      }
       is_task_assignee: {
         Args: {
           p_task: Database["public"]["Tables"]["tasks"]["Row"]
@@ -3734,6 +3973,35 @@ export type Database = {
           to: "project_tasks"
           isOneToOne: true
           isSetofReturn: false
+        }
+      }
+      list_deleted_projects: {
+        Args: never
+        Returns: {
+          assumptions: string | null
+          closed_at: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          objective: string
+          scope: string | null
+          start_date: string
+          status: string
+          target_end_date: string
+          thanks_message_id: string | null
+          title: string
+          updated_at: string
+          value_orientation: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "projects"
+          isOneToOne: false
+          isSetofReturn: true
         }
       }
       list_group_members: {
@@ -3949,6 +4217,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      post_project_thanks: {
+        Args: { p_body: string; p_project_id: string }
+        Returns: {
+          assumptions: string | null
+          closed_at: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          objective: string
+          scope: string | null
+          start_date: string
+          status: string
+          target_end_date: string
+          thanks_message_id: string | null
+          title: string
+          updated_at: string
+          value_orientation: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       preview_contact_invite: {
         Args: { p_token: string }
         Returns: {
@@ -3984,6 +4281,7 @@ export type Database = {
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
+          system_kind: string | null
         }
         SetofOptions: {
           from: "*"
@@ -4082,6 +4380,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      reopen_project: {
+        Args: { p_project_id: string }
+        Returns: {
+          assumptions: string | null
+          closed_at: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          objective: string
+          scope: string | null
+          start_date: string
+          status: string
+          target_end_date: string
+          thanks_message_id: string | null
+          title: string
+          updated_at: string
+          value_orientation: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "projects"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       request_remove_participant: {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: string
@@ -4158,6 +4485,35 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      restore_project: {
+        Args: { p_project_id: string }
+        Returns: {
+          assumptions: string | null
+          closed_at: string | null
+          conversation_id: string
+          created_at: string
+          created_by: string
+          delete_reason: string | null
+          deleted_at: string | null
+          deleted_by: string | null
+          id: string
+          objective: string
+          scope: string | null
+          start_date: string
+          status: string
+          target_end_date: string
+          thanks_message_id: string | null
+          title: string
+          updated_at: string
+          value_orientation: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "projects"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -4477,6 +4833,23 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_project_check_adjust_note: {
+        Args: { p_note: string; p_project_id: string }
+        Returns: {
+          close_reason: string
+          created_at: string
+          note: string | null
+          owner_id: string
+          project_id: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "project_check_adjust"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       seed_finance_categories: { Args: { p_user_id: string }; Returns: number }
       send_message_with_attachments: {
         Args: {
@@ -4504,6 +4877,7 @@ export type Database = {
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
+          system_kind: string | null
         }
         SetofOptions: {
           from: "*"
@@ -4519,6 +4893,54 @@ export type Database = {
           target_user_id: string
         }
         Returns: undefined
+      }
+      set_think_hub_column_hidden: {
+        Args: { p_column_id: string; p_hidden: boolean; p_table_id: string }
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_think_hub_column_width: {
+        Args: { p_column_id: string; p_table_id: string; p_width: number }
+        Returns: {
+          column_defs: Json
+          conversation_id: string | null
+          created_at: string
+          deleted_at: string | null
+          depth: number
+          id: string
+          name: string
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       set_think_hub_table_purpose: {
         Args: { p_purpose: string; p_table_id: string }

@@ -130,7 +130,7 @@ describe("the rail says Két sắt wants attention, and nothing more", () => {
 
   it("leaves the badges the other tabs already had alone", async () => {
     const screen = await mount([obligation({ id: "now", dueDate: dayFromToday(0) })]);
-    await expect.element(screen.getByText("Tin nhắn")).toBeInTheDocument();
+    await expect.element(screen.getByText("Kết nối")).toBeInTheDocument();
     await expect.element(screen.getByText("Nhiệm vụ")).toBeInTheDocument();
     expect(screen.container.textContent).not.toContain("tin nhắn chưa đọc");
   });

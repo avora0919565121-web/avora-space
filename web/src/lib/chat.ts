@@ -148,7 +148,7 @@ export async function markConversationRead(conversationId: string): Promise<stri
 
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind";
 
 /** Full thread, oldest first. RLS returns nothing for conversations you are not in. */
 export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
@@ -175,6 +175,7 @@ export async function fetchMessages(conversationId: string): Promise<ChatMessage
     attachmentCount: row.attachment_count ?? 0,
     originContentId: row.origin_content_id,
     originSenderId: row.origin_sender_id,
+    systemKind: row.system_kind ?? null,
   }));
 }
 
@@ -226,6 +227,7 @@ export async function searchMessages(
     attachmentCount: row.attachment_count ?? 0,
     originContentId: row.origin_content_id,
     originSenderId: row.origin_sender_id,
+    systemKind: row.system_kind ?? null,
   }));
 }
 
@@ -354,6 +356,7 @@ export async function sendMessage(
     attachmentCount: data.attachment_count ?? 0,
     originContentId: data.origin_content_id,
     originSenderId: data.origin_sender_id,
+    systemKind: data.system_kind ?? null,
   };
 }
 

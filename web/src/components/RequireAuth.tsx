@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
+import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
 import { useAuth } from "@/lib/auth";
 import { useNewDayLanding } from "@/lib/use-new-day-landing";
 
@@ -31,6 +32,11 @@ export function RequireAuth() {
     <div className="flex min-h-screen flex-col bg-card md:h-screen md:flex-row md:overflow-hidden">
       <AppSidebar />
       <main className="flex min-h-0 flex-1 flex-col">
+        {/* The calendar lives in one place on every screen: top right. A slim bar of its own
+            rather than floating, so it never sits on top of a page's own buttons. */}
+        <div className="flex h-12 shrink-0 items-center justify-end border-b border-border bg-card px-3 md:px-5">
+          <CalendarPeekButton label="Xem lịch" className="h-9 w-9" showFullLink />
+        </div>
         <Outlet />
       </main>
     </div>

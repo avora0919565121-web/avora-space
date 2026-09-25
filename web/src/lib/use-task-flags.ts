@@ -60,6 +60,7 @@ export function useTaskFlagActions(): {
               isImportant: current.isImportant,
               durationMinutes: current.durationMinutes,
               startedAt: current.startedAt,
+              myDayOn: current.myDayOn,
             },
       );
     },
@@ -107,6 +108,21 @@ export function useTaskStart(): {
   const stop = useCallback((taskId: string): void => setFlag(taskId, { startedAt: null }), [setFlag]);
 
   return { start, stop, isWorking };
+}
+
+/**
+ * "Thêm vào Hôm nay": this person's own list for today, separate from any deadline. Stamped
+ * with today's date, so it lapses by itself at midnight rather than lingering.
+ */
+export function useMyDay(): {
+  add: (taskId: string, today: string) => void;
+  remove: (taskId: string) => void;
+  isWorking: boolean;
+} {
+  const { setFlag, isWorking } = useTaskFlagActions();
+  const add = useCallback((taskId: string, today: string): void => setFlag(taskId, { myDayOn: today }), [setFlag]);
+  const remove = useCallback((taskId: string): void => setFlag(taskId, { myDayOn: null }), [setFlag]);
+  return { add, remove, isWorking };
 }
 
 /**

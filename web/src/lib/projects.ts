@@ -13,11 +13,15 @@ import { todayIso, validateTaskDraft } from "@/lib/tasks";
  *
  * There is no Objective/Deliverable tier any more (ADR-005): structure is Record → Task only.
  */
-export type ProjectStatus = "active" | "done" | "archived";
+/** `done` = closed with every criterion met; `closed_early` = stopped before that, with a private reason. */
+export type ProjectStatus = "active" | "done" | "closed_early" | "archived";
 
 export type Project = {
   id: string;
+  /** The project's own sub-group — its chat and its members. */
   conversationId: string;
+  /** The group the project was opened from (the sub-group's parent), when known. */
+  parentGroupId: string | null;
   createdBy: string;
   title: string;
   /** Kim chỉ nam — the direction the work serves. Required at creation. */
@@ -30,8 +34,21 @@ export type Project = {
   startDate: string;
   targetEndDate: string;
   status: ProjectStatus;
+  closedAt: string | null;
+  /** The leader's own thank-you, posted once into the project chat and pinned. */
+  thanksMessageId: string | null;
+  /** Set only on rows read from the bin (`list_deleted_projects`). */
+  deletedAt: string | null;
+  deleteReason: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+/** The private look back after closing early — only the project's opener can read it. */
+export type CheckAdjust = {
+  projectId: string;
+  closeReason: string;
+  note: string | null;
 };
 
 export type MeasurementType = "percentage" | "meeting_confirmation";
@@ -75,6 +92,11 @@ type ProjectRow = {
   start_date: string;
   target_end_date: string;
   status: string;
+  closed_at?: string | null;
+  thanks_message_id?: string | null;
+  deleted_at?: string | null;
+  delete_reason?: string | null;
+  conversation?: { parent_group_id: string | null } | null;
   created_at: string;
   updated_at: string;
 };
@@ -107,7 +129,7 @@ export const projectKeys = {
 function toStatus(value: string): ProjectStatus {
   // An unreadable status reads as 'active': a row that exists is worth showing, and 'active'
   // is the one value that claims no progress has been made.
-  return value === "done" || value === "archived" ? value : "active";
+  return value === "done" || value === "closed_early" || value === "archived" ? value : "active";
 }
 
 function toNumber(value: number | string | null): number | null {
@@ -120,6 +142,7 @@ function toProject(row: ProjectRow): Project {
   return {
     id: row.id,
     conversationId: row.conversation_id,
+    parentGroupId: row.conversation?.parent_group_id ?? null,
     createdBy: row.created_by,
     title: row.title,
     valueOrientation: row.value_orientation,
@@ -129,9 +152,26 @@ function toProject(row: ProjectRow): Project {
     startDate: row.start_date,
     targetEndDate: row.target_end_date,
     status: toStatus(row.status),
+    closedAt: row.closed_at ?? null,
+    thanksMessageId: row.thanks_message_id ?? null,
+    deletedAt: row.deleted_at ?? null,
+    deleteReason: row.delete_reason ?? null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/** Whether a project still takes changes. Closed projects stay readable, not writable. */
+export function isProjectOpen(project: Pick<Project, "status">): boolean {
+  return project.status === "active";
+}
+
+/** A short status word for lists and headers. */
+export function projectStatusLabel(status: ProjectStatus): string | null {
+  if (status === "done") return "Đã đóng";
+  if (status === "closed_early") return "Đã dừng sớm";
+  if (status === "archived") return "Đã lưu trữ";
+  return null;
 }
 
 function toCriterion(row: CriterionRow): SuccessCriterion {
@@ -182,6 +222,21 @@ export function toVietnameseProjectError(code: string | undefined, message: stri
   if (normalized.includes("avora_project_task_foreign_conversation"))
     return "Nhiệm vụ này thuộc cuộc trò chuyện khác.";
   if (normalized.includes("avora_project_missing")) return "Dự án này không còn nữa.";
+  if (normalized.includes("avora_group_sub_not_allowed"))
+    return "Chỉ Owner hoặc Admin của nhóm mới mở được dự án.";
+  if (normalized.includes("avora_group_depth_limit"))
+    return "Nhóm này đã ở tầng thứ 3. Hãy mở dự án từ một nhóm tầng trên, hoặc tạo một nhóm gốc mới.";
+  if (normalized.includes("avora_project_close_reason_required")) return "Hãy ghi lý do đóng sớm.";
+  if (normalized.includes("avora_project_close_reason_too_long")) return "Lý do quá dài.";
+  if (normalized.includes("avora_project_thanks_already")) return "Lời cảm ơn đã được gửi rồi.";
+  if (normalized.includes("avora_project_thanks_empty")) return "Hãy viết vài dòng trước khi gửi.";
+  if (normalized.includes("avora_project_thanks_not_closed")) return "Chỉ gửi lời cảm ơn sau khi dự án đã đóng.";
+  if (normalized.includes("avora_project_delete_root_owner_only"))
+    return "Chỉ Owner của nhóm gốc mới xoá hoặc khôi phục được dự án.";
+  if (normalized.includes("avora_project_delete_title_mismatch")) return "Tên gõ lại chưa khớp đúng tên dự án.";
+  if (normalized.includes("avora_project_delete_reason_required")) return "Hãy ghi lý do xoá.";
+  if (normalized.includes("avora_project_chat_closed"))
+    return "Dự án đã đóng nên cuộc trò chuyện chỉ còn để đọc.";
   if (normalized.includes("avora_criterion_description_required"))
     return "Tiêu chí cần một dòng mô tả.";
   if (normalized.includes("avora_criterion_type_invalid")) return "Cách đo này không hợp lệ.";
@@ -345,16 +400,20 @@ export function isProjectOwner(project: Pick<Project, "createdBy">, viewerId: st
 export async function fetchProjects(): Promise<Project[]> {
   const { data, error } = await supabase
     .from("projects")
-    .select("*")
+    .select("*, conversation:conversations(parent_group_id)")
     .order("created_at", { ascending: false });
 
   if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toProject(row as ProjectRow));
+  return (data ?? []).map((row) => toProject(row as unknown as ProjectRow));
 }
 
 /** One project with its live success criteria and task links. */
 export async function fetchProjectDetail(projectId: string): Promise<ProjectDetail | null> {
-  const projectResult = await supabase.from("projects").select("*").eq("id", projectId).maybeSingle();
+  const projectResult = await supabase
+    .from("projects")
+    .select("*, conversation:conversations(parent_group_id)")
+    .eq("id", projectId)
+    .maybeSingle();
   if (projectResult.error) throw fail(projectResult.error.code, projectResult.error.message);
   if (projectResult.data === null) return null;
 
@@ -371,7 +430,7 @@ export async function fetchProjectDetail(projectId: string): Promise<ProjectDeta
   if (linksResult.error) throw fail(linksResult.error.code, linksResult.error.message);
 
   return {
-    project: toProject(projectResult.data as ProjectRow),
+    project: toProject(projectResult.data as unknown as ProjectRow),
     criteria: (criteriaResult.data ?? []).map((row) => toCriterion(row as CriterionRow)),
     links: (linksResult.data ?? []).map((row) => toProjectTaskLink(row as ProjectTaskRow)),
   };
@@ -552,7 +611,84 @@ export async function linkTaskToProject(
   if (error) throw fail(error.code, error.message);
 }
 
-/** Where a project lives. */
+/** The leader's own thank-you, posted into the project chat and pinned. Once only. */
+export async function postProjectThanks(projectId: string, body: string): Promise<Project> {
+  const { data, error } = await supabase.rpc("post_project_thanks", { p_project_id: projectId, p_body: body.trim() });
+  if (error) throw fail(error.code, error.message);
+  return toProject(data as unknown as ProjectRow);
+}
+
+/** Stops a project before its criteria are met. Nothing is posted; the reason stays private. */
+export async function closeProjectEarly(projectId: string, reason: string): Promise<Project> {
+  if (reason.trim().length === 0) throw new Error("Hãy ghi lý do đóng sớm.");
+  const { data, error } = await supabase.rpc("close_project_early", { p_project_id: projectId, p_reason: reason.trim() });
+  if (error) throw fail(error.code, error.message);
+  return toProject(data as unknown as ProjectRow);
+}
+
+export async function reopenProject(projectId: string): Promise<Project> {
+  const { data, error } = await supabase.rpc("reopen_project", { p_project_id: projectId });
+  if (error) throw fail(error.code, error.message);
+  return toProject(data as unknown as ProjectRow);
+}
+
+/** The private Check-Adjust record, or null when the viewer is not its owner or it does not exist. */
+export async function fetchCheckAdjust(projectId: string): Promise<CheckAdjust | null> {
+  const { data, error } = await supabase
+    .from("project_check_adjust")
+    .select("project_id, close_reason, note")
+    .eq("project_id", projectId)
+    .maybeSingle();
+  if (error) throw fail(error.code, error.message);
+  if (data === null) return null;
+  return { projectId: data.project_id, closeReason: data.close_reason, note: data.note };
+}
+
+export async function saveCheckAdjustNote(projectId: string, note: string): Promise<void> {
+  const { error } = await supabase.rpc("save_project_check_adjust_note", { p_project_id: projectId, p_note: note });
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Moves a project to the bin (Inner tier). Root-group owner only; the title must be typed exactly. */
+export async function deleteProject(projectId: string, confirmTitle: string, reason: string): Promise<void> {
+  if (reason.trim().length === 0) throw new Error("Hãy ghi lý do xoá.");
+  const { error } = await supabase.rpc("delete_project", {
+    p_project_id: projectId,
+    p_confirm_title: confirmTitle.trim(),
+    p_reason: reason.trim(),
+  });
+  if (error) throw fail(error.code, error.message);
+}
+
+export async function restoreProject(projectId: string): Promise<void> {
+  const { error } = await supabase.rpc("restore_project", { p_project_id: projectId });
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Projects in the bin that the viewer, as a root-group owner, may bring back. */
+export async function fetchDeletedProjects(): Promise<Project[]> {
+  const { data, error } = await supabase.rpc("list_deleted_projects");
+  if (error) throw fail(error.code, error.message);
+  return ((data ?? []) as unknown as ProjectRow[]).map(toProject);
+}
+
+export async function fetchIsProjectRootOwner(projectId: string): Promise<boolean> {
+  const { data, error } = await supabase.rpc("is_project_root_owner", { p_project_id: projectId });
+  if (error) throw fail(error.code, error.message);
+  return data === true;
+}
+
+/** Whether the title typed into the delete dialog matches exactly (spaces at the ends aside). */
+export function deleteConfirmMatches(project: Pick<Project, "title">, typed: string): boolean {
+  return typed.trim() === project.title;
+}
+
+/** Where a project's own page lives (charter, criteria, Hạng mục). */
 export function projectLink(projectId: string): string {
   return `/du-an/${projectId}`;
+}
+
+/** A project is discussed in its own sub-group: opening it opens that chat. */
+export function projectChatLink(project: Pick<Project, "conversationId">): string {
+  return `/tin-nhan/${project.conversationId}`;
 }

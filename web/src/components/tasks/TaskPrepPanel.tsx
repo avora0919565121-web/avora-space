@@ -354,12 +354,9 @@ export function TaskPrepPanel({ task, canEdit }: { task: TaskItem; canEdit: bool
   const shared = isSharedTask(task);
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-3 rounded-[10px] border border-border bg-card px-3 py-2">
-        <p className="min-w-0 flex-1 text-[12.5px] leading-5 text-muted-foreground">
-          Chuẩn bị & cùng làm — xem nhanh lịch để tránh trùng giờ, chỉ xem không sửa.
-        </p>
-        <CalendarPeekButton initialDay={task.startAt !== null ? localDayOf(task.startAt) : task.deadline} />
-      </div>
+      <p className="text-[12.5px] leading-5 text-muted-foreground">
+        Chuẩn bị & cùng làm — muốn tránh trùng giờ, xem lịch ở góc phải trên.
+      </p>
       {canEdit ? <ScheduleBlock key={task.id} task={task} /> : <ScheduleSummary task={task} />}
       <ChecklistBlock task={task} canEdit={canEdit} />
       <ResourcesBlock task={task} canEdit={canEdit} />

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 
 /** Where a new standalone table can live: the Diary, or one 1-1 / group conversation. */
@@ -36,6 +37,7 @@ export function NewTableDialog({
   places,
   initialConversationId = null,
 }: NewTableDialogProps) {
+  const { isSubmitting, guard } = useSubmitGuard();
   const [name, setName] = useState<string>("");
   const [purpose, setPurpose] = useState<string>("");
   const [place, setPlace] = useState<string>(PERSONAL_VALUE);
@@ -62,13 +64,15 @@ export function NewTableDialog({
       }
       setNotice(null);
       try {
-        await onCreate({ name: trimmed, purpose, conversationId: place === PERSONAL_VALUE ? null : place });
+        await guard(async () => {
+          await onCreate({ name: trimmed, purpose, conversationId: place === PERSONAL_VALUE ? null : place });
+        });
         onOpenChange(false);
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
     },
-    [name, purpose, place, onCreate, onOpenChange],
+    [name, purpose, place, onCreate, onOpenChange, guard],
   );
 
   const fieldClass =
@@ -146,7 +150,7 @@ export function NewTableDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Để sau
             </Button>
-            <Button type="submit" disabled={isWorking}>
+            <Button type="submit" disabled={isWorking || isSubmitting}>
               {isWorking ? "Đang tạo…" : "Tạo bảng"}
             </Button>
           </div>

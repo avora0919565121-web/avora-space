@@ -25,9 +25,11 @@ export type TaskFlagRow = {
   durationMinutes: number | null;
   /** When this person picked the work up. Null while they have not. */
   startedAt: string | null;
+  /** The day this person put the task on "Hôm nay"; only that day counts. */
+  myDayOn: string | null;
 };
 
-const FLAG_COLUMNS = "task_id, is_important, duration_minutes, started_at";
+const FLAG_COLUMNS = "task_id, is_important, duration_minutes, started_at, my_day_on";
 
 function fail(code: string | undefined, message: string): Error {
   console.error(`[task-flags] ${code ?? "unknown"}: ${message}`);
@@ -88,6 +90,7 @@ type FlagRow = {
   is_important: boolean | null;
   duration_minutes: number | null;
   started_at: string | null;
+  my_day_on: string | null;
 };
 
 /**
@@ -104,6 +107,7 @@ export async function fetchTaskFlags(): Promise<TaskFlagRow[]> {
       isImportant: flag.is_important ?? false,
       durationMinutes: flag.duration_minutes,
       startedAt: flag.started_at,
+      myDayOn: flag.my_day_on,
     };
   });
 }
@@ -116,6 +120,7 @@ export function toFlagIndex(rows: readonly TaskFlagRow[]): TaskFlagIndex {
       isImportant: row.isImportant,
       durationMinutes: row.durationMinutes,
       startedAt: row.startedAt,
+      myDayOn: row.myDayOn,
     });
   }
   return index;
@@ -138,6 +143,7 @@ export async function saveTaskFlag(
     durationMinutes:
       patch.durationMinutes !== undefined ? patch.durationMinutes : current?.durationMinutes ?? null,
     startedAt: patch.startedAt !== undefined ? patch.startedAt : current?.startedAt ?? null,
+    myDayOn: patch.myDayOn !== undefined ? patch.myDayOn : current?.myDayOn ?? null,
   };
 
   const { data, error } = await supabase
@@ -149,6 +155,7 @@ export async function saveTaskFlag(
         is_important: next.isImportant,
         duration_minutes: next.durationMinutes,
         started_at: next.startedAt,
+        my_day_on: next.myDayOn ?? null,
       },
       { onConflict: "task_id,user_id" },
     )
@@ -162,6 +169,7 @@ export async function saveTaskFlag(
     isImportant: row.is_important ?? false,
     durationMinutes: row.duration_minutes,
     startedAt: row.started_at,
+    myDayOn: row.my_day_on,
   };
 }
 

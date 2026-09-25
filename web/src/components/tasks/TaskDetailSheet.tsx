@@ -9,7 +9,7 @@ import { forwardTaskOutputToJournal } from "@/lib/task-report";
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import { TaskEditForm } from "@/components/tasks/TaskEditForm";
-import { StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
+import { MyDayButton, StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
 import { TaskPrepPanel } from "@/components/tasks/TaskPrepPanel";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
@@ -230,7 +230,10 @@ export function TaskDetailSheet({
 
               <TaskPrepPanel task={task} canEdit={canEdit && !done} />
 
-              <StartButton task={task} />
+              <div className="flex flex-wrap items-center gap-2">
+                <MyDayButton task={task} />
+                <StartButton task={task} />
+              </div>
             </>
           )}
 

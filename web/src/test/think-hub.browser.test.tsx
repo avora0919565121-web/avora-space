@@ -249,7 +249,7 @@ test("the board shows the same records the grid does, standing under their statu
   const screen = await open();
   await expect.element(screen.getByText("Khách sạn ABC")).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole("button", { name: "Kanban" }));
+  await userEvent.click(screen.getByRole("button", { name: "Theo trạng thái" }));
 
   await expect.element(screen.getByRole("region", { name: "Đang làm" })).toBeInTheDocument();
   await expect.element(screen.getByText("Khách sạn ABC")).toBeInTheDocument();
@@ -264,7 +264,7 @@ test("the board keeps a status of the person's own rather than hiding its record
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Kanban" }));
+  await userEvent.click(screen.getByRole("button", { name: "Theo trạng thái" }));
 
   await expect.element(screen.getByRole("region", { name: "Đang thi công" })).toBeInTheDocument();
   await expect.element(screen.getByText("Nhà xưởng số 3")).toBeInTheDocument();

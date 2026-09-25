@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 
+import { StatusPill } from "@/components/StatusPill";
+
 /**
  * A half of a section that exists in the navigation but not yet in the product.
  * One line, no inputs: there is nothing here to fill in, and pretending
@@ -22,9 +24,7 @@ export function ComingSoon({
         </span>
         <h1 className="mt-6 text-[24px] font-semibold tracking-tight text-foreground">{title}</h1>
         <p className="mt-2.5 text-[15px] leading-relaxed text-muted-foreground">{description}</p>
-        <p className="wordmark mt-7 rounded-full border border-border bg-card px-4 py-1.5 text-[11px] text-muted-foreground">
-          Sắp ra mắt
-        </p>
+        <StatusPill className="mt-7">Sắp ra mắt</StatusPill>
       </div>
     </div>
   );

@@ -241,6 +241,54 @@ export async function createGroupConversation(name: string, memberIds: string[])
   return data as string;
 }
 
+/** Deepest a group tree may go (ADR-007): a root group is level 1. */
+export const MAX_GROUP_DEPTH = 3;
+
+/** Shown to a member who sees the sub-group button: the rule is visible rather than hidden. */
+export const SUB_GROUP_BLOCKED_MESSAGE = "Chỉ Owner/Admin được tạo nhóm con.";
+
+/** Shown at the third level, where no further sub-group can open. */
+export const SUB_GROUP_DEPTH_MESSAGE =
+  "Nhóm này đã ở tầng thứ 3. Cần nhánh sâu hơn thì tạo một nhóm gốc mới, độc lập.";
+
+/** Only the group's owner or admin opens a sub-group beneath it. */
+export function canCreateSubGroup(role: GroupRole | undefined): boolean {
+  return role === "owner" || role === "admin";
+}
+
+/** How deep this group sits in its tree (1–3). */
+export async function fetchGroupDepth(conversationId: string): Promise<number> {
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("group_depth")
+    .eq("id", conversationId)
+    .maybeSingle();
+  if (error) throw fail(error.code, error.message);
+  return data?.group_depth ?? 1;
+}
+
+/**
+ * Opens a sub-group under this one. The caller becomes its owner; members must already be in
+ * the parent group. Membership never flows down on its own (ADR-014).
+ */
+export async function createSubGroup(parentGroupId: string, name: string, memberIds: string[]): Promise<string> {
+  const { data, error } = await supabase.rpc("create_sub_group", {
+    p_parent_group_id: parentGroupId,
+    p_name: name.trim(),
+    p_member_ids: memberIds,
+  });
+  if (error) {
+    const message = error.message.toLowerCase();
+    if (message.includes("avora_group_depth_limit")) throw new Error(SUB_GROUP_DEPTH_MESSAGE);
+    if (message.includes("avora_group_sub_not_allowed")) throw new Error(SUB_GROUP_BLOCKED_MESSAGE);
+    if (message.includes("avora_group_sub_member_outside"))
+      throw new Error("Chỉ mời được người đang ở nhóm cha.");
+    throw fail(error.code, error.message);
+  }
+  if (!data) throw new Error("Không tạo được nhóm con. Thử lại nhé.");
+  return data as string;
+}
+
 /**
  * Owner only. Renames the group and returns the stored name.
  * Ownership cannot travel with a rename — the only way that moves is

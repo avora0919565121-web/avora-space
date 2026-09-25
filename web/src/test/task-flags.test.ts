@@ -261,8 +261,8 @@ describe("duration input", () => {
 
 describe("flag cache", () => {
   const base: TaskFlagRow[] = [
-    { taskId: "a", isImportant: true, durationMinutes: null, startedAt: null },
-    { taskId: "b", isImportant: false, durationMinutes: 120, startedAt: null },
+    { taskId: "a", isImportant: true, durationMinutes: null, startedAt: null, myDayOn: null },
+    { taskId: "b", isImportant: false, durationMinutes: 120, startedAt: null, myDayOn: null },
   ];
 
   it("indexes rows by task", () => {
@@ -278,6 +278,7 @@ describe("flag cache", () => {
       isImportant: true,
       durationMinutes: 30,
       startedAt: null,
+      myDayOn: null,
     });
     expect(next).toHaveLength(3);
     expect(next[2]?.taskId).toBe("c");
@@ -289,6 +290,7 @@ describe("flag cache", () => {
       isImportant: false,
       durationMinutes: 15,
       startedAt: null,
+      myDayOn: null,
     });
     expect(next).toHaveLength(2);
     expect(next[0]).toEqual({
@@ -296,6 +298,7 @@ describe("flag cache", () => {
       isImportant: false,
       durationMinutes: 15,
       startedAt: null,
+      myDayOn: null,
     });
   });
 });

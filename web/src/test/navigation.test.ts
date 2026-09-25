@@ -14,7 +14,7 @@ describe("the main navigation", () => {
   it("offers exactly the six places, in order", () => {
     expect(NAV_ITEMS.map((item) => item.label)).toEqual([
       "Avora Space",
-      "Tin nhắn",
+      "Kết nối",
       "Nhiệm vụ",
       "Kế hoạch",
       "Két sắt",

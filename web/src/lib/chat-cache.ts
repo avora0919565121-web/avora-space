@@ -174,6 +174,11 @@ export type ChatMessage = {
    */
   originContentId?: string | null;
   originSenderId?: string | null;
+  /**
+   * Set on a line the server wrote itself (e.g. "Dự án … đã bị xoá"). Drawn centred in small
+   * type with no sender, never as a bubble. `senderId` still names whoever caused it.
+   */
+  systemKind?: string | null;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
   /**

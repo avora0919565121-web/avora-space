@@ -1,4 +1,4 @@
-import { Flag, Link2, Play, Square, X } from "lucide-react";
+import { Flag, Link2, Play, Square, Sun, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -7,12 +7,15 @@ import { useDependencyActions, useDependencyList } from "@/lib/use-task-dependen
 import {
   canStartTask,
   formatProgress,
+  isOnMyDay,
+  isOpenTask,
   isSharedTask,
   isStartedFor,
   parseProgressInput,
+  todayIso,
   type TaskItem,
 } from "@/lib/tasks";
-import { useTaskFlagIndex, useTaskStart } from "@/lib/use-task-flags";
+import { useMyDay, useTaskFlagIndex, useTaskStart } from "@/lib/use-task-flags";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
@@ -313,5 +316,35 @@ export function StartButton({ task }: { task: TaskItem }) {
         </span>
       ) : null}
     </div>
+  );
+}
+
+/**
+ * "Thêm vào Hôm nay" — this person's own list for today, kept apart from the deadline. It only
+ * counts on the day it was added; tomorrow the task drops off by itself.
+ */
+export function MyDayButton({ task }: { task: TaskItem }) {
+  const flags = useTaskFlagIndex();
+  const { add, remove, isWorking } = useMyDay();
+  const today = todayIso();
+  const onToday = isOnMyDay(flags, task.id, today);
+
+  if (!isOpenTask(task)) return null;
+
+  return (
+    <button
+      type="button"
+      onClick={() => (onToday ? remove(task.id) : add(task.id, today))}
+      disabled={isWorking}
+      aria-pressed={onToday}
+      title={onToday ? "Bỏ khỏi Hôm nay" : "Thêm vào danh sách Hôm nay của riêng bạn — không đổi hạn"}
+      className={cn(
+        "press flex h-11 items-center gap-1.5 rounded-[10px] border px-3 text-[13px] font-medium transition-colors disabled:opacity-60",
+        onToday ? "border-foreground/25 bg-accent text-foreground" : "border-border text-foreground hover:bg-secondary",
+      )}
+    >
+      <Sun className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+      {onToday ? "Đã có trong Hôm nay" : "Thêm vào Hôm nay"}
+    </button>
   );
 }

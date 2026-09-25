@@ -953,7 +953,17 @@ export type TaskFlagValue = {
    * can never be a single column on the task.
    */
   startedAt: string | null;
+  /**
+   * The day THIS person put the task on "Hôm nay", or null. Only counts on that exact day —
+   * tomorrow it quietly drops off, like a day planner page. Never the deadline.
+   */
+  myDayOn?: string | null;
 };
+
+/** Whether this person put the task on today's list — true only on the day they did. */
+export function isOnMyDay(flags: TaskFlagIndex, taskId: string, today: string): boolean {
+  return flags.get(taskId)?.myDayOn === today;
+}
 
 /** The viewer's own flags, keyed by task id. Never holds anyone else's reading. */
 export type TaskFlagIndex = ReadonlyMap<string, TaskFlagValue>;

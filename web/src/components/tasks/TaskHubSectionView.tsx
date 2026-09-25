@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { localDayOf } from "@/lib/space-blocks";
+import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { calendarProjection, invitationRows, tasksForSection, type TaskHubSection } from "@/lib/task-hub";
 import { deadlineLabel, type TaskItem } from "@/lib/tasks";
 import { useRespondInvitation, useTaskParticipants } from "@/lib/use-task-collab";
@@ -149,7 +150,8 @@ function TrashList({ tasks, userId, today, onOpen, empty }: { tasks: readonly Ta
 
 /** Every Task Hub section other than "Tasks", which keeps the existing four readings. */
 export function TaskHubSectionView({ section, tasks, userId, today, onOpen }: { section: TaskHubSection; tasks: readonly TaskItem[]; userId: string | undefined; today: string; onOpen: (task: TaskItem) => void }) {
-  const list = useMemo(() => tasksForSection(section.id, tasks, userId, today), [section.id, tasks, userId, today]);
+  const flags = useTaskFlagIndex();
+  const list = useMemo(() => tasksForSection(section.id, tasks, userId, today, flags), [section.id, tasks, userId, today, flags]);
 
   if (section.isComingSoon) return <Empty text={section.empty} />;
   if (section.id === "upcoming") return <UpcomingCalendar tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty={section.empty} />;

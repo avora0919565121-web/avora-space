@@ -1539,12 +1539,12 @@ export default function Tasks() {
   const hubCounts = useMemo<Partial<Record<TaskHubSectionId, number>>>(() => {
     const list = tasks ?? [];
     return {
-      my_day: tasksForSection("my_day", list, userId, today).length,
+      my_day: tasksForSection("my_day", list, userId, today, flags).length,
       overdue: tasksForSection("overdue", list, userId, today).length,
       events: tasksForSection("events", list, userId, today).length,
       invitations: invitationCount,
     };
-  }, [tasks, userId, today, invitationCount]);
+  }, [tasks, userId, today, invitationCount, flags]);
   const selectHubSection = useCallback(
     (section: TaskHubSection): void => {
       const next = new URLSearchParams(searchParams);

@@ -2,7 +2,7 @@ import { ChevronRight, FolderKanban, Plus } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
 
-import { projectLink, type Project } from "@/lib/projects";
+import { projectChatLink, projectStatusLabel, type Project } from "@/lib/projects";
 import { cn } from "@/lib/utils";
 
 /**
@@ -20,11 +20,14 @@ export function ProjectStrip({
   projects,
   onNewProject,
   canCreate,
+  canCreateReason = null,
 }: {
   projects: readonly Project[];
   onNewProject: () => void;
   /** False in a thread the viewer has left: reading stays, opening does not. */
   canCreate: boolean;
+  /** Why the viewer cannot open a project here (not Owner/Admin); null when they can. */
+  canCreateReason?: string | null;
 }) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
 
@@ -69,7 +72,7 @@ export function ProjectStrip({
             {projects.map((project) => (
               <li key={project.id}>
                 <Link
-                  to={projectLink(project.id)}
+                  to={projectChatLink(project)}
                   className="press flex items-center gap-2.5 rounded-md px-2 py-2 transition-colors hover:bg-accent/40"
                 >
                   <FolderKanban
@@ -80,6 +83,9 @@ export function ProjectStrip({
                   <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
                     {project.title}
                   </span>
+                  {projectStatusLabel(project.status) !== null ? (
+                    <span className="shrink-0 text-[11.5px] text-muted-foreground">{projectStatusLabel(project.status)}</span>
+                  ) : null}
                 </Link>
               </li>
             ))}
@@ -88,14 +94,18 @@ export function ProjectStrip({
                 <button
                   type="button"
                   onClick={onNewProject}
-                  className="press flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/40"
+                  disabled={canCreateReason !== null}
+                  title={canCreateReason ?? undefined}
+                  className="press flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <Plus
                     className="h-3.5 w-3.5 shrink-0 text-muted-foreground"
                     strokeWidth={2.1}
                     aria-hidden="true"
                   />
-                  <span className="text-[13px] text-muted-foreground">Tạo dự án</span>
+                  <span className="text-[13px] text-muted-foreground">
+                    Tạo dự án{canCreateReason !== null ? ` — ${canCreateReason}` : " (mở kèm một nhóm con riêng)"}
+                  </span>
                 </button>
               </li>
             ) : null}

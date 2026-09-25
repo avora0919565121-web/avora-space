@@ -378,6 +378,9 @@ export function CalendarView({
         {isLoading && tasks !== undefined ? <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin" /> : null}
       </div>
 
+      {/* One fixed height for every view: switching Ngày/Tuần/Tháng/Năm never makes the page jump;
+          whatever does not fit scrolls inside. */}
+      <div className="h-[min(560px,62vh)] overflow-y-auto overscroll-contain pr-0.5">
       {isError ? (
         <div className="rounded-[12px] border border-border bg-card px-4 py-4 text-[13.5px] text-muted-foreground">
           Chưa tải được lịch.{" "}
@@ -433,6 +436,7 @@ export function CalendarView({
           {mode !== "year" ? <DayList key={anchor} day={selectedDay} today={today} onOpenContext={onOpenContext} /> : null}
         </FadeIn>
       )}
+      </div>
     </div>
   );
 }

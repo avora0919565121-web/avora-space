@@ -75,7 +75,24 @@ export type ColumnDef = {
   type: ColumnType;
   /** Only for `select`, and never empty — a list with no options is a cell nobody can fill. */
   options?: readonly string[];
+  /** Chosen by the table's owner by dragging the column edge; absent = default width. */
+  width?: number;
+  /** Hidden for everyone reading the table; the values stay, only the column is folded away. */
+  hidden?: boolean;
 };
+
+/** Narrowest and widest a column may be dragged to — the same bounds the server clamps to. */
+export const COLUMN_WIDTH_MIN = 60;
+export const COLUMN_WIDTH_MAX = 800;
+
+export function clampColumnWidth(width: number): number {
+  return Math.round(Math.min(COLUMN_WIDTH_MAX, Math.max(COLUMN_WIDTH_MIN, width)));
+}
+
+/** The columns a reader sees, in order — hidden ones folded away. */
+export function visibleColumns(columns: readonly ColumnDef[]): ColumnDef[] {
+  return columns.filter((column) => column.hidden !== true);
+}
 
 /** A value a person typed into an extension column. Null is "nobody has filled this in". */
 export type ExtensionValue = string | number | null;
@@ -132,6 +149,7 @@ export const thinkHubKeys = {
   all: ["think-hub"] as const,
   tables: ["think-hub", "tables"] as const,
   records: ["think-hub", "records"] as const,
+  recordTasks: ["think-hub", "record-tasks"] as const,
 };
 
 /** How many records one table holds before it stops accepting new ones. */
@@ -232,15 +250,18 @@ export function parseColumnDefs(raw: unknown): ColumnDef[] {
     if (!isColumnType(item.type)) continue;
     // Columns made before ids existed were given their key as id by the migration.
     const id = typeof item.id === "string" && item.id.length > 0 ? item.id : key;
+    const presentation: { width?: number; hidden?: boolean } = {};
+    if (typeof item.width === "number" && Number.isFinite(item.width)) presentation.width = clampColumnWidth(item.width);
+    if (item.hidden === true) presentation.hidden = true;
 
     if (item.type === "select") {
       const options = Array.isArray(item.options)
         ? item.options.filter((option): option is string => typeof option === "string")
         : [];
       if (options.length === 0) continue;
-      defs.push({ id, key, label, type: "select", options });
+      defs.push({ id, key, label, type: "select", options, ...presentation });
     } else {
-      defs.push({ id, key, label, type: item.type });
+      defs.push({ id, key, label, type: item.type, ...presentation });
     }
     seen.add(key);
   }
@@ -602,6 +623,18 @@ export function toVietnameseHubError(code: string | undefined, message: string):
   if (normalized.includes("avora_think_hub_project_root_locked"))
     return "Bảng gốc của dự án không cất đi được.";
   if (normalized.includes("avora_think_hub_column_missing")) return "Cột này không còn nữa.";
+  if (normalized.includes("avora_think_hub_sub_table_exists"))
+    return "Hạng mục này đã có bảng con — mở bảng con đó thay vì tạo thêm.";
+  if (normalized.includes("avora_think_hub_column_width_invalid")) return "Độ rộng cột không hợp lệ.";
+  if (normalized.includes("avora_think_hub_task_out_of_scope"))
+    return "Việc này thuộc một nơi khác với Hạng mục.";
+  if (normalized.includes("avora_project_closed")) return "Dự án đã đóng, bảng chỉ còn để đọc.";
+  if (normalized.includes("avora_task_assignee_required") || normalized.includes("avora_task_assignee_not_participant"))
+    return "Hãy chọn một thành viên để giao việc.";
+  if (normalized.includes("avora_task_self_assign")) return "Việc giao đi cần một người khác nhận.";
+  if (normalized.includes("avora_task_deadline_past")) return "Hạn không được ở quá khứ.";
+  if (normalized.includes("avora_task_title_blank")) return "Việc cần một tiêu đề.";
+  if (normalized.includes("avora_task_description_required")) return "Việc cần một dòng mô tả.";
   if (normalized.includes("avora_think_hub_column_id_immutable"))
     return "Không đổi được kiểu của một cột đã có dữ liệu.";
   if (normalized.includes("avora_not_a_participant"))
@@ -700,6 +733,72 @@ export async function setThinkTablePurpose(tableId: string, purpose: string): Pr
   });
   if (error) throw fail(error.code, error.message);
   return toTable(data as unknown as TableRow);
+}
+
+/** Sets a column's width (owner only). Null gives the default back. */
+export async function setThinkColumnWidth(input: {
+  tableId: string;
+  columnId: string;
+  width: number | null;
+}): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("set_think_hub_column_width", {
+    p_table_id: input.tableId,
+    p_column_id: input.columnId,
+    p_width: input.width === null ? undefined : clampColumnWidth(input.width),
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/** Hides or shows a column for everyone reading the table (owner only). */
+export async function setThinkColumnHidden(input: {
+  tableId: string;
+  columnId: string;
+  hidden: boolean;
+}): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("set_think_hub_column_hidden", {
+    p_table_id: input.tableId,
+    p_column_id: input.columnId,
+    p_hidden: input.hidden,
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/** Which task hangs under which Hạng mục, for tables outside a project. */
+export type RecordTaskLink = { taskId: string; recordId: string };
+
+export async function fetchRecordTaskLinks(): Promise<RecordTaskLink[]> {
+  const { data, error } = await supabase.from("think_hub_record_tasks").select("task_id, record_id");
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => ({ taskId: row.task_id, recordId: row.record_id }));
+}
+
+/**
+ * Makes one Task from a Hạng mục outside a project: a personal task from a Diary table, a shared
+ * one (waiting for the assignee to confirm) from a 1-1 or group table. Project tables use
+ * `createProjectTask` instead.
+ */
+export async function createRecordTask(input: {
+  recordId: string;
+  title: string;
+  description: string;
+  deadline: string;
+  assigneeId: string | null;
+  deadlineTz: string;
+}): Promise<string> {
+  const taskId = crypto.randomUUID();
+  const { error } = await supabase.rpc("create_record_task", {
+    p_record_id: input.recordId,
+    p_task_id: taskId,
+    p_title: input.title.trim(),
+    p_description: input.description.trim(),
+    p_deadline: input.deadline,
+    p_assignee_id: input.assigneeId ?? undefined,
+    p_deadline_tz: input.deadlineTz,
+  });
+  if (error) throw fail(error.code, error.message);
+  return taskId;
 }
 
 /** Renames a column by its permanent id. The values stored under it are untouched. */

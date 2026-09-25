@@ -35,7 +35,7 @@ export const CHANNEL_REVIEW_ROUTE = "/lien-he/can-xem-lai";
 /** The main rail. Liên hệ deliberately is NOT here: it opens from Tin nhắn. */
 export const NAV_ITEMS: readonly NavEntry[] = [
   { to: "/tong-quan", label: "Avora Space" },
-  { to: "/tin-nhan", label: "Tin nhắn" },
+  { to: "/tin-nhan", label: "Kết nối" },
   { to: "/nhiem-vu", label: "Nhiệm vụ" },
   // Above Két sắt, below Nhiệm vụ: the HUB is work being done, and it belongs beside the
   // other doing screens rather than beside the one that keeps things safe.

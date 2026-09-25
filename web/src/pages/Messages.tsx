@@ -49,6 +49,7 @@ import { ChatTaskPanel } from "@/components/chat/ChatTaskPanel";
 import { GroupDecisionSheet } from "@/components/chat/GroupDecisionSheet";
 import { GroupInfoSheet } from "@/components/chat/GroupInfoSheet";
 import { GroupTaskListSheet } from "@/components/chat/GroupTaskListSheet";
+import { ComposerPlusMenu } from "@/components/chat/ComposerPlusMenu";
 import { MessageComposer } from "@/components/chat/MessageComposer";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
@@ -277,9 +278,16 @@ const Messages = () => {
 
   /** The projects belonging to the thread on screen, for the 📁 Dự án strip above it. */
   const threadProjects = useMemo(
-    () => projects.filter((project) => project.conversationId === conversationId),
+    () => projects.filter((project) => project.parentGroupId === conversationId),
     [projects, conversationId],
   );
+
+  /** When the thread on screen is a project's own sub-group: that project. */
+  const projectHere = useMemo(
+    () => projects.find((project) => project.conversationId === conversationId),
+    [projects, conversationId],
+  );
+  const isProjectChatClosed: boolean = projectHere !== undefined && projectHere.status !== "active";
 
   /** The journal, which is where a personal project is opened from the tab. */
   const journalSummary: ConversationSummary | undefined = useMemo(
@@ -1686,15 +1694,37 @@ const Messages = () => {
               {/* Its own strip, below the pins and never folded into them: a pin says "read
                   this again", a project says "this is what we are building". */}
               {/* Projects are group work; the journal and 1-1 threads show the person's tables. */}
-              {activeKind === "group" ? (
+              {projectHere !== undefined ? (
+                <div className="border-b border-border bg-primary/[0.06] px-5 py-2 md:px-10">
+                  <div className="mx-auto flex max-w-2xl items-center gap-2 text-[12.5px]">
+                    <FolderKanban className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={1.9} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 truncate text-foreground">
+                      Đang thảo luận trong Dự án: <span className="font-semibold">{projectHere.title}</span>
+                      {isProjectChatClosed ? <span className="text-muted-foreground"> · đã đóng</span> : null}
+                    </span>
+                    <Link
+                      to={projectLink(projectHere.id)}
+                      className="press shrink-0 rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+                    >
+                      Xem dự án
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+              {activeKind === "group" && projectHere === undefined ? (
                 <ProjectStrip
                   projects={threadProjects}
                   canCreate={activeSummary !== undefined}
+                  canCreateReason={
+                    myGroupRole === "owner" || myGroupRole === "admin"
+                      ? null
+                      : "Chỉ Owner/Admin được mở dự án."
+                  }
                   onNewProject={() => {
                     if (activeSummary !== undefined) setProjectTarget(activeSummary);
                   }}
                 />
-              ) : activeSummary !== undefined ? (
+              ) : activeKind !== "group" && activeSummary !== undefined ? (
                 <TableStrip conversationId={activeKind === "direct" ? activeSummary.conversationId : null} />
               ) : null}
 
@@ -1761,6 +1791,18 @@ const Messages = () => {
                         <p className="mb-6 text-center text-[13px] text-muted-foreground">{group.label}</p>
                         <ul className="flex flex-col gap-3">
                           {group.messages.map((message, index) => {
+                            // A line the server wrote itself: no bubble, no sender, no actions.
+                            if (message.systemKind != null) {
+                              return (
+                                <li
+                                  key={message.id}
+                                  id={`message-${message.id}`}
+                                  className="mx-auto max-w-md px-4 text-center text-[12.5px] leading-relaxed text-muted-foreground"
+                                >
+                                  {message.content}
+                                </li>
+                              );
+                            }
                             const outgoing = message.senderId === userId;
                             // A journal has no reader but the writer, so a delivery receipt
                             // would be answering a question nobody asked.
@@ -2306,6 +2348,11 @@ const Messages = () => {
                     </button>
                   </div>
                 ) : null}
+                {isProjectChatClosed ? (
+                  <p className="mx-auto max-w-2xl rounded-md border border-border bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
+                    Dự án đã đóng nên cuộc trò chuyện chỉ còn để đọc. Người mở dự án có thể mở lại bất cứ lúc nào.
+                  </p>
+                ) : (
                 <MessageComposer
                   value={draft}
                   onValueChange={(next) => {
@@ -2334,7 +2381,7 @@ const Messages = () => {
                     <>
                       {/*
                         Hidden rather than styled: a file input cannot be made to look like
-                        the rest of the composer, so the paperclip drives it instead.
+                        the rest of the composer, so the "+" menu drives it instead.
                       */}
                       <input
                         ref={fileInputRef}
@@ -2348,43 +2395,39 @@ const Messages = () => {
                           void stageFiles(chosen);
                         }}
                       />
-                      <AttachActions
-                        onPickFiles={() => fileInputRef.current?.click()}
-                        isRecording={recorder.isRecording}
-                        elapsedSeconds={recorder.elapsedSeconds}
-                        canRecord={!recorder.isUnsupported}
-                        onStartRecording={startRecording}
-                        onStopRecording={stopRecording}
-                        onCancelRecording={recorder.cancel}
-                        disabled={sendMutation.isPending || isUploading}
-                      />
+                      {/* Only while recording: the timer and stop/cancel need to stay in reach. */}
+                      {recorder.isRecording ? (
+                        <AttachActions
+                          onPickFiles={() => fileInputRef.current?.click()}
+                          isRecording={recorder.isRecording}
+                          elapsedSeconds={recorder.elapsedSeconds}
+                          canRecord={!recorder.isUnsupported}
+                          onStartRecording={startRecording}
+                          onStopRecording={stopRecording}
+                          onCancelRecording={recorder.cancel}
+                          disabled={sendMutation.isPending || isUploading}
+                        />
+                      ) : null}
                     </>
                   }
                   leadingAction={
                     <>
-                    <button
-                      type="button"
-                      onClick={() => openTaskDialogFor(null)}
-                      aria-label={
-                        activeKind === "personal"
-                          ? "Tạo nhiệm vụ cá nhân từ nhật ký"
-                          : "Tạo nhiệm vụ từ cuộc trò chuyện này"
-                      }
-                      title={
-                        activeKind === "personal"
-                          ? "Tạo nhiệm vụ cá nhân từ nhật ký"
-                          : "Tạo nhiệm vụ từ cuộc trò chuyện này"
-                      }
-                      className="press flex h-12 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/50 sm:px-4"
-                    >
-                      <ListPlus className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
-                      <span className="hidden sm:inline">Nhiệm vụ</span>
-                    </button>
-                    {/* A quick, read-only look at the calendar; closing it leaves the draft untouched. */}
-                    {activeKind === "personal" ? null : <CalendarPeekButton className="h-12 w-12" />}
+                      <ComposerPlusMenu
+                        onPickFiles={() => fileInputRef.current?.click()}
+                        onStartRecording={startRecording}
+                        canRecord={!recorder.isUnsupported}
+                        onCreateTask={() => openTaskDialogFor(null)}
+                        createTaskLabel={
+                          activeKind === "personal" ? "Tạo nhiệm vụ cá nhân" : "Tạo nhiệm vụ từ cuộc trò chuyện"
+                        }
+                        disabled={sendMutation.isPending || isUploading || recorder.isRecording}
+                      />
+                      {/* Stays on its own beside the box: a quick, read-only look at the calendar. */}
+                      <CalendarPeekButton className="h-12 w-12" />
                     </>
                   }
                 />
+                )}
               </div>
             </>
           )

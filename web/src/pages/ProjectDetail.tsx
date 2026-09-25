@@ -14,6 +14,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ProjectProgressBar } from "@/components/projects/ProjectProgressBar";
+import { ProjectLifecycle } from "@/components/projects/ProjectLifecycle";
 import { ProjectTaskDialog } from "@/components/projects/ProjectTaskDialog";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
@@ -21,12 +22,12 @@ import { conversationTitle } from "@/lib/chat";
 import { decisionKeys, fetchGroupDecisions } from "@/lib/decisions";
 import { fetchGroupMembers, groupKeys } from "@/lib/groups";
 import {
-  canClose,
   closeBlockers,
-  closeBlockerSentence,
   isCriterionRecorded,
   isProjectOwner,
+  projectChatLink,
   projectProgress,
+  projectStatusLabel,
   taskIdsOf,
   taskProgress,
   type MeasurementType,
@@ -464,16 +465,6 @@ const ProjectDetail = () => {
     }
   }, [rootTable, projectId, newRecordTitle, hubActions]);
 
-  const handleClose = useCallback(async (): Promise<void> => {
-    if (projectId === undefined) return;
-    try {
-      await actions.close(projectId);
-      toast.success("Đã đóng dự án.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Chưa đóng được dự án.");
-    }
-  }, [projectId, actions]);
-
   const runSafely = useCallback(async (work: () => Promise<void>, fallback: string): Promise<void> => {
     try {
       await work();
@@ -532,7 +523,6 @@ const ProjectDetail = () => {
       [...tasksById.values()].map((task) => [task.id, { status: task.status, deadline: task.deadline }] as const),
     ),
   );
-  const blockerSentence = closeBlockerSentence(blockers);
 
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
@@ -554,12 +544,21 @@ const ProjectDetail = () => {
               <h1 className="text-[24px] font-semibold leading-tight tracking-tight text-foreground">{project.title}</h1>
               <p className="mt-1 text-[13px] text-muted-foreground">
                 {groupName} · {formatDay(project.startDate)} → {formatDay(project.targetEndDate)}
-                {project.status === "done" ? " · Đã đóng" : ""}
+                {projectStatusLabel(project.status) !== null ? ` · ${projectStatusLabel(project.status)}` : ""}
               </p>
             </div>
           </div>
-          <div className="mt-5 max-w-md">
-            <ProjectProgressBar percent={percent} label="Tiến độ dự án" />
+          <div className="mt-5 flex flex-wrap items-center gap-4">
+            <div className="min-w-[220px] max-w-md flex-1">
+              <ProjectProgressBar percent={percent} label="Tiến độ dự án" />
+            </div>
+            <Link
+              to={projectChatLink(project)}
+              className="press inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3.5 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
+            >
+              <MessageSquare className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              Vào nhóm dự án
+            </Link>
           </div>
         </header>
 
@@ -718,21 +717,16 @@ const ProjectDetail = () => {
           )}
         </section>
 
-        {isOwner && isOpen ? (
-          <section className="mt-10 border-t border-border pt-6">
-            <Button
-              variant="outline"
-              className="press h-11 px-5"
-              disabled={!canClose(blockers) || actions.isWorking}
-              onClick={() => void handleClose()}
-            >
-              Đóng dự án
-            </Button>
-            <p className="mt-2 text-[12.5px] text-muted-foreground">
-              {blockerSentence ?? "Mọi tiêu chí đã có kết quả và không còn việc nào trễ hạn kết thúc."}
-            </p>
-          </section>
-        ) : null}
+        <ProjectLifecycle
+          project={project}
+          isOwner={isOwner}
+          blockers={blockers}
+          criteria={detail.criteria}
+          unfinished={detail.links
+            .map((link) => tasksById.get(link.taskId))
+            .filter((task): task is TaskItem => task !== undefined && task.status !== "done" && task.status !== "skipped")}
+          onDeleted={() => navigate("/tin-nhan?tab=du-an")}
+        />
       </div>
 
       {taskTarget !== null ? (

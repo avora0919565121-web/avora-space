@@ -1,17 +1,20 @@
-import { ChevronRight, FolderKanban, Table2 } from "lucide-react";
+import { ChevronRight, FolderKanban, RotateCcw, Table2 } from "lucide-react";
+import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { StatusPill } from "@/components/StatusPill";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle, type ConversationSummary } from "@/lib/chat";
-import { projectLink, type Project } from "@/lib/projects";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
+import { projectChatLink, projectStatusLabel, type Project } from "@/lib/projects";
 import { myTables, recordsOf, subTablesOf, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
-import { groupProjectsOnly } from "@/lib/use-projects";
+import { groupProjectsOnly, useDeletedProjects, useProjectActions } from "@/lib/use-projects";
 import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
 
-type SectionKey = "tables" | "groups";
+type SectionKey = "tables" | "groups" | "trash";
 
 function BranchHeader({
   open,
@@ -164,7 +167,11 @@ export function ProjectList({
   const { user } = useAuth();
   const tablesQuery = useThinkTables();
   const recordsQuery = useThinkRecords();
-  const [closed, setClosed] = useState<ReadonlySet<SectionKey>>(new Set());
+  const [closed, setClosed] = useState<ReadonlySet<SectionKey>>(new Set(["trash"]));
+  const deletedQuery = useDeletedProjects();
+  const { restore } = useProjectActions();
+  const { isSubmitting, guard } = useSubmitGuard();
+  const deleted = deletedQuery.data ?? [];
 
   const conversationById = useMemo(() => {
     const map = new Map<string, ConversationSummary>();
@@ -210,10 +217,15 @@ export function ProjectList({
   }
 
   const tablesOpen = !closed.has("tables");
+  const trashOpen = !closed.has("trash");
   const groupsOpen = !closed.has("groups");
 
   return (
     <div className="px-1 pb-6">
+      <div className="flex items-center gap-2 px-3 pb-1 pt-2">
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Dự án</h2>
+        <StatusPill className="px-2.5 py-0.5 text-[10px]">Đang hoàn thiện</StatusPill>
+      </div>
       <section className="mt-1">
         <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Bảng của tôi" count={mine.length} />
         {tablesOpen ? (
@@ -262,7 +274,7 @@ export function ProjectList({
                 return (
                   <li key={project.id}>
                     <Link
-                      to={projectLink(project.id)}
+                      to={projectChatLink(project)}
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
                         "flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors",
@@ -273,9 +285,9 @@ export function ProjectList({
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="truncate text-[14.5px] font-semibold text-foreground">{project.title}</span>
-                          {project.status === "done" ? (
+                          {projectStatusLabel(project.status) !== null ? (
                             <span className="shrink-0 rounded-full bg-secondary px-2 py-0.5 text-[11px] font-medium text-muted-foreground">
-                              Đã đóng
+                              {projectStatusLabel(project.status)}
                             </span>
                           ) : null}
                         </span>
@@ -292,6 +304,46 @@ export function ProjectList({
           )
         ) : null}
       </section>
+      {deleted.length > 0 ? (
+        <section className="mt-1">
+          <BranchHeader open={trashOpen} onToggle={() => toggle("trash")} emoji="🗑️" label="Dự án đã xoá" count={deleted.length} />
+          {trashOpen ? (
+            <ul>
+              <li className="px-9 pb-2 text-[12px] leading-relaxed text-muted-foreground">
+                Chỉ Owner nhóm gốc thấy mục này. Khôi phục đưa dự án, nhóm và bảng của nó trở lại.
+              </li>
+              {deleted.map((project) => (
+                <li key={project.id} className="flex items-center gap-3 rounded-lg px-3 py-2.5">
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[14px] font-medium text-foreground">{project.title}</span>
+                    {project.deleteReason !== null ? (
+                      <span className="block truncate text-[12px] text-muted-foreground">Lý do: {project.deleteReason}</span>
+                    ) : null}
+                  </span>
+                  <button
+                    type="button"
+                    disabled={isSubmitting}
+                    onClick={() =>
+                      void guard(async () => {
+                        try {
+                          await restore(project.id);
+                          toast.success(`Đã khôi phục "${project.title}".`);
+                        } catch (error) {
+                          toast.error(error instanceof Error ? error.message : "Không khôi phục được.");
+                        }
+                      })
+                    }
+                    className="press inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-50"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden="true" />
+                    Khôi phục
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }

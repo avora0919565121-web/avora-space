@@ -10,6 +10,16 @@ import { useAuth } from "@/lib/auth";
 import {
   addSuccessCriterion,
   closeProject,
+  closeProjectEarly,
+  deleteProject,
+  fetchCheckAdjust,
+  fetchDeletedProjects,
+  fetchIsProjectRootOwner,
+  postProjectThanks,
+  reopenProject,
+  restoreProject,
+  saveCheckAdjustNote,
+  type CheckAdjust,
   createProject,
   createProjectTask,
   deleteSuccessCriterion,
@@ -77,6 +87,37 @@ export function useTaskProjectLinks(): ReadonlyMap<string, ProjectTaskLink> {
   }, [query.data]);
 }
 
+/** The private Check-Adjust record (opener only). */
+export function useCheckAdjust(projectId: string | undefined, enabled: boolean): UseQueryResult<CheckAdjust | null, Error> {
+  return useQuery<CheckAdjust | null, Error>({
+    queryKey: ["projects", "check-adjust", projectId ?? "none"],
+    queryFn: () => fetchCheckAdjust(projectId ?? ""),
+    enabled: enabled && projectId !== undefined,
+  });
+}
+
+/** Projects in the bin the viewer may restore, as a root-group owner. */
+export function useDeletedProjects(): UseQueryResult<Project[], Error> {
+  const { user } = useAuth();
+  return useQuery<Project[], Error>({
+    queryKey: ["projects", "deleted"],
+    queryFn: fetchDeletedProjects,
+    enabled: Boolean(user?.id),
+    staleTime: 30_000,
+  });
+}
+
+export function useIsProjectRootOwner(projectId: string | undefined): boolean {
+  const { user } = useAuth();
+  const query = useQuery<boolean, Error>({
+    queryKey: ["projects", "root-owner", projectId ?? "none"],
+    queryFn: () => fetchIsProjectRootOwner(projectId ?? ""),
+    enabled: Boolean(user?.id) && projectId !== undefined,
+    staleTime: 60_000,
+  });
+  return query.data === true;
+}
+
 /** Projects are group work (ADR-002): the tab lists only those living in a group. */
 export function groupProjectsOnly(
   projects: readonly Project[],
@@ -107,6 +148,12 @@ export function useProjectActions(): {
   createTask: (input: ProjectTaskInput) => Promise<string>;
   moveTask: (projectId: string, taskId: string, recordId: string | null) => Promise<void>;
   close: (projectId: string) => Promise<Project>;
+  postThanks: (projectId: string, body: string) => Promise<Project>;
+  closeEarly: (projectId: string, reason: string) => Promise<Project>;
+  reopen: (projectId: string) => Promise<Project>;
+  saveNote: (projectId: string, note: string) => Promise<void>;
+  remove: (projectId: string, confirmTitle: string, reason: string) => Promise<void>;
+  restore: (projectId: string) => Promise<void>;
   isWorking: boolean;
 } {
   const queryClient = useQueryClient();
@@ -117,7 +164,9 @@ export function useProjectActions(): {
       void queryClient.invalidateQueries({ queryKey: projectKeys.taskLinks });
       if (projectId !== undefined) {
         void queryClient.invalidateQueries({ queryKey: projectKeys.detail(projectId) });
+        void queryClient.invalidateQueries({ queryKey: ["projects", "check-adjust", projectId] });
       }
+      void queryClient.invalidateQueries({ queryKey: ["projects", "deleted"] });
     },
     [queryClient],
   );
@@ -127,8 +176,9 @@ export function useProjectActions(): {
       createProject(conversationId, draft),
     onSuccess: (project: Project) => {
       invalidate(project.id);
-      // The project's root table was made in the same call.
+      // The project's root table and its sub-group were made in the same call.
       void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
     },
   });
 
@@ -187,6 +237,49 @@ export function useProjectActions(): {
     onSuccess: (project: Project) => invalidate(project.id),
   });
 
+  const thanksMutation = useMutation({
+    mutationFn: ({ projectId, body }: { projectId: string; body: string }) => postProjectThanks(projectId, body),
+    onSuccess: (project: Project) => {
+      invalidate(project.id);
+      void queryClient.invalidateQueries({ queryKey: ["chat"] });
+      void queryClient.invalidateQueries({ queryKey: ["pins"] });
+    },
+  });
+
+  const earlyMutation = useMutation({
+    mutationFn: ({ projectId, reason }: { projectId: string; reason: string }) => closeProjectEarly(projectId, reason),
+    onSuccess: (project: Project) => invalidate(project.id),
+  });
+
+  const reopenMutation = useMutation({
+    mutationFn: (projectId: string) => reopenProject(projectId),
+    onSuccess: (project: Project) => invalidate(project.id),
+  });
+
+  const noteMutation = useMutation({
+    mutationFn: ({ projectId, note }: { projectId: string; note: string }) => saveCheckAdjustNote(projectId, note),
+    onSuccess: (_result, variables) => invalidate(variables.projectId),
+  });
+
+  const removeMutation = useMutation({
+    mutationFn: ({ projectId, confirmTitle, reason }: { projectId: string; confirmTitle: string; reason: string }) =>
+      deleteProject(projectId, confirmTitle, reason),
+    onSuccess: (_result, variables) => {
+      invalidate(variables.projectId);
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
+    },
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (projectId: string) => restoreProject(projectId),
+    onSuccess: (_result, projectId) => {
+      invalidate(projectId);
+      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
+      void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
+    },
+  });
+
   return {
     create: useCallback(
       (conversationId: string, draft: CharterDraft) => createMutation.mutateAsync({ conversationId, draft }),
@@ -235,6 +328,25 @@ export function useProjectActions(): {
       [moveTaskMutation],
     ),
     close: useCallback((projectId: string) => closeMutation.mutateAsync(projectId), [closeMutation]),
+    postThanks: useCallback(
+      (projectId: string, body: string) => thanksMutation.mutateAsync({ projectId, body }),
+      [thanksMutation],
+    ),
+    closeEarly: useCallback(
+      (projectId: string, reason: string) => earlyMutation.mutateAsync({ projectId, reason }),
+      [earlyMutation],
+    ),
+    reopen: useCallback((projectId: string) => reopenMutation.mutateAsync(projectId), [reopenMutation]),
+    saveNote: useCallback(
+      (projectId: string, note: string) => noteMutation.mutateAsync({ projectId, note }),
+      [noteMutation],
+    ),
+    remove: useCallback(
+      (projectId: string, confirmTitle: string, reason: string) =>
+        removeMutation.mutateAsync({ projectId, confirmTitle, reason }),
+      [removeMutation],
+    ),
+    restore: useCallback((projectId: string) => restoreMutation.mutateAsync(projectId), [restoreMutation]),
     isWorking:
       createMutation.isPending ||
       charterMutation.isPending ||
@@ -243,6 +355,12 @@ export function useProjectActions(): {
       deleteCriterionMutation.isPending ||
       createTaskMutation.isPending ||
       moveTaskMutation.isPending ||
-      closeMutation.isPending,
+      closeMutation.isPending ||
+      thanksMutation.isPending ||
+      earlyMutation.isPending ||
+      reopenMutation.isPending ||
+      noteMutation.isPending ||
+      removeMutation.isPending ||
+      restoreMutation.isPending,
   };
 }

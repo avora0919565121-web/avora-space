@@ -1467,9 +1467,38 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - 2026-09-24 — Sub-groups use `conversations.parent_group_id` + `group_depth` (1–3, ADR-007); `related_group_id`
   keeps its older meaning (the group a 1-1 was opened from). Owner or admin of the parent opens one through
   `create_sub_group`, becomes its owner, and may only bring people already in the parent. Membership never flows
-  down the tree (ADR-014). No screen opens a sub-group yet.
+  down the tree (ADR-014). The group panel always shows "Tạo nhóm con"; a member sees it dimmed with the rule.
 - 2026-09-24 — The Dự án tab has two sections: "Bảng của tôi" (personal and 1-1 root tables as a folded tree that
   opens into Hạng mục in place) and "Nhóm" (group projects). The always-empty Cá nhân and 1-1 sections are gone.
+- 2026-09-25 — Every confirm button disables itself on the first click until the request returns (a ref closes the
+  door synchronously; `isPending` alone lets a fast double click through — how "APĐ | Nhà ở" was made twice).
+- 2026-09-25 — Kế hoạch: a column may carry `width` (60–800 px) and `hidden`, set only by the table's owner and
+  applied to everyone reading it; ids, keys and values never change. Each Hạng mục has exactly one sub-table (a
+  put-away one comes back instead of a second). "Tạo tác vụ" works on any Hạng mục: a Diary table makes a personal
+  task, a 1-1 or group table a shared task waiting for confirmation, a project table a project task. Outside
+  projects the link is `think_hub_record_tasks`; inside, `project_tasks.record_id`. A third view, Cây, draws the
+  same Hạng mục as a folder tree with sub-tables and task counts — nothing new is stored (OPEN-008).
+- 2026-09-25 — A project is its own sub-group. Opening one (Owner/Admin of the group only) creates a child group
+  with every current member of the parent and the opener as owner, then files the charter there, so parallel
+  projects never share a chat and each can add its own people. The one existing project was moved into a new
+  sub-group; its old messages stay in the parent. Opening a project opens its chat, with a strip "Đang thảo luận
+  trong Dự án" leading to the charter page.
+- 2026-09-25 — Closing has two branches. With every criterion met, `done`, then one empty question for the leader's
+  own thank-you (no draft, ADR-021), posted once and pinned. Stopping early, `closed_early`, needs a reason that
+  only the opener can read, posts nothing, and opens a private Check-Adjust (reason, criteria met or not, unfinished
+  work, one note "Lần sau điều chỉnh gì"). Either way the chat, tables, Hạng mục, tasks and criteria go read-only,
+  enforced in the database; the opener can reopen at any time.
+- 2026-09-25 — Only the root group's owner deletes a project, typing its exact title and a reason. A system line
+  (`messages.system_kind`, server-written only, drawn centred with no bubble) records who and why, then the project
+  and its sub-group are soft-deleted — the Inner tier of ADR-011. The same owner restores it from "Dự án đã xoá".
+  Outer Trash and crypto-erasure wait for OPEN-001.
+- 2026-09-25 — "Thêm vào Hôm nay" is per person (`task_flags.my_day_on`) and counts only on the day it was set, like
+  a day-planner page; it never touches the deadline.
+- 2026-09-25 — The calendar has one fixed place on every screen: a slim bar at the top right of the content. The
+  chat keeps its own calendar button beside the box; attach, voice note and create-task fold into one "+". Every
+  calendar view keeps the same height and scrolls inside.
+- 2026-09-25 — Nav "Tin nhắn" is "Kết nối" (ADR-022). The Dự án tab carries "Đang hoàn thiện" in the same pill as
+  "Sắp ra mắt". Task Hub section names are Vietnamese; Kanban reads "Theo trạng thái".
 
 ## Out of scope
 
@@ -1484,9 +1513,9 @@ with the room they were sent from). Joining through an invite link requires bein
 sent to the sign-in screen and must reopen the link afterwards. Task lists and context snapshots exist in the database
 with their rules enforced there, but have no screens yet; the recurring-task spawner also stays a database trigger
 rather than a scheduled job. Org charts, SSO, audit logs and permission inheritance stay out. In Kế hoạch: Timeline,
-Calendar, Gantt, mindmap and responsibility-matrix views, and tying a Hạng mục to a contact stay out of v1. In Dự án:
-a calendar view, budgets tied to `financial_item`, editing the dates after opening, the leader's closing message and
-the private Check-Adjust screen (ADR-021), and deleting a project stay out of v1. Sub-groups have no screen yet.
+Calendar, Gantt, a free radial mindmap and responsibility-matrix views, and tying a Hạng mục to a contact stay out of
+v1. In Dự án: a calendar view, budgets tied to `financial_item`, editing the dates after opening, and permanent
+deletion (Outer Trash, crypto-erasure) stay out until OPEN-001.
 The mark on a message that produced work stays a mark: no system line in the thread, no notification and no push.
 Chat attachments cover images, files and voice notes; video capture, stickers, GIFs, and editing or annotating an
 image in the app stay out. A file's permission is fixed when it is sent — there is no revoking a file already

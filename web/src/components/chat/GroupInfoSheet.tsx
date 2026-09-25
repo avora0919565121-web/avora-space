@@ -3,6 +3,7 @@ import {
   Ban,
   Copy,
   Crown,
+  GitBranchPlus,
   Link2,
   LogOut,
   MessageCircle,
@@ -22,6 +23,7 @@ import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { FamilyFlagCard } from "@/components/chat/FamilyFlagCard";
+import { SubGroupDialog } from "@/components/chat/SubGroupDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -47,12 +49,14 @@ import {
   adminSeatTakenMessage,
   buildInviteLink,
   canAppointAdmin,
+  canCreateSubGroup,
   canLeaveGroup,
   canManageGroupInvite,
   canRenameGroup,
   canResolveRemovalRequests,
   canSeeRemovalRequests,
   canSubmitGroupRename,
+  fetchGroupDepth,
   fetchGroupInvite,
   fetchGroupMembers,
   fetchGroupMeta,
@@ -63,6 +67,7 @@ import {
   INVITE_BLOCKED_MESSAGE,
   INVITE_UNAVAILABLE_MESSAGE,
   LEAVE_BLOCKED_MESSAGE,
+  MAX_GROUP_DEPTH,
   leaveGroupConversation,
   memberActionsFor,
   memberMatchesQuery,
@@ -78,6 +83,8 @@ import {
   rotateGroupInvite,
   roleLabel,
   setGroupAdmin,
+  SUB_GROUP_BLOCKED_MESSAGE,
+  SUB_GROUP_DEPTH_MESSAGE,
   shouldShowMemberSearch,
   sortGroupMembers,
   transferGroupOwnership,
@@ -169,6 +176,20 @@ export function GroupInfoSheet({
 
   const members: GroupMember[] = membersQuery.data ?? [];
   const myRole: GroupRole | undefined = members.find((member) => member.userId === userId)?.role;
+  const [isSubGroupOpen, setIsSubGroupOpen] = useState<boolean>(false);
+  const depthQuery = useQuery({
+    queryKey: ["group-depth", conversationId],
+    queryFn: () => fetchGroupDepth(conversationId),
+    enabled: open && isGroup,
+    staleTime: 60_000,
+  });
+  const groupDepth: number = depthQuery.data ?? 1;
+  const mayCreateSubGroup: boolean = canCreateSubGroup(myRole);
+  const subGroupBlockedReason: string | null = !mayCreateSubGroup
+    ? SUB_GROUP_BLOCKED_MESSAGE
+    : groupDepth >= MAX_GROUP_DEPTH
+      ? SUB_GROUP_DEPTH_MESSAGE
+      : null;
 
   const requestsQuery = useQuery({
     queryKey: groupKeys.removalRequests(conversationId),
@@ -913,6 +934,26 @@ export function GroupInfoSheet({
 
               {myRole ? (
                 <div className="border-t border-border px-6 py-4">
+                  {/* Always shown: a member sees the rule instead of a missing button. */}
+                  <div className="mb-4">
+                    <button
+                      type="button"
+                      disabled={subGroupBlockedReason !== null}
+                      aria-describedby={subGroupBlockedReason !== null ? "sub-group-blocked-notice" : undefined}
+                      onClick={() => setIsSubGroupOpen(true)}
+                      className="press inline-flex items-center gap-2 rounded-md border border-border px-4 py-2.5 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      <GitBranchPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                      Tạo nhóm con
+                    </button>
+                    {subGroupBlockedReason !== null ? (
+                      <p id="sub-group-blocked-notice" className="mt-2 text-[12.5px] text-muted-foreground">
+                        {subGroupBlockedReason}
+                      </p>
+                    ) : (
+                      <p className="mt-2 text-[12.5px] text-muted-foreground">Tầng {groupDepth}/{MAX_GROUP_DEPTH}.</p>
+                    )}
+                  </div>
                   {canLeaveGroup(myRole) ? (
                     <button
                       type="button"
@@ -969,7 +1010,19 @@ export function GroupInfoSheet({
             </div>
           )}
         </SheetContent>
-      </Sheet>
+        <SubGroupDialog
+        open={isSubGroupOpen}
+        onOpenChange={setIsSubGroupOpen}
+        parentGroupId={conversationId}
+        parentName={groupName ?? "nhóm này"}
+        members={members}
+        selfId={userId}
+        onCreated={(id) => {
+          onOpenChange(false);
+          onOpenConversation(id);
+        }}
+      />
+    </Sheet>
 
       <Dialog open={isRenaming} onOpenChange={(next) => (next ? undefined : setIsRenaming(false))}>
         <DialogContent className="border-border bg-card sm:max-w-md">

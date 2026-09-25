@@ -1,10 +1,12 @@
-import { ChevronRight, KanbanSquare, Loader2, Pencil, Plus, Table2 } from "lucide-react";
+import { ChevronRight, KanbanSquare, Loader2, Network, Pencil, Plus, Table2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AddColumnDialog } from "@/components/think-hub/AddColumnDialog";
 import { KanbanView } from "@/components/think-hub/KanbanView";
+import { MindmapView } from "@/components/think-hub/MindmapView";
+import { QuickTaskDialog } from "@/components/think-hub/QuickTaskDialog";
 import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTableDialog";
 import { RecordDialog } from "@/components/think-hub/RecordDialog";
 import { RenameColumnDialog } from "@/components/think-hub/RenameColumnDialog";
@@ -31,11 +33,11 @@ import {
   type ThinkTable,
 } from "@/lib/think-hub";
 import { useConversations } from "@/lib/use-conversations";
-import { useProjects } from "@/lib/use-projects";
-import { useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
+import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
+import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
 
-type ViewMode = "table" | "kanban";
+type ViewMode = "table" | "kanban" | "mindmap";
 
 /** The query parameter that opens Kế hoạch on one table. */
 export const HUB_TABLE_PARAM = "bang";
@@ -43,7 +45,8 @@ export const HUB_TABLE_PARAM = "bang";
 /**
  * Kế hoạch (Think Hub) — the tables people keep to think their work through.
  *
- * Two views over the same records: Bảng is the grid, Kanban the same records stood up by status.
+ * Three views over the same records: Bảng is the grid, Kanban the same records stood up by status,
+ * Cây the same records as a folder tree with their sub-tables and task counts.
  * The strip lists root tables only; a sub-table is reached from the Hạng mục it grew from, and a
  * breadcrumb above it leads back up.
  */
@@ -53,6 +56,8 @@ const ThinkHub = () => {
   const actions = useThinkHubActions();
   const conversationsQuery = useConversations();
   const projectsQuery = useProjects();
+  const projectTaskLinks = useTaskProjectLinks();
+  const recordTaskLinksQuery = useRecordTaskLinks();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM));
@@ -66,6 +71,7 @@ const ThinkHub = () => {
   const [targetTableId, setTargetTableId] = useState<string>("");
   const [isEditingPurpose, setIsEditingPurpose] = useState<boolean>(false);
   const [purposeDraft, setPurposeDraft] = useState<string>("");
+  const [quickTaskRecord, setQuickTaskRecord] = useState<ThinkRecord | null>(null);
 
   const today: string = useMemo(() => todayIso(), []);
   const roots: ThinkTable[] = useMemo(() => rootTables(tables), [tables]);
@@ -110,6 +116,18 @@ const ThinkHub = () => {
     [records, active],
   );
 
+  // How many tasks hang under each Hạng mục — project links and everywhere-else links together.
+  const taskCountByRecord: Map<string, number> = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const link of projectTaskLinks.values()) {
+      if (link.recordId !== null) counts.set(link.recordId, (counts.get(link.recordId) ?? 0) + 1);
+    }
+    for (const link of recordTaskLinksQuery.data ?? []) {
+      counts.set(link.recordId, (counts.get(link.recordId) ?? 0) + 1);
+    }
+    return counts;
+  }, [projectTaskLinks, recordTaskLinksQuery.data]);
+
   const knownStatuses: string[] = useMemo(
     () => [...new Set(visibleRecords.map((record) => record.status))],
     [visibleRecords],
@@ -136,6 +154,8 @@ const ThinkHub = () => {
   const isFull: boolean = targetTable !== null && isTableFull(records, targetTable.id);
   const activeProject = active?.projectId != null ? projectById.get(active.projectId) : undefined;
   const isProjectRoot = active !== null && active.projectId !== null && active.parentRecordId === null;
+  // A closed project's tables stay readable and stop taking changes; the server enforces the same.
+  const isReadOnly: boolean = activeProject !== undefined && activeProject.status !== "active";
 
   const scopeLabel = useCallback(
     (table: ThinkTable): string => {
@@ -173,6 +193,27 @@ const ThinkHub = () => {
       if (active === null) return;
       await actions.renameColumn({ tableId: active.id, columnId: column.id, label });
       toast.success("Đã đổi tên cột.");
+    },
+    [actions, active],
+  );
+
+  const handleResizeColumn = useCallback(
+    (column: ColumnDef, width: number | null): void => {
+      if (active === null) return;
+      actions.setColumnWidth({ tableId: active.id, columnId: column.id, width }).catch((caught: unknown) => {
+        toast.error(caught instanceof Error ? caught.message : "Không lưu được độ rộng cột.");
+      });
+    },
+    [actions, active],
+  );
+
+  const handleToggleColumnHidden = useCallback(
+    (column: ColumnDef, hidden: boolean): void => {
+      if (active === null) return;
+      actions.setColumnHidden({ tableId: active.id, columnId: column.id, hidden }).then(
+        () => toast.success(hidden ? `Đã ẩn cột "${column.label}".` : `Đã hiện lại cột "${column.label}".`),
+        (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được cột."),
+      );
     },
     [actions, active],
   );
@@ -282,7 +323,8 @@ const ThinkHub = () => {
           <button
             type="button"
             onClick={openNewRecord}
-            disabled={active === null}
+            disabled={active === null || isReadOnly}
+            title={isReadOnly ? "Dự án đã đóng — bảng chỉ còn để đọc" : undefined}
             className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-50"
           >
             <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
@@ -435,7 +477,19 @@ const ThinkHub = () => {
                   )}
                 >
                   <KanbanSquare className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
-                  Kanban
+                  Theo trạng thái
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setView("mindmap")}
+                  aria-pressed={view === "mindmap"}
+                  className={cn(
+                    "press inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[14px] font-medium transition-colors",
+                    view === "mindmap" ? "bg-accent/70 text-foreground" : "text-muted-foreground hover:text-foreground",
+                  )}
+                >
+                  <Network className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
+                  Cây
                 </button>
               </div>
 
@@ -452,12 +506,27 @@ const ThinkHub = () => {
                 records={visibleRecords}
                 columns={active.columns}
                 onOpenRecord={openRecord}
-                onAddColumn={isOwner ? () => setIsAddColumnOpen(true) : undefined}
-                onRenameColumn={isOwner ? setRenaming : undefined}
+                onAddColumn={isOwner && !isReadOnly ? () => setIsAddColumnOpen(true) : undefined}
+                onRenameColumn={isOwner && !isReadOnly ? setRenaming : undefined}
+                onResizeColumn={isOwner && !isReadOnly ? handleResizeColumn : undefined}
+                onToggleColumnHidden={isOwner && !isReadOnly ? handleToggleColumnHidden : undefined}
+                onQuickTask={isReadOnly ? undefined : setQuickTaskRecord}
+                taskCountByRecord={taskCountByRecord}
                 today={today}
               />
             ) : (
-              <KanbanView records={visibleRecords} onOpenRecord={openRecord} today={today} />
+              view === "kanban" ? (
+                <KanbanView records={visibleRecords} onOpenRecord={openRecord} today={today} />
+              ) : (
+                <MindmapView
+                  table={active}
+                  tables={tables}
+                  records={records}
+                  taskCountByRecord={taskCountByRecord}
+                  onOpenRecord={openRecord}
+                  onOpenTable={openTable}
+                />
+              )
             )}
           </>
         )}
@@ -477,6 +546,32 @@ const ThinkHub = () => {
         onOpenChange={setIsAddColumnOpen}
         onAdd={handleAddColumn}
         isWorking={actions.isWorking}
+      />
+
+      <QuickTaskDialog
+        record={quickTaskRecord}
+        table={quickTaskRecord === null ? undefined : tables.find((table) => table.id === quickTaskRecord.tableId)}
+        project={(() => {
+          const owning = quickTaskRecord === null ? undefined : tables.find((table) => table.id === quickTaskRecord.tableId);
+          return owning?.projectId != null ? projectById.get(owning.projectId) : undefined;
+        })()}
+        conversationKind={(() => {
+          const owning = quickTaskRecord === null ? undefined : tables.find((table) => table.id === quickTaskRecord.tableId);
+          if (owning === undefined || owning.conversationId === null) return null;
+          const kind = conversationById.get(owning.conversationId)?.kind;
+          return kind === "group" ? "group" : kind === "direct" ? "direct" : null;
+        })()}
+        conversationName={(() => {
+          const owning = quickTaskRecord === null ? undefined : tables.find((table) => table.id === quickTaskRecord.tableId);
+          if (owning === undefined) return "";
+          const conversationId =
+            owning.projectId !== null ? projectById.get(owning.projectId)?.conversationId : owning.conversationId;
+          const conversation = conversationId == null ? undefined : conversationById.get(conversationId);
+          return conversation === undefined ? (owning.projectId !== null ? projectById.get(owning.projectId)?.title ?? "" : "") : conversationTitle(conversation);
+        })()}
+        onOpenChange={(open) => {
+          if (!open) setQuickTaskRecord(null);
+        }}
       />
 
       <RenameColumnDialog
@@ -500,7 +595,15 @@ const ThinkHub = () => {
         selectedTableId={targetTable?.id}
         onSelectTable={setTargetTableId}
         subTables={editing === null ? undefined : subTablesOf(tables, editing.id)}
-        canGrowSubTable={editingTable !== undefined && canGrowSubTable(editingTable)}
+        canGrowSubTable={editingTable !== undefined && canGrowSubTable(editingTable) && !isReadOnly}
+        onQuickTask={
+          editing === null || isReadOnly
+            ? undefined
+            : () => {
+                setIsRecordOpen(false);
+                setQuickTaskRecord(editing);
+              }
+        }
         onCreateSubTable={handleCreateSubTable}
         onOpenTable={(tableId) => {
           setIsRecordOpen(false);

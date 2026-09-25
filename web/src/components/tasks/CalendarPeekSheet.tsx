@@ -1,6 +1,7 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { CalendarDays, X } from "lucide-react";
 import { useState } from "react";
+import { Link } from "react-router-dom";
 
 import { CalendarView } from "@/components/tasks/CalendarView";
 import { MOTION_EASING, currentRhythm, motionFor } from "@/lib/motion";
@@ -23,6 +24,7 @@ export function CalendarPeekSheet({
   onOpenChange,
   onPickDay,
   initialDay,
+  showFullLink = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -30,6 +32,8 @@ export function CalendarPeekSheet({
   onPickDay?: (day: string) => void;
   /** The day to start on — the form's current deadline, when it has one. */
   initialDay?: string | null;
+  /** Offers a way into the full Lịch screen (the global button only). */
+  showFullLink?: boolean;
 }) {
   const today = todayIso();
   const [mode, setMode] = useState<CalendarMode>("month");
@@ -100,6 +104,15 @@ export function CalendarPeekSheet({
                 }
               />
             ) : null}
+            {showFullLink ? (
+              <Link
+                to={`/nhiem-vu?muc=lich&xem=ngay&ngay=${anchor}`}
+                onClick={() => onOpenChange(false)}
+                className="press mt-3 flex min-h-11 items-center justify-center rounded-[10px] border border-border text-[13.5px] font-medium text-foreground hover:bg-secondary"
+              >
+                Mở Lịch đầy đủ trong Nhiệm vụ
+              </Link>
+            ) : null}
           </div>
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -113,11 +126,13 @@ export function CalendarPeekButton({
   initialDay,
   label = "Xem nhanh lịch",
   className,
+  showFullLink = false,
 }: {
   onPickDay?: (day: string) => void;
   initialDay?: string | null;
   label?: string;
   className?: string;
+  showFullLink?: boolean;
 }) {
   const [open, setOpen] = useState<boolean>(false);
   return (
@@ -134,7 +149,13 @@ export function CalendarPeekButton({
       >
         <CalendarDays className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
       </button>
-      <CalendarPeekSheet open={open} onOpenChange={setOpen} onPickDay={onPickDay} initialDay={initialDay} />
+      <CalendarPeekSheet
+        open={open}
+        onOpenChange={setOpen}
+        onPickDay={onPickDay}
+        initialDay={initialDay}
+        showFullLink={showFullLink}
+      />
     </>
   );
 }
