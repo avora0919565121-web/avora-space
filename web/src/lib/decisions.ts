@@ -148,12 +148,17 @@ export function canSettle(
   return Boolean(userId) && entry.createdBy === userId;
 }
 
-/** Only the author edits a draft, and only while it is still a draft. */
+/**
+ * Who may edit a draft note: its author (an officer or a delegated member, since opening one needs
+ * that) and the group's Owner/Admin — the same seats that may lock it. Only while it is a draft.
+ */
 export function canEditDraft(
   entry: Pick<DecisionEntry, "kind" | "status" | "createdBy">,
   userId: string | undefined,
+  role?: GroupRole,
 ): boolean {
-  return entry.kind === "meeting_note" && entry.status === "draft" && entry.createdBy === userId;
+  if (entry.kind !== "meeting_note" || entry.status !== "draft" || !userId) return false;
+  return entry.createdBy === userId || role === "owner" || role === "admin";
 }
 
 /** Whether the compose form has enough to submit. Mirrors the database's own checks. */

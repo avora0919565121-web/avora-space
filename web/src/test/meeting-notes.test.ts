@@ -10,8 +10,15 @@ import {
   canFinalizeWithDetails,
   emptyActionItem,
   emptyDetails,
+  groupActionItemsByAgenda,
   hasAnyDetail,
+  meetingFileMimeType,
+  meetingFileRejection,
+  meetingStage,
   pendingTaskCount,
+  removeAgendaItem,
+  toJournalReference,
+  toSavePayload,
   type ActionItem,
   type MeetingNoteDetails,
 } from "@/lib/meeting-notes";
@@ -174,5 +181,99 @@ describe("how many tasks locking will hand out", () => {
   it("counts nothing for a note with no details", () => {
     expect(pendingTaskCount(undefined)).toBe(0);
     expect(pendingTaskCount(emptyDetails(NOTE))).toBe(0);
+  });
+});
+
+describe("the two stages of a note (AVORA 32)", () => {
+  it("is the plan until someone starts the meeting", () => {
+    expect(meetingStage(undefined)).toBe(1);
+    expect(meetingStage(details())).toBe(1);
+    expect(meetingStage(details({ meetingStartedAt: "2026-09-25T02:00:00Z" }))).toBe(2);
+  });
+
+  it("counts when and where as part of the plan", () => {
+    expect(hasAnyDetail(details({ scheduledAt: "2026-09-26T02:00:00Z" }))).toBe(true);
+    expect(hasAnyDetail(details({ location: "Phòng 3" }))).toBe(true);
+  });
+
+  it("groups action items under their agenda line, keeping their list position", () => {
+    const value = details({
+      agendaItems: ["Ngân sách", "Nhân sự"],
+      actionItems: [
+        action({ description: "Rời", agendaIndex: null }),
+        action({ description: "NS", agendaIndex: 0 }),
+        action({ description: "Nhân", agendaIndex: 1 }),
+        action({ description: "Lạc", agendaIndex: 7 }),
+      ],
+    });
+    const grouped = groupActionItemsByAgenda(value);
+    expect(grouped.byAgenda[0].map((entry) => entry.index)).toEqual([1]);
+    expect(grouped.byAgenda[1].map((entry) => entry.index)).toEqual([2]);
+    // A line pointing past the agenda is shown loose rather than lost.
+    expect(grouped.loose.map((entry) => entry.index)).toEqual([0, 3]);
+  });
+
+  it("keeps decisions when an agenda line is removed, and re-points the lines after it", () => {
+    const value = details({
+      agendaItems: ["A", "B", "C"],
+      actionItems: [action({ agendaIndex: 0 }), action({ agendaIndex: 1 }), action({ agendaIndex: 2 })],
+    });
+    const next = removeAgendaItem(value, 1);
+    expect(next.agendaItems).toEqual(["A", "C"]);
+    expect(next.actionItems.map((item) => item.agendaIndex)).toEqual([0, null, 1]);
+  });
+
+  it("re-points action items when blank agenda lines are dropped on save", () => {
+    const payload = toSavePayload(
+      details({
+        agendaItems: ["A", "  ", "C"],
+        actionItems: [
+          action({ description: "under C", agendaIndex: 2 }),
+          action({ description: "under blank", agendaIndex: 1 }),
+          action({ description: "", agendaIndex: 0 }),
+        ],
+      }),
+    );
+    expect(payload.agendaItems).toEqual(["A", "C"]);
+    expect(payload.actionItems.map((item) => [item.description, item.agenda_index])).toEqual([
+      ["under C", 1],
+      ["under blank", null],
+    ]);
+  });
+});
+
+describe("the custom minutes file", () => {
+  it("takes Word or PDF, by type or by name", () => {
+    expect(meetingFileMimeType({ name: "a.pdf", type: "application/pdf" })).toBe("application/pdf");
+    expect(meetingFileMimeType({ name: "Bên bản.DOCX", type: "" })).toContain("wordprocessingml");
+    expect(meetingFileMimeType({ name: "old.doc", type: "" })).toBe("application/msword");
+    expect(meetingFileMimeType({ name: "photo.png", type: "image/png" })).toBeNull();
+  });
+
+  it("says why a file is refused", () => {
+    expect(meetingFileRejection({ name: "x.png", type: "image/png", size: 10 })).toContain("Word");
+    expect(meetingFileRejection({ name: "x.pdf", type: "application/pdf", size: 30 * 1024 * 1024 })).toContain("25 MB");
+    expect(meetingFileRejection({ name: "x.pdf", type: "application/pdf", size: 1000 })).toBeNull();
+  });
+});
+
+describe("a meeting note saved into Diary", () => {
+  it("reads its words off the snapshot, so it still says what it is without the note", () => {
+    const ref = toJournalReference({
+      id: "r1",
+      decision_id: null,
+      created_at: "2026-09-25T03:00:00Z",
+      context_snapshot: { title: "Họp tuần", group_name: "Nhóm A", group_id: "g1", file_name: "bb.pdf" },
+    });
+    expect(ref.title).toBe("Họp tuần");
+    expect(ref.groupName).toBe("Nhóm A");
+    expect(ref.fileName).toBe("bb.pdf");
+    expect(ref.decisionId).toBeNull();
+  });
+
+  it("falls back to a plain name for a malformed snapshot", () => {
+    const ref = toJournalReference({ id: "r2", decision_id: "d", created_at: "x", context_snapshot: null });
+    expect(ref.title).toBe("Biên bản họp");
+    expect(ref.fileName).toBeNull();
   });
 });

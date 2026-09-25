@@ -139,9 +139,13 @@ describe("closing and locking", () => {
 });
 
 describe("editing a draft", () => {
-  it("is the author's alone, and only while it is a draft", () => {
+  it("belongs to the author and the group's Owner/Admin, and only while it is a draft", () => {
     expect(canEditDraft(makeEntry({ status: "draft", createdBy: ME }), ME)).toBe(true);
     expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME)).toBe(false);
+    expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME, "member")).toBe(false);
+    expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME, "admin")).toBe(true);
+    expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME, "owner")).toBe(true);
+    expect(canEditDraft(makeEntry({ status: "finalized", createdBy: THEM }), ME, "owner")).toBe(false);
   });
 
   it("stops the moment the note is locked — even for the person who wrote it", () => {

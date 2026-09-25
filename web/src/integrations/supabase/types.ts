@@ -913,6 +913,48 @@ export type Database = {
           },
         ]
       }
+      journal_references: {
+        Row: {
+          context_snapshot: Json
+          conversation_id: string
+          created_at: string
+          decision_id: string | null
+          id: string
+          user_id: string
+        }
+        Insert: {
+          context_snapshot: Json
+          conversation_id: string
+          created_at?: string
+          decision_id?: string | null
+          id?: string
+          user_id: string
+        }
+        Update: {
+          context_snapshot?: Json
+          conversation_id?: string
+          created_at?: string
+          decision_id?: string | null
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "journal_references_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "journal_references_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: false
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       meeting_note_details: {
         Row: {
           absentee_ids: string[]
@@ -922,11 +964,14 @@ export type Database = {
           created_at: string
           decision_id: string
           decisions_made: string
+          location: string
+          meeting_started_at: string | null
           meeting_type: string
           next_meeting_at: string | null
           objective: string
           reference_links: string[]
           risks_issues: string
+          scheduled_at: string | null
           updated_at: string
         }
         Insert: {
@@ -937,11 +982,14 @@ export type Database = {
           created_at?: string
           decision_id: string
           decisions_made?: string
+          location?: string
+          meeting_started_at?: string | null
           meeting_type?: string
           next_meeting_at?: string | null
           objective?: string
           reference_links?: string[]
           risks_issues?: string
+          scheduled_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -952,16 +1000,67 @@ export type Database = {
           created_at?: string
           decision_id?: string
           decisions_made?: string
+          location?: string
+          meeting_started_at?: string | null
           meeting_type?: string
           next_meeting_at?: string | null
           objective?: string
           reference_links?: string[]
           risks_issues?: string
+          scheduled_at?: string | null
           updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "meeting_note_details_decision_id_fkey"
+            columns: ["decision_id"]
+            isOneToOne: true
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      meeting_note_files: {
+        Row: {
+          byte_size: number
+          conversation_id: string
+          created_at: string
+          decision_id: string
+          file_name: string
+          mime_type: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Insert: {
+          byte_size: number
+          conversation_id: string
+          created_at?: string
+          decision_id: string
+          file_name: string
+          mime_type: string
+          storage_path: string
+          uploaded_by: string
+        }
+        Update: {
+          byte_size?: number
+          conversation_id?: string
+          created_at?: string
+          decision_id?: string
+          file_name?: string
+          mime_type?: string
+          storage_path?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meeting_note_files_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meeting_note_files_decision_id_fkey"
             columns: ["decision_id"]
             isOneToOne: true
             referencedRelation: "group_decisions"
@@ -2609,6 +2708,16 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      attach_meeting_note_file: {
+        Args: {
+          p_byte_size: number
+          p_decision_id: string
+          p_file_name: string
+          p_mime_type: string
+          p_storage_path: string
+        }
+        Returns: string
       }
       cast_group_vote: {
         Args: { p_decision_id: string; p_option_id: string }
@@ -4328,6 +4437,10 @@ export type Database = {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: undefined
       }
+      remove_meeting_note_file: {
+        Args: { p_decision_id: string }
+        Returns: string
+      }
       rename_group_conversation: {
         Args: { p_conversation_id: string; p_name: string }
         Returns: string
@@ -4805,11 +4918,13 @@ export type Database = {
           p_attendee_ids: string[]
           p_decision_id: string
           p_decisions_made: string
+          p_location?: string
           p_meeting_type: string
           p_next_meeting_at: string
           p_objective: string
           p_reference_links: string[]
           p_risks_issues: string
+          p_scheduled_at?: string
         }
         Returns: {
           absentee_ids: string[]
@@ -4819,16 +4934,36 @@ export type Database = {
           created_at: string
           decision_id: string
           decisions_made: string
+          location: string
+          meeting_started_at: string | null
           meeting_type: string
           next_meeting_at: string | null
           objective: string
           reference_links: string[]
           risks_issues: string
+          scheduled_at: string | null
           updated_at: string
         }
         SetofOptions: {
           from: "*"
           to: "meeting_note_details"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      save_meeting_note_to_journal: {
+        Args: { p_decision_id: string }
+        Returns: {
+          context_snapshot: Json
+          conversation_id: string
+          created_at: string
+          decision_id: string | null
+          id: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "journal_references"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -5083,6 +5218,33 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "task_suggestions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      start_meeting_note: {
+        Args: { p_decision_id: string }
+        Returns: {
+          absentee_ids: string[]
+          action_items: Json
+          agenda_items: string[]
+          attendee_ids: string[]
+          created_at: string
+          decision_id: string
+          decisions_made: string
+          location: string
+          meeting_started_at: string | null
+          meeting_type: string
+          next_meeting_at: string | null
+          objective: string
+          reference_links: string[]
+          risks_issues: string
+          scheduled_at: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "meeting_note_details"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -5601,4 +5763,3 @@ export const Constants = {
     },
   },
 } as const
-

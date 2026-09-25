@@ -1567,6 +1567,16 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   keeps its 📊 Bảng strip. 1-1/group: ⓘ became "…" labelled "Thêm"; the panel now opens with Bảng, Dự án
   (group) and Sổ quyết định (group) above the roster, and the Bảng/Dự án strips and the separate Sổ quyết
   định icon left the thread. Header keeps Tìm kiếm, Gọi/Lên lịch, Nhiệm vụ nhóm.
+- 2026-09-25 — Sổ quyết định in two stages (AVORA 32). `meeting_note_details.meeting_started_at` splits a draft:
+  null = "Kế hoạch họp" (Loại họp, Thời gian, Địa điểm, Mục tiêu, Thành phần tham dự, Nội dung dự kiến); set by
+  "Bắt đầu họp" (one way, idempotent, shared) = each agenda line carries its own decisions — Quyết định / Thời gian /
+  Người đảm trách / Tạo việc — via `action_items[].agenda_index` (0-based, null = việc rời). `status` draft → finalized
+  is unchanged. Editing a draft (text, details, stage, file) is the author or the group's Owner/Admin. Tasks made at
+  lock quote the agenda line (`source_agenda_index`/`source_agenda_item` in the snapshot). Drafts written before this
+  open in stage 2. A note may carry one Word/PDF minutes file beside the structured data (`meeting_note_files`,
+  private `meeting-files` bucket), view-only, swappable while a draft, frozen with the note. "Lưu vào Nhật ký" on a
+  finalized note writes a reference (`journal_references`, own-row RLS, words copied into `context_snapshot`) shown in
+  File của bạn — never a copy of the note or its file.
 
 ## Out of scope
 

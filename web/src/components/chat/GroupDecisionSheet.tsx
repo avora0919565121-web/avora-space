@@ -1,5 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookLock, Check, KeyRound, Loader2, Lock, Plus, ScrollText, Vote, X } from "lucide-react";
+import {
+  BookLock,
+  BookmarkCheck,
+  BookmarkPlus,
+  Check,
+  FileText,
+  KeyRound,
+  Loader2,
+  Lock,
+  Play,
+  Plus,
+  ScrollText,
+  Upload,
+  Vote,
+  X,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -46,15 +61,27 @@ import type { GroupMember, GroupRole } from "@/lib/groups";
 import { peerLabel } from "@/lib/initials";
 import { MeetingNoteFields, MeetingNoteSummary } from "@/components/chat/MeetingNoteFields";
 import {
+  attachMeetingNoteFile,
   canFinalizeWithDetails,
   emptyDetails,
+  fetchJournalReferences,
   fetchMeetingNoteDetails,
+  fetchMeetingNoteFiles,
   hasAnyDetail,
+  MEETING_FILE_ACCEPT,
+  meetingFileRejection,
+  meetingFileUrl,
   meetingNoteKeys,
+  meetingStage,
   pendingTaskCount,
+  removeMeetingNoteFile,
   saveMeetingNoteDetails,
+  saveMeetingNoteToJournal,
+  startMeeting,
   type MeetingNoteDetails,
+  type MeetingNoteFile,
 } from "@/lib/meeting-notes";
+import { formatFileSize } from "@/lib/attachments";
 import { cn } from "@/lib/utils";
 
 type GroupDecisionSheetProps = {
@@ -162,6 +189,32 @@ export function GroupDecisionSheet({
     [detailsQuery.data],
   );
 
+  const filesQuery = useQuery({
+    queryKey: [...meetingNoteKeys.files(conversationId), noteIds],
+    queryFn: () => fetchMeetingNoteFiles(noteIds),
+    enabled: open && noteIds.length > 0,
+  });
+  const filesByNote = useMemo(
+    () => filesQuery.data ?? new Map<string, MeetingNoteFile>(),
+    [filesQuery.data],
+  );
+
+  /** Which finalized notes this person already keeps in their Diary. */
+  const journalRefsQuery = useQuery({
+    queryKey: meetingNoteKeys.journalRefs(userId ?? ""),
+    queryFn: fetchJournalReferences,
+    enabled: open && Boolean(userId),
+  });
+  const savedNoteIds = useMemo(
+    () =>
+      new Set<string>(
+        (journalRefsQuery.data ?? [])
+          .map((ref) => ref.decisionId)
+          .filter((id): id is string => id !== null),
+      ),
+    [journalRefsQuery.data],
+  );
+
   /** Everyone in the room, offered as a starting point for the attendance list. */
   const suggestedAttendees = useMemo(() => members.map((member) => member.userId), [members]);
 
@@ -169,6 +222,7 @@ export function GroupDecisionSheet({
     void queryClient.invalidateQueries({ queryKey: decisionKeys.list(conversationId) });
     void queryClient.invalidateQueries({ queryKey: decisionKeys.grants(conversationId) });
     void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.details(conversationId) });
+    void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.files(conversationId) });
   };
 
   const resetCompose = (): void => {
@@ -265,7 +319,7 @@ export function GroupDecisionSheet({
     onSuccess: (created) => {
       toast.success(
         created > 0
-          ? `Đã khoá biên bản và tạo ${created} nhiệm vụ.`
+          ? `Đã khoá biên bản và tạo ${created} việc.`
           : "Đã khoá biên bản. Từ giờ không sửa được nữa.",
       );
       setEditingId(null);
@@ -273,6 +327,70 @@ export function GroupDecisionSheet({
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  /**
+   * "Bắt đầu họp": the plan becomes the meeting, for everyone reading the note. Unsaved plan edits
+   * go first, so what was typed a second ago is not left behind in stage 1.
+   */
+  const startMutation = useMutation({
+    mutationFn: async (entryId: string) => {
+      if (editingId === entryId) {
+        await updateDraft(entryId, editTitle, editBody);
+        await saveMeetingNoteDetails({ ...editDetails, decisionId: entryId });
+      }
+      await startMeeting(entryId);
+      return entryId;
+    },
+    onSuccess: (entryId) => {
+      toast.success("Cuộc họp đã bắt đầu. Ghi quyết định ngay dưới từng nội dung.");
+      if (editingId === entryId) {
+        setEditDetails((current) => ({ ...current, meetingStartedAt: new Date().toISOString() }));
+      }
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const attachFileMutation = useMutation({
+    mutationFn: (input: { decisionId: string; file: File }) =>
+      attachMeetingNoteFile({ conversationId, decisionId: input.decisionId, file: input.file }),
+    onSuccess: () => {
+      toast.success("Đã đính kèm mẫu biên bản riêng.");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const removeFileMutation = useMutation({
+    mutationFn: (decisionId: string) => removeMeetingNoteFile(decisionId),
+    onSuccess: () => {
+      toast.success("Đã quay về mẫu chuẩn AVORA.");
+      refresh();
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const saveToJournalMutation = useMutation({
+    mutationFn: (decisionId: string) => saveMeetingNoteToJournal(decisionId),
+    onSuccess: () => {
+      toast.success("Đã lưu vào File của bạn trong Nhật ký.");
+      void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.journalRefs(userId ?? "") });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const openFile = async (file: MeetingNoteFile): Promise<void> => {
+    // Opened before the await so a phone browser still treats it as the tap's own window.
+    const tab = window.open("", "_blank", "noopener");
+    const url = await meetingFileUrl(file.storagePath);
+    if (url === null) {
+      tab?.close();
+      toast.error("Không mở được tệp. Thử lại nhé.");
+      return;
+    }
+    if (tab !== null) tab.location.href = url;
+    else window.location.assign(url);
+  };
 
   /**
    * Choosing, and changing the choice, are the same act — so there is one mutation and no
@@ -345,7 +463,12 @@ export function GroupDecisionSheet({
    */
   useEffect(() => {
     if (editingId === null) return;
-    if (autosaveMutation.isPending || saveDraftMutation.isPending || finalizeMutation.isPending) {
+    if (
+      autosaveMutation.isPending ||
+      saveDraftMutation.isPending ||
+      finalizeMutation.isPending ||
+      startMutation.isPending
+    ) {
       return;
     }
     const timer = window.setTimeout(() => {
@@ -699,6 +822,54 @@ export function GroupDecisionSheet({
                       )
                     ) : null}
 
+                    {/* The minutes file: AVORA's template, or the group's own Word/PDF beside it */}
+                    {entry.kind === "meeting_note" ? (
+                      <MinutesFileBlock
+                        file={filesByNote.get(entry.id)}
+                        canChange={canEditDraft(entry, userId, myRole)}
+                        isBusy={
+                          (attachFileMutation.isPending &&
+                            attachFileMutation.variables?.decisionId === entry.id) ||
+                          (removeFileMutation.isPending && removeFileMutation.variables === entry.id)
+                        }
+                        onOpen={(file) => void openFile(file)}
+                        onPick={(file) => {
+                          const reason = meetingFileRejection(file);
+                          if (reason !== null) {
+                            toast.error(reason);
+                            return;
+                          }
+                          attachFileMutation.mutate({ decisionId: entry.id, file });
+                        }}
+                        onRemove={() => removeFileMutation.mutate(entry.id)}
+                      />
+                    ) : null}
+
+                    {/* A finalized note can be kept in one's own Diary, by reference */}
+                    {entry.kind === "meeting_note" && entry.status === "finalized" ? (
+                      <div className="mt-2.5">
+                        {savedNoteIds.has(entry.id) ? (
+                          <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground">
+                            <BookmarkCheck className="h-4 w-4 text-primary" strokeWidth={1.8} aria-hidden="true" />
+                            Đã lưu trong Nhật ký
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            disabled={
+                              saveToJournalMutation.isPending &&
+                              saveToJournalMutation.variables === entry.id
+                            }
+                            onClick={() => saveToJournalMutation.mutate(entry.id)}
+                            className="press inline-flex min-h-9 items-center gap-1.5 rounded-[8px] border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground hover:bg-accent/40 disabled:opacity-50"
+                          >
+                            <BookmarkPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                            Lưu vào Nhật ký
+                          </button>
+                        )}
+                      </div>
+                    ) : null}
+
                     {/* Poll options */}
                     {entry.kind === "poll" ? (
                       <div className="mt-2.5 space-y-1.5">
@@ -771,13 +942,26 @@ export function GroupDecisionSheet({
                     {/* Actions that are still available */}
                     {!settled ? (
                       <div className="mt-2.5 flex flex-wrap gap-2">
-                        {canEditDraft(entry, userId) && !editing ? (
+                        {canEditDraft(entry, userId, myRole) && !editing ? (
                           <button
                             type="button"
                             onClick={() => startEditing(entry)}
                             className="press rounded-[8px] border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground hover:bg-accent/40"
                           >
-                            Sửa nháp
+                            {meetingStage(detailsByNote.get(entry.id)) === 1 ? "Sửa kế hoạch" : "Ghi biên bản"}
+                          </button>
+                        ) : null}
+                        {entry.kind === "meeting_note" &&
+                        canEditDraft(entry, userId, myRole) &&
+                        meetingStage(editing ? editDetails : detailsByNote.get(entry.id)) === 1 ? (
+                          <button
+                            type="button"
+                            disabled={startMutation.isPending}
+                            onClick={() => startMutation.mutate(entry.id)}
+                            className="press inline-flex items-center gap-1.5 rounded-[8px] bg-foreground px-2.5 py-1.5 text-[12.5px] font-semibold text-background disabled:opacity-50"
+                          >
+                            <Play className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+                            Bắt đầu họp
                           </button>
                         ) : null}
                         {entry.kind === "meeting_note" && canSettle(entry, myRole, userId)
@@ -795,13 +979,13 @@ export function GroupDecisionSheet({
                                   title={
                                     ready
                                       ? undefined
-                                      : "Có việc cần làm đã tick “Tạo Task” nhưng chưa đủ người phụ trách hoặc hạn"
+                                      : "Có quyết định đã tick “Tạo việc” nhưng chưa đủ người đảm trách hoặc thời gian"
                                   }
                                   onClick={() => finalizeMutation.mutate(entry.id)}
                                   className="press rounded-[8px] bg-primary px-2.5 py-1.5 text-[12.5px] font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-45"
                                 >
                                   {willCreate > 0
-                                    ? `Kết thúc & khoá · tạo ${willCreate} nhiệm vụ`
+                                    ? `Kết thúc & khoá · tạo ${willCreate} việc`
                                     : "Kết thúc & khoá"}
                                 </button>
                               );
@@ -873,5 +1057,105 @@ export function GroupDecisionSheet({
         {logBody}
       </SheetContent>
     </Sheet>
+  );
+}
+
+/**
+ * Which minutes template a note uses: AVORA's structured one (always there), plus optionally the
+ * group's own Word/PDF alongside it, view-only. Swappable any time while the note is a draft;
+ * frozen with the note once it is locked.
+ */
+function MinutesFileBlock({
+  file,
+  canChange,
+  isBusy,
+  onOpen,
+  onPick,
+  onRemove,
+}: {
+  file: MeetingNoteFile | undefined;
+  canChange: boolean;
+  isBusy: boolean;
+  onOpen: (file: MeetingNoteFile) => void;
+  onPick: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  if (file === undefined && !canChange) return null;
+
+  const picker = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept={MEETING_FILE_ACCEPT}
+      className="hidden"
+      onChange={(event) => {
+        const chosen = event.target.files?.[0];
+        event.target.value = "";
+        if (chosen !== undefined) onPick(chosen);
+      }}
+    />
+  );
+
+  if (file === undefined) {
+    return (
+      <div className="mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px] text-muted-foreground">
+        {picker}
+        <span>Mẫu biên bản: chuẩn AVORA</span>
+        <span aria-hidden="true">·</span>
+        <button
+          type="button"
+          disabled={isBusy}
+          onClick={() => inputRef.current?.click()}
+          className="press inline-flex min-h-9 items-center gap-1.5 font-medium text-primary disabled:opacity-50"
+        >
+          {isBusy ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden="true" />
+          ) : (
+            <Upload className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+          )}
+          Thêm mẫu riêng (Word/PDF)
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-2.5 flex items-center gap-2.5 rounded-[10px] border border-border bg-background/50 px-2.5 py-2">
+      {picker}
+      <FileText className="h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.6} aria-hidden="true" />
+      <button
+        type="button"
+        onClick={() => onOpen(file)}
+        className="press min-w-0 flex-1 text-left"
+        title="Chỉ xem"
+      >
+        <span className="block truncate text-[13px] font-medium text-foreground">{file.fileName}</span>
+        <span className="block text-[11.5px] text-muted-foreground">
+          Mẫu riêng · {formatFileSize(file.byteSize)} · chỉ xem
+        </span>
+      </button>
+      {canChange ? (
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={() => inputRef.current?.click()}
+            className="press min-h-9 rounded-[8px] px-2 text-[12px] font-medium text-primary hover:bg-accent/40 disabled:opacity-50"
+          >
+            {isBusy ? "Đang tải…" : "Đổi"}
+          </button>
+          <button
+            type="button"
+            disabled={isBusy}
+            onClick={onRemove}
+            aria-label="Bỏ mẫu riêng, dùng mẫu chuẩn AVORA"
+            className="press flex h-9 w-9 items-center justify-center rounded-[8px] text-muted-foreground hover:bg-accent/40 disabled:opacity-50"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+    </div>
   );
 }
