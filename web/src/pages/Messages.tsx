@@ -388,8 +388,13 @@ const Messages = () => {
    * group opens in the project's sub-group, where that message was never meant to be — so there
    * it is neither scrolled to nor reported as deleted.
    */
+  const rawHighlightSnapshot = highlightTask?.contextSnapshot ?? null;
   const highlightSnapshot =
-    highlightTask?.contextSnapshot?.conversationId === conversationId ? highlightTask.contextSnapshot : null;
+    rawHighlightSnapshot !== null &&
+    conversationId !== undefined &&
+    rawHighlightSnapshot.conversationId === conversationId
+      ? rawHighlightSnapshot
+      : null;
   const messageIds = useMemo(() => messages.map((message) => message.id), [messages]);
   const isQuotedMessageGone: boolean =
     highlightSnapshot !== null &&
