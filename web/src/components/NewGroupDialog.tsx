@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { Button } from "@/components/ui/button";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import { chatKeys, findUserByEmail, type DirectoryMatch } from "@/lib/chat";
@@ -31,6 +32,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: NewGroupDialog
   const [email, setEmail] = useState<string>("");
   const [members, setMembers] = useState<DirectoryMatch[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
+  const { isSubmitting, guard } = useSubmitGuard();
 
   useEffect(() => {
     if (open) return;
@@ -190,10 +192,13 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: NewGroupDialog
             </Button>
             <Button
               className="press h-10 px-5"
-              disabled={!canCreateGroup(name, members.length) || createMutation.isPending}
-              onClick={() => createMutation.mutate()}
+              disabled={!canCreateGroup(name, members.length) || isSubmitting}
+              onClick={() => {
+                // Errors are already shown by the mutation's onError; swallow here so the guard releases.
+                void guard(() => createMutation.mutateAsync().catch(() => undefined));
+              }}
             >
-              {createMutation.isPending ? "Đang tạo…" : "Tạo nhóm"}
+              {isSubmitting ? "Đang tạo…" : "Tạo nhóm"}
             </Button>
           </div>
         </div>

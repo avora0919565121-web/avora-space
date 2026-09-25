@@ -13,7 +13,9 @@ import { MyDayButton, StartButton, TaskPlanFields } from "@/components/tasks/Tas
 import { TaskPrepPanel } from "@/components/tasks/TaskPrepPanel";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
-import { contextLink, contextTarget } from "@/lib/task-context";
+import { contextLink } from "@/lib/task-context";
+import { taskContextTarget } from "@/lib/task-scope";
+import { useTaskProjectIndex } from "@/lib/use-projects";
 import { durationFor, formatProgress, isImportantFor } from "@/lib/tasks";
 import { formatDuration } from "@/lib/task-flags";
 import {
@@ -68,12 +70,14 @@ export function TaskDetailSheet({
   const [isCompleteOpen, setIsCompleteOpen] = useState<boolean>(false);
   const [isForwarding, setIsForwarding] = useState<boolean>(false);
 
+  const projectIndex = useTaskProjectIndex();
   if (task === null) return null;
 
   const userId = user?.id;
   const canEdit = canEditTask(task, userId);
   const blocked = editBlockedReason(task, userId);
-  const target = contextTarget(task.contextSnapshot, task.conversationId);
+  // Project work opens the project's own sub-group chat.
+  const target = taskContextTarget(task, projectIndex);
   const deadline = deadlineLabel(task.deadline, today);
   const duration = formatDuration(durationFor(flags, task.id));
   const shared = isSharedTask(task);

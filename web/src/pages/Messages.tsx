@@ -383,7 +383,13 @@ const Messages = () => {
     () => (allTasks ?? []).find((task) => task.id === highlightTaskId) ?? null,
     [allTasks, highlightTaskId],
   );
-  const highlightSnapshot = highlightTask?.contextSnapshot ?? null;
+  /*
+   * The quoted message only lives in the chat it was sent in. Project work agreed in the parent
+   * group opens in the project's sub-group, where that message was never meant to be — so there
+   * it is neither scrolled to nor reported as deleted.
+   */
+  const highlightSnapshot =
+    highlightTask?.contextSnapshot?.conversationId === conversationId ? highlightTask.contextSnapshot : null;
   const messageIds = useMemo(() => messages.map((message) => message.id), [messages]);
   const isQuotedMessageGone: boolean =
     highlightSnapshot !== null &&
@@ -1562,7 +1568,7 @@ const Messages = () => {
             </div>
           ) : (
             <>
-              <header className="flex items-center gap-3 border-b border-border bg-card px-5 py-3.5">
+              <header className="flex items-center gap-3 border-b border-border bg-card px-5 py-3.5 md:pr-[4.25rem]">
                 <button
                   type="button"
                   aria-label="Quay lại Tin nhắn"

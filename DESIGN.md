@@ -1499,6 +1499,23 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   calendar view keeps the same height and scrolls inside.
 - 2026-09-25 — Nav "Tin nhắn" is "Kết nối" (ADR-022). The Dự án tab carries "Đang hoàn thiện" in the same pill as
   "Sắp ra mắt". Task Hub section names are Vietnamese; Kanban reads "Theo trạng thái".
+- 2026-09-25 — A Task inside a deleted group is hidden from everyone, members included. Visibility (`tasks` policy
+  and `private.can_view_task`, which also gates checklist, resources, dependencies, participants and Hạng mục links)
+  now asks `private.conversation_is_live`: the chat and every group above it must have no `deleted_at`. Nothing on
+  the Task changes, so restoring the group brings it straight back. Personal Tasks are untouched.
+- 2026-09-25 — One submission at a time also covers Tạo nhóm, creating a Task from chat and Lưu liên hệ.
+- 2026-09-25 — The calendar bar became a small round bubble floating at the top right: no row of its own, beside
+  the AVORA mark on a phone, in the page corner on a computer (the chat header leaves room for it). The bubble holds
+  an ordered list of quick actions; with exactly one (Lịch, today) a tap opens it directly. The chooser for several
+  actions and a reorder screen are not built. The peek now offers Năm as well.
+- 2026-09-25 — Tasks follow the four Connect Hub layers, always in this order: Của tôi (no conversation) → 1-1
+  (direct) → Nhóm (group, no project) → Dự án. A task is project work when its chat is a project's sub-group OR
+  it is linked to a project through the existing project–task links — the second case keeps work agreed in the
+  parent group, before the project had its own chat, under its project. No new column. "Xem trong ngữ cảnh" on
+  project work opens the project's sub-group; the quoted message is only scrolled to (or reported deleted) in the
+  chat it was sent in. Theo đối tượng shows the layers as sections (Dự án branches per project) with chips Tất
+  cả / Của tôi / 1-1 / Nhóm / Dự án kept in the address; the other readings are unchanged. "Cần chú ý hôm nay"
+  keeps its eight most pressing items, laid out under the same four headings with urgency kept inside each.
 
 ## Out of scope
 

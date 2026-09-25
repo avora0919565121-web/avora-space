@@ -93,7 +93,7 @@ export function CalendarPeekSheet({
                 today={today}
                 onModeChange={setMode}
                 onAnchorChange={setAnchor}
-                modes={["day", "week", "month"]}
+                modes={["day", "week", "month", "year"]}
                 onPickDay={
                   onPickDay === undefined
                     ? undefined

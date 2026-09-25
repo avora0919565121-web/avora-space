@@ -4,9 +4,7 @@ import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
 import { useAuth } from "@/lib/auth";
-import { localDayOf } from "@/lib/space-blocks";
 import { fetchGroupMembers, groupKeys } from "@/lib/groups";
 import { checklistProgress, nextChecklistPosition } from "@/lib/task-collab";
 import { inviteTaskParticipant, withdrawTaskInvitation } from "@/lib/task-collab-api";

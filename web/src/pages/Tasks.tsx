@@ -50,7 +50,7 @@ import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import type { TaskCategory } from "@/lib/task-categories";
 import { projectLink } from "@/lib/projects";
-import { contextLink, contextTarget } from "@/lib/task-context";
+import { contextLink } from "@/lib/task-context";
 import { forwardTaskOutputToJournal, completedDayLabel } from "@/lib/task-report";
 import { applyManualOrder, defaultViewMode } from "@/lib/task-order";
 import { RECURRENCE_LABELS } from "@/lib/task-schedule";
@@ -58,8 +58,13 @@ import {
   filterByScope,
   parseTaskScope,
   parseTaskView,
+  projectOfTask,
+  scopeOfTask,
+  scopeSlug,
+  taskContextTarget,
   TASK_SCOPE_LABELS,
   TASK_SCOPE_PARAM,
+  TASK_SCOPES,
   TASK_VIEW_PARAM,
   type TaskScope,
 } from "@/lib/task-scope";
@@ -121,7 +126,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { useSharedTaskOrder, useViewOrder } from "@/lib/use-task-order";
-import { useTaskProjectLinks } from "@/lib/use-projects";
+import { useTaskProjectIndex, useTaskProjectLinks } from "@/lib/use-projects";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
@@ -460,7 +465,9 @@ function SharedRow({
   const categories = useCategoryIndex();
   const abandoned = isDeletedByOther(task, userId);
   const note = sharedTaskNote(task, userId);
-  const target = contextTarget(task.contextSnapshot, task.conversationId);
+  const projectIndex = useTaskProjectIndex();
+  // Project work opens the project's own sub-group chat; everything else its own chat.
+  const target = taskContextTarget(task, projectIndex);
   const voice = taskVoice(task, userId);
   /** Set when this task was linked to a deliverable — then the project is its first context. */
   const projectOf = useTaskProjectLinks().get(task.id);
@@ -847,7 +854,7 @@ function PersonalSection({
     <section aria-labelledby="tasks-personal" className="rounded-[10px] border border-border bg-card">
       <BranchHeader open={open} onToggle={() => toggle("personal", auto)} className="px-5 py-4">
         <h2 id="tasks-personal" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
-          Cá nhân
+          {TASK_SCOPE_LABELS.personal}
         </h2>
         <OpenCounter count={openCount} tone={tone} suffix="nhiệm vụ đang mở" />
       </BranchHeader>
@@ -883,18 +890,33 @@ function PersonalSection({
 }
 
 type NamedGroup = {
+  /** The chat the branch opens; for a project, the project's own sub-group. */
   conversationId: string;
+  /** Which Connect Hub layer the branch sits in. Never "personal". */
+  scope: SharedScope;
   peerName: string;
   tasks: TaskItem[];
   tone: TaskPriority;
   auto: boolean;
 };
 
+type SharedScope = Exclude<TaskScope, "personal">;
+
+const SHARED_SCOPES: readonly SharedScope[] = ["direct", "group", "project"];
+
+const SHARED_SCOPE_NOTES: Record<SharedScope, string> = {
+  direct: "Việc giữa bạn và từng người, tạo và xử lý ngay trong cuộc trò chuyện 1-1.",
+  group: "Việc trong các nhóm của bạn — ngoài dự án.",
+  project: "Việc thuộc dự án, xếp theo từng dự án. \u201cXem trong ngữ cảnh\u201d mở nhóm của dự án.",
+};
+
 function SharedSection({
+  layer,
   groups,
   today,
   onOpen,
 }: {
+  layer: SharedScope;
   groups: NamedGroup[];
   today: string;
   onOpen: (task: TaskItem) => void;
@@ -911,13 +933,14 @@ function SharedSection({
     today,
   );
   const sectionAuto = groups.some((group) => group.auto);
-  const sectionOpen = isOpen("shared", sectionAuto);
+  const sectionKey = `shared-${layer}`;
+  const sectionOpen = isOpen(sectionKey, sectionAuto);
 
   return (
-    <section aria-labelledby="tasks-shared" className="rounded-[10px] border border-border bg-card">
-      <BranchHeader open={sectionOpen} onToggle={() => toggle("shared", sectionAuto)} className="px-5 py-4">
-        <h2 id="tasks-shared" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
-          Nhiệm vụ chung
+    <section aria-labelledby={`tasks-${sectionKey}`} className="rounded-[10px] border border-border bg-card">
+      <BranchHeader open={sectionOpen} onToggle={() => toggle(sectionKey, sectionAuto)} className="px-5 py-4">
+        <h2 id={`tasks-${sectionKey}`} className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
+          {TASK_SCOPE_LABELS[layer]}
         </h2>
         <OpenCounter count={openCount} tone={sectionTone} suffix="nhiệm vụ đang mở" />
       </BranchHeader>
@@ -925,8 +948,7 @@ function SharedSection({
       {sectionOpen ? (
         <div className="rise-in">
           <p className="px-5 pb-3 text-[13px] text-muted-foreground">
-            Nhiệm vụ chung được tạo và xử lý ngay trong cuộc trò chuyện. Ở đây bạn xem lại và sắp xếp —
-            kéo để đổi vị trí hiển thị của riêng bạn.
+            {SHARED_SCOPE_NOTES[layer]} Kéo để đổi vị trí hiển thị của riêng bạn.
           </p>
 
           {groups.length > 0 ? (
@@ -991,7 +1013,9 @@ function SharedSection({
             </div>
           ) : (
             <p className="px-5 pb-3 text-[14px] text-muted-foreground">
-              Chưa có nhiệm vụ chung nào. Mở một cuộc trò chuyện và bấm “Nhiệm vụ” để giao việc.
+              {layer === "project"
+                ? "Chưa có việc nào thuộc dự án."
+                : "Chưa có việc nào ở đây. Mở một cuộc trò chuyện và bấm “Nhiệm vụ” để giao việc."}
             </p>
           )}
         </div>
@@ -1513,7 +1537,38 @@ function HeavyView({
   );
 }
 
-/** Nhiệm vụ — personal to-dos plus shared tasks from 1-1s and groups, read four ways. */
+/** Tất cả, then the four Connect Hub layers in their fixed order. */
+function ScopeChips({ value, onChange }: { value: TaskScope | null; onChange: (next: TaskScope | null) => void }) {
+  const options: { id: TaskScope | null; label: string }[] = [
+    { id: null, label: "Tất cả" },
+    ...TASK_SCOPES.map((id) => ({ id, label: TASK_SCOPE_LABELS[id] })),
+  ];
+  return (
+    <div role="group" aria-label="Lọc theo lớp" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+      {options.map((option) => {
+        const isActive = option.id === value;
+        return (
+          <button
+            key={option.id ?? "all"}
+            type="button"
+            aria-pressed={isActive}
+            onClick={() => onChange(option.id)}
+            className={cn(
+              "press h-9 shrink-0 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
+              isActive
+                ? "border-foreground bg-foreground text-background"
+                : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+            )}
+          >
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+/** Nhiệm vụ — personal to-dos plus shared tasks from 1-1s, groups and projects, read four ways. */
 export default function Tasks() {
   const { user } = useAuth();
   const { data: tasks, isLoading } = useTasks();
@@ -1530,6 +1585,7 @@ export default function Tasks() {
   const [searchParams, setSearchParams] = useSearchParams();
   const scope: TaskScope | null = parseTaskScope(searchParams.get(TASK_SCOPE_PARAM));
   const { order: sharedOrder } = useSharedTaskOrder();
+  const projectIndex = useTaskProjectIndex();
   // This person's own marks, which now break ties in every ordering on this page.
   const flags = useTaskFlagIndex();
 
@@ -1572,7 +1628,7 @@ export default function Tasks() {
   const navigate = useNavigate();
 
   const { personal, sharedGroups, binned } = useMemo(() => {
-    const all = filterByScope(tasks ?? [], scope);
+    const all = filterByScope(tasks ?? [], scope, projectIndex);
     const split = partitionByBin(all, userId);
 
     const personalTasks = sortTasksByPriority(
@@ -1582,14 +1638,32 @@ export default function Tasks() {
       flags,
     );
 
-    const named: NamedGroup[] = groupSharedByConversation(split.kept).map((group) => ({
-      conversationId: group.conversationId,
-      // Filled in by the section, which is where conversation names live.
+    /*
+     * One branch per chat for 1-1 and Nhóm; one per project for Dự án, so work agreed in the
+     * parent group before the project had its own chat still sits under that project.
+     */
+    const branches = new Map<string, { scope: SharedScope; key: string; tasks: TaskItem[] }>();
+    for (const group of groupSharedByConversation(split.kept)) {
+      for (const task of group.tasks) {
+        const layer = scopeOfTask(task, projectIndex);
+        if (layer === "personal") continue;
+        const key = layer === "project" ? (projectOfTask(task, projectIndex)?.conversationId ?? group.conversationId) : group.conversationId;
+        const id = `${layer}:${key}`;
+        const branch = branches.get(id) ?? { scope: layer, key, tasks: [] };
+        branch.tasks.push(task);
+        branches.set(id, branch);
+      }
+    }
+
+    const named: NamedGroup[] = [...branches.values()].map((branch) => ({
+      conversationId: branch.key,
+      scope: branch.scope,
+      // Filled in below, which is where conversation and project names live.
       peerName: "",
       // Deadline order first, then whatever this person dragged into place on top of it.
-      tasks: applyManualOrder(sortTasksByPriority(group.tasks, today, userId, flags), sharedOrder),
-      tone: highestOpenPriority(group.tasks, today),
-      auto: group.tasks.some((task) => needsAttention(task, userId, today)),
+      tasks: applyManualOrder(sortTasksByPriority(branch.tasks, today, userId, flags), sharedOrder),
+      tone: highestOpenPriority(branch.tasks, today),
+      auto: branch.tasks.some((task) => needsAttention(task, userId, today)),
     }));
 
     return {
@@ -1597,12 +1671,12 @@ export default function Tasks() {
       sharedGroups: named,
       binned: sortTasksByPriority(split.binned, today, userId, flags),
     };
-  }, [tasks, userId, today, scope, sharedOrder, flags]);
+  }, [tasks, userId, today, scope, sharedOrder, flags, projectIndex]);
 
   /** Work that closed and named what it brought — the section between the lists and the bin. */
   const reports: TaskItem[] = useMemo(
-    () => reportTasks(filterByScope(tasks ?? [], scope), userId),
-    [tasks, userId, scope],
+    () => reportTasks(filterByScope(tasks ?? [], scope, projectIndex), userId),
+    [tasks, userId, scope, projectIndex],
   );
 
   const { order: viewOrder, isReady: isOrderReady, reorder: reorderViews } = useViewOrder();
@@ -1631,6 +1705,17 @@ export default function Tasks() {
     if (requestedView === null) setMode(defaultViewMode(viewOrder));
   }, [isOrderReady, viewOrder, requestedView]);
 
+  /** The layer chips in Theo đối tượng: pick one of the four, or all. Kept in the address like the dashboard link. */
+  const chooseScope = useCallback(
+    (next: TaskScope | null): void => {
+      const params = new URLSearchParams(searchParams);
+      if (next === null) params.delete(TASK_SCOPE_PARAM);
+      else params.set(TASK_SCOPE_PARAM, scopeSlug(next));
+      setSearchParams(params, { replace: true });
+    },
+    [searchParams, setSearchParams],
+  );
+
   const clearScope = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
     next.delete(TASK_SCOPE_PARAM);
@@ -1648,9 +1733,9 @@ export default function Tasks() {
 
   /** Everything still on the list, filtered by shelf — what the timeline and starred views read. */
   const visible = useMemo(() => {
-    const split = partitionByBin(filterByScope(tasks ?? [], scope), userId);
+    const split = partitionByBin(filterByScope(tasks ?? [], scope, projectIndex), userId);
     return filterByCategories(split.kept, categoryFilter);
-  }, [tasks, userId, categoryFilter, scope]);
+  }, [tasks, userId, categoryFilter, scope, projectIndex]);
 
   const titleFor = useCallback(
     (taskId: string): string | null => (tasks ?? []).find((task) => task.id === taskId)?.title ?? null,
@@ -1677,7 +1762,7 @@ export default function Tasks() {
    */
   const openFromCalendar = useCallback(
     (task: TaskItem): void => {
-      const target = contextTarget(task.contextSnapshot, task.conversationId);
+      const target = taskContextTarget(task, projectIndex);
       if (target !== null) {
         navigate(contextLink(target.conversationId, task.id));
         return;
@@ -1687,7 +1772,7 @@ export default function Tasks() {
       setSearchParams(next, { replace: true });
       setOpenTaskId(task.id);
     },
-    [navigate, setSearchParams],
+    [navigate, setSearchParams, projectIndex],
   );
 
   const { data: conversations } = useConversations();
@@ -1696,16 +1781,17 @@ export default function Tasks() {
     const rank: Record<TaskPriority, number> = { overdue: 0, due_soon: 1, routine: 2, none: 3 };
     return sharedGroups
       .map((group) => {
+        const project = group.scope === "project" ? projectIndex.byConversation.get(group.conversationId) : undefined;
         const conversation = options.find((item) => item.conversationId === group.conversationId);
         return {
           ...group,
-          // A group branch is named after the group; only a 1-1 is named after a person.
-          peerName: conversation ? conversationTitle(conversation) : "Cuộc trò chuyện",
+          // A project branch is named after the project, a group after the group, a 1-1 after the person.
+          peerName: project?.title ?? (conversation ? conversationTitle(conversation) : "Cuộc trò chuyện"),
         };
       })
       // Most pressing contact first; ties settle alphabetically so the order is stable.
       .sort((a, b) => rank[a.tone] - rank[b.tone] || a.peerName.localeCompare(b.peerName, "vi"));
-  }, [sharedGroups, conversations]);
+  }, [sharedGroups, conversations, projectIndex]);
 
   return (
     <div className="paper min-h-screen flex-1 md:h-screen md:overflow-y-auto">
@@ -1751,8 +1837,9 @@ export default function Tasks() {
         <div className="mt-5 space-y-3">
           <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} />
 
-          {/* Arrived from a dashboard block: say what is being left out, and offer the way back. */}
-          {scope !== null ? (
+          {/* Arrived from a dashboard block: say what is being left out, and offer the way back.
+              In Theo đối tượng the layer chips already say it. */}
+          {scope !== null && mode !== "relationship" ? (
             <div className="flex flex-wrap items-center gap-2 rounded-[10px] border border-border bg-card px-3 py-2">
               <span className="text-[13px] text-muted-foreground">Đang xem riêng</span>
               <span className="text-[13px] font-semibold text-foreground">{TASK_SCOPE_LABELS[scope]}</span>
@@ -1768,6 +1855,7 @@ export default function Tasks() {
           ) : null}
 
           <TaskViewTabs mode={mode} order={viewOrder} onChange={setMode} onReorder={reorderViews} />
+          {mode === "relationship" ? <ScopeChips value={scope} onChange={chooseScope} /> : null}
           <CategoryFilterBar
             categories={categories ?? []}
             selected={categoryFilter}
@@ -1805,8 +1893,15 @@ export default function Tasks() {
             ) : null}
             {mode === "relationship" ? (
               <>
-                <PersonalSection tasks={personal} today={today} onOpen={openTask} />
-                <SharedSection groups={namedGroups} today={today} onOpen={openTask} />
+                {/* Connect Hub order, always: Của tôi → 1-1 → Nhóm → Dự án. Empty shared layers stay out of the way. */}
+                {scope === null || scope === "personal" ? (
+                  <PersonalSection tasks={personal} today={today} onOpen={openTask} />
+                ) : null}
+                {SHARED_SCOPES.map((layer) => {
+                  const groups = namedGroups.filter((group) => group.scope === layer);
+                  if (groups.length === 0 && scope !== layer) return null;
+                  return <SharedSection key={layer} layer={layer} groups={groups} today={today} onOpen={openTask} />;
+                })}
               </>
             ) : null}
 

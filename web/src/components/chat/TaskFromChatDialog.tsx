@@ -6,6 +6,7 @@ import { AssigneePicker } from "@/components/chat/AssigneePicker";
 import { TimeField } from "@/components/tasks/TimeField";
 import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
 import { useAutoList } from "@/hooks/use-auto-list";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import type { ConversationKind } from "@/lib/chat";
@@ -107,11 +108,17 @@ export function TaskFromChatDialog({
   const takesOwnWork: boolean = user?.id !== undefined && assigneeIds.includes(user.id);
   const othersAsked: number = assigneeIds.filter((id) => id !== user?.id).length;
 
-  const isWorking = propose.isPending || addPersonal.isPending;
+  const { isSubmitting, guard } = useSubmitGuard();
+  const isWorking = isSubmitting || propose.isPending || addPersonal.isPending;
   const complete = isTaskDraftComplete(draft) && (isJournal || assigneeIds.length > 0);
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+  const onSubmit = (event: FormEvent<HTMLFormElement>): void => {
     event.preventDefault();
+    // One send at a time: a fast double click (or Enter twice) would otherwise raise every suggestion twice.
+    void guard(() => submitDraft());
+  };
+
+  const submitDraft = async (): Promise<void> => {
     const clean = validateTaskDraft({ ...draft, deadlineTime }, today);
     if (!clean.value) {
       toast.error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");

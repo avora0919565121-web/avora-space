@@ -4,7 +4,11 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import {
+  buildProjectIndex,
   filterByScope,
+  groupByScope,
+  projectOfTask,
+  taskContextTarget,
   openCountsByScope,
   parseTaskScope,
   parseTaskView,
@@ -115,7 +119,7 @@ describe("openCountsByScope", () => {
       ME,
     );
     // A claim awaiting review is still someone's responsibility, so it still counts.
-    expect(counts).toEqual({ personal: 1, direct: 2, group: 1 });
+    expect(counts).toEqual({ personal: 1, direct: 2, group: 1, project: 0 });
   });
 
   it("leaves out what this person has already binned", () => {
@@ -124,7 +128,7 @@ describe("openCountsByScope", () => {
   });
 
   it("counts nothing when there is nothing", () => {
-    expect(openCountsByScope([], ME)).toEqual({ personal: 0, direct: 0, group: 0 });
+    expect(openCountsByScope([], ME)).toEqual({ personal: 0, direct: 0, group: 0, project: 0 });
   });
 });
 
@@ -169,5 +173,70 @@ describe("parseTaskView", () => {
     expect(parseTaskView(undefined)).toBeNull();
     expect(parseTaskView("")).toBeNull();
     expect(parseTaskView("khong-ton-tai")).toBeNull();
+  });
+});
+
+describe("the four Connect Hub layers", () => {
+  // The project's own sub-group is "c-sub"; "c-parent" is the group it was opened from.
+  const index = buildProjectIndex(
+    [{ id: "pr1", conversationId: "c-sub", title: "HANA" }],
+    [{ taskId: "linked", projectId: "pr1" }, { taskId: "ghost", projectId: "pr-unseen" }],
+  );
+  const personal = makeTask({ id: "p", type: "personal" });
+  const direct = makeTask({ id: "d", type: "1-1-shared", conversationId: "c-1" });
+  const group = makeTask({ id: "g", type: "group-shared", conversationId: "c-parent" });
+  const inSub = makeTask({ id: "s", type: "group-shared", conversationId: "c-sub" });
+  const linked = makeTask({
+    id: "linked",
+    type: "group-shared",
+    conversationId: "c-parent",
+    contextSnapshot: {
+      conversationType: "group",
+      conversationId: "c-parent",
+      conversationName: "Nhóm",
+      originalMessageId: "m1",
+      originalMessageText: "",
+      originalMessageSenderName: "",
+      userResponse: "",
+      createdAt: "2026-09-20T00:00:00Z",
+    } as unknown as TaskItem["contextSnapshot"],
+  });
+  const ghost = makeTask({ id: "ghost", type: "group-shared", conversationId: "c-parent" });
+
+  it("puts a task in exactly one layer, from where it lives", () => {
+    expect(scopeOfTask(personal, index)).toBe("personal");
+    expect(scopeOfTask(direct, index)).toBe("direct");
+    expect(scopeOfTask(group, index)).toBe("group");
+    expect(scopeOfTask(inSub, index)).toBe("project");
+  });
+
+  it("counts work linked to a project as project work, even when agreed in the parent group", () => {
+    expect(scopeOfTask(linked, index)).toBe("project");
+    expect(projectOfTask(linked, index)?.title).toBe("HANA");
+  });
+
+  it("ignores a link to a project the viewer cannot see (deleted or not theirs)", () => {
+    expect(scopeOfTask(ghost, index)).toBe("group");
+  });
+
+  it("always orders Của tôi, 1-1, Nhóm, Dự án and drops empty layers", () => {
+    const layers = groupByScope([linked, group, personal, inSub], (task) => task, index);
+    expect(layers.map((layer) => layer.scope)).toEqual(["personal", "group", "project"]);
+    expect(layers[2].items.map((task) => task.id)).toEqual(["linked", "s"]);
+  });
+
+  it("opens project work in the project's sub-group, other work where it was agreed", () => {
+    expect(taskContextTarget(linked, index)).toEqual({ conversationId: "c-sub", messageId: null });
+    expect(taskContextTarget(group, index)).toEqual({ conversationId: "c-parent", messageId: null });
+    expect(taskContextTarget(personal, index)).toBeNull();
+  });
+
+  it("filters to the project layer through the address", () => {
+    expect(parseTaskScope("du-an")).toBe("project");
+    expect(scopeSlug("project")).toBe("du-an");
+    expect(filterByScope([personal, direct, linked, inSub], "project", index).map((task) => task.id)).toEqual([
+      "linked",
+      "s",
+    ]);
   });
 });

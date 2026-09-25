@@ -20,7 +20,9 @@ import {
 } from "@/lib/space-blocks";
 import { PULSE_LABELS, pulseSentence, spaceDateLabel, taskPulse } from "@/lib/space-summary";
 import { contextLink } from "@/lib/task-context";
+import { groupByScope, taskContextTarget, TASK_SCOPE_LABELS, type ProjectIndex } from "@/lib/task-scope";
 import { deadlineLabel, todayIso, type TaskItem } from "@/lib/tasks";
+import { useTaskProjectIndex } from "@/lib/use-projects";
 import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { useConversations } from "@/lib/use-conversations";
 import { useDailyThoughtCategory } from "@/lib/use-settings";
@@ -36,9 +38,13 @@ function greeting(hour: number): string {
   return "Chào buổi tối";
 }
 
-/** Where tapping a task goes: its conversation when it has one, else the task list. */
-function taskHref(task: TaskItem): string {
-  return task.conversationId === null ? "/nhiem-vu" : contextLink(task.conversationId, task.id);
+/**
+ * Where tapping a task goes: its chat when it has one (a project's own sub-group for project work),
+ * else the task list.
+ */
+function taskHref(task: TaskItem, index: ProjectIndex): string {
+  const target = taskContextTarget(task, index);
+  return target === null ? "/nhiem-vu" : contextLink(target.conversationId, task.id);
 }
 
 function clock(iso: string): string {
@@ -125,6 +131,12 @@ export default function Dashboard() {
   const unreadThreads = useMemo(() => conversationsWithUnread(conversations ?? []), [conversations]);
   const pulse = useMemo(() => taskPulse(tasks ?? [], userId, today), [tasks, userId, today]);
   const attention = useMemo(() => attentionItems(tasks ?? [], userId, today), [tasks, userId, today]);
+  const projectIndex = useTaskProjectIndex();
+  // The eight most pressing, then laid out in Connect Hub order (Của tôi → 1-1 → Nhóm → Dự án), urgency kept inside each.
+  const attentionLayers = useMemo(
+    () => groupByScope(attention.slice(0, 8), (item) => item.task, projectIndex),
+    [attention, projectIndex],
+  );
   const upcoming = useMemo(
     () => upcomingReminders(reminders ?? [], tasks ?? [], userId, opened),
     [reminders, tasks, userId, opened],
@@ -198,10 +210,15 @@ export default function Dashboard() {
                     <EmptyLine id={id} />
                   ) : (
                     <div className="overflow-hidden rounded-[12px] border border-border bg-card">
-                      {attention.slice(0, 8).map((item) => {
+                      {attentionLayers.map((layer) => (
+                        <div key={layer.scope} role="group" aria-label={TASK_SCOPE_LABELS[layer.scope]}>
+                          <p className="border-b border-border/70 bg-secondary/40 px-4 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                            {TASK_SCOPE_LABELS[layer.scope]}
+                          </p>
+                      {layer.items.map((item) => {
                         const meta = attentionMeta(item, today);
                         return (
-                          <Link key={item.task.id} to={taskHref(item.task)} className={rowClass}>
+                          <Link key={item.task.id} to={taskHref(item.task, projectIndex)} className={rowClass}>
                             <span
                               className={cn(
                                 "w-1 self-stretch rounded-full",
@@ -217,6 +234,8 @@ export default function Dashboard() {
                           </Link>
                         );
                       })}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
@@ -238,7 +257,7 @@ export default function Dashboard() {
             ) : (
               <div className="overflow-hidden rounded-[12px] border border-border bg-card">
                 {upcoming.slice(0, 6).map(({ reminder, task }) => (
-                  <Link key={reminder.id} to={taskHref(task)} className={rowClass}>
+                  <Link key={reminder.id} to={taskHref(task, projectIndex)} className={rowClass}>
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-[14.5px] font-medium text-foreground">{task.title}</span>
                       <span className="block text-[12px] text-muted-foreground">{reminderWhen(reminder.at, today)}</span>

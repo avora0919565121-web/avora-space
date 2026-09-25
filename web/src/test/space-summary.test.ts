@@ -105,7 +105,7 @@ describe("three numbers that divide the same pile", () => {
     const pulse = taskPulse(mixed, ME, TODAY);
     const scopes = openCountsByScope(mixed, ME);
     expect(pulse.total).toBe(countOpenTasks(mixed, ME));
-    expect(pulse.total).toBe(scopes.personal + scopes.direct + scopes.group);
+    expect(pulse.total).toBe(scopes.personal + scopes.direct + scopes.group + scopes.project);
   });
 
   it("leaves out finished work and what this person has binned", () => {

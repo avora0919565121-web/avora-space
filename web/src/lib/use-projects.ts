@@ -37,6 +37,7 @@ import {
   type ProjectTaskInput,
   type ProjectTaskLink,
 } from "@/lib/projects";
+import { buildProjectIndex, type ProjectIndex } from "@/lib/task-scope";
 import { taskKeys } from "@/lib/tasks";
 import { thinkHubKeys } from "@/lib/think-hub";
 
@@ -85,6 +86,16 @@ export function useTaskProjectLinks(): ReadonlyMap<string, ProjectTaskLink> {
     for (const link of query.data ?? []) map.set(link.taskId, link);
     return map;
   }, [query.data]);
+}
+
+/**
+ * Which tasks and chats belong to a live project, for splitting work into the four Connect Hub
+ * layers. Deleted projects are already hidden by the database, so their work falls back to its chat.
+ */
+export function useTaskProjectIndex(): ProjectIndex {
+  const { data: projects } = useProjects();
+  const links = useTaskProjectLinks();
+  return useMemo(() => buildProjectIndex(projects ?? [], [...links.values()]), [projects, links]);
 }
 
 /** The private Check-Adjust record (opener only). */

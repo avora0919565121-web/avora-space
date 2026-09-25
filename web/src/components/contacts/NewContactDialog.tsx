@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { BusinessFields, IndividualFields } from "@/components/contacts/ContactForms";
 import { Button } from "@/components/ui/button";
+import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   businessDraftProblem,
@@ -38,7 +39,8 @@ export function NewContactDialog({ open, onOpenChange, onCreated }: NewContactDi
   const [business, setBusiness] = useState<BusinessDraft>(EMPTY_BUSINESS_DRAFT);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const { addIndividual, addBusiness, isWorking } = useContactActions();
+  const { addIndividual, addBusiness } = useContactActions();
+  const { isSubmitting, guard } = useSubmitGuard();
 
   useEffect(() => {
     if (open) return;
@@ -48,7 +50,7 @@ export function NewContactDialog({ open, onOpenChange, onCreated }: NewContactDi
     setNotice(null);
   }, [open]);
 
-  const submit = useCallback(async (): Promise<void> => {
+  const save = useCallback(async (): Promise<void> => {
     setNotice(null);
     // The server validates independently; this only spares a round trip.
     const problem =
@@ -67,6 +69,10 @@ export function NewContactDialog({ open, onOpenChange, onCreated }: NewContactDi
       setNotice((error as Error).message);
     }
   }, [chosen, individual, business, addIndividual, addBusiness, onOpenChange, onCreated]);
+
+  const submit = useCallback((): void => {
+    void guard(save);
+  }, [guard, save]);
 
   const canSubmit =
     chosen === "individual" ? canSubmitIndividual(individual) : canSubmitBusiness(business);
@@ -151,10 +157,10 @@ export function NewContactDialog({ open, onOpenChange, onCreated }: NewContactDi
                 </Button>
                 <Button
                   className="press h-10 px-5"
-                  disabled={!canSubmit || isWorking}
-                  onClick={() => void submit()}
+                  disabled={!canSubmit || isSubmitting}
+                  onClick={submit}
                 >
-                  {isWorking ? "Đang lưu…" : "Lưu liên hệ"}
+                  {isSubmitting ? "Đang lưu…" : "Lưu liên hệ"}
                 </Button>
               </div>
             </div>
