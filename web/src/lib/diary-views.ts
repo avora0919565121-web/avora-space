@@ -13,6 +13,28 @@ export const DIARY_VIEWS: readonly { id: DiaryView; label: string }[] = [
   { id: "sources", label: "Nguồn tạo việc" },
 ];
 
+/** The address-bar key naming which Diary view is open (`?xem=`). */
+export const DIARY_VIEW_PARAM = "xem";
+
+const VIEW_SLUGS: Readonly<Record<DiaryView, string>> = { journal: "nhat-ky", files: "file", sources: "nguon" };
+
+/** The slug a Diary view is written as in the address bar. */
+export function diaryViewSlug(view: DiaryView): string {
+  return VIEW_SLUGS[view];
+}
+
+/**
+ * The Diary view an address names, or `null` when it names none.
+ *
+ * `null` matters on a phone: it means the reader is on the three-row Diary list and has not
+ * opened any view yet. A computer shows the list and the journal side by side either way.
+ */
+export function diaryViewFromSlug(slug: string | null): DiaryView | null {
+  if (slug === null) return null;
+  const found = (Object.keys(VIEW_SLUGS) as DiaryView[]).find((view) => VIEW_SLUGS[view] === slug);
+  return found ?? null;
+}
+
 /**
  * A note that is only a photo or a file, with no words of its own.
  *
@@ -92,6 +114,11 @@ export function diaryFileNotes(
   return [...byNote.values()].sort((a, b) =>
     a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0,
   );
+}
+
+/** How many entries File của bạn lists: one per note holding a photo or file (voice notes stay out). */
+export function countDiaryFileNotes(attachments: readonly MessageAttachment[]): number {
+  return new Set<string>(attachments.filter((item) => item.kind !== "voice").map((item) => item.messageId)).size;
 }
 
 export function diaryFileSourceLabel(source: DiaryFileSource): string {

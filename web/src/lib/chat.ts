@@ -48,6 +48,7 @@ export {
   isProjectTab,
   quotePreview,
   RECALLED_MESSAGE_NOTE,
+  tabForOpenedThread,
   tabOfKind,
   THREAD_BOTTOM_TOLERANCE_PX,
   threadScrollDecision,

@@ -3,21 +3,19 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
-import { rootTables } from "@/lib/think-hub";
+import { rootTables, type ThinkTable } from "@/lib/think-hub";
 import { useThinkTables } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
 
 /**
- * The 📊 Bảng strip above the journal and 1-1 threads.
- *
- * Shows only the tables that belong here: in the journal, the viewer's personal tables; in a
- * 1-1, the tables shared with that one person. "Bảng mới" opens Kế hoạch with this place
- * already chosen, so a table made from a thread lands in that thread's scope.
+ * The root tables belonging to one place: the viewer's personal tables when `conversationId` is
+ * null (the journal), otherwise the tables of that conversation. Project tables live with their
+ * project and never show here.
  */
-export function TableStrip({ conversationId }: { conversationId: string | null }) {
+export function useTablesHere(conversationId: string | null): ThinkTable[] {
   const { user } = useAuth();
   const { data } = useThinkTables();
-  const tables = useMemo(
+  return useMemo(
     () =>
       rootTables(data ?? []).filter((table) =>
         table.projectId !== null
@@ -28,8 +26,24 @@ export function TableStrip({ conversationId }: { conversationId: string | null }
       ),
     [data, conversationId, user?.id],
   );
+}
+
+/** Kế hoạch's "new table" form, with this place already chosen. */
+export function newTableLink(conversationId: string | null): string {
+  return conversationId === null ? "/ke-hoach?moi=1" : `/ke-hoach?moi=1&noi=${encodeURIComponent(conversationId)}`;
+}
+
+/**
+ * The 📊 Bảng strip above the journal and 1-1 threads.
+ *
+ * Shows only the tables that belong here: in the journal, the viewer's personal tables; in a
+ * 1-1, the tables shared with that one person. "Bảng mới" opens Kế hoạch with this place
+ * already chosen, so a table made from a thread lands in that thread's scope.
+ */
+export function TableStrip({ conversationId }: { conversationId: string | null }) {
+  const tables = useTablesHere(conversationId);
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const newLink = conversationId === null ? "/ke-hoach?moi=1" : `/ke-hoach?moi=1&noi=${encodeURIComponent(conversationId)}`;
+  const newLink = newTableLink(conversationId);
 
   return (
     <section aria-label="Bảng ở đây" className="border-b border-border bg-primary/[0.04] px-5 py-2 md:px-10">

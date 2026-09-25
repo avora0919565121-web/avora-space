@@ -76,6 +76,25 @@ export function tabOfKind(kind: ConversationKind): MessageTab {
 }
 
 /**
+ * Which tab to turn to because a thread has just come on screen, or `null` to leave the tab alone.
+ *
+ * Only a newly opened thread moves the tab (a link, "Nhắn riêng", a step back from another
+ * screen). A thread that was already on screen never does: when the reader taps another tab the
+ * router still reports the old thread for one render, and re-syncing then would undo the tap —
+ * the "press twice to switch" bug. Dự án keeps its own list with the thread open beside it.
+ */
+export function tabForOpenedThread(
+  opened: { conversationId: string; kind: ConversationKind } | null,
+  lastSyncedId: string | null,
+  activeTab: MessageTab,
+): MessageTab | null {
+  if (opened === null || opened.conversationId === lastSyncedId) return null;
+  if (activeTab === "projects") return null;
+  const tab = tabOfKind(opened.kind);
+  return tab === activeTab ? null : tab;
+}
+
+/**
  * What to call a thread in the list and in its header. A group carries its own name, a journal
  * is addressed to the viewer, and a 1-1 is named after the other person.
  */

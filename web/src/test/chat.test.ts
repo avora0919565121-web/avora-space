@@ -17,6 +17,7 @@ import {
   matchesConversationQuery,
   mergeIncomingMessage,
   MESSAGE_TABS,
+  tabForOpenedThread,
   tabOfKind,
   THREAD_BOTTOM_TOLERANCE_PX,
   threadScrollDecision,
@@ -347,6 +348,23 @@ describe("message tabs", () => {
     expect(tabOfKind("personal")).toBe("journal");
     expect(tabOfKind("direct")).toBe("direct");
     expect(tabOfKind("group")).toBe("group");
+  });
+
+  it("moves the tab only for a newly opened thread, never undoing a tab the reader just tapped (AVORA 32)", () => {
+    const journal = { conversationId: "j1", kind: "personal" as const };
+    const dm = { conversationId: "d1", kind: "direct" as const };
+    // Arriving by link / "Nhắn riêng": the tab follows the thread.
+    expect(tabForOpenedThread(dm, null, "group")).toBe("direct");
+    expect(tabForOpenedThread(journal, "d1", "direct")).toBe("journal");
+    // The reader tapped another tab while the router still reports the same thread: leave it.
+    for (const tab of ["direct", "group", "journal", "email"] as const) {
+      expect(tabForOpenedThread(journal, "j1", tab)).toBeNull();
+      expect(tabForOpenedThread(dm, "d1", tab)).toBeNull();
+    }
+    // Dự án keeps its list beside an open thread; already-matching tabs need no change.
+    expect(tabForOpenedThread(dm, null, "projects")).toBeNull();
+    expect(tabForOpenedThread(dm, null, "direct")).toBeNull();
+    expect(tabForOpenedThread(null, null, "direct")).toBeNull();
   });
 
   it("never leaks a thread into a tab it does not belong to", () => {

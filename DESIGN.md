@@ -1557,6 +1557,16 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   that person, otherwise it points to Liên hệ. Group/project: "Lên lịch cuộc gọi" — date, time, an
   auto-made Jitsi room (replaceable), a preview, then one ordinary message posted into that chat. No data
   model, nothing dialled or scheduled by AVORA; http links in messages are now tappable.
+- 2026-09-25 — Kết nối tab switching (AVORA 32). The "thread decides the tab" sync now runs only when a
+  thread newly comes on screen (link, "Nhắn riêng", a step back), never on the render right after a tab tap
+  while the router still reports the old thread — one tap always switches, from any open thread.
+- 2026-09-25 — Nhật ký + chat header (AVORA 32). The Nhật ký tab is a three-row list (Nhật ký của bạn /
+  File của bạn (n) / Nguồn tạo việc (n)) plus the paste button, in the list column; the reading sits in the
+  pane (`?xem=nhat-ky|file|nguon`). Computer: list and reading side by side. Phone: the list is its own
+  screen, a row steps in, the header's back returns to it. The horizontal Diary tab strip is gone; the journal
+  keeps its 📊 Bảng strip. 1-1/group: ⓘ became "…" labelled "Thêm"; the panel now opens with Bảng, Dự án
+  (group) and Sổ quyết định (group) above the roster, and the Bảng/Dự án strips and the separate Sổ quyết
+  định icon left the thread. Header keeps Tìm kiếm, Gọi/Lên lịch, Nhiệm vụ nhóm.
 
 ## Out of scope
 

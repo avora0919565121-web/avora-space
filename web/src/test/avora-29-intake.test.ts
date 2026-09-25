@@ -246,3 +246,16 @@ describe("A3 — Nhật ký của bạn and File của bạn", () => {
     expect(DIARY_VIEWS.map((view) => view.label)).toEqual(["Nhật ký của bạn", "File của bạn", "Nguồn tạo việc"]);
   });
 });
+
+describe("Diary list addresses (AVORA 32)", () => {
+  it("reads and writes each view as a slug; no slug means the Diary list on a phone", async () => {
+    const { diaryViewFromSlug, diaryViewSlug, countDiaryFileNotes } = await import("@/lib/diary-views");
+    for (const view of ["journal", "files", "sources"] as const) {
+      expect(diaryViewFromSlug(diaryViewSlug(view))).toBe(view);
+    }
+    expect(diaryViewFromSlug(null)).toBeNull();
+    expect(diaryViewFromSlug("khac")).toBeNull();
+    const at = (messageId: string, kind: string) => ({ messageId, kind }) as never;
+    expect(countDiaryFileNotes([at("m1", "image"), at("m1", "file"), at("m2", "voice"), at("m3", "file")])).toBe(2);
+  });
+});

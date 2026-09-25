@@ -1,19 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
-  BookLock,
   Check,
   CalendarClock,
   CheckCheck,
+  ClipboardPaste,
   CircleAlert,
   ChevronLeft,
   FolderKanban,
   Hand,
-  Info,
   ListPlus,
   ListTodo,
   Mail,
   MessageSquarePlus,
+  MoreHorizontal,
   NotebookPen,
   Search,
   SquarePen,
@@ -36,7 +36,7 @@ function PlaceholderComingSoon({ id }: { id: MessageTab }) {
   );
 }
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -64,7 +64,6 @@ import { MessageTaskDot } from "@/components/chat/MessageTaskDot";
 import { PinChoiceDialog, PinnedStrip } from "@/components/chat/PinnedStrip";
 import { NewProjectDialog } from "@/components/projects/NewProjectDialog";
 import { ProjectList } from "@/components/projects/ProjectList";
-import { ProjectStrip } from "@/components/projects/ProjectStrip";
 import { TableStrip } from "@/components/projects/TableStrip";
 import { ThreadSearch } from "@/components/chat/ThreadSearch";
 import {
@@ -73,18 +72,31 @@ import {
   splitMentions,
 } from "@/lib/mentions";
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
-import { DiaryFilesView, DiarySourcesView, DiaryViewTabs } from "@/components/chat/DiaryViews";
+import { DiaryFilesView, DiaryHeaderIcon, DiaryList, DiarySourcesView } from "@/components/chat/DiaryViews";
+import { ConversationMoreSections } from "@/components/chat/ConversationMoreSections";
 import { PasteTaskDialog } from "@/components/chat/PasteTaskDialog";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
-import { diaryFileNotes, journalTimeline, type DiaryView } from "@/lib/diary-views";
+import {
+  DIARY_VIEW_PARAM,
+  DIARY_VIEWS,
+  countDiaryFileNotes,
+  diaryFileNotes,
+  diaryViewFromSlug,
+  diaryViewSlug,
+  journalTimeline,
+  type DiaryView,
+} from "@/lib/diary-views";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { pasteSourceTasks, readClipboard, type PastedContent } from "@/lib/paste-intake";
 import {
   attachmentKeys,
+  fetchThreadAttachments,
   sendMessageWithAttachments,
   stageAttachment,
   uploadStagedAttachment,
   MAX_ATTACHMENTS_PER_MESSAGE,
   type AttachmentPermission,
+  type MessageAttachment,
   type StagedAttachment,
 } from "@/lib/attachments";
 import { useThreadAttachments } from "@/lib/use-attachments";
@@ -104,6 +116,7 @@ import {
   clearUnread,
   conversationSubtitle,
   conversationTitle,
+  JOURNAL_TITLE,
   editMessage,
   ensureJournalConversation,
   fetchConversationPeer,
@@ -129,7 +142,7 @@ import {
   quotePreview,
   recallMessage,
   sendMessage,
-  tabOfKind,
+  tabForOpenedThread,
   threadScrollDecision,
   unreadForTab,
   failedSendIdOf,
@@ -346,8 +359,6 @@ const Messages = () => {
   const peerEmail: string | null = activeSummary?.peerEmail ?? peerQuery.data?.peerEmail ?? null;
 
   const activeKind: ConversationKind = activeSummary?.kind ?? "direct";
-  /** The journal is on screen: on a phone it sits under the tab strip instead of replacing it. */
-  const isJournalOpen: boolean = conversationId !== undefined && activeKind === "personal";
   const threadTitle: string = activeSummary ? conversationTitle(activeSummary) : peerName;
   const threadSubtitle: string = activeSummary
     ? conversationSubtitle(activeSummary)
@@ -611,11 +622,45 @@ const Messages = () => {
    * Diary reads three ways: the written timeline, its files, and the tasks made from pasted
    * content. All three are the same journal — nothing moves between them.
    */
-  const [diaryView, setDiaryView] = useState<DiaryView>("journal");
+  // Which reading is open lives in the address (`?xem=`), so a phone's back step returns to the
+  // three-row Diary list and a reload stays on the same view. No slug reads as the journal.
+  const isWide: boolean = useMediaQuery("(min-width: 768px)");
+  const diaryViewLabel: string = DIARY_VIEWS.find((view) => view.id === diaryView)?.label ?? "Nhật ký của bạn";
+  const diaryParam: DiaryView | null = diaryViewFromSlug(searchParams.get(DIARY_VIEW_PARAM));
+  const diaryView: DiaryView = diaryParam ?? "journal";
+  /**
+   * Phone: the journal is open but no reading has been chosen, so the three-row Diary list is the
+   * screen. "Xem trong ngữ cảnh" names a task instead and goes straight to the written timeline.
+   */
+  const isDiaryListScreen: boolean =
+    activeKind === "personal" && conversationId !== undefined && diaryParam === null && highlightTaskId === null && !isWide;
+  const location = useLocation();
+  const leaveDiaryView = useCallback((): void => {
+    if (conversationId === undefined) return;
+    const state = location.state as { fromDiaryList?: boolean } | null;
+    if (state?.fromDiaryList === true) navigate(-1);
+    else navigate(`/tin-nhan/${conversationId}`, { replace: true });
+  }, [conversationId, location.state, navigate]);
+  const openDiaryView = useCallback(
+    (view: DiaryView): void => {
+      if (conversationId === undefined) return;
+      navigate(`/tin-nhan/${conversationId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view)}`, { replace: true });
+    },
+    [conversationId, navigate],
+  );
   const isDiaryAside: boolean = activeKind === "personal" && diaryView !== "journal";
-  const pasteTasks = useMemo(
-    () => (activeKind === "personal" ? pasteSourceTasks(allTasks ?? [], userId) : []),
-    [activeKind, allTasks, userId],
+  const pasteTasks = useMemo(() => pasteSourceTasks(allTasks ?? [], userId), [allTasks, userId]);
+  // The Diary list shows its counts before the journal is opened, so the journal's files are read
+  // on their own (same cache key as the open thread, no signed links needed just to count).
+  const journalAttachmentsQuery = useQuery<MessageAttachment[], Error>({
+    queryKey: attachmentKeys.thread(journalSummary?.conversationId ?? ""),
+    queryFn: () => fetchThreadAttachments(journalSummary?.conversationId as string),
+    enabled: activeTab === "journal" && journalSummary !== undefined,
+    staleTime: 30_000,
+  });
+  const diaryFileCount: number = useMemo(
+    () => countDiaryFileNotes(journalAttachmentsQuery.data ?? []),
+    [journalAttachmentsQuery.data],
   );
   const pastedNoteIds = useMemo(
     () =>
@@ -656,10 +701,6 @@ const Messages = () => {
     setIsPasteOpen(true);
   }, []);
 
-  // A new thread, or arriving from "Xem trong ngữ cảnh", starts on the written timeline.
-  useEffect(() => {
-    setDiaryView("journal");
-  }, [conversationId, highlightTaskId]);
 
   const recorder = useVoiceRecorder();
 
@@ -771,6 +812,16 @@ const Messages = () => {
     if (!node) return;
     node.scrollTo({ top: node.scrollHeight, behavior });
   }, []);
+
+  // The thread remounts when the journal view comes back, so it opens at its newest note again.
+  const previousDiaryViewRef = useRef<DiaryView>(diaryView);
+  useEffect(() => {
+    const previous = previousDiaryViewRef.current;
+    previousDiaryViewRef.current = diaryView;
+    if (previous !== "journal" && diaryView === "journal") {
+      window.requestAnimationFrame(() => scrollThreadToBottom("auto"));
+    }
+  }, [diaryView, scrollThreadToBottom]);
 
   const handleThreadScroll = useCallback((): void => {
     const node = threadScrollRef.current;
@@ -1324,7 +1375,9 @@ const Messages = () => {
       // URL alone rather than navigating away from what the reader was looking at.
       if (isProjectTab(tab)) return;
 
-      if (tab !== "journal") {
+      // A phone rests on the three-row Diary list, which lives at the bare inbox address so the
+      // tool-belt stays; a computer opens the journal beside that list at once.
+      if (tab !== "journal" || !isWide) {
         navigate("/tin-nhan");
         return;
       }
@@ -1339,7 +1392,7 @@ const Messages = () => {
       // First visit on this account: the journal is created on demand.
       journalMutation.mutate();
     },
-    [conversations, navigate, journalMutation, conversationId],
+    [conversations, navigate, journalMutation, conversationId, isWide],
   );
 
   /**
@@ -1347,19 +1400,38 @@ const Messages = () => {
    * back, a reload) opens the journal itself, in place of the list entry.
    */
   useEffect(() => {
+    if (!isWide) {
+      if (activeTab === "journal" && journalSummary === undefined && conversationsQuery.isSuccess && !journalMutation.isPending) {
+        // First visit on a phone: the journal is created quietly so the Diary rows can open it.
+        journalMutation.mutate();
+      }
+      return;
+    }
     if (conversationId !== undefined || activeTab !== "journal" || journalSummary === undefined) return;
     navigate(`/tin-nhan/${journalSummary.conversationId}`, { replace: true });
-  }, [conversationId, activeTab, journalSummary, navigate]);
+    // journalMutation is a fresh object each render; its pending flag is the part that matters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationId, activeTab, journalSummary, navigate, isWide, conversationsQuery.isSuccess, journalMutation.isPending]);
 
   // Opening a thread by link (or the "Nhắn riêng" jump out of a group) must land on the tab
-  // that thread actually belongs to, or the list beside it would contradict the header.
+  // that thread actually belongs to, or the list beside it would contradict the header. Keyed on
+  // the thread, not the tab: a tab the reader just tapped is never overwritten by the thread the
+  // router still reports for one more render.
+  const syncedThreadRef = useRef<string | null>(null);
   useEffect(() => {
+    if (conversationId === undefined) {
+      syncedThreadRef.current = null;
+      return;
+    }
     if (!activeSummary) return;
-    // A reader who switched to Dự án is not sent back to the thread's own tab: the project
-    // list is what they asked for, and the thread stays open beside it.
-    if (isProjectTab(activeTab)) return;
-    setActiveTab(tabOfKind(activeSummary.kind));
-  }, [activeSummary, activeTab]);
+    const tab = tabForOpenedThread(
+      { conversationId: activeSummary.conversationId, kind: activeSummary.kind },
+      syncedThreadRef.current,
+      activeTab,
+    );
+    syncedThreadRef.current = activeSummary.conversationId;
+    if (tab !== null) setActiveTab(tab);
+  }, [conversationId, activeSummary, activeTab]);
 
   /** Arriving back from a project detail screen lands on the tab that listed it. */
   useEffect(() => {
@@ -1373,12 +1445,7 @@ const Messages = () => {
         style={listColumn.isDesktop ? { width: listColumn.width } : undefined}
         className={cn(
           "relative flex min-h-0 w-full flex-col border-border bg-card md:w-[360px] md:shrink-0 md:border-r",
-          isJournalOpen
-            ? // Phone: only the title and tab strip stay, and the journal fills the space below.
-              "flex shrink-0 md:shrink"
-            : conversationId && !isPlaceholder && !isProjects
-              ? "hidden md:flex"
-              : "flex",
+          conversationId && !isPlaceholder && !isProjects && !isDiaryListScreen ? "hidden md:flex" : "flex",
         )}
         aria-label="Danh sách cuộc trò chuyện"
       >
@@ -1507,8 +1574,19 @@ const Messages = () => {
               />
             )}
           </div>
+        ) : activeTab === "journal" ? (
+          <div className="min-h-0 flex-1 overflow-y-auto">
+            <DiaryList
+              journalId={journalSummary?.conversationId ?? null}
+              active={activeKind === "personal" ? diaryView : null}
+              counts={{ journal: null, files: diaryFileCount, sources: pasteTasks.length }}
+              isWide={isWide}
+              onPaste={() => void startPaste()}
+              isPasting={isReadingClipboard}
+            />
+          </div>
         ) : (
-        <div className={cn("min-h-0 flex-1 overflow-y-auto px-3 pb-6", isJournalOpen && "hidden md:block")}>
+        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
           {conversationsQuery.isPending ? (
             <ul className="space-y-1 px-3 pt-1" aria-hidden="true">
               {[0, 1, 2, 3].map((row) => (
@@ -1539,9 +1617,7 @@ const Messages = () => {
                   ? "Không có kết quả phù hợp."
                   : activeTab === "group"
                     ? "Chưa có nhóm nào. Tạo nhóm để trò chuyện cùng nhiều người."
-                    : activeTab === "journal"
-                      ? "Đang mở nhật ký của bạn…"
-                      : "Chưa có cuộc trò chuyện nào. Bắt đầu bằng email của một người dùng AVORA."}
+                    : "Chưa có cuộc trò chuyện nào. Bắt đầu bằng email của một người dùng AVORA."}
               </p>
               {tabConversations.length === 0 && activeTab === "group" ? (
                 <button
@@ -1650,7 +1726,7 @@ const Messages = () => {
       <section
         className={cn(
           "paper min-h-0 min-w-0 flex-1 flex-col",
-          conversationId && !isPlaceholder && !isProjects ? "flex" : "hidden md:flex",
+          conversationId && !isPlaceholder && !isProjects && !isDiaryListScreen ? "flex" : "hidden md:flex",
         )}
       >
         {isPlaceholder ? (
@@ -1687,8 +1763,17 @@ const Messages = () => {
           ) : (
             <>
               <header className="flex items-center gap-3 border-b border-border bg-card px-5 py-3.5 md:pr-[4.25rem]">
-                {/* The journal opens under the tab strip itself, so there is no list to go back to. */}
-                {activeKind === "personal" ? null : (
+                {/* Phone: a Diary reading steps back to the three-row Diary list. */}
+                {activeKind === "personal" ? (
+                  <button
+                    type="button"
+                    aria-label="Về Nhật ký"
+                    onClick={leaveDiaryView}
+                    className="press rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
+                  >
+                    <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
+                  </button>
+                ) : (
                   <button
                     type="button"
                     aria-label="Quay lại Kết nối"
@@ -1700,7 +1785,7 @@ const Messages = () => {
                 )}
                 {activeKind === "personal" ? (
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
-                    <NotebookPen className="h-[17px] w-[17px]" strokeWidth={1.7} aria-hidden="true" />
+                    <DiaryHeaderIcon view={diaryView} />
                   </span>
                 ) : (
                   <span className="relative shrink-0">
@@ -1724,7 +1809,7 @@ const Messages = () => {
                     {activeKind === "group" ? (
                       <Users className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
                     ) : null}
-                    {threadTitle}
+                    {activeKind === "personal" ? diaryViewLabel : threadTitle}
                   </p>
                   {/* Typing takes the subtitle's place while it lasts: two lines of status
                       under one name is more than the header can carry. */}
@@ -1734,7 +1819,13 @@ const Messages = () => {
                     </p>
                   ) : (
                     <p className="truncate text-[13px] text-muted-foreground">
-                      {isPeerOnline ? "Đang trực tuyến" : threadSubtitle}
+                      {isPeerOnline
+                        ? "Đang trực tuyến"
+                        : activeKind === "personal" && diaryView === "files"
+                          ? `${diaryFiles.length} mục · chỉ mình bạn xem`
+                          : activeKind === "personal" && diaryView === "sources"
+                            ? `${pasteTasks.length} việc tạo từ nội dung dán`
+                            : threadSubtitle}
                     </p>
                   )}
                 </div>
@@ -1750,19 +1841,23 @@ const Messages = () => {
                       >
                         <ListTodo className="h-[19px] w-[19px]" strokeWidth={1.6} />
                       </button>
-                      <button
-                        type="button"
-                        aria-label="Sổ quyết định"
-                        title="Sổ quyết định"
-                        onClick={() => setIsDecisionsOpen(true)}
-                        className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
-                      >
-                        <BookLock className="h-[19px] w-[19px]" strokeWidth={1.6} />
-                      </button>
                     </>
                   ) : null}
                   {/* Searching a thread is useful in a journal too — that is where people
                       keep the things they most often come back looking for. */}
+                  {activeKind === "personal" && diaryView === "sources" ? (
+                    <button
+                      type="button"
+                      aria-label="Tạo việc từ nội dung vừa copy"
+                      title="Tạo việc từ nội dung vừa copy"
+                      onClick={() => void startPaste()}
+                      disabled={isReadingClipboard}
+                      className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground disabled:opacity-50"
+                    >
+                      <ClipboardPaste className="h-[19px] w-[19px]" strokeWidth={1.6} />
+                    </button>
+                  ) : null}
+                  {activeKind === "personal" && diaryView !== "journal" ? null : (
                   <button
                     type="button"
                     aria-label="Tìm trong cuộc trò chuyện này"
@@ -1776,6 +1871,7 @@ const Messages = () => {
                   >
                     <Search className="h-[19px] w-[19px]" strokeWidth={1.6} />
                   </button>
+                  )}
                   {activeKind === "personal" ? null : (
                   <>
                   {activeKind === "direct" ? (
@@ -1794,11 +1890,12 @@ const Messages = () => {
                   )}
                   <button
                     type="button"
-                    aria-label="Thông tin cuộc trò chuyện"
+                    aria-label="Thêm"
+                    title="Thêm"
                     onClick={() => setIsInfoOpen(true)}
                     className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
-                    <Info className="h-[19px] w-[19px]" strokeWidth={1.6} />
+                    <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={1.6} />
                   </button>
                   </>
                   )}
@@ -1845,36 +1942,10 @@ const Messages = () => {
                   </div>
                 </div>
               ) : null}
-              {activeKind === "group" && projectHere === undefined ? (
-                <ProjectStrip
-                  projects={threadProjects}
-                  canCreate={activeSummary !== undefined}
-                  canCreateReason={
-                    myGroupRole === "owner" || myGroupRole === "admin"
-                      ? null
-                      : "Chỉ Owner/Admin được mở dự án."
-                  }
-                  onNewProject={() => {
-                    if (activeSummary !== undefined) setProjectTarget(activeSummary);
-                  }}
-                />
-              ) : activeKind !== "group" && activeSummary !== undefined ? (
-                <TableStrip conversationId={activeKind === "direct" ? activeSummary.conversationId : null} />
-              ) : null}
+              {/* 1-1 and group keep their tables, projects and Sổ quyết định under "Thêm"; only the
+                  journal keeps its 📊 Bảng strip in place. */}
+              {activeKind === "personal" ? <TableStrip conversationId={null} /> : null}
 
-              {activeKind === "personal" ? (
-                <DiaryViewTabs
-                  active={diaryView}
-                  onChange={(next) => {
-                    setDiaryView(next);
-                    // The thread remounts on the way back, so it opens at its newest note again.
-                    if (next === "journal") window.requestAnimationFrame(() => scrollThreadToBottom("auto"));
-                  }}
-                  counts={{ journal: null, files: diaryFiles.length, sources: pasteTasks.length }}
-                  onPaste={() => void startPaste()}
-                  isPasting={isReadingClipboard}
-                />
-              ) : null}
 
               {!isLive ? (
                 <p
@@ -1913,7 +1984,7 @@ const Messages = () => {
                       urlOf={attachmentUrlOf}
                       isLoading={isAttachmentsLoading}
                       onOpenNote={(messageId) => {
-                        setDiaryView("journal");
+                        openDiaryView("journal");
                         window.setTimeout(() => jumpToMessage(messageId), 120);
                       }}
                     />
@@ -2684,12 +2755,13 @@ const Messages = () => {
         }}
       />
 
-      {conversationId && activeKind === "personal" ? (
+      {/* Also from the phone's Diary list, where no thread is open yet. */}
+      {journalSummary !== undefined ? (
         <PasteTaskDialog
           open={isPasteOpen}
           onOpenChange={setIsPasteOpen}
-          journalId={conversationId}
-          journalName={threadTitle}
+          journalId={journalSummary.conversationId}
+          journalName={JOURNAL_TITLE}
           initialPaste={initialPaste}
         />
       ) : null}
@@ -2789,6 +2861,28 @@ const Messages = () => {
           }
           onOpenConversation={openConversation}
           onLeft={() => navigate("/tin-nhan")}
+          moreSections={
+            activeSummary !== undefined && (activeKind === "direct" || activeKind === "group") ? (
+              <ConversationMoreSections
+                conversationId={conversationId}
+                kind={activeKind}
+                projects={threadProjects}
+                showProjects={projectHere === undefined}
+                canCreateProjectReason={
+                  myGroupRole === "owner" || myGroupRole === "admin" ? null : "Chỉ Owner/Admin được mở dự án."
+                }
+                onNewProject={() => {
+                  setIsInfoOpen(false);
+                  setProjectTarget(activeSummary);
+                }}
+                onOpenDecisions={() => {
+                  setIsInfoOpen(false);
+                  setIsDecisionsOpen(true);
+                }}
+                onNavigate={() => setIsInfoOpen(false)}
+              />
+            ) : null
+          }
         />
       ) : null}
     </div>

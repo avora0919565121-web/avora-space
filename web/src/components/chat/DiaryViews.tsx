@@ -1,78 +1,125 @@
-import { ClipboardPaste, FileText, Loader2, Paperclip } from "lucide-react";
+import { ChevronRight, ClipboardPaste, FileText, Loader2, NotebookPen, Paperclip, type LucideIcon } from "lucide-react";
+import { Link } from "react-router-dom";
 
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import { formatClock, formatDayLabel } from "@/lib/chat";
-import { DIARY_VIEWS, diaryFileSourceLabel, type DiaryFileNote, type DiaryView } from "@/lib/diary-views";
+import {
+  DIARY_VIEW_PARAM,
+  DIARY_VIEWS,
+  diaryFileSourceLabel,
+  diaryViewSlug,
+  type DiaryFileNote,
+  type DiaryView,
+} from "@/lib/diary-views";
 import type { TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
+/** What each Diary row holds, in one line under its name. */
+const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
+  journal: "Ghi chú chỉ mình bạn đọc được",
+  files: "Ảnh và tệp đã lưu vào Diary",
+  sources: "Việc tạo từ nội dung bạn dán vào",
+};
+
+const DIARY_ICONS: Readonly<Record<DiaryView, LucideIcon>> = {
+  journal: NotebookPen,
+  files: Paperclip,
+  sources: ClipboardPaste,
+};
+
+/** The icon a Diary view is shown with, in its row and in the header once it is open. */
+export function diaryViewIcon(view: DiaryView): LucideIcon {
+  return DIARY_ICONS[view];
+}
+
+/** The open Diary reading's icon, in the header beside its name. */
+export function DiaryHeaderIcon({ view }: { view: DiaryView }) {
+  const Icon = DIARY_ICONS[view];
+  return <Icon className="h-[17px] w-[17px]" strokeWidth={1.7} aria-hidden="true" />;
+}
+
 /**
- * The three readings of Diary, plus the one way in for outside content.
+ * The Nhật ký tab's list: the three readings of Diary as three rows, plus the one way in for
+ * outside content.
  *
- * Sits below the fixed 📊 Bảng strip and never replaces it: tables are a place, these are views.
+ * It takes the list column's place on a computer (the open view sits beside it) and is the
+ * first screen on a phone, where a row opens its view and the header steps back here.
+ * `journalId` is null while the journal is still being created on a first visit.
  */
-export function DiaryViewTabs({
+export function DiaryList({
+  journalId,
   active,
-  onChange,
   counts,
+  isWide,
   onPaste,
   isPasting,
 }: {
-  active: DiaryView;
-  onChange: (view: DiaryView) => void;
+  journalId: string | null;
+  /** The view open beside the list on a computer; nothing is marked on a phone. */
+  active: DiaryView | null;
   counts: Readonly<Record<DiaryView, number | null>>;
+  isWide: boolean;
   onPaste: () => void;
   isPasting: boolean;
 }) {
   return (
-    <div className="border-b border-border bg-card px-5 md:px-10">
-      <div className="mx-auto flex max-w-2xl items-center gap-2">
-        <div role="tablist" aria-label="Cách đọc Diary" className="-mb-px flex min-w-0 flex-1 overflow-x-auto">
-          {DIARY_VIEWS.map((view) => {
-            const isActive = view.id === active;
-            const count = counts[view.id];
-            return (
-              <button
-                key={view.id}
-                type="button"
-                role="tab"
-                aria-selected={isActive}
-                onClick={() => onChange(view.id)}
-                className={cn(
-                  "press relative flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap px-2.5 text-[13px] transition-colors",
-                  isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {view.label}
-                {count !== null && count > 0 ? (
-                  <span className="tabular text-[11px] font-medium text-muted-foreground">{count}</span>
-                ) : null}
-                <span
-                  aria-hidden="true"
+    <div className="px-3 pb-6">
+      <ul aria-label="Nhật ký">
+        {DIARY_VIEWS.map((view) => {
+          const Icon = DIARY_ICONS[view.id];
+          const count = counts[view.id];
+          const isActive = isWide && view.id === active;
+          return (
+            <li key={view.id}>
+              {journalId === null ? (
+                <span className="flex items-center gap-3 px-3 py-3" aria-hidden="true">
+                  <span className="h-11 w-11 shrink-0 animate-pulse rounded-full bg-secondary" />
+                  <span className="block h-3.5 w-2/5 animate-pulse rounded bg-secondary" />
+                </span>
+              ) : (
+                <Link
+                  to={`/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
+                  // A computer swaps the view beside the list; a phone steps into it, so back returns here.
+                  replace={isWide}
+                  state={{ fromDiaryList: true }}
+                  aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "absolute inset-x-1.5 bottom-0 h-[2px] rounded-full bg-primary transition-opacity",
-                    isActive ? "opacity-100" : "opacity-0",
+                    "flex items-center gap-3 rounded-lg px-3 py-3 transition-colors",
+                    isActive ? "bg-accent/70" : "hover:bg-accent/35",
                   )}
-                />
-              </button>
-            );
-          })}
-        </div>
+                >
+                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
+                    <Icon className="h-[19px] w-[19px]" strokeWidth={1.7} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[15px] font-semibold text-foreground">
+                      {view.label}
+                      {count !== null ? (
+                        <span className="tabular ml-1.5 text-[13px] font-medium text-muted-foreground">({count})</span>
+                      ) : null}
+                    </span>
+                    <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{DIARY_HINTS[view.id]}</span>
+                  </span>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.8} aria-hidden="true" />
+                </Link>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <div className="px-3 pt-4">
         <button
           type="button"
           onClick={onPaste}
-          disabled={isPasting}
-          aria-label="Tạo việc từ nội dung vừa copy"
-          title="Tạo việc từ nội dung vừa copy"
-          className="press my-1.5 flex h-9 shrink-0 items-center gap-1.5 rounded-full border border-primary/35 bg-primary/[0.07] px-3 text-[12.5px] font-semibold text-primary transition-colors hover:bg-primary/[0.13] disabled:opacity-50"
+          disabled={isPasting || journalId === null}
+          className="press flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-primary/35 bg-primary/[0.07] px-4 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/[0.13] disabled:opacity-50"
         >
           {isPasting ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
           ) : (
-            <ClipboardPaste className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            <ClipboardPaste className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
           )}
-          <span className="hidden sm:inline">Tạo việc từ nội dung vừa copy</span>
-          <span className="sm:hidden">Tạo việc từ bản copy</span>
+          Tạo việc từ nội dung vừa copy
         </button>
       </div>
     </div>

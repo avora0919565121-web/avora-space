@@ -18,7 +18,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -123,6 +123,8 @@ type GroupInfoSheetProps = {
   onOpenConversation: (conversationId: string, originGroupId?: string | null) => void;
   /** Called after the viewer leaves the group, once the thread is no longer theirs to read. */
   onLeft: () => void;
+  /** Bảng / Dự án / Sổ quyết định — the "Thêm" part, shown above the roster (AVORA 32). */
+  moreSections?: ReactNode;
 };
 
 const roleBadgeClasses: Record<GroupRole, string> = {
@@ -145,6 +147,7 @@ export function GroupInfoSheet({
   peerId,
   onOpenConversation,
   onLeft,
+  moreSections = null,
 }: GroupInfoSheetProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -592,6 +595,7 @@ export function GroupInfoSheet({
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
+                {moreSections !== null ? <div className="-mx-3 mb-2 border-b border-border">{moreSections}</div> : null}
                 {canSeeRemovalRequests(myRole as GroupRole) && (requestsQuery.data ?? []).length > 0 ? (
                   <section className="mb-5 px-3" aria-label="Đề nghị xoá đang chờ duyệt">
                     <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -987,7 +991,7 @@ export function GroupInfoSheet({
             <div className="flex min-h-0 flex-1 flex-col">
               <div className="border-b border-border px-6 pb-5 pt-7">
                 <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">
-                  Thông tin cuộc trò chuyện
+                  Thêm
                 </SheetTitle>
                 <SheetDescription className="mt-1 text-[13px] text-muted-foreground">
                   Cuộc trò chuyện trực tiếp giữa hai người
@@ -1006,6 +1010,9 @@ export function GroupInfoSheet({
               {/* Only in a 1-1: family is a relationship between two people, not a room. */}
               {peerId ? (
                 <FamilyFlagCard peerId={peerId} peerName={peerName ?? "người này"} />
+              ) : null}
+              {moreSections !== null ? (
+                <div className="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-border pt-4">{moreSections}</div>
               ) : null}
             </div>
           )}
