@@ -1,40 +1,17 @@
-import {
-  Briefcase,
-  LayoutGrid,
-  ListTodo,
-  LogOut,
-  MessageSquareText,
-  Settings,
-  Vault,
-} from "lucide-react";
+import { LogOut } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
-import { useMemo, useRef } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { useRef } from "react";
+import { Link, NavLink, useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { ResizeHandle } from "@/components/ResizeHandle";
+import { navIconFor } from "@/components/nav/nav-icons";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
-import { obligationAttention } from "@/lib/finance";
-import { NAV_ITEMS } from "@/lib/navigation";
-import { countTasksNeedingAttention, todayIso } from "@/lib/tasks";
-import { useTotalUnread } from "@/lib/use-conversations";
-import { useTransactions } from "@/lib/use-finance";
-import { useTasks } from "@/lib/use-tasks";
+import { HOME_ROUTE, NAV_ITEMS } from "@/lib/navigation";
+import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
-
-/** One icon per rail destination; the labels and order live in `NAV_ITEMS`. */
-const NAV_ICONS: Readonly<Record<string, LucideIcon>> = {
-  "/tong-quan": LayoutGrid,
-  "/tin-nhan": MessageSquareText,
-  "/nhiem-vu": ListTodo,
-  // A briefcase, shared with nothing else in the rail: Vault keeps the safe, ListTodo the
-  // task list, MessageSquareText the inbox.
-  "/ke-hoach": Briefcase,
-  "/ket-sat": Vault,
-  "/cai-dat": Settings,
-};
 
 /**
  * Fixed site navigation shared by every signed-in screen.
@@ -47,38 +24,10 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const displayName = useDisplayName();
   const navigate = useNavigate();
-  const unreadTotal = useTotalUnread();
-  const { data: tasks } = useTasks();
-  const { data: transactions } = useTransactions();
   // Desktop only: the rail's width, as the reader last dragged it.
   const navColumn = useColumnWidth(NAV_COLUMN);
   const asideRef = useRef<HTMLElement | null>(null);
-
-  // Only what is late or waiting on this person's move. A badge counting every open task would
-  // never go out, and a badge that is always lit is decoration rather than information.
-  const taskAttention: number = useMemo(
-    () => countTasksNeedingAttention(tasks ?? [], user?.id, todayIso()),
-    [tasks, user?.id],
-  );
-
-  /**
-   * Money that is late or due within the week.
-   *
-   * A count and nothing else. This badge sits OUTSIDE Két sắt, on every screen in the app — an
-   * amount, a lender's name or even the word tax would put on display exactly what the vault
-   * exists to keep. The number says there is something to look at; the looking happens inside.
-   */
-  const vaultAttention: number = useMemo(
-    () => obligationAttention(transactions ?? [], todayIso()).total,
-    [transactions],
-  );
-
-  /** What each tab is asking for right now, if anything. */
-  const badges: Readonly<Record<string, { count: number; label: string }>> = {
-    "/tin-nhan": { count: unreadTotal, label: `${unreadTotal} tin nhắn chưa đọc` },
-    "/nhiem-vu": { count: taskAttention, label: `${taskAttention} nhiệm vụ cần bạn xử lý` },
-    "/ket-sat": { count: vaultAttention, label: `${vaultAttention} khoản tới hạn` },
-  };
+  const badges = useNavBadges();
 
   const handleSignOut = async (): Promise<void> => {
     await signOut();
@@ -89,10 +38,17 @@ export function AppSidebar() {
     <aside
       ref={asideRef}
       style={navColumn.isDesktop ? { width: navColumn.width } : undefined}
-      className="paper relative flex w-full shrink-0 flex-col border-b border-border md:h-screen md:w-[240px] md:border-b-0 md:border-r"
+      // A computer only: on a phone the top bar and the tool-belt take over.
+      className="paper relative hidden h-screen w-[240px] shrink-0 flex-col border-r border-border md:flex"
     >
       <ResizeHandle columnRef={asideRef} control={navColumn} label="Độ rộng thanh điều hướng" />
-      <div className="flex items-center gap-2.5 px-6 pb-5 pt-6">
+      {/* The mark is the way home: one click lands on Avora Space from anywhere. */}
+      <Link
+        to={HOME_ROUTE}
+        aria-label="Về Avora Space"
+        title="Về Avora Space"
+        className="press mx-3 mb-2 mt-3 flex items-center gap-2.5 rounded-lg px-3 pb-3 pt-3 transition-colors hover:bg-accent/40"
+      >
         <img
           src="/icon.png"
           alt=""
@@ -102,15 +58,15 @@ export function AppSidebar() {
           className="h-7 w-7 rounded-md"
         />
         <span className="wordmark text-[17px] text-foreground">AVORA</span>
-      </div>
+      </Link>
 
-      <nav aria-label="Điều hướng chính" className="px-3 md:px-3">
-        <ul className="flex gap-1 md:block md:space-y-1">
+      <nav aria-label="Điều hướng chính" className="px-3">
+        <ul className="space-y-1">
           {NAV_ITEMS.map((item) => {
-            const Icon: LucideIcon = NAV_ICONS[item.to] ?? LayoutGrid;
+            const Icon: LucideIcon = navIconFor(item.to);
             const badge = badges[item.to];
             return (
-            <li key={item.to} className="flex-1">
+            <li key={item.to}>
               <NavLink
                 to={item.to}
                 className={({ isActive }) =>
@@ -127,7 +83,7 @@ export function AppSidebar() {
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "absolute -left-3 top-1/2 hidden h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-opacity md:block",
+                        "absolute -left-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-opacity",
                         isActive ? "opacity-100" : "opacity-0",
                       )}
                     />
@@ -150,7 +106,7 @@ export function AppSidebar() {
         </ul>
       </nav>
 
-      <div className="mt-auto hidden border-t border-border px-4 py-5 md:block">
+      <div className="mt-auto border-t border-border px-4 py-5">
         <div className="flex items-center gap-3">
           <InitialsAvatar name={displayName} size="sm" />
           <div className="min-w-0">

@@ -35,6 +35,7 @@ import {
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
 import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
+import { HubTitle } from "@/components/nav/HubTitle";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban" | "mindmap";
@@ -311,28 +312,28 @@ const ThinkHub = () => {
     editing === null ? undefined : tables.find((table) => table.id === editing.tableId);
 
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-6xl px-6 py-10 md:px-10">
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Kế hoạch</h1>
-            <p className="mt-1 text-[15px] text-muted-foreground">
-              Những bảng để nghĩ cho rõ trước khi thành việc
-            </p>
-          </div>
+    <div className="paper flex min-h-0 flex-1 flex-col">
+      <HubTitle
+        title="Kế hoạch"
+        subtitle="Những bảng để nghĩ cho rõ trước khi thành việc"
+        className="max-w-6xl"
+        action={
           <button
-            type="button"
-            onClick={openNewRecord}
-            disabled={active === null || isReadOnly}
-            title={isReadOnly ? "Dự án đã đóng — bảng chỉ còn để đọc" : undefined}
-            className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-50"
-          >
-            <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
-            Thêm Hạng mục
-          </button>
-        </header>
+              type="button"
+              onClick={openNewRecord}
+              disabled={active === null || isReadOnly}
+              title={isReadOnly ? "Dự án đã đóng — bảng chỉ còn để đọc" : undefined}
+              className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-[14.5px] md:px-5 md:text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-50"
+            >
+              <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
+              Thêm Hạng mục
+            </button>
+        }
+      />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="mx-auto max-w-6xl px-4 pb-10 pt-5 sm:px-6 md:px-10">
 
-        <div className="mt-6">
+        <div>
           <ThinkSpace tables={roots} records={records} today={today} onOpenTable={openTable} />
         </div>
 
@@ -530,6 +531,7 @@ const ThinkHub = () => {
             )}
           </>
         )}
+      </div>
       </div>
 
       <NewTableDialog

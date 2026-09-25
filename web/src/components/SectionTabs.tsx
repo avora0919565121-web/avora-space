@@ -17,10 +17,11 @@ export function SectionTabs({ section, tabs }: { section: string; tabs: readonly
   const current: string = activeSectionTab(location.pathname, tabs);
 
   return (
-    <header className="border-b border-border bg-card px-6 pt-5 md:px-10">
-      <p className="wordmark text-[11px] text-muted-foreground">{section}</p>
-      <nav aria-label={`Mục ${section}`} className="mt-2.5">
-        <ul className="flex items-center gap-1">
+    <header className="shrink-0 border-b border-border bg-card px-4 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6">
+      {/* The Hub's own large title, held above the page while its halves scroll beneath. */}
+      <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
+      <nav aria-label={`Mục ${section}`} className="-mx-2 mt-2 overflow-x-auto px-2">
+        <ul className="flex items-center gap-1 whitespace-nowrap">
           {tabs.map((tab) => {
             const isActive: boolean = tab.to === current;
             return (

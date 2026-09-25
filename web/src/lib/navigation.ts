@@ -44,6 +44,41 @@ export const NAV_ITEMS: readonly NavEntry[] = [
   { to: "/cai-dat", label: "Cài đặt" },
 ];
 
+/**
+ * The phone's tool-belt: the five Hubs, pinned to the bottom of the screen. Avora Space is not
+ * among them — it is reached by tapping the logo, which is where "home" lives.
+ */
+export const TOOL_BELT_ITEMS: readonly NavEntry[] = NAV_ITEMS.filter((item) => item.to !== HOME_ROUTE);
+
+/**
+ * Named at the end of the full map (hold the logo on a phone) so the shape of AVORA is complete,
+ * but not built: no route, no screen, only the "Sắp ra mắt" pill.
+ */
+export const APP_MAP_UPCOMING: readonly { label: string; note: string }[] = [
+  { label: "Donation", note: "Ủng hộ AVORA" },
+];
+
+/** How long the logo must be held before the full map opens instead of going home. */
+export const LOGO_HOLD_MS = 450;
+
+/** Which main destination owns a path — the deepest match, so "/ket-sat/mat-khau" is Két sắt. */
+export function activeNavEntry(pathname: string): NavEntry | null {
+  let best: NavEntry | null = null;
+  for (const item of NAV_ITEMS) {
+    const owns = pathname === item.to || pathname.startsWith(`${item.to}/`);
+    if (owns && (best === null || item.to.length > best.to.length)) best = item;
+  }
+  return best;
+}
+
+/**
+ * Where the phone's tool-belt steps aside: inside an open conversation, as a native messenger
+ * does, so the composer and the keyboard keep the whole bottom of the screen.
+ */
+export function hidesToolBelt(pathname: string): boolean {
+  return /^\/tin-nhan\/[^/]+/.test(pathname);
+}
+
 /** Két sắt: the live ledger, and the vault half that is not built yet. */
 export const VAULT_TABS: readonly NavEntry[] = [
   { to: "/ket-sat", label: "Tài chính" },

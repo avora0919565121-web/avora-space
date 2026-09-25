@@ -193,7 +193,7 @@ function Closed({ state, onHome }: { state: ContactInviteState | null; onHome: (
 
 function Shell({ children }: { children: ReactNode }) {
   return (
-    <div className="paper flex min-h-screen flex-1 items-center justify-center px-6 py-12">
+    <div className="paper flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-12">
       <div className="animate-rise-in w-full max-w-sm text-center">{children}</div>
     </div>
   );

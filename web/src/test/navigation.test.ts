@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  activeNavEntry,
   activeSectionTab,
+  APP_MAP_UPCOMING,
+  hidesToolBelt,
   HOME_ROUTE,
+  LOGO_HOLD_MS,
+  TOOL_BELT_ITEMS,
   LEGACY_ROUTES,
   NAV_ITEMS,
   SETTINGS_TABS,
@@ -146,5 +151,34 @@ describe("links saved before the rename", () => {
     for (const [from, to] of Object.entries(LEGACY_ROUTES)) {
       expect(from).not.toBe(to);
     }
+  });
+});
+
+describe("native-style navigation (AVORA 30)", () => {
+  it("puts exactly the five Hubs in the phone's tool-belt, without Avora Space", () => {
+    expect(TOOL_BELT_ITEMS.map((item) => item.label)).toEqual(["Kết nối", "Nhiệm vụ", "Kế hoạch", "Két sắt", "Cài đặt"]);
+    expect(TOOL_BELT_ITEMS.some((item) => item.to === HOME_ROUTE)).toBe(false);
+  });
+
+  it("names Donation at the end of the full map, with no route behind it", () => {
+    expect(APP_MAP_UPCOMING.map((entry) => entry.label)).toEqual(["Donation"]);
+    expect(NAV_ITEMS.some((item) => item.label === "Donation")).toBe(false);
+  });
+
+  it("tells which destination owns a path, deepest first", () => {
+    expect(activeNavEntry("/ket-sat/mat-khau")?.label).toBe("Két sắt");
+    expect(activeNavEntry("/tin-nhan/abc")?.label).toBe("Kết nối");
+    expect(activeNavEntry("/tong-quan")?.label).toBe("Avora Space");
+    expect(activeNavEntry("/du-an/x")).toBeNull();
+  });
+
+  it("steps the tool-belt aside only inside an open conversation", () => {
+    expect(hidesToolBelt("/tin-nhan/abc")).toBe(true);
+    expect(hidesToolBelt("/tin-nhan")).toBe(false);
+    expect(hidesToolBelt("/nhiem-vu")).toBe(false);
+  });
+
+  it("waits long enough that a tap on the logo is never read as a hold", () => {
+    expect(LOGO_HOLD_MS).toBeGreaterThanOrEqual(350);
   });
 });

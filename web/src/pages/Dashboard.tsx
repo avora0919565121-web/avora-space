@@ -332,7 +332,7 @@ export default function Dashboard() {
 
   return (
     <div
-      className="paper min-h-screen flex-1 md:h-screen md:overflow-y-auto"
+      className="paper min-h-0 flex-1 overflow-y-auto"
       data-ambient={tone.part}
       style={{ backgroundImage: `${tone.wash}, radial-gradient(hsl(38 28% 86% / 0.55) 0.5px, transparent 0.5px)`, backgroundSize: "100% 100%, 22px 22px" }}
     >

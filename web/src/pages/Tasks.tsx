@@ -45,6 +45,7 @@ import {
   type ScheduleDraft,
 } from "@/components/tasks/ScheduleFields";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { HubTitle } from "@/components/nav/HubTitle";
 import { TaskViewTabs } from "@/components/tasks/TaskViewTabs";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
@@ -1794,11 +1795,11 @@ export default function Tasks() {
   }, [sharedGroups, conversations, projectIndex]);
 
   return (
-    <div className="paper min-h-screen flex-1 md:h-screen md:overflow-y-auto">
-      <div className="rise-in mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
-        <h1 className="text-[26px] font-semibold tracking-tight text-foreground sm:text-[28px]">Nhiệm vụ</h1>
-
-        <div className="mt-4">
+    <div className="paper flex min-h-0 flex-1 flex-col">
+      <HubTitle title="Nhiệm vụ" className="max-w-[720px] md:px-6" />
+      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8">
+        <div>
           <TaskHubNav active={hubSection} counts={hubCounts} onChange={selectHubSection} />
         </div>
 
@@ -1929,6 +1930,7 @@ export default function Tasks() {
         )}
         </>
         )}
+      </div>
       </div>
 
       {/*

@@ -21,6 +21,24 @@ export type TaskContextSnapshot = {
   /** What the creator asked for in reply — the task's own description. */
   userResponse: string;
   snapshotCreatedAt: string;
+  /**
+   * Where the content came from when it did not come from a conversation at all. Absent on
+   * every task raised from a chat; present only on tasks made from something pasted in.
+   */
+  origin?: TaskOrigin;
+};
+
+/**
+ * Content brought in from outside AVORA by pasting it into Diary. The pasted words and the
+ * names of the pasted files are kept as they were, so the task still says what it was made
+ * from after the note or the clipboard is long gone.
+ */
+export type TaskOrigin = {
+  type: "external_paste";
+  /** The pasted text, as pasted (capped). Empty when only files were pasted. */
+  content: string;
+  /** The pasted files, by name, in the order they were pasted. */
+  fileNames: string[];
 };
 
 /** The exact JSON the database trigger validates, key for key. */
@@ -35,6 +53,10 @@ export type TaskContextSnapshotJson = {
   original_message_created_at: string | null;
   user_response: string;
   snapshot_created_at: string;
+  /** Only on tasks made from pasted content. The trigger requires the ten keys above, nothing more. */
+  origin_type?: "external_paste";
+  origin_content?: string;
+  origin_file_names?: string[];
 };
 
 export type ContextMessage = {
@@ -75,7 +97,16 @@ export function buildContextSnapshot(input: {
 }
 
 export function snapshotToJson(snapshot: TaskContextSnapshot): TaskContextSnapshotJson {
+  const origin: Partial<TaskContextSnapshotJson> =
+    snapshot.origin === undefined
+      ? {}
+      : {
+          origin_type: snapshot.origin.type,
+          origin_content: snapshot.origin.content,
+          origin_file_names: [...snapshot.origin.fileNames],
+        };
   return {
+    ...origin,
     conversation_type: snapshot.conversationType,
     conversation_id: snapshot.conversationId,
     conversation_name: snapshot.conversationName,
@@ -114,7 +145,22 @@ export function parseContextSnapshot(raw: unknown): TaskContextSnapshot | null {
   const conversationId = readNullableString(record, "conversation_id");
   if (conversationId === null) return null;
 
+  const rawNames = record.origin_file_names;
+  const origin: Pick<TaskContextSnapshot, "origin"> =
+    record.origin_type === "external_paste"
+      ? {
+          origin: {
+            type: "external_paste",
+            content: readString(record, "origin_content"),
+            fileNames: Array.isArray(rawNames)
+              ? rawNames.filter((name): name is string => typeof name === "string")
+              : [],
+          },
+        }
+      : {};
+
   return {
+    ...origin,
     conversationType,
     conversationId,
     conversationName: readString(record, "conversation_name"),

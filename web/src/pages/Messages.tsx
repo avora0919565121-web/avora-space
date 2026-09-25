@@ -73,6 +73,11 @@ import {
   splitMentions,
 } from "@/lib/mentions";
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
+import { DiaryFilesView, DiarySourcesView, DiaryViewTabs } from "@/components/chat/DiaryViews";
+import { PasteTaskDialog } from "@/components/chat/PasteTaskDialog";
+import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { diaryFileNotes, journalTimeline, type DiaryView } from "@/lib/diary-views";
+import { pasteSourceTasks, readClipboard, type PastedContent } from "@/lib/paste-intake";
 import {
   attachmentKeys,
   sendMessageWithAttachments,
@@ -144,7 +149,7 @@ import {
   isOriginalMessageMissing,
 } from "@/lib/task-context";
 import { projectLink } from "@/lib/projects";
-import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote } from "@/lib/tasks";
+import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote, todayIso } from "@/lib/tasks";
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
 import { useThreadPins } from "@/lib/use-pins";
@@ -356,7 +361,6 @@ const Messages = () => {
     () => withFailedSends(messagesQuery.data ?? [], failedSends, conversationId),
     [messagesQuery.data, failedSends, conversationId],
   );
-  const dayGroups = useMemo(() => groupMessagesByDay(messages), [messages]);
   const peerLastReadAt: string | null = activeSummary?.peerLastReadAt ?? null;
   const lastOwnMessageId: string | null = useMemo(
     () => (userId ? lastOutgoingId(messages, userId) : null),
@@ -566,7 +570,66 @@ const Messages = () => {
   } = useRecallRequests(conversationId);
 
   /** The files already in this thread, and the short-lived links that render them. */
-  const { attachmentsOf, urlOf: attachmentUrlOf } = useThreadAttachments(conversationId);
+  const {
+    attachments: threadAttachments,
+    attachmentsOf,
+    urlOf: attachmentUrlOf,
+    isLoading: isAttachmentsLoading,
+  } = useThreadAttachments(conversationId);
+
+  /*
+   * Diary reads three ways: the written timeline, its files, and the tasks made from pasted
+   * content. All three are the same journal — nothing moves between them.
+   */
+  const [diaryView, setDiaryView] = useState<DiaryView>("journal");
+  const isDiaryAside: boolean = activeKind === "personal" && diaryView !== "journal";
+  const pasteTasks = useMemo(
+    () => (activeKind === "personal" ? pasteSourceTasks(allTasks ?? [], userId) : []),
+    [activeKind, allTasks, userId],
+  );
+  const pastedNoteIds = useMemo(
+    () =>
+      new Set<string>(
+        pasteTasks
+          .map((task) => task.contextSnapshot?.originalMessageId ?? null)
+          .filter((id): id is string => id !== null),
+      ),
+    [pasteTasks],
+  );
+  const diaryFiles = useMemo(
+    () => (activeKind === "personal" ? diaryFileNotes(threadAttachments, messages, pastedNoteIds) : []),
+    [activeKind, threadAttachments, messages, pastedNoteIds],
+  );
+  /** The written timeline. A bare file note stays visible only when a task has just pointed at it. */
+  const timelineMessages: ChatMessage[] = useMemo(() => {
+    if (activeKind !== "personal") return messages;
+    const keep = new Set<string>(quotedMessageId === null ? [] : [quotedMessageId]);
+    return journalTimeline(messages, attachmentsOf, keep);
+  }, [activeKind, messages, attachmentsOf, quotedMessageId]);
+  const dayGroups = useMemo(() => groupMessagesByDay(timelineMessages), [timelineMessages]);
+
+  const [isPasteOpen, setIsPasteOpen] = useState<boolean>(false);
+  const [initialPaste, setInitialPaste] = useState<PastedContent | null>(null);
+  const [isReadingClipboard, setIsReadingClipboard] = useState<boolean>(false);
+  const [openedSourceTaskId, setOpenedSourceTaskId] = useState<string | null>(null);
+  const openedSourceTask = useMemo(
+    () => (allTasks ?? []).find((task) => task.id === openedSourceTaskId) ?? null,
+    [allTasks, openedSourceTaskId],
+  );
+
+  /** Read in the tap itself: browsers only hand over the clipboard during a user gesture. */
+  const startPaste = useCallback(async (): Promise<void> => {
+    setIsReadingClipboard(true);
+    const paste = await readClipboard();
+    setIsReadingClipboard(false);
+    setInitialPaste(paste);
+    setIsPasteOpen(true);
+  }, []);
+
+  // A new thread, or arriving from "Xem trong ngữ cảnh", starts on the written timeline.
+  useEffect(() => {
+    setDiaryView("journal");
+  }, [conversationId, highlightTaskId]);
 
   const recorder = useVoiceRecorder();
 
@@ -1279,7 +1342,7 @@ const Messages = () => {
         />
         <div className="px-6 pb-4 pt-7">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="text-[26px] font-semibold tracking-tight text-foreground">Tin nhắn</h1>
+            <h1 className="text-[28px] font-semibold tracking-tight text-foreground md:text-[30px]">Kết nối</h1>
             {!isLive ? (
               <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground" role="status">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
@@ -1536,7 +1599,7 @@ const Messages = () => {
 
       <section
         className={cn(
-          "paper min-h-0 flex-1 flex-col",
+          "paper min-h-0 min-w-0 flex-1 flex-col",
           conversationId && !isPlaceholder && !isProjects ? "flex" : "hidden md:flex",
         )}
       >
@@ -1739,6 +1802,20 @@ const Messages = () => {
                 <TableStrip conversationId={activeKind === "direct" ? activeSummary.conversationId : null} />
               ) : null}
 
+              {activeKind === "personal" ? (
+                <DiaryViewTabs
+                  active={diaryView}
+                  onChange={(next) => {
+                    setDiaryView(next);
+                    // The thread remounts on the way back, so it opens at its newest note again.
+                    if (next === "journal") window.requestAnimationFrame(() => scrollThreadToBottom("auto"));
+                  }}
+                  counts={{ journal: null, files: diaryFiles.length, sources: pasteTasks.length }}
+                  onPaste={() => void startPaste()}
+                  isPasting={isReadingClipboard}
+                />
+              ) : null}
+
               {!isLive ? (
                 <p
                   role="status"
@@ -1768,6 +1845,27 @@ const Messages = () => {
                 </div>
               ) : null}
 
+              {isDiaryAside ? (
+                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-10">
+                  {diaryView === "files" ? (
+                    <DiaryFilesView
+                      notes={diaryFiles}
+                      urlOf={attachmentUrlOf}
+                      isLoading={isAttachmentsLoading}
+                      onOpenNote={(messageId) => {
+                        setDiaryView("journal");
+                        window.setTimeout(() => jumpToMessage(messageId), 120);
+                      }}
+                    />
+                  ) : (
+                    <DiarySourcesView
+                      tasks={pasteTasks}
+                      onOpenTask={(task) => setOpenedSourceTaskId(task.id)}
+                      onPaste={() => void startPaste()}
+                    />
+                  )}
+                </div>
+              ) : (
               <div className="relative min-h-0 flex-1">
               <div
                 ref={threadScrollRef}
@@ -2303,6 +2401,7 @@ const Messages = () => {
                 </button>
               ) : null}
               </div>
+              )}
 
               {activeKind === "personal" ? null : (
                 <ChatSuggestionPanel
@@ -2328,6 +2427,7 @@ const Messages = () => {
                 />
               )}
 
+              {isDiaryAside ? null : (
               <div className="border-t border-border bg-card px-5 py-4 md:px-10">
                 {/*
                   What the next message will answer, shown before it is sent so nobody replies
@@ -2440,6 +2540,7 @@ const Messages = () => {
                 />
                 )}
               </div>
+              )}
             </>
           )
         ) : (
@@ -2502,6 +2603,24 @@ const Messages = () => {
         onCreated={(projectId) => {
           setProjectTarget(null);
           navigate(projectLink(projectId));
+        }}
+      />
+
+      {conversationId && activeKind === "personal" ? (
+        <PasteTaskDialog
+          open={isPasteOpen}
+          onOpenChange={setIsPasteOpen}
+          journalId={conversationId}
+          journalName={threadTitle}
+          initialPaste={initialPaste}
+        />
+      ) : null}
+      <TaskDetailSheet
+        task={openedSourceTask}
+        today={todayIso()}
+        open={openedSourceTask !== null}
+        onOpenChange={(next) => {
+          if (!next) setOpenedSourceTaskId(null);
         }}
       />
 

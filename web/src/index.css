@@ -88,6 +88,8 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Last line of defence: anything too wide scrolls inside its own frame, never the page sideways. */
+    overflow-x: hidden;
     font-family:
       "Inter Tight",
       ui-sans-serif,

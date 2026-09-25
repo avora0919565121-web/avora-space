@@ -1516,6 +1516,27 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   chat it was sent in. Theo đối tượng shows the layers as sections (Dự án branches per project) with chips Tất
   cả / Của tôi / 1-1 / Nhóm / Dự án kept in the address; the other readings are unchanged. "Cần chú ý hôm nay"
   keeps its eight most pressing items, laid out under the same four headings with urgency kept inside each.
+- 2026-09-25 — Intake from outside (AVORA 29). Diary offers "Tạo việc từ nội dung vừa copy": the clipboard is read
+  on the tap (or pasted into the box), words go into Mô tả, photos/files are kept ONCE as a Diary note that the
+  task points at through its context (so "Xem trong ngữ cảnh" opens them). Title, deadline and the rest stay empty;
+  nothing saves until the person presses the button, which is submit-guarded. No new table or column: the task's
+  `context_snapshot` gains `origin_type: "external_paste"`, `origin_content` (capped 8000) and `origin_file_names`
+  beside the ten required keys, and stays write-once. AI does not create tasks from pasted content.
+- 2026-09-25 — Diary reads three ways, all over the one journal: Nhật ký của bạn (everything written, incl. Daily
+  Thought replies and voice notes; replaces the planned "Suy nghĩ" filter), File của bạn (every photo/file, newest
+  first, with its note and source: uploaded / forwarded / pasted to make a task) and Nguồn tạo việc (personal
+  tasks with `origin_type = external_paste`, each with "Xem việc"). A note that is only a file lives in File của
+  bạn, not the timeline, unless a task has just pointed at it. The 📊 Bảng strip stays a fixed strip above them.
+- 2026-09-25 — Native-style navigation (AVORA 30). Phone: a fixed top bar with the AVORA mark and a five-tab
+  tool-belt at the bottom (Kết nối / Nhiệm vụ / Kế hoạch / Két sắt / Cài đặt, icon over a small label); Avora
+  Space is not in it. Tapping the mark goes to Avora Space everywhere; holding it on a phone opens the full map
+  (Avora Space + five Hubs + Donation marked "Sắp ra mắt"). The tool-belt steps aside inside an open conversation
+  so the composer keeps the bottom. Computer: the six-item rail is unchanged apart from the mark linking home.
+  The quick-action bubble now holds Xem lịch then Avora AI; with two, a tap opens a chooser. Avora AI is a door
+  only ("Sắp ra mắt"), no conversation logic. Each Hub has a large title held above its scrolling content (Kết
+  nối, Nhiệm vụ, Kế hoạch, Két sắt, Cài đặt); the Messages list title now reads "Kết nối" to match the nav.
+  The signed-in frame is one fixed viewport; `main` is `min-w-0` so wide tables scroll in their own frame, and
+  `body` has `overflow-x: hidden` as the last guard.
 
 ## Out of scope
 
