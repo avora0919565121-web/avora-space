@@ -18,7 +18,7 @@ import {
   type AttentionItem,
   type SpaceBlockId,
 } from "@/lib/space-blocks";
-import { PULSE_LABELS, pulseSentence, spaceDateLabel, taskPulse } from "@/lib/space-summary";
+import { PULSE_LABELS, pulseHref, pulseSentence, spaceDateLabel, taskPulse } from "@/lib/space-summary";
 import { contextLink } from "@/lib/task-context";
 import { groupByScope, taskContextTarget, TASK_SCOPE_LABELS, type ProjectIndex } from "@/lib/task-scope";
 import { deadlineLabel, todayIso, type TaskItem } from "@/lib/tasks";
@@ -29,6 +29,7 @@ import { useDailyThoughtCategory } from "@/lib/use-settings";
 import { usePendingInvitationCount } from "@/lib/use-task-collab";
 import { useTaskReminders } from "@/lib/use-task-meta";
 import { useTasks } from "@/lib/use-tasks";
+import { TYPE } from "@/lib/type-scale";
 import { cn } from "@/lib/utils";
 
 /** Morning, afternoon or evening — the same greeting a person would actually use. */
@@ -81,13 +82,13 @@ function Block({
   const copy = SPACE_BLOCK_COPY[id];
   return (
     <section aria-labelledby={`space-${id}`} className="mt-8">
-      <h2 id={`space-${id}`} className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+      <h2 id={`space-${id}`} className={cn(TYPE.blockTitle, "flex items-center gap-2")}>
         {icon}
         {copy.title}
       </h2>
-      <p className="mt-0.5 text-[13px] leading-5 text-muted-foreground">{copy.description}</p>
+      <p className={cn(TYPE.blockDescription, "mt-0.5")}>{copy.description}</p>
       <div className="mt-3">{children}</div>
-      <p className="mt-2 text-[12px] text-task-idle">{copy.hint}</p>
+      <p className={cn(TYPE.meta, "mt-2")}>{copy.hint}</p>
     </section>
   );
 }
@@ -185,7 +186,16 @@ export default function Dashboard() {
               <>
                 <div className="flex items-stretch rounded-[12px] border border-border bg-card">
                   {PULSE_LABELS.map(({ key, label }, index) => (
-                    <div key={key} className={cn("flex-1 px-4 py-3", index > 0 ? "border-l border-border" : "")}>
+                    // Each number opens the Nhiệm vụ section it counts — the strip is a door, not a report.
+                    <Link
+                      key={key}
+                      to={pulseHref(key)}
+                      aria-label={`${label}: ${pulse[key]} việc. Mở ${label} trong Nhiệm vụ`}
+                      className={cn(
+                        "press group flex-1 px-4 py-3 transition-colors first:rounded-l-[12px] last:rounded-r-[12px] hover:bg-accent/30",
+                        index > 0 ? "border-l border-border" : "",
+                      )}
+                    >
                       <p
                         className={cn(
                           "tabular text-[24px] font-semibold leading-none",
@@ -200,11 +210,14 @@ export default function Dashboard() {
                       >
                         {pulse[key]}
                       </p>
-                      <p className="mt-1.5 text-[12px] text-muted-foreground">{label}</p>
-                    </div>
+                      <p className={cn(TYPE.meta, "mt-1.5 flex items-center gap-0.5 group-hover:text-foreground")}>
+                        {label}
+                        <ChevronRight className="h-3 w-3 opacity-60" strokeWidth={2} aria-hidden="true" />
+                      </p>
+                    </Link>
                   ))}
                 </div>
-                <p className="mt-2 text-[14px] text-muted-foreground">{pulseSentence(pulse)}</p>
+                <p className={cn(TYPE.blockDescription, "mt-2")}>{pulseSentence(pulse)}</p>
                 <div className="mt-3">
                   {attention.length === 0 ? (
                     <EmptyLine id={id} />
@@ -227,7 +240,7 @@ export default function Dashboard() {
                               aria-hidden="true"
                             />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-[14.5px] font-medium text-foreground">{item.task.title}</span>
+                              <span className={cn(TYPE.body, "block truncate font-medium")}>{item.task.title}</span>
                               <span className={cn("block text-[12px]", meta.tone)}>{meta.text}</span>
                             </span>
                             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
@@ -259,8 +272,8 @@ export default function Dashboard() {
                 {upcoming.slice(0, 6).map(({ reminder, task }) => (
                   <Link key={reminder.id} to={taskHref(task, projectIndex)} className={rowClass}>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14.5px] font-medium text-foreground">{task.title}</span>
-                      <span className="block text-[12px] text-muted-foreground">{reminderWhen(reminder.at, today)}</span>
+                      <span className={cn(TYPE.body, "block truncate font-medium")}>{task.title}</span>
+                      <span className={cn(TYPE.meta, "block")}>{reminderWhen(reminder.at, today)}</span>
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
                   </Link>
@@ -309,7 +322,7 @@ export default function Dashboard() {
             {unreadThreads > 0 ? (
               <Link
                 to="/tin-nhan"
-                aria-label={`${unreadSummaryText(unreadThreads)}. Mở Tin nhắn`}
+                aria-label={`${unreadSummaryText(unreadThreads)}. Mở Kết nối`}
                 className="press flex min-h-14 items-center gap-3 rounded-[12px] border border-border bg-card px-4 transition-colors hover:bg-accent/30"
               >
                 <span className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/60">
@@ -318,7 +331,7 @@ export default function Dashboard() {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[15px] font-medium text-foreground">{unreadSummaryText(unreadThreads)}</span>
-                  <span className="mt-0.5 block text-[12px] text-muted-foreground">Đang đợi bạn trả lời</span>
+                  <span className={cn(TYPE.meta, "mt-0.5 block")}>Đang đợi bạn trả lời</span>
                 </span>
                 <ChevronRight className="h-[18px] w-[18px] shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
               </Link>

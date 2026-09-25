@@ -41,6 +41,7 @@ import { useConversations } from "@/lib/use-conversations";
 import { useProjectActions, useProjectDetail } from "@/lib/use-projects";
 import { useTasks } from "@/lib/use-tasks";
 import { useThinkHubActions, useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
+import { TYPE } from "@/lib/type-scale";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
@@ -593,8 +594,8 @@ const ProjectDetail = () => {
         </section>
 
         <section className="mt-7">
-          <h2 className="text-[16px] font-semibold tracking-tight text-foreground">Tiêu chí thành công</h2>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">
+          <h2 className={TYPE.blockTitle}>Tiêu chí thành công</h2>
+          <p className={cn(TYPE.blockDescription, "mt-1")}>
             {isOwner
               ? "Thêm dần khi nhóm rõ thế nào là xong. Kết quả do bạn tự ghi."
               : "Người mở dự án thêm và ghi kết quả cho từng tiêu chí."}
@@ -634,7 +635,7 @@ const ProjectDetail = () => {
 
         <section className="mt-8">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-[16px] font-semibold tracking-tight text-foreground">Hạng mục</h2>
+            <h2 className={TYPE.blockTitle}>Hạng mục</h2>
             {rootTable !== undefined ? (
               <Link
                 to={`/ke-hoach?bang=${encodeURIComponent(rootTable.id)}`}
@@ -693,7 +694,7 @@ const ProjectDetail = () => {
 
         <section className="mt-8">
           <div className="flex items-baseline justify-between gap-3">
-            <h2 className="text-[16px] font-semibold tracking-tight text-foreground">Việc phát sinh</h2>
+            <h2 className={TYPE.blockTitle}>Việc phát sinh</h2>
             {isOpen ? (
               <button
                 type="button"
@@ -705,7 +706,7 @@ const ProjectDetail = () => {
               </button>
             ) : null}
           </div>
-          <p className="mt-1 text-[12.5px] text-muted-foreground">Việc của dự án không thuộc Hạng mục nào.</p>
+          <p className={cn(TYPE.blockDescription, "mt-1")}>Việc của dự án không thuộc Hạng mục nào.</p>
           {adHocIds.length > 0 ? (
             <ul className="mt-3 space-y-1.5 rounded-lg border border-border bg-card px-4 py-3">
               {adHocIds.map((taskId) => (

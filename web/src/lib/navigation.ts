@@ -61,6 +61,29 @@ export const APP_MAP_UPCOMING: readonly { label: string; note: string }[] = [
 /** How long the logo must be held before the full map opens instead of going home. */
 export const LOGO_HOLD_MS = 450;
 
+/**
+ * Whether a step back stays inside AVORA.
+ *
+ * The router stamps every history entry it creates with its position (`idx`); the first page
+ * this tab opened is 0. Anything above that was reached from within the app, so going back lands
+ * on a screen the person has actually seen — never out to whatever site came before.
+ */
+export function canGoBackInApp(historyState: unknown): boolean {
+  if (historyState === null || typeof historyState !== "object") return false;
+  const idx: unknown = (historyState as { idx?: unknown }).idx;
+  return typeof idx === "number" && idx > 0;
+}
+
+/**
+ * What the logo does from where the person stands: from anywhere it goes home to Avora Space;
+ * from Avora Space itself it steps back to the screen they came from, or does nothing when
+ * there is nowhere inside AVORA to go back to.
+ */
+export function logoAction(pathname: string, historyState: unknown): "home" | "back" | "stay" {
+  if (pathname !== HOME_ROUTE) return "home";
+  return canGoBackInApp(historyState) ? "back" : "stay";
+}
+
 /** Which main destination owns a path — the deepest match, so "/ket-sat/mat-khau" is Két sắt. */
 export function activeNavEntry(pathname: string): NavEntry | null {
   let best: NavEntry | null = null;

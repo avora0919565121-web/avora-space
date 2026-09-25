@@ -29,6 +29,8 @@ import {
   DEPTH_LIMIT_MESSAGE,
   myTables,
   PERSONAL_SCOPE,
+  TABLE_LAYERS,
+  tablesByLayer,
   rootTables,
   scopeOfTable,
   subTablesOf,
@@ -510,6 +512,17 @@ describe("scope, sub-tables and column ids", () => {
     const other: ThinkTable = { ...personal, id: "o", ownerUserId: "u-other" };
     const result = myTables([...all, other], ME, (id) => id === "c-d");
     expect(result.map((t) => t.id)).toEqual(["p", "d"]);
+  });
+
+  it("splits Bảng của tôi into Cá nhân / 1-1 / Nhóm, roots only, projects kept out", () => {
+    const other: ThinkTable = { ...personal, id: "o", ownerUserId: "u-other" };
+    const unknown: ThinkTable = { ...direct, id: "x", conversationId: "c-gone" };
+    const kinds: Record<string, "direct" | "group"> = { "c-d": "direct", "c-g": "group" };
+    const layers = tablesByLayer([...all, other, unknown], ME, (id) => kinds[id]);
+    expect(layers.personal.map((t) => t.id)).toEqual(["p"]);
+    expect(layers.direct.map((t) => t.id)).toEqual(["d"]);
+    expect(layers.group.map((t) => t.id)).toEqual(["g"]);
+    expect(TABLE_LAYERS.map((layer) => layer.label)).toEqual(["Cá nhân", "1-1", "Nhóm"]);
   });
 
   it("gives an old column its key as id, so renaming never loses its values", () => {

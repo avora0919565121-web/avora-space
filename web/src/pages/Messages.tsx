@@ -3,6 +3,7 @@ import {
   ArrowDown,
   BookLock,
   Check,
+  CalendarClock,
   CheckCheck,
   CircleAlert,
   ChevronLeft,
@@ -14,7 +15,6 @@ import {
   Mail,
   MessageSquarePlus,
   NotebookPen,
-  Phone,
   Search,
   SquarePen,
   UserRound,
@@ -141,7 +141,12 @@ import {
   type MessageTab,
 } from "@/lib/chat";
 import { LIST_COLUMN, useColumnWidth } from "@/lib/column-width";
-import { fetchGroupMembers, groupKeys } from "@/lib/groups";
+import { fetchGroupMembers, fetchGroupParents, groupKeys } from "@/lib/groups";
+import { buildGroupTree } from "@/lib/group-tree";
+import { GroupTree } from "@/components/chat/GroupTree";
+import { CallMenu } from "@/components/chat/CallMenu";
+import { ScheduleCallDialog } from "@/components/chat/ScheduleCallDialog";
+import { splitLinks } from "@/lib/calls";
 import { peerLabel } from "@/lib/initials";
 import {
   CONTEXT_TASK_PARAM,
@@ -220,6 +225,7 @@ const Messages = () => {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<boolean>(false);
   const [isGroupTasksOpen, setIsGroupTasksOpen] = useState<boolean>(false);
   const [isDecisionsOpen, setIsDecisionsOpen] = useState<boolean>(false);
+  const [isScheduleCallOpen, setIsScheduleCallOpen] = useState<boolean>(false);
   /**
    * The message a new task will quote. Null means "whatever was said last", which is what the
    * button beside the composer means; a bubble's own action names that bubble instead.
@@ -281,6 +287,28 @@ const Messages = () => {
   const projectsQuery = useProjects();
   const projects = useMemo(() => projectsQuery.data ?? [], [projectsQuery.data]);
 
+  /** Every group the viewer is in, for drawing the Nhóm tab as a tree (Nhóm → Sub-group → Project). */
+  const groupIds: string[] = useMemo(
+    () => conversations.filter((item) => item.kind === "group").map((item) => item.conversationId).sort(),
+    [conversations],
+  );
+  const groupParentsQuery = useQuery({
+    queryKey: groupKeys.parents(groupIds),
+    queryFn: () => fetchGroupParents(groupIds),
+    enabled: activeTab === "group" && groupIds.length > 0,
+    staleTime: 60_000,
+  });
+  const projectByIdMap = useMemo(() => new Map(projects.map((project) => [project.id, project] as const)), [projects]);
+  const groupTree = useMemo(() => {
+    const projectOfConversation = new Map(projects.map((project) => [project.conversationId, project.id] as const));
+    // Until the parents arrive, a project's own parent is already known from the project list.
+    const parents = new Map<string, string | null>(groupParentsQuery.data ?? []);
+    for (const project of projects) {
+      if (!parents.has(project.conversationId)) parents.set(project.conversationId, project.parentGroupId);
+    }
+    return buildGroupTree(tabConversations.filter((item) => item.kind === "group"), parents, projectOfConversation);
+  }, [tabConversations, groupParentsQuery.data, projects]);
+
   /** The projects belonging to the thread on screen, for the 📁 Dự án strip above it. */
   const threadProjects = useMemo(
     () => projects.filter((project) => project.parentGroupId === conversationId),
@@ -318,6 +346,8 @@ const Messages = () => {
   const peerEmail: string | null = activeSummary?.peerEmail ?? peerQuery.data?.peerEmail ?? null;
 
   const activeKind: ConversationKind = activeSummary?.kind ?? "direct";
+  /** The journal is on screen: on a phone it sits under the tab strip instead of replacing it. */
+  const isJournalOpen: boolean = conversationId !== undefined && activeKind === "personal";
   const threadTitle: string = activeSummary ? conversationTitle(activeSummary) : peerName;
   const threadSubtitle: string = activeSummary
     ? conversationSubtitle(activeSummary)
@@ -1271,14 +1301,15 @@ const Messages = () => {
     mutationFn: () => ensureJournalConversation(),
     onSuccess: (journalId: string) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
-      navigate(`/tin-nhan/${journalId}`);
+      navigate(`/tin-nhan/${journalId}`, { replace: true });
     },
     onError: (error: Error) => toast.error(error.message),
   });
 
   /**
    * A tab is a choice of direction. Nhật ký has exactly one possible thread, so it opens
-   * straight away; the other two put the chooser back in front of the user.
+   * straight away — onto its three views, with no one-row list to tap through first; the
+   * other directions put the chooser back in front of the user.
    */
   const handleSelectTab = useCallback(
     (tab: MessageTab): void => {
@@ -1300,14 +1331,25 @@ const Messages = () => {
 
       const existing = conversations.find((item) => item.kind === "personal");
       if (existing) {
-        navigate(`/tin-nhan/${existing.conversationId}`);
+        // From the bare list the journal takes that step's place, so "back" never lands on a
+        // one-row list that would only send the reader straight back in.
+        navigate(`/tin-nhan/${existing.conversationId}`, { replace: conversationId === undefined });
         return;
       }
       // First visit on this account: the journal is created on demand.
       journalMutation.mutate();
     },
-    [conversations, navigate, journalMutation],
+    [conversations, navigate, journalMutation, conversationId],
   );
+
+  /**
+   * Nhật ký never rests on its list: arriving at the bare inbox with that tab chosen (a step
+   * back, a reload) opens the journal itself, in place of the list entry.
+   */
+  useEffect(() => {
+    if (conversationId !== undefined || activeTab !== "journal" || journalSummary === undefined) return;
+    navigate(`/tin-nhan/${journalSummary.conversationId}`, { replace: true });
+  }, [conversationId, activeTab, journalSummary, navigate]);
 
   // Opening a thread by link (or the "Nhắn riêng" jump out of a group) must land on the tab
   // that thread actually belongs to, or the list beside it would contradict the header.
@@ -1331,7 +1373,12 @@ const Messages = () => {
         style={listColumn.isDesktop ? { width: listColumn.width } : undefined}
         className={cn(
           "relative flex min-h-0 w-full flex-col border-border bg-card md:w-[360px] md:shrink-0 md:border-r",
-          conversationId && !isPlaceholder && !isProjects ? "hidden md:flex" : "flex",
+          isJournalOpen
+            ? // Phone: only the title and tab strip stay, and the journal fills the space below.
+              "flex shrink-0 md:shrink"
+            : conversationId && !isPlaceholder && !isProjects
+              ? "hidden md:flex"
+              : "flex",
         )}
         aria-label="Danh sách cuộc trò chuyện"
       >
@@ -1461,7 +1508,7 @@ const Messages = () => {
             )}
           </div>
         ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+        <div className={cn("min-h-0 flex-1 overflow-y-auto px-3 pb-6", isJournalOpen && "hidden md:block")}>
           {conversationsQuery.isPending ? (
             <ul className="space-y-1 px-3 pt-1" aria-hidden="true">
               {[0, 1, 2, 3].map((row) => (
@@ -1515,6 +1562,9 @@ const Messages = () => {
                 </button>
               ) : null}
             </div>
+          ) : activeTab === "group" && query.trim().length === 0 ? (
+            // No search: the tree. A search reads flat, so a match deep in a branch is never folded away.
+            <GroupTree tree={groupTree} activeConversationId={conversationId} userId={userId} projectById={projectByIdMap} />
           ) : (
             <ul>
               {visibleConversations.map((item) => {
@@ -1631,20 +1681,23 @@ const Messages = () => {
                 onClick={() => navigate("/tin-nhan")}
                 className="press mt-7 rounded-md bg-primary px-6 py-3 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
               >
-                Về Tin nhắn
+                Về Kết nối
               </button>
             </div>
           ) : (
             <>
               <header className="flex items-center gap-3 border-b border-border bg-card px-5 py-3.5 md:pr-[4.25rem]">
-                <button
-                  type="button"
-                  aria-label="Quay lại Tin nhắn"
-                  onClick={() => navigate("/tin-nhan")}
-                  className="press rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
-                >
-                  <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
-                </button>
+                {/* The journal opens under the tab strip itself, so there is no list to go back to. */}
+                {activeKind === "personal" ? null : (
+                  <button
+                    type="button"
+                    aria-label="Quay lại Kết nối"
+                    onClick={() => navigate("/tin-nhan")}
+                    className="press rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
+                  >
+                    <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
+                  </button>
+                )}
                 {activeKind === "personal" ? (
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
                     <NotebookPen className="h-[17px] w-[17px]" strokeWidth={1.7} aria-hidden="true" />
@@ -1725,13 +1778,20 @@ const Messages = () => {
                   </button>
                   {activeKind === "personal" ? null : (
                   <>
-                  <button
-                    type="button"
-                    aria-label="Gọi thoại"
-                    className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
-                  >
-                    <Phone className="h-[19px] w-[19px]" strokeWidth={1.6} />
-                  </button>
+                  {activeKind === "direct" ? (
+                    <CallMenu peerId={activeSummary?.peerId ?? peerQuery.data?.peerId ?? null} peerName={threadTitle} />
+                  ) : isProjectChatClosed ? null : (
+                    // A group or project is not rung at once: a time and a link are posted instead.
+                    <button
+                      type="button"
+                      aria-label="Lên lịch cuộc gọi"
+                      title="Lên lịch cuộc gọi"
+                      onClick={() => setIsScheduleCallOpen(true)}
+                      className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
+                    >
+                      <CalendarClock className="h-[19px] w-[19px]" strokeWidth={1.6} />
+                    </button>
+                  )}
                   <button
                     type="button"
                     aria-label="Thông tin cuộc trò chuyện"
@@ -2207,7 +2267,25 @@ const Messages = () => {
                                           userId,
                                         ).map((segment, segmentIndex) =>
                                           segment.mentionedUserId === null ? (
-                                            <span key={segmentIndex}>{segment.text}</span>
+                                            // A posted call link (or any http link) can be tapped.
+                                            <span key={segmentIndex}>
+                                              {splitLinks(segment.text).map((part, partIndex) =>
+                                                part.href === null ? (
+                                                  <Fragment key={partIndex}>{part.text}</Fragment>
+                                                ) : (
+                                                  <a
+                                                    key={partIndex}
+                                                    href={part.href}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    onClick={(event) => event.stopPropagation()}
+                                                    className="break-all underline underline-offset-2"
+                                                  >
+                                                    {part.text}
+                                                  </a>
+                                                ),
+                                              )}
+                                            </span>
                                           ) : (
                                             <span
                                               key={segmentIndex}
@@ -2675,6 +2753,15 @@ const Messages = () => {
           conversationId={conversationId}
           groupName={threadTitle}
           members={groupMembersQuery.data ?? []}
+        />
+      ) : null}
+
+      {conversationId && activeKind === "group" ? (
+        <ScheduleCallDialog
+          open={isScheduleCallOpen}
+          onOpenChange={setIsScheduleCallOpen}
+          placeName={projectHere !== undefined ? `dự án ${projectHere.title}` : threadTitle}
+          onPost={(content) => sendPlainMessage(content)}
         />
       ) : null}
 

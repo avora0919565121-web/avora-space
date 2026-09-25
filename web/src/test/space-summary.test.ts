@@ -6,6 +6,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import {
   PULSE_LABELS,
+  pulseHref,
   pulseSentence,
   spaceDateLabel,
   taskPulse,
@@ -188,5 +189,13 @@ describe("a reflection keeps what it was reflecting on", () => {
   it("allows a real reflection without allowing an essay", () => {
     expect(THOUGHT_NOTE_MAX_LEN).toBeGreaterThan(500);
     expect(THOUGHT_NOTE_MAX_LEN).toBeLessThanOrEqual(4000);
+  });
+});
+
+describe("the three numbers open Nhiệm vụ (AVORA 31)", () => {
+  it("sends each number to the section of the same name", () => {
+    expect(pulseHref("overdue")).toBe("/nhiem-vu?muc=qua-han");
+    expect(pulseHref("today")).toBe("/nhiem-vu?muc=hom-nay");
+    expect(pulseHref("ahead")).toBe("/nhiem-vu?muc=sap-toi");
   });
 });

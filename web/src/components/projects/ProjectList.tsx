@@ -3,13 +3,16 @@ import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
+import { TablePeekSheet } from "@/components/projects/TablePeekSheet";
+
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { StatusPill } from "@/components/StatusPill";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle, type ConversationSummary } from "@/lib/chat";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { projectChatLink, projectStatusLabel, type Project } from "@/lib/projects";
-import { myTables, recordsOf, subTablesOf, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
+import { recordsOf, subTablesOf, TABLE_LAYERS, tablesByLayer, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
+import { TYPE } from "@/lib/type-scale";
 import { groupProjectsOnly, useDeletedProjects, useProjectActions } from "@/lib/use-projects";
 import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
@@ -52,8 +55,8 @@ function BranchHeader({
 
 /**
  * One folder in the "Bảng của tôi" tree: a table that unfolds into its Hạng mục in place, and
- * each Hạng mục into the sub-tables grown from it. Nothing here opens another screen except
- * the small "Mở bảng" link, for when the person actually wants to edit.
+ * each Hạng mục into the sub-tables grown from it. "Xem bảng" opens a quick look on top of this
+ * tab — Hạng mục and their tasks can be added and edited there without leaving.
  */
 function TableNode({
   table,
@@ -61,12 +64,14 @@ function TableNode({
   records,
   subtitle,
   level,
+  onPeek,
 }: {
   table: ThinkTable;
   tables: readonly ThinkTable[];
   records: readonly ThinkRecord[];
   subtitle: string | null;
   level: number;
+  onPeek: (table: ThinkTable) => void;
 }) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const items = useMemo(() => (isOpen ? recordsOf(records, table.id) : []), [isOpen, records, table.id]);
@@ -88,19 +93,19 @@ function TableNode({
           />
           <Table2 className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[14px] font-medium text-foreground">{table.name}</span>
-            {subtitle !== null ? (
-              <span className="block truncate text-[12px] text-muted-foreground">{subtitle}</span>
-            ) : null}
+            <span className={cn(TYPE.body, "block truncate text-[14px] font-medium")}>{table.name}</span>
+            {subtitle !== null ? <span className={cn(TYPE.meta, "block truncate")}>{subtitle}</span> : null}
           </span>
-          <span className="tabular shrink-0 text-[12px] text-muted-foreground">{count}</span>
+          <span className={cn(TYPE.meta, "tabular shrink-0")}>{count}</span>
         </button>
-        <Link
-          to={`/ke-hoach?bang=${encodeURIComponent(table.id)}`}
+        <button
+          type="button"
+          onClick={() => onPeek(table)}
+          aria-label={`Xem bảng ${table.name}`}
           className="press shrink-0 rounded-md px-2 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
         >
-          Mở bảng
-        </Link>
+          Xem bảng
+        </button>
       </div>
 
       {isOpen ? (
@@ -131,6 +136,7 @@ function TableNode({
                           records={records}
                           subtitle={null}
                           level={level + 2}
+                          onPeek={onPeek}
                         />
                       ))}
                     </ul>
@@ -148,8 +154,8 @@ function TableNode({
 /**
  * The Dự án tab.
  *
- * Two sections. "Bảng của tôi" is the person's own thinking — their Diary tables and the tables
- * they share one-to-one — as a folded tree that opens in place. "Nhóm" lists real projects,
+ * Two sections. "Bảng của tôi" is the person's thinking, read in the three Connect Hub layers
+ * (Cá nhân / 1-1 / Nhóm) as a folded tree that opens in place. "Nhóm" lists real projects,
  * which only ever live in a group (ADR-002). The old "Cá nhân" and "1-1" project sections are
  * gone: they could only ever be empty.
  */
@@ -182,10 +188,14 @@ export function ProjectList({
   const allTables = useMemo(() => tablesQuery.data ?? [], [tablesQuery.data]);
   const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data]);
 
-  const mine = useMemo(
-    () => myTables(allTables, user?.id, (id) => conversationById.get(id)?.kind === "direct"),
+  const layers = useMemo(
+    () => tablesByLayer(allTables, user?.id, (id) => conversationById.get(id)?.kind),
     [allTables, user?.id, conversationById],
   );
+  const mineCount = layers.personal.length + layers.direct.length + layers.group.length;
+  const [peeking, setPeeking] = useState<ThinkTable | null>(null);
+  const peekConversation =
+    peeking?.conversationId == null ? undefined : conversationById.get(peeking.conversationId);
 
   const groupProjects = useMemo(
     () => groupProjectsOnly(projects, (id) => conversationById.get(id)?.kind),
@@ -227,28 +237,53 @@ export function ProjectList({
         <StatusPill className="px-2.5 py-0.5 text-[10px]">Đang hoàn thiện</StatusPill>
       </div>
       <section className="mt-1">
-        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Bảng của tôi" count={mine.length} />
+        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Bảng của tôi" count={mineCount} />
         {tablesOpen ? (
-          mine.length === 0 ? (
-            <p className="px-9 pb-3 text-[12.5px] leading-relaxed text-muted-foreground">
+          mineCount === 0 ? (
+            <p className={cn(TYPE.blockDescription, "px-9 pb-3 text-[12.5px]")}>
               Chưa có bảng nào. Mở Kế hoạch để dựng bảng đầu tiên.
             </p>
           ) : (
-            <ul>
-              {mine.map((table) => {
-                const conversation = table.conversationId === null ? undefined : conversationById.get(table.conversationId);
+            // The same three layers Connect Hub is read in everywhere: Cá nhân, 1-1, Nhóm.
+            <div className="space-y-1 pb-1">
+              {TABLE_LAYERS.map((layer) => {
+                const list = layers[layer.id];
                 return (
-                  <TableNode
-                    key={table.id}
-                    table={table}
-                    tables={allTables}
-                    records={records}
-                    subtitle={conversation === undefined ? "Chỉ mình bạn" : `1-1 với ${conversationTitle(conversation)}`}
-                    level={0}
-                  />
+                  <div key={layer.id} role="group" aria-label={`Bảng ${layer.label}`}>
+                    <p className="flex items-center gap-2 px-9 pb-0.5 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                      {layer.label}
+                      <span className="tabular font-medium normal-case tracking-normal text-muted-foreground/80">{list.length}</span>
+                    </p>
+                    {list.length === 0 ? (
+                      <p className={cn(TYPE.meta, "px-9 pb-1.5")}>{layer.empty}</p>
+                    ) : (
+                      <ul>
+                        {list.map((table) => {
+                          const conversation = table.conversationId === null ? undefined : conversationById.get(table.conversationId);
+                          return (
+                            <TableNode
+                              key={table.id}
+                              table={table}
+                              tables={allTables}
+                              records={records}
+                              subtitle={
+                                conversation === undefined
+                                  ? "Chỉ mình bạn"
+                                  : conversation.kind === "group"
+                                    ? conversationTitle(conversation)
+                                    : `1-1 với ${conversationTitle(conversation)}`
+                              }
+                              level={1}
+                              onPeek={setPeeking}
+                            />
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
                 );
               })}
-            </ul>
+            </div>
           )
         ) : null}
       </section>
@@ -344,6 +379,13 @@ export function ProjectList({
           ) : null}
         </section>
       ) : null}
+      <TablePeekSheet
+        table={peeking}
+        conversation={peekConversation}
+        onOpenChange={(open) => {
+          if (!open) setPeeking(null);
+        }}
+      />
     </div>
   );
 }

@@ -1537,11 +1537,31 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   nối, Nhiệm vụ, Kế hoạch, Két sắt, Cài đặt); the Messages list title now reads "Kết nối" to match the nav.
   The signed-in frame is one fixed viewport; `main` is `min-w-0` so wide tables scroll in their own frame, and
   `body` has `overflow-x: hidden` as the last guard.
+- 2026-09-25 — Navigation patch (AVORA 31). The Nhật ký tab opens the journal's three views directly (no
+  one-row list; on a phone the tab strip stays above it, and a step back never lands on that list). Remaining
+  "Tin nhắn" labels read "Kết nối". On a phone the bubble tells tap from hold: a tap opens Lịch, a ~500ms hold
+  opens the chooser; a computer still opens the chooser on click. The logo tapped on Avora Space steps back to
+  the previous in-app screen (router history index > 0), otherwise does nothing.
+- 2026-09-25 — Avora Space / Dự án (AVORA 31). The three numbers in "Cần chú ý hôm nay" link to Nhiệm vụ
+  `?muc=qua-han|hom-nay|sap-toi`. One four-step type scale (`lib/type-scale.ts`, existing sizes only): block title
+  15px semibold ink → block description 13px muted → body 14.5px ink → meta 12px muted/80; applied to Avora
+  Space, Dự án and the project screen first, other screens as they are touched. "Bảng của tôi" is split
+  Cá nhân / 1-1 / Nhóm. "Mở bảng" became "Xem bảng": a bottom sheet over the tab to add/edit Hạng mục and add
+  tasks (same forms as Kế hoạch), read-only for a closed project, with "Mở bảng đầy đủ" to go to Kế hoạch.
+- 2026-09-25 — Nhóm tree (AVORA 31). Without a search the Nhóm tab reads as a tree from `parent_group_id`:
+  Nhóm → Sub-group → Project at the level its own chat sits. A group whose parent the viewer is not in stands
+  at the root (ADR-014). Branches sort by their newest activity; a folded branch still shows children with
+  unread messages. Sub-group/project rows carry a Chat icon before "Xem bảng". A search reads flat.
+- 2026-09-25 — Calls (AVORA 31). 1-1: the call icon offers Điện thoại (`tel:`), Zalo and WhatsApp (number
+  copied, app opened on `zalo.me` / `wa.me`); the number comes only from the viewer's own Liên hệ linked to
+  that person, otherwise it points to Liên hệ. Group/project: "Lên lịch cuộc gọi" — date, time, an
+  auto-made Jitsi room (replaceable), a preview, then one ordinary message posted into that chat. No data
+  model, nothing dialled or scheduled by AVORA; http links in messages are now tappable.
 
 ## Out of scope
 
-Dark mode, voice or video calls (the call icon is decorative
-for now), AI features, heavy project management (the lightweight Nhiệm vụ module ships, now with clocks,
+Dark mode, in-app voice or video calls (calls are handed to the phone, Zalo, WhatsApp or a posted room
+link), AI features, heavy project management (the lightweight Nhiệm vụ module ships, now with clocks,
 categories, reminders and repeats; boards, teams and dependencies stay out), and any social feed. Task reminders
 delivered outside the app — email, SMS or push to a closed tab — need a scheduled worker and a push subscription,
 and are not built. Group chat is now creatable and manageable from the interface (three-way Tin nhắn tabs, roster panel with roles,

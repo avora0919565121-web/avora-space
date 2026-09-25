@@ -434,6 +434,39 @@ export function myTables(
   });
 }
 
+/** The three Connect Hub layers "Bảng của tôi" is read in, in display order. */
+export type TableLayer = "personal" | "direct" | "group";
+
+export const TABLE_LAYERS: readonly { id: TableLayer; label: string; empty: string }[] = [
+  { id: "personal", label: "Cá nhân", empty: "Chưa có bảng riêng nào." },
+  { id: "direct", label: "1-1", empty: "Chưa có bảng chung với ai." },
+  { id: "group", label: "Nhóm", empty: "Chưa có bảng nào trong nhóm." },
+];
+
+/**
+ * "Bảng của tôi" split into the Connect Hub layers: personal tables I own, tables shared in a
+ * 1-1, and tables kept in a group. Roots only; a project's tables stay with the project, and a
+ * conversation the viewer cannot see (kind unknown) is left out rather than guessed.
+ */
+export function tablesByLayer(
+  tables: readonly ThinkTable[],
+  userId: string | undefined,
+  kindOf: (conversationId: string) => "direct" | "group" | "personal" | undefined,
+): Record<TableLayer, ThinkTable[]> {
+  const layers: Record<TableLayer, ThinkTable[]> = { personal: [], direct: [], group: [] };
+  for (const table of rootTables(tables)) {
+    if (table.projectId !== null) continue;
+    if (table.conversationId === null) {
+      if (table.ownerUserId === userId) layers.personal.push(table);
+      continue;
+    }
+    const kind = kindOf(table.conversationId);
+    if (kind === "direct") layers.direct.push(table);
+    else if (kind === "group") layers.group.push(table);
+  }
+  return layers;
+}
+
 /** The live records of one table, newest first. */
 export function recordsOf(
   records: readonly ThinkRecord[],

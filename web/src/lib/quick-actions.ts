@@ -33,3 +33,14 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
 export function directQuickAction(actions: readonly QuickAction[]): QuickAction | null {
   return actions.length === 1 ? actions[0] : null;
 }
+
+/**
+ * On a phone the bubble answers a tap and a hold differently, as the logo does: a quick tap
+ * opens the first action straight away (Lịch), and only a hold opens the chooser.
+ */
+export function tapQuickAction(actions: readonly QuickAction[]): QuickAction | null {
+  return actions[0] ?? null;
+}
+
+/** How long the bubble must be held on a phone before the chooser opens instead of Lịch. */
+export const BUBBLE_HOLD_MS = 500;

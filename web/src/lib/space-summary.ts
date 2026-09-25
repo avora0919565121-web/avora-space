@@ -62,6 +62,21 @@ export const PULSE_LABELS: readonly { key: "overdue" | "today" | "ahead"; label:
 ] as const;
 
 /**
+ * Where each number leads: the Nhiệm vụ section of the same name. Slugs, not ids, because the
+ * address bar is what a link carries (`/nhiem-vu?muc=<slug>`, the same list the nav reads).
+ */
+export const PULSE_SECTION_SLUGS: Readonly<Record<"overdue" | "today" | "ahead", string>> = {
+  overdue: "qua-han",
+  today: "hom-nay",
+  ahead: "sap-toi",
+};
+
+/** The link behind one number of the strip. */
+export function pulseHref(key: "overdue" | "today" | "ahead"): string {
+  return `/nhiem-vu?muc=${PULSE_SECTION_SLUGS[key]}`;
+}
+
+/**
  * The one sentence under the three numbers.
  *
  * It names the single most pressing fact rather than repeating the strip in words: what is

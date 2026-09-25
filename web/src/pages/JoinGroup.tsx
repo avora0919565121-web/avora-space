@@ -53,7 +53,7 @@ export default function JoinGroup() {
               to="/tin-nhan"
               className="press mt-6 inline-block rounded-md border border-border px-4 py-2 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40"
             >
-              Về Tin nhắn
+              Về Kết nối
             </Link>
           </>
         ) : (

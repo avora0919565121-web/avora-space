@@ -7,15 +7,16 @@ import { navIconFor } from "@/components/nav/nav-icons";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useLongPress } from "@/hooks/use-long-press";
 import { formatUnreadBadge } from "@/lib/chat";
-import { activeNavEntry, APP_MAP_UPCOMING, HOME_ROUTE, LOGO_HOLD_MS, NAV_ITEMS } from "@/lib/navigation";
+import { activeNavEntry, APP_MAP_UPCOMING, HOME_ROUTE, LOGO_HOLD_MS, logoAction, NAV_ITEMS } from "@/lib/navigation";
 import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
 
 /**
  * The phone's top bar: the AVORA mark on the left, the quick-action bubble floating on the right.
  *
- * Tapping the mark goes home to Avora Space. Holding it opens the whole map of AVORA — Avora Space,
- * the five Hubs and Donation — so the shape of the app can be seen in one look.
+ * Tapping the mark goes home to Avora Space; tapped again from Avora Space it steps back to the
+ * screen the person came from. Holding it opens the whole map of AVORA — Avora Space, the five
+ * Hubs and Donation — so the shape of the app can be seen in one look.
  */
 export function MobileTopBar() {
   const navigate = useNavigate();
@@ -23,9 +24,14 @@ export function MobileTopBar() {
   const [isMapOpen, setIsMapOpen] = useState<boolean>(false);
   const badges = useNavBadges();
   const current = activeNavEntry(location.pathname);
+  const isHome = location.pathname === HOME_ROUTE;
 
   const press = useLongPress({
-    onTap: () => navigate(HOME_ROUTE),
+    onTap: () => {
+      const action = logoAction(location.pathname, window.history.state);
+      if (action === "home") navigate(HOME_ROUTE);
+      else if (action === "back") navigate(-1);
+    },
     onHold: () => setIsMapOpen(true),
     holdMs: LOGO_HOLD_MS,
     isEnabled: () => true,
@@ -38,7 +44,9 @@ export function MobileTopBar() {
           <button
             type="button"
             {...press}
-            aria-label="Về Avora Space. Giữ để xem toàn bộ AVORA"
+            aria-label={
+              isHome ? "Quay lại màn trước. Giữ để xem toàn bộ AVORA" : "Về Avora Space. Giữ để xem toàn bộ AVORA"
+            }
             aria-haspopup="dialog"
             className="press flex h-11 select-none items-center gap-2 rounded-lg px-2 [-webkit-touch-callout:none]"
           >

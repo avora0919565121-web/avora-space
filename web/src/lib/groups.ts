@@ -47,6 +47,7 @@ export const groupKeys = {
   members: (conversationId: string) => ["group-members", conversationId] as const,
   removalRequests: (conversationId: string) => ["group-removal-requests", conversationId] as const,
   invite: (conversationId: string) => ["group-invite", conversationId] as const,
+  parents: (conversationIds: readonly string[]) => ["group-parents", ...conversationIds] as const,
 };
 
 export const LEAVE_BLOCKED_MESSAGE = "Bạn cần chuyển quyền chủ nhóm trước khi rời";
@@ -254,6 +255,22 @@ export const SUB_GROUP_DEPTH_MESSAGE =
 /** Only the group's owner or admin opens a sub-group beneath it. */
 export function canCreateSubGroup(role: GroupRole | undefined): boolean {
   return role === "owner" || role === "admin";
+}
+
+/**
+ * The parent of each of the viewer's groups, for drawing the Nhóm tab as a tree. Reads the same
+ * row `fetchGroupDepth` reads, under the same row-level rules: only groups the viewer is in.
+ */
+export async function fetchGroupParents(conversationIds: readonly string[]): Promise<Map<string, string | null>> {
+  const map = new Map<string, string | null>();
+  if (conversationIds.length === 0) return map;
+  const { data, error } = await supabase
+    .from("conversations")
+    .select("id, parent_group_id")
+    .in("id", [...conversationIds]);
+  if (error) throw fail(error.code, error.message);
+  for (const row of data ?? []) map.set(row.id, row.parent_group_id);
+  return map;
 }
 
 /** How deep this group sits in its tree (1–3). */

@@ -1,11 +1,19 @@
 import { CalendarDays, Sparkles } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useState, type PointerEvent } from "react";
 
 import { StatusPill } from "@/components/StatusPill";
 import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { QUICK_ACTIONS, directQuickAction, type QuickActionId } from "@/lib/quick-actions";
+import { useLongPress } from "@/hooks/use-long-press";
+import { BUBBLE_HOLD_MS, QUICK_ACTIONS, directQuickAction, tapQuickAction, type QuickActionId } from "@/lib/quick-actions";
+
+/** The same width at which the phone's top bar and tool-belt take over (Tailwind's `md`). */
+const NARROW_QUERY = "(max-width: 767px)";
+
+function isNarrowViewport(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(NARROW_QUERY).matches;
+}
 
 const ICONS: Record<QuickActionId, typeof CalendarDays> = {
   calendar: CalendarDays,
@@ -19,11 +27,38 @@ const BUBBLE_CLASS =
  * A small round button floating at the top right of every signed-in screen.
  *
  * It takes no row of its own: on a phone it sits in the top bar beside the logo, on a computer in
- * the corner of the page. One action opens directly; several open a short chooser in order.
+ * the corner of the page. One action opens directly; several open a short chooser in order — on
+ * a computer with a click, on a phone with a hold, while a quick tap there opens Lịch at once.
  */
 export function QuickActionBubble() {
   const [openAction, setOpenAction] = useState<QuickActionId | null>(null);
+  const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const direct = directQuickAction(QUICK_ACTIONS);
+
+  const press = useLongPress({
+    onTap: () => {
+      const first = tapQuickAction(QUICK_ACTIONS);
+      if (first !== null) setOpenAction(first.id);
+    },
+    onHold: () => setIsMenuOpen(true),
+    holdMs: BUBBLE_HOLD_MS,
+    isEnabled: isNarrowViewport,
+  });
+
+  /**
+   * On a phone the press is ours: the menu must not open on the finger going down, only once it
+   * has been held. Marking the event handled keeps the menu's own trigger from toggling it; on a
+   * computer nothing is intercepted and a click opens the chooser as before. Keyboard opening is
+   * left alone at every width.
+   */
+  const handlePointerDown = useCallback(
+    (event: PointerEvent<HTMLButtonElement>): void => {
+      if (!isNarrowViewport()) return;
+      press.onPointerDown(event);
+      event.preventDefault();
+    },
+    [press],
+  );
 
   return (
     <>
@@ -38,9 +73,23 @@ export function QuickActionBubble() {
           <CalendarDays className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
         </button>
       ) : (
-        <DropdownMenu>
+        <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
           <DropdownMenuTrigger asChild>
-            <button type="button" aria-label="Hành động nhanh: Lịch, Avora AI" title="Lịch · Avora AI" className={BUBBLE_CLASS}>
+            <button
+              type="button"
+              aria-label="Hành động nhanh: Lịch, Avora AI"
+              title="Lịch · Avora AI"
+              className={`${BUBBLE_CLASS} select-none [-webkit-touch-callout:none]`}
+              onPointerDown={handlePointerDown}
+              onPointerMove={press.onPointerMove}
+              onPointerUp={press.onPointerUp}
+              onPointerCancel={press.onPointerCancel}
+              onPointerLeave={press.onPointerLeave}
+              onContextMenu={press.onContextMenu}
+              onClick={(event) => {
+                if (isNarrowViewport()) press.onClick(event);
+              }}
+            >
               <CalendarDays className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
               {/* A second action lives here now — a small spark says so without a label. */}
               <span

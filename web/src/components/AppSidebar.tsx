@@ -1,7 +1,7 @@
 import { LogOut } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { useRef } from "react";
-import { Link, NavLink, useNavigate } from "react-router-dom";
+import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { ResizeHandle } from "@/components/ResizeHandle";
@@ -9,7 +9,7 @@ import { navIconFor } from "@/components/nav/nav-icons";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
-import { HOME_ROUTE, NAV_ITEMS } from "@/lib/navigation";
+import { HOME_ROUTE, logoAction, NAV_ITEMS } from "@/lib/navigation";
 import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
 
@@ -24,6 +24,8 @@ export function AppSidebar() {
   const { user, signOut } = useAuth();
   const displayName = useDisplayName();
   const navigate = useNavigate();
+  const location = useLocation();
+  const isHome = location.pathname === HOME_ROUTE;
   // Desktop only: the rail's width, as the reader last dragged it.
   const navColumn = useColumnWidth(NAV_COLUMN);
   const asideRef = useRef<HTMLElement | null>(null);
@@ -42,11 +44,20 @@ export function AppSidebar() {
       className="paper relative hidden h-screen w-[240px] shrink-0 flex-col border-r border-border md:flex"
     >
       <ResizeHandle columnRef={asideRef} control={navColumn} label="Độ rộng thanh điều hướng" />
-      {/* The mark is the way home: one click lands on Avora Space from anywhere. */}
+      {/*
+        The mark is the way home: one click lands on Avora Space from anywhere. Clicked again
+        from Avora Space it steps back to where the person was, or stays put with nowhere to go.
+      */}
       <Link
         to={HOME_ROUTE}
-        aria-label="Về Avora Space"
-        title="Về Avora Space"
+        onClick={(event) => {
+          const action = logoAction(location.pathname, window.history.state);
+          if (action === "home") return;
+          event.preventDefault();
+          if (action === "back") navigate(-1);
+        }}
+        aria-label={isHome ? "Quay lại màn trước" : "Về Avora Space"}
+        title={isHome ? "Quay lại màn trước" : "Về Avora Space"}
         className="press mx-3 mb-2 mt-3 flex items-center gap-2.5 rounded-lg px-3 pb-3 pt-3 transition-colors hover:bg-accent/40"
       >
         <img

@@ -51,7 +51,7 @@ export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = 
   attention: {
     title: "Cần chú ý hôm nay",
     description: "Việc đến hạn hôm nay, việc đã trễ, và những cuộc hẹn cần bạn có mặt.",
-    hint: "Chạm một dòng để mở việc đó.",
+    hint: "Chạm một con số để mở mục đó trong Nhiệm vụ, hoặc một dòng để mở việc đó.",
     empty: "Chưa có gì cần làm hôm nay.",
   },
   reminders: {
@@ -75,7 +75,7 @@ export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = 
   communication: {
     title: "Giao tiếp",
     description: "Những cuộc trò chuyện đang có tin bạn chưa đọc.",
-    hint: "Chạm để mở Tin nhắn.",
+    hint: "Chạm để mở Kết nối.",
     empty: null,
   },
 };
