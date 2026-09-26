@@ -93,11 +93,15 @@ describe("Avora Space block order", () => {
     expect(SPACE_BLOCK_ORDER).toEqual(["greeting", "attention", "reminders", "planning", "invitations", "communication"]);
   });
 
-  it("gives every block a description and a tap hint", () => {
-    for (const id of SPACE_BLOCK_ORDER) {
-      expect(SPACE_BLOCK_COPY[id].description.length).toBeGreaterThan(0);
-      expect(SPACE_BLOCK_COPY[id].hint.length).toBeGreaterThan(0);
+  it("drops lines that only repeat the title or a visible chevron (AVORA 33)", () => {
+    expect(SPACE_BLOCK_COPY.attention.description).toBeNull();
+    expect(SPACE_BLOCK_COPY.reminders.description).toBeNull();
+    for (const id of ["attention", "reminders", "invitations", "communication"] as const) {
+      expect(SPACE_BLOCK_COPY[id].hint).toBeNull();
     }
+    // Blocks without their own tap sign keep saying what tapping does.
+    expect(SPACE_BLOCK_COPY.planning.hint?.length ?? 0).toBeGreaterThan(0);
+    expect(SPACE_BLOCK_COPY.greeting.hint?.length ?? 0).toBeGreaterThan(0);
   });
 
   it("says the agreed empty lines", () => {

@@ -2,7 +2,7 @@ import { Loader2 } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
-import { PinGate } from "@/components/PinGate";
+import { PinGate, PinReminderBanner } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { MobileTopBar } from "@/components/nav/MobileTopBar";
 import { ToolBelt } from "@/components/nav/ToolBelt";
@@ -26,14 +26,14 @@ export function RequireAuth() {
     );
   }
 
-  if (!session) return <Navigate to="/dang-nhap" replace state={{ from: location.pathname }} />;
+  if (!session) return <Navigate to="/dang-nhap" replace state={{ from: `${location.pathname}${location.search}` }} />;
 
   // A reset link opens a real session. Until the new password is saved it may only reach
   // the reset screen — otherwise a stale link would double as a way into the account.
   if (isRecovering) return <Navigate to="/dat-lai-mat-khau" replace />;
 
   return (
-    // Every account has a PIN before anything else (AVORA 32): a blocking step, shown once.
+    // AVORA 33: the PIN blocks only after its 30-day window; until then a quiet banner reminds.
     <PinGate>
     {/* One fixed frame, like a native app: bars stay put and only the page between them scrolls. */}
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-card md:h-screen md:flex-row">
@@ -41,6 +41,7 @@ export function RequireAuth() {
       <AppSidebar />
       {/* min-w-0: a wide table scrolls inside its own frame instead of pushing the page wider. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <PinReminderBanner />
         <Outlet />
       </main>
       {hidesToolBelt(location.pathname) ? null : <ToolBelt />}

@@ -223,14 +223,17 @@ const TreeRow = memo(function TreeRow({
 
         {kind === "group" ? null : (
           <>
-            <Link
-              to={chatHref}
-              aria-label={`Mở trò chuyện ${title}`}
-              title="Mở trò chuyện"
-              className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
-            >
-              <MessageSquare className="h-[18px] w-[18px]" strokeWidth={1.7} />
-            </Link>
+            {/* Only a project needs it: its name opens the project page, a sub-group's name already opens its chat. */}
+            {kind === "project" ? (
+              <Link
+                to={chatHref}
+                aria-label={`Mở trò chuyện ${title}`}
+                title="Mở trò chuyện"
+                className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/60 hover:text-foreground"
+              >
+                <MessageSquare className="h-[18px] w-[18px]" strokeWidth={1.7} />
+              </Link>
+            ) : null}
             {hasTable(node) ? (
               <button
                 type="button"

@@ -1602,6 +1602,22 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   first entry (labelled the last step of sign-up, since a PIN needs a session and email confirmation comes first);
   existing accounts meet it once, on their next visit. A missing phone number is only a soft note. Profile shows the PIN.
   A deliberate, permanent exception to the no-onboarding-friction rule.
+  *Superseded in part by AVORA 33 below: the PIN no longer blocks at the door.*
+- 2026-09-26 — PIN when needed, not at the door (AVORA 33 / F). `profiles.pin_required_at` (client read-only by column
+  grants): new profile = `created_at + 30 days` (insert trigger), existing no-PIN accounts backfilled `now() + 30 days`,
+  cleared when a PIN is claimed. The gate has three states: PIN → app; no PIN inside the window → app plus a thin
+  dismissible banner "Bạn chưa có PIN AVORA — còn N ngày" (hidden until end of that day, per device) opening the same
+  PIN form in a dialog; no PIN past the deadline → the blocking screen ("Một việc trước khi tiếp tục"). Nobody waits
+  on the check and a failed read never locks anyone out. Hồ sơ shows the same form inline while there is no PIN.
+  No feature-triggered block yet — add it where invite-by-PIN is built.
+- 2026-09-26 — Clarity pass (AVORA 33 / A–E). Sign-in returns to the path that sent the person there (invite links),
+  in-app paths only. The terms line is plain text until a terms page exists. Row actions in Tài chính stay visible
+  at 60% on touch (`hoverable:` screen = hover+fine pointer keeps hover-reveal on desktop). "Thiết lập" tab →
+  "Tuỳ chọn chung" (route kept); `NavEntry.badge` shows "Sắp ra mắt" on Avora AI. An empty table explains "Hạng mục
+  là một dòng trong Bảng này" once. Avora Space drops the pulse sentence and the description/hint lines that repeated
+  a title or a chevron; the task sheet has one status line; Think Hub drops its subtitle; the sub-group row drops its
+  redundant chat icon (projects keep it). Reports follow the filters live; every money hint carries its currency;
+  the amount field shows the account's currency; an empty ledger shows only "Tạo tài khoản"; charts show a pointer.
 
 ## Out of scope
 

@@ -4,7 +4,7 @@ import { SectionTabs } from "@/components/SectionTabs";
 import { SETTINGS_TABS } from "@/lib/navigation";
 
 /**
- * Cài đặt — four sibling halves: the account (Hồ sơ), the app's own settings (Thiết lập),
+ * Cài đặt — four sibling halves: the account (Hồ sơ), the app's own settings (Tuỳ chọn chung),
  * its notifications (Thông báo), and the assistant that is planned but not built (Avora AI).
  * The section frames them and nothing more.
  */

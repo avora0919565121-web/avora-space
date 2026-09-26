@@ -98,6 +98,9 @@ export function TransactionForm({
   }, [editing, seed]);
 
   const options = useMemo(() => categoriesFor(categories, draft.type), [categories, draft.type]);
+  // The amount is always in the chosen account's currency; say which, beside the field.
+  const amountCurrency: string | null =
+    accounts.find((account) => account.id === draft.accountId)?.currency.toUpperCase() ?? null;
 
   // The only account is the obvious account; nobody should have to pick it.
   useEffect(() => {
@@ -312,15 +315,26 @@ export function TransactionForm({
           <FieldLabel htmlFor="txn-amount" required>
             Số tiền
           </FieldLabel>
-          <input
-            id="txn-amount"
-            inputMode="decimal"
-            value={draft.amount}
-            onChange={(event) => update("amount", event.target.value)}
-            onBlur={() => setTouched(true)}
-            placeholder="0.00"
-            className={cn(inputClass, "tabular mt-1.5", amountError !== null && "border-money-out")}
-          />
+          <div className="relative mt-1.5">
+            <input
+              id="txn-amount"
+              inputMode="decimal"
+              value={draft.amount}
+              onChange={(event) => update("amount", event.target.value)}
+              onBlur={() => setTouched(true)}
+              placeholder="0.00"
+              aria-describedby={amountCurrency !== null ? "txn-amount-currency" : undefined}
+              className={cn(inputClass, "tabular", amountCurrency !== null && "pr-16", amountError !== null && "border-money-out")}
+            />
+            {amountCurrency !== null ? (
+              <span
+                id="txn-amount-currency"
+                className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-[13px] font-semibold tracking-wide text-muted-foreground"
+              >
+                {amountCurrency}
+              </span>
+            ) : null}
+          </div>
           {amountError !== null ? <p className="mt-1 text-[12.5px] text-money-out">{amountError}</p> : null}
         </div>
 

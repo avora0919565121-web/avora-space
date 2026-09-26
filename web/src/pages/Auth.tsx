@@ -1,9 +1,9 @@
 import { Loader2 } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
-import { HOME_ROUTE } from "@/lib/navigation";
+import { returnPathFrom } from "@/lib/navigation";
 
 type Mode = "signin" | "signup" | "forgot";
 
@@ -17,6 +17,8 @@ function readMode(value: string | null): Mode {
 const Auth = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnTo: string = returnPathFrom(location.state);
   const { signIn, signUp, resendConfirmation, requestPasswordReset, session, isLoading, isRecovering } =
     useAuth();
 
@@ -38,12 +40,14 @@ const Auth = () => {
 
   // A recovery session must finish setting its new password before it can browse the app.
   if (!isLoading && session && isRecovering) return <Navigate to="/dat-lai-mat-khau" replace />;
-  if (!isLoading && session) return <Navigate to={HOME_ROUTE} replace />;
+  if (!isLoading && session) return <Navigate to={returnTo} replace />;
 
+  // The return path rides along when switching between sign in / sign up / forgot.
   const switchMode = (next: Mode): void => {
-    if (next === "signup") setSearchParams({ mode: "dang-ky" }, { replace: true });
-    else if (next === "forgot") setSearchParams({ mode: "quen-mat-khau" }, { replace: true });
-    else setSearchParams({}, { replace: true });
+    const options = { replace: true, state: location.state as unknown };
+    if (next === "signup") setSearchParams({ mode: "dang-ky" }, options);
+    else if (next === "forgot") setSearchParams({ mode: "quen-mat-khau" }, options);
+    else setSearchParams({}, options);
   };
 
   const handleResendConfirmation = async (): Promise<void> => {
@@ -115,7 +119,7 @@ const Auth = () => {
       switchMode("signin");
       return;
     }
-    navigate(HOME_ROUTE, { replace: true });
+    navigate(returnTo, { replace: true });
   };
 
   const isSignUp = mode === "signup";
@@ -281,8 +285,7 @@ const Auth = () => {
               </div>
 
               <p className="mt-6 text-center text-[13px] leading-relaxed text-muted-foreground">
-                Bằng việc tiếp tục, bạn đồng ý với{" "}
-                <span className="font-medium text-primary">Điều khoản của AVORA</span>
+                Bằng việc tiếp tục, bạn đồng ý với Điều khoản của AVORA
               </p>
             </>
           )}

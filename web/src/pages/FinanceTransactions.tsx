@@ -183,7 +183,8 @@ function EntryRow({
           className={cn("shrink-0 text-[14.5px] font-semibold", voided && "line-through")}
         />
 
-        <div className="flex shrink-0 items-center gap-0.5 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+        {/* Touch has no hover: the actions stay visible there, quietly. A mouse still reveals them on hover. */}
+        <div className="flex shrink-0 items-center gap-0.5 opacity-60 transition-opacity focus-within:opacity-100 hoverable:opacity-0 hoverable:focus-within:opacity-100 hoverable:group-hover:opacity-100">
           {!voided && obligation && status !== "hoan_thanh" ? (
             <button
               type="button"

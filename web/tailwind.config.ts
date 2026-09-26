@@ -14,6 +14,10 @@ export default {
       },
     },
     extend: {
+      screens: {
+        // A real mouse/trackpad. Touch screens miss this, so hover-only reveals can stay visible there.
+        hoverable: { raw: "(hover: hover) and (pointer: fine)" },
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

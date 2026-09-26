@@ -125,6 +125,8 @@ export function SpendingTrendChart({
             <LineChart
               data={[...points]}
               margin={{ top: 6, right: 14, bottom: 0, left: 4 }}
+              // Tapping a month filters the list, so the pointer says it is clickable.
+              style={{ cursor: onSelectMonth ? "pointer" : "default" }}
               onClick={(state) => {
                 const index = typeof state?.activeTooltipIndex === "number" ? state.activeTooltipIndex : -1;
                 if (index >= 0 && points[index] && onSelectMonth) onSelectMonth(points[index].month);
@@ -224,7 +226,7 @@ export function CategoryDistributionChart({
                 <button
                   type="button"
                   onClick={() => onSelectCategory?.(item.categoryId)}
-                  className="flex w-full items-center gap-2 rounded px-1 py-0.5 text-left transition-colors hover:bg-accent/35"
+                  className="flex w-full cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-left transition-colors hover:bg-accent/35"
                 >
                   <span aria-hidden="true" className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ backgroundColor: item.color }} />
                   <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">{item.name}</span>

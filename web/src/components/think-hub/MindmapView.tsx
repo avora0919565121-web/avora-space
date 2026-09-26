@@ -39,6 +39,7 @@ export function MindmapView({ table, tables, records, taskCountByRecord, onOpenR
       return (
         <p className="py-2 text-[13px] text-muted-foreground" style={{ paddingLeft: `${level * 22 + 30}px` }}>
           Chưa có Hạng mục nào.
+          {level === 0 ? <span className="ml-1 text-muted-foreground/80">Hạng mục là một dòng trong Bảng này.</span> : null}
         </p>
       );
     }

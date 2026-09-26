@@ -18,7 +18,7 @@ import {
   type AttentionItem,
   type SpaceBlockId,
 } from "@/lib/space-blocks";
-import { PULSE_LABELS, pulseHref, pulseSentence, spaceDateLabel, taskPulse } from "@/lib/space-summary";
+import { PULSE_LABELS, pulseHref, spaceDateLabel, taskPulse } from "@/lib/space-summary";
 import { contextLink } from "@/lib/task-context";
 import { groupByScope, taskContextTarget, TASK_SCOPE_LABELS, type ProjectIndex } from "@/lib/task-scope";
 import { deadlineLabel, todayIso, type TaskItem } from "@/lib/tasks";
@@ -86,9 +86,9 @@ function Block({
         {icon}
         {copy.title}
       </h2>
-      <p className={cn(TYPE.blockDescription, "mt-0.5")}>{copy.description}</p>
+      {copy.description === null ? null : <p className={cn(TYPE.blockDescription, "mt-0.5")}>{copy.description}</p>}
       <div className="mt-3">{children}</div>
-      <p className={cn(TYPE.meta, "mt-2")}>{copy.hint}</p>
+      {copy.hint === null ? null : <p className={cn(TYPE.meta, "mt-2")}>{copy.hint}</p>}
     </section>
   );
 }
@@ -217,7 +217,6 @@ export default function Dashboard() {
                     </Link>
                   ))}
                 </div>
-                <p className={cn(TYPE.blockDescription, "mt-2")}>{pulseSentence(pulse)}</p>
                 <div className="mt-3">
                   {attention.length === 0 ? (
                     <EmptyLine id={id} />

@@ -10,6 +10,8 @@
 export type NavEntry = {
   readonly to: string;
   readonly label: string;
+  /** A short note shown beside the label, e.g. "Sắp ra mắt" on a tab that is not built yet. */
+  readonly badge?: string;
 };
 
 /**
@@ -23,6 +25,18 @@ export type NavEntry = {
  * finished password reset, the bare "/", and a dead link), and they must never drift apart.
  */
 export const HOME_ROUTE = "/tong-quan";
+
+/**
+ * Where to go once signed in: the screen that sent the person to sign in (an invite link, a contact
+ * invite), or Avora Space. Only an in-app path is honoured — never another site, never the sign-in
+ * screen itself.
+ */
+export function returnPathFrom(state: unknown): string {
+  const from = (state as { from?: unknown } | null)?.from;
+  if (typeof from !== "string") return HOME_ROUTE;
+  if (!from.startsWith("/") || from.startsWith("//") || from.startsWith("/dang-nhap")) return HOME_ROUTE;
+  return from;
+}
 
 /**
  * Where the unconfirmed channels of an import are settled.
@@ -111,9 +125,10 @@ export const VAULT_TABS: readonly NavEntry[] = [
 /** Cài đặt: the profile, the app's own settings, its notifications, and the unbuilt assistant. */
 export const SETTINGS_TABS: readonly NavEntry[] = [
   { to: "/cai-dat", label: "Hồ sơ" },
-  { to: "/cai-dat/thiet-lap", label: "Thiết lập" },
+  // Not "Thiết lập": that reads as a synonym of the section name "Cài đặt". Route unchanged.
+  { to: "/cai-dat/thiet-lap", label: "Tuỳ chọn chung" },
   { to: "/cai-dat/thong-bao", label: "Thông báo" },
-  { to: "/cai-dat/avora-ai", label: "Avora AI" },
+  { to: "/cai-dat/avora-ai", label: "Avora AI", badge: "Sắp ra mắt" },
 ];
 
 /**

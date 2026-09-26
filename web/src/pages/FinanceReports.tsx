@@ -236,10 +236,14 @@ const FinanceReports = () => {
     }
   }, [draft.accountId, open]);
 
-  // Show something real on arrival rather than an empty frame asking to be clicked.
+  // Show something real on arrival rather than an empty frame asking to be clicked — and keep it
+  // following the filters from then on (AVORA 33). A half-typed or reversed range leaves the last
+  // good report on screen instead of blanking it.
   useEffect(() => {
-    if (applied === null && !isLoading) setApplied(draft);
-  }, [applied, draft, isLoading]);
+    if (isLoading) return;
+    if (draft.from === "" || draft.to === "" || draft.from > draft.to) return;
+    setApplied(draft);
+  }, [draft, isLoading]);
 
   const available = useMemo(
     () => REPORT_DEFINITIONS.filter((definition) => definition.kind === "personal" || business),
@@ -404,19 +408,7 @@ const FinanceReports = () => {
                   </button>
                 ))}
 
-                <button
-                  type="button"
-                  disabled={rangeInvalid}
-                  onClick={() => setApplied(draft)}
-                  className={cn(
-                    "press ml-auto rounded-md px-5 py-2.5 text-[14px] font-semibold transition-colors",
-                    rangeInvalid
-                      ? "cursor-not-allowed bg-primary/35 text-primary-foreground"
-                      : "bg-primary text-primary-foreground hover:bg-primary/92",
-                  )}
-                >
-                  Tạo báo cáo
-                </button>
+                <span className="ml-auto text-[12px] text-muted-foreground">Báo cáo tự cập nhật theo bộ lọc</span>
               </div>
               {rangeInvalid ? (
                 <p className="mt-2 text-[12.5px] text-money-out">Ngày bắt đầu phải trước ngày kết thúc.</p>

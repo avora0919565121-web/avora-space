@@ -2,7 +2,55 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
-import { generatePinBody, PIN_LETTERS, pinBody, pinProblem, toPin } from "@/lib/user-pin";
+import { returnPathFrom } from "@/lib/navigation";
+import {
+  generatePinBody,
+  PIN_LETTERS,
+  pinBody,
+  pinDaysLeft,
+  pinPhase,
+  pinProblem,
+  toPin,
+} from "@/lib/user-pin";
+
+describe("PIN phases (AVORA 33)", () => {
+  const now = new Date("2026-09-26T10:00:00Z");
+
+  it("lets anyone with a PIN through", () => {
+    expect(pinPhase({ pin: "A-MNPQ23RS", requiredAt: "2026-01-01T00:00:00Z" }, now)).toBe("has-pin");
+  });
+
+  it("does not block inside the 30-day window", () => {
+    expect(pinPhase({ pin: null, requiredAt: "2026-10-20T00:00:00Z" }, now)).toBe("grace");
+    expect(pinPhase({ pin: null, requiredAt: null }, now)).toBe("grace");
+  });
+
+  it("blocks once the deadline has passed", () => {
+    expect(pinPhase({ pin: null, requiredAt: "2026-09-26T10:00:00Z" }, now)).toBe("overdue");
+    expect(pinPhase({ pin: null, requiredAt: "2026-09-01T00:00:00Z" }, now)).toBe("overdue");
+  });
+
+  it("counts whole days left, never zero while still open", () => {
+    expect(pinDaysLeft("2026-10-26T10:00:00Z", now)).toBe(30);
+    expect(pinDaysLeft("2026-09-26T11:00:00Z", now)).toBe(1);
+    expect(pinDaysLeft("2026-09-25T00:00:00Z", now)).toBe(0);
+    expect(pinDaysLeft(null, now)).toBeNull();
+  });
+});
+
+describe("return path after sign-in (AVORA 33)", () => {
+  it("goes back to the invite that sent the person to sign in", () => {
+    expect(returnPathFrom({ from: "/loi-moi/abc" })).toBe("/loi-moi/abc");
+    expect(returnPathFrom({ from: "/loi-moi-lien-he/xyz?a=1" })).toBe("/loi-moi-lien-he/xyz?a=1");
+  });
+
+  it("falls back to Avora Space for anything else", () => {
+    expect(returnPathFrom(null)).toBe("/tong-quan");
+    expect(returnPathFrom({ from: "https://evil.example" })).toBe("/tong-quan");
+    expect(returnPathFrom({ from: "//evil.example" })).toBe("/tong-quan");
+    expect(returnPathFrom({ from: "/dang-nhap" })).toBe("/tong-quan");
+  });
+});
 
 describe("PIN format (AVORA 32)", () => {
   it("accepts a body that meets every rule", () => {

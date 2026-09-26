@@ -33,10 +33,13 @@ export const SPACE_BLOCK_ORDER: readonly SpaceBlockId[] = [
 
 export type SpaceBlockCopy = {
   title: string;
-  /** One short line saying what the block holds, in a sharing voice. */
-  description: string;
-  /** What tapping does. */
-  hint: string;
+  /**
+   * One short line saying what the block holds, in a sharing voice. Null where the title already
+   * says it (AVORA 33) — a second line restating the title is noise, not help.
+   */
+  description: string | null;
+  /** What tapping does. Null where every row already carries its own chevron. */
+  hint: string | null;
   /** Shown when empty. Null means the block hides itself instead. */
   empty: string | null;
 };
@@ -50,14 +53,14 @@ export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = 
   },
   attention: {
     title: "Cần chú ý hôm nay",
-    description: "Việc đến hạn hôm nay, việc đã trễ, và những cuộc hẹn cần bạn có mặt.",
-    hint: "Chạm một con số để mở mục đó trong Nhiệm vụ, hoặc một dòng để mở việc đó.",
+    description: null,
+    hint: null,
     empty: "Chưa có gì cần làm hôm nay.",
   },
   reminders: {
     title: "Nhắc nhở sắp tới",
-    description: "Những lời nhắc bạn đã đặt trong 7 ngày tới.",
-    hint: "Chạm để xem việc được nhắc.",
+    description: null,
+    hint: null,
     empty: "Không có nhắc nhở nào sắp tới.",
   },
   planning: {
@@ -69,13 +72,13 @@ export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = 
   invitations: {
     title: "Lời mời đang chờ",
     description: "Có người mời bạn cùng tham gia một việc.",
-    hint: "Chạm để xem và trả lời.",
+    hint: null,
     empty: null,
   },
   communication: {
     title: "Giao tiếp",
     description: "Những cuộc trò chuyện đang có tin bạn chưa đọc.",
-    hint: "Chạm để mở Kết nối.",
+    hint: null,
     empty: null,
   },
 };

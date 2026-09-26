@@ -1,5 +1,6 @@
 import { Link, useLocation } from "react-router-dom";
 
+import { StatusPill } from "@/components/StatusPill";
 import { activeSectionTab, type NavEntry } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -30,13 +31,16 @@ export function SectionTabs({ section, tabs }: { section: string; tabs: readonly
                   to={tab.to}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "press relative inline-block px-2 pb-2.5 text-[14.5px] transition-colors",
+                    "press relative inline-flex items-center gap-1.5 px-2 pb-2.5 text-[14.5px] transition-colors",
                     isActive
                       ? "font-semibold text-foreground"
                       : "font-medium text-muted-foreground hover:text-foreground",
                   )}
                 >
                   {tab.label}
+                  {tab.badge !== undefined ? (
+                    <StatusPill className="px-2 py-0.5 text-[9.5px]">{tab.badge}</StatusPill>
+                  ) : null}
                   <span
                     aria-hidden="true"
                     className={cn(

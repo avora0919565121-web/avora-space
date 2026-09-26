@@ -1334,6 +1334,7 @@ export type Database = {
           hide_typing_signal: boolean
           id: string
           last_opened_date: string | null
+          pin_required_at: string | null
           timezone: string
         }
         Insert: {
@@ -1345,6 +1346,7 @@ export type Database = {
           hide_typing_signal?: boolean
           id: string
           last_opened_date?: string | null
+          pin_required_at?: string | null
           timezone?: string
         }
         Update: {
@@ -1356,6 +1358,7 @@ export type Database = {
           hide_typing_signal?: boolean
           id?: string
           last_opened_date?: string | null
+          pin_required_at?: string | null
           timezone?: string
         }
         Relationships: [

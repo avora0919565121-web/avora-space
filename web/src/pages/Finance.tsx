@@ -152,15 +152,17 @@ const Finance = () => {
               : "Thu chi cá nhân và kinh doanh hộ gia đình, trong một cuốn sổ."
         }
         action={
-          <button
-            type="button"
-            onClick={() => setIsAdding(true)}
-            disabled={open.length === 0}
-            className="press inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:bg-primary/35"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.2} />
-            Thêm giao dịch
-          </button>
+          // No account yet: the only action is "Tạo tài khoản" below, not a locked button beside it.
+          open.length === 0 ? undefined : (
+            <button
+              type="button"
+              onClick={() => setIsAdding(true)}
+              className="press inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.2} />
+              Thêm giao dịch
+            </button>
+          )
         }
       />
 
@@ -207,9 +209,15 @@ const Finance = () => {
               label="Chi tháng này"
               value={<Money cents={monthTotals.expenseCents} currency={currency} tone="out" />}
               hint={
-                monthTotals.netCents >= 0
-                  ? `Còn dư ${Math.abs(monthTotals.netCents / 100).toLocaleString("en-US", { maximumFractionDigits: 2 })}`
-                  : "Chi nhiều hơn thu"
+                monthTotals.netCents >= 0 ? (
+                  <>
+                    Còn dư <Money cents={monthTotals.netCents} currency={currency} tone="muted" />
+                  </>
+                ) : (
+                  <>
+                    Vượt thu <Money cents={Math.abs(monthTotals.netCents)} currency={currency} tone="out" />
+                  </>
+                )
               }
               tone="out"
             />
@@ -217,20 +225,19 @@ const Finance = () => {
               label="Giá trị ròng"
               value={<Money cents={netWorth.netCents} currency={currency} tone="ink" />}
               hint={
-                netWorth.liabilitiesCents > 0 ? (
+                netWorth.liabilitiesCents > 0 || position.receivableCents > 0 ? (
+                  // One short line per part, so each reads at a glance instead of one long joined sentence.
                   <>
-                    Đã trừ nợ <Money cents={netWorth.liabilitiesCents} currency={currency} tone="muted" />
-                    {position.receivableCents > 0 ? (
-                      <>
-                        {" · đã cộng "}
-                        <Money cents={position.receivableCents} currency={currency} tone="muted" /> cho vay
-                      </>
+                    {netWorth.liabilitiesCents > 0 ? (
+                      <span className="block">
+                        Đã trừ nợ <Money cents={netWorth.liabilitiesCents} currency={currency} tone="muted" />
+                      </span>
                     ) : null}
-                  </>
-                ) : position.receivableCents > 0 ? (
-                  <>
-                    Đã cộng <Money cents={position.receivableCents} currency={currency} tone="muted" /> cho vay
-                    chưa thu về
+                    {position.receivableCents > 0 ? (
+                      <span className="block">
+                        Đã cộng cho vay <Money cents={position.receivableCents} currency={currency} tone="muted" />
+                      </span>
+                    ) : null}
                   </>
                 ) : (
                   "Không có khoản nợ nào"

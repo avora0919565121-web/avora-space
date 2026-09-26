@@ -91,7 +91,51 @@ export function generatePinBody(random: () => number = cryptoRandom): string {
 
 export const userPinKeys = {
   mine: (userId: string) => ["user-pin", userId] as const,
+  status: (userId: string) => ["user-pin-status", userId] as const,
 };
+
+/** The PIN, and — while there is none — when the PIN screen starts blocking (AVORA 33). */
+export type PinStatus = {
+  pin: string | null;
+  requiredAt: string | null;
+};
+
+/** Three states: has a PIN, no PIN but still in the grace window, no PIN and past the deadline. */
+export type PinPhase = "has-pin" | "grace" | "overdue";
+
+export function pinPhase(status: PinStatus, now: Date = new Date()): PinPhase {
+  if (status.pin !== null) return "has-pin";
+  // No deadline recorded means nothing to enforce yet: stay out of the way.
+  if (status.requiredAt === null) return "grace";
+  return now.getTime() >= new Date(status.requiredAt).getTime() ? "overdue" : "grace";
+}
+
+/** Whole days left before the deadline, never below 1 while still in the window. */
+export function pinDaysLeft(requiredAt: string | null, now: Date = new Date()): number | null {
+  if (requiredAt === null) return null;
+  const ms = new Date(requiredAt).getTime() - now.getTime();
+  if (ms <= 0) return 0;
+  return Math.max(1, Math.ceil(ms / 86_400_000));
+}
+
+const BANNER_KEY_PREFIX = "avora-pin-banner-hidden:";
+
+/** The reminder is hidden until the end of the day it was dismissed — never for good. */
+export function isPinBannerHidden(userId: string, today: string): boolean {
+  try {
+    return window.localStorage.getItem(`${BANNER_KEY_PREFIX}${userId}`) === today;
+  } catch {
+    return false;
+  }
+}
+
+export function hidePinBannerFor(userId: string, today: string): void {
+  try {
+    window.localStorage.setItem(`${BANNER_KEY_PREFIX}${userId}`, today);
+  } catch {
+    // Private mode or full storage: the banner simply comes back, which is harmless.
+  }
+}
 
 function fail(code: string | undefined, message: string): Error {
   console.error(`[user-pin] ${code ?? "unknown"}: ${message}`);
@@ -113,6 +157,17 @@ export async function fetchMyPin(): Promise<string | null> {
   const { data, error } = await supabase.from("user_pins").select("pin").maybeSingle();
   if (error) throw fail(error.code, error.message);
   return data?.pin ?? null;
+}
+
+/** The signed-in person's PIN and deadline, read together so the gate decides once. */
+export async function fetchPinStatus(userId: string): Promise<PinStatus> {
+  const [pinResult, profileResult] = await Promise.all([
+    supabase.from("user_pins").select("pin").maybeSingle(),
+    supabase.from("profiles").select("pin_required_at").eq("id", userId).maybeSingle(),
+  ]);
+  if (pinResult.error) throw fail(pinResult.error.code, pinResult.error.message);
+  if (profileResult.error) throw fail(profileResult.error.code, profileResult.error.message);
+  return { pin: pinResult.data?.pin ?? null, requiredAt: profileResult.data?.pin_required_at ?? null };
 }
 
 /** Free, taken, or the rule it breaks — never who owns it. */

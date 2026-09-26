@@ -73,7 +73,7 @@ describe("the sectioned screens", () => {
   it("opens Cài đặt on the profile, with the three sibling tabs beside it", () => {
     expect(SETTINGS_TABS.map((tab) => tab.label)).toEqual([
       "Hồ sơ",
-      "Thiết lập",
+      "Tuỳ chọn chung",
       "Thông báo",
       "Avora AI",
     ]);

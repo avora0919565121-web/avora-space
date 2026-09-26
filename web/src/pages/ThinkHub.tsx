@@ -315,7 +315,6 @@ const ThinkHub = () => {
     <div className="paper flex min-h-0 flex-1 flex-col">
       <HubTitle
         title="Kế hoạch"
-        subtitle="Những bảng để nghĩ cho rõ trước khi thành việc"
         className="max-w-6xl"
         action={
           <button

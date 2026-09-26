@@ -1,23 +1,20 @@
-import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, LogOut } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { PinSetup, usePinStatus } from "@/components/PinGate";
 import { useAuth, useDisplayName } from "@/lib/auth";
-import { fetchMyPin, userPinKeys } from "@/lib/user-pin";
+import { pinDaysLeft } from "@/lib/user-pin";
 
 /** Signed-in confirmation screen: real profile data from Supabase, scoped by RLS to this user. */
 const Profile = () => {
   const { user, profile, profileError, updateDisplayName, signOut } = useAuth();
   const displayName = useDisplayName();
   const navigate = useNavigate();
-  const pinQuery = useQuery({
-    queryKey: userPinKeys.mine(user?.id ?? ""),
-    queryFn: fetchMyPin,
-    enabled: Boolean(user?.id),
-    staleTime: Infinity,
-  });
+  const pinQuery = usePinStatus();
+  const myPin: string | null = pinQuery.data?.pin ?? null;
+  const daysLeft: number | null = pinDaysLeft(pinQuery.data?.requiredAt ?? null);
 
   const [nameDraft, setNameDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -129,7 +126,7 @@ const Profile = () => {
             <div>
               <dt className="text-[13px] text-muted-foreground">PIN AVORA · vĩnh viễn</dt>
               <dd className="tabular mt-1 text-[15px] font-semibold tracking-[0.08em] text-foreground">
-                {pinQuery.data ?? "—"}
+                {myPin ?? (pinQuery.isPending ? "…" : "Chưa có")}
               </dd>
             </div>
             <div>
@@ -143,6 +140,21 @@ const Profile = () => {
               </dd>
             </div>
           </dl>
+
+          {/* No PIN yet: the form sits right here, the natural place to get one early (AVORA 33). */}
+          {pinQuery.data !== undefined && myPin === null ? (
+            <section aria-label="Tạo PIN AVORA" className="mt-6 border-t border-border pt-6">
+              <h3 className="text-[15px] font-semibold text-foreground">Tạo PIN AVORA</h3>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+                PIN là mã định danh riêng của bạn, dùng để người khác mời bạn. Không phải mật khẩu — nhưng đã chọn thì
+                không đổi được.
+                {daysLeft !== null && daysLeft > 0 ? ` Còn ${daysLeft} ngày để tạo.` : ""}
+              </p>
+              <div className="mt-4">
+                <PinSetup />
+              </div>
+            </section>
+          ) : null}
         </div>
 
         <button
