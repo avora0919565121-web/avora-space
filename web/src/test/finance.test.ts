@@ -7,6 +7,8 @@ import {
   addDaysIso,
   addMonths,
   balanceAt,
+  canSuggestReminder,
+  reminderTitle,
   buildLedger,
   categoriesFor,
   centsToDecimalString,
@@ -1271,5 +1273,23 @@ describe("net worth counts what is owed each way, and counts it once", () => {
     );
     const whole = withObligationPosition(fromAccounts, { receivableCents: 5, payableCents: 0 });
     expect(whole.unvalued.map((account) => account.id)).toEqual(["acc-eu"]);
+  });
+});
+
+describe("Tạo việc nhắc is only a suggestion for an obligation still owed (AVORA 32)", () => {
+  const base = { type: "vay" as const, deletedAt: null, dueDate: "2026-10-02", amountCents: 500_000_000, settledCents: 0 };
+
+  it("is offered for a live, dated, unsettled obligation only", () => {
+    expect(canSuggestReminder(base)).toBe(true);
+    expect(canSuggestReminder({ ...base, dueDate: null })).toBe(false);
+    expect(canSuggestReminder({ ...base, settledCents: base.amountCents })).toBe(false);
+    expect(canSuggestReminder({ ...base, deletedAt: "2026-09-01T00:00:00Z" })).toBe(false);
+    expect(canSuggestReminder({ ...base, type: "expense" as const })).toBe(false);
+  });
+
+  it("names the item and what is still owed", () => {
+    const title = reminderTitle("Vay anh Nam", { amountCents: 500_000_000, settledCents: 200_000_000 }, "VND");
+    expect(title.startsWith("Đến hạn: Vay anh Nam — ")).toBe(true);
+    expect(title).toContain("3.000.000");
   });
 });

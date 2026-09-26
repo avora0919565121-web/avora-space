@@ -58,6 +58,8 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
   if (normalized.includes("avora_txn_category_required")) return "Hãy chọn danh mục.";
 
   if (normalized.includes("avora_txn_due_date_required")) return "Hãy chọn ngày đến hạn.";
+  if (normalized.includes("avora_txn_already_settled")) return "Khoản này đã tất toán, không cần nhắc nữa.";
+  if (normalized.includes("avora_reminder_bad_title")) return "Tiêu đề việc nhắc không hợp lệ.";
   if (normalized.includes("avora_txn_contact_required"))
     return "Hãy chọn người vay hoặc người cho vay.";
   if (normalized.includes("avora_txn_contact_not_yours")) return "Liên hệ này không thuộc về bạn.";
@@ -424,6 +426,35 @@ export async function settleObligation(transactionId: string, amountCents: numbe
     .single();
   if (error) throw fail(error.code, error.message);
   return toTransaction(data as TransactionRow);
+}
+
+/**
+ * "Tạo việc nhắc": a personal task for an obligation's due date. Only on request; pressing it again
+ * returns the same task. The task completes itself when the obligation is fully settled.
+ */
+export async function createObligationReminderTask(transactionId: string, title: string): Promise<string> {
+  const { data, error } = await supabase.rpc("create_obligation_reminder_task", {
+    p_transaction_id: transactionId,
+    p_title: title,
+  });
+  if (error) throw fail(error.code, error.message);
+  if (typeof data !== "string") throw new Error("Không tạo được việc nhắc. Thử lại nhé.");
+  return data;
+}
+
+/** Which obligations already have a reminder task, and whether that task is done. */
+export async function fetchObligationReminders(): Promise<Map<string, { taskId: string; done: boolean }>> {
+  const { data, error } = await supabase
+    .from("tasks")
+    .select("id, status, source_transaction_id")
+    .not("source_transaction_id", "is", null);
+  if (error) throw fail(error.code, error.message);
+  const index = new Map<string, { taskId: string; done: boolean }>();
+  for (const row of data ?? []) {
+    if (row.source_transaction_id === null) continue;
+    index.set(row.source_transaction_id, { taskId: row.id, done: row.status === "done" });
+  }
+  return index;
 }
 
 /**

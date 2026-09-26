@@ -149,16 +149,23 @@ export function canSettle(
 }
 
 /**
- * Who may edit a draft note: its author (an officer or a delegated member, since opening one needs
- * that) and the group's Owner/Admin — the same seats that may lock it. Only while it is a draft.
+ * Who may edit a draft note and press "Bắt đầu họp": its author only — the Owner/Admin who opened
+ * it, or the member delegated as secretary. Other Owners/Admins do not gain it (Admin scope stays
+ * deliberately narrow); they may still lock the note.
  */
 export function canEditDraft(
   entry: Pick<DecisionEntry, "kind" | "status" | "createdBy">,
   userId: string | undefined,
-  role?: GroupRole,
 ): boolean {
-  if (entry.kind !== "meeting_note" || entry.status !== "draft" || !userId) return false;
-  return entry.createdBy === userId || role === "owner" || role === "admin";
+  return entry.kind === "meeting_note" && entry.status === "draft" && Boolean(userId) && entry.createdBy === userId;
+}
+
+/** The custom minutes file: the author may add or swap it at any time, even after the note is locked. */
+export function canManageMinutesFile(
+  entry: Pick<DecisionEntry, "kind" | "createdBy">,
+  userId: string | undefined,
+): boolean {
+  return entry.kind === "meeting_note" && Boolean(userId) && entry.createdBy === userId;
 }
 
 /** Whether the compose form has enough to submit. Mirrors the database's own checks. */

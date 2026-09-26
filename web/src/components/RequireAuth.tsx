@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
+import { PinGate } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { MobileTopBar } from "@/components/nav/MobileTopBar";
 import { ToolBelt } from "@/components/nav/ToolBelt";
@@ -32,7 +33,9 @@ export function RequireAuth() {
   if (isRecovering) return <Navigate to="/dat-lai-mat-khau" replace />;
 
   return (
-    // One fixed frame, like a native app: bars stay put and only the page between them scrolls.
+    // Every account has a PIN before anything else (AVORA 32): a blocking step, shown once.
+    <PinGate>
+    {/* One fixed frame, like a native app: bars stay put and only the page between them scrolls. */}
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-card md:h-screen md:flex-row">
       <MobileTopBar />
       <AppSidebar />
@@ -44,5 +47,6 @@ export function RequireAuth() {
       {/* Floats at the top right on every screen; takes no row of its own. */}
       <QuickActionBubble />
     </div>
+    </PinGate>
   );
 }

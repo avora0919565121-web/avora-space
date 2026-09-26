@@ -20,7 +20,7 @@ import {
   type DiaryFileNote,
   type DiaryView,
 } from "@/lib/diary-views";
-import type { JournalReference } from "@/lib/meeting-notes";
+import type { SavedMeetingNote } from "@/lib/meeting-notes";
 import type { TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
@@ -155,16 +155,14 @@ function EmptyView({ icon: Icon, title, body }: { icon: typeof FileText; title: 
 /** File của bạn: every photo and file kept in Diary, newest first, each with its note and source. */
 export function DiaryFilesView({
   notes,
-  meetingRefs = [],
-  onRemoveMeetingRef,
+  meetingNotes = [],
   urlOf,
   isLoading,
   onOpenNote,
 }: {
   notes: readonly DiaryFileNote[];
-  /** Finalized meeting notes kept here by reference ("Lưu vào Nhật ký"). */
-  meetingRefs?: readonly JournalReference[];
-  onRemoveMeetingRef?: (referenceId: string) => void;
+  /** Diary notes posted by "Lưu vào Nhật ký" — a finalized meeting note, by link, never a copy. */
+  meetingNotes?: readonly (SavedMeetingNote & { messageId: string; createdAt: string })[];
   urlOf: (storagePath: string) => string | null;
   isLoading: boolean;
   onOpenNote: (messageId: string) => void;
@@ -176,7 +174,7 @@ export function DiaryFilesView({
       </div>
     );
   }
-  if (notes.length === 0 && meetingRefs.length === 0) {
+  if (notes.length === 0 && meetingNotes.length === 0) {
     return (
       <EmptyView
         icon={Paperclip}
@@ -187,22 +185,20 @@ export function DiaryFilesView({
   }
   return (
     <ul className="mx-auto flex max-w-2xl flex-col gap-3">
-      {meetingRefs.map((ref) => (
-        <li key={ref.id} className="rounded-[14px] border border-border bg-card p-3.5 animate-bubble-in">
+      {meetingNotes.map((ref) => (
+        <li key={ref.messageId} className="rounded-[14px] border border-border bg-card p-3.5 animate-bubble-in">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted-foreground">
             <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-foreground/80">
-              Biên bản từ Sổ quyết định
+              Từ Sổ quyết định
             </span>
             <span className="tabular">{stamp(ref.createdAt)}</span>
-            {onRemoveMeetingRef !== undefined ? (
-              <button
-                type="button"
-                onClick={() => onRemoveMeetingRef(ref.id)}
-                className="press ml-auto rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-              >
-                Bỏ khỏi Nhật ký
-              </button>
-            ) : null}
+            <button
+              type="button"
+              onClick={() => onOpenNote(ref.messageId)}
+              className="press ml-auto rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
+            >
+              Xem trong Nhật ký
+            </button>
           </div>
           <div className="mt-2.5 flex items-start gap-3">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-primary/30 bg-primary/10 text-primary">
@@ -211,17 +207,17 @@ export function DiaryFilesView({
             <div className="min-w-0 flex-1">
               <p className="truncate text-[14.5px] font-semibold text-foreground">{ref.title}</p>
               <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
-                {[ref.groupName, ref.authorName, ref.fileName].filter((part) => part !== null && part !== "").join(" · ")}
+                {[ref.groupLine, ref.fileName === null ? null : `Mẫu riêng: ${ref.fileName}`]
+                  .filter((part): part is string => part !== null && part !== "")
+                  .join(" · ")}
               </p>
             </div>
-            {ref.groupId !== "" ? (
-              <Link
-                to={`/tin-nhan/${ref.groupId}`}
-                className="press flex h-9 shrink-0 items-center rounded-[9px] border border-border px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-secondary"
-              >
-                Mở nhóm
-              </Link>
-            ) : null}
+            <Link
+              to={ref.href}
+              className="press flex h-9 shrink-0 items-center rounded-[9px] border border-border px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-secondary"
+            >
+              Mở biên bản
+            </Link>
           </div>
         </li>
       ))}

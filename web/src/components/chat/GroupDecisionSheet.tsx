@@ -32,6 +32,7 @@ import { useAuth } from "@/lib/auth";
 import {
   canDelegate,
   canEditDraft,
+  canManageMinutesFile,
   canOpenDecision,
   canSettle,
   canSubmitDecision,
@@ -64,7 +65,7 @@ import {
   attachMeetingNoteFile,
   canFinalizeWithDetails,
   emptyDetails,
-  fetchJournalReferences,
+  createMeetingNoteTask,
   fetchMeetingNoteDetails,
   fetchMeetingNoteFiles,
   hasAnyDetail,
@@ -73,8 +74,8 @@ import {
   meetingFileUrl,
   meetingNoteKeys,
   meetingStage,
-  pendingTaskCount,
   removeMeetingNoteFile,
+  tasksTakingEffect,
   saveMeetingNoteDetails,
   saveMeetingNoteToJournal,
   startMeeting,
@@ -199,21 +200,8 @@ export function GroupDecisionSheet({
     [filesQuery.data],
   );
 
-  /** Which finalized notes this person already keeps in their Diary. */
-  const journalRefsQuery = useQuery({
-    queryKey: meetingNoteKeys.journalRefs(userId ?? ""),
-    queryFn: fetchJournalReferences,
-    enabled: open && Boolean(userId),
-  });
-  const savedNoteIds = useMemo(
-    () =>
-      new Set<string>(
-        (journalRefsQuery.data ?? [])
-          .map((ref) => ref.decisionId)
-          .filter((id): id is string => id !== null),
-      ),
-    [journalRefsQuery.data],
-  );
+  /** Notes saved into Diary during this visit (saving again is harmless: the server keeps one note). */
+  const [savedNoteIds, setSavedNoteIds] = useState<ReadonlySet<string>>(new Set<string>());
 
   /** Everyone in the room, offered as a starting point for the attendance list. */
   const suggestedAttendees = useMemo(() => members.map((member) => member.userId), [members]);
@@ -310,16 +298,16 @@ export function GroupDecisionSheet({
         await updateDraft(entryId, editTitle, editBody);
         await saveMeetingNoteDetails({ ...editDetails, decisionId: entryId });
       }
-      const created = pendingTaskCount(
+      const effective = tasksTakingEffect(
         editingId === entryId ? editDetails : detailsByNote.get(entryId),
       );
       await finalizeNote(entryId);
-      return created;
+      return effective;
     },
-    onSuccess: (created) => {
+    onSuccess: (effective) => {
       toast.success(
-        created > 0
-          ? `Đã khoá biên bản và tạo ${created} việc.`
+        effective > 0
+          ? `Đã khoá biên bản. ${effective} việc chờ hiệu lực đã chuyển sang đang làm.`
           : "Đã khoá biên bản. Từ giờ không sửa được nữa.",
       );
       setEditingId(null);
@@ -371,10 +359,39 @@ export function GroupDecisionSheet({
   });
 
   const saveToJournalMutation = useMutation({
-    mutationFn: (decisionId: string) => saveMeetingNoteToJournal(decisionId),
-    onSuccess: () => {
+    mutationFn: async (decisionId: string) => {
+      await saveMeetingNoteToJournal(decisionId);
+      return decisionId;
+    },
+    onSuccess: (decisionId) => {
       toast.success("Đã lưu vào File của bạn trong Nhật ký.");
-      void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.journalRefs(userId ?? "") });
+      setSavedNoteIds((current) => new Set<string>([...current, decisionId]));
+      void queryClient.invalidateQueries({ queryKey: ["messages"] });
+      void queryClient.invalidateQueries({ queryKey: ["meeting-notes-in-journal"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  /**
+   * "Tạo việc" on one line of the open draft. The draft is saved first so the server knows the
+   * line; the task then exists at once but waits ("chờ hiệu lực") until the note is locked.
+   */
+  const createTaskMutation = useMutation({
+    mutationFn: async (input: { entryId: string; itemKey: string }) => {
+      await updateDraft(input.entryId, editTitle, editBody);
+      await saveMeetingNoteDetails({ ...editDetails, decisionId: input.entryId });
+      const taskId = await createMeetingNoteTask(input.entryId, input.itemKey);
+      return { itemKey: input.itemKey, taskId };
+    },
+    onSuccess: ({ itemKey, taskId }) => {
+      setEditDetails((current) => ({
+        ...current,
+        actionItems: current.actionItems.map((item) =>
+          item.key === itemKey ? { ...item, taskId, createTask: true } : item,
+        ),
+      }));
+      toast.success("Đã tạo việc — chờ hiệu lực khi biên bản được khoá.");
+      void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.details(conversationId) });
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -467,7 +484,8 @@ export function GroupDecisionSheet({
       autosaveMutation.isPending ||
       saveDraftMutation.isPending ||
       finalizeMutation.isPending ||
-      startMutation.isPending
+      startMutation.isPending ||
+      createTaskMutation.isPending
     ) {
       return;
     }
@@ -764,6 +782,10 @@ export function GroupDecisionSheet({
                             suggestedAttendees={suggestedAttendees}
                             onChange={setEditDetails}
                             startExpanded={hasAnyDetail(editDetails)}
+                            onCreateTask={(itemKey) => createTaskMutation.mutate({ entryId: entry.id, itemKey })}
+                            creatingKey={
+                              createTaskMutation.isPending ? (createTaskMutation.variables?.itemKey ?? null) : null
+                            }
                           />
                           <div className="mt-2 flex flex-wrap items-center gap-2">
                             <button
@@ -826,7 +848,7 @@ export function GroupDecisionSheet({
                     {entry.kind === "meeting_note" ? (
                       <MinutesFileBlock
                         file={filesByNote.get(entry.id)}
-                        canChange={canEditDraft(entry, userId, myRole)}
+                        canChange={canManageMinutesFile(entry, userId)}
                         isBusy={
                           (attachFileMutation.isPending &&
                             attachFileMutation.variables?.decisionId === entry.id) ||
@@ -942,7 +964,7 @@ export function GroupDecisionSheet({
                     {/* Actions that are still available */}
                     {!settled ? (
                       <div className="mt-2.5 flex flex-wrap gap-2">
-                        {canEditDraft(entry, userId, myRole) && !editing ? (
+                        {canEditDraft(entry, userId) && !editing ? (
                           <button
                             type="button"
                             onClick={() => startEditing(entry)}
@@ -952,7 +974,7 @@ export function GroupDecisionSheet({
                           </button>
                         ) : null}
                         {entry.kind === "meeting_note" &&
-                        canEditDraft(entry, userId, myRole) &&
+                        canEditDraft(entry, userId) &&
                         meetingStage(editing ? editDetails : detailsByNote.get(entry.id)) === 1 ? (
                           <button
                             type="button"
@@ -971,7 +993,7 @@ export function GroupDecisionSheet({
                               const draftDetails =
                                 editing ? editDetails : detailsByNote.get(entry.id);
                               const ready = canFinalizeWithDetails(draftDetails);
-                              const willCreate = pendingTaskCount(draftDetails);
+                              const willCreate = tasksTakingEffect(draftDetails);
                               return (
                                 <button
                                   type="button"
@@ -985,7 +1007,7 @@ export function GroupDecisionSheet({
                                   className="press rounded-[8px] bg-primary px-2.5 py-1.5 text-[12.5px] font-semibold text-primary-foreground disabled:cursor-not-allowed disabled:opacity-45"
                                 >
                                   {willCreate > 0
-                                    ? `Kết thúc & khoá · tạo ${willCreate} việc`
+                                    ? `Kết thúc & khoá · ${willCreate} việc có hiệu lực`
                                     : "Kết thúc & khoá"}
                                 </button>
                               );

@@ -39,12 +39,13 @@ export type MeetingNoteDetails = {
 /**
  * One thing someone is expected to do after the meeting.
  *
- * `createTask` is a request, not a result: the task itself is only created when the note is
- * finalized, because a draft is still being argued with. `taskId` is stamped by the server
- * once that has happened, which is also what stops a second finalize from producing the work
- * twice.
+ * "Tạo việc" creates the task at once, in a "chờ hiệu lực" state: nobody sees it in their lists
+ * and it counts toward no deadline or reminder until the note is locked. While the note is a draft
+ * the task follows every edit (same `taskId`), and removing the line cancels it.
  */
 export type ActionItem = {
+  /** Stable identity of the line, so the server can find it again ("Tạo việc" on this line). */
+  key: string;
   description: string;
   assigneeId: string | null;
   /** `YYYY-MM-DD`, or null while nobody has said when. */
@@ -61,8 +62,14 @@ export type ActionItem = {
 export const meetingNoteKeys = {
   details: (conversationId: string) => ["meeting-note-details", conversationId] as const,
   files: (conversationId: string) => ["meeting-note-files", conversationId] as const,
-  journalRefs: (userId: string) => ["journal-references", userId] as const,
+  savedToJournalCount: (journalId: string) => ["meeting-notes-in-journal", journalId] as const,
 };
+
+function newItemKey(): string {
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `k-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
 
 export const MEETING_LOCATION_MAX_LENGTH = 300;
 
@@ -75,7 +82,15 @@ export const MEETING_MAX_ACTION_ITEMS = 50;
 export const MEETING_MAX_LINKS = 20;
 
 export function emptyActionItem(agendaIndex: number | null = null): ActionItem {
-  return { description: "", assigneeId: null, deadline: null, createTask: false, taskId: null, agendaIndex };
+  return {
+    key: newItemKey(),
+    description: "",
+    assigneeId: null,
+    deadline: null,
+    createTask: false,
+    taskId: null,
+    agendaIndex,
+  };
 }
 
 export function emptyDetails(decisionId: string): MeetingNoteDetails {
@@ -193,10 +208,24 @@ export function removeAgendaItem(details: MeetingNoteDetails, removeAt: number):
   };
 }
 
-/** How many tasks locking this note will hand out. */
+/** How many tasks locking this note will hand out (ticked on an older note, not yet made). */
 export function pendingTaskCount(details: MeetingNoteDetails | undefined): number {
   if (details === undefined) return 0;
   return details.actionItems.filter((item) => item.createTask && item.taskId === null).length;
+}
+
+/** How many tasks take effect when this note is locked: the ones waiting plus any still to make. */
+export function tasksTakingEffect(details: MeetingNoteDetails | undefined): number {
+  if (details === undefined) return 0;
+  return details.actionItems.filter((item) => item.taskId !== null || item.createTask).length;
+}
+
+/** Why "Tạo việc" cannot run on this line yet, or null when it can. */
+export function createTaskBlocker(item: ActionItem): string | null {
+  if (item.description.trim() === "") return "Cần ghi quyết định trước.";
+  if (item.assigneeId === null) return "Cần chọn người đảm trách.";
+  if (item.deadline === null || item.deadline.trim() === "") return "Cần chọn thời gian.";
+  return null;
 }
 
 function fail(code: string | undefined, message: string): Error {
@@ -216,6 +245,10 @@ function fail(code: string | undefined, message: string): Error {
     return new Error("Một việc cần làm đang gắn với nội dung họp không còn tồn tại.");
   if (normalized.includes("avora_note_too_many_items"))
     return new Error("Biên bản có quá nhiều dòng (tối đa 50 mỗi loại).");
+  if (normalized.includes("avora_note_item_not_saved"))
+    return new Error("Dòng này chưa được lưu. Thử lại sau một giây nhé.");
+  if (normalized.includes("avora_note_action_invalid"))
+    return new Error("Người đảm trách hoặc thời gian chưa hợp lệ.");
   if (normalized.includes("avora_note_not_finalized"))
     return new Error("Chỉ lưu được biên bản đã hoàn tất.");
   if (normalized.includes("avora_note_file_bad_path") || normalized.includes("avora_note_file_missing"))
@@ -245,6 +278,7 @@ function toActionItem(raw: unknown): ActionItem {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return emptyActionItem();
   const record = raw as Record<string, unknown>;
   return {
+    key: typeof record.key === "string" && record.key !== "" ? record.key : newItemKey(),
     description: typeof record.description === "string" ? record.description : "",
     assigneeId:
       typeof record.assignee_id === "string" && record.assignee_id !== "" ? record.assignee_id : null,
@@ -316,6 +350,7 @@ export async function fetchMeetingNoteDetails(
 export function toSavePayload(details: MeetingNoteDetails): {
   agendaItems: string[];
   actionItems: {
+    key: string;
     description: string;
     assignee_id: string | null;
     deadline: string | null;
@@ -333,8 +368,9 @@ export function toSavePayload(details: MeetingNoteDetails): {
     agendaItems.push(trimmed);
   });
   const actionItems = details.actionItems
-    .filter((item) => item.description.trim() !== "" || item.createTask)
+    .filter((item) => item.description.trim() !== "" || item.createTask || item.taskId !== null)
     .map((item) => ({
+      key: item.key,
       description: item.description.trim(),
       assignee_id: item.assigneeId,
       deadline: item.deadline,
@@ -366,6 +402,20 @@ export async function saveMeetingNoteDetails(details: MeetingNoteDetails): Promi
     p_location: details.location.trim(),
   });
   if (error) throw fail(error.code, error.message);
+}
+
+/**
+ * "Tạo việc" on one saved line. The task exists at once but waits ("chờ hiệu lực") until the
+ * note is locked. Pressing it again returns the same task.
+ */
+export async function createMeetingNoteTask(decisionId: string, itemKey: string): Promise<string> {
+  const { data, error } = await supabase.rpc("create_meeting_note_task", {
+    p_decision_id: decisionId,
+    p_item_key: itemKey,
+  });
+  if (error) throw fail(error.code, error.message);
+  if (typeof data !== "string") throw new Error("Không tạo được việc. Thử lại nhé.");
+  return data;
 }
 
 /** "Bắt đầu họp": moves the note into stage 2 for everyone. Safe to press twice. */
@@ -514,69 +564,60 @@ export async function meetingFileUrl(storagePath: string): Promise<string | null
 }
 
 /* ---------------------------------------------------------------------------------------------
- * "Lưu vào Nhật ký" — a reference in the saver's own Diary
+ * "Lưu vào Nhật ký" — one ordinary note in the saver's own Diary
  * ------------------------------------------------------------------------------------------- */
 
-/** A finalized meeting note kept in someone's Diary, by reference. */
-export type JournalReference = {
-  id: string;
-  decisionId: string | null;
+/** The address-bar key that opens Sổ quyết định on one note (`?so-quyet-dinh=<id>`). */
+export const DECISION_PARAM = "so-quyet-dinh";
+
+/** A meeting note saved into Diary, read back off the note's words. */
+export type SavedMeetingNote = {
   title: string;
-  groupId: string;
-  groupName: string;
-  authorName: string;
-  finalizedAt: string | null;
+  groupLine: string;
   fileName: string | null;
-  createdAt: string;
+  /** In-app link back to the note in its group. */
+  href: string;
+  groupId: string;
+  decisionId: string;
 };
 
-function readSnapshotString(snapshot: Record<string, unknown>, key: string): string {
-  const value = snapshot[key];
-  return typeof value === "string" ? value : "";
-}
+const SAVED_NOTE_LINK = /\/tin-nhan\/([0-9a-fA-F-]{36})\?so-quyet-dinh=([0-9a-fA-F-]{36})/;
 
-export function toJournalReference(row: {
-  id: string;
-  decision_id: string | null;
-  context_snapshot: unknown;
-  created_at: string;
-}): JournalReference {
-  const snapshot =
-    row.context_snapshot !== null && typeof row.context_snapshot === "object" && !Array.isArray(row.context_snapshot)
-      ? (row.context_snapshot as Record<string, unknown>)
-      : {};
-  const finalizedAt = readSnapshotString(snapshot, "finalized_at");
-  const fileName = readSnapshotString(snapshot, "file_name");
+/**
+ * Recognises a Diary note written by "Lưu vào Nhật ký". The note is plain text the person owns
+ * (they can delete it like any note); this only reads it back so File của bạn can show it.
+ */
+export function parseSavedMeetingNote(content: string): SavedMeetingNote | null {
+  const match = SAVED_NOTE_LINK.exec(content);
+  if (match === null) return null;
+  const lines = content.split("\n").map((line) => line.trim());
+  const titleLine = lines.find((line) => line.startsWith("📋 Biên bản họp:")) ?? "";
+  const fileLine = lines.find((line) => line.startsWith("Mẫu riêng:")) ?? "";
+  const groupLine = lines.find((line) => line.startsWith("Nhóm ")) ?? "";
   return {
-    id: row.id,
-    decisionId: row.decision_id,
-    title: readSnapshotString(snapshot, "title") || "Biên bản họp",
-    groupId: readSnapshotString(snapshot, "group_id"),
-    groupName: readSnapshotString(snapshot, "group_name"),
-    authorName: readSnapshotString(snapshot, "author_name"),
-    finalizedAt: finalizedAt === "" ? null : finalizedAt,
-    fileName: fileName === "" ? null : fileName,
-    createdAt: row.created_at,
+    title: titleLine.replace("📋 Biên bản họp:", "").trim() || "Biên bản họp",
+    groupLine,
+    fileName: fileLine === "" ? null : fileLine.replace("Mẫu riêng:", "").trim(),
+    href: match[0],
+    groupId: match[1],
+    decisionId: match[2],
   };
 }
 
-export async function fetchJournalReferences(): Promise<JournalReference[]> {
-  const { data, error } = await supabase
-    .from("journal_references")
-    .select("id, decision_id, context_snapshot, created_at")
-    .order("created_at", { ascending: false });
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map(toJournalReference);
-}
-
-/** Saves a finalized note into the caller's Diary. Saving twice keeps one entry. */
+/** Posts the note into the caller's Diary. Saving twice keeps one note. */
 export async function saveMeetingNoteToJournal(decisionId: string): Promise<void> {
   const { error } = await supabase.rpc("save_meeting_note_to_journal", { p_decision_id: decisionId });
   if (error) throw fail(error.code, error.message);
 }
 
-/** Takes the entry out of Diary. The note itself is untouched. */
-export async function removeJournalReference(referenceId: string): Promise<void> {
-  const { error } = await supabase.from("journal_references").delete().eq("id", referenceId);
+/** How many saved meeting notes a Diary holds — for the File của bạn count before it is opened. */
+export async function countSavedMeetingNotes(journalId: string): Promise<number> {
+  const { count, error } = await supabase
+    .from("messages")
+    .select("id", { count: "exact", head: true })
+    .eq("conversation_id", journalId)
+    .is("deleted_at", null)
+    .like("content", `%?${DECISION_PARAM}=%`);
   if (error) throw fail(error.code, error.message);
+  return count ?? 0;
 }

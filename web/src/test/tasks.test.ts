@@ -975,6 +975,8 @@ describe("taskFromRealtimeRow", () => {
       longitude: null,
       travel_duration_minutes: null,
       departure_reminder_at: null,
+      pending_decision_id: null,
+      source_transaction_id: null,
     });
 
     expect(task.createdAt.endsWith("Z")).toBe(true);
@@ -1036,6 +1038,8 @@ describe("taskFromRealtimeRow", () => {
       longitude: null,
       travel_duration_minutes: null,
       departure_reminder_at: null,
+      pending_decision_id: null,
+      source_transaction_id: null,
     });
 
     expect(task.status).toBe("done");

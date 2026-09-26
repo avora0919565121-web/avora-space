@@ -7,6 +7,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import {
   callHref,
   callInviteMessage,
+  contactPhones,
   internationalDigits,
   isCallLink,
   newCallRoomLink,
@@ -34,6 +35,23 @@ describe("calling a 1-1 (AVORA 31)", () => {
     expect(callHref("zalo", "+84 912 345 678")).toBe("https://zalo.me/0912345678");
     expect(callHref("whatsapp", "0912 345 678")).toBe("https://wa.me/84912345678");
     expect(internationalDigits("0912345678")).toBe("84912345678");
+  });
+});
+
+describe("calling from a contact (AVORA 32)", () => {
+  it("lists every distinct number, main first, and none for an email-only contact", () => {
+    const person = { id: "c3", phone: "+84 912 345 678", representativePhone: null } as Contact;
+    const extra = [
+      { contactId: "c3", kind: "phone", value: "0912345678", label: null },
+      { contactId: "c3", kind: "phone", value: "0987 000 111", label: "Công ty" },
+      { contactId: "c9", kind: "phone", value: "0900 000 000", label: null },
+    ] as ContactChannel[];
+    expect(contactPhones(person, extra).map((entry) => entry.label)).toEqual(["Số chính", "Công ty"]);
+    expect(contactPhones({ id: "c4", phone: null, representativePhone: null }, [])).toEqual([]);
+  });
+
+  it("skips a number too short to dial", () => {
+    expect(contactPhones({ id: "c5", phone: "123", representativePhone: null }, [])).toEqual([]);
   });
 });
 

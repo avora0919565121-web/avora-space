@@ -6,6 +6,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import {
   canDelegate,
   canEditDraft,
+  canManageMinutesFile,
   canOpenDecision,
   canSeeResults,
   canSettle,
@@ -139,13 +140,14 @@ describe("closing and locking", () => {
 });
 
 describe("editing a draft", () => {
-  it("belongs to the author and the group's Owner/Admin, and only while it is a draft", () => {
+  it("is the author's alone (Owner/Admin who opened it, or the delegated secretary), only while a draft", () => {
     expect(canEditDraft(makeEntry({ status: "draft", createdBy: ME }), ME)).toBe(true);
     expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME)).toBe(false);
-    expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME, "member")).toBe(false);
-    expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME, "admin")).toBe(true);
-    expect(canEditDraft(makeEntry({ status: "draft", createdBy: THEM }), ME, "owner")).toBe(true);
-    expect(canEditDraft(makeEntry({ status: "finalized", createdBy: THEM }), ME, "owner")).toBe(false);
+  });
+
+  it("lets the author swap the minutes file even after the note is locked", () => {
+    expect(canManageMinutesFile(makeEntry({ status: "finalized", createdBy: ME }), ME)).toBe(true);
+    expect(canManageMinutesFile(makeEntry({ status: "finalized", createdBy: THEM }), ME)).toBe(false);
   });
 
   it("stops the moment the note is locked — even for the person who wrote it", () => {

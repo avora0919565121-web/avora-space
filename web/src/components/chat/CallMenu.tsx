@@ -1,10 +1,10 @@
 import { Phone } from "lucide-react";
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { toast } from "sonner";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { CALL_APPS, callHref, peerPhone, type CallApp } from "@/lib/calls";
+import { handOffCall } from "@/lib/call-handoff";
+import { CALL_APPS, peerPhone, type CallApp } from "@/lib/calls";
 import { useContactChannels } from "@/lib/use-contact-channels";
 import { useContacts } from "@/lib/use-contacts";
 
@@ -27,18 +27,7 @@ export function CallMenu({ peerId, peerName }: { peerId: string | null; peerName
 
   const call = async (app: CallApp): Promise<void> => {
     if (found === null) return;
-    const href = callHref(app, found.phone);
-    if (app === "phone") {
-      window.location.href = href;
-      return;
-    }
-    try {
-      await navigator.clipboard.writeText(found.phone);
-      toast.success(`Đã chép số ${found.phone}.`);
-    } catch {
-      // Copying is a convenience; the app still opens with the number in its link.
-    }
-    window.open(href, "_blank", "noopener,noreferrer");
+    await handOffCall(app, found.phone);
   };
 
   return (

@@ -1571,12 +1571,37 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   null = "Kế hoạch họp" (Loại họp, Thời gian, Địa điểm, Mục tiêu, Thành phần tham dự, Nội dung dự kiến); set by
   "Bắt đầu họp" (one way, idempotent, shared) = each agenda line carries its own decisions — Quyết định / Thời gian /
   Người đảm trách / Tạo việc — via `action_items[].agenda_index` (0-based, null = việc rời). `status` draft → finalized
-  is unchanged. Editing a draft (text, details, stage, file) is the author or the group's Owner/Admin. Tasks made at
-  lock quote the agenda line (`source_agenda_index`/`source_agenda_item` in the snapshot). Drafts written before this
-  open in stage 2. A note may carry one Word/PDF minutes file beside the structured data (`meeting_note_files`,
-  private `meeting-files` bucket), view-only, swappable while a draft, frozen with the note. "Lưu vào Nhật ký" on a
-  finalized note writes a reference (`journal_references`, own-row RLS, words copied into `context_snapshot`) shown in
-  File của bạn — never a copy of the note or its file.
+  is unchanged. Editing a draft and "Bắt đầu họp" belong to the note's author only (the Owner/Admin who opened it,
+  or the delegated secretary); other Owners/Admins can still lock it. "Tạo việc" on a line creates the Task at once
+  in a "chờ hiệu lực" state (`tasks.pending_decision_id`): hidden from every list, count, reminder and flag; rewritten
+  in place (same id) as the line is edited; deleted if the line is removed; put into effect for everyone when the
+  note is finalized. Its snapshot quotes the agenda line (`source_agenda_index`/`source_agenda_item`) and may be
+  rewritten only while pending. Drafts written before this open in stage 2. A note may carry one Word/PDF minutes
+  file (`meeting_note_files`, private `meeting-files` bucket), view-only, which its author may add or swap at any
+  time, including after locking. "Lưu vào Nhật ký" on a finalized note posts one ordinary note into the saver's
+  Diary (title, group, file name, link `?so-quyet-dinh=`), listed in File của bạn as "Từ Sổ quyết định"; saving
+  twice keeps one note. No table of its own.
+- 2026-09-25 — Contact ↔ AVORA (AVORA 32). A contact whose email or phone (main or extra channel, normalised on the
+  server) matches exactly one other AVORA account shows "… có vẻ đã dùng AVORA" with Gộp / Bỏ qua. The owner is
+  told only which field matched; the account is revealed by linking. Gộp re-runs the match on the server and writes
+  `contact.linked_user_id`; Bỏ qua stores a hash of that match (`contact.link_suggestion_dismissed`) so a different
+  account matching later is still offered. Nothing merges on its own. The contact screen has a "Gọi" block — one
+  row per distinct number (main, representative, extra channels) with Điện thoại / Zalo / WhatsApp, the same hand-off
+  as the 1-1 call icon; hidden when there is no number. No Messenger.
+- 2026-09-25 — Két sắt → Nhiệm vụ (AVORA 32, OPEN-009). A live vay / cho vay / thuế entry with a due date that is not
+  fully settled offers "Tạo việc nhắc" — a suggestion only. Pressing it makes one personal task "Đến hạn: [Tên khoản]
+  — [số tiền còn lại]", due on the due date (today if already past), linked by `tasks.source_transaction_id`
+  (server-set only); pressing again returns the same task. Full settlement marks it done (trigger on
+  `amount_settled`); reopening it by hand is not undone. The row then reads "Đã có việc nhắc" / "Việc nhắc đã xong".
+- 2026-09-25 — User PIN (AVORA 32, ADR-019). `user_pins` (one per account, unique, own-row read, no client writes,
+  update refused by trigger): `A-` + 8 of A–Z/2–9 without 0/O/1/I/L, ≥4 letters, letters at both ends, a light
+  offensive/brand filter; the same rules in `lib/user-pin.ts` and `private.user_pin_problem`. `check_user_pin`
+  answers ok / taken / rule — never the owner; `claim_user_pin` sets it once. Every signed-in screen sits behind a
+  blocking PIN step until one exists: "Để hệ thống tự sinh" (generator meets the rules, redraws if taken) or "Tự chọn"
+  with live availability, rules under the field, and a required "PIN là vĩnh viễn" tick. New accounts meet it on
+  first entry (labelled the last step of sign-up, since a PIN needs a session and email confirmation comes first);
+  existing accounts meet it once, on their next visit. A missing phone number is only a soft note. Profile shows the PIN.
+  A deliberate, permanent exception to the no-onboarding-friction rule.
 
 ## Out of scope
 

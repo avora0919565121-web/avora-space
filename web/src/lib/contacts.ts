@@ -106,6 +106,7 @@ export const contactKeys = {
   all: ["contacts"] as const,
   list: ["contacts", "list"] as const,
   invites: (contactId: string) => ["contacts", "invites", contactId] as const,
+  linkSuggestion: (contactId: string) => ["contacts", "link-suggestion", contactId] as const,
 };
 
 /** Where an invited person lands when they open the link. */
@@ -247,6 +248,8 @@ export function toVietnameseContactError(code: string | undefined, message: stri
     return "Hai bạn đã có nhau trong danh bạ từ trước.";
   if (normalized.includes("người này đã liên kết với một tài khoản khác"))
     return "Lời mời này đã được một tài khoản khác dùng.";
+  if (normalized.includes("avora_contact_link_no_match"))
+    return "Không còn tài khoản AVORA nào khớp với liên hệ này.";
   if (normalized.includes("chưa đăng nhập") || normalized.includes("avora_not_signed_in"))
     return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (code === "42501" || normalized.includes("permission denied"))
@@ -260,6 +263,38 @@ export function toVietnameseContactError(code: string | undefined, message: stri
 function fail(code: string | undefined, message: string): Error {
   console.error(`[contacts] ${code ?? "unknown"}: ${message}`);
   return new Error(toVietnameseContactError(code, message));
+}
+
+/**
+ * Which field of a contact matches an AVORA account, as far as the owner is told before confirming.
+ * The account itself is never revealed until the owner chooses "Gộp".
+ */
+export type ContactLinkMatch = "email" | "phone" | "email_phone";
+
+/** How the suggestion names the matching field. */
+export function contactLinkMatchLabel(match: ContactLinkMatch): string {
+  if (match === "email") return "email";
+  if (match === "phone") return "số điện thoại";
+  return "số điện thoại và email";
+}
+
+/** Whether this contact matches exactly one AVORA account (and the owner has not skipped it). */
+export async function previewContactLink(contactId: string): Promise<ContactLinkMatch | null> {
+  const { data, error } = await supabase.rpc("preview_contact_link", { p_contact_id: contactId });
+  if (error) throw fail(error.code, error.message);
+  return data === "email" || data === "phone" || data === "email_phone" ? data : null;
+}
+
+/** "Gộp": links the contact to the account the server finds again — no id is sent from here. */
+export async function confirmContactLink(contactId: string): Promise<void> {
+  const { error } = await supabase.rpc("confirm_contact_link", { p_contact_id: contactId });
+  if (error) throw fail(error.code, error.message);
+}
+
+/** "Bỏ qua": this suggestion stays away; a different account matching later is still offered. */
+export async function dismissContactLink(contactId: string): Promise<void> {
+  const { error } = await supabase.rpc("dismiss_contact_link", { p_contact_id: contactId });
+  if (error) throw fail(error.code, error.message);
 }
 
 /** Empty once trimmed — what the database treats as "not given". */

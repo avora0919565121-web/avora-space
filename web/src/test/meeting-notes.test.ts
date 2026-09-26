@@ -17,7 +17,9 @@ import {
   meetingStage,
   pendingTaskCount,
   removeAgendaItem,
-  toJournalReference,
+  createTaskBlocker,
+  parseSavedMeetingNote,
+  tasksTakingEffect,
   toSavePayload,
   type ActionItem,
   type MeetingNoteDetails,
@@ -258,22 +260,49 @@ describe("the custom minutes file", () => {
 });
 
 describe("a meeting note saved into Diary", () => {
-  it("reads its words off the snapshot, so it still says what it is without the note", () => {
-    const ref = toJournalReference({
-      id: "r1",
-      decision_id: null,
-      created_at: "2026-09-25T03:00:00Z",
-      context_snapshot: { title: "Họp tuần", group_name: "Nhóm A", group_id: "g1", file_name: "bb.pdf" },
-    });
-    expect(ref.title).toBe("Họp tuần");
-    expect(ref.groupName).toBe("Nhóm A");
-    expect(ref.fileName).toBe("bb.pdf");
-    expect(ref.decisionId).toBeNull();
+  const G = "11111111-1111-1111-1111-111111111111";
+  const D = "22222222-2222-2222-2222-222222222222";
+
+  it("is read back off the note's own words", () => {
+    const saved = parseSavedMeetingNote(
+      `📋 Biên bản họp: Họp tuần\nNhóm A · khoá ngày 25/09/2026\nMẫu riêng: bb.pdf\n/tin-nhan/${G}?so-quyet-dinh=${D}`,
+    );
+    expect(saved?.title).toBe("Họp tuần");
+    expect(saved?.fileName).toBe("bb.pdf");
+    expect(saved?.groupId).toBe(G);
+    expect(saved?.decisionId).toBe(D);
+    expect(saved?.href).toBe(`/tin-nhan/${G}?so-quyet-dinh=${D}`);
   });
 
-  it("falls back to a plain name for a malformed snapshot", () => {
-    const ref = toJournalReference({ id: "r2", decision_id: "d", created_at: "x", context_snapshot: null });
-    expect(ref.title).toBe("Biên bản họp");
-    expect(ref.fileName).toBeNull();
+  it("ignores ordinary notes", () => {
+    expect(parseSavedMeetingNote("Mai họp lúc 9h")).toBeNull();
+  });
+});
+
+describe("Tạo việc straight from a decision (chờ hiệu lực)", () => {
+  it("needs a decision, a person and a date first", () => {
+    expect(createTaskBlocker(action())).toContain("quyết định");
+    expect(createTaskBlocker(action({ description: "Gửi báo giá" }))).toContain("đảm trách");
+    expect(createTaskBlocker(action({ description: "Gửi báo giá", assigneeId: ALICE }))).toContain("thời gian");
+    expect(
+      createTaskBlocker(action({ description: "Gửi báo giá", assigneeId: ALICE, deadline: "2026-10-01" })),
+    ).toBeNull();
+  });
+
+  it("counts every waiting task as taking effect at lock", () => {
+    const value = details({
+      actionItems: [
+        action({ description: "A", taskId: "t1" }),
+        action({ description: "B", createTask: true }),
+        action({ description: "C" }),
+      ],
+    });
+    expect(tasksTakingEffect(value)).toBe(2);
+  });
+
+  it("keeps a line that already owns a task when saving, even if its words were cleared", () => {
+    const payload = toSavePayload(details({ actionItems: [action({ description: "", taskId: "t1" })] }));
+    expect(payload.actionItems).toHaveLength(1);
+    expect(payload.actionItems[0].task_id).toBe("t1");
   });
 });

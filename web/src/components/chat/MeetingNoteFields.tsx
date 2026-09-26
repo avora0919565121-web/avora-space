@@ -1,4 +1,4 @@
-import { CalendarClock, ChevronRight, ListChecks, MapPin, Plus, X } from "lucide-react";
+import { CalendarClock, ChevronRight, Hourglass, ListChecks, Loader2, MapPin, Plus, X } from "lucide-react";
 import { useState } from "react";
 
 import { useAutoList } from "@/hooks/use-auto-list";
@@ -6,6 +6,7 @@ import { peerLabel } from "@/lib/initials";
 import type { GroupMember } from "@/lib/groups";
 import {
   actionItemBlocker,
+  createTaskBlocker,
   emptyActionItem,
   groupActionItemsByAgenda,
   hasAnyDetail,
@@ -81,7 +82,7 @@ function ActionSummaryLine({
         <span className="text-[12px] text-muted-foreground">· hạn {item.deadline}</span>
       ) : null}
       {item.taskId !== null ? (
-        <span className="text-[12px] font-medium text-primary">· đã tạo việc</span>
+        <span className="text-[12px] font-medium text-primary">· có việc</span>
       ) : item.createTask ? (
         <span className="text-[12px] text-muted-foreground">· tạo việc khi khoá</span>
       ) : null}
@@ -356,9 +357,9 @@ function PeoplePicker({
 /**
  * One decision taken in the meeting: what, by when, who carries it, and whether it becomes work.
  *
- * "Tạo việc" is a request honoured when the note is locked, not when it is typed — a draft is
- * still being argued with. A ticked line missing a person or a date says so here rather than
- * being dropped in silence at lock time.
+ * "Tạo việc" makes the task at once, in a "chờ hiệu lực" state: it counts toward nobody's list,
+ * deadline or reminder until the note is locked, follows every edit to this line (same task), and
+ * is cancelled if the line is removed.
  */
 function ActionItemRow({
   item,
@@ -366,15 +367,20 @@ function ActionItemRow({
   members,
   onChange,
   onRemove,
+  onCreateTask,
+  isCreating,
 }: {
   item: ActionItem;
   number: string;
   members: readonly GroupMember[];
   onChange: (next: ActionItem) => void;
   onRemove: () => void;
+  onCreateTask?: (itemKey: string) => void;
+  isCreating?: boolean;
 }) {
   const blocker = actionItemBlocker(item);
   const alreadyTask = item.taskId !== null;
+  const createBlocker = createTaskBlocker(item);
 
   return (
     <li
@@ -424,34 +430,35 @@ function ActionItemRow({
           ))}
         </select>
 
-        <label
-          className={cn(
-            "press flex h-9 cursor-pointer items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium transition-colors",
-            item.createTask
-              ? "border-primary/40 bg-primary/10 text-foreground"
-              : "border-border bg-card text-muted-foreground hover:bg-accent/40",
-            alreadyTask && "cursor-default opacity-70",
-          )}
-        >
-          <input
-            type="checkbox"
-            checked={item.createTask}
-            disabled={alreadyTask}
-            onChange={(event) => onChange({ ...item, createTask: event.target.checked })}
-            className="h-3.5 w-3.5 accent-current"
-          />
-          Tạo việc
-        </label>
+        {alreadyTask ? (
+          <span className="inline-flex h-9 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 text-[12px] font-medium text-foreground">
+            <Hourglass className="h-3.5 w-3.5 text-primary" strokeWidth={2} aria-hidden="true" />
+            Chờ hiệu lực
+          </span>
+        ) : onCreateTask !== undefined ? (
+          <button
+            type="button"
+            disabled={createBlocker !== null || isCreating === true}
+            title={createBlocker ?? undefined}
+            onClick={() => onCreateTask(item.key)}
+            className="press inline-flex h-9 items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/15 disabled:cursor-not-allowed disabled:border-border disabled:bg-card disabled:text-muted-foreground"
+          >
+            {isCreating === true ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2} aria-hidden="true" />
+            ) : (
+              <Plus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            )}
+            Tạo việc
+          </button>
+        ) : null}
       </div>
 
       {alreadyTask ? (
-        <p className="mt-1.5 pl-9 text-[11.5px] text-muted-foreground">Đã tạo việc từ dòng này.</p>
+        <p className="mt-1.5 pl-9 text-[11.5px] text-muted-foreground">
+          Việc đã tạo, có hiệu lực khi biên bản được khoá. Sửa dòng này thì việc sửa theo; bỏ dòng thì việc bị huỷ.
+        </p>
       ) : blocker !== null ? (
         <p className="mt-1.5 pl-9 text-[11.5px] text-destructive">{blocker}</p>
-      ) : item.createTask ? (
-        <p className="mt-1.5 pl-9 text-[11.5px] text-muted-foreground">
-          Việc được tạo khi biên bản được khoá, không phải ngay bây giờ.
-        </p>
       ) : null}
     </li>
   );
@@ -471,6 +478,8 @@ export function MeetingNoteFields({
   suggestedAttendees,
   onChange,
   startExpanded = false,
+  onCreateTask,
+  creatingKey = null,
 }: {
   details: MeetingNoteDetails;
   members: readonly GroupMember[];
@@ -478,6 +487,9 @@ export function MeetingNoteFields({
   suggestedAttendees: readonly string[];
   onChange: (next: MeetingNoteDetails) => void;
   startExpanded?: boolean;
+  /** "Tạo việc" on one line. Absent while composing a note that does not exist yet. */
+  onCreateTask?: (itemKey: string) => void;
+  creatingKey?: string | null;
 }) {
   const stage = meetingStage(details);
   /** In stage 2 the plan folds away; in stage 1 the extras (absent, issues, links…) do. */
@@ -755,6 +767,8 @@ export function MeetingNoteFields({
                       members={members}
                       onChange={(next) => setActionItem(entry.index, next)}
                       onRemove={() => removeActionItem(entry.index)}
+                      onCreateTask={onCreateTask}
+                      isCreating={creatingKey === entry.item.key}
                     />
                   ))}
                 </ul>
@@ -787,6 +801,8 @@ export function MeetingNoteFields({
                 members={members}
                 onChange={(next) => setActionItem(entry.index, next)}
                 onRemove={() => removeActionItem(entry.index)}
+                onCreateTask={onCreateTask}
+                isCreating={creatingKey === entry.item.key}
               />
             ))}
           </ul>

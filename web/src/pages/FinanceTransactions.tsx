@@ -1,6 +1,8 @@
 import {
   Bell,
+  BellPlus,
   Briefcase,
+  CheckCircle2,
   HandCoins,
   Paperclip,
   Pencil,
@@ -11,7 +13,8 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ObligationForm } from "@/components/finance/ObligationForm";
@@ -39,6 +42,7 @@ import {
   TRANSACTION_TYPE_LABELS,
   activeAccounts,
   activeCategories,
+  canSuggestReminder,
   endOfMonth,
   entriesInRange,
   entryCategoryName,
@@ -56,6 +60,7 @@ import {
   obligationWindowOf,
   outstandingCents,
   recurringSuggestions,
+  reminderTitle,
   searchEntries,
   startOfMonth,
   todayIso,
@@ -64,7 +69,8 @@ import {
   type MovementType,
   type ObligationType,
 } from "@/lib/finance";
-import { receiptUrl } from "@/lib/finance-api";
+import { createObligationReminderTask, fetchObligationReminders, receiptUrl } from "@/lib/finance-api";
+import { taskKeys } from "@/lib/tasks";
 import { useContacts } from "@/lib/use-contacts";
 import { useDismissedRecurring, useFinanceActions, useLedger } from "@/lib/use-finance";
 import { cn } from "@/lib/utils";
@@ -77,6 +83,9 @@ function EntryRow({
   onVoid,
   onOpen,
   onSettle,
+  reminder,
+  onRemind,
+  isReminding,
 }: {
   entry: LedgerEntry;
   currency: string;
@@ -84,6 +93,10 @@ function EntryRow({
   onVoid: (entry: LedgerEntry) => void;
   onOpen: (entry: LedgerEntry) => void;
   onSettle: (entry: LedgerEntry) => void;
+  /** The reminder task already made for this obligation, if any. */
+  reminder: { taskId: string; done: boolean } | undefined;
+  onRemind: (entry: LedgerEntry) => void;
+  isReminding: boolean;
 }) {
   const voided = entry.deletedAt !== null;
   const obligation = isObligationType(entry.type);
@@ -136,6 +149,32 @@ function EntryRow({
           </span>
         </button>
 
+        {/* A suggestion, never an action taken for the person: the task exists only once pressed. */}
+        {reminder !== undefined && !voided ? (
+          <Link
+            to="/nhiem-vu"
+            className="press hidden shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 sm:inline-flex"
+          >
+            <CheckCircle2
+              className={cn("h-3.5 w-3.5", reminder.done ? "text-money-in" : "text-primary")}
+              strokeWidth={2}
+              aria-hidden="true"
+            />
+            {reminder.done ? "Việc nhắc đã xong" : "Đã có việc nhắc"}
+          </Link>
+        ) : canSuggestReminder(entry) ? (
+          <button
+            type="button"
+            disabled={isReminding}
+            onClick={() => onRemind(entry)}
+            className="press inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border border-primary/35 bg-primary/[0.07] px-2.5 text-[12px] font-semibold text-primary transition-colors hover:bg-primary/[0.13] disabled:opacity-50"
+          >
+            <BellPlus className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+            <span className="hidden sm:inline">Tạo việc nhắc</span>
+            <span className="sm:hidden">Nhắc</span>
+          </button>
+        ) : null}
+
         <Money
           cents={incoming ? entry.amountCents : -entry.amountCents}
           currency={currency}
@@ -186,6 +225,31 @@ const FinanceTransactions = () => {
   const { dismissed, dismiss } = useDismissedRecurring();
   const contactsQuery = useContacts();
   const contacts = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
+  const queryClient = useQueryClient();
+
+  const remindersQuery = useQuery({
+    queryKey: ["obligation-reminders"],
+    queryFn: fetchObligationReminders,
+    staleTime: 30_000,
+  });
+  const reminders = useMemo(
+    () => remindersQuery.data ?? new Map<string, { taskId: string; done: boolean }>(),
+    [remindersQuery.data],
+  );
+
+  const remindMutation = useMutation({
+    mutationFn: (entry: LedgerEntry) =>
+      createObligationReminderTask(
+        entry.id,
+        reminderTitle(entry.description ?? entryCategoryName(entry), entry, currency),
+      ),
+    onSuccess: () => {
+      toast.success("Đã tạo việc nhắc trong Nhiệm vụ. Việc tự hoàn tất khi khoản này được tất toán.");
+      void queryClient.invalidateQueries({ queryKey: ["obligation-reminders"] });
+      void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
 
   const [query, setQuery] = useState<string>("");
   const [editing, setEditing] = useState<LedgerEntry | null>(null);
@@ -452,6 +516,9 @@ const FinanceTransactions = () => {
                           onVoid={(item) => void handleVoid(item)}
                           onOpen={setViewing}
                           onSettle={openSettle}
+                          reminder={reminders.get(entry.id)}
+                          onRemind={(item) => remindMutation.mutate(item)}
+                          isReminding={remindMutation.isPending && remindMutation.variables?.id === entry.id}
                         />
                       ))}
                     </ul>

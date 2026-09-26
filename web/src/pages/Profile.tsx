@@ -1,15 +1,23 @@
+import { useQuery } from "@tanstack/react-query";
 import { Check, Loader2, LogOut } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { useAuth, useDisplayName } from "@/lib/auth";
+import { fetchMyPin, userPinKeys } from "@/lib/user-pin";
 
 /** Signed-in confirmation screen: real profile data from Supabase, scoped by RLS to this user. */
 const Profile = () => {
   const { user, profile, profileError, updateDisplayName, signOut } = useAuth();
   const displayName = useDisplayName();
   const navigate = useNavigate();
+  const pinQuery = useQuery({
+    queryKey: userPinKeys.mine(user?.id ?? ""),
+    queryFn: fetchMyPin,
+    enabled: Boolean(user?.id),
+    staleTime: Infinity,
+  });
 
   const [nameDraft, setNameDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -117,6 +125,22 @@ const Profile = () => {
             <div>
               <dt className="text-[13px] text-muted-foreground">Ngày tạo hồ sơ</dt>
               <dd className="tabular mt-1 text-[15px] text-foreground">{joinedAt}</dd>
+            </div>
+            <div>
+              <dt className="text-[13px] text-muted-foreground">PIN AVORA · vĩnh viễn</dt>
+              <dd className="tabular mt-1 text-[15px] font-semibold tracking-[0.08em] text-foreground">
+                {pinQuery.data ?? "—"}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-[13px] text-muted-foreground">Số điện thoại</dt>
+              <dd className="mt-1 truncate text-[15px] text-foreground">
+                {user?.phone ? (
+                  user.phone
+                ) : (
+                  <span className="text-muted-foreground">Chưa có — bổ sung sau cũng được</span>
+                )}
+              </dd>
             </div>
           </dl>
         </div>

@@ -32,6 +32,32 @@ export function peerPhone(
   return extra === undefined ? null : { phone: extra.value.trim(), contactId: contact.id };
 }
 
+/**
+ * Every number a contact can be called on, main phone first, then the representative's (a company),
+ * then extra phone channels — de-duplicated by their normalised digits. Empty when there is none,
+ * in which case no call channel is shown at all.
+ */
+export function contactPhones(
+  contact: Pick<Contact, "id" | "phone" | "representativePhone">,
+  channels: readonly ContactChannel[],
+): { phone: string; label: string }[] {
+  const found: { phone: string; label: string }[] = [];
+  const seen = new Set<string>();
+  const add = (raw: string | null | undefined, label: string): void => {
+    const value = raw?.trim() ?? "";
+    const digits = normalizePhone(value);
+    if (digits.length < 8 || seen.has(digits)) return;
+    seen.add(digits);
+    found.push({ phone: value, label });
+  };
+  add(contact.phone, "Số chính");
+  add(contact.representativePhone, "Người đại diện");
+  for (const entry of channels) {
+    if (entry.contactId === contact.id && entry.kind === "phone") add(entry.value, entry.label ?? "Số khác");
+  }
+  return found;
+}
+
 /** Local Vietnamese form (0912345678) → international digits without "+" (84912345678). */
 export function internationalDigits(raw: string): string {
   const local = normalizePhone(raw);

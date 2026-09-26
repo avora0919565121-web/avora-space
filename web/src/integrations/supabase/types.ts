@@ -185,6 +185,7 @@ export type Database = {
           employer_contact_id: string | null
           id: string
           industry: string | null
+          link_suggestion_dismissed: string | null
           linked_user_id: string | null
           name: string
           note: string | null
@@ -206,6 +207,7 @@ export type Database = {
           employer_contact_id?: string | null
           id?: string
           industry?: string | null
+          link_suggestion_dismissed?: string | null
           linked_user_id?: string | null
           name: string
           note?: string | null
@@ -227,6 +229,7 @@ export type Database = {
           employer_contact_id?: string | null
           id?: string
           industry?: string | null
+          link_suggestion_dismissed?: string | null
           linked_user_id?: string | null
           name?: string
           note?: string | null
@@ -909,48 +912,6 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      journal_references: {
-        Row: {
-          context_snapshot: Json
-          conversation_id: string
-          created_at: string
-          decision_id: string | null
-          id: string
-          user_id: string
-        }
-        Insert: {
-          context_snapshot: Json
-          conversation_id: string
-          created_at?: string
-          decision_id?: string | null
-          id?: string
-          user_id: string
-        }
-        Update: {
-          context_snapshot?: Json
-          conversation_id?: string
-          created_at?: string
-          decision_id?: string | null
-          id?: string
-          user_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "journal_references_conversation_id_fkey"
-            columns: ["conversation_id"]
-            isOneToOne: false
-            referencedRelation: "conversations"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "journal_references_decision_id_fkey"
-            columns: ["decision_id"]
-            isOneToOne: false
-            referencedRelation: "group_decisions"
             referencedColumns: ["id"]
           },
         ]
@@ -2109,6 +2070,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -2117,6 +2079,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -2154,6 +2117,7 @@ export type Database = {
           longitude?: number | null
           opportunity_id?: string | null
           output_value?: string | null
+          pending_decision_id?: string | null
           progress_percent?: number | null
           recurrence?: string
           recurrence_origin_id?: string | null
@@ -2162,6 +2126,7 @@ export type Database = {
           requires_presence?: boolean
           skipped_at?: string | null
           skipped_silently?: boolean
+          source_transaction_id?: string | null
           start_at?: string | null
           status?: string
           task_category_id?: string | null
@@ -2199,6 +2164,7 @@ export type Database = {
           longitude?: number | null
           opportunity_id?: string | null
           output_value?: string | null
+          pending_decision_id?: string | null
           progress_percent?: number | null
           recurrence?: string
           recurrence_origin_id?: string | null
@@ -2207,6 +2173,7 @@ export type Database = {
           requires_presence?: boolean
           skipped_at?: string | null
           skipped_silently?: boolean
+          source_transaction_id?: string | null
           start_at?: string | null
           status?: string
           task_category_id?: string | null
@@ -2232,10 +2199,24 @@ export type Database = {
             referencedColumns: ["id", "owner_user_id"]
           },
           {
+            foreignKeyName: "tasks_pending_decision_id_fkey"
+            columns: ["pending_decision_id"]
+            isOneToOne: false
+            referencedRelation: "group_decisions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tasks_recurrence_origin_id_fkey"
             columns: ["recurrence_origin_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_source_transaction_id_fkey"
+            columns: ["source_transaction_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
             referencedColumns: ["id"]
           },
           {
@@ -2564,6 +2545,27 @@ export type Database = {
           },
         ]
       }
+      user_pins: {
+        Row: {
+          created_at: string
+          pin: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          pin: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          pin?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -2600,6 +2602,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -2608,6 +2611,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -2723,6 +2727,11 @@ export type Database = {
         Args: { p_decision_id: string; p_option_id: string }
         Returns: undefined
       }
+      check_user_pin: { Args: { p_pin: string }; Returns: string }
+      claim_user_pin: {
+        Args: { p_pin: string; p_source: string }
+        Returns: string
+      }
       close_group_poll: {
         Args: { p_decision_id: string }
         Returns: {
@@ -2833,6 +2842,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -2841,6 +2851,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -2887,6 +2898,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -2895,6 +2907,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -2907,6 +2920,37 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "tasks"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      confirm_contact_link: {
+        Args: { p_contact_id: string }
+        Returns: {
+          business_address: string | null
+          contact_type: string
+          created_at: string
+          date_of_birth: string | null
+          email: string | null
+          employer_contact_id: string | null
+          id: string
+          industry: string | null
+          link_suggestion_dismissed: string | null
+          linked_user_id: string | null
+          name: string
+          note: string | null
+          owner_user_id: string
+          phone: string | null
+          relationship_tag: string | null
+          representative_email: string | null
+          representative_name: string | null
+          representative_phone: string | null
+          tax_code: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "contact"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -2941,6 +2985,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -2949,6 +2994,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -3015,6 +3061,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -3023,6 +3070,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -3064,6 +3112,7 @@ export type Database = {
           employer_contact_id: string | null
           id: string
           industry: string | null
+          link_suggestion_dismissed: string | null
           linked_user_id: string | null
           name: string
           note: string | null
@@ -3123,6 +3172,14 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      create_meeting_note_task: {
+        Args: { p_decision_id: string; p_item_key: string }
+        Returns: string
+      }
+      create_obligation_reminder_task: {
+        Args: { p_title: string; p_transaction_id: string }
+        Returns: string
       }
       create_obligation_transaction: {
         Args: {
@@ -3279,6 +3336,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -3287,6 +3345,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -3342,6 +3401,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -3350,6 +3410,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -3411,6 +3472,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -3419,6 +3481,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -3612,6 +3675,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -3620,6 +3684,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -3725,6 +3790,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -3733,6 +3799,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -3811,6 +3878,7 @@ export type Database = {
           employer_contact_id: string | null
           id: string
           industry: string | null
+          link_suggestion_dismissed: string | null
           linked_user_id: string | null
           name: string
           note: string | null
@@ -3829,6 +3897,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      dismiss_contact_link: {
+        Args: { p_contact_id: string }
+        Returns: undefined
       }
       edit_message: {
         Args: { p_content: string; p_message_id: string }
@@ -4171,6 +4243,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4179,6 +4252,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4229,6 +4303,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4237,6 +4312,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4283,6 +4359,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4291,6 +4368,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4364,6 +4442,7 @@ export type Database = {
           status: string
         }[]
       }
+      preview_contact_link: { Args: { p_contact_id: string }; Returns: string }
       preview_group_invite: {
         Args: { p_token: string }
         Returns: {
@@ -4578,6 +4657,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4586,6 +4666,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4661,6 +4742,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4669,6 +4751,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4766,6 +4849,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4774,6 +4858,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4820,6 +4905,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4828,6 +4914,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4874,6 +4961,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -4882,6 +4970,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -4953,20 +5042,7 @@ export type Database = {
       }
       save_meeting_note_to_journal: {
         Args: { p_decision_id: string }
-        Returns: {
-          context_snapshot: Json
-          conversation_id: string
-          created_at: string
-          decision_id: string | null
-          id: string
-          user_id: string
-        }
-        SetofOptions: {
-          from: "*"
-          to: "journal_references"
-          isOneToOne: true
-          isSetofReturn: false
-        }
+        Returns: string
       }
       save_project_check_adjust_note: {
         Args: { p_note: string; p_project_id: string }
@@ -5171,6 +5247,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -5179,6 +5256,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -5287,6 +5365,7 @@ export type Database = {
           employer_contact_id: string | null
           id: string
           industry: string | null
+          link_suggestion_dismissed: string | null
           linked_user_id: string | null
           name: string
           note: string | null
@@ -5386,6 +5465,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -5394,6 +5474,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -5445,6 +5526,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -5453,6 +5535,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null
@@ -5507,6 +5590,7 @@ export type Database = {
           longitude: number | null
           opportunity_id: string | null
           output_value: string | null
+          pending_decision_id: string | null
           progress_percent: number | null
           recurrence: string
           recurrence_origin_id: string | null
@@ -5515,6 +5599,7 @@ export type Database = {
           requires_presence: boolean
           skipped_at: string | null
           skipped_silently: boolean
+          source_transaction_id: string | null
           start_at: string | null
           status: string
           task_category_id: string | null

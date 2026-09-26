@@ -13,7 +13,9 @@ import {
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 
+import { ContactCallSection } from "@/components/contacts/ContactCallSection";
 import { BusinessFields, IndividualFields } from "@/components/contacts/ContactForms";
+import { ContactLinkBanner } from "@/components/contacts/ContactLinkBanner";
 import { InvitePanel } from "@/components/contacts/InvitePanel";
 import { OpportunitySection } from "@/components/contacts/OpportunitySection";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -282,6 +284,8 @@ const ContactDetail = () => {
         </section>
       ) : (
         <>
+          <ContactLinkBanner contact={contact} />
+
           <section className="mt-7 overflow-hidden rounded-xl border border-border bg-card">
             <dl>
               {isPerson ? (
@@ -317,6 +321,8 @@ const ContactDetail = () => {
           {/* Left out entirely when there are none: a contact with one number has nothing extra
               to say, and an empty "other channels" box would imply something is missing. */}
           {extraChannels.length > 0 ? <ChannelsSection channels={extraChannels} /> : null}
+
+          <ContactCallSection contact={contact} channels={channelsQuery.data ?? []} />
 
           {/* Always present, unlike the block above: "not a piece of business" is a fact worth
               being able to change from here, so the empty state is one quiet button. */}

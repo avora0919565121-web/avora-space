@@ -577,6 +577,27 @@ export function obligationStatusOf(
   return "ke_hoach";
 }
 
+/**
+ * Whether "Tạo việc nhắc" is offered for this entry: a live obligation with a due date that is
+ * not yet fully settled.
+ */
+export function canSuggestReminder(
+  entry: Pick<Transaction, "type" | "deletedAt" | "dueDate" | "amountCents" | "settledCents">,
+): boolean {
+  return (
+    isObligationType(entry.type) &&
+    entry.deletedAt === null &&
+    entry.dueDate !== null &&
+    entry.settledCents < entry.amountCents
+  );
+}
+
+/** "Đến hạn: [Tên khoản] — [số tiền]" — the amount is what is still owed. */
+export function reminderTitle(name: string, entry: Pick<Transaction, "amountCents" | "settledCents">, currency: string): string {
+  const label = name.trim() === "" ? "Khoản đến hạn" : name.trim();
+  return `Đến hạn: ${label} — ${formatMoney(outstandingCents(entry), currency)}`.slice(0, 200);
+}
+
 /** Live rows only: a transaction marked as an error must not move a single total. */
 export function postedEntries(entries: readonly LedgerEntry[]): LedgerEntry[] {
   return entries.filter((entry) => entry.deletedAt === null);

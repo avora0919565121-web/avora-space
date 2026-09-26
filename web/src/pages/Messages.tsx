@@ -87,7 +87,13 @@ import {
   type DiaryView,
 } from "@/lib/diary-views";
 import { useMediaQuery } from "@/hooks/use-media-query";
-import { fetchJournalReferences, meetingNoteKeys, removeJournalReference } from "@/lib/meeting-notes";
+import {
+  countSavedMeetingNotes,
+  DECISION_PARAM,
+  meetingNoteKeys,
+  parseSavedMeetingNote,
+  type SavedMeetingNote,
+} from "@/lib/meeting-notes";
 import { pasteSourceTasks, readClipboard, type PastedContent } from "@/lib/paste-intake";
 import {
   attachmentKeys,
@@ -659,25 +665,32 @@ const Messages = () => {
     enabled: activeTab === "journal" && journalSummary !== undefined,
     staleTime: 30_000,
   });
-  /** Finalized meeting notes this person kept in Diary — references, listed in File của bạn. */
-  const journalRefsQuery = useQuery({
-    queryKey: meetingNoteKeys.journalRefs(userId ?? ""),
-    queryFn: fetchJournalReferences,
-    enabled: activeTab === "journal" && Boolean(userId),
+  /**
+   * Meeting notes saved with "Lưu vào Nhật ký" are ordinary Diary notes; File của bạn lists them
+   * with the source "Từ Sổ quyết định". Counted on their own so the Diary list shows the number
+   * before the journal is opened.
+   */
+  const savedMeetingCountQuery = useQuery<number, Error>({
+    queryKey: meetingNoteKeys.savedToJournalCount(journalSummary?.conversationId ?? ""),
+    queryFn: () => countSavedMeetingNotes(journalSummary?.conversationId as string),
+    enabled: activeTab === "journal" && journalSummary !== undefined,
     staleTime: 30_000,
   });
-  const journalRefs = useMemo(() => journalRefsQuery.data ?? [], [journalRefsQuery.data]);
-  const removeJournalRefMutation = useMutation({
-    mutationFn: (referenceId: string) => removeJournalReference(referenceId),
-    onSuccess: () => {
-      toast.success("Đã bỏ khỏi Nhật ký. Biên bản gốc vẫn còn trong nhóm.");
-      void queryClient.invalidateQueries({ queryKey: meetingNoteKeys.journalRefs(userId ?? "") });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
+  const savedMeetingNotes: (SavedMeetingNote & { messageId: string; createdAt: string })[] = useMemo(() => {
+    if (activeKind !== "personal") return [];
+    const found: (SavedMeetingNote & { messageId: string; createdAt: string })[] = [];
+    for (const message of messages) {
+      if (message.deletedAt != null || message.systemKind != null || message.senderId !== userId) continue;
+      const parsed = parseSavedMeetingNote(message.content);
+      if (parsed !== null) found.push({ ...parsed, messageId: message.id, createdAt: message.createdAt });
+    }
+    return found.reverse();
+  }, [activeKind, messages, userId]);
   const diaryFileCount: number = useMemo(
-    () => countDiaryFileNotes(journalAttachmentsQuery.data ?? []) + journalRefs.length,
-    [journalAttachmentsQuery.data, journalRefs.length],
+    () =>
+      countDiaryFileNotes(journalAttachmentsQuery.data ?? []) +
+      (activeKind === "personal" ? savedMeetingNotes.length : (savedMeetingCountQuery.data ?? 0)),
+    [journalAttachmentsQuery.data, activeKind, savedMeetingNotes.length, savedMeetingCountQuery.data],
   );
   const pastedNoteIds = useMemo(
     () =>
@@ -1455,6 +1468,12 @@ const Messages = () => {
     if (searchParams.get("tab") === "du-an") setActiveTab("projects");
   }, [searchParams]);
 
+  /** "Mở biên bản" from a note saved in Diary: the group opens with its Sổ quyết định on top. */
+  const decisionParam: string | null = searchParams.get(DECISION_PARAM);
+  useEffect(() => {
+    if (decisionParam !== null && activeKind === "group") setIsDecisionsOpen(true);
+  }, [decisionParam, activeKind]);
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col md:flex-row">
       <section
@@ -1839,7 +1858,7 @@ const Messages = () => {
                       {isPeerOnline
                         ? "Đang trực tuyến"
                         : activeKind === "personal" && diaryView === "files"
-                          ? `${diaryFiles.length + journalRefs.length} mục · chỉ mình bạn xem`
+                          ? `${diaryFiles.length + savedMeetingNotes.length} mục · chỉ mình bạn xem`
                           : activeKind === "personal" && diaryView === "sources"
                             ? `${pasteTasks.length} việc tạo từ nội dung dán`
                             : threadSubtitle}
@@ -1998,8 +2017,7 @@ const Messages = () => {
                   {diaryView === "files" ? (
                     <DiaryFilesView
                       notes={diaryFiles}
-                      meetingRefs={journalRefs}
-                      onRemoveMeetingRef={(id) => removeJournalRefMutation.mutate(id)}
+                      meetingNotes={savedMeetingNotes}
                       urlOf={attachmentUrlOf}
                       isLoading={isAttachmentsLoading}
                       onOpenNote={(messageId) => {
