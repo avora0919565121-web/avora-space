@@ -632,9 +632,9 @@ const Messages = () => {
   // Which reading is open lives in the address (`?xem=`), so a phone's back step returns to the
   // three-row Diary list and a reload stays on the same view. No slug reads as the journal.
   const isWide: boolean = useMediaQuery("(min-width: 768px)");
-  const diaryViewLabel: string = DIARY_VIEWS.find((view) => view.id === diaryView)?.label ?? "Nhật ký của bạn";
   const diaryParam: DiaryView | null = diaryViewFromSlug(searchParams.get(DIARY_VIEW_PARAM));
   const diaryView: DiaryView = diaryParam ?? "journal";
+  const diaryViewLabel: string = DIARY_VIEWS.find((view) => view.id === diaryView)?.label ?? "Nhật ký của bạn";
   /**
    * Phone: the journal is open but no reading has been chosen, so the three-row Diary list is the
    * screen. "Xem trong ngữ cảnh" names a task instead and goes straight to the written timeline.
