@@ -61,8 +61,6 @@ function fail(code: string | undefined, message: string): Error {
     return new Error("Loại quan hệ không hợp lệ.");
   if (code === "42501" || normalized.includes("permission denied"))
     return new Error("Máy chủ chưa cho phép thao tác này.");
-  if (normalized.includes("row-level security"))
-    return new Error("Bạn chỉ đánh dấu được người đã từng trò chuyện riêng với bạn.");
   if (normalized.includes("failed to fetch"))
     return new Error("Không kết nối được máy chủ. Kiểm tra mạng và thử lại.");
   return new Error("Không lưu được đánh dấu. Vui lòng thử lại.");
