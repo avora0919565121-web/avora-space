@@ -1618,6 +1618,17 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   a title or a chevron; the task sheet has one status line; Think Hub drops its subtitle; the sub-group row drops its
   redundant chat icon (projects keep it). Reports follow the filters live; every money hint carries its currency;
   the amount field shows the account's currency; an empty ledger shows only "Tạo tài khoản"; charts show a pointer.
+- 2026-09-27 — "Ở đâu" for a new table (AVORA-35 / D). Opened from inside a conversation (`?moi=1&noi=<id>`), a table
+  belongs to that conversation: only "Riêng tôi (Nhật ký)" and that one 1-1/group are offered, so it cannot land in
+  another thread by a slip. Filing a table anywhere else happens only from "+" on Kế hoạch, which lists every 1-1
+  and group. An origin that is not one of the viewer's conversations falls back to the full list. `moi`/`noi` keep
+  their names (AVORA-39 builds on them). Rule lives in `lib/table-places.ts`.
+- 2026-09-27 — Gia đình (AVORA-35 / E, decided, DB change pending confirmation). Marking someone as family does not
+  require a past 1-1: who is family is the person's own call. Policies rest on `user_id = auth.uid()` only.
+- 2026-09-27 — Corner bubble (AVORA-35 / F–G). Order: Lịch · Tạo việc từ nội dung copy · Tạo giao dịch nhanh ·
+  Avora AI. The paste flow is one hook (`hooks/use-paste-task`) shared with Kết nối; the clipboard is read in the
+  same selection. The quick transaction reuses `TransactionForm` and the shared finance queries; with no account it
+  invites creating one instead of opening an empty form. Reaction cache is keyed by conversation only.
 
 ## Out of scope
 

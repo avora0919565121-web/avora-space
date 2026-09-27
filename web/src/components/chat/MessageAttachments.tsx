@@ -21,6 +21,26 @@ function aspectRatio(attachment: MessageAttachment): number {
   return Math.max(attachment.width / attachment.height, 0.6);
 }
 
+/** The photo's true width/height ratio, or null when the attachment does not record it. */
+function knownRatio(attachment: MessageAttachment): number | null {
+  if (attachment.width === null || attachment.height === null) return null;
+  if (attachment.width <= 0 || attachment.height <= 0) return null;
+  return attachment.width / attachment.height;
+}
+
+/**
+ * The full-size viewer's image box (AVORA-35): as large as the screen allows along its longest
+ * fitting side, never distorted, never past the frame — small photos grow, large ones shrink.
+ * Sized from the ratio rather than stretched with `object-contain`, so the empty space around the
+ * photo stays part of the backdrop and a tap there still closes the viewer.
+ */
+export function fullViewerSize(ratio: number, marginPx: number = 32): { width: string; aspectRatio: string } {
+  return {
+    width: `min(calc(100vw - ${marginPx}px), calc((100dvh - ${marginPx}px) * ${ratio}))`,
+    aspectRatio: `${ratio}`,
+  };
+}
+
 type AttachmentProps = {
   attachment: MessageAttachment;
   url: string | null;
@@ -92,13 +112,29 @@ function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 p-4"
           onClick={() => setIsOpen(false)}
         >
-          <img
-            src={url}
-            alt={attachment.fileName}
-            draggable={false}
-            className="max-h-full max-w-full rounded-[12px] object-contain"
-            onClick={(event) => event.stopPropagation()}
-          />
+          {/*
+            Fills the viewer along its longest fitting side, small photos included. With a known
+            ratio the box is sized exactly; without one the photo is stretched to the frame and
+            letterboxed by object-contain — never distorted, never past the edge.
+          */}
+          {knownRatio(attachment) !== null ? (
+            <img
+              src={url}
+              alt={attachment.fileName}
+              draggable={false}
+              style={fullViewerSize(knownRatio(attachment) ?? 1)}
+              className="h-auto max-h-full max-w-full rounded-[12px] object-contain"
+              onClick={(event) => event.stopPropagation()}
+            />
+          ) : (
+            <img
+              src={url}
+              alt={attachment.fileName}
+              draggable={false}
+              className="h-full w-full object-contain"
+              onClick={(event) => event.stopPropagation()}
+            />
+          )}
           <div className="absolute right-4 top-4 flex items-center gap-2">
             {canSave ? (
               <button

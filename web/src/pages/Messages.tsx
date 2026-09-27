@@ -74,7 +74,6 @@ import {
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
 import { DiaryFilesView, DiaryHeaderIcon, DiaryList, DiarySourcesView } from "@/components/chat/DiaryViews";
 import { ConversationMoreSections } from "@/components/chat/ConversationMoreSections";
-import { PasteTaskDialog } from "@/components/chat/PasteTaskDialog";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import {
   DIARY_VIEW_PARAM,
@@ -94,7 +93,8 @@ import {
   parseSavedMeetingNote,
   type SavedMeetingNote,
 } from "@/lib/meeting-notes";
-import { pasteSourceTasks, readClipboard, type PastedContent } from "@/lib/paste-intake";
+import { pasteSourceTasks } from "@/lib/paste-intake";
+import { usePasteTask } from "@/hooks/use-paste-task";
 import {
   attachmentKeys,
   fetchThreadAttachments,
@@ -713,23 +713,13 @@ const Messages = () => {
   }, [activeKind, messages, attachmentsOf, quotedMessageId]);
   const dayGroups = useMemo(() => groupMessagesByDay(timelineMessages), [timelineMessages]);
 
-  const [isPasteOpen, setIsPasteOpen] = useState<boolean>(false);
-  const [initialPaste, setInitialPaste] = useState<PastedContent | null>(null);
-  const [isReadingClipboard, setIsReadingClipboard] = useState<boolean>(false);
+  // One paste flow for Kết nối and the corner bubble (AVORA-35 / F).
+  const { start: startPaste, isReading: isReadingClipboard, dialog: pasteDialog } = usePasteTask();
   const [openedSourceTaskId, setOpenedSourceTaskId] = useState<string | null>(null);
   const openedSourceTask = useMemo(
     () => (allTasks ?? []).find((task) => task.id === openedSourceTaskId) ?? null,
     [allTasks, openedSourceTaskId],
   );
-
-  /** Read in the tap itself: browsers only hand over the clipboard during a user gesture. */
-  const startPaste = useCallback(async (): Promise<void> => {
-    setIsReadingClipboard(true);
-    const paste = await readClipboard();
-    setIsReadingClipboard(false);
-    setInitialPaste(paste);
-    setIsPasteOpen(true);
-  }, []);
 
 
   const recorder = useVoiceRecorder();
@@ -2793,15 +2783,7 @@ const Messages = () => {
       />
 
       {/* Also from the phone's Diary list, where no thread is open yet. */}
-      {journalSummary !== undefined ? (
-        <PasteTaskDialog
-          open={isPasteOpen}
-          onOpenChange={setIsPasteOpen}
-          journalId={journalSummary.conversationId}
-          journalName={JOURNAL_TITLE}
-          initialPaste={initialPaste}
-        />
-      ) : null}
+      {pasteDialog}
       <TaskDetailSheet
         task={openedSourceTask}
         today={todayIso()}

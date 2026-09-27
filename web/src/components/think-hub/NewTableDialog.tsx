@@ -3,13 +3,9 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import type { TablePlace } from "@/lib/table-places";
 
-/** Where a new standalone table can live: the Diary, or one 1-1 / group conversation. */
-export type TablePlace = {
-  /** Null = personal (Diary). */
-  conversationId: string | null;
-  label: string;
-};
+export type { TablePlace } from "@/lib/table-places";
 
 type NewTableDialogProps = {
   open: boolean;

@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
@@ -8,6 +8,7 @@ import {
   fetchReactions,
   groupReactions,
   hasReacted,
+  hasUnseenMessageIds,
   reactionKeys,
   removeReaction,
   type MessageReaction,
@@ -37,18 +38,40 @@ export function useThreadReactions(
   const { user } = useAuth();
   const userId = user?.id;
 
-  // The ids are part of the key so messages arriving later pull their own reactions in.
-  const queryKey = useMemo(
-    () => [...reactionKeys.thread(conversationId ?? ""), messageIds.join(",")],
-    [conversationId, messageIds],
-  );
+  /*
+   * Keyed by the conversation only (AVORA-35). With the message ids in the key, every new
+   * message made a brand-new query whose data started `undefined`, so every chip — including
+   * the one just tapped — blinked out until the refetch landed. The ids now reach the fetch
+   * through a ref, and a refetch is asked for explicitly when ids the cache has never covered
+   * appear (a new message, or older ones loaded by scrolling up).
+   */
+  const queryKey = useMemo(() => reactionKeys.thread(conversationId ?? ""), [conversationId]);
+  const idsRef = useRef<readonly string[]>(messageIds);
+  idsRef.current = messageIds;
+  const fetchedRef = useRef<Set<string>>(new Set<string>());
 
-  const { data } = useQuery<MessageReaction[], Error>({
+  const { data, refetch } = useQuery<MessageReaction[], Error>({
     queryKey,
-    queryFn: () => fetchReactions(messageIds),
+    queryFn: () => {
+      const ids = idsRef.current;
+      fetchedRef.current = new Set<string>(ids);
+      return fetchReactions(ids);
+    },
     enabled: Boolean(conversationId) && Boolean(userId) && messageIds.length > 0,
     staleTime: 15_000,
+    placeholderData: (previous) => previous,
   });
+
+  // A different thread starts from nothing covered.
+  useEffect(() => {
+    fetchedRef.current = new Set<string>();
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!conversationId || !userId || messageIds.length === 0) return;
+    if (fetchedRef.current.size === 0) return; // the first fetch is still on its way
+    if (hasUnseenMessageIds(fetchedRef.current, messageIds)) void refetch();
+  }, [conversationId, userId, messageIds, refetch]);
 
   const reactions = useMemo(() => data ?? [], [data]);
 

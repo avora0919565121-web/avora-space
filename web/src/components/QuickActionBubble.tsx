@@ -1,11 +1,13 @@
-import { CalendarDays, Sparkles } from "lucide-react";
+import { CalendarDays, ClipboardPaste, Sparkles, Wallet } from "lucide-react";
 import { useCallback, useState, type PointerEvent } from "react";
 
 import { StatusPill } from "@/components/StatusPill";
+import { QuickTransactionDialog } from "@/components/finance/QuickTransactionDialog";
 import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useLongPress } from "@/hooks/use-long-press";
+import { usePasteTask } from "@/hooks/use-paste-task";
 import { BUBBLE_HOLD_MS, QUICK_ACTIONS, directQuickAction, tapQuickAction, type QuickActionId } from "@/lib/quick-actions";
 
 /** The same width at which the phone's top bar and tool-belt take over (Tailwind's `md`). */
@@ -17,6 +19,8 @@ function isNarrowViewport(): boolean {
 
 const ICONS: Record<QuickActionId, typeof CalendarDays> = {
   calendar: CalendarDays,
+  "paste-task": ClipboardPaste,
+  "quick-transaction": Wallet,
   assistant: Sparkles,
 };
 
@@ -34,11 +38,27 @@ export function QuickActionBubble() {
   const [openAction, setOpenAction] = useState<QuickActionId | null>(null);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const direct = directQuickAction(QUICK_ACTIONS);
+  const paste = usePasteTask();
+
+  /**
+   * The paste action reads the clipboard inside this same selection — browsers only hand it over
+   * during the user's own gesture, so it cannot wait for a second step.
+   */
+  const choose = useCallback(
+    (id: QuickActionId): void => {
+      if (id === "paste-task") {
+        void paste.start();
+        return;
+      }
+      setOpenAction(id);
+    },
+    [paste],
+  );
 
   const press = useLongPress({
     onTap: () => {
       const first = tapQuickAction(QUICK_ACTIONS);
-      if (first !== null) setOpenAction(first.id);
+      if (first !== null) choose(first.id);
     },
     onHold: () => setIsMenuOpen(true),
     holdMs: BUBBLE_HOLD_MS,
@@ -65,7 +85,7 @@ export function QuickActionBubble() {
       {direct !== null ? (
         <button
           type="button"
-          onClick={() => setOpenAction(direct.id)}
+          onClick={() => choose(direct.id)}
           aria-label={direct.label}
           title={direct.label}
           className={BUBBLE_CLASS}
@@ -77,8 +97,8 @@ export function QuickActionBubble() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Hành động nhanh: Lịch, Avora AI"
-              title="Lịch · Avora AI"
+              aria-label="Hành động nhanh: Lịch, tạo việc từ nội dung copy, giao dịch nhanh, Avora AI"
+              title="Hành động nhanh"
               className={`${BUBBLE_CLASS} select-none [-webkit-touch-callout:none]`}
               onPointerDown={handlePointerDown}
               onPointerMove={press.onPointerMove}
@@ -106,7 +126,7 @@ export function QuickActionBubble() {
               return (
                 <DropdownMenuItem
                   key={action.id}
-                  onSelect={() => setOpenAction(action.id)}
+                  onSelect={() => choose(action.id)}
                   className="min-h-12 gap-3 rounded-lg px-2.5 py-2"
                 >
                   <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
@@ -127,6 +147,13 @@ export function QuickActionBubble() {
           </DropdownMenuContent>
         </DropdownMenu>
       )}
+
+      {paste.dialog}
+
+      <QuickTransactionDialog
+        open={openAction === "quick-transaction"}
+        onOpenChange={(next) => setOpenAction(next ? "quick-transaction" : null)}
+      />
 
       <CalendarPeekSheet
         open={openAction === "calendar"}

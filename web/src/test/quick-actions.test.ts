@@ -3,8 +3,12 @@ import { describe, expect, it } from "vitest";
 import { BUBBLE_HOLD_MS, QUICK_ACTIONS, directQuickAction, tapQuickAction, type QuickAction } from "@/lib/quick-actions";
 
 describe("quick-action bubble", () => {
-  it("holds Lịch first, then Avora AI — the assistant is named but not built", () => {
-    expect(QUICK_ACTIONS.map((action) => action.id)).toEqual(["calendar", "assistant"]);
+  it("holds Lịch first, the two capture shortcuts, then Avora AI — named but not built", () => {
+    expect(QUICK_ACTIONS.map((action) => action.id)).toEqual(["calendar", "paste-task", "quick-transaction", "assistant"]);
+    expect(QUICK_ACTIONS.find((action) => action.id === "paste-task")?.label).toBe("Tạo việc từ nội dung copy");
+    expect(QUICK_ACTIONS.find((action) => action.id === "quick-transaction")?.label).toBe("Tạo giao dịch nhanh");
+    expect(QUICK_ACTIONS.find((action) => action.id === "paste-task")?.isUpcoming).toBe(false);
+    expect(QUICK_ACTIONS.find((action) => action.id === "quick-transaction")?.isUpcoming).toBe(false);
     expect(QUICK_ACTIONS.find((action) => action.id === "assistant")?.isUpcoming).toBe(true);
     expect(QUICK_ACTIONS.find((action) => action.id === "calendar")?.isUpcoming).toBe(false);
   });

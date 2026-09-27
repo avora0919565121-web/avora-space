@@ -13,10 +13,19 @@ export type MessageReaction = {
   emoji: string;
 };
 
+/**
+ * Cache keys. A thread's reactions are keyed by the conversation alone — never by the message
+ * ids on screen, which change with every new message and would reset the cache each time.
+ */
 export const reactionKeys = {
   all: ["message-reactions"] as const,
   thread: (conversationId: string) => ["message-reactions", conversationId] as const,
 };
+
+/** True when the thread now shows a message the last fetch did not cover. */
+export function hasUnseenMessageIds(fetched: ReadonlySet<string>, messageIds: readonly string[]): boolean {
+  return messageIds.some((id) => !fetched.has(id));
+}
 
 /**
  * The quick bar: eight feelings that cover most of what people actually mean.

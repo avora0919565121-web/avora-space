@@ -1,12 +1,13 @@
 /**
  * The floating bubble at the top right holds an ordered list of quick actions.
  *
- * Two entries now: Lịch, then Avora AI — the assistant that used to be pictured behind the logo.
- * The assistant is only a door so far: it names what is coming and holds no conversation yet.
+ * Lịch first (what a quick tap opens on a phone), then the two capture shortcuts added in AVORA-35 —
+ * a task from whatever was just copied, and a quick transaction — then Avora AI, still only a door
+ * that names what is coming and holds no conversation yet.
  * With more than one action a tap opens a short chooser in this order; a screen to reorder the
  * list is not built.
  */
-export type QuickActionId = "calendar" | "assistant";
+export type QuickActionId = "calendar" | "paste-task" | "quick-transaction" | "assistant";
 
 export type QuickAction = {
   id: QuickActionId;
@@ -21,6 +22,8 @@ export type QuickAction = {
 /** In display order. */
 export const QUICK_ACTIONS: readonly QuickAction[] = [
   { id: "calendar", label: "Xem lịch", note: "Hôm nay và những ngày tới", isUpcoming: false },
+  { id: "paste-task", label: "Tạo việc từ nội dung copy", note: "Dán chữ, ảnh hoặc tệp bạn vừa copy", isUpcoming: false },
+  { id: "quick-transaction", label: "Tạo giao dịch nhanh", note: "Ghi thu/chi ngay, chọn sổ", isUpcoming: false },
   { id: "assistant", label: "Avora AI", note: "Trợ lý riêng của bạn", isUpcoming: true },
 ];
 

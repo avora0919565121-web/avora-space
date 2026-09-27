@@ -32,6 +32,7 @@ import {
   type ThinkRecord,
   type ThinkTable,
 } from "@/lib/think-hub";
+import { tablePlaces } from "@/lib/table-places";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
 import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
@@ -139,16 +140,12 @@ const ThinkHub = () => {
     [tables, active],
   );
 
-  const places: TablePlace[] = useMemo(() => {
-    const list: TablePlace[] = [{ conversationId: null, label: "Riêng tôi (Nhật ký)" }];
-    for (const item of conversationsQuery.data ?? []) {
-      if (item.kind === "direct") list.push({ conversationId: item.conversationId, label: `1-1 với ${conversationTitle(item)}` });
-    }
-    for (const item of conversationsQuery.data ?? []) {
-      if (item.kind === "group") list.push({ conversationId: item.conversationId, label: `Nhóm ${conversationTitle(item)}` });
-    }
-    return list;
-  }, [conversationsQuery.data]);
+  // Opened from inside a conversation (`?noi=`), only the Diary and that conversation are offered.
+  const originConversationId: string | null = searchParams.get("noi");
+  const places: TablePlace[] = useMemo(
+    () => tablePlaces(conversationsQuery.data ?? [], originConversationId),
+    [conversationsQuery.data, originConversationId],
+  );
 
   const isOwner: boolean = active !== null && active.ownerUserId === user?.id;
   const targetTable: ThinkTable | null = tables.find((table) => table.id === targetTableId) ?? active;
@@ -539,7 +536,7 @@ const ThinkHub = () => {
         onCreate={handleCreateTable}
         isWorking={actions.isWorking}
         places={places}
-        initialConversationId={searchParams.get("noi")}
+        initialConversationId={originConversationId}
       />
 
       <AddColumnDialog
