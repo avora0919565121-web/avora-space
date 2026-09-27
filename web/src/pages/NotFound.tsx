@@ -1,15 +1,8 @@
-import { useEffect } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 
 import { HOME_ROUTE } from "@/lib/navigation";
 
 const NotFound = () => {
-  const location = useLocation();
-
-  useEffect(() => {
-    console.error("404: route không tồn tại:", location.pathname);
-  }, [location.pathname]);
-
   return (
     <div className="paper flex min-h-screen items-center justify-center px-6">
       <div className="max-w-md text-center">

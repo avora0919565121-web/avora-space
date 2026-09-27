@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -135,7 +136,7 @@ export function toVietnameseOpportunityError(code: string | undefined, message: 
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[opportunities] ${code ?? "unknown"}: ${message}`);
+  logError("opportunities", { code, message });
   return new Error(toVietnameseOpportunityError(code, message));
 }
 

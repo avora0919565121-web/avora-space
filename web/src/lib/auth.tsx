@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -125,7 +126,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       .maybeSingle();
 
     if (error) {
-      console.error(`[auth] load profile failed (${error.code ?? "unknown"}):`, error.message);
+      logError("auth", error);
       setProfileError(toVietnameseDbError(error.code, error.message));
       return;
     }
@@ -219,7 +220,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Supabase answers the same way whether or not the address exists, and so do we:
     // the screen must never become a way to check who has an AVORA account.
     if (error) {
-      console.error(`[auth] password reset request failed: ${error.message}`);
+      logError("auth", error);
       return { ok: false, message: toVietnameseError(error.message) };
     }
     return { ok: true };
@@ -228,7 +229,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const updatePassword = useCallback(async (password: string): Promise<AuthResult> => {
     const { error } = await supabase.auth.updateUser({ password });
     if (error) {
-      console.error(`[auth] password update failed: ${error.message}`);
+      logError("auth", error);
       return { ok: false, message: toVietnameseError(error.message) };
     }
 
@@ -237,7 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut({ scope: "others" });
     } catch (signOutError) {
-      console.error("[auth] could not revoke other sessions:", signOutError);
+      logError("auth", signOutError);
     }
 
     writeRecoveryFlag(false);
@@ -257,7 +258,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         .maybeSingle();
 
       if (error) {
-        console.error(`[auth] update profile failed (${error.code ?? "unknown"}):`, error.message);
+        logError("auth", error);
         return { ok: false, message: toVietnameseDbError(error.code, error.message) };
       }
       if (!data) return { ok: false, message: "Không tìm thấy hồ sơ của bạn. Hãy đăng nhập lại." };

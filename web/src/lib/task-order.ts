@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import type { TaskViewMode } from "@/lib/tasks";
 
 /** The order the four readings ship in. First one is what opens when you arrive. */
@@ -113,7 +114,7 @@ export function readStoredJson(key: string): unknown {
     const raw = window.localStorage.getItem(key);
     return raw === null ? null : (JSON.parse(raw) as unknown);
   } catch (error) {
-    console.warn(`[tasks] could not read ${key}: ${error instanceof Error ? error.message : "unknown"}`);
+    logError("tasks", error);
     return null;
   }
 }
@@ -122,6 +123,6 @@ export function writeStoredJson(key: string, value: unknown): void {
   try {
     window.localStorage.setItem(key, JSON.stringify(value));
   } catch (error) {
-    console.warn(`[tasks] could not save ${key}: ${error instanceof Error ? error.message : "unknown"}`);
+    logError("tasks", error);
   }
 }

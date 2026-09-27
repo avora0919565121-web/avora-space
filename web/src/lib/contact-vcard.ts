@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import vCard from "vcf";
 
 import type { ImportedContactCandidate } from "@/lib/contact-candidates";
@@ -295,7 +296,7 @@ export function parseVcards(text: string): VcardReadResult {
     try {
       card = vCard.parse(prepareBlock(block))[0];
     } catch (error) {
-      console.error("[contact-vcard] bỏ qua một thẻ không đọc được", error);
+      logError("contact-vcard", error);
       skipped += 1;
       continue;
     }

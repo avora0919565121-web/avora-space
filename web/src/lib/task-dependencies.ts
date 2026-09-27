@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { toVietnameseTaskError, type TaskItem } from "@/lib/tasks";
 
@@ -43,7 +44,7 @@ export function toVietnameseDependencyError(code: string | undefined, message: s
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[task-dependencies] ${code ?? "unknown"}: ${message}`);
+  logError("task-dependencies", { code, message });
   return new Error(toVietnameseDependencyError(code, message));
 }
 

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import type {
   RealtimeChannel,
   RealtimePostgresChangesPayload,
@@ -16,7 +17,6 @@ import {
   applyMessageEditToInbox,
   applyMessageToInbox,
   applyMessageUpdate,
-  applyPeerRead,
   chatKeys,
   clearUnread,
   mergeIncomingMessage,
@@ -225,19 +225,18 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
     };
 
-    /** Read watermarks: the peer's drives "Đã xem", the viewer's own syncs other devices. */
+    /**
+     * The viewer's own read watermark, moved on another device, clears the badge here too.
+     * Someone else's watermark is ignored: the sender is not told whether they read (ADR-028).
+     */
     const handleParticipantUpdate = (payload: RealtimePostgresUpdatePayload<ParticipantRow>): void => {
       const row = payload.new;
-      if (row.last_read_at === null) return;
+      if (row.last_read_at === null || row.user_id !== userId) return;
 
       const inbox = queryClient.getQueryData<ConversationSummary[]>(chatKeys.conversations);
       if (!inbox) return;
 
-      const readAt = toIsoTimestamp(row.last_read_at);
-      const next =
-        row.user_id === userId
-          ? clearUnread(inbox, row.conversation_id)
-          : applyPeerRead(inbox, row.conversation_id, readAt);
+      const next = clearUnread(inbox, row.conversation_id);
 
       if (next !== inbox) queryClient.setQueryData<ConversationSummary[]>(chatKeys.conversations, next);
     };
@@ -397,7 +396,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
             return;
           }
           if (state === "CHANNEL_ERROR" || state === "TIMED_OUT" || state === "CLOSED") {
-            console.error(`[realtime] chat channel ${state.toLowerCase()}`);
+            logError("realtime", { code: state });
             setStatus("offline");
           }
         });

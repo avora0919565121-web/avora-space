@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -683,7 +684,7 @@ export function toVietnameseHubError(code: string | undefined, message: string):
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[think-hub] ${code ?? "unknown"}: ${message}`);
+  logError("think-hub", { code, message });
   return new Error(toVietnameseHubError(code, message));
 }
 

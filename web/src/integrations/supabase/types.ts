@@ -4211,7 +4211,6 @@ export type Database = {
           peer_display_name: string
           peer_email: string
           peer_id: string
-          peer_last_read_at: string
           sort_at: string
           unread_count: number
         }[]

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -55,7 +56,7 @@ function toVietnameseCategoryError(code: string | undefined, message: string): s
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[task-categories] ${code ?? "unknown"}: ${message}`);
+  logError("task-categories", { code, message });
   return new Error(toVietnameseCategoryError(code, message));
 }
 

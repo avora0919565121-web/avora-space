@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -21,7 +22,7 @@ export const recallRequestKeys = {
 };
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[recall-requests] ${code ?? "unknown"}: ${message}`);
+  logError("recall-requests", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("duplicate key"))
     return new Error("Bạn đã đề nghị thu hồi tin nhắn này rồi.");

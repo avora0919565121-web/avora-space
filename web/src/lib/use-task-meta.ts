@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 
@@ -150,7 +151,7 @@ export function useDueReminders(): {
       void markReminderSurfaced(reminderId)
         .then(() => queryClient.invalidateQueries({ queryKey: taskReminderKeys.all }))
         .catch((error: unknown) => {
-          console.error("[task-reminders] could not mark surfaced", error);
+          logError("task-reminders", error);
         });
     },
     [queryClient],

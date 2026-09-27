@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { toVietnameseDecisionError } from "@/lib/decisions";
 
@@ -229,7 +230,7 @@ export function createTaskBlocker(item: ActionItem): string | null {
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[meeting-notes] ${code ?? "unknown"}: ${message}`);
+  logError("meeting-notes", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("avora_note_action_needs_description"))
     return new Error("Một việc cần làm đã tick “Tạo Task” nhưng chưa có mô tả.");
@@ -526,7 +527,7 @@ export async function attachMeetingNoteFile(input: {
     .from(MEETING_FILE_BUCKET)
     .upload(path, input.file, { contentType: mimeType, upsert: false });
   if (upload.error) {
-    console.error("[meeting-notes] upload failed:", upload.error.message);
+    logError("meeting-notes", upload.error);
     throw new Error("Không tải được tệp lên. Kiểm tra kết nối rồi thử lại.");
   }
 
@@ -557,7 +558,7 @@ export async function removeMeetingNoteFile(decisionId: string): Promise<void> {
 export async function meetingFileUrl(storagePath: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from(MEETING_FILE_BUCKET).createSignedUrl(storagePath, 300);
   if (error) {
-    console.error("[meeting-notes] signed url failed:", error.message);
+    logError("meeting-notes", error);
     return null;
   }
   return data?.signedUrl ?? null;

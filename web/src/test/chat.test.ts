@@ -1,6 +1,5 @@
 import {
   applyMessageToInbox,
-  applyPeerRead,
   canSendDraft,
   clearUnread,
   conversationSubtitle,
@@ -11,12 +10,12 @@ import {
   isNearThreadBottom,
   isPlaceholderTab,
   isProjectTab,
-  isSeenByPeer,
   JOURNAL_TITLE,
   lastOutgoingId,
   matchesConversationQuery,
   mergeIncomingMessage,
   MESSAGE_TABS,
+  sendReceiptLabel,
   tabForOpenedThread,
   tabOfKind,
   THREAD_BOTTOM_TOLERANCE_PX,
@@ -58,7 +57,6 @@ function summary(overrides: Partial<ConversationSummary> = {}): ConversationSumm
     lastMessageAt: null,
     lastMessageSenderId: null,
     unreadCount: 0,
-    peerLastReadAt: null,
     sortAt: "2026-09-05T09:00:00.000Z",
     ...overrides,
   };
@@ -417,28 +415,20 @@ describe("message tabs", () => {
   });
 });
 
-describe("read receipts", () => {
-  it("moves the peer watermark forward", () => {
-    const next = applyPeerRead([summary()], "c1", "2026-09-05T10:00:00.000Z");
-    expect(next[0].peerLastReadAt).toBe("2026-09-05T10:00:00.000Z");
+describe("send receipts (ADR-028: no Đã xem)", () => {
+  it("shows only Đang gửi while in flight and Đã gửi once stored", () => {
+    expect(sendReceiptLabel(message({ pending: true }))).toBe("Đang gửi");
+    expect(sendReceiptLabel(message({ pending: false }))).toBe("Đã gửi");
+    expect(sendReceiptLabel(message({}))).toBe("Đã gửi");
   });
 
-  it("ignores an out-of-order watermark that would move backwards", () => {
-    const inbox = [summary({ peerLastReadAt: "2026-09-05T10:00:00.000Z" })];
-    expect(applyPeerRead(inbox, "c1", "2026-09-05T09:00:00.000Z")).toBe(inbox);
+  it("never carries the peer's read watermark in the inbox", () => {
+    expect(Object.keys(summary())).not.toContain("peerLastReadAt");
   });
 
-  it("marks a message seen once the watermark reaches it", () => {
-    const sent = message({ createdAt: "2026-09-05T10:00:00.000Z" });
-    expect(isSeenByPeer(sent, "2026-09-05T10:00:00.000Z")).toBe(true);
-    expect(isSeenByPeer(sent, "2026-09-05T10:00:01.000Z")).toBe(true);
-    expect(isSeenByPeer(sent, "2026-09-05T09:59:59.000Z")).toBe(false);
-    expect(isSeenByPeer(sent, null)).toBe(false);
-  });
-
-  it("never marks an unsent bubble as seen", () => {
-    const pending = message({ pending: true, createdAt: "2026-09-05T10:00:00.000Z" });
-    expect(isSeenByPeer(pending, "2026-09-05T11:00:00.000Z")).toBe(false);
+  it("still clears the viewer's own badge", () => {
+    const inbox = [summary({ unreadCount: 3 })];
+    expect(clearUnread(inbox, "c1")[0].unreadCount).toBe(0);
   });
 
   it("puts the receipt on your newest message only", () => {

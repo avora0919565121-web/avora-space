@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { buildContextSnapshot, snapshotToJson } from "@/lib/task-context";
 import { browserTimezone } from "@/lib/task-schedule";
@@ -261,7 +262,7 @@ export function toVietnameseProjectError(code: string | undefined, message: stri
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[projects] ${code ?? "unknown"}`);
+  logError("projects", { code });
   return new Error(toVietnameseProjectError(code, message));
 }
 

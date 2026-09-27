@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -138,7 +139,7 @@ export function hidePinBannerFor(userId: string, today: string): void {
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[user-pin] ${code ?? "unknown"}: ${message}`);
+  logError("user-pin", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("avora_pin_taken")) return new Error(pinProblemMessage("taken"));
   if (normalized.includes("avora_pin_permanent")) return new Error("Tài khoản này đã có PIN — PIN không đổi được.");

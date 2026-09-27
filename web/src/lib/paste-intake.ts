@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { isDeletedFor, TASK_DESCRIPTION_MAX_LEN, type TaskItem } from "@/lib/tasks";
 import type { ContextMessage, TaskContextSnapshot } from "@/lib/task-context";
 
@@ -70,7 +71,7 @@ export async function readClipboard(): Promise<PastedContent | null> {
     }
   } catch (error) {
     // Permission refused or nothing readable — expected, and the paste box covers it.
-    console.info(`[paste-intake] clipboard not readable: ${error instanceof Error ? error.name : "unknown"}`);
+    logError("paste-intake", error);
   }
   return null;
 }

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { readSheet } from "read-excel-file/browser";
 
 import { buildTemplateCsv, parseDelimitedText } from "@/lib/contact-import";
@@ -78,7 +79,7 @@ export async function readImportFile(file: File): Promise<string[][]> {
       const sheet = await readSheet(file);
       return sheet.map((row) => row.map(cellToText));
     } catch (error) {
-      console.error("[contact-import] không đọc được xlsx", error);
+      logError("contact-import", error);
       throw new ImportFileError(
         "Không đọc được file Excel này. Hãy lưu lại dưới dạng .xlsx hoặc .csv rồi thử lại.",
       );

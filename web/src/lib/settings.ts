@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { buildRateTable, DEFAULT_BASE_CURRENCY, isSupportedCurrency, type RateTable } from "@/lib/currency";
 import {
@@ -70,7 +71,7 @@ export const currencyKeys = {
 };
 
 function fail(scope: string, code: string | undefined, message: string): Error {
-  console.error(`[${scope}] ${code ?? "unknown"}: ${message}`);
+  logError(scope, { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("avora_profile_timezone_invalid")) return new Error("Múi giờ không hợp lệ.");
   if (normalized.includes("profiles_daily_thought_category_valid"))

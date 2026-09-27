@@ -1,9 +1,9 @@
+import { logError } from "@/lib/log";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   Check,
   CalendarClock,
-  CheckCheck,
   ClipboardPaste,
   CircleAlert,
   ChevronLeft,
@@ -139,7 +139,6 @@ import {
   isPlaceholderTab,
   isProjectTab,
   isRecalled,
-  isSeenByPeer,
   lastOutgoingId,
   ORIGIN_GROUP_PARAM,
   markConversationRead,
@@ -149,6 +148,7 @@ import {
   quotePreview,
   recallMessage,
   sendMessage,
+  sendReceiptLabel,
   tabForOpenedThread,
   threadScrollDecision,
   unreadForTab,
@@ -409,7 +409,6 @@ const Messages = () => {
     () => withFailedSends(messagesQuery.data ?? [], failedSends, conversationId),
     [messagesQuery.data, failedSends, conversationId],
   );
-  const peerLastReadAt: string | null = activeSummary?.peerLastReadAt ?? null;
   const lastOwnMessageId: string | null = useMemo(
     () => (userId ? lastOutgoingId(messages, userId) : null),
     [messages, userId],
@@ -935,7 +934,7 @@ const Messages = () => {
     onError: (error: Error, id: string) => {
       // Allow a later attempt; the badge comes back from the server.
       delete markedRef.current[id];
-      console.error(`[chat] mark read failed: ${error.message}`);
+      logError("chat", error);
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
     },
   });
@@ -2078,7 +2077,6 @@ const Messages = () => {
                               message.id === lastOwnMessageId &&
                               message.pending !== true &&
                               activeKind !== "personal";
-                            const seen = showsReceipt && isSeenByPeer(message, peerLastReadAt);
                             const showsSender = !outgoing && activeKind === "group";
                             const senderLabel = showsSender
                               ? (senderNames.get(message.senderId) ?? "Thành viên")
@@ -2515,12 +2513,8 @@ const Messages = () => {
                                     })()}
                                     {showsReceipt ? (
                                       <span className="flex items-center gap-1">
-                                        {seen ? (
-                                          <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                        ) : (
-                                          <Check className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                        )}
-                                        {seen ? "Đã xem" : "Đã gửi"}
+                                        <Check className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+                                        {sendReceiptLabel(message)}
                                       </span>
                                     ) : null}
                                   </span>

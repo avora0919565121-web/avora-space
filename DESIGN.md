@@ -1623,12 +1623,25 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   another thread by a slip. Filing a table anywhere else happens only from "+" on Kế hoạch, which lists every 1-1
   and group. An origin that is not one of the viewer's conversations falls back to the full list. `moi`/`noi` keep
   their names (AVORA-39 builds on them). Rule lives in `lib/table-places.ts`.
-- 2026-09-27 — Gia đình (AVORA-35 / E, decided, DB change pending confirmation). Marking someone as family does not
-  require a past 1-1: who is family is the person's own call. Policies rest on `user_id = auth.uid()` only.
+- 2026-09-27 — Gia đình (AVORA-35 / E). Marking someone as family does not require a past 1-1: who is family is the
+  person's own call. Policies rest on `user_id = auth.uid()` only (applied 27/09).
 - 2026-09-27 — Corner bubble (AVORA-35 / F–G). Order: Lịch · Tạo việc từ nội dung copy · Tạo giao dịch nhanh ·
   Avora AI. The paste flow is one hook (`hooks/use-paste-task`) shared with Kết nối; the clipboard is read in the
   same selection. The quick transaction reuses `TransactionForm` and the shared finance queries; with no account it
   invites creating one instead of opening an empty form. Reaction cache is keyed by conversation only.
+- 2026-09-28 — No "Đã xem" (AVORA-37 / C, ADR-028). The sender's receipt is only `Đang gửi` → `Đã gửi` (single
+  check) on their newest message. The peer's read watermark is no longer returned by `list_my_conversations` and
+  realtime ignores other people's read updates; the viewer's own `last_read_at` still drives unread counts and badges.
+  `Đã nhận` needs a delivery signal from the recipient's device and comes after launch. Still open at the data layer:
+  `conversation_participants` lets members read each other's `last_read_at` (see SECURITY-AUDIT-2026-09-28).
+- 2026-09-28 — Logging (AVORA-37 / D3). The app writes to the console only through `lib/log.ts` (`logError`):
+  scope, machine code, error class — never message text, bodies, emails, amounts, PINs or tokens. `no-console` is
+  an error everywhere else. Every table carries a level and domain in `lib/data-classification.ts`; a test fails
+  when a table is added without one.
+- 2026-09-28 — Trust Phase 1, after launch (AVORA-37 / D4): Device Registry, export boundary, provenance/security
+  event log, unified deletion lifecycle (two-tier Trash). Nothing in the UI claims encryption (ADR-020).
+- 2026-09-28 — Chặn / Báo cáo (AVORA-37 / A–B): product decisions set by VMT, not built yet — held because
+  `check_user_pin` is a PIN-availability check, not a lookup (see report of 28/09).
 
 ## Out of scope
 

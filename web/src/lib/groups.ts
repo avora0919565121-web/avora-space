@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /** Where someone stands in a group. One owner and at most one admin per group. */
@@ -223,7 +224,7 @@ export function toVietnameseGroupError(code: string | undefined, message: string
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[groups] ${code ?? "unknown"}: ${message}`);
+  logError("groups", { code, message });
   return new Error(toVietnameseGroupError(code, message));
 }
 

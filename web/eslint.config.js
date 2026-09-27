@@ -21,6 +21,12 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
       "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
       "@typescript-eslint/no-unused-vars": "off",
+      // RFC-AVORA-TRUST-001 §24.6: logs never carry real data. Everything goes through lib/log.ts.
+      "no-console": "error",
     },
+  },
+  {
+    files: ["src/lib/log.ts", "src/test/**"],
+    rules: { "no-console": "off" },
   },
 );

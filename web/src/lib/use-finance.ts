@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 import { useCallback, useMemo, useState } from "react";
 
@@ -283,7 +284,7 @@ export function useDismissedRecurring(): { dismissed: Set<string>; dismiss: (key
       try {
         window.localStorage.setItem(DISMISSED_KEY, JSON.stringify(next));
       } catch (error) {
-        console.error("[finance] could not remember the skipped reminder", error);
+        logError("finance", error);
       }
       return next;
     });

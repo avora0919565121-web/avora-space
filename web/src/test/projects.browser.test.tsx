@@ -95,7 +95,6 @@ function conversation(overrides: Partial<ConversationSummary> = {}): Conversatio
     lastMessageAt: null,
     lastMessageSenderId: null,
     unreadCount: 0,
-    peerLastReadAt: null,
     sortAt: "2026-09-17T08:00:00.000Z",
     ...overrides,
   };

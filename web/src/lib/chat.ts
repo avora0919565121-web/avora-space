@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatMessage, ConversationKind, ConversationSummary } from "@/lib/chat-cache";
 import { peerLabel } from "@/lib/initials";
@@ -6,7 +7,6 @@ export {
   applyMessageEditToInbox,
   applyMessageToInbox,
   applyMessageUpdate,
-  applyPeerRead,
   canEditMessage,
   canRecallMessage,
   canReplyToMessage,
@@ -30,7 +30,6 @@ export {
   isNearThreadBottom,
   isRecalled,
   isSearchable,
-  isSeenByPeer,
   isWithinEditWindow,
   matchExcerpt,
   MESSAGE_SEARCH_MIN_LENGTH,
@@ -48,6 +47,7 @@ export {
   isProjectTab,
   quotePreview,
   RECALLED_MESSAGE_NOTE,
+  sendReceiptLabel,
   tabForOpenedThread,
   tabOfKind,
   THREAD_BOTTOM_TOLERANCE_PX,
@@ -110,7 +110,7 @@ export function toVietnameseChatError(code: string | undefined, message: string)
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[chat] ${code ?? "unknown"}: ${message}`);
+  logError("chat", { code, message });
   return new Error(toVietnameseChatError(code, message));
 }
 
@@ -132,7 +132,6 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
     lastMessageSenderId: row.last_message_sender_id,
     // The generator types RPC table columns as non-null; these two really can be null.
     unreadCount: (row.unread_count as number | null) ?? 0,
-    peerLastReadAt: (row.peer_last_read_at as string | null) ?? null,
     sortAt: row.sort_at,
   }));
 }

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import {
   isInvitationStatus,
@@ -8,7 +9,7 @@ import {
 } from "@/lib/task-collab";
 
 function fail(scope: string, code: string | undefined, message: string): Error {
-  console.error(`[${scope}] ${code ?? "unknown"}: ${message}`);
+  logError(scope, { code, message });
   return new Error(toVietnameseCollabError(message));
 }
 

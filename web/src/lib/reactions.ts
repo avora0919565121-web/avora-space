@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -53,7 +54,7 @@ export const MORE_REACTIONS: readonly string[] = [
 ] as const;
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[reactions] ${code ?? "unknown"}: ${message}`);
+  logError("reactions", { code, message });
   const normalized = message.toLowerCase();
   if (code === "42501" || normalized.includes("permission denied"))
     return new Error("Máy chủ chưa cho phép thao tác này.");

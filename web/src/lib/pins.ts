@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import type { GroupRole } from "@/lib/groups";
 
@@ -35,7 +36,7 @@ export const pinKeys = {
 export const PIN_LIMIT = 3;
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[pins] ${code ?? "unknown"}: ${message}`);
+  logError("pins", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("avora_pin_group_quota_full"))
     return new Error(`Nhóm đã ghim đủ ${PIN_LIMIT} tin. Bỏ ghim một tin trước khi ghim tin mới.`);

@@ -22,7 +22,6 @@ function conversation(id: string, unreadCount: number): ConversationSummary {
     lastMessageAt: "2026-09-11T03:00:00.000Z",
     lastMessageSenderId: `peer-${id}`,
     unreadCount,
-    peerLastReadAt: null,
     sortAt: "2026-09-11T03:00:00.000Z",
   };
 }

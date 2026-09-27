@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 /**
  * Pure chat helpers: shapes, cache reducers and Vietnamese time formatting.
  * Deliberately free of the Supabase client so this logic stays unit-testable.
@@ -21,8 +22,6 @@ export type ConversationSummary = {
   lastMessageSenderId: string | null;
   /** Messages from the peer newer than the viewer's read watermark. */
   unreadCount: number;
-  /** How far the peer has read this thread — powers the "Đã xem" receipt. */
-  peerLastReadAt: string | null;
   sortAt: string;
 };
 
@@ -408,7 +407,7 @@ export function toIsoTimestamp(value: string): string {
     const parsed = new Date(candidate);
     if (!Number.isNaN(parsed.getTime())) return parsed.toISOString();
   }
-  console.error(`[chat] unparsable timestamp: ${value}`);
+  logError("chat", { code: "unparsable_timestamp" });
   return new Date().toISOString();
 }
 
@@ -536,23 +535,6 @@ export function clearUnread(inbox: ConversationSummary[], conversationId: string
   return next;
 }
 
-/** Records how far the peer has read, ignoring a watermark that would move backwards. */
-export function applyPeerRead(
-  inbox: ConversationSummary[],
-  conversationId: string,
-  readAt: string,
-): ConversationSummary[] {
-  const index = inbox.findIndex((item) => item.conversationId === conversationId);
-  if (index === -1) return inbox;
-
-  const current = inbox[index].peerLastReadAt;
-  if (current !== null && new Date(current).getTime() >= new Date(readAt).getTime()) return inbox;
-
-  const next = [...inbox];
-  next[index] = { ...next[index], peerLastReadAt: readAt };
-  return next;
-}
-
 export function totalUnread(inbox: ConversationSummary[]): number {
   return inbox.reduce((sum, item) => sum + item.unreadCount, 0);
 }
@@ -573,10 +555,12 @@ export function unreadSummaryText(conversationCount: number): string {
   return `${conversationCount} cuộc trò chuyện có tin mới`;
 }
 
-/** True once the peer's read watermark has reached this message. */
-export function isSeenByPeer(message: ChatMessage, peerLastReadAt: string | null): boolean {
-  if (peerLastReadAt === null || message.pending === true) return false;
-  return new Date(peerLastReadAt).getTime() >= new Date(message.createdAt).getTime();
+/**
+ * The sender's receipt (ADR-028): only whether the message left, never whether it was read.
+ * "Đã nhận" needs a delivery signal from the recipient's device and comes after launch.
+ */
+export function sendReceiptLabel(message: Pick<ChatMessage, "pending">): "Đang gửi" | "Đã gửi" {
+  return message.pending === true ? "Đang gửi" : "Đã gửi";
 }
 
 /** Id of the viewer's newest own message — the only one that carries a delivery receipt. */

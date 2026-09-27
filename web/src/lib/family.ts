@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -53,7 +54,7 @@ export function isFamilyRelationType(value: string): value is FamilyRelationType
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[family] ${code ?? "unknown"}: ${message}`);
+  logError("family", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("family_relations_not_self"))
     return new Error("Bạn không thể tự đánh dấu chính mình.");

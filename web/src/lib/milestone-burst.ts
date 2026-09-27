@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -73,13 +74,13 @@ export function fireMilestoneBurst(event: MilestoneBurstEvent): void {
       channel.send({ type: "broadcast", event: "milestone_done", payload: event }),
     )
     .catch((error: unknown) => {
-      console.error("[milestone-burst] broadcast failed", error);
+      logError("milestone-burst", error);
     });
 }
 
 /** Prepares the receive path. Called once the signed-in app mounts its burst layer. */
 export function warmMilestoneChannel(): void {
   void burstChannel().catch((error: unknown) => {
-    console.error("[milestone-burst] channel failed", error);
+    logError("milestone-burst", error);
   });
 }

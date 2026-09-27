@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { useCallback, useMemo } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 
@@ -165,7 +166,7 @@ export function useGuidance(): {
       void dismissGuidance(userId, key)
         .then(() => queryClient.invalidateQueries({ queryKey: guidanceKeys.all }))
         .catch((error: unknown) => {
-          console.error("[guidance] could not record dismissal", error);
+          logError("guidance", error);
         });
     },
     [queryClient, userId],

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toIsoTimestamp } from "@/lib/chat";
@@ -153,7 +154,7 @@ export function toVietnameseSuggestionError(code: string | undefined, message: s
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[task-suggestions] ${code ?? "unknown"}: ${message}`);
+  logError("task-suggestions", { code, message });
   return new Error(toVietnameseSuggestionError(code, message));
 }
 

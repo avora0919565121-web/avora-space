@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { useCallback, useState } from "react";
 
 import {
@@ -301,7 +302,7 @@ async function fileChannels(
       });
       if (saved !== null) stored += 1;
     } catch (error) {
-      console.error("[candidate-import] không lưu được kênh liên hệ phụ", error);
+      logError("candidate-import", error);
     }
   }
 

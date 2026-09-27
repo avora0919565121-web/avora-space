@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -225,7 +226,7 @@ export function describeMuteDecision(decision: MuteDecision): string {
 // ------------------------------------------------------------------ data access
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[mute] ${code ?? "unknown"}: ${message}`);
+  logError("mute", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("mute_settings_scope_valid"))
     return new Error("Không tắt được thông báo cho phần này.");

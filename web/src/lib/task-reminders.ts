@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { reminderInstant, reminderOffsetMinutes, type ReminderPreset } from "@/lib/task-schedule";
 
@@ -65,7 +66,7 @@ function toVietnameseReminderError(code: string | undefined, message: string): s
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[task-reminders] ${code ?? "unknown"}: ${message}`);
+  logError("task-reminders", { code, message });
   return new Error(toVietnameseReminderError(code, message));
 }
 

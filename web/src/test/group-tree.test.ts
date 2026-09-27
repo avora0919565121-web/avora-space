@@ -16,7 +16,6 @@ function group(id: string, sortAt: string, unreadCount = 0): ConversationSummary
     lastMessageAt: sortAt,
     lastMessageSenderId: null,
     unreadCount,
-    peerLastReadAt: null,
     sortAt,
   } as ConversationSummary;
 }

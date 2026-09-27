@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import type { GroupRole } from "@/lib/groups";
 
@@ -227,7 +228,7 @@ export function toVietnameseDecisionError(code: string | undefined, message: str
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[decisions] ${code ?? "unknown"}: ${message}`);
+  logError("decisions", { code, message });
   return new Error(toVietnameseDecisionError(code, message));
 }
 

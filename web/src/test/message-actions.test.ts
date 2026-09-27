@@ -206,7 +206,6 @@ describe("keeping the inbox preview honest", () => {
       lastMessageAt: "2026-09-14T11:30:00Z",
       lastMessageSenderId: ME,
       unreadCount: 0,
-      peerLastReadAt: null,
       sortAt: "2026-09-14T11:30:00Z",
     },
   ];

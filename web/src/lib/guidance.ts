@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -41,7 +42,7 @@ export const guidanceKeys = {
 };
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[guidance] ${code ?? "unknown"}: ${message}`);
+  logError("guidance", { code, message });
   if (code === "42501" || message.toLowerCase().includes("permission denied"))
     return new Error("Máy chủ chưa cho phép thao tác này.");
   return new Error("Không lưu được. Vui lòng thử lại.");

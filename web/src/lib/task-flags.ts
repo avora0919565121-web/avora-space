@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import {
   HEAVY_TASK_MINUTES,
@@ -32,7 +33,7 @@ export type TaskFlagRow = {
 const FLAG_COLUMNS = "task_id, is_important, duration_minutes, started_at, my_day_on";
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[task-flags] ${code ?? "unknown"}: ${message}`);
+  logError("task-flags", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("task_flags_duration_positive"))
     return new Error("Thời lượng phải lớn hơn 0 phút.");

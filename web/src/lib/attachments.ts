@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -88,7 +89,7 @@ export const attachmentKeys = {
 };
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[attachments] ${code ?? "unknown"}: ${message}`);
+  logError("attachments", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("avora_attachment_too_many"))
     return new Error(`Mỗi tin nhắn chỉ gửi được tối đa ${MAX_ATTACHMENTS_PER_MESSAGE} tệp.`);
@@ -229,7 +230,7 @@ async function imageSize(blob: Blob): Promise<{ width: number | null; height: nu
     bitmap.close();
     return size;
   } catch (error) {
-    console.error("[attachments] could not measure image", error);
+    logError("attachments", error);
     return { width: null, height: null };
   }
 }
@@ -269,7 +270,7 @@ export async function compressImage(file: File): Promise<Blob> {
     if (encoded === null || encoded.size >= file.size) return file;
     return encoded;
   } catch (error) {
-    console.error("[attachments] could not compress image", error);
+    logError("attachments", error);
     return file;
   }
 }
@@ -407,7 +408,7 @@ export async function signedUrlsFor(paths: readonly string[]): Promise<Map<strin
     .createSignedUrls([...paths], 600);
 
   if (error) {
-    console.error(`[attachments] signed urls: ${error.message}`);
+    logError("attachments", error);
     return urls;
   }
   for (const entry of data ?? []) {
@@ -420,7 +421,7 @@ export async function signedUrlsFor(paths: readonly string[]): Promise<Map<strin
 export async function signedUrlFor(path: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from(ATTACHMENT_BUCKET).createSignedUrl(path, 600);
   if (error) {
-    console.error(`[attachments] signed url: ${error.message}`);
+    logError("attachments", error);
     return null;
   }
   return data.signedUrl;

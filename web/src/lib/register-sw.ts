@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 /**
  * Registers the minimal service worker that makes AVORA installable.
  *
@@ -13,7 +14,7 @@ export function registerServiceWorker(): void {
   window.addEventListener("load", () => {
     void navigator.serviceWorker.register("/sw.js").catch(() => {
       // Installability is a bonus, not a requirement. Stay silent in the UI.
-      console.warn("[avora] service worker registration failed");
+      logError("service-worker", { code: "register_failed" });
     });
   });
 }

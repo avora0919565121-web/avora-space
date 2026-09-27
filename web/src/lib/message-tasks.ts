@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -28,7 +29,7 @@ type MarkRow = {
 };
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[message-tasks] ${code ?? "unknown"}: ${message}`);
+  logError("message-tasks", { code, message });
   return new Error("Không đọc được nhiệm vụ gắn với tin nhắn.");
 }
 

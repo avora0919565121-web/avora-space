@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   BookLock,
@@ -282,7 +283,7 @@ export function GroupDecisionSheet({
       // finalize path already told the person their note is closed.
       if (autosaveFailedRef.current) return;
       autosaveFailedRef.current = true;
-      console.error("[decisions] autosave failed", error);
+      logError("decisions", error);
       toast.error("Chưa tự lưu được bản nháp. Bấm “Lưu nháp” để thử lại.");
     },
   });

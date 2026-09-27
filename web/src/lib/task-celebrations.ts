@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -25,7 +26,7 @@ export const celebrationKeys = {
 };
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[celebrations] ${code ?? "unknown"}: ${message}`);
+  logError("celebrations", { code, message });
   return new Error("Không tải được lời chúc mừng.");
 }
 

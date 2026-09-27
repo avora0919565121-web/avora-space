@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { toVietnameseContactError, type Contact, type ContactType } from "@/lib/contacts";
 
@@ -81,7 +82,7 @@ function toChannel(row: ContactChannelRow): ContactChannel {
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[contact-channels] ${code ?? "unknown"}: ${message}`);
+  logError("contact-channels", { code, message });
   return new Error(toVietnameseContactError(code, message));
 }
 

@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import type { ImportedContactCandidate } from "@/lib/contact-candidates";
 
 /**
@@ -76,7 +77,7 @@ export async function pickDeviceContacts(): Promise<ImportedContactCandidate[]> 
   try {
     available = await contacts.getProperties();
   } catch (error) {
-    console.error("[contact-device] không đọc được danh sách thuộc tính", error);
+    logError("contact-device", error);
     throw new DeviceContactsError("Không mở được danh bạ máy. Hãy thử lại.");
   }
 
@@ -95,7 +96,7 @@ export async function pickDeviceContacts(): Promise<ImportedContactCandidate[]> 
     picked = await contacts.select(requested, { multiple: true });
   } catch (error) {
     // The picker rejects when it is dismissed on some versions, which is not a failure.
-    console.error("[contact-device] chọn danh bạ không thành công", error);
+    logError("contact-device", error);
     return [];
   }
 

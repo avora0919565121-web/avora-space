@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -97,7 +98,7 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
 }
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[finance] ${code ?? "unknown"}: ${message}`);
+  logError("finance", { code, message });
   return new Error(toVietnameseFinanceError(code, message));
 }
 
@@ -489,7 +490,7 @@ export async function uploadReceipt(userId: string, file: File): Promise<string>
 export async function receiptUrl(path: string): Promise<string | null> {
   const { data, error } = await supabase.storage.from(RECEIPT_BUCKET).createSignedUrl(path, 600);
   if (error) {
-    console.error(`[finance] receipt url: ${error.message}`);
+    logError("finance", error);
     return null;
   }
   return data.signedUrl;
@@ -497,5 +498,5 @@ export async function receiptUrl(path: string): Promise<string | null> {
 
 export async function removeReceipt(path: string): Promise<void> {
   const { error } = await supabase.storage.from(RECEIPT_BUCKET).remove([path]);
-  if (error) console.error(`[finance] receipt remove: ${error.message}`);
+  if (error) logError("finance", error);
 }

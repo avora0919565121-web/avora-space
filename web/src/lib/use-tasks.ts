@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import {
   keepPreviousData,
   useMutation,
@@ -113,7 +114,7 @@ export function useTaskActions() {
       if (cached === undefined) void queryClient.invalidateQueries({ queryKey: taskFlagKeys.all });
       else queryClient.setQueryData<TaskFlagRow[]>(taskFlagKeys.list, upsertFlagRow(cached, row));
     } catch (error) {
-      console.error("[tasks] task created but its flags could not be saved", error);
+      logError("tasks", error);
     }
   };
 

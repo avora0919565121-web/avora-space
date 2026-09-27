@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -13,7 +14,7 @@ export type ForwardResult = {
 };
 
 function fail(code: string | undefined, message: string): Error {
-  console.error(`[forwarding] ${code ?? "unknown"}: ${message}`);
+  logError("forwarding", { code, message });
   const normalized = message.toLowerCase();
   if (normalized.includes("avora_not_a_participant"))
     return new Error("Bạn không có quyền trong cuộc trò chuyện này.");
