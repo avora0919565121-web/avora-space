@@ -1,5 +1,6 @@
 import {
   CheckSquare,
+  Flag,
   Forward,
   Hand,
   ListPlus,
@@ -32,7 +33,8 @@ export type MessageAction =
   | "forward"
   | "select"
   | "pin"
-  | "unpin";
+  | "unpin"
+  | "report";
 
 /**
  * Everything you can do to one message, in one place.
@@ -55,6 +57,7 @@ export function MessageActionsMenu({
   canRequestRecall = false,
   hasRequestedRecall = false,
   canForward = false,
+  canReport = false,
   onAction,
   open,
   onOpenChange,
@@ -74,6 +77,8 @@ export function MessageActionsMenu({
   canRequestRecall?: boolean;
   /** True once this person has asked, so the menu reports it instead of inviting a second ask. */
   hasRequestedRecall?: boolean;
+  /** True on someone else's message in a 1-1 or group (AVORA-37 / B). Never on your own. */
+  canReport?: boolean;
   onAction: (action: MessageAction) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -89,6 +94,8 @@ export function MessageActionsMenu({
   const showRequestRecall =
     canRequestRecall && message.pending !== true && message.deletedAt == null;
   const showForward = canForward && message.pending !== true && message.deletedAt == null;
+  const showReport =
+    canReport && message.pending !== true && viewerId !== undefined && message.senderId !== viewerId;
 
   if (
     !showReply &&
@@ -97,7 +104,8 @@ export function MessageActionsMenu({
     !showTask &&
     !showPin &&
     !showRequestRecall &&
-    !showForward
+    !showForward &&
+    !showReport
   )
     return null;
 
@@ -181,6 +189,12 @@ export function MessageActionsMenu({
             {hasRequestedRecall ? "Đã đề nghị thu hồi" : "Đề nghị thu hồi"}
           </DropdownMenuItem>
         ) : null}
+        {showReport ? (
+          <DropdownMenuItem onSelect={() => onAction("report")}>
+            <Flag className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Báo cáo tin nhắn
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -203,6 +217,7 @@ export function MessageActionsAffordance({
   canRequestRecall = false,
   hasRequestedRecall = false,
   canForward = false,
+  canReport = false,
   outgoing,
   onAction,
   reactionPicker,
@@ -216,6 +231,7 @@ export function MessageActionsAffordance({
   canRequestRecall?: boolean;
   hasRequestedRecall?: boolean;
   canForward?: boolean;
+  canReport?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
   /**
@@ -249,6 +265,7 @@ export function MessageActionsAffordance({
         canRequestRecall={canRequestRecall}
         hasRequestedRecall={hasRequestedRecall}
         canForward={canForward}
+        canReport={canReport}
         onAction={onAction}
         open={isOpen}
         onOpenChange={setIsOpen}

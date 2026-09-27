@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -56,6 +57,7 @@ export const MORE_REACTIONS: readonly string[] = [
 function fail(code: string | undefined, message: string): Error {
   logError("reactions", { code, message });
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return new Error(CONTACT_UNAVAILABLE_MESSAGE);
   if (code === "42501" || normalized.includes("permission denied"))
     return new Error("Máy chủ chưa cho phép thao tác này.");
   if (normalized.includes("row-level security"))

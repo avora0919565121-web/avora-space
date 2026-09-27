@@ -2548,6 +2548,24 @@ export type Database = {
           },
         ]
       }
+      user_blocks: {
+        Row: {
+          blocked_id: string
+          blocker_id: string
+          created_at: string
+        }
+        Insert: {
+          blocked_id: string
+          blocker_id: string
+          created_at?: string
+        }
+        Update: {
+          blocked_id?: string
+          blocker_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
       user_pins: {
         Row: {
           created_at: string
@@ -2566,6 +2584,45 @@ export type Database = {
           pin?: string
           source?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      user_reports: {
+        Row: {
+          conversation_id: string | null
+          created_at: string
+          id: string
+          message_id: string | null
+          note: string | null
+          reason: string
+          reported_content: string | null
+          reported_user_id: string
+          reporter_id: string
+          status: string
+        }
+        Insert: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          note?: string | null
+          reason: string
+          reported_content?: string | null
+          reported_user_id: string
+          reporter_id?: string
+          status?: string
+        }
+        Update: {
+          conversation_id?: string | null
+          created_at?: string
+          id?: string
+          message_id?: string | null
+          note?: string | null
+          reason?: string
+          reported_content?: string | null
+          reported_user_id?: string
+          reporter_id?: string
+          status?: string
         }
         Relationships: []
       }
@@ -2726,6 +2783,7 @@ export type Database = {
         }
         Returns: string
       }
+      block_user: { Args: { p_user_id: string }; Returns: undefined }
       cast_group_vote: {
         Args: { p_decision_id: string; p_option_id: string }
         Returns: undefined
@@ -4198,6 +4256,15 @@ export type Database = {
           user_id: string
         }[]
       }
+      list_my_blocks: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          email: string
+          user_id: string
+        }[]
+      }
       list_my_conversations: {
         Args: never
         Returns: {
@@ -4602,6 +4669,18 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      report_user: {
+        Args: {
+          p_also_block?: boolean
+          p_conversation_id?: string
+          p_include_message?: boolean
+          p_message_id?: string
+          p_note?: string
+          p_reason: string
+          p_user_id: string
+        }
+        Returns: string
       }
       request_remove_participant: {
         Args: { target_conversation_id: string; target_user_id: string }
@@ -5341,6 +5420,7 @@ export type Database = {
         Args: { new_owner_user_id: string; target_conversation_id: string }
         Returns: undefined
       }
+      unblock_user: { Args: { p_user_id: string }; Returns: undefined }
       update_contact: {
         Args: {
           p_business_address?: string

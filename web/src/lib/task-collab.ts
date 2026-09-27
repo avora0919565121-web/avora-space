@@ -1,3 +1,5 @@
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
+
 /**
  * Pure shapes and rules for the three things a task can carry beside itself: what to bring
  * (resources), what to tick off (checklist), and who else is taking part (participants).
@@ -63,6 +65,7 @@ export function nextChecklistPosition(items: readonly ChecklistItem[]): number {
 
 export function toVietnameseCollabError(message: string): string {
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
   if (normalized.includes("avora_invite_not_creator")) return "Chỉ người tạo việc mới mời được người khác.";
   if (normalized.includes("avora_invite_shared_only")) return "Chỉ việc chung trong cuộc trò chuyện mới mời được người khác.";
   if (normalized.includes("avora_invite_self")) return "Bạn đã ở trong việc này rồi.";

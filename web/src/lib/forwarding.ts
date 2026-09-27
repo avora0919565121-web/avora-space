@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -16,6 +17,7 @@ export type ForwardResult = {
 function fail(code: string | undefined, message: string): Error {
   logError("forwarding", { code, message });
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return new Error(CONTACT_UNAVAILABLE_MESSAGE);
   if (normalized.includes("avora_not_a_participant"))
     return new Error("Bạn không có quyền trong cuộc trò chuyện này.");
   if (normalized.includes("avora_forward_too_many"))

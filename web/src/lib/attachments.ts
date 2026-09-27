@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -91,6 +92,7 @@ export const attachmentKeys = {
 function fail(code: string | undefined, message: string): Error {
   logError("attachments", { code, message });
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return new Error(BLOCKED_SEND_NOTICE);
   if (normalized.includes("avora_attachment_too_many"))
     return new Error(`Mỗi tin nhắn chỉ gửi được tối đa ${MAX_ATTACHMENTS_PER_MESSAGE} tệp.`);
   if (normalized.includes("avora_attachment_path_invalid") || normalized.includes("avora_attachment_missing"))

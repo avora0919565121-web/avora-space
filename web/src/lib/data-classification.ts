@@ -31,6 +31,14 @@ export const DATA_CLASSIFICATION = {
   user_pins: { level: "internal", domain: "identity", columns: { pin: "internal" } },
   family_relations: { level: "personal", domain: "identity" },
   dismissed_guidance: { level: "internal", domain: "system" },
+  // Who blocked whom is visible only to the blocker; the blocked person must never learn it.
+  user_blocks: { level: "personal", domain: "identity" },
+  // Reports carry a copy of the reported message, read only by AVORA (service role).
+  user_reports: {
+    level: "sensitive",
+    domain: "system",
+    columns: { reported_content: "sensitive", note: "sensitive" },
+  },
 
   // connect
   conversations: { level: "internal", domain: "connect" },

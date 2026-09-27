@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toIsoTimestamp } from "@/lib/chat";
@@ -142,6 +143,7 @@ export function suggestionFromRealtimeRow(
 /** Maps Postgres failures on the suggestion RPCs to short Vietnamese messages. */
 export function toVietnameseSuggestionError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
   if (normalized.includes("avora_suggestion_not_found"))
     return "Không tìm thấy gợi ý này. Có thể nó đã được gỡ.";
   if (normalized.includes("avora_suggestion_already_answered"))

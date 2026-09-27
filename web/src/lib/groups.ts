@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 
 /** Where someone stands in a group. One owner and at most one admin per group. */
@@ -181,6 +182,7 @@ export function canLeaveGroup(viewerRole: GroupRole): boolean {
 /** Maps the group RPC exceptions to short Vietnamese messages. */
 export function toVietnameseGroupError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
 
   if (code === "23505" || normalized.includes("one_pending_request_per_target"))
     return "Đã có một đề nghị đang chờ duyệt cho người này.";

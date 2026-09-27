@@ -1640,8 +1640,26 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   when a table is added without one.
 - 2026-09-28 — Trust Phase 1, after launch (AVORA-37 / D4): Device Registry, export boundary, provenance/security
   event log, unified deletion lifecycle (two-tier Trash). Nothing in the UI claims encryption (ADR-020).
-- 2026-09-28 — Chặn / Báo cáo (AVORA-37 / A–B): product decisions set by VMT, not built yet — held because
-  `check_user_pin` is a PIN-availability check, not a lookup (see report of 28/09).
+- 2026-09-28 — Chặn (AVORA-37 / A). Blocking is the blocker's own business: the blocked person gets no notice, no
+  "đã bị chặn" state, and cannot read any `user_blocks` row (not even ones naming them). It covers direct
+  relationships only — 1-1 messages/files/forwards/edits/reactions/recall requests, task suggestions, shared tasks,
+  task invitations and Bảng inside a 1-1, finding someone by email, contact-link suggestions and contact invites.
+  Groups are untouched: nobody is removed and both still see each other there; a blocked member id is simply skipped
+  when creating a new group, so a "group of two" cannot replace the refused 1-1. An existing 1-1 is kept and stays in
+  both lists with its full history; only new content is refused (either direction). Lookups return exactly what
+  "not found" returns. The blocker sees `Bạn đã chặn {tên}.` + `Bỏ chặn` instead of the composer; the blocked side
+  sees only `Không gửi được tin trong cuộc trò chuyện này.` with the draft kept. Unblocking restores everything and
+  tells nobody. List in Cài đặt → Tuỳ chọn chung → Người đã chặn. Offline: `Cần kết nối mạng` (ADR-025).
+- 2026-09-28 — Find by PIN/QR (AVORA-38, rule set now). `check_user_pin` is only a "is this PIN free to claim" check
+  and is not a lookup, so it is not guarded. When a person-lookup by PIN or QR is built, it MUST return a result
+  identical to "không tìm thấy" when either person has blocked the other (`private.is_blocked_between`), exactly like
+  `find_user_by_email` — no distinct error, no timing or shape difference.
+- 2026-09-28 — Báo cáo (AVORA-37 / B). A report lets AVORA act (lock a violating account); the reported person is
+  not told. Only the one message being reported travels, copied by the server from `messages.content`, and only if
+  the reporter is a member of that conversation and saw `Nội dung tin nhắn này sẽ được gửi kèm để AVORA xem xét.`
+  A message id from elsewhere is dropped silently. "Chặn {tên}" is on by default in the same dialog. 20 reports per
+  person per day. v1 has no admin screen: VMT reads `user_reports` in the Supabase dashboard; through the API a
+  reporter reads back only their own reports. Toast after sending makes no promise about handling time.
 
 ## Out of scope
 

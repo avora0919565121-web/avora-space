@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatMessage, ConversationKind, ConversationSummary } from "@/lib/chat-cache";
 import { peerLabel } from "@/lib/initials";
@@ -85,6 +86,7 @@ export type ConversationPeer = {
 /** Maps Postgres/PostgREST failures on the chat tables to short Vietnamese messages. */
 export function toVietnameseChatError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return BLOCKED_SEND_NOTICE;
   if (code === "42501" || normalized.includes("permission denied"))
     return "Máy chủ chưa cho phép thao tác này. Vui lòng báo lại cho chúng tôi.";
   if (normalized.includes("row-level security")) return "Bạn không có quyền trong cuộc trò chuyện này.";

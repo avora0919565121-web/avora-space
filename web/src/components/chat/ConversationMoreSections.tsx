@@ -1,9 +1,11 @@
-import { BookLock, ChevronRight, FolderKanban, Plus, Table2 } from "lucide-react";
+import { Ban, BookLock, ChevronRight, Flag, FolderKanban, Plus, Table2, Undo2 } from "lucide-react";
 import type { ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { newTableLink, useTablesHere } from "@/components/projects/TableStrip";
+import { NEEDS_NETWORK_MESSAGE } from "@/lib/blocks";
 import { projectChatLink, projectStatusLabel, type Project } from "@/lib/projects";
+import { useOnline } from "@/lib/use-online";
 
 function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
@@ -31,6 +33,7 @@ export function ConversationMoreSections({
   onNewProject,
   onOpenDecisions,
   onNavigate,
+  safety,
 }: {
   conversationId: string;
   kind: "direct" | "group";
@@ -42,8 +45,18 @@ export function ConversationMoreSections({
   onNewProject: () => void;
   onOpenDecisions: () => void;
   onNavigate: () => void;
+  /** 1-1 only: Chặn / Báo cáo at the foot of the panel (AVORA-37). Omitted until the peer is known. */
+  safety?: {
+    peerName: string;
+    isBlocked: boolean;
+    onBlock: () => void;
+    onUnblock: () => void;
+    onReport: () => void;
+    isWorking: boolean;
+  };
 }) {
   const tables = useTablesHere(conversationId);
+  const isOnline = useOnline();
 
   return (
     <div className="space-y-5 px-3 pb-5">
@@ -117,6 +130,42 @@ export function ConversationMoreSections({
             <span className="min-w-0 flex-1 text-[14px] text-foreground">Mở Sổ quyết định của nhóm</span>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
           </button>
+        </section>
+      ) : null}
+
+      {kind === "direct" && safety !== undefined ? (
+        <section aria-label="Chặn và báo cáo" className="mx-3 border-t border-border px-0 pt-3">
+          {isOnline ? (
+            <ul className="space-y-0.5">
+              <li>
+                <button
+                  type="button"
+                  disabled={safety.isWorking}
+                  onClick={safety.isBlocked ? safety.onUnblock : safety.onBlock}
+                  className={`${rowClass} disabled:opacity-50`}
+                >
+                  {safety.isBlocked ? (
+                    <Undo2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                  ) : (
+                    <Ban className="h-3.5 w-3.5 shrink-0 text-destructive" strokeWidth={1.8} aria-hidden="true" />
+                  )}
+                  <span className={`min-w-0 flex-1 truncate text-[14px] ${safety.isBlocked ? "text-foreground" : "text-destructive"}`}>
+                    {safety.isBlocked ? `Bỏ chặn ${safety.peerName}` : `Chặn ${safety.peerName}`}
+                  </span>
+                </button>
+              </li>
+              <li>
+                <button type="button" onClick={safety.onReport} className={rowClass}>
+                  <Flag className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-[14px] text-foreground">Báo cáo {safety.peerName}</span>
+                </button>
+              </li>
+            </ul>
+          ) : (
+            <p className="px-2 py-2 text-[13px] text-muted-foreground">
+              Chặn / Báo cáo — {NEEDS_NETWORK_MESSAGE}
+            </p>
+          )}
         </section>
       ) : null}
     </div>

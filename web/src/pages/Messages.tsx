@@ -74,6 +74,11 @@ import {
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
 import { DiaryFilesView, DiaryHeaderIcon, DiaryList, DiarySourcesView } from "@/components/chat/DiaryViews";
 import { ConversationMoreSections } from "@/components/chat/ConversationMoreSections";
+import { BlockConfirmDialog } from "@/components/chat/BlockConfirmDialog";
+import { ReportDialog, type ReportTarget } from "@/components/chat/ReportDialog";
+import { BLOCKED_SEND_NOTICE } from "@/lib/blocks";
+import { REPORT_SENT_TOAST, submitReport, type ReportReason } from "@/lib/reports";
+import { useBlocks } from "@/lib/use-blocks";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import {
   DIARY_VIEW_PARAM,
@@ -266,6 +271,14 @@ const Messages = () => {
   const [isSelecting, setIsSelecting] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isForwardOpen, setIsForwardOpen] = useState<boolean>(false);
+  /** Chặn / Báo cáo (AVORA-37). */
+  const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState<boolean>(false);
+  const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
+  /**
+   * The conversation where the last send was refused because of a block. Shown to the sender
+   * as one neutral line — never the word "chặn" — and cleared by the next successful send.
+   */
+  const [refusedSendConversationId, setRefusedSendConversationId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   /** The message the next send will answer, shown as a quote above the composer. */
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
@@ -370,6 +383,52 @@ const Messages = () => {
   const threadSubtitle: string = activeSummary
     ? conversationSubtitle(activeSummary)
     : (peerEmail ?? "Người dùng AVORA");
+
+  /** The other person in a 1-1; null in a group or journal. */
+  const directPeerId: string | null =
+    activeKind === "direct" ? (activeSummary?.peerId ?? peerQuery.data?.peerId ?? null) : null;
+  const { isBlocked: isUserBlocked, block: blockPeer, unblock: unblockPeer, isWorking: isBlockWorking } = useBlocks();
+  /** True when the viewer blocked the peer of this 1-1. Never reveals the reverse. */
+  const hasBlockedPeer: boolean = directPeerId !== null && isUserBlocked(directPeerId);
+
+  const reportMutation = useMutation({
+    mutationFn: (input: { target: ReportTarget; reason: ReportReason; note: string; alsoBlock: boolean }) =>
+      submitReport({
+        reportedUserId: input.target.userId,
+        reason: input.reason,
+        note: input.note,
+        conversationId: input.target.conversationId,
+        messageId: input.target.message?.id ?? null,
+        includeMessage: input.target.message !== null,
+        alsoBlock: input.alsoBlock,
+      }),
+    onSuccess: (_id, input) => {
+      setReportTarget(null);
+      toast.success(REPORT_SENT_TOAST);
+      if (input.alsoBlock) void queryClient.invalidateQueries({ queryKey: ["user-blocks"] });
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
+  const confirmBlock = useCallback((): void => {
+    if (directPeerId === null) return;
+    void blockPeer(directPeerId)
+      .then(() => {
+        setIsBlockConfirmOpen(false);
+        toast.success(`Đã chặn ${threadTitle}.`);
+      })
+      .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Chưa lưu được."));
+  }, [directPeerId, blockPeer, threadTitle]);
+
+  const handleUnblock = useCallback((): void => {
+    if (directPeerId === null) return;
+    void unblockPeer(directPeerId)
+      .then(() => {
+        setRefusedSendConversationId(null);
+        toast.success(`Đã bỏ chặn ${threadTitle}.`);
+      })
+      .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Chưa lưu được."));
+  }, [directPeerId, unblockPeer, threadTitle]);
 
   /**
    * A group resolves no peer by design, so "no peer" alone cannot mean "no access".
@@ -1049,6 +1108,21 @@ const Messages = () => {
       if (context?.previous) {
         queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(payload.conversationId), context.previous);
       }
+      // Refused because of a block (AVORA-37): no failed bubble and no toast. The words and
+      // files go back into the composer untouched, with one neutral line beneath it.
+      if (error.message === BLOCKED_SEND_NOTICE) {
+        if (payload.retryOf !== null) {
+          const retryId = payload.retryOf;
+          setFailedSends((current) =>
+            current.map((send) => (send.localId === retryId ? { ...send, isRetrying: false } : send)),
+          );
+        } else {
+          setDraft((current) => (current.trim() === "" ? payload.content : current));
+          setStaged((current) => (current.length === 0 ? payload.files : current));
+        }
+        setRefusedSendConversationId(payload.conversationId);
+        return;
+      }
       if (payload.retryOf !== null) {
         const retryId = payload.retryOf;
         setFailedSends((current) =>
@@ -1074,6 +1148,7 @@ const Messages = () => {
       toast.error(error.message || "Tin chưa gửi được. Chạm vào tin để gửi lại.");
     },
     onSuccess: (_result, payload) => {
+      setRefusedSendConversationId(null);
       if (payload.retryOf !== null) {
         const retryId = payload.retryOf;
         failedFilesRef.current.delete(retryId);
@@ -1270,6 +1345,16 @@ const Messages = () => {
         belong to whoever wrote them, so nothing is withdrawn automatically and the sender is
         never overruled.
       */
+      if (action === "report") {
+        setReportTarget({
+          userId: message.senderId,
+          name: senderNameOf(message),
+          conversationId: message.conversationId,
+          message: { id: message.id, content: message.content },
+        });
+        return;
+      }
+
       if (action === "request-recall") {
         void askRecall(message.id)
           .then(() => toast.success("Đã gửi đề nghị. Người gửi sẽ tự quyết định."))
@@ -1294,6 +1379,7 @@ const Messages = () => {
       removePin,
       pinOf,
       askRecall,
+      senderNameOf,
     ],
   );
 
@@ -2294,6 +2380,7 @@ const Messages = () => {
                                       canRequestRecall={canRequestRecall}
                                       hasRequestedRecall={hasAskedRecall(message.id)}
                                       canForward={canForwardThis}
+                                      canReport={activeKind !== "personal" && !outgoing && message.systemKind == null}
                                       onAction={(action) => handleMessageAction(message, action)}
                                       reactionPicker={
                                         canReact ? (
@@ -2633,7 +2720,24 @@ const Messages = () => {
                   <p className="mx-auto max-w-2xl rounded-md border border-border bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
                     Dự án đã đóng nên cuộc trò chuyện chỉ còn để đọc. Người mở dự án có thể mở lại bất cứ lúc nào.
                   </p>
+                ) : hasBlockedPeer ? (
+                  /*
+                    The blocker's side (AVORA-37 / A): history stays readable above, and the box
+                    gives way to the one thing that can be done here — undo the block.
+                  */
+                  <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-md border border-border bg-secondary/40 px-4 py-2.5">
+                    <p className="min-w-0 text-[13.5px] text-muted-foreground">Bạn đã chặn {threadTitle}.</p>
+                    <button
+                      type="button"
+                      onClick={handleUnblock}
+                      disabled={isBlockWorking}
+                      className="press h-11 shrink-0 rounded-[10px] border border-border bg-card px-4 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-50"
+                    >
+                      Bỏ chặn
+                    </button>
+                  </div>
                 ) : (
+                <>
                 <MessageComposer
                   value={draft}
                   onValueChange={(next) => {
@@ -2708,6 +2812,12 @@ const Messages = () => {
                     </>
                   }
                 />
+                {refusedSendConversationId === conversationId ? (
+                  <p role="status" className="mx-auto mt-2 max-w-2xl text-[12.5px] text-muted-foreground">
+                    {BLOCKED_SEND_NOTICE}
+                  </p>
+                ) : null}
+                </>
                 )}
               </div>
               )}
@@ -2760,6 +2870,27 @@ const Messages = () => {
           cancelSelection();
           void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
         }}
+      />
+
+      <BlockConfirmDialog
+        name={threadTitle}
+        open={isBlockConfirmOpen}
+        onOpenChange={setIsBlockConfirmOpen}
+        onConfirm={confirmBlock}
+        isWorking={isBlockWorking}
+      />
+      <ReportDialog
+        target={reportTarget}
+        open={reportTarget !== null}
+        onOpenChange={(next) => {
+          if (!next) setReportTarget(null);
+        }}
+        isBlockedAlready={reportTarget !== null && isUserBlocked(reportTarget.userId)}
+        onSubmit={(input) => {
+          if (reportTarget === null) return;
+          reportMutation.mutate({ target: reportTarget, ...input });
+        }}
+        isWorking={reportMutation.isPending}
       />
 
       {/* Projects open only in a group (ADR-002); the strip that opens this dialog is group-only. */}
@@ -2893,6 +3024,29 @@ const Messages = () => {
                   setIsDecisionsOpen(true);
                 }}
                 onNavigate={() => setIsInfoOpen(false)}
+                safety={
+                  directPeerId !== null
+                    ? {
+                        peerName: threadTitle,
+                        isBlocked: hasBlockedPeer,
+                        onBlock: () => {
+                          setIsInfoOpen(false);
+                          setIsBlockConfirmOpen(true);
+                        },
+                        onUnblock: handleUnblock,
+                        onReport: () => {
+                          setIsInfoOpen(false);
+                          setReportTarget({
+                            userId: directPeerId,
+                            name: threadTitle,
+                            conversationId: conversationId ?? null,
+                            message: null,
+                          });
+                        },
+                        isWorking: isBlockWorking,
+                      }
+                    : undefined
+                }
               />
             ) : null
           }

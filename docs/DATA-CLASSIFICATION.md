@@ -22,6 +22,7 @@ khi hai bên lệch nhau, file code là đúng.
 - `profiles` — personal
 - `user_pins` — internal; `pin` = internal
 - `family_relations` — personal
+- `user_blocks` — personal (chỉ người chặn đọc được; người bị chặn không bao giờ biết)
 
 **connect**
 - `conversations` — internal
@@ -62,7 +63,4 @@ khi hai bên lệch nhau, file code là đúng.
 **system**
 - `currencies`, `currency_rates` — public
 - `dismissed_guidance` — internal
-
-## Chờ thêm
-
-- `user_blocks` (personal / connect) và `user_reports` (**sensitive** / connect; `reported_content` = sensitive) — thêm khi AVORA-37 nhóm A/B được duyệt và bảng được tạo.
+- `user_reports` — **sensitive**; `reported_content`, `note` = sensitive (người báo cáo chỉ đọc lại báo cáo của mình; AVORA xem qua service role)

@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { Json } from "@/integrations/supabase/types";
 
@@ -607,6 +608,7 @@ export function attentionSentence(attention: HubAttention, tableCount: number): 
 /** The database's refusals, in words someone can act on. */
 export function toVietnameseHubError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
 
   if (normalized.includes("avora_think_hub_record_limit"))
     return `Bảng đã đầy ${RECORD_LIMIT.toLocaleString("vi-VN")} mục, hãy dọn bớt trước khi thêm.`;

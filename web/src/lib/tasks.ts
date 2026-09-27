@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { toIsoTimestamp } from "@/lib/chat";
@@ -245,6 +246,7 @@ export function isTaskOutputTooLong(raw: string): boolean {
 /** Maps Postgres/PostgREST failures on the tasks tables to short Vietnamese messages. */
 export function toVietnameseTaskError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
   if (normalized.includes("avora_task_title_blank")) return "Tên nhiệm vụ không được để trống.";
   if (normalized.includes("avora_task_title_max_len"))
     return `Tên nhiệm vụ quá dài (tối đa ${TASK_TITLE_MAX_LEN} ký tự).`;

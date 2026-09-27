@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -24,6 +25,7 @@ export const recallRequestKeys = {
 function fail(code: string | undefined, message: string): Error {
   logError("recall-requests", { code, message });
   const normalized = message.toLowerCase();
+  if (isContactUnavailable(normalized)) return new Error(CONTACT_UNAVAILABLE_MESSAGE);
   if (normalized.includes("duplicate key"))
     return new Error("Bạn đã đề nghị thu hồi tin nhắn này rồi.");
   if (code === "42501" || normalized.includes("permission denied") || normalized.includes("row-level"))
