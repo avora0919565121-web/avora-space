@@ -1,8 +1,9 @@
 import { ChevronRight, Plus, Table2 } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
+import { hereFrom, withReturn, type ReturnTarget } from "@/lib/return-to";
 import { rootTables, type ThinkTable } from "@/lib/think-hub";
 import { useThinkTables } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
@@ -28,9 +29,19 @@ export function useTablesHere(conversationId: string | null): ThinkTable[] {
   );
 }
 
-/** Kế hoạch's "new table" form, with this place already chosen. */
-export function newTableLink(conversationId: string | null): string {
-  return conversationId === null ? "/ke-hoach?moi=1" : `/ke-hoach?moi=1&noi=${encodeURIComponent(conversationId)}`;
+/**
+ * Kế hoạch's "new table" form, with this place already chosen and the way back to it
+ * (AVORA-39 / C1): cancelling returns here instead of stranding the person on an empty Kế hoạch.
+ */
+export function newTableLink(conversationId: string | null, from: ReturnTarget): string {
+  const href =
+    conversationId === null ? "/ke-hoach?moi=1" : `/ke-hoach?moi=1&noi=${encodeURIComponent(conversationId)}`;
+  return withReturn(href, from);
+}
+
+/** A table in Kế hoạch, carrying the way back to where it was opened from. */
+export function tableLink(tableId: string, from: ReturnTarget): string {
+  return withReturn(`/ke-hoach?bang=${encodeURIComponent(tableId)}`, from);
 }
 
 /**
@@ -40,10 +51,12 @@ export function newTableLink(conversationId: string | null): string {
  * 1-1, the tables shared with that one person. "Bảng mới" opens Kế hoạch with this place
  * already chosen, so a table made from a thread lands in that thread's scope.
  */
-export function TableStrip({ conversationId }: { conversationId: string | null }) {
+export function TableStrip({ conversationId, placeLabel }: { conversationId: string | null; placeLabel: string }) {
   const tables = useTablesHere(conversationId);
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const newLink = newTableLink(conversationId);
+  const location = useLocation();
+  const here = hereFrom(location, placeLabel);
+  const newLink = newTableLink(conversationId, here);
 
   return (
     <section aria-label="Bảng ở đây" className="border-b border-border bg-primary/[0.04] px-5 py-2 md:px-10">
@@ -80,7 +93,7 @@ export function TableStrip({ conversationId }: { conversationId: string | null }
             {tables.map((table) => (
               <li key={table.id}>
                 <Link
-                  to={`/ke-hoach?bang=${encodeURIComponent(table.id)}`}
+                  to={tableLink(table.id, here)}
                   className="press flex min-h-10 items-center gap-2.5 rounded-md px-2 py-2 transition-colors hover:bg-accent/40"
                 >
                   <Table2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />

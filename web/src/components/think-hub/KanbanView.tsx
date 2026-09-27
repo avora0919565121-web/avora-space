@@ -46,6 +46,7 @@ export function KanbanView({ records, onOpenRecord, today }: KanbanViewProps) {
                 return (
                   <button
                     key={record.id}
+                    data-record-id={record.id}
                     type="button"
                     onClick={() => onOpenRecord(record)}
                     className="press rounded-lg border border-border bg-background px-3.5 py-3 text-left transition-colors hover:bg-accent/30"

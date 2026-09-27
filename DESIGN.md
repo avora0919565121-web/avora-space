@@ -1660,6 +1660,41 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   A message id from elsewhere is dropped silently. "Chặn {tên}" is on by default in the same dialog. 20 reports per
   person per day. v1 has no admin screen: VMT reads `user_reports` in the Supabase dashboard; through the API a
   reporter reads back only their own reports. Toast after sending makes no promise about handling time.
+- 2026-09-27 — Dòng chảy điều hướng (AVORA-39 / Phần 1). Every tap that leads to another screen carries three
+  things: the object (the target opens THAT task / table / project — detail open or row scrolled into view and lit,
+  never a generic list), its context (where it belongs, visible on arrival) and a way back. The way back is needed
+  because an installed PWA has no browser Back and the AVORA logo goes home, not back. Mechanism: `?tu=` (in-app
+  path, only `/…`, never `//`, `://` or control characters — anything else is ignored) + `?tu_ten=` (label), read
+  by `ReturnChip` (`← {nơi xuất phát}`) at the top of Kế hoạch, Nhiệm vụ, Két sắt, and by the back links of
+  Dự án and Liên hệ. A way back never nests another; Hub links in the navigation never carry one, so switching
+  Hub on purpose drops it. Nhiệm vụ takes `?mo=<taskId>`; a project page takes `?nhiệm-vu=<taskId>`; Kế hoạch
+  takes `?hang-muc=<recordId>`. Cancelling "Bảng mới" started elsewhere returns there (replacing the Kế hoạch
+  step); `moi`/`noi` leave the address once the form is open. A project page without `tu` goes back to the
+  project's own chat. Arriving in a chat via a task shows a strip naming the task, Dự án, Hạng mục, the group it
+  was agreed in and its deadline, and that task is always listed in "Nhiệm vụ chung". The task list of a project
+  chat reads work agreed there, work linked to the project (parent group included) and pending suggestions, split
+  into Theo kế hoạch (under a Hạng mục) / Phát sinh / Chờ nhận; ordinary groups get the same split from their
+  own tables. Nothing widens access: what RLS hides is absent and uncounted (ADR-014). The list only reads and
+  leads (ADR-013).
+- 2026-09-27 — Một Lịch Avora (AVORA-39 / Phần 2). (1) One calendar only: every place that shows a calendar or
+  asks for a day uses Lịch Avora; no browser date/time control remains anywhere (a test fails if one comes back).
+  (2) Choosing a day and looking at the calendar are the same act: the picker still shows what already sits on
+  each day. (3) Other calendars may only ever be laid over Lịch Avora, read-only, each one switched on by the person.
+  Fields: `DateField` (one button → bottom sheet on a phone, popover on a computer; `allow` future/any/past plus
+  `min`/`max`; `Hôm nay · 27/09`, `Ngày mai · 28/09`, else `Thứ Tư, 30/09/2026`), `DateTimeField` (DateField +
+  Chọn giờ: 24h, hours 00–23, minutes in 5-minute steps, plus `Phút khác` for 0–59; invalid input keeps the old
+  value), `DateRangeField` (two taps, backwards swaps, days between tinted; reports add Tháng này · Tháng trước ·
+  Quý này · Năm nay). Tapping the month title jumps by year then month. Stored values are unchanged (`YYYY-MM-DD`,
+  `YYYY-MM-DDTHH:MM`; `deadline_tz` untouched). Layers: Avora keeps its Sự kiện / Hạn chót colours and sits on top;
+  every outside calendar shares one faint neutral mark underneath, named in words, never by colour; the day list
+  shows Avora first, then `Lịch khác`. Every source is mapped through `toCalendarEntry` so the calendar reads one
+  shape. No outside source exists yet, so that layer never shows.
+- 2026-09-27 — Lịch ngoài (design only, not built). A web page cannot read the phone's or computer's own calendar —
+  no API exists, even with consent. Native iOS: EventKit; native Android: CalendarContract; web/PWA: Google Calendar
+  / Outlook via OAuth (A-Calendar Lớp 2, Phase 2) or an imported `.ics`. Always a read-only projection (as OPEN-002),
+  off by default, switched on per calendar; on native the data stays on the device and is never sent to AVORA.
+  Tapping shows details only — no edit, no "Xem trong ngữ cảnh", never turned into a task. When an Avora Sự kiện
+  overlaps one, a quiet line `Trùng với "{tên sự kiện}" ({tên lịch})` — saving is never blocked.
 
 ## Out of scope
 

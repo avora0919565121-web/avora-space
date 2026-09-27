@@ -2,7 +2,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 
 import { TimeField } from "@/components/tasks/TimeField";
-import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
+import { DateField } from "@/components/calendar/DateField";
 import { useAutoList } from "@/hooks/use-auto-list";
 import {
   isSharedTask,
@@ -110,21 +110,15 @@ export function TaskEditForm({
           >
             Hạn hoàn thành
           </label>
-          <div className="flex items-center gap-1.5">
-            <input
-              id={`edit-deadline-${task.id}`}
-              type="date"
-              value={deadline}
-              onChange={(event) => setDeadline(event.target.value)}
-              className={cn(FIELD_CLASS, "h-10 min-w-0 flex-1")}
-            />
-            <CalendarPeekButton
-              label="Xem lịch để chọn ngày hạn"
-              className="h-10 w-10"
-              initialDay={deadline === "" ? null : deadline}
-              onPickDay={setDeadline}
-            />
-          </div>
+          <DateField
+            id={`edit-deadline-${task.id}`}
+            value={deadline}
+            onChange={setDeadline}
+            label="Hạn hoàn thành"
+            title="Chọn ngày hạn"
+            required
+            allow="future"
+          />
         </div>
         <div className="w-[130px]">
           <label

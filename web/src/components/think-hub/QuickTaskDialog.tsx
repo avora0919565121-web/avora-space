@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/calendar/DateField";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
@@ -198,13 +199,15 @@ export function QuickTaskDialog({
               <label htmlFor="quick-task-deadline" className={labelClass}>
                 Hạn
               </label>
-              <input
+              <DateField
                 id="quick-task-deadline"
-                type="date"
                 value={deadline}
+                onChange={setDeadline}
+                label="Hạn"
+                title="Chọn ngày hạn"
+                required
+                allow="future"
                 min={todayIso()}
-                onChange={(event) => setDeadline(event.target.value)}
-                className={fieldClass}
               />
             </div>
           </div>

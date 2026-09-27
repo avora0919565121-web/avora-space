@@ -3,7 +3,7 @@ import { ClipboardPaste, FileText, Loader2, X } from "lucide-react";
 import { useEffect, useRef, useState, type ClipboardEvent, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
+import { DateField } from "@/components/calendar/DateField";
 import { TimeField } from "@/components/tasks/TimeField";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAutoList } from "@/hooks/use-auto-list";
@@ -302,22 +302,16 @@ export function PasteTaskDialog({ open, onOpenChange, journalId, journalName, in
               <label htmlFor="paste-task-deadline" className="mb-1 block text-[12px] font-medium text-muted-foreground">
                 Hạn hoàn thành
               </label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="paste-task-deadline"
-                  type="date"
-                  value={draft.deadline}
-                  min={today}
-                  onChange={(event) => setDraft((current) => ({ ...current, deadline: event.target.value }))}
-                  className={cn(FIELD_CLASS, "h-12 min-w-0 flex-1 text-[14px]")}
-                />
-                <CalendarPeekButton
-                  label="Xem lịch để chọn ngày hạn"
-                  className="h-12 w-12"
-                  initialDay={draft.deadline === "" ? null : draft.deadline}
-                  onPickDay={(day) => setDraft((current) => ({ ...current, deadline: day }))}
-                />
-              </div>
+              <DateField
+                id="paste-task-deadline"
+                value={draft.deadline}
+                onChange={(day) => setDraft((current) => ({ ...current, deadline: day }))}
+                label="Hạn hoàn thành"
+                title="Chọn ngày hạn"
+                required
+                allow="future"
+                min={today}
+              />
             </div>
             <div>
               <label htmlFor="paste-task-time" className="mb-1 block text-[12px] font-medium text-muted-foreground">

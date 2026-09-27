@@ -85,9 +85,10 @@ export function ChatTaskPanel({
 
   const threadTasks: TaskItem[] = useMemo(() => {
     const kept = partitionByBin(tasks ?? [], userId).kept;
-    return sortTasksByPriority(
+    const sorted = sortTasksByPriority(
       kept.filter(
         (task) =>
+          task.id !== highlightTaskId &&
           isSharedTask(task) &&
           task.conversationId === conversationId &&
           (scope === "all" || involvesViewer(task, userId)),
@@ -95,7 +96,14 @@ export function ChatTaskPanel({
       today,
       userId,
     );
-  }, [tasks, userId, conversationId, today, scope]);
+    /*
+     * The task a link pointed at is always shown, first — even when it was agreed in the parent
+     * group or belongs to someone else in a group (AVORA-39 / B1). Otherwise the person arrives
+     * "to see this task" and it is nowhere on screen. Every other row keeps the usual filter.
+     */
+    const pointed = highlightTaskId === null ? undefined : (tasks ?? []).find((task) => task.id === highlightTaskId);
+    return pointed !== undefined && isSharedTask(pointed) ? [pointed, ...sorted] : sorted;
+  }, [tasks, userId, conversationId, today, scope, highlightTaskId]);
 
   const openCount = threadTasks.filter((task) => isOpenTask(task, userId)).length;
   // A task the viewer must act on, or one they were just sent here to look at, opens the panel.

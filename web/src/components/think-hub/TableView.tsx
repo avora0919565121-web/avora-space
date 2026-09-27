@@ -265,6 +265,7 @@ export function TableView({
               return (
                 <tr
                   key={record.id}
+                  data-record-id={record.id}
                   onClick={() => onOpenRecord(record)}
                   className="group/row cursor-pointer border-b border-border/70 transition-colors last:border-b-0 hover:bg-accent/25"
                 >

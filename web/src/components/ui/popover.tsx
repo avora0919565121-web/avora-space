@@ -7,6 +7,8 @@ const Popover = PopoverPrimitive.Root;
 
 const PopoverTrigger = PopoverPrimitive.Trigger;
 
+const PopoverAnchor = PopoverPrimitive.Anchor;
+
 const PopoverContent = ({
   ref,
   className,
@@ -29,4 +31,4 @@ const PopoverContent = ({
 );
 PopoverContent.displayName = PopoverPrimitive.Content.displayName;
 
-export { Popover, PopoverTrigger, PopoverContent };
+export { Popover, PopoverAnchor, PopoverTrigger, PopoverContent };

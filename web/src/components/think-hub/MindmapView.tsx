@@ -51,7 +51,7 @@ export function MindmapView({ table, tables, records, taskCountByRecord, onOpenR
           const expandable = sub !== undefined;
           const isOpen = open.has(record.id);
           return (
-            <li key={record.id} role="treeitem" aria-expanded={expandable ? isOpen : undefined}>
+            <li key={record.id} data-record-id={record.id} role="treeitem" aria-expanded={expandable ? isOpen : undefined}>
               <div
                 className="flex min-h-11 items-center gap-1.5 rounded-lg pr-2 transition-colors hover:bg-accent/30"
                 style={{ paddingLeft: `${level * 22}px` }}

@@ -179,6 +179,8 @@ import {
   isOriginalMessageMissing,
 } from "@/lib/task-context";
 import { projectLink } from "@/lib/projects";
+import { hereFrom, withReturn } from "@/lib/return-to";
+import { TaskContextStrip } from "@/components/chat/TaskContextStrip";
 import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote, todayIso } from "@/lib/tasks";
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
@@ -2045,7 +2047,7 @@ const Messages = () => {
                       {isProjectChatClosed ? <span className="text-muted-foreground"> · đã đóng</span> : null}
                     </span>
                     <Link
-                      to={projectLink(projectHere.id)}
+                      to={withReturn(projectLink(projectHere.id), hereFrom(location, threadTitle))}
                       className="press shrink-0 rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                     >
                       Xem dự án
@@ -2055,7 +2057,7 @@ const Messages = () => {
               ) : null}
               {/* 1-1 and group keep their tables, projects and Sổ quyết định under "Thêm"; only the
                   journal keeps its 📊 Bảng strip in place. */}
-              {activeKind === "personal" ? <TableStrip conversationId={null} /> : null}
+              {activeKind === "personal" ? <TableStrip conversationId={null} placeLabel={threadTitle} /> : null}
 
 
               {!isLive ? (
@@ -2065,6 +2067,22 @@ const Messages = () => {
                 >
                   Chưa kết nối trực tiếp — tạm thời tải lại tin nhắn mỗi 5 giây.
                 </p>
+              ) : null}
+
+              {/* Arrived from a task link: say which task, and where it belongs (AVORA-39 / B1–B2). */}
+              {highlightTask !== null && conversationId ? (
+                <TaskContextStrip
+                  task={highlightTask}
+                  conversationId={conversationId}
+                  conversations={conversations}
+                  threadTitle={threadTitle}
+                  onOpenDetail={() => setOpenedSourceTaskId(highlightTask.id)}
+                  onDismiss={() => {
+                    const next = new URLSearchParams(searchParams);
+                    next.delete(CONTEXT_TASK_PARAM);
+                    setSearchParams(next, { replace: true });
+                  }}
+                />
               ) : null}
 
               {/* The task outlived the message it came from, so the task shows what was said. */}
@@ -2969,6 +2987,14 @@ const Messages = () => {
           conversationId={conversationId}
           groupName={threadTitle}
           members={groupMembersQuery.data ?? []}
+          projectId={projectHere?.id ?? null}
+          onFocusTask={(taskId) => {
+            setFocusedSuggestionId(null);
+            const next = new URLSearchParams(searchParams);
+            next.set(CONTEXT_TASK_PARAM, taskId);
+            setSearchParams(next, { replace: true });
+          }}
+          onFocusSuggestion={(suggestionId) => setFocusedSuggestionId(suggestionId)}
         />
       ) : null}
 
@@ -3009,6 +3035,7 @@ const Messages = () => {
             activeSummary !== undefined && (activeKind === "direct" || activeKind === "group") ? (
               <ConversationMoreSections
                 conversationId={conversationId}
+                placeLabel={threadTitle}
                 kind={activeKind}
                 projects={threadProjects}
                 showProjects={projectHere === undefined}

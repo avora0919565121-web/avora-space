@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/calendar/DateField";
 import {
   FieldLabel,
   inputClass,
@@ -208,13 +209,16 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
         <FieldLabel htmlFor="ob-due" required>
           Ngày đến hạn
         </FieldLabel>
-        <input
+        <DateField
           id="ob-due"
-          type="date"
+          className="mt-1.5"
           value={dueDate}
+          onChange={setDueDate}
+          label="Ngày đến hạn"
+          title="Chọn ngày đến hạn"
+          required
+          allow="future"
           min={today}
-          onChange={(event) => setDueDate(event.target.value)}
-          className={cn(inputClass, "mt-1.5")}
         />
       </div>
 
@@ -227,22 +231,28 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
           <div className="mt-2 grid grid-cols-2 gap-2">
             <div>
               <FieldLabel htmlFor="ob-period-start">Từ ngày</FieldLabel>
-              <input
+              <DateField
                 id="ob-period-start"
-                type="date"
+                className="mt-1.5"
                 value={periodStart}
-                onChange={(event) => setPeriodStart(event.target.value)}
-                className={cn(inputClass, "mt-1.5")}
+                onChange={setPeriodStart}
+                label="Kỳ thuế từ ngày"
+                title="Chọn ngày bắt đầu kỳ thuế"
+                allow="any"
+                max={periodEnd === "" ? null : periodEnd}
               />
             </div>
             <div>
               <FieldLabel htmlFor="ob-period-end">Đến ngày</FieldLabel>
-              <input
+              <DateField
                 id="ob-period-end"
-                type="date"
+                className="mt-1.5"
                 value={periodEnd}
-                onChange={(event) => setPeriodEnd(event.target.value)}
-                className={cn(inputClass, "mt-1.5")}
+                onChange={setPeriodEnd}
+                label="Kỳ thuế đến ngày"
+                title="Chọn ngày kết thúc kỳ thuế"
+                allow="any"
+                min={periodStart === "" ? null : periodStart}
               />
             </div>
           </div>

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { DateField } from "@/components/calendar/DateField";
+import { DateTimeField } from "@/components/calendar/DateTimeField";
 import { Button } from "@/components/ui/button";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -404,12 +406,13 @@ export function RecordDialog({
               <label htmlFor="record-next-date" className={labelClass}>
                 Ngày cần làm tiếp
               </label>
-              <input
+              <DateField
                 id="record-next-date"
-                type="date"
                 value={draft.nextActionDate}
-                onChange={(event) => setField("nextActionDate", event.target.value)}
-                className={fieldClass}
+                onChange={(day) => setField("nextActionDate", day)}
+                label="Ngày cần làm tiếp"
+                title="Chọn ngày cần làm tiếp"
+                allow="any"
               />
             </div>
           </div>
@@ -418,12 +421,13 @@ export function RecordDialog({
             <label htmlFor="record-remind-at" className={labelClass}>
               Nhắc tôi xem lại
             </label>
-            <input
+            <DateTimeField
               id="record-remind-at"
-              type="datetime-local"
               value={draft.remindAt}
-              onChange={(event) => setField("remindAt", event.target.value)}
-              className={fieldClass}
+              onChange={(next) => setField("remindAt", next)}
+              label="Nhắc tôi xem lại"
+              title="Chọn ngày nhắc"
+              allow="future"
             />
             <p className="mt-1 text-[12.5px] text-muted-foreground">
               Tới lúc đó, mục này sẽ hiện ở Góc hoạch định trên Avora Space. Để trống nếu không cần.

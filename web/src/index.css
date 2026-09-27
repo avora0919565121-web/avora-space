@@ -133,6 +133,14 @@
 }
 
 @layer utilities {
+  /* The row a link pointed at (AVORA-39): lit briefly, same look as the chat's highlighted task. */
+  [data-lit="true"] {
+    border-radius: 10px;
+    background-color: hsl(var(--primary) / 0.05);
+    box-shadow: inset 0 0 0 1px hsl(var(--primary));
+    transition: background-color 400ms ease-out, box-shadow 400ms ease-out;
+  }
+
   .press {
     @apply transition-transform duration-150 ease-out active:scale-[0.985];
   }

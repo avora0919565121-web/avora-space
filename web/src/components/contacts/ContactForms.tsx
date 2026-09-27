@@ -1,3 +1,4 @@
+import { DateField } from "@/components/calendar/DateField";
 import { NoteField, TextField } from "@/components/contacts/fields";
 import { EmployerPicker } from "@/components/contacts/EmployerPicker";
 import {
@@ -67,13 +68,20 @@ export function IndividualFields({
       <p className="-mt-1 text-[12.5px] text-muted-foreground">Cần ít nhất một trong hai.</p>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <TextField
-          id="individual-dob"
-          label="Ngày sinh"
-          type="date"
-          value={draft.dateOfBirth}
-          onChange={(dateOfBirth) => onChange({ ...draft, dateOfBirth })}
-        />
+        <div>
+          <label htmlFor="individual-dob" className="text-[13px] font-medium text-foreground">
+            Ngày sinh
+          </label>
+          <DateField
+            id="individual-dob"
+            className="mt-1.5"
+            value={draft.dateOfBirth}
+            onChange={(dateOfBirth) => onChange({ ...draft, dateOfBirth })}
+            label="Ngày sinh"
+            title="Chọn ngày sinh"
+            allow="past"
+          />
+        </div>
         <div>
           <TextField
             id="individual-relationship"

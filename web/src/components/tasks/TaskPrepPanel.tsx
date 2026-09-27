@@ -26,6 +26,8 @@ import {
   useTaskParticipants,
 } from "@/lib/use-task-collab";
 import { cn } from "@/lib/utils";
+import { DateRangeField } from "@/components/calendar/DateRangeField";
+import { joinLocalDateTime, splitLocalDateTime } from "@/lib/date-field";
 
 const FIELD =
   "mt-1 w-full rounded-[8px] border border-input bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-muted-foreground";
@@ -137,13 +139,36 @@ function ScheduleBlock({ task }: { task: TaskItem }) {
 
       {isEvent ? (
         <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label htmlFor="prep-start" className="text-[12.5px] text-muted-foreground">Bắt đầu</label>
-            <input id="prep-start" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} className={FIELD} required />
-          </div>
-          <div>
-            <label htmlFor="prep-end" className="text-[12.5px] text-muted-foreground">Kết thúc</label>
-            <input id="prep-end" type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} className={FIELD} />
+          <div className="sm:col-span-2">
+            <label htmlFor="prep-range" className="text-[12.5px] text-muted-foreground">Bắt đầu → Kết thúc</label>
+            {(() => {
+              const start = splitLocalDateTime(startAt);
+              const end = splitLocalDateTime(endAt);
+              return (
+                <DateRangeField
+                  id="prep-range"
+                  className="mt-1"
+                  from={start.date}
+                  to={end.date === "" ? start.date : end.date}
+                  label="Thời gian sự kiện"
+                  title="Chọn ngày sự kiện"
+                  allow="any"
+                  onChange={(range) => {
+                    setStartAt(joinLocalDateTime(range.from, start.time));
+                    setEndAt(end.time === "" && endAt === "" ? "" : joinLocalDateTime(range.to, end.time, start.time || "09:00"));
+                  }}
+                  times={{
+                    start: start.time,
+                    end: end.time,
+                    onChange: (next) => {
+                      if (start.date === "") return;
+                      setStartAt(joinLocalDateTime(start.date, next.start));
+                      setEndAt(next.end === "" ? "" : joinLocalDateTime(end.date === "" ? start.date : end.date, next.end));
+                    },
+                  }}
+                />
+              );
+            })()}
           </div>
           <div className="sm:col-span-2">
             <label htmlFor="prep-location" className="text-[12.5px] text-muted-foreground">Địa điểm</label>

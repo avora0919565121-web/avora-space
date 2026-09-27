@@ -2,6 +2,7 @@ import { Loader2, Paperclip, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/calendar/DateField";
 import {
   FieldLabel,
   inputClass,
@@ -298,13 +299,17 @@ export function TransactionForm({
           <FieldLabel htmlFor="txn-date" required>
             Ngày
           </FieldLabel>
-          <input
+          {/* Past days are the normal case; the ledger still refuses a future date, as before. */}
+          <DateField
             id="txn-date"
-            type="date"
+            className="mt-1.5"
             value={draft.date}
+            onChange={(day) => update("date", day)}
+            label="Ngày giao dịch"
+            title="Chọn ngày giao dịch"
+            required
+            allow="any"
             max={today}
-            onChange={(event) => update("date", event.target.value)}
-            className={cn(inputClass, "mt-1.5")}
           />
           {touched && draft.date > today ? (
             <p className="mt-1 text-[12.5px] text-money-out">Ngày giao dịch không thể ở tương lai.</p>

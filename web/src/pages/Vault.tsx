@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 
+import { ReturnChip } from "@/components/nav/ReturnChip";
 import { SectionTabs } from "@/components/SectionTabs";
 import { VAULT_TABS } from "@/lib/navigation";
 
@@ -11,6 +12,7 @@ import { VAULT_TABS } from "@/lib/navigation";
 const Vault = () => (
   <div className="flex min-h-0 flex-1 flex-col">
     <SectionTabs section="Két sắt" tabs={VAULT_TABS} />
+    <ReturnChip className="mx-auto w-full max-w-5xl px-6 md:px-10" />
     <Outlet />
   </div>
 );

@@ -36,7 +36,7 @@ export function normalizeDeadlineTime(raw: string | null | undefined): string | 
   if (raw === null || raw === undefined) return null;
   const trimmed = raw.trim();
   if (trimmed === "") return null;
-  // <input type="time"> can hand back seconds; Postgres `time` hands back HH:MM:SS.
+  // A browser time control can hand back seconds; Postgres `time` hands back HH:MM:SS.
   const short = trimmed.length > 5 ? trimmed.slice(0, 5) : trimmed;
   return HH_MM.test(short) ? short : null;
 }

@@ -181,3 +181,30 @@ export function openCountsByScope(
 export function scopeLink(scope: TaskScope): string {
   return `/nhiem-vu?${TASK_SCOPE_PARAM}=${SCOPE_SLUGS[scope]}&${TASK_VIEW_PARAM}=relationship`;
 }
+
+/** Which task Nhiệm vụ should open on arrival (AVORA-39 / Phần 1 · A1). */
+export const OPEN_TASK_PARAM = "mo";
+
+/** Nhiệm vụ opened on one task: its detail panel open, its row scrolled into view and lit. */
+export function taskLink(taskId: string): string {
+  return `/nhiem-vu?muc=viec&${OPEN_TASK_PARAM}=${encodeURIComponent(taskId)}`;
+}
+
+/**
+ * How a task sits inside a project's (or a group's) task list (AVORA-39 / Phần 1 · D2).
+ *
+ * - planned: filed under a Hạng mục — the project link (or the group table link) names a record.
+ * - adhoc: everything else that is real work — raised in chat, or attached with no Hạng mục.
+ * Pending suggestions are classified by their caller as "pending"; they are not tasks yet.
+ */
+export type ProjectTaskKind = "planned" | "adhoc" | "pending";
+
+export const PROJECT_TASK_KIND_LABELS: Record<ProjectTaskKind, string> = {
+  planned: "Theo kế hoạch",
+  adhoc: "Phát sinh",
+  pending: "Chờ nhận",
+};
+
+export function classifyProjectTask(recordId: string | null | undefined): Exclude<ProjectTaskKind, "pending"> {
+  return typeof recordId === "string" && recordId.length > 0 ? "planned" : "adhoc";
+}

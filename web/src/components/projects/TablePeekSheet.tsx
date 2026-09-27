@@ -1,8 +1,10 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ChevronRight, Pencil, Plus, Table2, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+
+import { hereFrom, withReturn } from "@/lib/return-to";
 
 import { Button } from "@/components/ui/button";
 import { QuickTaskDialog } from "@/components/think-hub/QuickTaskDialog";
@@ -99,6 +101,7 @@ function PeekBody({
   const actions = useThinkHubActions();
   const { isSubmitting, guard } = useSubmitGuard();
 
+  const location = useLocation();
   const [newTitle, setNewTitle] = useState<string>("");
   const [editing, setEditing] = useState<ThinkRecord | null>(null);
   const [quickTaskRecord, setQuickTaskRecord] = useState<ThinkRecord | null>(null);
@@ -227,7 +230,10 @@ function PeekBody({
 
       <div className="flex items-center justify-end border-t border-border px-5 py-3 pb-[calc(env(safe-area-inset-bottom)+12px)]">
         <Link
-          to={`/ke-hoach?bang=${encodeURIComponent(table.id)}`}
+          to={withReturn(
+            `/ke-hoach?bang=${encodeURIComponent(table.id)}`,
+            hereFrom(location, new URLSearchParams(location.search).get("tab") === "du-an" ? "Dự án" : "Tin nhắn"),
+          )}
           onClick={onClose}
           className="press inline-flex min-h-10 items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
         >

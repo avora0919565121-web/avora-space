@@ -2,6 +2,7 @@ import { ChevronDown } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DateRangeField } from "@/components/calendar/DateRangeField";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { charterProblem, EMPTY_CHARTER, type CharterDraft } from "@/lib/projects";
@@ -120,26 +121,23 @@ export function NewProjectDialog({
             />
           </label>
 
-          <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <label className="block">
-              <span className="text-[13px] font-medium text-foreground">Ngày bắt đầu</span>
-              <input
-                type="date"
-                value={draft.startDate}
-                onChange={(event) => setField("startDate", event.target.value)}
-                className={inputClass}
-              />
+          <div className="mt-4">
+            <label htmlFor="new-project-range" className="text-[13px] font-medium text-foreground">
+              Ngày bắt đầu → Kết thúc dự kiến
             </label>
-            <label className="block">
-              <span className="text-[13px] font-medium text-foreground">Kết thúc dự kiến</span>
-              <input
-                type="date"
-                value={draft.targetEndDate}
-                min={draft.startDate || undefined}
-                onChange={(event) => setField("targetEndDate", event.target.value)}
-                className={inputClass}
-              />
-            </label>
+            <DateRangeField
+              id="new-project-range"
+              className="mt-1.5"
+              from={draft.startDate}
+              to={draft.targetEndDate}
+              label="Thời gian dự án"
+              title="Chọn thời gian dự án"
+              allow="future"
+              onChange={(range) => {
+                setField("startDate", range.from);
+                setField("targetEndDate", range.to);
+              }}
+            />
           </div>
           <p className="mt-1.5 text-[12.5px] text-muted-foreground">
             Ngày do nhóm tự định — không có ngày nào được chọn sẵn.

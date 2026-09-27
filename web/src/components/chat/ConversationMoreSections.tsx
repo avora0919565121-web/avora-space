@@ -1,8 +1,9 @@
 import { Ban, BookLock, ChevronRight, Flag, FolderKanban, Plus, Table2, Undo2 } from "lucide-react";
 import type { ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
-import { newTableLink, useTablesHere } from "@/components/projects/TableStrip";
+import { newTableLink, tableLink, useTablesHere } from "@/components/projects/TableStrip";
+import { hereFrom } from "@/lib/return-to";
 import { NEEDS_NETWORK_MESSAGE } from "@/lib/blocks";
 import { projectChatLink, projectStatusLabel, type Project } from "@/lib/projects";
 import { useOnline } from "@/lib/use-online";
@@ -26,6 +27,7 @@ const rowClass =
  */
 export function ConversationMoreSections({
   conversationId,
+  placeLabel,
   kind,
   projects,
   showProjects,
@@ -36,6 +38,8 @@ export function ConversationMoreSections({
   safety,
 }: {
   conversationId: string;
+  /** The name of this conversation, as the way back from Kế hoạch shows it. */
+  placeLabel: string;
   kind: "direct" | "group";
   projects: readonly Project[];
   /** False in a project's own chat: that chat is already the project. */
@@ -57,6 +61,8 @@ export function ConversationMoreSections({
 }) {
   const tables = useTablesHere(conversationId);
   const isOnline = useOnline();
+  const location = useLocation();
+  const here = hereFrom(location, placeLabel);
 
   return (
     <div className="space-y-5 px-3 pb-5">
@@ -67,7 +73,7 @@ export function ConversationMoreSections({
         <ul className="mt-1.5 space-y-0.5">
           {tables.map((table) => (
             <li key={table.id}>
-              <Link to={`/ke-hoach?bang=${encodeURIComponent(table.id)}`} onClick={onNavigate} className={rowClass}>
+              <Link to={tableLink(table.id, here)} onClick={onNavigate} className={rowClass}>
                 <Table2 className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
                 <span className="min-w-0 flex-1 truncate text-[14px] text-foreground">{table.name}</span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
@@ -75,7 +81,7 @@ export function ConversationMoreSections({
             </li>
           ))}
           <li>
-            <Link to={newTableLink(conversationId)} onClick={onNavigate} className={rowClass}>
+            <Link to={newTableLink(conversationId, here)} onClick={onNavigate} className={rowClass}>
               <Plus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" strokeWidth={2.1} aria-hidden="true" />
               <span className="text-[14px] text-muted-foreground">
                 {kind === "direct" ? "Bảng chung mới với người này" : "Bảng mới của nhóm"}

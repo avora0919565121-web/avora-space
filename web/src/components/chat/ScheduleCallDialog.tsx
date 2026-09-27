@@ -1,7 +1,7 @@
 import { CalendarClock, RefreshCw, X } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
+import { DateField } from "@/components/calendar/DateField";
 import { TimeField } from "@/components/tasks/TimeField";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
@@ -118,22 +118,16 @@ export function ScheduleCallDialog({
               <label htmlFor="call-day" className="mb-1 block text-[12px] font-medium text-muted-foreground">
                 Ngày
               </label>
-              <div className="flex items-center gap-2">
-                <input
-                  id="call-day"
-                  type="date"
-                  value={day}
-                  min={today}
-                  onChange={(event) => setDay(event.target.value)}
-                  className={cn(FIELD_CLASS, "h-12 min-w-0 flex-1 text-[14px]")}
-                />
-                <CalendarPeekButton
-                  label="Xem lịch để chọn ngày gọi"
-                  className="h-12 w-12"
-                  initialDay={day === "" ? null : day}
-                  onPickDay={setDay}
-                />
-              </div>
+              <DateField
+                id="call-day"
+                value={day}
+                onChange={setDay}
+                label="Ngày gọi"
+                title="Chọn ngày gọi"
+                required
+                allow="future"
+                min={today}
+              />
             </div>
             <div>
               <label htmlFor="call-time" className="mb-1 block text-[12px] font-medium text-muted-foreground">

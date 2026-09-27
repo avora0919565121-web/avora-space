@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { DateField } from "@/components/calendar/DateField";
 import { TimeField } from "@/components/tasks/TimeField";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { validateTaskDraft, type TaskDraft } from "@/lib/tasks";
@@ -137,19 +138,21 @@ export function EditSuggestionDialog({
           </div>
 
           <div className="flex flex-wrap items-end gap-2">
-            <div className="w-[150px]">
+            <div className="w-[220px]">
               <label
                 htmlFor="edit-suggestion-deadline"
                 className="mb-1 block text-[11px] font-medium text-muted-foreground"
               >
                 Hạn hoàn thành
               </label>
-              <input
+              <DateField
                 id="edit-suggestion-deadline"
-                type="date"
                 value={deadline}
-                onChange={(event) => setDeadline(event.target.value)}
-                className={cn(FIELD_CLASS, "h-10")}
+                onChange={setDeadline}
+                label="Hạn hoàn thành"
+                title="Chọn ngày hạn"
+                required
+                allow="future"
               />
             </div>
             <div className="w-[130px]">

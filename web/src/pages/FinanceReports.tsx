@@ -17,6 +17,7 @@ import {
 } from "recharts";
 import { toast } from "sonner";
 
+import { DateRangeField } from "@/components/calendar/DateRangeField";
 import {
   EmptyNote,
   FieldLabel,
@@ -340,29 +341,21 @@ const FinanceReports = () => {
               <p className="mt-1.5 text-[12.5px] text-muted-foreground">{definition?.description}</p>
             </div>
 
-            <div>
-              <FieldLabel htmlFor="report-from" required>
-                Từ ngày
+            <div className="md:col-span-2">
+              <FieldLabel htmlFor="report-range" required>
+                Từ ngày → Đến ngày
               </FieldLabel>
-              <input
-                id="report-from"
-                type="date"
-                value={draft.from}
-                onChange={(event) => setDraft((current) => ({ ...current, from: event.target.value }))}
-                className={cn(inputClass, "mt-1.5", rangeInvalid && "border-money-out")}
-              />
-            </div>
-
-            <div>
-              <FieldLabel htmlFor="report-to" required>
-                Đến ngày
-              </FieldLabel>
-              <input
-                id="report-to"
-                type="date"
-                value={draft.to}
-                onChange={(event) => setDraft((current) => ({ ...current, to: event.target.value }))}
-                className={cn(inputClass, "mt-1.5", rangeInvalid && "border-money-out")}
+              {/* One Lịch Avora in range mode; picking backwards simply swaps the ends. */}
+              <DateRangeField
+                id="report-range"
+                className="mt-1.5"
+                from={draft.from}
+                to={draft.to}
+                label="Khoảng báo cáo"
+                title="Chọn khoảng thời gian"
+                allow="past"
+                showQuickRanges
+                onChange={(range) => setDraft((current) => ({ ...current, from: range.from, to: range.to }))}
               />
             </div>
 
@@ -390,24 +383,13 @@ const FinanceReports = () => {
 
             <div className="md:col-span-2 lg:col-span-4">
               <div className="flex flex-wrap items-center gap-2">
-                {(
-                  [
-                    ["this-month", "Tháng này"],
-                    ["last-month", "Tháng trước"],
-                    ["this-year", "Từ đầu năm"],
-                    ["last-12", "12 tháng"],
-                  ] as const
-                ).map(([preset, label]) => (
-                  <button
-                    key={preset}
-                    type="button"
-                    onClick={() => applyPreset(preset)}
-                    className="press rounded-full border border-border px-3.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-                  >
-                    {label}
-                  </button>
-                ))}
-
+                <button
+                  type="button"
+                  onClick={() => applyPreset("last-12")}
+                  className="press min-h-9 rounded-full border border-border px-3.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+                >
+                  12 tháng gần nhất
+                </button>
                 <span className="ml-auto text-[12px] text-muted-foreground">Báo cáo tự cập nhật theo bộ lọc</span>
               </div>
               {rangeInvalid ? (

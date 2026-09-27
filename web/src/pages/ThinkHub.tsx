@@ -1,6 +1,6 @@
 import { ChevronRight, KanbanSquare, Loader2, Network, Pencil, Plus, Table2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AddColumnDialog } from "@/components/think-hub/AddColumnDialog";
@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import {
   canGrowSubTable,
+  HUB_RECORD_PARAM,
   isTableFull,
   RECORD_LIMIT,
   recordCountOf,
@@ -37,6 +38,9 @@ import { useConversations } from "@/lib/use-conversations";
 import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
 import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
 import { HubTitle } from "@/components/nav/HubTitle";
+import { ReturnChip } from "@/components/nav/ReturnChip";
+import { carryReturn, readReturn } from "@/lib/return-to";
+import { spotlight } from "@/lib/spotlight";
 import { cn } from "@/lib/utils";
 
 type ViewMode = "table" | "kanban" | "mindmap";
@@ -62,10 +66,26 @@ const ThinkHub = () => {
   const recordTaskLinksQuery = useRecordTaskLinks();
 
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM));
   const [view, setView] = useState<ViewMode>("table");
   // "+ Bảng mới" from a thread arrives with `?moi=1`.
   const [isNewTableOpen, setIsNewTableOpen] = useState<boolean>(() => searchParams.get("moi") === "1");
+  // Where "Bảng mới" was pressed (`?noi=`), kept after the address is cleaned so a reload never reopens the form.
+  const [originConversationId] = useState<string | null>(() => searchParams.get("noi"));
+  const createdTableRef = useRef<boolean>(false);
+
+  /*
+   * `moi`/`noi` are one-shot instructions: once the form is open they leave the address
+   * (AVORA-39 / C1), so reloading or coming Back does not pop an empty form again.
+   */
+  useEffect(() => {
+    if (searchParams.get("moi") === null && searchParams.get("noi") === null) return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("moi");
+    next.delete("noi");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState<boolean>(false);
   const [renaming, setRenaming] = useState<ColumnDef | null>(null);
   const [isRecordOpen, setIsRecordOpen] = useState<boolean>(false);
@@ -102,9 +122,12 @@ const ThinkHub = () => {
     (tableId: string): void => {
       setActiveId(tableId);
       setIsEditingPurpose(false);
-      setSearchParams({ [HUB_TABLE_PARAM]: tableId }, { replace: true });
+      // The way back survives moving between tables, so "← {nơi xuất phát}" stays until the person leaves.
+      const next = carryReturn(searchParams, new URLSearchParams());
+      next.set(HUB_TABLE_PARAM, tableId);
+      setSearchParams(next, { replace: true });
     },
-    [setSearchParams],
+    [searchParams, setSearchParams],
   );
 
   const ancestry = useMemo(
@@ -141,7 +164,6 @@ const ThinkHub = () => {
   );
 
   // Opened from inside a conversation (`?noi=`), only the Diary and that conversation are offered.
-  const originConversationId: string | null = searchParams.get("noi");
   const places: TablePlace[] = useMemo(
     () => tablePlaces(conversationsQuery.data ?? [], originConversationId),
     [conversationsQuery.data, originConversationId],
@@ -171,6 +193,7 @@ const ThinkHub = () => {
   const handleCreateTable = useCallback(
     async (input: { name: string; purpose: string; conversationId: string | null }): Promise<void> => {
       const created = await actions.createTable(input);
+      createdTableRef.current = true;
       openTable(created.id);
       toast.success(`Đã tạo bảng "${created.name}".`);
     },
@@ -232,6 +255,33 @@ const ThinkHub = () => {
     setEditing(record);
     setIsRecordOpen(true);
   }, []);
+
+  /*
+   * `?hang-muc=<id>` (AVORA-39 / D4): open the table that holds it (a sub-table included), bring the
+   * row into view and light it, then open the Hạng mục. Handled once per id; one that is gone
+   * or out of reach says so and leaves only the table open.
+   */
+  const requestedRecordId: string | null = searchParams.get(HUB_RECORD_PARAM);
+  const handledRecordRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (requestedRecordId === null || isPending || handledRecordRef.current === requestedRecordId) return;
+    handledRecordRef.current = requestedRecordId;
+    const next = new URLSearchParams(searchParams);
+    next.delete(HUB_RECORD_PARAM);
+    next.delete("nhiem-vu");
+    const record = records.find((entry) => entry.id === requestedRecordId);
+    if (record === undefined || !tables.some((table) => table.id === record.tableId)) {
+      toast("Không tìm thấy Hạng mục này nữa.");
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    setActiveId(record.tableId);
+    setView("table");
+    next.set(HUB_TABLE_PARAM, record.tableId);
+    setSearchParams(next, { replace: true });
+    spotlight("data-record-id", record.id);
+    window.setTimeout(() => openRecord(record), 700);
+  }, [requestedRecordId, isPending, records, tables, searchParams, setSearchParams, openRecord]);
 
   const handleSaveRecord = useCallback(
     async (patch: RecordPatch): Promise<void> => {
@@ -329,6 +379,7 @@ const ThinkHub = () => {
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-6xl px-4 pb-10 pt-5 sm:px-6 md:px-10">
 
+        <ReturnChip className="-mt-2 mb-2" />
         <div>
           <ThinkSpace tables={roots} records={records} today={today} onOpenTable={openTable} />
         </div>
@@ -532,7 +583,18 @@ const ThinkHub = () => {
 
       <NewTableDialog
         open={isNewTableOpen}
-        onOpenChange={setIsNewTableOpen}
+        onOpenChange={(next) => {
+          setIsNewTableOpen(next);
+          if (next) {
+            createdTableRef.current = false;
+            return;
+          }
+          // Cancelled a form started somewhere else: go back there, replacing this step so Back
+          // does not land on an empty Kế hoạch. Created: stay on the new table, way back kept.
+          const origin = readReturn(searchParams);
+          if (!createdTableRef.current && origin !== null) navigate(origin.path, { replace: true });
+          createdTableRef.current = false;
+        }}
         onCreate={handleCreateTable}
         isWorking={actions.isWorking}
         places={places}

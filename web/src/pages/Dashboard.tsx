@@ -20,7 +20,15 @@ import {
 } from "@/lib/space-blocks";
 import { PULSE_LABELS, pulseHref, spaceDateLabel, taskPulse } from "@/lib/space-summary";
 import { contextLink } from "@/lib/task-context";
-import { groupByScope, taskContextTarget, TASK_SCOPE_LABELS, type ProjectIndex } from "@/lib/task-scope";
+import { withReturn } from "@/lib/return-to";
+import {
+  groupByScope,
+  scopeLink,
+  taskContextTarget,
+  taskLink,
+  TASK_SCOPE_LABELS,
+  type ProjectIndex,
+} from "@/lib/task-scope";
 import { deadlineLabel, todayIso, type TaskItem } from "@/lib/tasks";
 import { useTaskProjectIndex } from "@/lib/use-projects";
 import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
@@ -45,8 +53,13 @@ function greeting(hour: number): string {
  */
 function taskHref(task: TaskItem, index: ProjectIndex): string {
   const target = taskContextTarget(task, index);
-  return target === null ? "/nhiem-vu" : contextLink(target.conversationId, task.id);
+  return target === null
+    ? withReturn(taskLink(task.id), SPACE_ORIGIN)
+    : withReturn(contextLink(target.conversationId, task.id), SPACE_ORIGIN);
 }
+
+/** Everything opened from Avora Space offers the way back to it. */
+const SPACE_ORIGIN = { path: "/tong-quan", label: "Avora Space" } as const;
 
 function clock(iso: string): string {
   return new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
@@ -130,6 +143,11 @@ export default function Dashboard() {
   const thought = useMemo(() => dailyThoughtView(thoughtCategory, opened), [thoughtCategory, opened]);
   const thoughtKey = useMemo(() => dailyThoughtKey(thoughtCategory, opened), [thoughtCategory, opened]);
   const unreadThreads = useMemo(() => conversationsWithUnread(conversations ?? []), [conversations]);
+  /** Exactly one thread waiting: open it directly instead of the inbox (AVORA-39 / A5). */
+  const singleUnreadId: string | null = useMemo(() => {
+    const waiting = (conversations ?? []).filter((item) => item.unreadCount > 0);
+    return waiting.length === 1 ? waiting[0].conversationId : null;
+  }, [conversations]);
   const pulse = useMemo(() => taskPulse(tasks ?? [], userId, today), [tasks, userId, today]);
   const attention = useMemo(() => attentionItems(tasks ?? [], userId, today), [tasks, userId, today]);
   const projectIndex = useTaskProjectIndex();
@@ -224,9 +242,14 @@ export default function Dashboard() {
                     <div className="overflow-hidden rounded-[12px] border border-border bg-card">
                       {attentionLayers.map((layer) => (
                         <div key={layer.scope} role="group" aria-label={TASK_SCOPE_LABELS[layer.scope]}>
-                          <p className="border-b border-border/70 bg-secondary/40 px-4 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                          <Link
+                            to={withReturn(scopeLink(layer.scope), SPACE_ORIGIN)}
+                            aria-label={`Mở ${TASK_SCOPE_LABELS[layer.scope]} trong Nhiệm vụ`}
+                            className="press flex min-h-9 items-center gap-1 border-b border-border/70 bg-secondary/40 px-4 py-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground transition-colors hover:text-foreground"
+                          >
                             {TASK_SCOPE_LABELS[layer.scope]}
-                          </p>
+                            <ChevronRight className="h-3 w-3 opacity-60" strokeWidth={2} aria-hidden="true" />
+                          </Link>
                       {layer.items.map((item) => {
                         const meta = attentionMeta(item, today);
                         return (
@@ -291,7 +314,7 @@ export default function Dashboard() {
               {planning.map((entry) => (
                 <Link
                   key={entry.tableId}
-                  to={`/ke-hoach?bang=${encodeURIComponent(entry.tableId)}`}
+                  to={withReturn(`/ke-hoach?bang=${encodeURIComponent(entry.tableId)}`, SPACE_ORIGIN)}
                   className="press flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] text-foreground transition-colors hover:bg-accent/30"
                 >
                   {entry.tableName}
@@ -306,7 +329,7 @@ export default function Dashboard() {
         if (!isBlockVisible(id, invitationCount)) return null;
         return (
           <Block key={id} id={id} icon={<MailOpen className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
-            <Link to="/nhiem-vu?muc=loi-moi" className={cn(rowClass, "rounded-[12px] border border-border bg-card")}>
+            <Link to={withReturn("/nhiem-vu?muc=loi-moi", SPACE_ORIGIN)} className={cn(rowClass, "rounded-[12px] border border-border bg-card")}>
               <span className="flex-1 text-[14.5px] font-medium text-foreground">
                 {invitationCount} lời mời đang chờ bạn trả lời
               </span>
@@ -320,7 +343,7 @@ export default function Dashboard() {
           <Block key={id} id={id} icon={<MessagesSquare className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
             {unreadThreads > 0 ? (
               <Link
-                to="/tin-nhan"
+                to={singleUnreadId === null ? "/tin-nhan" : `/tin-nhan/${singleUnreadId}`}
                 aria-label={`${unreadSummaryText(unreadThreads)}. Mở Kết nối`}
                 className="press flex min-h-14 items-center gap-3 rounded-[12px] border border-border bg-card px-4 transition-colors hover:bg-accent/30"
               >

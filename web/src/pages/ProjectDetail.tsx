@@ -9,8 +9,8 @@ import {
   Table2,
   Trash2,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ProjectProgressBar } from "@/components/projects/ProjectProgressBar";
@@ -34,7 +34,9 @@ import {
   type ProjectDetail as ProjectDetailData,
   type SuccessCriterion,
 } from "@/lib/projects";
-import { contextLink } from "@/lib/task-context";
+import { hereFrom, readReturn, withReturn, type ReturnTarget } from "@/lib/return-to";
+import { spotlight } from "@/lib/spotlight";
+import { contextLink, CONTEXT_TASK_PARAM } from "@/lib/task-context";
 import { taskStatusLabel, type TaskItem } from "@/lib/tasks";
 import { recordsOf, subTablesOf, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
 import { useConversations } from "@/lib/use-conversations";
@@ -54,9 +56,9 @@ function formatDay(iso: string): string {
 
 // ------------------------------------------------------------------ tasks
 
-function TaskLine({ taskId, task }: { taskId: string; task: TaskItem | undefined }) {
+function TaskLine({ taskId, task, from }: { taskId: string; task: TaskItem | undefined; from: ReturnTarget }) {
   return (
-    <li key={taskId} className="flex items-center gap-2.5">
+    <li key={taskId} data-task-id={taskId} className="-mx-2 flex items-center gap-2.5 px-2 py-0.5">
       <span
         aria-hidden="true"
         className={cn(
@@ -77,7 +79,7 @@ function TaskLine({ taskId, task }: { taskId: string; task: TaskItem | undefined
             /* Confirm, return and finish stay in the chat the task lives in — this screen reads
                the work, it does not decide it (ADR-013). */
             <Link
-              to={contextLink(task.conversationId, task.id)}
+              to={withReturn(contextLink(task.conversationId, task.id), from)}
               aria-label={`Mở "${task.title}" trong nhóm`}
               title="Mở trong nhóm"
               className="press shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
@@ -99,7 +101,12 @@ function RecordCard({
   subTables,
   canAssign,
   onAssign,
+  from,
+  forceOpen,
 }: {
+  from: ReturnTarget;
+  /** Opened from outside on a task under this Hạng mục: the branch must be showing. */
+  forceOpen: boolean;
   record: ThinkRecord;
   taskIds: readonly string[];
   tasksById: ReadonlyMap<string, TaskItem>;
@@ -109,6 +116,9 @@ function RecordCard({
   onAssign: (recordId: string) => void;
 }) {
   const [isOpen, setIsOpen] = useState<boolean>(true);
+  useEffect(() => {
+    if (forceOpen) setIsOpen(true);
+  }, [forceOpen]);
   const percent = taskProgress(taskIds, statusById);
 
   return (
@@ -138,7 +148,7 @@ function RecordCard({
           {taskIds.length > 0 ? (
             <ul className="space-y-1.5">
               {taskIds.map((taskId) => (
-                <TaskLine key={taskId} taskId={taskId} task={tasksById.get(taskId)} />
+                <TaskLine key={taskId} taskId={taskId} task={tasksById.get(taskId)} from={from} />
               ))}
             </ul>
           ) : (
@@ -150,7 +160,7 @@ function RecordCard({
               {subTables.map((table) => (
                 <li key={table.id}>
                   <Link
-                    to={`/ke-hoach?bang=${encodeURIComponent(table.id)}`}
+                    to={withReturn(`/ke-hoach?bang=${encodeURIComponent(table.id)}`, from)}
                     className="press inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
                   >
                     <Table2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
@@ -385,6 +395,11 @@ function AddCriterionForm({
 const ProjectDetail = () => {
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const returnTo = readReturn(searchParams);
+  /** `?nhiem-vu=<id>`: arrived from "Xem trong dự án" — bring that task into view (AVORA-39 / A4). */
+  const focusTaskId: string | null = searchParams.get(CONTEXT_TASK_PARAM);
   const { user } = useAuth();
   const detailQuery = useProjectDetail(projectId);
   const tasksQuery = useTasks();
@@ -466,6 +481,14 @@ const ProjectDetail = () => {
     }
   }, [rootTable, projectId, newRecordTitle, hubActions]);
 
+  const spotlitRef = useRef<string | null>(null);
+  const linksLoaded = detail !== null && tasksQuery.data !== undefined && recordsQuery.data !== undefined;
+  useEffect(() => {
+    if (focusTaskId === null || !linksLoaded || spotlitRef.current === focusTaskId) return;
+    spotlitRef.current = focusTaskId;
+    spotlight("data-task-id", focusTaskId);
+  }, [focusTaskId, linksLoaded]);
+
   const runSafely = useCallback(async (work: () => Promise<void>, fallback: string): Promise<void> => {
     try {
       await work();
@@ -505,8 +528,8 @@ const ProjectDetail = () => {
         <div className="mx-auto max-w-2xl px-6 py-16 text-center md:px-10">
           <h1 className="text-[22px] font-semibold tracking-tight text-foreground">Không mở được dự án</h1>
           <p className="mt-2 text-[15px] text-muted-foreground">Dự án này không còn nữa hoặc bạn không có quyền xem.</p>
-          <Button className="press mt-6" onClick={() => navigate("/tin-nhan?tab=du-an")}>
-            Về Dự án
+          <Button className="press mt-6" onClick={() => navigate(returnTo?.path ?? "/tin-nhan?tab=du-an")}>
+            {returnTo !== null ? `Về ${returnTo.label}` : "Về Dự án"}
           </Button>
         </div>
       </div>
@@ -518,6 +541,12 @@ const ProjectDetail = () => {
   const isOpen = project.status === "active";
   const percent = projectProgress(detail.links, statusById);
   const adHocIds = taskIdsOf(detail.links, null);
+  const here: ReturnTarget = hereFrom(location, project.title);
+  const focusRecordId: string | null =
+    focusTaskId === null ? null : (detail.links.find((link) => link.taskId === focusTaskId)?.recordId ?? null);
+  // The way back: where the person came from, else the project's own chat — where a project lives.
+  const back: { to: string; label: string } =
+    returnTo !== null ? { to: returnTo.path, label: returnTo.label } : { to: projectChatLink(project), label: "Nhóm dự án" };
   const blockers = closeBlockers(
     detail,
     new Map(
@@ -529,11 +558,11 @@ const ProjectDetail = () => {
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-6 py-8 md:px-10 md:py-10">
         <Link
-          to="/tin-nhan?tab=du-an"
-          className="press inline-flex items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          to={back.to}
+          className="press inline-flex min-h-11 max-w-full items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
-          Dự án
+          <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={1.9} aria-hidden="true" />
+          <span className="truncate">{back.label}</span>
         </Link>
 
         <header className="mt-5">
@@ -638,7 +667,7 @@ const ProjectDetail = () => {
             <h2 className={TYPE.blockTitle}>Hạng mục</h2>
             {rootTable !== undefined ? (
               <Link
-                to={`/ke-hoach?bang=${encodeURIComponent(rootTable.id)}`}
+                to={withReturn(`/ke-hoach?bang=${encodeURIComponent(rootTable.id)}`, here)}
                 className="press inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
               >
                 <Table2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
@@ -659,6 +688,8 @@ const ProjectDetail = () => {
                   subTables={subTablesOf(tablesQuery.data ?? [], record.id)}
                   canAssign={isOpen}
                   onAssign={(recordId) => setTaskTarget({ recordId })}
+                  from={here}
+                  forceOpen={focusRecordId === record.id}
                 />
               ))}
             </ul>
@@ -710,7 +741,7 @@ const ProjectDetail = () => {
           {adHocIds.length > 0 ? (
             <ul className="mt-3 space-y-1.5 rounded-lg border border-border bg-card px-4 py-3">
               {adHocIds.map((taskId) => (
-                <TaskLine key={taskId} taskId={taskId} task={tasksById.get(taskId)} />
+                <TaskLine key={taskId} taskId={taskId} task={tasksById.get(taskId)} from={here} />
               ))}
             </ul>
           ) : (
@@ -726,7 +757,10 @@ const ProjectDetail = () => {
           unfinished={detail.links
             .map((link) => tasksById.get(link.taskId))
             .filter((task): task is TaskItem => task !== undefined && task.status !== "done" && task.status !== "skipped")}
-          onDeleted={() => navigate("/tin-nhan?tab=du-an")}
+          onDeleted={() =>
+            // The project's own chat went with it; its parent group is the nearest place still standing.
+            navigate(project.parentGroupId !== null ? `/tin-nhan/${project.parentGroupId}` : "/tin-nhan?tab=du-an")
+          }
         />
       </div>
 

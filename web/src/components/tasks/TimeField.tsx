@@ -9,6 +9,7 @@ import {
   padTwo,
   splitTime,
 } from "@/lib/task-schedule";
+import { parseMinute } from "@/lib/date-field";
 import { cn } from "@/lib/utils";
 
 type TimeFieldProps = {
@@ -51,6 +52,17 @@ export function TimeField({ id, value, onChange, ariaLabel }: TimeFieldProps) {
     const next = composeTime(activeHour ?? 0, minute);
     if (next !== null) onChange(next);
     setIsOpen(false);
+  };
+
+  const [isCustomOpen, setIsCustomOpen] = useState<boolean>(false);
+  const [customMinute, setCustomMinute] = useState<string>("");
+  useEffect(() => {
+    if (!isOpen) setIsCustomOpen(false);
+  }, [isOpen]);
+  const submitCustom = (): void => {
+    const minute = parseMinute(customMinute);
+    if (minute !== null) pickMinute(minute);
+    else setIsOpen(false);
   };
 
   return (
@@ -116,6 +128,46 @@ export function TimeField({ id, value, onChange, ariaLabel }: TimeFieldProps) {
               </button>
             ))}
           </div>
+
+          {/* An odd minute for whoever needs it (AVORA-39 / Phần 2 · A2). Invalid input keeps the old value. */}
+          {isCustomOpen ? (
+            <form
+              className="mt-2 flex items-center gap-1.5"
+              onSubmit={(event) => {
+                event.preventDefault();
+                submitCustom();
+              }}
+            >
+              <input
+                autoFocus
+                inputMode="numeric"
+                pattern="[0-9]*"
+                maxLength={2}
+                value={customMinute}
+                onChange={(event) => setCustomMinute(event.target.value.replace(/\D/g, ""))}
+                aria-label="Phút (0–59)"
+                placeholder="0–59"
+                className="tabular h-10 w-20 rounded-md border border-input bg-background px-2.5 text-[16px] text-foreground outline-none focus:border-primary sm:text-[14px]"
+              />
+              <button
+                type="submit"
+                className="press h-10 rounded-md bg-primary px-3.5 text-[13px] font-semibold text-primary-foreground"
+              >
+                Xong
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              onClick={() => {
+                setCustomMinute("");
+                setIsCustomOpen(true);
+              }}
+              className="press mt-2 flex min-h-9 w-full items-center justify-center rounded-md text-[12.5px] font-medium text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+            >
+              Phút khác
+            </button>
+          )}
         </PopoverContent>
       </Popover>
 

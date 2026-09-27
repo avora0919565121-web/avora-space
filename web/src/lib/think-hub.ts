@@ -385,6 +385,42 @@ export function suggestedSubTablePurpose(recordTitle: string): string {
   return `Theo dõi cho: ${recordTitle.trim()}`;
 }
 
+/** The query parameter that opens one Hạng mục inside a table (AVORA-39 / Phần 1 · D4). */
+export const HUB_RECORD_PARAM = "hang-muc";
+
+/** Kế hoạch opened on one Hạng mục — and, when given, pointing at one of its tasks. */
+export function recordLink(tableId: string, recordId: string, taskId?: string | null): string {
+  const params = new URLSearchParams();
+  params.set("bang", tableId);
+  params.set(HUB_RECORD_PARAM, recordId);
+  if (typeof taskId === "string" && taskId.length > 0) params.set("nhiem-vu", taskId);
+  return `/ke-hoach?${params.toString()}`;
+}
+
+/**
+ * "Bảng › Hạng mục", or for a sub-table "Hạng mục cha › Bảng con › Hạng mục" — the heading a
+ * planned task sits under in a project's task list. Stops at anything the viewer cannot see.
+ */
+export function recordPath(
+  tables: readonly ThinkTable[],
+  records: readonly ThinkRecord[],
+  recordId: string,
+): { label: string; tableId: string } | null {
+  const record = records.find((entry) => entry.id === recordId);
+  if (record === undefined) return null;
+  const steps = tableAncestry(tables, records, record.tableId);
+  if (steps.length === 0) return null;
+  const parts: string[] = [];
+  if (steps.length === 1) parts.push(steps[0].table.name);
+  else {
+    const parentRecord = steps[steps.length - 2].viaRecord;
+    if (parentRecord !== null) parts.push(parentRecord.title);
+    parts.push(steps[steps.length - 1].table.name);
+  }
+  parts.push(record.title);
+  return { label: parts.join(" › "), tableId: record.tableId };
+}
+
 export type AncestryStep = {
   table: ThinkTable;
   /** The Hạng mục in this table that the next step grew from; null on the last step. */

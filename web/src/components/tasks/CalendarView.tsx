@@ -1,5 +1,5 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Flag, Loader2, MapPin, MessagesSquare } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { FadeIn } from "@/components/tasks/FadeIn";
 import { useAuth } from "@/lib/auth";
@@ -19,6 +19,9 @@ import {
   yearMonths,
   type CalendarMode,
 } from "@/lib/calendar-view";
+import { hasExternalLayer, orderDayEntries, type CalendarLayerEntry } from "@/lib/calendar-layers";
+import { isInRange } from "@/lib/date-field";
+import { addDaysIso } from "@/lib/task-schedule";
 import { calendarProjection, type CalendarDay, type CalendarEntry } from "@/lib/task-hub";
 import type { TaskItem } from "@/lib/tasks";
 import { useTasksInRange } from "@/lib/use-tasks";
@@ -70,21 +73,25 @@ function DayList({
   day,
   today,
   onOpenContext,
+  external,
 }: {
   day: CalendarDay;
   today: string;
   onOpenContext?: (task: TaskItem) => void;
+  /** Lịch khác for this day — read-only, listed after Avora's own work. */
+  external: readonly CalendarLayerEntry[];
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const others = orderDayEntries(external.filter((entry) => entry.layer === "external" && entry.day === day.day));
 
   return (
     <section aria-label={`Việc ngày ${longDayLabel(day.day, today)}`} className="rounded-[12px] border border-border bg-card">
       <p className={cn("border-b border-border px-4 py-2.5 text-[13px] font-semibold", day.day === today ? "text-primary" : "text-foreground")}>
         {longDayLabel(day.day, today)}
       </p>
-      {day.entries.length === 0 ? (
+      {day.entries.length === 0 && others.length === 0 ? (
         <p className="px-4 py-4 text-[13.5px] text-muted-foreground">Ngày này trống — không có hạn chót hay sự kiện nào.</p>
-      ) : (
+      ) : day.entries.length === 0 ? null : (
         <ul>
           {day.entries.map((entry) => {
             const isOpen = openId === entry.task.id;
@@ -135,6 +142,27 @@ function DayList({
           })}
         </ul>
       )}
+      {others.length > 0 ? (
+        <div className="border-t border-border">
+          <p className="px-4 pb-1 pt-2.5 text-[11.5px] font-semibold uppercase tracking-wide text-muted-foreground">Lịch khác</p>
+          <ul>
+            {others.map((entry) => (
+              <li key={entry.id} className="flex min-h-11 items-start gap-3 px-4 py-2 text-muted-foreground">
+                <span className="tabular w-[84px] shrink-0 text-[12px]">
+                  {entry.startTime === null ? "Cả ngày" : entry.endTime !== null ? `${entry.startTime} – ${entry.endTime}` : entry.startTime}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-[13.5px]">{entry.title}</span>
+                  <span className="block truncate text-[12px]">
+                    {entry.where !== null ? `${entry.where} · ` : ""}
+                    {entry.sourceName}
+                  </span>
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -147,6 +175,9 @@ function MonthGrid({
   isPickable,
   onSelect,
   compact = false,
+  range = null,
+  external = [],
+  onKeyMove,
 }: {
   anchor: string;
   today: string;
@@ -155,8 +186,17 @@ function MonthGrid({
   isPickable: (day: string) => boolean;
   onSelect: (day: string) => void;
   compact?: boolean;
+  /** A range being picked: the days between are tinted. */
+  range?: { from: string; to: string } | null;
+  external?: readonly CalendarLayerEntry[];
+  onKeyMove?: (event: KeyboardEvent<HTMLButtonElement>, day: string) => void;
 }) {
   const weeks = useMemo(() => monthGrid(anchor), [anchor]);
+  const externalCount = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const entry of external) if (entry.layer === "external") counts.set(entry.day, (counts.get(entry.day) ?? 0) + 1);
+    return counts;
+  }, [external]);
   return (
     <div role="grid" aria-label={rangeLabel("month", anchor, today)}>
       <div role="row" className="grid grid-cols-7">
@@ -174,6 +214,8 @@ function MonthGrid({
             const isToday = day === today;
             const isSelected = day === selected;
             const pickable = isPickable(day);
+            const inRange = isInRange(day, range);
+            const outside = externalCount.get(day) ?? 0;
             if (compact) {
               return (
                 <span key={day} role="gridcell" className="flex h-5 items-center justify-center">
@@ -191,11 +233,14 @@ function MonthGrid({
               );
             }
             return (
-              <span key={day} role="gridcell" aria-selected={isSelected} className="p-0.5">
+              <span key={day} role="gridcell" aria-selected={isSelected} className={cn("p-0.5", inRange && "bg-primary/[0.08]")}>
                 <button
                   type="button"
+                  data-day={day}
+                  tabIndex={day === anchor ? 0 : -1}
                   disabled={!pickable}
                   onClick={() => onSelect(day)}
+                  onKeyDown={onKeyMove === undefined ? undefined : (event) => onKeyMove(event, day)}
                   aria-label={`${longDayLabel(day, today)}${entries.length > 0 ? `, ${entries.length} mục` : ", trống"}`}
                   className={cn(
                     "press flex h-14 w-full flex-col items-center gap-1 rounded-[10px] pt-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-35 sm:h-16",
@@ -215,6 +260,8 @@ function MonthGrid({
                       <CellMark key={`${entry.kind}-${entry.task.id}`} entry={entry} />
                     ))}
                     {entries.length > 3 ? <span className="text-[9px] leading-none text-muted-foreground">+{entries.length - 3}</span> : null}
+                    {/* Lịch khác: one faint neutral ring, drawn after (under) Avora's marks. */}
+                    {outside > 0 ? <span aria-hidden="true" className="block h-1.5 w-1.5 rounded-full border border-muted-foreground/50 opacity-55" /> : null}
                   </span>
                 </button>
               </span>
@@ -290,6 +337,16 @@ export type CalendarViewProps = {
   onPickDay?: (day: string) => void;
   /** Which of the four views to offer. Defaults to all four. */
   modes?: readonly CalendarMode[];
+  /** Which days a picker accepts (AVORA-39 / Phần 2). Defaults to "today onwards" while picking. */
+  canPickDay?: (day: string) => boolean;
+  /** The guide line while picking, when the default "từ hôm nay trở đi" is not the rule. */
+  pickHint?: string;
+  /** A range being picked, tinted in the month grid. */
+  highlightRange?: { from: string; to: string } | null;
+  /** Tapping the month title opens the quick year → month choice. */
+  onTitleClick?: () => void;
+  /** Other calendars the person chose to show. None exist yet; always read-only. */
+  externalEntries?: readonly CalendarLayerEntry[];
 };
 
 /**
@@ -306,6 +363,11 @@ export function CalendarView({
   onOpenContext,
   onPickDay,
   modes,
+  canPickDay,
+  pickHint,
+  highlightRange = null,
+  onTitleClick,
+  externalEntries = [],
 }: CalendarViewProps) {
   const { user } = useAuth();
   const range = useMemo(() => rangeFor(mode, anchor), [mode, anchor]);
@@ -319,11 +381,31 @@ export function CalendarView({
   const selectedDay: CalendarDay = byDay.get(anchor) ?? { day: anchor, entries: [] };
   const offered = CALENDAR_MODES.filter((option) => modes === undefined || modes.includes(option.id));
   const isPicking = onPickDay !== undefined;
-  const isPickable = (day: string): boolean => !isPicking || day >= today;
+  const isPickable = (day: string): boolean => (canPickDay !== undefined ? canPickDay(day) : !isPicking || day >= today);
 
   const select = (day: string): void => {
     onAnchorChange(day);
     onPickDay?.(day);
+  };
+
+  /*
+   * Keyboard: arrows walk the days, Home/End the week, Enter/Space pick (native button click).
+   * Focus follows the anchor once the grid has redrawn around it.
+   */
+  const gridRef = useRef<HTMLDivElement | null>(null);
+  const wantsFocusRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (!wantsFocusRef.current) return;
+    wantsFocusRef.current = false;
+    gridRef.current?.querySelector<HTMLButtonElement>(`[data-day="${anchor}"]`)?.focus();
+  }, [anchor, tasks]);
+  const moveByKey = (event: KeyboardEvent<HTMLButtonElement>, day: string): void => {
+    const steps: Record<string, number> = { ArrowLeft: -1, ArrowRight: 1, ArrowUp: -7, ArrowDown: 7 };
+    const step = steps[event.key];
+    if (step === undefined) return;
+    event.preventDefault();
+    wantsFocusRef.current = true;
+    onAnchorChange(addDaysIso(day, step));
   };
 
   return (
@@ -350,16 +432,28 @@ export function CalendarView({
           </div>
         ) : null}
         <p className="mt-2 text-[12.5px] text-muted-foreground">
-          {isPicking ? "Chạm một ngày để điền vào ô hạn — từ hôm nay trở đi." : calendarModeOption(mode).description}
+          {isPicking ? (pickHint ?? "Chạm một ngày để điền vào ô hạn — từ hôm nay trở đi.") : calendarModeOption(mode).description}
         </p>
 
         <div className="mt-2 flex items-center gap-1">
           <button type="button" onClick={() => onAnchorChange(shiftAnchor(mode, anchor, -1))} aria-label="Lùi lại" className="press flex h-10 w-10 items-center justify-center rounded-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground">
             <ChevronLeft className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
-          <h3 className="min-w-0 flex-1 truncate text-center text-[15px] font-semibold text-foreground" aria-live="polite">
-            {rangeLabel(mode, anchor, today)}
-          </h3>
+          {onTitleClick !== undefined ? (
+            <button
+              type="button"
+              onClick={onTitleClick}
+              aria-label={`${rangeLabel(mode, anchor, today)} — chọn năm và tháng`}
+              className="press min-h-10 min-w-0 flex-1 truncate rounded-[10px] text-center text-[15px] font-semibold text-foreground hover:bg-secondary"
+              aria-live="polite"
+            >
+              {rangeLabel(mode, anchor, today)}
+            </button>
+          ) : (
+            <h3 className="min-w-0 flex-1 truncate text-center text-[15px] font-semibold text-foreground" aria-live="polite">
+              {rangeLabel(mode, anchor, today)}
+            </h3>
+          )}
           <button type="button" onClick={() => onAnchorChange(shiftAnchor(mode, anchor, 1))} aria-label="Tới trước" className="press flex h-10 w-10 items-center justify-center rounded-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground">
             <ChevronRight className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -375,6 +469,9 @@ export function CalendarView({
       <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground" aria-hidden="true">
         <span className="flex items-center gap-1.5"><span className="h-1 w-3 rounded-full bg-primary" /> Sự kiện</span>
         <span className="flex items-center gap-1.5"><span className="h-1 w-2 rounded-full bg-task-due-soon" /> Hạn chót</span>
+        {hasExternalLayer(externalEntries) ? (
+          <span className="flex items-center gap-1.5"><span className="h-1.5 w-1.5 rounded-full border border-muted-foreground/50 opacity-55" /> Lịch khác</span>
+        ) : null}
         {isLoading && tasks !== undefined ? <Loader2 className="ml-auto h-3.5 w-3.5 animate-spin" /> : null}
       </div>
 
@@ -395,8 +492,18 @@ export function CalendarView({
       ) : (
         <FadeIn key={`${mode}-${range.from}`} className="space-y-3">
           {mode === "month" ? (
-            <div className="rounded-[14px] border border-border bg-card p-2">
-              <MonthGrid anchor={anchor} today={today} byDay={byDay} selected={anchor} isPickable={isPickable} onSelect={select} />
+            <div ref={gridRef} className="rounded-[14px] border border-border bg-card p-2">
+              <MonthGrid
+                anchor={anchor}
+                today={today}
+                byDay={byDay}
+                selected={anchor}
+                isPickable={isPickable}
+                onSelect={select}
+                range={highlightRange}
+                external={externalEntries}
+                onKeyMove={moveByKey}
+              />
             </div>
           ) : null}
 
@@ -433,7 +540,9 @@ export function CalendarView({
             </div>
           ) : null}
 
-          {mode !== "year" ? <DayList key={anchor} day={selectedDay} today={today} onOpenContext={onOpenContext} /> : null}
+          {mode !== "year" ? (
+            <DayList key={anchor} day={selectedDay} today={today} onOpenContext={onOpenContext} external={externalEntries} />
+          ) : null}
         </FadeIn>
       )}
       </div>

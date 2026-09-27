@@ -1,6 +1,8 @@
 import { CalendarClock, ChevronRight, Hourglass, ListChecks, Loader2, MapPin, Plus, X } from "lucide-react";
 import { useState } from "react";
 
+import { DateField } from "@/components/calendar/DateField";
+import { DateTimeField } from "@/components/calendar/DateTimeField";
 import { useAutoList } from "@/hooks/use-auto-list";
 import { peerLabel } from "@/lib/initials";
 import type { GroupMember } from "@/lib/groups";
@@ -407,12 +409,13 @@ function ActionItemRow({
       </div>
 
       <div className="mt-1.5 flex flex-wrap items-center gap-1.5 pl-9">
-        <input
-          type="date"
+        <DateField
           value={item.deadline ?? ""}
-          onChange={(event) => onChange({ ...item, deadline: event.target.value === "" ? null : event.target.value })}
-          aria-label="Thời gian"
-          className={cn(INPUT_CLASS, "h-9 w-auto py-0")}
+          onChange={(day) => onChange({ ...item, deadline: day === "" ? null : day })}
+          label="Thời gian"
+          title="Chọn thời hạn"
+          allow="any"
+          className="w-auto min-w-[200px] flex-none"
         />
         <select
           value={item.assigneeId ?? ""}
@@ -567,11 +570,13 @@ export function MeetingNoteFields({
         </div>
         <div>
           <FieldLabel>Thời gian</FieldLabel>
-          <input
-            type="datetime-local"
+          <DateTimeField
+            id="meeting-scheduled-at"
             value={toLocalInput(details.scheduledAt)}
-            onChange={(event) => patch({ scheduledAt: fromLocalInput(event.target.value) })}
-            className={INPUT_CLASS}
+            onChange={(next) => patch({ scheduledAt: fromLocalInput(next) })}
+            label="Thời gian họp"
+            title="Chọn ngày họp"
+            allow="any"
           />
         </div>
       </div>
@@ -669,11 +674,13 @@ export function MeetingNoteFields({
       </div>
       <div>
         <FieldLabel>Họp lần sau</FieldLabel>
-        <input
-          type="datetime-local"
+        <DateTimeField
+          id="meeting-next-at"
           value={toLocalInput(details.nextMeetingAt)}
-          onChange={(event) => patch({ nextMeetingAt: fromLocalInput(event.target.value) })}
-          className={cn(INPUT_CLASS, "sm:w-auto")}
+          onChange={(next) => patch({ nextMeetingAt: fromLocalInput(next) })}
+          label="Họp lần sau"
+          title="Chọn ngày họp lần sau"
+          allow="any"
         />
       </div>
       <LineList

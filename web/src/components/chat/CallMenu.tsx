@@ -1,9 +1,10 @@
 import { Phone } from "lucide-react";
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { handOffCall } from "@/lib/call-handoff";
+import { hereFrom, withReturn } from "@/lib/return-to";
 import { CALL_APPS, peerPhone, type CallApp } from "@/lib/calls";
 import { useContactChannels } from "@/lib/use-contact-channels";
 import { useContacts } from "@/lib/use-contacts";
@@ -20,6 +21,7 @@ const ICON_CLASS = "press rounded-md p-2 transition-colors hover:bg-accent/50 ho
 export function CallMenu({ peerId, peerName }: { peerId: string | null; peerName: string }) {
   const contactsQuery = useContacts();
   const channelsQuery = useContactChannels();
+  const location = useLocation();
   const found = useMemo(
     () => peerPhone(peerId, contactsQuery.data ?? [], channelsQuery.data ?? []),
     [peerId, contactsQuery.data, channelsQuery.data],
@@ -46,7 +48,7 @@ export function CallMenu({ peerId, peerName }: { peerId: string | null; peerName
         </DropdownMenuLabel>
         {found === null ? (
           <DropdownMenuItem asChild className="min-h-11 rounded-lg px-2.5 text-[14px]">
-            <Link to="/lien-he">Thêm số trong Liên hệ</Link>
+            <Link to={withReturn("/lien-he", hereFrom(location, peerName))}>Thêm số trong Liên hệ</Link>
           </DropdownMenuItem>
         ) : (
           CALL_APPS.map((app) => (

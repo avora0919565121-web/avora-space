@@ -51,12 +51,17 @@ import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import type { TaskCategory } from "@/lib/task-categories";
 import { projectLink } from "@/lib/projects";
-import { contextLink } from "@/lib/task-context";
+import { contextLink, CONTEXT_TASK_PARAM } from "@/lib/task-context";
+import { carryReturn, stripReturn, withReturn } from "@/lib/return-to";
+import { spotlight } from "@/lib/spotlight";
+import { ReturnChip } from "@/components/nav/ReturnChip";
+import { DateField } from "@/components/calendar/DateField";
 import { forwardTaskOutputToJournal, completedDayLabel } from "@/lib/task-report";
 import { applyManualOrder, defaultViewMode } from "@/lib/task-order";
 import { RECURRENCE_LABELS } from "@/lib/task-schedule";
 import {
   filterByScope,
+  OPEN_TASK_PARAM,
   parseTaskScope,
   parseTaskView,
   projectOfTask,
@@ -371,7 +376,7 @@ function PersonalRow({
   };
 
   return (
-    <li className="flex items-start gap-3 py-2">
+    <li data-task-id={task.id} className="flex items-start gap-3 py-2">
       <TaskBubble
         state={PERSONAL_BUBBLE_STATE[task.status]}
         onClick={() => {
@@ -475,6 +480,7 @@ function SharedRow({
 
   return (
     <li
+      data-task-id={task.id}
       draggable={draggable === true}
       onDragStart={(event) => {
         if (draggable !== true) return;
@@ -565,7 +571,14 @@ function SharedRow({
         {projectOf !== undefined ? (
           <button
             type="button"
-            onClick={() => navigate(projectLink(projectOf.projectId))}
+            onClick={() =>
+              navigate(
+                withReturn(`${projectLink(projectOf.projectId)}?${CONTEXT_TASK_PARAM}=${encodeURIComponent(task.id)}`, {
+                  path: stripReturn(`${window.location.pathname}${window.location.search}`),
+                  label: "Nhiệm vụ",
+                }),
+              )
+            }
             className="press flex h-12 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
           >
             <FolderKanban className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
@@ -791,16 +804,17 @@ function TaskComposer({
       </div>
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="sm:w-[190px]">
+        <div className="sm:w-[240px]">
           <FieldLabel htmlFor={`${idPrefix}-deadline`}>Hạn hoàn thành</FieldLabel>
-          <input
+          <DateField
             id={`${idPrefix}-deadline`}
-            type="date"
             value={draft.deadline}
+            onChange={(day) => patch({ deadline: day })}
+            label="Hạn hoàn thành"
+            title="Chọn ngày hạn"
+            required
+            allow="future"
             min={today}
-            onChange={(event) => patch({ deadline: event.target.value })}
-            required={true}
-            className={cn(FIELD_CLASS, "h-11 text-[14px]")}
           />
         </div>
         <div className="flex-1" />
@@ -1758,6 +1772,37 @@ export default function Tasks() {
   const openTask = useCallback((task: TaskItem): void => setOpenTaskId(task.id), []);
 
   /**
+   * `?mo=<id>` opens one task from outside (AVORA-39 / Phần 1 · A1): detail open, row in view
+   * and lit. Handled once per id, after the list has loaded; a task that is gone says so.
+   */
+  const requestedTaskId: string | null = searchParams.get(OPEN_TASK_PARAM);
+  const handledOpenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (requestedTaskId === null || tasks === undefined || handledOpenRef.current === requestedTaskId) return;
+    handledOpenRef.current = requestedTaskId;
+    const found = tasks.find((task) => task.id === requestedTaskId);
+    if (found === undefined) {
+      toast("Không tìm thấy việc này nữa.");
+      const next = new URLSearchParams(searchParams);
+      next.delete(OPEN_TASK_PARAM);
+      setSearchParams(next, { replace: true });
+      return;
+    }
+    setOpenTaskId(found.id);
+    spotlight("data-task-id", found.id);
+  }, [requestedTaskId, tasks, searchParams, setSearchParams]);
+
+  const closeTask = useCallback((): void => {
+    setOpenTaskId(null);
+    if (searchParams.get(OPEN_TASK_PARAM) !== null) {
+      const next = new URLSearchParams(searchParams);
+      next.delete(OPEN_TASK_PARAM);
+      handledOpenRef.current = null;
+      setSearchParams(next, { replace: true });
+    }
+  }, [searchParams, setSearchParams]);
+
+  /**
    * Lịch never edits. A task with a conversation goes back to where it was agreed; a personal
    * task with no thread opens in Nhiệm vụ — the calendar itself stays read-only.
    */
@@ -1768,12 +1813,12 @@ export default function Tasks() {
         navigate(contextLink(target.conversationId, task.id));
         return;
       }
-      const next = new URLSearchParams();
+      const next = carryReturn(searchParams, new URLSearchParams());
       next.set(TASK_HUB_PARAM, "viec");
       setSearchParams(next, { replace: true });
       setOpenTaskId(task.id);
     },
-    [navigate, setSearchParams, projectIndex],
+    [navigate, searchParams, setSearchParams, projectIndex],
   );
 
   const { data: conversations } = useConversations();
@@ -1799,6 +1844,7 @@ export default function Tasks() {
       <HubTitle title="Nhiệm vụ" className="max-w-[720px] md:px-6" />
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8">
+        <ReturnChip className="-mt-2 mb-1" />
         <div>
           <TaskHubNav active={hubSection} counts={hubCounts} onChange={selectHubSection} />
         </div>
@@ -1943,7 +1989,7 @@ export default function Tasks() {
         today={today}
         open={openedTask !== null}
         onOpenChange={(next) => {
-          if (!next) setOpenTaskId(null);
+          if (!next) closeTask();
         }}
       />
     </div>

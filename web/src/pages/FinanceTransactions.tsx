@@ -71,6 +71,8 @@ import {
 } from "@/lib/finance";
 import { createObligationReminderTask, fetchObligationReminders, receiptUrl } from "@/lib/finance-api";
 import { taskKeys } from "@/lib/tasks";
+import { withReturn } from "@/lib/return-to";
+import { taskLink } from "@/lib/task-scope";
 import { useContacts } from "@/lib/use-contacts";
 import { useDismissedRecurring, useFinanceActions, useLedger } from "@/lib/use-finance";
 import { cn } from "@/lib/utils";
@@ -152,7 +154,7 @@ function EntryRow({
         {/* A suggestion, never an action taken for the person: the task exists only once pressed. */}
         {reminder !== undefined && !voided ? (
           <Link
-            to="/nhiem-vu"
+            to={withReturn(taskLink(reminder.taskId), { path: "/ket-sat/giao-dich", label: "Giao dịch" })}
             className="press hidden shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 sm:inline-flex"
           >
             <CheckCircle2
