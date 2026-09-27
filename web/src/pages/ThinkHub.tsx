@@ -1,6 +1,6 @@
 import { ChevronRight, KanbanSquare, Loader2, Network, Pencil, Plus, Table2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AddColumnDialog } from "@/components/think-hub/AddColumnDialog";
@@ -39,7 +39,10 @@ import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
 import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { ReturnChip } from "@/components/nav/ReturnChip";
-import { carryReturn, readReturn } from "@/lib/return-to";
+import { carryReturn, hereFrom, readReturn, withReturn } from "@/lib/return-to";
+import { taskLink } from "@/lib/task-scope";
+import type { TaskItem } from "@/lib/tasks";
+import { useTasks } from "@/lib/use-tasks";
 import { spotlight } from "@/lib/spotlight";
 import { cn } from "@/lib/utils";
 
@@ -64,9 +67,11 @@ const ThinkHub = () => {
   const projectsQuery = useProjects();
   const projectTaskLinks = useTaskProjectLinks();
   const recordTaskLinksQuery = useRecordTaskLinks();
+  const tasksQuery = useTasks();
 
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM));
   const [view, setView] = useState<ViewMode>("table");
   // "+ Bảng mới" from a thread arrives with `?moi=1`.
@@ -140,6 +145,23 @@ const ThinkHub = () => {
     () => (active === null ? [] : recordsOf(records, active.id)),
     [records, active],
   );
+
+  const tasksById = useMemo(() => new Map((tasksQuery.data ?? []).map((task) => [task.id, task] as const)), [tasksQuery.data]);
+
+  /** The tasks under each Hạng mục, for the list inside its dialog (and the D4 spotlight). */
+  const tasksByRecord: Map<string, TaskItem[]> = useMemo(() => {
+    const map = new Map<string, TaskItem[]>();
+    const push = (recordId: string, taskId: string): void => {
+      const task = tasksById.get(taskId);
+      if (task === undefined) return;
+      const list = map.get(recordId) ?? [];
+      if (!list.some((existing) => existing.id === task.id)) list.push(task);
+      map.set(recordId, list);
+    };
+    for (const link of recordTaskLinksQuery.data ?? []) push(link.recordId, link.taskId);
+    for (const link of projectTaskLinks.values()) if (link.recordId !== null) push(link.recordId, link.taskId);
+    return map;
+  }, [recordTaskLinksQuery.data, projectTaskLinks, tasksById]);
 
   // How many tasks hang under each Hạng mục — project links and everywhere-else links together.
   const taskCountByRecord: Map<string, number> = useMemo(() => {
@@ -267,6 +289,7 @@ const ThinkHub = () => {
     if (requestedRecordId === null || isPending || handledRecordRef.current === requestedRecordId) return;
     handledRecordRef.current = requestedRecordId;
     const next = new URLSearchParams(searchParams);
+    const requestedTaskId: string | null = searchParams.get("nhiem-vu");
     next.delete(HUB_RECORD_PARAM);
     next.delete("nhiem-vu");
     const record = records.find((entry) => entry.id === requestedRecordId);
@@ -280,7 +303,11 @@ const ThinkHub = () => {
     next.set(HUB_TABLE_PARAM, record.tableId);
     setSearchParams(next, { replace: true });
     spotlight("data-record-id", record.id);
-    window.setTimeout(() => openRecord(record), 700);
+    window.setTimeout(() => {
+      openRecord(record);
+      // D4: the task named in the link, lit inside the Hạng mục. Gone from it → quietly nothing.
+      if (requestedTaskId !== null) spotlight("data-record-task-id", requestedTaskId, { attempts: 20 });
+    }, 700);
   }, [requestedRecordId, isPending, records, tables, searchParams, setSearchParams, openRecord]);
 
   const handleSaveRecord = useCallback(
@@ -668,6 +695,11 @@ const ThinkHub = () => {
         onOpenTable={(tableId) => {
           setIsRecordOpen(false);
           openTable(tableId);
+        }}
+        tasks={editing === null ? undefined : tasksByRecord.get(editing.id) ?? []}
+        onOpenTask={(taskId) => {
+          setIsRecordOpen(false);
+          navigate(withReturn(taskLink(taskId), hereFrom(location, "Kế hoạch")));
         }}
       />
     </div>

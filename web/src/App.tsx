@@ -33,6 +33,9 @@ import SettingsNotifications from "./pages/SettingsNotifications";
 import SettingsPreferences from "./pages/SettingsPreferences";
 import Tasks from "./pages/Tasks";
 import Vault from "./pages/Vault";
+import VaultAssets from "./pages/VaultAssets";
+import VaultCertificates from "./pages/VaultCertificates";
+import VaultDocuments from "./pages/VaultDocuments";
 import VaultPasswords from "./pages/VaultPasswords";
 
 const queryClient = new QueryClient();
@@ -66,6 +69,9 @@ const App = () => (
                   <Route path="tai-khoan" element={<FinanceAccounts />} />
                   <Route path="bao-cao" element={<FinanceReports />} />
                   <Route path="mat-khau" element={<VaultPasswords />} />
+                  <Route path="chung-chi" element={<VaultCertificates />} />
+                  <Route path="tai-lieu" element={<VaultDocuments />} />
+                  <Route path="tai-san" element={<VaultAssets />} />
                 </Route>
 
                 <Route path="/cai-dat" element={<Settings />}>

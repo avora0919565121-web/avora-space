@@ -14,6 +14,7 @@ import { useNavigate } from "react-router-dom";
 import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
 import { NewContactDialog } from "@/components/contacts/NewContactDialog";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { ReturnChip } from "@/components/nav/ReturnChip";
 import {
   filterContacts,
   individualSubtitle,
@@ -81,6 +82,7 @@ const Contacts = () => {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="animate-rise-in mx-auto max-w-3xl px-6 py-10 md:px-10">
+        <ReturnChip className="-mt-6 mb-2" />
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Liên hệ</h1>

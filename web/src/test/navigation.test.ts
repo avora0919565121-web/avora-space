@@ -66,8 +66,10 @@ describe("the main navigation", () => {
 
 describe("the sectioned screens", () => {
   it("opens Két sắt on the ledger, with the vault half beside it", () => {
-    expect(VAULT_TABS.map((tab) => tab.label)).toEqual(["Tài chính", "Mật khẩu"]);
+    expect(VAULT_TABS.map((tab) => tab.label)).toEqual(["Tài chính", "Mật khẩu", "Chứng chỉ", "Tài liệu", "Tài sản"]);
     expect(VAULT_TABS[0].to).toBe("/ket-sat");
+    // Only told "sắp ra mắt" after tapping in — never on the tab itself.
+    expect(VAULT_TABS.every((tab) => !("badge" in tab) || tab.badge === undefined)).toBe(true);
   });
 
   it("opens Cài đặt on the profile, with the three sibling tabs beside it", () => {
@@ -93,6 +95,12 @@ describe("the sectioned screens", () => {
 
   it("hands the passwords route to its own tab, not to the ledger", () => {
     expect(activeSectionTab("/ket-sat/mat-khau", VAULT_TABS)).toBe("/ket-sat/mat-khau");
+  });
+
+  it("hands each unbuilt vault domain to its own tab", () => {
+    for (const path of ["/ket-sat/chung-chi", "/ket-sat/tai-lieu", "/ket-sat/tai-san"]) {
+      expect(activeSectionTab(path, VAULT_TABS)).toBe(path);
+    }
   });
 
   it("hands each Cài setting sub-route to its own tab", () => {

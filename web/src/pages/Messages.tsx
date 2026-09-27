@@ -217,7 +217,7 @@ const PLACEHOLDER_CONTENT: Readonly<
     icon: Mail,
     title: "Email",
     description:
-      "Hộp thư làm việc ngay trong AVORA — đang được xây, chưa mở ở đây.",
+      "Đọc email của bạn ngay trong AVORA, biến một email thành việc, mục trong Két sắt, hoặc tham chiếu vào cuộc trò chuyện — trả lời vẫn mở đúng email thật của bạn. Đang được xây, chưa mở ở đây.",
   },
 };
 
@@ -1579,7 +1579,7 @@ const Messages = () => {
             <div className="flex items-center gap-2">
               {/* Liên hệ left the main rail: the people you talk to belong beside the talking. */}
               <Link
-                to="/lien-he"
+                to={withReturn("/lien-he", hereFrom(location, "Kết nối"))}
                 aria-label="Liên hệ"
                 title="Liên hệ"
                 className="press rounded-md border border-border p-2.5 text-foreground transition-colors hover:bg-accent/50"

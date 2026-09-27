@@ -21,6 +21,7 @@ import {
   type RecordPatch,
   type RecordPriority,
 } from "@/lib/think-hub";
+import { deadlineLabel, taskStatusLabel, todayIso, type TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
 type RecordDialogProps = {
@@ -48,6 +49,9 @@ type RecordDialogProps = {
   onOpenTable?: (tableId: string) => void;
   /** "Tạo tác vụ" for an existing Hạng mục; absent when the table is read-only. */
   onQuickTask?: () => void;
+  /** The tasks hanging under this Hạng mục, read-only; each row carries `data-record-task-id` so a link can light it. */
+  tasks?: readonly TaskItem[];
+  onOpenTask?: (taskId: string) => void;
 };
 
 /**
@@ -220,6 +224,8 @@ export function RecordDialog({
   onCreateSubTable,
   onOpenTable,
   onQuickTask,
+  tasks,
+  onOpenTask,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
@@ -522,6 +528,34 @@ export function RecordDialog({
             </Button>
           </div>
         </form>
+
+        {record !== null && tasks !== undefined && tasks.length > 0 ? (
+          <div className="mt-5 border-t border-border pt-4">
+            <p className="text-[12.5px] font-medium text-muted-foreground">Việc trong Hạng mục này</p>
+            <ul className="mt-2 space-y-1">
+              {tasks.map((task) => (
+                <li key={task.id} data-record-task-id={task.id}>
+                  <button
+                    type="button"
+                    disabled={onOpenTask === undefined}
+                    onClick={() => onOpenTask?.(task.id)}
+                    className="press flex min-h-10 w-full items-center gap-2.5 rounded-md border border-transparent px-2 text-left transition-colors hover:bg-accent/30 disabled:cursor-default"
+                  >
+                    <span
+                      aria-hidden="true"
+                      className={cn("h-1.5 w-1.5 shrink-0 rounded-full", task.status === "done" ? "bg-primary" : "bg-muted-foreground/40")}
+                    />
+                    <span className="min-w-0 flex-1 truncate text-[13.5px] text-foreground">{task.title}</span>
+                    <span className="shrink-0 text-[12px] text-muted-foreground">
+                      {task.deadline !== null ? `${deadlineLabel(task.deadline, todayIso()) ?? task.deadline} · ` : ""}
+                      {taskStatusLabel(task.status)}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
 
         {record !== null && onQuickTask !== undefined ? (
           <div className="mt-5 border-t border-border pt-4">

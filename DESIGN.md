@@ -1695,6 +1695,15 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   off by default, switched on per calendar; on native the data stays on the device and is never sent to AVORA.
   Tapping shows details only — no edit, no "Xem trong ngữ cảnh", never turned into a task. When an Avora Sự kiện
   overlaps one, a quiet line `Trùng với "{tên sự kiện}" ({tên lịch})` — saving is never blocked.
+- 2026-09-27 — Két sắt has all five domains of RFC-AVORA-TRUST-001 §16 as sub-tabs: Tài chính · Mật khẩu ·
+  Chứng chỉ · Tài liệu · Tài sản (AVORA-43). Only Tài chính is built; the other four open a `ComingSoon` page and no
+  tab carries a badge — "Sắp ra mắt" is learned by tapping in. Tài sản is its own domain, not part of Tài chính:
+  it keeps proof of ownership (papers, identifiers, purchase date); value, depreciation and net worth stay in Tài
+  chính, and the two will reference each other by `vault_asset_id`, never copy. No vault page mentions encryption
+  until Trust Phase 2+ encrypts anything (ADR-020).
+- 2026-09-27 — How a "Sắp ra mắt" page is worded. Where the direction of a feature is settled, the description says
+  what the person will get (the outcome), never field or schema names. Where it is still open (Avora AI), it keeps
+  the short one-line description. Settled so far: Mật khẩu, Chứng chỉ, Tài liệu, Tài sản, Email.
 
 ## Out of scope
 

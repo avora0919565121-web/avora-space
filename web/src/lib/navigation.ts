@@ -116,10 +116,13 @@ export function hidesToolBelt(pathname: string): boolean {
   return /^\/tin-nhan\/[^/]+/.test(pathname);
 }
 
-/** Két sắt: the live ledger, and the vault half that is not built yet. */
+/** Két sắt: the five vault domains (RFC-AVORA-TRUST-001 §16). Only Finance is built; no tab carries a badge. */
 export const VAULT_TABS: readonly NavEntry[] = [
   { to: "/ket-sat", label: "Tài chính" },
   { to: "/ket-sat/mat-khau", label: "Mật khẩu" },
+  { to: "/ket-sat/chung-chi", label: "Chứng chỉ" },
+  { to: "/ket-sat/tai-lieu", label: "Tài liệu" },
+  { to: "/ket-sat/tai-san", label: "Tài sản" },
 ];
 
 /** Cài đặt: the profile, the app's own settings, its notifications, and the unbuilt assistant. */
