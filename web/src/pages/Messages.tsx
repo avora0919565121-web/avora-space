@@ -77,6 +77,8 @@ import { ConversationMoreSections } from "@/components/chat/ConversationMoreSect
 import { BlockConfirmDialog } from "@/components/chat/BlockConfirmDialog";
 import { ReportDialog, type ReportTarget } from "@/components/chat/ReportDialog";
 import { BLOCKED_SEND_NOTICE } from "@/lib/blocks";
+import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
+import { VerificationPanel } from "@/components/chat/VerificationPanel";
 import { REPORT_SENT_TOAST, submitReport, type ReportReason } from "@/lib/reports";
 import { useBlocks } from "@/lib/use-blocks";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
@@ -392,6 +394,10 @@ const Messages = () => {
   const { isBlocked: isUserBlocked, block: blockPeer, unblock: unblockPeer, isWorking: isBlockWorking } = useBlocks();
   /** True when the viewer blocked the peer of this 1-1. Never reveals the reverse. */
   const hasBlockedPeer: boolean = directPeerId !== null && isUserBlocked(directPeerId);
+  /** AVORA-38: an open "Chờ kết bạn" frame, or a 1-1 whose pair is no longer bạn. */
+  const activeVerification = activeKind === "direct" ? (activeSummary?.verification ?? null) : null;
+  const isNoLongerConnected: boolean =
+    activeKind === "direct" && activeVerification === null && activeSummary?.isConnected === false;
 
   const reportMutation = useMutation({
     mutationFn: (input: { target: ReportTarget; reason: ReportReason; note: string; alsoBlock: boolean }) =>
@@ -2738,6 +2744,11 @@ const Messages = () => {
                   <p className="mx-auto max-w-2xl rounded-md border border-border bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
                     Dự án đã đóng nên cuộc trò chuyện chỉ còn để đọc. Người mở dự án có thể mở lại bất cứ lúc nào.
                   </p>
+                ) : isNoLongerConnected && !hasBlockedPeer ? (
+                  /* AVORA-38: history stays readable; sending needs the pair to be bạn again. */
+                  <p className="mx-auto max-w-2xl rounded-md border border-border bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
+                    {NOT_CONNECTED_NOTICE} Kết bạn lại qua PIN để nhắn tiếp.
+                  </p>
                 ) : hasBlockedPeer ? (
                   /*
                     The blocker's side (AVORA-37 / A): history stays readable above, and the box
@@ -2756,6 +2767,9 @@ const Messages = () => {
                   </div>
                 ) : (
                 <>
+                {activeVerification !== null && conversationId && userId ? (
+                  <VerificationPanel conversationId={conversationId} verification={activeVerification} viewerId={userId} />
+                ) : null}
                 <MessageComposer
                   value={draft}
                   onValueChange={(next) => {

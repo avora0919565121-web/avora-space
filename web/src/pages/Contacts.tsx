@@ -7,10 +7,12 @@ import {
   Search,
   Upload,
   UserRound,
+  Users,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
+import { FriendsPanel } from "@/components/contacts/FriendsPanel";
 import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
 import { NewContactDialog } from "@/components/contacts/NewContactDialog";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -25,11 +27,12 @@ import {
 import { reviewTotal } from "@/lib/contact-channels";
 import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
 import { useContactsNeedingReview, useSharedChannels } from "@/lib/use-contact-channels";
+import { useConnections } from "@/lib/use-connections";
 import { useContacts } from "@/lib/use-contacts";
 import { useOpenOpportunityContacts } from "@/lib/use-opportunities";
 import { cn } from "@/lib/utils";
 
-type Group = "individual" | "business";
+type Group = "individual" | "business" | "friends";
 
 /**
  * The address book: everyone and every company this person has written down.
@@ -55,6 +58,7 @@ const Contacts = () => {
   const shared = useSharedChannels();
   // Only the ones still in play: a deal won or lost is not something the book needs to flag.
   const openOpportunities = useOpenOpportunityContacts();
+  const { connections } = useConnections();
 
   // One number, because the banner is one sentence. Someone with two unconfirmed numbers and one
   // number shared across contacts has three things to look at, not two counts to add up.
@@ -159,6 +163,15 @@ const Contacts = () => {
                 onClick={() => setGroup("business")}
               />
             </li>
+            <li>
+              <GroupTab
+                isActive={group === "friends"}
+                count={connections.length}
+                icon={Users}
+                label="Bạn bè"
+                onClick={() => setGroup("friends")}
+              />
+            </li>
           </ul>
         </nav>
 
@@ -173,12 +186,21 @@ const Contacts = () => {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={
-              group === "individual" ? "Tìm theo tên, điện thoại hoặc email" : "Tìm theo tên hoặc mã số thuế"
+              group === "individual"
+                ? "Tìm theo tên, điện thoại hoặc email"
+                : group === "friends"
+                  ? "Tìm bạn bè theo tên hoặc PIN"
+                  : "Tìm theo tên hoặc mã số thuế"
             }
             className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
           />
         </label>
 
+        {group === "friends" ? (
+          <div className="mt-5">
+            <FriendsPanel query={query} />
+          </div>
+        ) : (
         <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
           {contactsQuery.isPending ? (
             <ul aria-hidden="true">
@@ -253,6 +275,7 @@ const Contacts = () => {
             </ul>
           )}
         </div>
+        )}
       </div>
 
       <NewContactDialog

@@ -33,6 +33,8 @@ export const DATA_CLASSIFICATION = {
   dismissed_guidance: { level: "internal", domain: "system" },
   // Who blocked whom is visible only to the blocker; the blocked person must never learn it.
   user_blocks: { level: "personal", domain: "identity" },
+  // Who is bạn with whom (ADR-029). `removed_by` is never readable by the client.
+  user_connections: { level: "personal", domain: "identity", columns: { removed_by: "sensitive" } },
   // Reports carry a copy of the reported message, read only by AVORA (service role).
   user_reports: {
     level: "sensitive",
@@ -44,6 +46,8 @@ export const DATA_CLASSIFICATION = {
   conversations: { level: "internal", domain: "connect" },
   conversation_participants: { level: "internal", domain: "connect", columns: { last_read_at: "personal" } },
   conversation_groups: { level: "personal", domain: "connect" },
+  // Each side's "Đồng ý" inside a verification frame.
+  conversation_verification_confirms: { level: "internal", domain: "connect" },
   messages: { level: "sensitive", domain: "connect", columns: { content: "sensitive" } },
   message_attachments: {
     level: "sensitive",

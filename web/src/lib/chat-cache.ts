@@ -23,6 +23,23 @@ export type ConversationSummary = {
   /** Messages from the peer newer than the viewer's read watermark. */
   unreadCount: number;
   sortAt: string;
+  /** 1-1 only: whether the two are bạn right now (ADR-029). Undefined for groups/journal. */
+  isConnected?: boolean | null;
+  /** Set while a verification frame is open (AVORA-38 / Nhóm C). */
+  verification?: ConversationVerification | null;
+  /** The peer's PIN — only between bạn, or inside a frame opened from a PIN. */
+  peerPin?: string | null;
+};
+
+/** An open "Chờ kết bạn" frame: text only, 5 messages per side, 7 days. */
+export type ConversationVerification = {
+  expiresAt: string;
+  /** The Nóm that bridged the pair, or null when opened from a PIN. */
+  viaGroupId: string | null;
+  viaGroupName: string | null;
+  openedBy: string | null;
+  messagesLeft: number;
+  confirmedByMe: boolean;
 };
 
 /** The directions Tin nhắn is split into. "email" is named in the strip but not built yet. */
@@ -100,6 +117,8 @@ export function tabForOpenedThread(
 export function conversationTitle(summary: ConversationSummary): string {
   if (summary.kind === "personal") return JOURNAL_TITLE;
   if (summary.kind === "group") return summary.groupName ?? "Nhóm";
+  // A frame opened from a PIN shows only the PIN until both agree (ADR-029).
+  if (summary.verification && summary.verification.viaGroupId === null) return summary.peerPin ?? "Người dùng AVORA";
   return summary.peerName;
 }
 
@@ -107,6 +126,9 @@ export function conversationTitle(summary: ConversationSummary): string {
 export function conversationSubtitle(summary: ConversationSummary): string {
   if (summary.kind === "personal") return JOURNAL_SUBTITLE;
   if (summary.kind === "group") return `${summary.memberCount} thành viên`;
+  if (summary.verification) {
+    return summary.verification.viaGroupName !== null ? `Từ nhóm ${summary.verification.viaGroupName}` : "Chờ kết bạn";
+  }
   return summary.peerEmail ?? "Người dùng AVORA";
 }
 

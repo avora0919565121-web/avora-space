@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
+import { toVietnameseConnectionError } from "@/lib/connections";
 import { supabase } from "@/integrations/supabase/client";
 
 /** Where someone stands in a group. One owner and at most one admin per group. */
@@ -71,9 +72,16 @@ export const INVITE_UNAVAILABLE_MESSAGE =
 /** The database rejects anything longer; the field stops typing at the same number. */
 export const GROUP_NAME_MAX_LENGTH = 120;
 
-/** A group needs a name and at least one other person before it is worth creating. */
+/** Smallest and largest Nóm, counting the creator (AVORA-38 / VMT item 7). */
+export const GROUP_MIN_PEOPLE = 3;
+export const GROUP_MAX_PEOPLE = 300;
+
+/**
+ * A group needs a name and at least two other people (three counting the creator) — talking
+ * with one person is what a 1-1 is for. At most 300 people in all.
+ */
 export function canCreateGroup(name: string, memberCount: number): boolean {
-  return name.trim().length > 0 && memberCount > 0;
+  return name.trim().length > 0 && memberCount + 1 >= GROUP_MIN_PEOPLE && memberCount + 1 <= GROUP_MAX_PEOPLE;
 }
 
 /** Renaming the room is the owner's alone — the same seat that decides who is in it. */
@@ -183,6 +191,16 @@ export function canLeaveGroup(viewerRole: GroupRole): boolean {
 export function toVietnameseGroupError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
   if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
+  // AVORA-38: "Chat riêng" with a non-bạn opens a verification frame, which has its own refusals.
+  if (
+    normalized.includes("avora_group_connection_") ||
+    normalized.includes("avora_pin_") ||
+    normalized.includes("avora_verification_")
+  )
+    return toVietnameseConnectionError(normalized);
+  if (normalized.includes("avora_group_min_three"))
+    return "Nhóm cần ít nhất 3 người, tính cả bạn. Nói chuyện với 1 người thì dùng chat 1-1.";
+  if (normalized.includes("avora_group_full")) return "Nhóm đã đủ 300 người.";
 
   if (code === "23505" || normalized.includes("one_pending_request_per_target"))
     return "Đã có một đề nghị đang chờ duyệt cho người này.";

@@ -3,6 +3,10 @@ import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatMessage, ConversationKind, ConversationSummary } from "@/lib/chat-cache";
 import { peerLabel } from "@/lib/initials";
+import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
+
+/** Shown when one side has used its 5 messages in a verification frame. */
+export const VERIFICATION_QUOTA_NOTICE = "Bạn đã dùng hết 5 tin. Chờ người kia trả lời nhé.";
 
 export {
   applyMessageEditToInbox,
@@ -64,6 +68,7 @@ export type {
   FailedSend,
   ConversationKind,
   ConversationSummary,
+  ConversationVerification,
   MessageDayGroup,
   MessageTab,
   ReadingContext,
@@ -87,6 +92,12 @@ export type ConversationPeer = {
 export function toVietnameseChatError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
   if (isContactUnavailable(normalized)) return BLOCKED_SEND_NOTICE;
+  if (normalized.includes("avora_not_connected")) return NOT_CONNECTED_NOTICE;
+  if (normalized.includes("avora_verification_text_only")) return "Chỉ gửi được chữ khi chưa kết bạn.";
+  if (normalized.includes("avora_verification_quota")) return VERIFICATION_QUOTA_NOTICE;
+  if (normalized.includes("avora_group_min_three"))
+    return "Nhóm cần ít nhất 3 người, tính cả bạn. Nói chuyện với 1 người thì dùng chat 1-1.";
+  if (normalized.includes("avora_group_full")) return "Nhóm đã đủ 300 người.";
   if (code === "42501" || normalized.includes("permission denied"))
     return "Máy chủ chưa cho phép thao tác này. Vui lòng báo lại cho chúng tôi.";
   if (normalized.includes("row-level security")) return "Bạn không có quyền trong cuộc trò chuyện này.";
@@ -135,6 +146,19 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
     // The generator types RPC table columns as non-null; these two really can be null.
     unreadCount: (row.unread_count as number | null) ?? 0,
     sortAt: row.sort_at,
+    isConnected: (row.is_connected as boolean | null) ?? null,
+    peerPin: (row.peer_pin as string | null) ?? null,
+    verification:
+      (row.verification_status as string | null) === "pending"
+        ? {
+            expiresAt: row.verification_expires_at as string,
+            viaGroupId: (row.verification_via_group_id as string | null) ?? null,
+            viaGroupName: (row.verification_group_name as string | null) ?? null,
+            openedBy: (row.verification_opened_by as string | null) ?? null,
+            messagesLeft: (row.verification_messages_left as number | null) ?? 0,
+            confirmedByMe: (row.verification_confirmed_by_me as boolean | null) ?? false,
+          }
+        : null,
   }));
 }
 

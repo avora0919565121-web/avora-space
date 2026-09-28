@@ -453,6 +453,32 @@ export type Database = {
           },
         ]
       }
+      conversation_verification_confirms: {
+        Row: {
+          confirmed_at: string
+          conversation_id: string
+          user_id: string
+        }
+        Insert: {
+          confirmed_at?: string
+          conversation_id: string
+          user_id: string
+        }
+        Update: {
+          confirmed_at?: string
+          conversation_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_verification_confirms_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversations: {
         Row: {
           created_at: string
@@ -463,6 +489,12 @@ export type Database = {
           parent_group_id: string | null
           related_group_id: string | null
           type: string
+          verification_expires_at: string | null
+          verification_opened_by: string | null
+          verification_resolved_at: string | null
+          verification_started_at: string | null
+          verification_status: string | null
+          verification_via_group_id: string | null
         }
         Insert: {
           created_at?: string
@@ -473,6 +505,12 @@ export type Database = {
           parent_group_id?: string | null
           related_group_id?: string | null
           type?: string
+          verification_expires_at?: string | null
+          verification_opened_by?: string | null
+          verification_resolved_at?: string | null
+          verification_started_at?: string | null
+          verification_status?: string | null
+          verification_via_group_id?: string | null
         }
         Update: {
           created_at?: string
@@ -483,6 +521,12 @@ export type Database = {
           parent_group_id?: string | null
           related_group_id?: string | null
           type?: string
+          verification_expires_at?: string | null
+          verification_opened_by?: string | null
+          verification_resolved_at?: string | null
+          verification_started_at?: string | null
+          verification_status?: string | null
+          verification_via_group_id?: string | null
         }
         Relationships: [
           {
@@ -495,6 +539,13 @@ export type Database = {
           {
             foreignKeyName: "conversations_related_group_id_fkey"
             columns: ["related_group_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversations_verification_via_group_id_fkey"
+            columns: ["verification_via_group_id"]
             isOneToOne: false
             referencedRelation: "conversations"
             referencedColumns: ["id"]
@@ -1326,6 +1377,7 @@ export type Database = {
       }
       profiles: {
         Row: {
+          allow_group_connection: boolean
           avatar_url: string | null
           base_currency: string
           created_at: string
@@ -1338,6 +1390,7 @@ export type Database = {
           timezone: string
         }
         Insert: {
+          allow_group_connection?: boolean
           avatar_url?: string | null
           base_currency?: string
           created_at?: string
@@ -1350,6 +1403,7 @@ export type Database = {
           timezone?: string
         }
         Update: {
+          allow_group_connection?: boolean
           avatar_url?: string | null
           base_currency?: string
           created_at?: string
@@ -2566,6 +2620,36 @@ export type Database = {
         }
         Relationships: []
       }
+      user_connections: {
+        Row: {
+          created_at: string
+          removed_at: string | null
+          removed_by: string | null
+          source: string
+          status: string
+          user_high: string
+          user_low: string
+        }
+        Insert: {
+          created_at?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          source: string
+          status?: string
+          user_high: string
+          user_low: string
+        }
+        Update: {
+          created_at?: string
+          removed_at?: string | null
+          removed_by?: string | null
+          source?: string
+          status?: string
+          user_high?: string
+          user_low?: string
+        }
+        Relationships: []
+      }
       user_pins: {
         Row: {
           created_at: string
@@ -2624,7 +2708,22 @@ export type Database = {
           reporter_id?: string
           status?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_reports_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reports_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -3071,6 +3170,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      confirm_verification: {
+        Args: { p_conversation_id: string }
+        Returns: string
       }
       contact_invite_timed_out: {
         Args: { p_invited_at: string; p_status: string }
@@ -3696,6 +3799,10 @@ export type Database = {
         Args: { p_from: string; p_on?: string; p_to: string }
         Returns: number
       }
+      decline_verification: {
+        Args: { p_conversation_id: string }
+        Returns: undefined
+      }
       default_finance_categories: {
         Args: never
         Returns: {
@@ -4265,12 +4372,22 @@ export type Database = {
           user_id: string
         }[]
       }
+      list_my_connections: {
+        Args: never
+        Returns: {
+          created_at: string
+          display_name: string
+          pin: string
+          user_id: string
+        }[]
+      }
       list_my_conversations: {
         Args: never
         Returns: {
           conversation_id: string
           conversation_type: string
           group_name: string
+          is_connected: boolean
           last_message_at: string
           last_message_content: string
           last_message_sender_id: string
@@ -4278,8 +4395,16 @@ export type Database = {
           peer_display_name: string
           peer_email: string
           peer_id: string
+          peer_pin: string
           sort_at: string
           unread_count: number
+          verification_confirmed_by_me: boolean
+          verification_expires_at: string
+          verification_group_name: string
+          verification_messages_left: number
+          verification_opened_by: string
+          verification_status: string
+          verification_via_group_id: string
         }[]
       }
       mark_1_1_task_done: {
@@ -4581,6 +4706,7 @@ export type Database = {
         Args: { p_user: string }
         Returns: number
       }
+      remove_connection: { Args: { p_user_id: string }; Returns: undefined }
       remove_group_participant: {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: undefined
@@ -5381,6 +5507,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      start_group_connection: {
+        Args: { p_group_id: string; p_user_id: string }
+        Returns: string
+      }
       start_meeting_note: {
         Args: { p_decision_id: string }
         Returns: {
@@ -5408,6 +5538,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      start_pin_connection: { Args: { p_pin: string }; Returns: string }
       suggested_meeting_attendees: {
         Args: { p_conversation_id: string }
         Returns: string[]

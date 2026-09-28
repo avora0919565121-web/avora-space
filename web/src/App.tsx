@@ -13,6 +13,7 @@ import { ChatRealtimeProvider } from "@/lib/realtime";
 import AcceptContactInvite from "./pages/AcceptContactInvite";
 import Auth from "./pages/Auth";
 import ThinkHub from "./pages/ThinkHub";
+import ConnectByPin from "./pages/ConnectByPin";
 import ContactChannelReview from "./pages/ContactChannelReview";
 import ContactDetail from "./pages/ContactDetail";
 import Contacts from "./pages/Contacts";
@@ -59,6 +60,7 @@ const App = () => (
                 <Route path="/tin-nhan" element={<Messages />} />
                 <Route path="/tin-nhan/:conversationId" element={<Messages />} />
                 <Route path="/loi-moi/:token" element={<JoinGroup />} />
+                <Route path="/ket-noi/:pin" element={<ConnectByPin />} />
                 <Route path="/nhiem-vu" element={<Tasks />} />
                 <Route path="/du-an/:projectId" element={<ProjectDetail />} />
                 <Route path="/ke-hoach" element={<ThinkHub />} />
