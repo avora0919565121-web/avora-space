@@ -17,6 +17,19 @@ export type RecallRequest = {
   createdAt: string;
 };
 
+/** An ask stays open this long; after that the server's hourly sweep closes it (Đợt gộp 2 · D4). */
+export const RECALL_REQUEST_TTL_DAYS = 30;
+
+/**
+ * Whether an ask is still waiting. The server closes expired ones within the hour; this keeps the
+ * screen honest in that gap, so an ask never shows past its 30 days.
+ */
+export function isRecallRequestLive(createdAt: string, now: Date = new Date()): boolean {
+  const created = Date.parse(createdAt);
+  if (Number.isNaN(created)) return false;
+  return now.getTime() - created < RECALL_REQUEST_TTL_DAYS * 24 * 60 * 60 * 1000;
+}
+
 export const recallRequestKeys = {
   all: ["message-recall-requests"] as const,
   thread: (conversationId: string) => ["message-recall-requests", conversationId] as const,
@@ -75,7 +88,10 @@ export async function fetchRecallRequests(conversationId: string): Promise<Recal
     .order("created_at", { ascending: true });
 
   if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toRecallRequest(row as RecallRequestRow));
+  const now = new Date();
+  return (data ?? [])
+    .map((row) => toRecallRequest(row as RecallRequestRow))
+    .filter((request) => isRecallRequestLive(request.createdAt, now));
 }
 
 /** Asks the sender to withdraw one message. Never available on your own message. */

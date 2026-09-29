@@ -61,7 +61,8 @@ export const DATA_CLASSIFICATION = {
   },
   message_reactions: { level: "personal", domain: "connect" },
   message_pins: { level: "personal", domain: "connect" },
-  message_recall_request: { level: "personal", domain: "connect" },
+  // Đợt gộp 2 · D4: an ask closes itself after 30 days or when the two people block each other.
+  message_recall_request: { level: "personal", domain: "connect", columns: { close_reason: "internal" } },
   mute_settings: { level: "internal", domain: "connect" },
   // Vá 29/09: links expire after 7 days; the expiry itself is harmless metadata.
   group_invite_links: { level: "secret", domain: "connect", columns: { token: "secret", expires_at: "internal" } },

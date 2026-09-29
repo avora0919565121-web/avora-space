@@ -1269,6 +1269,7 @@ export type Database = {
       }
       message_recall_request: {
         Row: {
+          close_reason: string | null
           created_at: string
           id: string
           message_id: string
@@ -1276,6 +1277,7 @@ export type Database = {
           resolved_at: string | null
         }
         Insert: {
+          close_reason?: string | null
           created_at?: string
           id?: string
           message_id: string
@@ -1283,6 +1285,7 @@ export type Database = {
           resolved_at?: string | null
         }
         Update: {
+          close_reason?: string | null
           created_at?: string
           id?: string
           message_id?: string

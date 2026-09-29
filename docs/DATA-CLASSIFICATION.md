@@ -33,7 +33,7 @@ khi hai bên lệch nhau, file code là đúng.
 - `conversation_groups` — personal
 - `messages` — sensitive; `content` = sensitive
 - `message_attachments` — sensitive; `file_name` = sensitive, `storage_path` = internal
-- `message_reactions`, `message_pins`, `message_recall_request` — personal
+- `message_reactions`, `message_pins`, `message_recall_request` — personal; `message_recall_request.close_reason` = internal (hết hạn 30 ngày / tự khép khi chặn)
 - `mute_settings` — internal
 - `group_invite_links` — secret; `token` = secret; `expires_at` = internal (hết hạn 7 ngày)
 - `group_removal_requests` — personal

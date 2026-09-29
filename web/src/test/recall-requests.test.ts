@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import {
+  RECALL_REQUEST_TTL_DAYS,
   hasAsked,
+  isRecallRequestLive,
   recallRequestNote,
   requestsFor,
   type RecallRequest,
@@ -47,6 +49,24 @@ describe("hasAsked", () => {
 
   it("is false when nobody is signed in, rather than throwing", () => {
     expect(hasAsked(all, "m-1", undefined)).toBe(false);
+  });
+});
+
+describe("isRecallRequestLive (Đợt gộp 2 · D4: an ask never waits forever)", () => {
+  const now = new Date("2026-10-30T12:00:00Z");
+
+  it("stays open for 30 days", () => {
+    expect(RECALL_REQUEST_TTL_DAYS).toBe(30);
+    expect(isRecallRequestLive("2026-10-01T12:00:01Z", now)).toBe(true);
+  });
+
+  it("is closed from day 30 on, even before the hourly sweep has run", () => {
+    expect(isRecallRequestLive("2026-09-30T12:00:00Z", now)).toBe(false);
+    expect(isRecallRequestLive("2026-09-01T00:00:00Z", now)).toBe(false);
+  });
+
+  it("treats an unreadable date as closed rather than open forever", () => {
+    expect(isRecallRequestLive("not a date", now)).toBe(false);
   });
 });
 
