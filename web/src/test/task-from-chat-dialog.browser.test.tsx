@@ -53,7 +53,6 @@ function member(userId: string, displayName: string): GroupMember {
   return {
     userId,
     displayName,
-    email: `${userId}@avora.vn`,
     role: "member",
     joinedAt: "2026-01-01T00:00:00Z",
   };

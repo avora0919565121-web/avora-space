@@ -347,7 +347,7 @@ function PeoplePicker({
                   : "border-border bg-card text-muted-foreground hover:bg-accent/40",
               )}
             >
-              {peerLabel(member.displayName, member.email)}
+              {peerLabel(member.displayName)}
             </button>
           );
         })}
@@ -428,7 +428,7 @@ function ActionItemRow({
           <option value="">Người đảm trách…</option>
           {members.map((member) => (
             <option key={member.userId} value={member.userId}>
-              {peerLabel(member.displayName, member.email)}
+              {peerLabel(member.displayName)}
             </option>
           ))}
         </select>

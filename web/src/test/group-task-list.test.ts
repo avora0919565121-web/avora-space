@@ -14,7 +14,6 @@ import type { TaskItem } from "@/lib/tasks";
 function member(overrides: Partial<GroupMember> & { userId: string }): GroupMember {
   return {
     displayName: null,
-    email: null,
     role: "member",
     joinedAt: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -62,8 +61,8 @@ function task(overrides: Partial<TaskItem> & { id: string; assigneeId: string | 
   };
 }
 
-const HOA = member({ userId: "u-hoa", displayName: "Nguyễn Thị Hoà", email: "hoa@avora.vn" });
-const DUNG = member({ userId: "u-dung", displayName: "Trần Dũng", email: "dung@avora.vn" });
+const HOA = member({ userId: "u-hoa", displayName: "Nguyễn Thị Hoà" });
+const DUNG = member({ userId: "u-dung", displayName: "Trần Dũng" });
 const MEMBERS: GroupMember[] = [HOA, DUNG];
 
 describe("groupTasksByAssignee", () => {

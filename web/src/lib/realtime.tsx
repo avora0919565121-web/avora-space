@@ -359,7 +359,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       // toast says simply "thành viên", which still answers the question it exists for.
       const cachedMembers = queryClient.getQueryData<GroupMember[]>(groupKeys.members(row.conversation_id));
       const target = cachedMembers?.find((member) => member.userId === row.target_user_id);
-      const targetName = target ? peerLabel(target.displayName, target.email) : "thành viên";
+      const targetName = target ? peerLabel(target.displayName) : "thành viên";
 
       if (row.status === "approved") {
         toast.success(`Chủ nhóm đã duyệt — ${targetName} đã bị xoá khỏi nhóm.`);

@@ -78,6 +78,7 @@ import {
   renameGroupConversation,
   requestRemoveParticipant,
   resolveInviteSectionState,
+  inviteExpiryLabel,
   resolveRemovalRequest,
   revokeGroupInvite,
   rotateGroupInvite,
@@ -111,7 +112,6 @@ type GroupInfoSheetProps = {
   onOpenChange: (open: boolean) => void;
   /** Fallback identity for a direct conversation, which has no member list to show. */
   peerName?: string;
-  peerEmail?: string | null;
   /** The other person in a 1-1 — who the Gia đình mark is about. Absent in a group. */
   peerId?: string | null;
   /**
@@ -143,7 +143,6 @@ export function GroupInfoSheet({
   open,
   onOpenChange,
   peerName,
-  peerEmail,
   peerId,
   onOpenConversation,
   onLeft,
@@ -370,7 +369,7 @@ export function GroupInfoSheet({
     renameMutation.mutate(nameDraft);
   };
 
-  const memberName = (member: GroupMember): string => peerLabel(member.displayName, member.email);
+  const memberName = (member: GroupMember): string => peerLabel(member.displayName);
 
   /** Copies the invite link; the fallback for browsers without the share sheet. */
   const copyInviteLink = async (): Promise<void> => {
@@ -521,7 +520,6 @@ export function GroupInfoSheet({
         members.find((member) => member.userId === request.targetUserId) ?? {
           userId: request.targetUserId,
           displayName: null,
-          email: null,
           role: "member",
           joinedAt: "",
         },
@@ -697,6 +695,9 @@ export function GroupInfoSheet({
                       >
                         {inviteLink}
                       </p>
+                      {activeInvite !== null ? (
+                        <p className="mt-1.5 text-[12px] text-muted-foreground">{inviteExpiryLabel(activeInvite.expiresAt)}</p>
+                      ) : null}
                       <div className="mt-2.5 flex flex-wrap items-center gap-2">
                         <button
                           type="button"
@@ -782,7 +783,7 @@ export function GroupInfoSheet({
                         type="search"
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Tìm theo tên hoặc email"
+                        placeholder="Tìm theo tên"
                         aria-label="Tìm thành viên"
                         className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-9 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60 [&::-webkit-search-cancel-button]:hidden"
                       />
@@ -842,9 +843,6 @@ export function GroupInfoSheet({
                                   {roleLabel(member.role)}
                                 </span>
                               </p>
-                              {member.email ? (
-                                <p className="truncate text-[12.5px] text-muted-foreground">{member.email}</p>
-                              ) : null}
                             </div>
                             <div className="flex shrink-0 items-center gap-1.5">
                               {actions.includes("requestRemove") ? (
@@ -1002,7 +1000,7 @@ export function GroupInfoSheet({
                 <div className="min-w-0">
                   <p className="truncate text-[15px] font-medium text-foreground">{peerName}</p>
                   <p className="truncate text-[13px] text-muted-foreground">
-                    {peerEmail ?? "Người dùng AVORA"}
+                    Người dùng AVORA
                   </p>
                 </div>
               </div>

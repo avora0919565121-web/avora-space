@@ -63,7 +63,7 @@ function task(overrides: Partial<TaskItem> & { id: string }): TaskItem {
 }
 
 function member(userId: string, name: string, role: GroupMember["role"] = "member"): GroupMember {
-  return { userId, displayName: name, email: `${userId}@avora.vn`, role, joinedAt: "2026-01-01T00:00:00Z" };
+  return { userId, displayName: name, role, joinedAt: "2026-01-01T00:00:00Z" };
 }
 
 /** The panel inside a group chat, expressed as the filter the component applies. */

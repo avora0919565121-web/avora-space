@@ -106,11 +106,12 @@ export function InAppAlerts() {
     const list: { key: string; at: string | null; title: string; href: string }[] = [];
     for (const reminder of reminders ?? []) {
       const task = byId.get(reminder.taskId);
-      if (task === undefined || task.status === "done") continue;
+      // D4: a reminder of work that is finished, skipped or closed never rings.
+      if (task === undefined || task.status === "done" || task.status === "skipped") continue;
       list.push({ key: `r:${reminder.id}`, at: reminder.at, title: task.title, href: taskLink(task.id) });
     }
     for (const task of tasks ?? []) {
-      if (task.status === "done") continue;
+      if (task.status === "done" || task.status === "skipped") continue;
       list.push({ key: `d:${task.id}:${task.departureReminderAt ?? ""}`, at: task.departureReminderAt, title: `Đến giờ đi · ${task.title}`, href: taskLink(task.id) });
     }
     for (const record of records ?? []) {

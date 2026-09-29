@@ -25,7 +25,6 @@ function member(userId: string, displayName: string): GroupMember {
   return {
     userId,
     displayName,
-    email: `${userId}@example.com`,
     role: "member",
     joinedAt: "2026-09-01T00:00:00Z",
   } as GroupMember;

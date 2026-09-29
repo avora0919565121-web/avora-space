@@ -627,12 +627,6 @@ export async function closeProjectEarly(projectId: string, reason: string): Prom
   return toProject(data as unknown as ProjectRow);
 }
 
-export async function reopenProject(projectId: string): Promise<Project> {
-  const { data, error } = await supabase.rpc("reopen_project", { p_project_id: projectId });
-  if (error) throw fail(error.code, error.message);
-  return toProject(data as unknown as ProjectRow);
-}
-
 /** The private Check-Adjust record, or null when the viewer is not its owner or it does not exist. */
 export async function fetchCheckAdjust(projectId: string): Promise<CheckAdjust | null> {
   const { data, error } = await supabase
@@ -650,17 +644,7 @@ export async function saveCheckAdjustNote(projectId: string, note: string): Prom
   if (error) throw fail(error.code, error.message);
 }
 
-/** Moves a project to the bin (Inner tier). Root-group owner only; the title must be typed exactly. */
-export async function deleteProject(projectId: string, confirmTitle: string, reason: string): Promise<void> {
-  if (reason.trim().length === 0) throw new Error("Hãy ghi lý do xoá.");
-  const { error } = await supabase.rpc("delete_project", {
-    p_project_id: projectId,
-    p_confirm_title: confirmTitle.trim(),
-    p_reason: reason.trim(),
-  });
-  if (error) throw fail(error.code, error.message);
-}
-
+/** Direct delete / reopen are closed server-side (ADR-031): both go through propose_shared_action. */
 export async function restoreProject(projectId: string): Promise<void> {
   const { error } = await supabase.rpc("restore_project", { p_project_id: projectId });
   if (error) throw fail(error.code, error.message);

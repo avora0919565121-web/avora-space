@@ -174,7 +174,7 @@ function nameOf(
 ): string {
   if (personId === userId) return "Bạn";
   const member = members.find((entry) => entry.userId === personId);
-  return member ? peerLabel(member.displayName, member.email) : peerName;
+  return member ? peerLabel(member.displayName) : peerName;
 }
 
 function SuggestionRow({

@@ -193,7 +193,7 @@ export function missingLine(missing: readonly string[]): string | null {
 export function pickerMembers(members: readonly GroupMember[], selfId: string | undefined): GroupMember[] {
   const self = members.find((member) => member.userId === selfId);
   const rest = members.filter((member) => member.userId !== selfId);
-  return self === undefined ? rest : [{ ...self, displayName: "Tôi", email: null }, ...rest];
+  return self === undefined ? rest : [{ ...self, displayName: "Tôi" }, ...rest];
 }
 
 export function memberName(members: readonly GroupMember[], userId: string, fallback: string): string {

@@ -456,7 +456,7 @@ export function GroupDecisionSheet({
   const memberName = (id: string): string => {
     const found = members.find((member) => member.userId === id);
     if (!found) return "Người đã rời nhóm";
-    const label = peerLabel(found.displayName, found.email);
+    const label = peerLabel(found.displayName);
     return found.userId === userId ? `${label} (bạn)` : label;
   };
 
@@ -662,7 +662,7 @@ export function GroupDecisionSheet({
                           grantMutation.mutate({ granteeId: member.userId, kind: "meeting_note" })
                         }
                       >
-                        {peerLabel(member.displayName, member.email)} — biên bản
+                        {peerLabel(member.displayName)} — biên bản
                       </DropdownMenuItem>
                     ))}
                   {members
@@ -672,7 +672,7 @@ export function GroupDecisionSheet({
                         key={`${member.userId}-poll`}
                         onSelect={() => grantMutation.mutate({ granteeId: member.userId, kind: "poll" })}
                       >
-                        {peerLabel(member.displayName, member.email)} — bình chọn
+                        {peerLabel(member.displayName)} — bình chọn
                       </DropdownMenuItem>
                     ))}
                 </DropdownMenuContent>

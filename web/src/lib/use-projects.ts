@@ -11,12 +11,10 @@ import {
   addSuccessCriterion,
   closeProject,
   closeProjectEarly,
-  deleteProject,
   fetchCheckAdjust,
   fetchDeletedProjects,
   fetchIsProjectRootOwner,
   postProjectThanks,
-  reopenProject,
   restoreProject,
   saveCheckAdjustNote,
   type CheckAdjust,
@@ -161,9 +159,7 @@ export function useProjectActions(): {
   close: (projectId: string) => Promise<Project>;
   postThanks: (projectId: string, body: string) => Promise<Project>;
   closeEarly: (projectId: string, reason: string) => Promise<Project>;
-  reopen: (projectId: string) => Promise<Project>;
   saveNote: (projectId: string, note: string) => Promise<void>;
-  remove: (projectId: string, confirmTitle: string, reason: string) => Promise<void>;
   restore: (projectId: string) => Promise<void>;
   isWorking: boolean;
 } {
@@ -262,24 +258,9 @@ export function useProjectActions(): {
     onSuccess: (project: Project) => invalidate(project.id),
   });
 
-  const reopenMutation = useMutation({
-    mutationFn: (projectId: string) => reopenProject(projectId),
-    onSuccess: (project: Project) => invalidate(project.id),
-  });
-
   const noteMutation = useMutation({
     mutationFn: ({ projectId, note }: { projectId: string; note: string }) => saveCheckAdjustNote(projectId, note),
     onSuccess: (_result, variables) => invalidate(variables.projectId),
-  });
-
-  const removeMutation = useMutation({
-    mutationFn: ({ projectId, confirmTitle, reason }: { projectId: string; confirmTitle: string; reason: string }) =>
-      deleteProject(projectId, confirmTitle, reason),
-    onSuccess: (_result, variables) => {
-      invalidate(variables.projectId);
-      void queryClient.invalidateQueries({ queryKey: ["conversations"] });
-      void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
-    },
   });
 
   const restoreMutation = useMutation({
@@ -347,15 +328,9 @@ export function useProjectActions(): {
       (projectId: string, reason: string) => earlyMutation.mutateAsync({ projectId, reason }),
       [earlyMutation],
     ),
-    reopen: useCallback((projectId: string) => reopenMutation.mutateAsync(projectId), [reopenMutation]),
     saveNote: useCallback(
       (projectId: string, note: string) => noteMutation.mutateAsync({ projectId, note }),
       [noteMutation],
-    ),
-    remove: useCallback(
-      (projectId: string, confirmTitle: string, reason: string) =>
-        removeMutation.mutateAsync({ projectId, confirmTitle, reason }),
-      [removeMutation],
     ),
     restore: useCallback((projectId: string) => restoreMutation.mutateAsync(projectId), [restoreMutation]),
     isWorking:
@@ -369,9 +344,7 @@ export function useProjectActions(): {
       closeMutation.isPending ||
       thanksMutation.isPending ||
       earlyMutation.isPending ||
-      reopenMutation.isPending ||
       noteMutation.isPending ||
-      removeMutation.isPending ||
       restoreMutation.isPending,
   };
 }

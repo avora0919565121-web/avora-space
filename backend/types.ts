@@ -923,6 +923,7 @@ export type Database = {
           conversation_id: string
           created_at: string
           created_by: string
+          expires_at: string
           revoked_at: string | null
           token: string
         }
@@ -930,6 +931,7 @@ export type Database = {
           conversation_id: string
           created_at?: string
           created_by: string
+          expires_at?: string
           revoked_at?: string | null
           token?: string
         }
@@ -937,6 +939,7 @@ export type Database = {
           conversation_id?: string
           created_at?: string
           created_by?: string
+          expires_at?: string
           revoked_at?: string | null
           token?: string
         }
@@ -5169,7 +5172,6 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: {
           display_name: string
-          email: string
           joined_at: string
           role: string
           user_id: string

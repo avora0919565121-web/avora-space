@@ -63,7 +63,8 @@ export const DATA_CLASSIFICATION = {
   message_pins: { level: "personal", domain: "connect" },
   message_recall_request: { level: "personal", domain: "connect" },
   mute_settings: { level: "internal", domain: "connect" },
-  group_invite_links: { level: "secret", domain: "connect", columns: { token: "secret" } },
+  // Vá 29/09: links expire after 7 days; the expiry itself is harmless metadata.
+  group_invite_links: { level: "secret", domain: "connect", columns: { token: "secret", expires_at: "internal" } },
   group_removal_requests: { level: "personal", domain: "connect" },
   group_decisions: { level: "sensitive", domain: "connect", columns: { title: "sensitive", body: "sensitive" } },
   group_decision_options: { level: "sensitive", domain: "connect" },
@@ -81,6 +82,8 @@ export const DATA_CLASSIFICATION = {
       representative_email: "sensitive",
       representative_phone: "sensitive",
       note: "sensitive",
+      // Đợt gộp 2 · D5: a name-only contact made from a picker, listed under Cần xem lại.
+      needs_details: "internal",
     },
   },
   contact_channel: { level: "sensitive", domain: "personal", columns: { value: "sensitive", value_normalized: "sensitive" } },
@@ -141,7 +144,7 @@ export const DATA_CLASSIFICATION = {
   accounts: {
     level: "sensitive",
     domain: "finance",
-    columns: { balance: "sensitive", opening_balance: "sensitive", other_person_name: "sensitive" },
+    columns: { balance: "sensitive", opening_balance: "sensitive", other_person_name: "sensitive", removed_at: "internal" },
   },
   account_balance_history: { level: "sensitive", domain: "finance", columns: { balance: "sensitive" } },
   transactions: {
@@ -153,6 +156,9 @@ export const DATA_CLASSIFICATION = {
       amount_settled: "sensitive",
       description: "sensitive",
       receipt_url: "sensitive",
+      // Đợt gộp 2 · D2: the finance bin.
+      removed_at: "internal",
+      removed_with_account: "internal",
     },
   },
   categories: { level: "personal", domain: "finance" },

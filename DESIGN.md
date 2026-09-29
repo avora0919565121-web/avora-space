@@ -1732,6 +1732,23 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   form's own order, with "Mở rộng" (Các bước · Cần mang theo · Kế hoạch) below and actions pinned to the bottom.
   One broken screen never blanks the app: each route and each Avora Space block has its own error state, and a
   failed load is always said as a failure, never shown as empty.
+- 2026-09-29 — Kế hoạch, shared things and no dead ends (Đợt gộp 2 · C/D). A new Bảng starts from a template
+  gallery filtered by way of thinking and by place; "Mẫu của tôi" saves structure only, never Hạng mục. Kế hoạch
+  opens on a shelf of four drawers (Nhật ký · Của tôi · 1-1 · Nhóm) with four reminder tiles; choosing a Bảng folds
+  the shelf into one breadcrumb line and the table takes the full width. A ★ on a Hạng mục is the viewer's alone.
+  Kệ sách is a special personal Bảng with its own reading states. Archive means read-only for everyone, including
+  the creator; assigned tasks keep working. Shared things (ADR-031) never show a plain Xoá / Lưu trữ / Mở lại:
+  the menu reads "Đề nghị xoá", "Đề nghị lưu trữ", "Đề nghị mở lại", and the answer lives as a card in the
+  conversation (x/y agreed, Đồng ý / Không đồng ý with a reason, Rút lại). Silence is not agreement. Projects follow
+  the same rule — "Đề nghị xoá dự án", "Đề nghị mở lại dự án". A Hạng mục moves between Bảng through one preview
+  step that says what happens to each column; nothing is silently dropped (unmatched values go to the end of Ghi
+  chú). Deleting is always a trip to a bin first: Bảng, accounts and transactions each have a Thùng rác with
+  Hoàn tác right after; purging asks for the exact name. Nothing waits forever: work that can no longer be answered
+  collapses into "Đã khép" with the reason and a "Xoá khỏi danh sách"; stale suggestions close themselves with
+  the reason said. Choosing a person in Tài chính is one searchable picker (recent five first, accent-free), with
+  "＋ Thêm … vào Danh bạ" for a name-only contact that later appears under Liên hệ › Cần xem lại. Nobody's email is
+  ever used as their name or shown in a group roster; the neutral fallback is "Người dùng AVORA". Group invite
+  links say how long they stay open (7 days).
 
 ## Out of scope
 

@@ -15,17 +15,16 @@ import {
 function member(overrides: Partial<GroupMember> & { userId: string }): GroupMember {
   return {
     displayName: null,
-    email: null,
     role: "member",
     joinedAt: "2026-01-01T00:00:00Z",
     ...overrides,
   };
 }
 
-const HOA = member({ userId: "u-hoa", displayName: "Nguyễn Thị Hoà", email: "hoa@avora.vn" });
-const DUNG = member({ userId: "u-dung", displayName: "Trần Dũng", email: "dung@avora.vn" });
-const DAT = member({ userId: "u-dat", displayName: "Đặng Văn Đạt", email: "dat@avora.vn" });
-const ME = member({ userId: "u-me", displayName: "Chính tôi", email: "me@avora.vn" });
+const HOA = member({ userId: "u-hoa", displayName: "Nguyễn Thị Hoà" });
+const DUNG = member({ userId: "u-dung", displayName: "Trần Dũng" });
+const DAT = member({ userId: "u-dat", displayName: "Đặng Văn Đạt" });
+const ME = member({ userId: "u-me", displayName: "Chính tôi" });
 
 const EVERYONE: GroupMember[] = [HOA, DUNG, DAT, ME];
 
@@ -62,8 +61,8 @@ describe("memberMatchesQuery", () => {
     expect(memberMatchesQuery(HOA, "thi")).toBe(true);
   });
 
-  it("searches the email too, because groups look people up by address", () => {
-    expect(memberMatchesQuery(DUNG, "dung@avora")).toBe(true);
+  it("never searches an email — a group does not hand them out", () => {
+    expect(memberMatchesQuery(DUNG, "dung@avora")).toBe(false);
   });
 
   it("says no when nobody answers to it", () => {
@@ -130,9 +129,9 @@ describe("searchAssignees", () => {
 });
 
 describe("memberLabel", () => {
-  it("prefers the display name and falls back to the email handle", () => {
+  it("prefers the display name and falls back to the neutral label, never the email", () => {
     expect(memberLabel(HOA)).toBe("Nguyễn Thị Hoà");
-    expect(memberLabel(member({ userId: "u-x", email: "khanh@avora.vn" }))).toBe("khanh");
+    expect(memberLabel(member({ userId: "u-x" }))).toBe("Người dùng AVORA");
   });
 });
 

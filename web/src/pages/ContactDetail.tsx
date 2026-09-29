@@ -200,7 +200,7 @@ const ContactDetail = () => {
   }
 
   const isPerson = contact.contactType === "individual";
-  const inviterName = peerLabel(user?.user_metadata?.display_name ?? null, user?.email ?? null);
+  const inviterName = peerLabel(user?.user_metadata?.display_name ?? null);
 
   return (
     <Shell backLabel={back.label} onBack={() => navigate(back.to)}>

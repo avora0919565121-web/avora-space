@@ -443,13 +443,12 @@ const Messages = () => {
   });
 
   const peerName: string = activeSummary?.peerName ?? peerQuery.data?.peerName ?? "Cuộc trò chuyện";
-  const peerEmail: string | null = activeSummary?.peerEmail ?? peerQuery.data?.peerEmail ?? null;
 
   const activeKind: ConversationKind = activeSummary?.kind ?? "direct";
   const threadTitle: string = activeSummary ? conversationTitle(activeSummary) : peerName;
   const threadSubtitle: string = activeSummary
     ? conversationSubtitle(activeSummary)
-    : (peerEmail ?? "Người dùng AVORA");
+    : "Người dùng AVORA";
 
   /** The other person in a 1-1; null in a group or journal. */
   const directPeerId: string | null =
@@ -532,7 +531,7 @@ const Messages = () => {
   const senderNames: Map<string, string> = useMemo(() => {
     const names = new Map<string, string>();
     for (const member of groupMembersQuery.data ?? []) {
-      names.set(member.userId, peerLabel(member.displayName, member.email));
+      names.set(member.userId, peerLabel(member.displayName));
     }
     return names;
   }, [groupMembersQuery.data]);
@@ -3411,7 +3410,6 @@ const Messages = () => {
           open={isInfoOpen}
           onOpenChange={setIsInfoOpen}
           peerName={threadTitle}
-          peerEmail={peerEmail}
           peerId={
             activeKind === "direct"
               ? (activeSummary?.peerId ?? peerQuery.data?.peerId ?? null)

@@ -26,20 +26,23 @@ khi hai bên lệch nhau, file code là đúng.
 
 **connect**
 - `conversations` — internal
-- `conversation_participants` — internal; `last_read_at` = personal
+- `conversation_participants` — internal (cột `last_read_at` đã bỏ, Đợt gộp 2 · B3)
+- `conversation_read_marks` — personal (RLS chỉ dòng của chính mình, ADR-028)
+- `scheduled_messages` — personal; `content` = sensitive (chỉ người gửi thấy trước giờ gửi)
+- `shared_proposals`, `shared_proposal_votes` — internal; `reason` = sensitive (ADR-031, đọc theo cuộc trò chuyện)
 - `conversation_groups` — personal
 - `messages` — sensitive; `content` = sensitive
 - `message_attachments` — sensitive; `file_name` = sensitive, `storage_path` = internal
 - `message_reactions`, `message_pins`, `message_recall_request` — personal
 - `mute_settings` — internal
-- `group_invite_links` — secret; `token` = secret
+- `group_invite_links` — secret; `token` = secret; `expires_at` = internal (hết hạn 7 ngày)
 - `group_removal_requests` — personal
 - `group_decisions`, `group_decision_options` — sensitive
 - `group_decision_votes` — personal
 - `group_decision_grants` — internal
 
 **personal** (danh bạ, việc, dự án, ghi chú)
-- `contact` — sensitive (email, số điện thoại, địa chỉ, ghi chú của người khác)
+- `contact` — sensitive (email, số điện thoại, địa chỉ, ghi chú của người khác); `needs_details` = internal
 - `contact_channel` — sensitive; `value` = sensitive
 - `contact_invite` — secret; `invite_token` = secret
 - `tasks` — personal; `description`, `context_snapshot`, `output_value` = sensitive
@@ -52,11 +55,14 @@ khi hai bên lệch nhau, file code là đúng.
 - `meeting_note_details`, `meeting_note_files` — sensitive (`storage_path` = internal)
 - `think_hub_table`, `think_hub_record` — personal; `think_hub_record.notes` = sensitive
 - `think_hub_record_tasks` — internal
+- `think_hub_template` — public (mẫu hệ thống); `think_hub_user_template` — personal ("Mẫu của tôi", chỉ cấu trúc, chỉ chủ đọc)
+- `think_hub_record_stars` — personal (sao chỉ của người đánh)
+- `think_hub_delete_cascade` — internal (sổ ghi việc đi theo khi xoá Bảng, để khôi phục)
 
 **finance**
-- `accounts` — sensitive; `balance`, `opening_balance`, `other_person_name` = sensitive
+- `accounts` — sensitive; `balance`, `opening_balance`, `other_person_name` = sensitive; `removed_at` = internal (Thùng rác)
 - `account_balance_history` — sensitive
-- `transactions` — sensitive; `amount`, `amount_in_base_currency`, `amount_settled`, `description`, `receipt_url` = sensitive
+- `transactions` — sensitive; `amount`, `amount_in_base_currency`, `amount_settled`, `description`, `receipt_url` = sensitive; `removed_at`, `removed_with_account` = internal
 - `crm_opportunity` — sensitive; `estimated_value` = sensitive
 - `categories` — personal
 

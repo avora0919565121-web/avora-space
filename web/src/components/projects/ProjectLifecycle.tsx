@@ -9,20 +9,16 @@ import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import {
   canClose,
   closeBlockerSentence,
-  deleteConfirmMatches,
   isCriterionRecorded,
   type CloseBlockers,
   type Project,
   type SuccessCriterion,
 } from "@/lib/projects";
 import type { TaskItem } from "@/lib/tasks";
-import { useCheckAdjust, useIsProjectRootOwner, useProjectActions } from "@/lib/use-projects";
+import { useCheckAdjust, useProjectActions } from "@/lib/use-projects";
 
 const areaClass =
   "mt-1.5 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-[14.5px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary";
-const inputClass =
-  "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-primary";
-
 /**
  * The one question after a successful close. The box starts empty on purpose (ADR-021): the
  * words are the leader's own, never a draft written for them. Sending posts once into the
@@ -251,8 +247,8 @@ function CheckAdjustPanel({
 }
 
 /**
- * The bottom of a project's page: the two ways to close, the thank-you, reopening, and — for the
- * root group's owner only — deleting.
+ * The bottom of a project's page: the two ways to close, the thank-you, and proposing to reopen
+ * or delete (ADR-031: every member answers).
  */
 export function ProjectLifecycle({
   project,
@@ -307,7 +303,7 @@ export function ProjectLifecycle({
                 disabled={!canClose(blockers) || isSubmitting}
                 onClick={() => void handleClose()}
               >
-                Kết thúc &amp; lưu trữ dự án
+                Đóng dự án
               </Button>
               {!canClose(blockers) ? (
                 <Button variant="ghost" className="press h-11 px-5" onClick={() => setIsEarlyOpen(true)}>

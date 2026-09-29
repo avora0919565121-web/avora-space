@@ -170,9 +170,6 @@ export function AssigneePicker({
                       <span className="font-normal text-muted-foreground"> (bạn)</span>
                     ) : null}
                   </span>
-                  {member.email !== null ? (
-                    <span className="block truncate text-[12px] text-muted-foreground">{member.email}</span>
-                  ) : null}
                 </span>
                 <Check className="h-4 w-4 shrink-0 text-muted-foreground opacity-0" aria-hidden="true" />
               </button>

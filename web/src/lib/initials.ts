@@ -8,11 +8,12 @@ export function initialsOf(nameOrEmail: string): string {
   return (parts[parts.length - 2][0] + parts[parts.length - 1][0]).toUpperCase();
 }
 
-/** Falls back through display name → email handle → a neutral label. */
-export function peerLabel(displayName: string | null, email: string | null): string {
+/** The neutral name shown when someone has not set one. Never derived from their email. */
+export const FALLBACK_PEER_NAME = "Người dùng AVORA";
+
+/** A person's display name, or the neutral label — an email address is never used as a name. */
+export function peerLabel(displayName: string | null): string {
   const name = displayName?.trim();
   if (name && name.length > 0) return name;
-  const address = email?.trim();
-  if (address && address.length > 0) return address.split("@")[0];
-  return "Người dùng AVORA";
+  return FALLBACK_PEER_NAME;
 }

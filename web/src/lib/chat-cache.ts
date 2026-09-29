@@ -1,4 +1,5 @@
 import type { ForwardBundle } from "@/lib/chat-transcript";
+import { FALLBACK_PEER_NAME } from "@/lib/initials";
 import { logError } from "@/lib/log";
 /**
  * Pure chat helpers: shapes, cache reducers and Vietnamese time formatting.
@@ -130,7 +131,7 @@ export function conversationSubtitle(summary: ConversationSummary): string {
   if (summary.verification) {
     return summary.verification.viaGroupName !== null ? `Từ nhóm ${summary.verification.viaGroupName}` : "Chờ kết bạn";
   }
-  return summary.peerEmail ?? "Người dùng AVORA";
+  return FALLBACK_PEER_NAME;
 }
 
 /** The rows belonging to one tab, keeping the server's recency order. */
@@ -147,7 +148,7 @@ export function unreadForTab(inbox: ConversationSummary[], tab: MessageTab): num
 }
 
 /**
- * Inbox search: matches the thread's own name, the peer's email, or the last message.
+ * Inbox search: matches the thread's own name or the last message. Never the peer's email.
  * An empty query matches everything.
  */
 export function matchesConversationQuery(summary: ConversationSummary, query: string): boolean {
@@ -155,7 +156,6 @@ export function matchesConversationQuery(summary: ConversationSummary, query: st
   if (!needle) return true;
   return (
     conversationTitle(summary).toLowerCase().includes(needle) ||
-    (summary.peerEmail ?? "").toLowerCase().includes(needle) ||
     (summary.lastMessageContent ?? "").toLowerCase().includes(needle)
   );
 }

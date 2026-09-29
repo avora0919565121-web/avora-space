@@ -26,7 +26,7 @@ export function mentionCandidates(
 ): MentionCandidate[] {
   return members
     .filter((member) => member.userId !== viewerId)
-    .map((member) => ({ userId: member.userId, name: peerLabel(member.displayName, member.email) }))
+    .map((member) => ({ userId: member.userId, name: peerLabel(member.displayName) }))
     .sort((a, b) => a.name.localeCompare(b.name, "vi"));
 }
 

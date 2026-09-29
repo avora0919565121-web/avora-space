@@ -390,7 +390,7 @@ describe("message tabs", () => {
 
   it("says who else is in the room on the second line", () => {
     expect(conversationSubtitle(group)).toBe("5 thành viên");
-    expect(conversationSubtitle(direct)).toBe("ngoc@vidu.com");
+    expect(conversationSubtitle(direct)).toBe("Người dùng AVORA");
     expect(conversationSubtitle(journal)).toBe("Chỉ mình bạn đọc được");
   });
 
@@ -401,11 +401,11 @@ describe("message tabs", () => {
     expect(unreadForTab(inbox, "journal")).toBe(0);
   });
 
-  it("searches a group by its name and a 1-1 by name, email or last message", () => {
+  it("searches a group by its name and a 1-1 by name or last message — never the email", () => {
     expect(matchesConversationQuery(group, "dự án")).toBe(true);
     expect(matchesConversationQuery(group, "ngọc")).toBe(false);
     expect(matchesConversationQuery(direct, "NGỌC")).toBe(true);
-    expect(matchesConversationQuery(direct, "ngoc@vidu")).toBe(true);
+    expect(matchesConversationQuery(direct, "ngoc@vidu")).toBe(false);
     expect(matchesConversationQuery(summary({ lastMessageContent: "hẹn gặp mai" }), "gặp mai")).toBe(true);
   });
 

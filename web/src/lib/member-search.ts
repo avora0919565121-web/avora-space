@@ -18,19 +18,19 @@ export function foldVietnamese(text: string): string {
     .trim();
 }
 
-/** How a member is named in the picker: their display name, else their email handle. */
+/** How a member is named in the picker: their display name, else the neutral label. */
 export function memberLabel(member: GroupMember): string {
-  return peerLabel(member.displayName, member.email);
+  return peerLabel(member.displayName);
 }
 
 /**
- * Whether a member answers to what has been typed. Both the name and the full email are
- * searched, because in a work group people are often looked up by address.
+ * Whether a member answers to what has been typed. Only the name is searched — a group never
+ * hands out its members' email addresses.
  */
 export function memberMatchesQuery(member: GroupMember, query: string): boolean {
   const needle = foldVietnamese(query);
   if (needle === "") return true;
-  const haystacks = [memberLabel(member), member.displayName ?? "", member.email ?? ""];
+  const haystacks = [memberLabel(member), member.displayName ?? ""];
   return haystacks.some((value) => foldVietnamese(value).includes(needle));
 }
 

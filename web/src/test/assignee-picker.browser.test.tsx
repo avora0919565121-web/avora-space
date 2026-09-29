@@ -5,8 +5,8 @@ import { render } from "vitest-browser-react";
 import { AssigneePicker } from "@/components/chat/AssigneePicker";
 import type { GroupMember } from "@/lib/groups";
 
-function member(userId: string, displayName: string, email: string): GroupMember {
-  return { userId, displayName, email, role: "member", joinedAt: "2026-01-01T00:00:00Z" };
+function member(userId: string, displayName: string, _email?: string): GroupMember {
+  return { userId, displayName, role: "member", joinedAt: "2026-01-01T00:00:00Z" };
 }
 
 const MEMBERS: GroupMember[] = [

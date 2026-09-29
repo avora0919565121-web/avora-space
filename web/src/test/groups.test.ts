@@ -181,7 +181,6 @@ describe("sortGroupMembers", () => {
   const member = (id: string, role: GroupRole, joinedAt: string): GroupMember => ({
     userId: id,
     displayName: id,
-    email: null,
     role,
     joinedAt,
   });
@@ -210,7 +209,6 @@ describe("the single admin seat", () => {
   const member = (id: string, role: GroupRole, displayName: string | null = id): GroupMember => ({
     userId: id,
     displayName,
-    email: null,
     role,
     joinedAt: "2026-01-01",
   });
@@ -340,10 +338,9 @@ describe("group rename", () => {
 });
 
 describe("member search", () => {
-  const member = (id: string, displayName: string | null, email: string | null): GroupMember => ({
+  const member = (id: string, displayName: string | null, _email: string | null): GroupMember => ({
     userId: id,
     displayName,
-    email,
     role: "member",
     joinedAt: "2026-01-01",
   });
@@ -353,11 +350,11 @@ describe("member search", () => {
     expect(shouldShowMemberSearch(7)).toBe(true);
   });
 
-  it("matches names case-insensitively and across name or email", () => {
+  it("matches names case-insensitively, never the email", () => {
     const lan = member("u1", "Trần Lan", "lan@avora.app");
     expect(memberMatchesQuery(lan, "lan")).toBe(true);
     expect(memberMatchesQuery(lan, "TRẦN")).toBe(true);
-    expect(memberMatchesQuery(lan, "@avora.app")).toBe(true);
+    expect(memberMatchesQuery(lan, "@avora.app")).toBe(false);
     expect(memberMatchesQuery(lan, "binh")).toBe(false);
   });
 

@@ -27,7 +27,6 @@ export type PendingRemovalRequest = {
 export type GroupMember = {
   userId: string;
   displayName: string | null;
-  email: string | null;
   role: GroupRole;
   joinedAt: string;
 };
@@ -42,7 +41,21 @@ export type GroupMeta = {
 export type GroupInvite = {
   token: string;
   createdAt: string | null;
+  /** Links last 7 days; after that the page says the link is no longer valid. */
+  expiresAt: string;
 };
+
+/** Days a fresh invite link stays open. */
+export const INVITE_LINK_TTL_DAYS = 7;
+
+/** "Còn hiệu lực đến …" under the link, or the expired sentence. */
+export function inviteExpiryLabel(expiresAt: string, now: Date = new Date()): string {
+  const end = new Date(expiresAt);
+  if (Number.isNaN(end.getTime()) || end.getTime() <= now.getTime()) return "Liên kết đã hết hạn — tạo liên kết mới.";
+  const days = Math.ceil((end.getTime() - now.getTime()) / 86_400_000);
+  const date = end.toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
+  return days <= 1 ? `Hết hạn trong hôm nay (${date}).` : `Còn hiệu lực ${days} ngày, đến ${date}.`;
+}
 
 /** React Query cache keys for the group info surfaces. */
 export const groupKeys = {
@@ -430,7 +443,7 @@ export async function fetchGroupMeta(conversationId: string): Promise<GroupMeta 
 }
 
 /**
- * The member list, names and emails resolved server-side — profiles are only readable
+ * The member list, names resolved server-side (never emails) — profiles are only readable
  * through this definer function, never directly.
  */
 export async function fetchGroupMembers(conversationId: string): Promise<GroupMember[]> {
@@ -440,7 +453,6 @@ export async function fetchGroupMembers(conversationId: string): Promise<GroupMe
   return (data ?? []).map((row) => ({
     userId: row.user_id,
     displayName: row.display_name,
-    email: row.email,
     role: (row.role as GroupRole) ?? "member",
     joinedAt: row.joined_at,
   }));
@@ -476,17 +488,14 @@ export function shouldShowMemberSearch(memberCount: number): boolean {
 }
 
 /**
- * Case-insensitive match on display name or email; an empty (or whitespace) query matches
+ * Case-insensitive match on display name; an empty (or whitespace) query matches
  * everyone. This is what the panel filters the roster and the pending-removal list with, so
  * an admin can pull up one person to act on without scrolling a large group.
  */
 export function memberMatchesQuery(member: GroupMember, query: string): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  return (
-    (member.displayName ?? "").toLowerCase().includes(needle) ||
-    (member.email ?? "").toLowerCase().includes(needle)
-  );
+  return (member.displayName ?? "").toLowerCase().includes(needle);
 }
 
 /** The members matching the query, keeping the caller's ordering untouched. */
@@ -534,21 +543,22 @@ export async function fetchPendingRemovalRequests(conversationId: string): Promi
   }));
 }
 
-/** The group's live invite link, or null when none exists or the last one was revoked. */
+/** The group's live invite link, or null when none exists, it was revoked, or it expired. */
 export async function fetchGroupInvite(conversationId: string): Promise<GroupInvite | null> {
   const { data, error } = await supabase
     .from("group_invite_links")
-    .select("token, created_at")
+    .select("token, created_at, expires_at")
     .eq("conversation_id", conversationId)
     .is("revoked_at", null)
+    .gt("expires_at", new Date().toISOString())
     .maybeSingle();
 
   if (error) throw fail(error.code, error.message);
   if (!data) return null;
-  return { token: data.token, createdAt: data.created_at };
+  return { token: data.token, createdAt: data.created_at, expiresAt: data.expires_at };
 }
 
-/** Owner only. Creates the link the first time, rotates it afterwards, and un-revokes it. */
+/** Owner only. Creates the link the first time, rotates it afterwards, and un-revokes it — always for 7 days. */
 export async function rotateGroupInvite(conversationId: string): Promise<string> {
   const { data, error } = await supabase.rpc("rotate_group_invite", {
     p_conversation_id: conversationId,

@@ -139,7 +139,7 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
     conversationId: row.conversation_id,
     kind: (row.conversation_type as ConversationKind | null) ?? "direct",
     peerId: row.peer_id,
-    peerName: peerLabel(row.peer_display_name, row.peer_email),
+    peerName: peerLabel(row.peer_display_name),
     peerEmail: row.peer_email,
     groupName: (row.group_name as string | null) ?? null,
     memberCount: (row.member_count as number | null) ?? 1,
@@ -386,7 +386,7 @@ export async function fetchConversationPeer(conversationId: string): Promise<Con
   if (!row) return null;
   return {
     peerId: row.peer_id,
-    peerName: peerLabel(row.peer_display_name, row.peer_email),
+    peerName: peerLabel(row.peer_display_name),
     peerEmail: row.peer_email,
   };
 }

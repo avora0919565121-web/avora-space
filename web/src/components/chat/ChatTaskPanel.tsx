@@ -185,7 +185,7 @@ function assigneeLabel(
   if (isTaskAssignee(task, userId)) return "bạn";
   if (task.assigneeId === null) return peerName;
   const member = members.find((entry) => entry.userId === task.assigneeId);
-  return member ? peerLabel(member.displayName, member.email) : peerName;
+  return member ? peerLabel(member.displayName) : peerName;
 }
 
 
@@ -198,7 +198,7 @@ function creatorLabel(
 ): string {
   if (task.creatorId === userId) return "Bạn";
   const member = members.find((entry) => entry.userId === task.creatorId);
-  return member ? peerLabel(member.displayName, member.email) : peerName;
+  return member ? peerLabel(member.displayName) : peerName;
 }
 
 function ChatTaskRow({
