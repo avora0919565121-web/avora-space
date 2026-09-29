@@ -20,7 +20,7 @@ function renderList(isWide: boolean, journalId: string | null = "j1") {
               <DiaryList
                 journalId={journalId}
                 active={isWide ? "journal" : null}
-                counts={{ journal: null, files: 3, sources: 0 }}
+                counts={{ journal: null, notes: 2, files: 3, links: 1, sources: 0 }}
                 isWide={isWide}
                 onPaste={() => undefined}
                 isPasting={false}
@@ -34,24 +34,26 @@ function renderList(isWide: boolean, journalId: string | null = "j1") {
   );
 }
 
-test("the Nhật ký tab lists its three readings as rows, with counts (AVORA 32)", async () => {
+test("the Nhật ký tab lists its five readings as rows, with counts (AVORA-44)", async () => {
   const screen = await renderList(false);
-  await expect.element(screen.getByRole("link", { name: /Nhật ký của bạn/ })).toBeVisible();
-  await expect.element(screen.getByRole("link", { name: /File của bạn\s*\(3\)/ })).toBeVisible();
+  await expect.element(screen.getByRole("link", { name: /Nhật ký của tôi/ })).toBeVisible();
+  await expect.element(screen.getByRole("link", { name: /File của tôi\s*\(3\)/ })).toBeVisible();
+  await expect.element(screen.getByRole("link", { name: /Ghi chép\s*\(2\)/ })).toBeVisible();
+  await expect.element(screen.getByRole("link", { name: /Liên kết\s*\(1\)/ })).toBeVisible();
   await expect.element(screen.getByRole("link", { name: /Nguồn tạo việc\s*\(0\)/ })).toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Tạo việc từ nội dung vừa copy" })).toBeEnabled();
 });
 
 test("a row opens its reading of the journal", async () => {
   const screen = await renderList(false);
-  await userEvent.click(screen.getByRole("link", { name: /File của bạn/ }));
+  await userEvent.click(screen.getByRole("link", { name: /File của tôi/ }));
   await expect.element(screen.getByTestId("where")).toHaveTextContent("/tin-nhan/j1?xem=file");
 });
 
 test("on a computer the open reading is marked beside the list", async () => {
   const screen = await renderList(true);
   await expect
-    .element(screen.getByRole("link", { name: /Nhật ký của bạn/ }))
+    .element(screen.getByRole("link", { name: /Nhật ký của tôi/ }))
     .toHaveAttribute("aria-current", "page");
 });
 

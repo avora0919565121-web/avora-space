@@ -387,8 +387,10 @@ const ATTACHMENT_COLUMNS =
 export async function fetchThreadAttachments(conversationId: string): Promise<MessageAttachment[]> {
   const { data, error } = await supabase
     .from("message_attachments")
-    .select(ATTACHMENT_COLUMNS)
+    // A journal entry in the bin keeps its files, but they are not shown until it comes back.
+    .select(`${ATTACHMENT_COLUMNS}, entry:messages!message_attachments_message_id_fkey!inner(trashed_at)`)
     .eq("conversation_id", conversationId)
+    .is("entry.trashed_at", null)
     .order("created_at", { ascending: true });
 
   if (error) throw fail(error.code, error.message);

@@ -1322,6 +1322,7 @@ export type Database = {
           reply_to_message_id: string | null
           sender_id: string
           system_kind: string | null
+          trashed_at: string | null
         }
         Insert: {
           algorithm_version?: string | null
@@ -1342,6 +1343,7 @@ export type Database = {
           reply_to_message_id?: string | null
           sender_id: string
           system_kind?: string | null
+          trashed_at?: string | null
         }
         Update: {
           algorithm_version?: string | null
@@ -1362,6 +1364,7 @@ export type Database = {
           reply_to_message_id?: string | null
           sender_id?: string
           system_kind?: string | null
+          trashed_at?: string | null
         }
         Relationships: [
           {
@@ -1415,6 +1418,149 @@ export type Database = {
         }
         Relationships: []
       }
+      note_attachments: {
+        Row: {
+          anchor_block_id: string | null
+          byte_size: number
+          created_at: string
+          duration_seconds: number | null
+          file_name: string
+          id: string
+          kind: string
+          mime_type: string
+          note_id: string
+          owner_user_id: string
+          storage_path: string
+        }
+        Insert: {
+          anchor_block_id?: string | null
+          byte_size: number
+          created_at?: string
+          duration_seconds?: number | null
+          file_name: string
+          id?: string
+          kind: string
+          mime_type: string
+          note_id: string
+          owner_user_id?: string
+          storage_path: string
+        }
+        Update: {
+          anchor_block_id?: string | null
+          byte_size?: number
+          created_at?: string
+          duration_seconds?: number | null
+          file_name?: string
+          id?: string
+          kind?: string
+          mime_type?: string
+          note_id?: string
+          owner_user_id?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "note_attachments_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      note_folders: {
+        Row: {
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          owner_user_id: string
+          position: number
+          system_key: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name: string
+          owner_user_id?: string
+          position?: number
+          system_key?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_system?: boolean
+          name?: string
+          owner_user_id?: string
+          position?: number
+          system_key?: string | null
+        }
+        Relationships: []
+      }
+      notes: {
+        Row: {
+          blocks: Json
+          book_record_id: string | null
+          book_title: string | null
+          created_at: string
+          deleted_at: string | null
+          folder_id: string | null
+          id: string
+          owner_user_id: string
+          pinned_at: string | null
+          search_text: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          blocks?: Json
+          book_record_id?: string | null
+          book_title?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          folder_id?: string | null
+          id?: string
+          owner_user_id?: string
+          pinned_at?: string | null
+          search_text?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Update: {
+          blocks?: Json
+          book_record_id?: string | null
+          book_title?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          folder_id?: string | null
+          id?: string
+          owner_user_id?: string
+          pinned_at?: string | null
+          search_text?: string
+          tags?: string[]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notes_book_record_id_fkey"
+            columns: ["book_record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notes_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "note_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           allow_group_connection: boolean
@@ -1427,6 +1573,8 @@ export type Database = {
           id: string
           last_opened_date: string | null
           pin_required_at: string | null
+          push_reminders: boolean
+          push_show_content: boolean
           rest_weekday: number
           review_daily_enabled: boolean
           review_daily_hour: number
@@ -1446,6 +1594,8 @@ export type Database = {
           id: string
           last_opened_date?: string | null
           pin_required_at?: string | null
+          push_reminders?: boolean
+          push_show_content?: boolean
           rest_weekday?: number
           review_daily_enabled?: boolean
           review_daily_hour?: number
@@ -1465,6 +1615,8 @@ export type Database = {
           id?: string
           last_opened_date?: string | null
           pin_required_at?: string | null
+          push_reminders?: boolean
+          push_show_content?: boolean
           rest_weekday?: number
           review_daily_enabled?: boolean
           review_daily_hour?: number
@@ -1701,6 +1853,87 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      push_outbox: {
+        Row: {
+          attempts: number
+          conversation_id: string | null
+          created_at: string
+          dedupe_key: string | null
+          id: string
+          kind: string
+          message_id: string | null
+          payload: Json
+          send_after: string
+          sent_at: string | null
+          status: string
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          attempts?: number
+          conversation_id?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          kind: string
+          message_id?: string | null
+          payload?: Json
+          send_after?: string
+          sent_at?: string | null
+          status?: string
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          attempts?: number
+          conversation_id?: string | null
+          created_at?: string
+          dedupe_key?: string | null
+          id?: string
+          kind?: string
+          message_id?: string | null
+          payload?: Json
+          send_after?: string
+          sent_at?: string | null
+          status?: string
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      push_subscriptions: {
+        Row: {
+          auth: string
+          created_at: string
+          device_label: string
+          endpoint: string
+          id: string
+          last_ok_at: string | null
+          p256dh: string
+          user_id: string
+        }
+        Insert: {
+          auth: string
+          created_at?: string
+          device_label?: string
+          endpoint: string
+          id?: string
+          last_ok_at?: string | null
+          p256dh: string
+          user_id: string
+        }
+        Update: {
+          auth?: string
+          created_at?: string
+          device_label?: string
+          endpoint?: string
+          id?: string
+          last_ok_at?: string | null
+          p256dh?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       scheduled_messages: {
         Row: {
@@ -4603,6 +4836,10 @@ export type Database = {
         Args: { p_message_ids: string[] }
         Returns: number
       }
+      delete_note_folder: {
+        Args: { p_folder_id: string; p_trash_notes: boolean }
+        Returns: number
+      }
       delete_project: {
         Args: {
           p_confirm_title: string
@@ -4658,6 +4895,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      delete_push_subscription: {
+        Args: { p_endpoint: string }
+        Returns: number
       }
       delete_shared_task: {
         Args: { p_task_id: string }
@@ -4837,6 +5078,7 @@ export type Database = {
           reply_to_message_id: string | null
           sender_id: string
           system_kind: string | null
+          trashed_at: string | null
         }
         SetofOptions: {
           from: "*"
@@ -4986,6 +5228,25 @@ export type Database = {
         }
       }
       ensure_personal_journal: { Args: { p_user_id: string }; Returns: string }
+      ensure_reading_folder: {
+        Args: never
+        Returns: {
+          created_at: string
+          id: string
+          is_system: boolean
+          name: string
+          owner_user_id: string
+          position: number
+          system_key: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "note_folders"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      f_unaccent: { Args: { p: string }; Returns: string }
       finalize_meeting_note: {
         Args: { p_decision_id: string }
         Returns: {
@@ -5592,6 +5853,16 @@ export type Database = {
         Args: { p_confirm: string; p_transaction_id: string }
         Returns: undefined
       }
+      push_claim_batch: { Args: never; Returns: Json }
+      push_report: {
+        Args: {
+          p_failed: string[]
+          p_gone: string[]
+          p_ok_endpoints: string[]
+          p_sent: string[]
+        }
+        Returns: undefined
+      }
       recall_message: {
         Args: { p_message_id: string }
         Returns: {
@@ -5613,6 +5884,7 @@ export type Database = {
           reply_to_message_id: string | null
           sender_id: string
           system_kind: string | null
+          trashed_at: string | null
         }
         SetofOptions: {
           from: "*"
@@ -5955,6 +6227,10 @@ export type Database = {
         }
       }
       restore_group: { Args: { p_conversation_id: string }; Returns: undefined }
+      restore_journal_messages: {
+        Args: { p_message_ids: string[] }
+        Returns: number
+      }
       restore_project: {
         Args: { p_project_id: string }
         Returns: {
@@ -6424,6 +6700,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_push_subscription: {
+        Args: {
+          p_auth: string
+          p_device_label: string
+          p_endpoint: string
+          p_p256dh: string
+        }
+        Returns: {
+          auth: string
+          created_at: string
+          device_label: string
+          endpoint: string
+          id: string
+          last_ok_at: string | null
+          p256dh: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "push_subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_table_as_template: {
         Args: { p_name: string; p_table_id: string }
         Returns: {
@@ -6475,6 +6775,27 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      search_avora: {
+        Args: {
+          p_here: Json
+          p_limit?: number
+          p_query: string
+          p_types?: string[]
+        }
+        Returns: {
+          at: string
+          conversation_id: string
+          id: string
+          in_here: boolean
+          kind: string
+          place_id: string
+          place_kind: string
+          place_name: string
+          scope: string
+          snippet: string
+          title: string
+        }[]
+      }
       seed_finance_categories: { Args: { p_user_id: string }; Returns: number }
       send_message_with_attachments: {
         Args: {
@@ -6504,6 +6825,7 @@ export type Database = {
           reply_to_message_id: string | null
           sender_id: string
           system_kind: string | null
+          trashed_at: string | null
         }
         SetofOptions: {
           from: "*"

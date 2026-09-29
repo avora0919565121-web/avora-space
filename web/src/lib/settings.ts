@@ -36,11 +36,15 @@ export type ProfileSettings = {
   /** From this hour "Nhìn lại hôm nay" appears (12–23). */
   reviewDailyHour: number;
   reviewWeeklyEnabled: boolean;
+  /** AVORA-46: push shows words of the message / task name only when this is on. Default off. */
+  pushShowContent: boolean;
+  /** AVORA-46: reminders arrive as push. Default on. */
+  pushReminders: boolean;
 };
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
 const PROFILE_SETTINGS_COLUMNS =
-  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled";
+  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders";
 
 type ProfileSettingsRow = {
   base_currency: string | null;
@@ -53,6 +57,8 @@ type ProfileSettingsRow = {
   review_daily_enabled?: boolean | null;
   review_daily_hour?: number | null;
   review_weekly_enabled?: boolean | null;
+  push_show_content?: boolean | null;
+  push_reminders?: boolean | null;
 };
 
 /**
@@ -78,6 +84,8 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     reviewDailyEnabled: row?.review_daily_enabled ?? true,
     reviewDailyHour: row?.review_daily_hour ?? 19,
     reviewWeeklyEnabled: row?.review_weekly_enabled ?? true,
+    pushShowContent: row?.push_show_content ?? false,
+    pushReminders: row?.push_reminders ?? true,
   };
 }
 
@@ -91,6 +99,19 @@ export async function updateReviewPrefs(
   if (patch.reviewDailyEnabled !== undefined) row.review_daily_enabled = patch.reviewDailyEnabled;
   if (patch.reviewDailyHour !== undefined) row.review_daily_hour = patch.reviewDailyHour;
   if (patch.reviewWeeklyEnabled !== undefined) row.review_weekly_enabled = patch.reviewWeeklyEnabled;
+  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(PROFILE_SETTINGS_COLUMNS).single();
+  if (error) throw fail("settings", error.code, error.message);
+  return toProfileSettings(data);
+}
+
+/** The two push switches (AVORA-46). */
+export async function updatePushPrefs(
+  userId: string,
+  patch: Partial<Pick<ProfileSettings, "pushShowContent" | "pushReminders">>,
+): Promise<ProfileSettings> {
+  const row: { push_show_content?: boolean; push_reminders?: boolean } = {};
+  if (patch.pushShowContent !== undefined) row.push_show_content = patch.pushShowContent;
+  if (patch.pushReminders !== undefined) row.push_reminders = patch.pushReminders;
   const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(PROFILE_SETTINGS_COLUMNS).single();
   if (error) throw fail("settings", error.code, error.message);
   return toProfileSettings(data);

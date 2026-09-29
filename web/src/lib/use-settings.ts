@@ -17,6 +17,7 @@ import {
   updateTimezone,
   updateSoundPref,
   updateReviewPrefs,
+  updatePushPrefs,
   updateTypingSignal,
   type ProfileSettings,
 } from "@/lib/settings";
@@ -108,6 +109,13 @@ export function useSettingsActions() {
     },
   });
 
+  const setPushPrefs = useMutation({
+    mutationFn: (patch: Parameters<typeof updatePushPrefs>[1]) => updatePushPrefs(userId, patch),
+    onSuccess: (settings) => {
+      queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, settings);
+    },
+  });
+
   const setReviewPrefs = useMutation({
     mutationFn: (patch: Parameters<typeof updateReviewPrefs>[1]) => updateReviewPrefs(userId, patch),
     onSuccess: (settings) => {
@@ -116,6 +124,7 @@ export function useSettingsActions() {
   });
 
   return {
+    setPushPrefs,
     setReviewPrefs,
     setBaseCurrency,
     setTimezone,

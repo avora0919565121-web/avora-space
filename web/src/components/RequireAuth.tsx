@@ -6,6 +6,10 @@ import { PinGate, PinReminderBanner } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { InAppAlerts } from "@/components/InAppAlerts";
+import { RecordingBar } from "@/components/RecordingBar";
+import { AvoraSearchHost } from "@/components/search/AvoraSearch";
+import { PushOfferCard } from "@/components/PushOfferCard";
+import { PushClickBridge } from "@/components/PushClickBridge";
 import { MobileTopBar } from "@/components/nav/MobileTopBar";
 import { ToolBelt } from "@/components/nav/ToolBelt";
 import { hidesToolBelt } from "@/lib/navigation";
@@ -43,6 +47,7 @@ export function RequireAuth() {
       <AppSidebar />
       {/* min-w-0: a wide table scrolls inside its own frame instead of pushing the page wider. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        <RecordingBar />
         <PinReminderBanner />
         {/* A fault in one screen stays in that screen; bars and bubble live outside (A6). */}
         <RouteErrorBoundary resetKey={location.pathname}>
@@ -53,6 +58,9 @@ export function RequireAuth() {
       {/* Floats at the top right on every screen; takes no row of its own. */}
       <QuickActionBubble />
       <InAppAlerts />
+      <AvoraSearchHost />
+      <PushOfferCard />
+      <PushClickBridge />
     </div>
     </PinGate>
   );

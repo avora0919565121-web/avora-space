@@ -80,6 +80,7 @@ import { tablePlaces } from "@/lib/table-places";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
 import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
+import { AvoraSearchButton } from "@/components/search/AvoraSearch";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { ReturnChip } from "@/components/nav/ReturnChip";
 import { carryReturn, hereFrom, readReturn, withReturn } from "@/lib/return-to";
@@ -545,6 +546,7 @@ const ThinkHub = () => {
         className="max-w-6xl"
         action={
           <div className="flex items-center gap-2">
+            <AvoraSearchButton here={{ tab: "ke-hoach", label: "Kế hoạch" }} />
             <button
               type="button"
               onClick={() => navigate(withReturn("/ke-hoach/ke-sach", hereFrom(location, "Kế hoạch")))}

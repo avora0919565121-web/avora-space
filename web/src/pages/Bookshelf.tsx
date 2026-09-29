@@ -1,6 +1,6 @@
-import { ExternalLink, Library, Loader2, Plus, Search, Star, Table2 } from "lucide-react";
+import { BookOpen, ExternalLink, Library, Loader2, NotebookText, Plus, Search, Star, Table2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { DateField } from "@/components/calendar/DateField";
@@ -12,6 +12,11 @@ import { recordsOf, scopeOfTable, todayIso, type ThinkRecord, type ThinkTable } 
 import { useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
 import { useShelfActions, useStars } from "@/lib/use-think-hub-shelf";
 import { cn } from "@/lib/utils";
+import { findJournal } from "@/hooks/use-paste-task";
+import { ensureJournalConversation } from "@/lib/chat";
+import { noteDisplayTitle } from "@/lib/notes";
+import { useConversations } from "@/lib/use-conversations";
+import { useNotes } from "@/lib/use-notes";
 
 /** Shelves in reading order (C6): what is being read first, what was finished last. */
 const TIERS: readonly { key: string; label: string }[] = [
@@ -64,6 +69,24 @@ const Bookshelf = () => {
   const [query, setQuery] = useState<string>("");
   const [isAdding, setIsAdding] = useState<boolean>(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  const { data: conversations } = useConversations();
+  const notesData = useNotes();
+  // "📚 {Tên sách}" in a reading note opens that book here (C).
+  useEffect(() => {
+    const wanted = searchParams.get("sach");
+    if (wanted !== null) setOpenId(wanted);
+  }, [searchParams]);
+
+  /** Kệ sách › Ghi chép: into Nhật ký › Ghi chép, starting a note for this book or opening one. */
+  const openNotes = async (params: string): Promise<void> => {
+    try {
+      const journalId = findJournal(conversations)?.conversationId ?? (await ensureJournalConversation());
+      navigate(`/tin-nhan/${journalId}?xem=ghi-chep&${params}`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Chưa mở được Ghi chép.");
+    }
+  };
 
   const shelf: ThinkTable | null = useMemo(() => tables.find((table) => table.kind === "bookshelf") ?? null, [tables]);
   useEffect(() => {
@@ -89,6 +112,10 @@ const Bookshelf = () => {
     return books.filter((book) => normalizeSearch(`${book.title} ${keys.author === null ? "" : String(book.extensionFields[keys.author] ?? "")}`).includes(needle));
   }, [books, query, keys.author]);
   const opened = books.find((book) => book.id === openId) ?? null;
+  const bookNotes = useMemo(
+    () => (opened === null ? [] : notesData.liveNotes.filter((note) => note.bookRecordId === opened.id)),
+    [opened, notesData.liveNotes],
+  );
   const field = (book: ThinkRecord, key: string | null): string => (key === null ? "" : String(book.extensionFields[key] ?? ""));
 
   const patchField = (book: ThinkRecord, key: string | null, value: string): void => {
@@ -236,10 +263,35 @@ const Bookshelf = () => {
                 <button type="button" onClick={() => star.mutate(opened.id)} className="press inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px]">
                   <Star className={cn("h-4 w-4", stars.data?.has(opened.id) === true && "fill-amber-400 text-amber-400")} aria-hidden="true" /> Quan trọng
                 </button>
-                <button type="button" disabled title="Sắp có" className="rounded-md border border-dashed border-border px-3 py-2 text-[13.5px] text-muted-foreground opacity-60">
-                  Ghi chép · Sắp có
+                <button
+                  type="button"
+                  onClick={() => void openNotes(`sach=${encodeURIComponent(opened.id)}&ten=${encodeURIComponent(opened.title)}`)}
+                  className="press inline-flex items-center gap-1.5 rounded-md border border-amber-500/50 bg-amber-500/10 px-3 py-2 text-[13.5px] font-medium text-amber-800 dark:text-amber-200"
+                >
+                  <NotebookText className="h-4 w-4" aria-hidden="true" />
+                  {bookNotes.length === 0 ? "Ghi chép" : "Ghi chép mới"}
                 </button>
               </div>
+              {bookNotes.length > 0 ? (
+                <div>
+                  <p className="text-[13px] font-medium">Ghi chép về cuốn này · {bookNotes.length}</p>
+                  <ul className="mt-1.5 space-y-1">
+                    {bookNotes.map((note) => (
+                      <li key={note.id}>
+                        <button
+                          type="button"
+                          onClick={() => void openNotes(`ghi-chep=${encodeURIComponent(note.id)}`)}
+                          className="press flex w-full items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-[13.5px] hover:bg-accent/40"
+                        >
+                          <BookOpen className="h-4 w-4 shrink-0 text-amber-600" aria-hidden="true" />
+                          <span className="truncate">{noteDisplayTitle(note)}</span>
+                          <span className="ml-auto shrink-0 text-[11.5px] text-muted-foreground">{new Date(note.updatedAt).toLocaleDateString("vi-VN")}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <div>
                 <p className="text-[13px] font-medium">Đọc lại sau…</p>
                 <div className="mt-1.5 flex flex-wrap gap-1.5">

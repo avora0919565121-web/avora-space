@@ -95,6 +95,13 @@ export async function deleteJournalMessages(messageIds: readonly string[]): Prom
   return data ?? 0;
 }
 
+/** Brings journal entries back from the bin (AVORA-44 · A.5, kept 30 days). */
+export async function restoreJournalMessages(messageIds: readonly string[]): Promise<number> {
+  const { data, error } = await supabase.rpc("restore_journal_messages", { p_message_ids: [...messageIds] });
+  if (error) throw fail(error.code, error.message);
+  return data ?? 0;
+}
+
 /** What a forwarded message says about where it came from. */
 export function forwardedFromLabel(senderName: string | null | undefined): string {
   const name = (senderName ?? "").trim();
@@ -125,8 +132,8 @@ export function forwardSummaryText(result: ForwardResult, targetName: string): s
 
 /** What the floating bar says it is about to delete. */
 export function deleteSummaryText(count: number): string {
-  if (count <= 0) return "Không có ghi chú nào được xoá.";
-  return count === 1 ? "Đã xoá 1 ghi chú." : `Đã xoá ${count} ghi chú.`;
+  if (count <= 0) return "Không có mục nào được xoá.";
+  return count === 1 ? "Đã chuyển 1 mục vào Thùng rác." : `Đã chuyển ${count} mục vào Thùng rác.`;
 }
 
 /**

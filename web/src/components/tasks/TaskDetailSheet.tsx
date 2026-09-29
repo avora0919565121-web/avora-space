@@ -172,7 +172,7 @@ export function TaskDetailSheet({
           : snapshot.originalMessageSenderName !== ""
             ? `Từ tin nhắn của ${snapshot.originalMessageSenderName}`
             : snapshot.conversationName !== ""
-              ? `Từ ${snapshot.conversationName}`
+              ? `Từ ${snapshot.conversationName === "Nhật ký của bạn" ? "Nhật ký của tôi" : snapshot.conversationName}`
               : null;
 
   const assignLabel: string =

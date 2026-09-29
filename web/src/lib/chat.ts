@@ -232,6 +232,7 @@ export async function fetchMessages(conversationId: string, since: string | null
     .from("messages")
     .select(MESSAGE_COLUMNS)
     .eq("conversation_id", conversationId)
+    .is("trashed_at", null)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false });
   const { data, error } = await (since === null
@@ -248,6 +249,7 @@ export async function fetchOlderMessages(conversationId: string, before: string)
     .select(MESSAGE_COLUMNS)
     .eq("conversation_id", conversationId)
     .lt("created_at", before)
+    .is("trashed_at", null)
     .order("created_at", { ascending: false })
     .order("id", { ascending: false })
     .limit(MESSAGE_PAGE_SIZE);
@@ -290,6 +292,7 @@ export async function searchMessages(
     .select(MESSAGE_COLUMNS)
     .eq("conversation_id", conversationId)
     .is("deleted_at", null)
+    .is("trashed_at", null)
     .ilike("content", `%${escaped}%`)
     .order("created_at", { ascending: false })
     .limit(limit);

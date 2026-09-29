@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { disablePushHere } from "@/lib/push";
 import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
@@ -207,6 +208,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signOut = useCallback(async (): Promise<void> => {
+    // AVORA-46: this device stops receiving this account's notifications.
+    await disablePushHere().catch(() => undefined);
     await supabase.auth.signOut();
     // Half-typed messages stay on this device only while signed in (Đợt gộp 2 · A8).
     clearAllDrafts();

@@ -1,7 +1,7 @@
 import { logError } from "@/lib/log";
 import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
-import type { Json } from "@/integrations/supabase/types";
+import type { Database, Json } from "@/integrations/supabase/types";
 
 /**
  * Think Hub ("Kế hoạch" on screen) — the tables people keep to think their work through.
@@ -796,6 +796,11 @@ export function toVietnameseHubError(code: string | undefined, message: string):
   if (normalized.includes("row-level security")) return "Bạn không có quyền với bảng này.";
   if (normalized.includes("failed to fetch"))
     return "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.";
+  // The app asked for a server function the server does not have in that shape (an app/server
+  // mismatch, not the person's fault). Said plainly so it gets reported, not retried forever.
+  if (code === "PGRST202" || code === "PGRST203")
+    return "Ứng dụng và máy chủ chưa khớp nhau. Hãy tải lại trang; nếu vẫn lỗi, báo cho chúng tôi.";
+  if (normalized.includes("avora_")) logError("think-hub", { code: "unmapped", message: normalized.match(/avora_[a-z_]+/)?.[0] ?? "avora" });
   return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 
@@ -806,6 +811,7 @@ function extraHubError(normalized: string): string | null {
     ["avora_template_missing", "Mẫu này không còn nữa."],
     ["avora_template_limit", "Bạn đã có 50 mẫu. Xoá bớt trước khi lưu thêm."],
     ["avora_template_bookshelf_only", "Mẫu Kệ sách chỉ dùng cho Kệ sách của bạn."],
+    ["avora_template_source_required", "Hãy chọn một mẫu trước khi tạo Bảng."],
     ["avora_table_archived", "Bảng này đã lưu trữ — chỉ xem. Đề nghị mở lại để sửa."],
     ["avora_shared_needs_proposal", "Đây là tài sản chung — cần đề nghị và mọi bên liên quan đồng ý."],
     ["avora_shared_use_restore_shared", "Bảng chung khôi phục từ Thùng rác chung."],
@@ -940,8 +946,9 @@ export async function setThinkColumnWidth(input: {
   const { data, error } = await supabase.rpc("set_think_hub_column_width", {
     p_table_id: input.tableId,
     p_column_id: input.columnId,
-    p_width: input.width === null ? undefined : clampColumnWidth(input.width),
-  });
+    // Null (not a missing key) resets the width: the function has no default for p_width.
+    p_width: input.width === null ? null : clampColumnWidth(input.width),
+  } as unknown as Database["public"]["Functions"]["set_think_hub_column_width"]["Args"]);
   if (error) throw fail(error.code, error.message);
   return toTable(data as unknown as TableRow);
 }

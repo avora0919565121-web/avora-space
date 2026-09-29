@@ -103,3 +103,52 @@ self.addEventListener("fetch", (event) => {
   if (!isCacheableRequest(event.request, self.location.origin)) return;
   event.respondWith(networkFirst(event.request));
 });
+
+/*
+ * AVORA-46 — Web Push. The server decides every word (privacy by default); this only shows it.
+ * No action buttons: a tap opens the right place, nothing runs from the notification itself.
+ * Nothing is sent back to the sender — there is no "seen" signal (ADR-028).
+ */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = {};
+  }
+  const title = typeof data.title === "string" && data.title !== "" ? data.title : "AVORA";
+  const options = {
+    body: typeof data.body === "string" ? data.body : "",
+    tag: typeof data.tag === "string" ? data.tag : undefined,
+    renotify: typeof data.tag === "string",
+    icon: "/icons/icon-192.png",
+    badge: "/icons/icon-192.png",
+    data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/tin-nhan" },
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data && event.notification.data.url ? event.notification.data.url : "/tin-nhan", self.location.origin).href;
+  event.waitUntil(
+    (async () => {
+      const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      const same = windows.find((client) => new URL(client.url).origin === self.location.origin);
+      if (same) {
+        await same.focus();
+        if ("navigate" in same) {
+          try {
+            await same.navigate(target);
+            return;
+          } catch {
+            // Fall through to a message the app handles.
+          }
+        }
+        same.postMessage({ type: "avora-open", url: target });
+        return;
+      }
+      await self.clients.openWindow(target);
+    })(),
+  );
+});

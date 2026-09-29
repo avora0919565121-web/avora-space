@@ -1,6 +1,7 @@
 import { toast } from "sonner";
 
 import { MuteSettingsCard } from "@/components/chat/MuteSettingsCard";
+import { PushSettingsCard } from "@/components/PushSettingsCard";
 import { Switch } from "@/components/ui/switch";
 import { useProfileSettings, useSettingsActions } from "@/lib/use-settings";
 
@@ -51,6 +52,7 @@ const SettingsNotifications = () => {
             </label>
           </div>
         </section>
+        <PushSettingsCard />
         <MuteSettingsCard />
       </div>
     </div>

@@ -365,7 +365,7 @@ export function GroupDecisionSheet({
       return decisionId;
     },
     onSuccess: (decisionId) => {
-      toast.success("Đã lưu vào File của bạn trong Nhật ký.");
+      toast.success("Đã lưu vào File của tôi trong Nhật ký.");
       setSavedNoteIds((current) => new Set<string>([...current, decisionId]));
       void queryClient.invalidateQueries({ queryKey: ["messages"] });
       void queryClient.invalidateQueries({ queryKey: ["meeting-notes-in-journal"] });

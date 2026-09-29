@@ -27,7 +27,11 @@ export type TableClassification = {
 
 export const DATA_CLASSIFICATION = {
   // identity
-  profiles: { level: "personal", domain: "identity", columns: { display_name: "personal", avatar_url: "personal" } },
+  profiles: {
+    level: "personal",
+    domain: "identity",
+    columns: { display_name: "personal", avatar_url: "personal", push_show_content: "internal", push_reminders: "internal" },
+  },
   user_pins: { level: "internal", domain: "identity", columns: { pin: "internal" } },
   family_relations: { level: "personal", domain: "identity" },
   dismissed_guidance: { level: "internal", domain: "system" },
@@ -53,7 +57,8 @@ export const DATA_CLASSIFICATION = {
   // B2: messages waiting to be sent — the sender's only until delivery (owner-only RLS).
   scheduled_messages: { level: "personal", domain: "connect", columns: { content: "sensitive" } },
   // B1: forward_bundle carries forwarded words + public names only.
-  messages: { level: "sensitive", domain: "connect", columns: { content: "sensitive", forward_bundle: "sensitive" } },
+  // AVORA-44 · A.5: trashed_at = a journal entry in the bin (30 days).
+  messages: { level: "sensitive", domain: "connect", columns: { content: "sensitive", forward_bundle: "sensitive", trashed_at: "internal" } },
   message_attachments: {
     level: "sensitive",
     domain: "connect",
@@ -137,6 +142,13 @@ export const DATA_CLASSIFICATION = {
   think_hub_record_stars: { level: "personal", domain: "personal" },
   // Which tasks a table deletion binned — server-only bookkeeping, no client access.
   think_hub_delete_cascade: { level: "internal", domain: "personal" },
+  // AVORA-44 · B: Ghi chép — owner-only, what the person writes to read again.
+  note_folders: { level: "personal", domain: "personal" },
+  notes: { level: "personal", domain: "personal", columns: { blocks: "sensitive", title: "sensitive", search_text: "sensitive", tags: "personal" } },
+  note_attachments: { level: "personal", domain: "personal", columns: { file_name: "sensitive", storage_path: "internal" } },
+  // AVORA-46: this device's push address, and the queue of what will be sent.
+  push_subscriptions: { level: "personal", domain: "system", columns: { endpoint: "secret", p256dh: "secret", auth: "secret" } },
+  push_outbox: { level: "internal", domain: "system", columns: { payload: "personal" } },
   // ADR-031 proposals: readable by the conversation they belong to; the reason is free text.
   shared_proposals: { level: "internal", domain: "connect", columns: { reason: "sensitive" } },
   shared_proposal_votes: { level: "internal", domain: "connect", columns: { reason: "sensitive" } },

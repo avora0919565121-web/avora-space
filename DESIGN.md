@@ -1781,3 +1781,39 @@ tax fields and quarterly estimates, automatic posting of recurring entries, and 
 seeded and updated by hand) all stay out for now. The installed app is a wrapper over the live site, not an
 offline product: no cached messages, tasks or balances, no background sync, and no push notifications. Purple gradients, glassmorphism, drop shadows, and stock
 illustration are deliberately avoided.
+- 2026-09-30 — Nhật ký 5 mục, Ghi chép, Tìm kiếm toàn AVORA, Thông báo đẩy (AVORA-44/46).
+  Opening Nhật ký lands on the view used last on this device (first time: Nhật ký của tôi). A count row sits on
+  top of every view and is the one way to switch: `Nhật ký · Ghi chép · File · Liên kết · Nguồn tạo việc`, with a
+  small dot when something arrived since the last look; on a phone it scrolls sideways (no three-row list any more).
+  Each journal entry has exactly one home, read top to bottom: made a task → Nguồn tạo việc; mostly a file (words fit
+  one line: no line break, ≤ 120 characters) → File của tôi; mostly a link → Liên kết; otherwise → Nhật ký của tôi,
+  with small `📎1 · 🔗1` chips. File and Liên kết still list every file and link wherever it lives, each with its
+  source and `Mở mục gốc`. `Hiện tất cả` (off by default) shows every entry in the timeline. A voice note I record
+  myself stays in the timeline — it is a thought said aloud. Liên kết is a reading, not a store: domain + caption +
+  date, opened in a new tab, nothing fetched from the linked site. Deleting anywhere puts the whole entry in the bin
+  for 30 days, with Hoàn tác; if the entry has words of its own it asks first.
+  Ghi chép is what one writes to read again: folders first, like notebooks on a shelf (the system folder
+  `Ghi chép đọc sách` last, `Chưa xếp` only when needed); a computer shows folders │ notes │ editor, a phone steps
+  through them. The editor numbers outlines by position `I. → 1. → A. → a. → + → -` (16px per level): typing a
+  marker starts a level, Enter continues it, Enter on an empty line steps out, Tab / the → ← keys move levels,
+  tapping a marker folds its branch. It saves ~800ms after typing stops, says `Đang lưu… / Đã lưu · 22:51`, keeps
+  a draft on the device while offline (`Chưa lưu — sẽ lưu khi có mạng`) and returns to the same folder, note and
+  caret. Files are attachments at the end with a small icon where they were added; removing the icon keeps the file.
+  One recorder serves the whole app, with a thin red bar on top (`Đang ghi · 02:14 · Dừng`, amber in the last minute).
+  Search is one tool: 🔍 beside a tab title, results of where you stand first, bold on the matched words even when
+  typed without accents, never Két sắt. Push notifications say only who (or which room) and `Tin nhắn mới`, unless the
+  person turns on showing content; the permission is asked only after a first message or reminder, after `Bật`.
+
+**Mọi đường ghi vào Nhật ký** (cột Nơi chính theo bảng A.3; tính lúc đọc)
+
+| # | Đường | Nơi chính |
+|---|---|---|
+| 1 | Tự gõ một ý nghĩ (chữ là chính) | Nhật ký của tôi |
+| 2 | Chuyển tiếp tin vào Nhật ký | Theo nội dung: chữ → Nhật ký; tệp/ảnh (chữ ≤ 1 dòng) → File; link (chữ ≤ 1 dòng) → Liên kết |
+| 3 | Dán vào Nhật ký (form Tạo việc) | Nguồn tạo việc |
+| 4 | Tạo việc từ một mục Nhật ký | Nguồn tạo việc |
+| 5 | Ảnh / tệp tải lên kèm chú thích 1 dòng | File của tôi |
+| 6 | Link kèm 1 dòng chữ | Liên kết |
+| 7 | Ghi âm tự ghi (≤ 5 phút) | Nhật ký của tôi |
+| 8 | Lưu biên bản từ Sổ quyết định | File của tôi (Từ Sổ quyết định) |
+| 9 | Ghi chép: tự viết / dán chữ / chụp / ghi âm (≤ 30 phút) / tệp — không có chuyển tiếp vào Ghi chép | Ghi chép (tệp cũng hiện ở File, link ở Liên kết) |

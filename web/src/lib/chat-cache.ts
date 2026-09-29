@@ -74,7 +74,7 @@ export function isProjectTab(tab: MessageTab): tab is "projects" {
   return tab === "projects";
 }
 
-export const JOURNAL_TITLE = "Nhật ký của bạn";
+export const JOURNAL_TITLE = "Nhật ký của tôi";
 export const JOURNAL_SUBTITLE = "Chỉ mình bạn đọc được";
 
 /**

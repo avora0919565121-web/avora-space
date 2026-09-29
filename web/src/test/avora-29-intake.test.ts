@@ -217,7 +217,9 @@ describe("A3 — Nhật ký của bạn and File của bạn", () => {
     expect(isFileOnlyNote(voice, attachmentsOf("m4444"))).toBe(false);
     expect(isFileOnlyNote(deleted, [])).toBe(false);
     const all = [typed, bareFile, captioned, voice, deleted];
-    expect(journalTimeline(all, attachmentsOf).map((item) => item.id)).toEqual(["m1", "m333", "m4444", "m55555"]);
+    // AVORA-44 · A.3: a photo with a one-line caption lives in File của tôi (44.16), not the timeline.
+    expect(journalTimeline(all, attachmentsOf).map((item) => item.id)).toEqual(["m1", "m4444", "m55555"]);
+    expect(journalTimeline(all, attachmentsOf, new Set(), new Set(), true).map((item) => item.id)).toEqual(["m1", "m22", "m333", "m4444", "m55555"]);
   });
 
   it("keeps a bare file note in the timeline when a task has just pointed at it", () => {
@@ -239,23 +241,23 @@ describe("A3 — Nhật ký của bạn and File của bạn", () => {
     const notes = diaryFileNotes(files, [bareFile], new Set(["m22"]));
     expect(notes.find((entry) => entry.messageId === "m22")?.source).toBe("pasted");
     expect(diaryFileSourceLabel("pasted")).toBe("Dán vào để tạo việc");
-    expect(diaryFileSourceLabel("forwarded")).toBe("Chuyển tiếp vào Diary");
+    expect(diaryFileSourceLabel("forwarded")).toBe("Chuyển tiếp vào Nhật ký");
   });
 
-  it("offers exactly the three views, with Bảng kept outside them", () => {
-    expect(DIARY_VIEWS.map((view) => view.label)).toEqual(["Nhật ký của bạn", "File của bạn", "Nguồn tạo việc"]);
+  it("offers exactly the five views (AVORA-44), with Bảng kept outside them", () => {
+    expect(DIARY_VIEWS.map((view) => view.label)).toEqual(["Nhật ký của tôi", "Ghi chép", "File của tôi", "Liên kết", "Nguồn tạo việc"]);
   });
 });
 
 describe("Diary list addresses (AVORA 32)", () => {
   it("reads and writes each view as a slug; no slug means the Diary list on a phone", async () => {
     const { diaryViewFromSlug, diaryViewSlug, countDiaryFileNotes } = await import("@/lib/diary-views");
-    for (const view of ["journal", "files", "sources"] as const) {
+    for (const view of ["journal", "notes", "files", "links", "sources"] as const) {
       expect(diaryViewFromSlug(diaryViewSlug(view))).toBe(view);
     }
     expect(diaryViewFromSlug(null)).toBeNull();
     expect(diaryViewFromSlug("khac")).toBeNull();
-    const at = (messageId: string, kind: string) => ({ messageId, kind }) as never;
+    const at = (messageId: string, kind: string) => ({ messageId, kind, originMessageId: null }) as never;
     expect(countDiaryFileNotes([at("m1", "image"), at("m1", "file"), at("m2", "voice"), at("m3", "file")])).toBe(2);
   });
 });

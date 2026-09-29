@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { normalizeSearch } from "@/lib/normalize-search";
 import {
   hubFail,
@@ -126,17 +127,37 @@ export function orderTemplates(
   };
 }
 
+/**
+ * The arguments for creating a table from a template. Every key is always sent — `null` rather
+ * than left out — because the server function has no defaults: a missing key makes PostgREST
+ * look for a different signature and answer PGRST202 ("Có lỗi xảy ra" on screen).
+ */
+export function templateTableArgs(input: { template: BoardTemplate; conversationId: string | null; name: string }): {
+  p_template_key: string | null;
+  p_user_template_id: string | null;
+  p_conversation_id: string | null;
+  p_name: string;
+} {
+  return {
+    p_template_key: input.template.source === "system" ? input.template.id : null,
+    p_user_template_id: input.template.source === "mine" ? input.template.id : null,
+    p_conversation_id: input.conversationId,
+    p_name: input.name.trim(),
+  };
+}
+
+type TemplateArgs = Database["public"]["Functions"]["create_think_hub_table_from_template"]["Args"];
+type ApplyArgs = Database["public"]["Functions"]["apply_template_to_table"]["Args"];
+
 export async function createTableFromTemplate(input: {
   template: BoardTemplate;
   conversationId: string | null;
   name: string;
 }): Promise<ThinkTable> {
-  const { data, error } = await supabase.rpc("create_think_hub_table_from_template", {
-    p_template_key: input.template.source === "system" ? input.template.id : undefined,
-    p_user_template_id: input.template.source === "mine" ? input.template.id : undefined,
-    p_conversation_id: input.conversationId ?? undefined,
-    p_name: input.name.trim(),
-  });
+  const { data, error } = await supabase.rpc(
+    "create_think_hub_table_from_template",
+    templateTableArgs(input) as unknown as TemplateArgs,
+  );
   if (error) throw hubFail(error.code, error.message);
   return tableFromRow(data);
 }
@@ -144,9 +165,9 @@ export async function createTableFromTemplate(input: {
 export async function applyTemplate(tableId: string, template: BoardTemplate): Promise<ThinkTable> {
   const { data, error } = await supabase.rpc("apply_template_to_table", {
     p_table_id: tableId,
-    p_template_key: template.source === "system" ? template.id : undefined,
-    p_user_template_id: template.source === "mine" ? template.id : undefined,
-  });
+    p_template_key: template.source === "system" ? template.id : null,
+    p_user_template_id: template.source === "mine" ? template.id : null,
+  } as unknown as ApplyArgs);
   if (error) throw hubFail(error.code, error.message);
   return tableFromRow(data);
 }

@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { buildContextSnapshot, snapshotToJson } from "@/lib/task-context";
 import { browserTimezone } from "@/lib/task-schedule";
 import { todayIso, validateTaskDraft } from "@/lib/tasks";
@@ -584,7 +585,8 @@ export async function createProjectTask(input: ProjectTaskInput, today: string =
   const taskId = crypto.randomUUID();
   const { error } = await supabase.rpc("create_project_task", {
     p_project_id: input.project.id,
-    p_record_id: input.recordId ?? undefined,
+    // Always sent: the function has no default here, so a missing key is PGRST202 (ad-hoc tasks).
+    p_record_id: input.recordId,
     p_task_id: taskId,
     p_title: clean.value.title,
     p_description: clean.value.description,
@@ -593,7 +595,7 @@ export async function createProjectTask(input: ProjectTaskInput, today: string =
     p_deadline_time: clean.value.deadlineTime ?? undefined,
     p_deadline_tz: browserTimezone(),
     p_context_snapshot: snapshotToJson(snapshot),
-  });
+  } as unknown as Database["public"]["Functions"]["create_project_task"]["Args"]);
   if (error) throw fail(error.code, error.message);
   return taskId;
 }

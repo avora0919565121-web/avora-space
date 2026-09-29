@@ -79,7 +79,14 @@ import {
   splitMentions,
 } from "@/lib/mentions";
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
-import { DiaryFilesView, DiaryHeaderIcon, DiaryList, DiarySourcesView } from "@/components/chat/DiaryViews";
+import { DiaryCountRow, DiaryFilesView, DiaryHeaderIcon, DiaryLinksView, DiaryList, DiarySourcesView } from "@/components/chat/DiaryViews";
+import { Switch } from "@/components/ui/switch";
+import { closeNotificationsFor, offerPushSoon } from "@/lib/push";
+import { AvoraSearchButton, SearchEverywhereLine } from "@/components/search/AvoraSearch";
+import { NotesPanel } from "@/components/notes/NotesPanel";
+import { toAttachmentView } from "@/components/notes/NoteEditor";
+import { NoteExits, type BoardExit, type TaskExit } from "@/components/notes/NoteExits";
+import { useNotes } from "@/lib/use-notes";
 import { ConversationMoreSections } from "@/components/chat/ConversationMoreSections";
 import { BlockConfirmDialog } from "@/components/chat/BlockConfirmDialog";
 import { ReportDialog, type ReportTarget } from "@/components/chat/ReportDialog";
@@ -92,13 +99,24 @@ import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import {
   DIARY_VIEW_PARAM,
   DIARY_VIEWS,
-  countDiaryFileNotes,
   diaryFileNotes,
+  diaryLinks,
+  diaryPrimaryPlace,
   diaryViewFromSlug,
   diaryViewSlug,
+  entryChips,
+  hasNewSince,
   journalTimeline,
+  latestOf,
+  markDiarySeen,
+  readDiarySeen,
+  readLastDiaryView,
+  rememberDiaryView,
+  type DiaryFileNote,
+  type DiaryLink,
   type DiaryView,
 } from "@/lib/diary-views";
+import { isDeletedFor } from "@/lib/tasks";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import {
   countSavedMeetingNotes,
@@ -121,10 +139,18 @@ import {
   type StagedAttachment,
 } from "@/lib/attachments";
 import { useThreadAttachments } from "@/lib/use-attachments";
-import { useVoiceRecorder } from "@/lib/use-voice-recorder";
+import {
+  cancelRecording,
+  isRecordingSupported,
+  getRecorderState as getRecorderStateSafe,
+  startRecording as startGlobalRecording,
+  stopRecording as stopGlobalRecording,
+  useRecorder,
+} from "@/lib/recorder";
 import {
   deleteJournalMessages,
   deleteSummaryText,
+  restoreJournalMessages,
   forwardedFromLabel,
   toggleSelected,
 } from "@/lib/forwarding";
@@ -770,14 +796,19 @@ const Messages = () => {
   // three-row Diary list and a reload stays on the same view. No slug reads as the journal.
   const isWide: boolean = useMediaQuery("(min-width: 768px)");
   const diaryParam: DiaryView | null = diaryViewFromSlug(searchParams.get(DIARY_VIEW_PARAM));
-  const diaryView: DiaryView = diaryParam ?? "journal";
-  const diaryViewLabel: string = DIARY_VIEWS.find((view) => view.id === diaryView)?.label ?? "Nhật ký của bạn";
+  // AVORA-44 · quyết định 1: no view in the address opens the one used last on this device.
+  const [lastDiaryView] = useState<DiaryView>(() => readLastDiaryView());
+  const diaryView: DiaryView = diaryParam ?? (highlightTaskId !== null ? "journal" : lastDiaryView);
+  const diaryViewLabel: string = DIARY_VIEWS.find((view) => view.id === diaryView)?.label ?? "Nhật ký của tôi";
+  useEffect(() => {
+    if (activeKind === "personal" && diaryParam !== null) rememberDiaryView(diaryParam);
+  }, [activeKind, diaryParam]);
   /**
    * Phone: the journal is open but no reading has been chosen, so the three-row Diary list is the
    * screen. "Xem trong ngữ cảnh" names a task instead and goes straight to the written timeline.
    */
-  const isDiaryListScreen: boolean =
-    activeKind === "personal" && conversationId !== undefined && diaryParam === null && highlightTaskId === null && !isWide;
+  // The three-row list is gone on a phone (30/09): the count row switches views instead.
+  const isDiaryListScreen = false as boolean;
   const location = useLocation();
   const leaveDiaryView = useCallback((): void => {
     if (conversationId === undefined) return;
@@ -793,7 +824,58 @@ const Messages = () => {
     [conversationId, navigate],
   );
   const isDiaryAside: boolean = activeKind === "personal" && diaryView !== "journal";
-  const pasteTasks = useMemo(() => pasteSourceTasks(allTasks ?? [], userId), [allTasks, userId]);
+  const [notesRequest, setNotesRequest] = useState<{ noteId?: string; book?: { recordId: string; title: string } } | null>(null);
+  const clearNotesRequest = useCallback((): void => setNotesRequest(null), []);
+  const [noteTaskExit, setNoteTaskExit] = useState<TaskExit | null>(null);
+  const [noteBoardExit, setNoteBoardExit] = useState<BoardExit | null>(null);
+  const openWriting = useCallback(
+    (noteId: string): void => {
+      setNotesRequest({ noteId });
+      openDiaryView("notes");
+    },
+    [openDiaryView],
+  );
+  // Kệ sách › Ghi chép (C): ?ghi-chep=<id> opens a note, ?sach=<id>&ten=<title> starts one.
+  useEffect(() => {
+    if (activeKind !== "personal") return;
+    const noteParam = searchParams.get("ghi-chep");
+    const bookParam = searchParams.get("sach");
+    if (noteParam !== null) setNotesRequest({ noteId: noteParam });
+    else if (bookParam !== null) setNotesRequest({ book: { recordId: bookParam, title: searchParams.get("ten") ?? "Sách" } });
+    else return;
+    if (conversationId !== undefined) navigate(`/tin-nhan/${conversationId}?${DIARY_VIEW_PARAM}=${diaryViewSlug("notes")}`, { replace: true });
+  }, [activeKind, searchParams, conversationId, navigate]);
+  /**
+   * Nguồn tạo việc: my tasks that came from Nhật ký — pasted in, or raised from an entry (its
+   * `original_message_id` points at a journal row). Worked out on read; no column says so.
+   */
+  const journalConversationId: string | null = journalSummary?.conversationId ?? null;
+  const pasteTasks = useMemo(() => {
+    const pasted = pasteSourceTasks(allTasks ?? [], userId);
+    if (journalConversationId === null || userId === undefined) return pasted;
+    const seen = new Set<string>(pasted.map((task) => task.id));
+    const fromEntries = (allTasks ?? []).filter(
+      (task) =>
+        !seen.has(task.id) &&
+        task.creatorId === userId &&
+        !isDeletedFor(task, userId) &&
+        task.contextSnapshot?.conversationId === journalConversationId &&
+        (task.contextSnapshot?.originalMessageId ?? null) !== null,
+    );
+    return [...pasted, ...fromEntries].sort((a, b) => (a.createdAt < b.createdAt ? 1 : a.createdAt > b.createdAt ? -1 : 0));
+  }, [allTasks, userId, journalConversationId]);
+  /** Entries a task of mine points back at: their place is Nguồn tạo việc (A.3 row 1). */
+  const taskMessageIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const task of pasteTasks) {
+      const snapshot = task.contextSnapshot;
+      if (snapshot?.conversationId !== journalConversationId) continue;
+      for (const id of snapshot?.selectedMessageIds ?? [snapshot?.originalMessageId ?? null]) if (id !== null) ids.add(id);
+    }
+    return ids;
+  }, [pasteTasks, journalConversationId]);
+  const [showAllTimeline, setShowAllTimeline] = useState<boolean>(false);
+  const notesData = useNotes({ enabled: activeTab === "journal" || activeKind === "personal" });
   // The Diary list shows its counts before the journal is opened, so the journal's files are read
   // on their own (same cache key as the open thread, no signed links needed just to count).
   const journalAttachmentsQuery = useQuery<MessageAttachment[], Error>({
@@ -823,31 +905,100 @@ const Messages = () => {
     }
     return found.reverse();
   }, [activeKind, messages, userId]);
-  const diaryFileCount: number = useMemo(
-    () =>
-      countDiaryFileNotes(journalAttachmentsQuery.data ?? []) +
-      (activeKind === "personal" ? savedMeetingNotes.length : (savedMeetingCountQuery.data ?? 0)),
-    [journalAttachmentsQuery.data, activeKind, savedMeetingNotes.length, savedMeetingCountQuery.data],
-  );
   const pastedNoteIds = useMemo(
     () =>
       new Set<string>(
-        pasteTasks
+        pasteSourceTasks(allTasks ?? [], userId)
           .map((task) => task.contextSnapshot?.originalMessageId ?? null)
           .filter((id): id is string => id !== null),
       ),
-    [pasteTasks],
+    [allTasks, userId],
   );
-  const diaryFiles = useMemo(
-    () => (activeKind === "personal" ? diaryFileNotes(threadAttachments, messages, pastedNoteIds) : []),
-    [activeKind, threadAttachments, messages, pastedNoteIds],
+  const journalAttachments: MessageAttachment[] = useMemo(
+    () => (activeKind === "personal" ? threadAttachments : (journalAttachmentsQuery.data ?? [])),
+    [activeKind, threadAttachments, journalAttachmentsQuery.data],
   );
-  /** The written timeline. A bare file note stays visible only when a task has just pointed at it. */
+  const diaryFiles: DiaryFileNote[] = useMemo(
+    () => (activeKind === "personal" ? diaryFileNotes(threadAttachments, messages, pastedNoteIds, taskMessageIds) : []),
+    [activeKind, threadAttachments, messages, pastedNoteIds, taskMessageIds],
+  );
+  const journalFilesOf = useCallback(
+    (messageId: string) => journalAttachments.filter((item) => item.messageId === messageId),
+    [journalAttachments],
+  );
+  /** Every link in the journal page on screen and in every Ghi chép (A.4). */
+  const diaryLinkRows: DiaryLink[] = useMemo(() => {
+    const entries =
+      activeKind === "personal"
+        ? messages
+            .filter((message) => message.deletedAt == null && message.systemKind == null && message.pending !== true)
+            .map((message) => ({
+              id: message.id,
+              content: message.content,
+              createdAt: message.createdAt,
+              place: diaryPrimaryPlace({ content: message.content, attachments: journalFilesOf(message.id), hasTask: taskMessageIds.has(message.id) }),
+            }))
+        : [];
+    const noteRows = notesData.liveNotes.map((note) => ({
+      id: note.id,
+      title: note.title.trim() === "" ? (note.blocks.find((block) => block.text.trim() !== "")?.text.trim() ?? "Ghi chép") : note.title,
+      text: note.blocks.map((block) => block.text).join("\n"),
+      updatedAt: note.updatedAt,
+    }));
+    return diaryLinks(entries, noteRows);
+  }, [activeKind, messages, journalFilesOf, taskMessageIds, notesData.liveNotes]);
+  const noteFileRows = useMemo(() => {
+    const titleOf = new Map(notesData.liveNotes.map((note) => [note.id, note.title.trim() === "" ? "Ghi chép" : note.title] as const));
+    return (notesData.attachments.data ?? [])
+      .filter((item) => titleOf.has(item.noteId))
+      .map((item) => ({ id: item.id, noteId: item.noteId, noteTitle: titleOf.get(item.noteId) as string, attachment: toAttachmentView(item), createdAt: item.createdAt }));
+  }, [notesData.liveNotes, notesData.attachments.data]);
+  /** The written timeline: only entries whose place is Nhật ký, unless "Hiện tất cả" is on. */
   const timelineMessages: ChatMessage[] = useMemo(() => {
     if (activeKind !== "personal") return messages;
     const keep = new Set<string>(quotedMessageId === null ? [] : [quotedMessageId]);
-    return journalTimeline(messages, attachmentsOf, keep);
-  }, [activeKind, messages, attachmentsOf, quotedMessageId]);
+    return journalTimeline(messages, attachmentsOf, keep, taskMessageIds, showAllTimeline);
+  }, [activeKind, messages, attachmentsOf, quotedMessageId, taskMessageIds, showAllTimeline]);
+  const journalTimelineCount: number | null = activeKind === "personal"
+    ? journalTimeline(messages, attachmentsOf, new Set<string>(), taskMessageIds, false).filter((message) => message.systemKind == null).length
+    : null;
+  const diaryCounts = useMemo(
+    () => ({
+      journal: journalTimelineCount,
+      notes: notesData.notes.data === undefined ? null : notesData.liveNotes.length,
+      files:
+        new Set(journalAttachments.filter((item) => !(item.kind === "voice" && item.originMessageId === null)).map((item) => item.messageId)).size +
+        (activeKind === "personal" ? savedMeetingNotes.length : (savedMeetingCountQuery.data ?? 0)) +
+        noteFileRows.length,
+      links: activeKind === "personal" ? diaryLinkRows.length : null,
+      sources: pasteTasks.length,
+    }),
+    [journalTimelineCount, notesData.notes.data, notesData.liveNotes.length, journalAttachments, activeKind, savedMeetingNotes.length, savedMeetingCountQuery.data, noteFileRows.length, diaryLinkRows.length, pasteTasks.length],
+  );
+  /** The • : something new in a view since it was last opened on this device. */
+  const diaryLatest = useMemo(
+    () => ({
+      journal: latestOf(timelineMessages.filter((message) => message.senderId !== "").map((message) => message.createdAt)),
+      notes: latestOf(notesData.liveNotes.map((note) => note.createdAt)),
+      files: latestOf([...diaryFiles.map((entry) => entry.createdAt), ...noteFileRows.map((row) => row.createdAt)]),
+      links: latestOf(diaryLinkRows.map((row) => row.createdAt)),
+      sources: latestOf(pasteTasks.map((task) => task.createdAt)),
+    }),
+    [timelineMessages, notesData.liveNotes, diaryFiles, noteFileRows, diaryLinkRows, pasteTasks],
+  );
+  const [seenTick, setSeenTick] = useState<number>(0);
+  useEffect(() => {
+    if (activeKind !== "personal") return;
+    const latest = diaryLatest[diaryView];
+    markDiarySeen(diaryView, latest ?? new Date().toISOString());
+    setSeenTick((tick) => tick + 1);
+  }, [activeKind, diaryView, diaryLatest]);
+  const diaryDots = useMemo(() => {
+    void seenTick;
+    const out: Partial<Record<DiaryView, boolean>> = {};
+    for (const view of DIARY_VIEWS) out[view.id] = hasNewSince(diaryLatest[view.id], readDiarySeen(view.id));
+    return out;
+  }, [diaryLatest, seenTick]);
   const dayGroups = useMemo(() => groupMessagesByDay(timelineMessages), [timelineMessages]);
 
   // One paste flow for Kết nối and the corner bubble (AVORA-35 / F).
@@ -859,7 +1010,22 @@ const Messages = () => {
   );
 
 
-  const recorder = useVoiceRecorder();
+  /*
+   * The one recorder of the app (AVORA-44): a voice note keeps recording while the person looks
+   * elsewhere. In a chat it is still cancelled on leaving the thread (it belongs to that room); in
+   * Nhật ký it continues, and if the journal is no longer open when it stops, it is saved straight
+   * into the journal as a spoken thought.
+   */
+  const globalRecorder = useRecorder();
+  const recordingKey = `thread:${conversationId ?? ""}`;
+  const recorder = {
+    isRecording: globalRecorder.isRecording && globalRecorder.ownerKey === recordingKey,
+    elapsedSeconds: globalRecorder.elapsedSeconds,
+    isUnsupported: !isRecordingSupported() || (globalRecorder.isRecording && globalRecorder.ownerKey !== recordingKey),
+    cancel: cancelRecording,
+  };
+  const openThreadRef = useRef<string | undefined>(conversationId);
+  openThreadRef.current = conversationId;
 
   /**
    * Takes files from the picker into the composer.
@@ -943,30 +1109,39 @@ const Messages = () => {
   );
 
   const startRecording = useCallback((): void => {
-    void recorder.start().catch(() => {
-      toast.error("Không dùng được micro. Kiểm tra quyền truy cập trong trình duyệt.");
+    const threadId = conversationId;
+    if (threadId === undefined) return;
+    const isJournal = activeKind === "personal";
+    void startGlobalRecording({
+      target: "message",
+      ownerKey: `thread:${threadId}`,
+      returnTo: `/tin-nhan/${threadId}`,
+      done: (result) => {
+        const extension = result.blob.type.includes("mp4") ? "m4a" : "webm";
+        const file = new File([result.blob], `tin-nhan-thoai.${extension}`, { type: result.blob.type });
+        void stageAttachment(file, { isRecording: true, durationSeconds: result.durationSeconds })
+          .then(async (item) => {
+            if (openThreadRef.current === threadId) {
+              setStaged((current) => [...current, item]);
+              return;
+            }
+            if (!isJournal) return;
+            const uploaded = await uploadStagedAttachment(threadId, item);
+            await sendMessageWithAttachments({ conversationId: threadId, content: "", attachments: [uploaded] });
+            void queryClient.invalidateQueries({ queryKey: chatKeys.messages(threadId) });
+            void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(threadId) });
+            toast.success("Đã lưu bản ghi âm vào Nhật ký.");
+          })
+          .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không lưu được bản ghi."));
+      },
+    }).catch((error: unknown) => {
+      toast.error(error instanceof Error && error.message.startsWith("Đang có") ? error.message : "Không dùng được micro. Kiểm tra quyền truy cập trong trình duyệt.");
     });
-  }, [recorder]);
+  }, [conversationId, activeKind, queryClient]);
 
   const stopRecording = useCallback((): void => {
-    void recorder
-      .stop()
-      .then(async (result) => {
-        if (result === null) return;
-        const extension = result.blob.type.includes("mp4") ? "m4a" : "webm";
-        const file = new File([result.blob], `tin-nhan-thoai.${extension}`, {
-          type: result.blob.type,
-        });
-        const item = await stageAttachment(file, {
-          isRecording: true,
-          durationSeconds: result.durationSeconds,
-        });
-        setStaged((current) => [...current, item]);
-      })
-      .catch((error: unknown) => {
-        toast.error(error instanceof Error ? error.message : "Không lưu được bản ghi.");
-      });
-  }, [recorder]);
+    stopGlobalRecording();
+  }, []);
 
   /**
    * Leaving a thread abandons whatever was staged in it.
@@ -975,8 +1150,12 @@ const Messages = () => {
    * recording has no business surviving the screen it was started on.
    */
   useEffect(() => {
+    const leavingKind = activeKind;
+    const leavingKey = recordingKey;
     return () => {
-      recorder.cancel();
+      // A chat's voice note belongs to that room; a journal's keeps going (it saves itself).
+      const now = getRecorderStateSafe();
+      if (leavingKind !== "personal" && now.isRecording && now.ownerKey === leavingKey) cancelRecording();
       setStaged((current) => {
         current.forEach((item) => {
           if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
@@ -1224,6 +1403,8 @@ const Messages = () => {
 
   const { mutate: markRead } = useMutation({
     mutationFn: (id: string) => markConversationRead(id),
+    // Read here → its notification on this device goes away (same tag, AVORA-46 · D).
+    onSuccess: (_data: string | null, id: string) => void closeNotificationsFor(id),
     onError: (error: Error, id: string) => {
       // Allow a later attempt; the badge comes back from the server.
       delete markedRef.current[id];
@@ -1273,6 +1454,8 @@ const Messages = () => {
   const sendMutation = useMutation({
     mutationFn: async (payload: SendPayload): Promise<void> => {
       if (!userId) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+      // AVORA-46: after a first message the push card may offer itself (it decides; never on app open).
+      offerPushSoon();
       // Read off the finished text rather than tracked as chips: deleting part of a name
       // un-names that person, which is what someone editing the sentence expects.
       const mentioned = extractMentionedIds(payload.content, mentionable);
@@ -1665,9 +1848,21 @@ const Messages = () => {
   }, [messages, selectedIds, senderNameOf, openTaskDialogFor]);
 
   const deleteJournalMutation = useMutation({
-    mutationFn: (ids: readonly string[]) => deleteJournalMessages(ids),
-    onSuccess: (count: number) => {
-      toast.success(deleteSummaryText(count));
+    mutationFn: (ids: readonly string[]) => deleteJournalMessages(ids).then((count) => ({ count, ids })),
+    onSuccess: ({ count, ids }: { count: number; ids: readonly string[] }) => {
+      toast.success(deleteSummaryText(count), {
+        action: {
+          label: "Hoàn tác",
+          onClick: () => {
+            void restoreJournalMessages(ids).then(() => {
+              if (conversationId) {
+                void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+                void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(conversationId) });
+              }
+            });
+          },
+        },
+      });
       cancelSelection();
       if (conversationId) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
@@ -1677,6 +1872,50 @@ const Messages = () => {
     },
     onError: (error: Error) => toast.error(error.message),
   });
+
+  /** "Mở mục gốc": back to the timeline, showing everything so the entry is surely there. */
+  const openJournalEntry = useCallback(
+    (messageId: string): void => {
+      setShowAllTimeline(true);
+      openDiaryView("journal");
+      window.setTimeout(() => jumpToMessage(messageId), 160);
+    },
+    [openDiaryView, jumpToMessage],
+  );
+
+  /**
+   * A.5: deleting from File / Liên kết deletes the whole journal entry (into the bin, 30 days).
+   * When the entry also holds words of its own, it asks first.
+   */
+  const askDeleteEntry = useCallback(
+    (messageId: string, text: string, itemCount: number, hasOwnWords: boolean): void => {
+      if (hasOwnWords && text.trim() !== "") {
+        if (!window.confirm(`Xoá cả mục Nhật ký này (có chữ và ${itemCount} tệp/link)?`)) return;
+      }
+      void deleteJournalMessages([messageId])
+        .then(() => {
+          if (conversationId !== undefined) {
+            void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+            void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(conversationId) });
+          }
+          toast.success("Đã chuyển mục Nhật ký vào Thùng rác (giữ 30 ngày).", {
+            action: {
+              label: "Hoàn tác",
+              onClick: () => {
+                void restoreJournalMessages([messageId]).then(() => {
+                  if (conversationId !== undefined) {
+                    void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
+                    void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(conversationId) });
+                  }
+                });
+              },
+            },
+          });
+        })
+        .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không xoá được."));
+    },
+    [conversationId, queryClient],
+  );
 
   /**
    * Deleting notes from a journal.
@@ -1688,8 +1927,8 @@ const Messages = () => {
     if (selectedIds.length === 0) return;
     const question =
       selectedIds.length === 1
-        ? "Xoá ghi chú này? Không khôi phục được."
-        : `Xoá ${selectedIds.length} ghi chú? Không khôi phục được.`;
+        ? "Chuyển mục này vào Thùng rác? Khôi phục được trong 30 ngày."
+        : `Chuyển ${selectedIds.length} mục vào Thùng rác? Khôi phục được trong 30 ngày.`;
     if (!window.confirm(question)) return;
     deleteJournalMutation.mutate(selectedIds);
   }, [selectedIds, deleteJournalMutation]);
@@ -1757,7 +1996,7 @@ const Messages = () => {
 
       // A phone rests on the three-row Diary list, which lives at the bare inbox address so the
       // tool-belt stays; a computer opens the journal beside that list at once.
-      if (tab !== "journal" || !isWide) {
+      if (tab !== "journal") {
         navigate("/tin-nhan");
         return;
       }
@@ -1780,11 +2019,9 @@ const Messages = () => {
    * back, a reload) opens the journal itself, in place of the list entry.
    */
   useEffect(() => {
-    if (!isWide) {
-      if (activeTab === "journal" && journalSummary === undefined && conversationsQuery.isSuccess && !journalMutation.isPending) {
-        // First visit on a phone: the journal is created quietly so the Diary rows can open it.
-        journalMutation.mutate();
-      }
+    if (!isWide && activeTab === "journal" && journalSummary === undefined && conversationsQuery.isSuccess && !journalMutation.isPending) {
+      // First visit: the journal is created quietly, then opened.
+      journalMutation.mutate();
       return;
     }
     if (conversationId !== undefined || activeTab !== "journal" || journalSummary === undefined) return;
@@ -1812,6 +2049,18 @@ const Messages = () => {
     syncedThreadRef.current = activeSummary.conversationId;
     if (tab !== null) setActiveTab(tab);
   }, [conversationId, activeSummary, activeTab]);
+
+  /** A search result (ADR-032) opens the thread and lights the message: `?toi=<messageId>`. */
+  const jumpParam: string | null = searchParams.get("toi");
+  const jumpedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (jumpParam === null || conversationId === undefined || messagesQuery.isPending) return;
+    const key = `${conversationId}:${jumpParam}`;
+    if (jumpedRef.current === key) return;
+    jumpedRef.current = key;
+    if (activeKind === "personal") setShowAllTimeline(true);
+    window.setTimeout(() => jumpToMessage(jumpParam), 120);
+  }, [jumpParam, conversationId, messagesQuery.isPending, activeKind, jumpToMessage]);
 
   /** Arriving back from a project detail screen lands on the tab that listed it. */
   useEffect(() => {
@@ -1850,6 +2099,9 @@ const Messages = () => {
               </span>
             ) : null}
             <div className="flex items-center gap-2">
+              <AvoraSearchButton
+                here={{ tab: activeTab === "journal" ? "nhat-ky" : "ket-noi", conversationId: conversationId ?? null, label: activeTab === "journal" ? "Nhật ký" : "Kết nối" }}
+              />
               {/* Liên hệ left the main rail: the people you talk to belong beside the talking. */}
               <Link
                 to={withReturn("/lien-he", hereFrom(location, "Kết nối"))}
@@ -1930,6 +2182,9 @@ const Messages = () => {
               />
             </label>
           )}
+          {activeTab === "journal" || isPlaceholder || isProjects ? null : (
+            <SearchEverywhereLine query={query} here={{ tab: "ket-noi", conversationId: null, label: "Kết nối" }} />
+          )}
         </div>
 
         {isPlaceholder ? (
@@ -1965,7 +2220,8 @@ const Messages = () => {
             <DiaryList
               journalId={journalSummary?.conversationId ?? null}
               active={activeKind === "personal" ? diaryView : null}
-              counts={{ journal: null, files: diaryFileCount, sources: pasteTasks.length }}
+              counts={diaryCounts}
+              dots={diaryDots}
               isWide={isWide}
               onPaste={() => void startPaste()}
               isPasting={isReadingClipboard}
@@ -2155,12 +2411,11 @@ const Messages = () => {
           ) : (
             <>
               <header className="flex items-center gap-3 border-b border-border bg-card px-5 py-3.5 md:pr-[4.25rem]">
-                {/* Phone: a Diary reading steps back to the three-row Diary list. */}
                 {activeKind === "personal" ? (
                   <button
                     type="button"
-                    aria-label="Về Nhật ký"
-                    onClick={leaveDiaryView}
+                    aria-label="Quay lại Kết nối"
+                    onClick={() => navigate("/tin-nhan")}
                     className="press rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
                   >
                     <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
@@ -2214,10 +2469,16 @@ const Messages = () => {
                       {isPeerOnline
                         ? "Đang trực tuyến"
                         : activeKind === "personal" && diaryView === "files"
-                          ? `${diaryFiles.length + savedMeetingNotes.length} mục · chỉ mình bạn xem`
+                          ? `${diaryCounts.files} mục · chỉ mình bạn xem`
                           : activeKind === "personal" && diaryView === "sources"
-                            ? `${pasteTasks.length} việc tạo từ nội dung dán`
-                            : threadSubtitle}
+                            ? `${pasteTasks.length} việc tạo từ Nhật ký`
+                            : activeKind === "personal" && diaryView === "links"
+                              ? `${diaryLinkRows.length} liên kết · không tải trang ngoài`
+                              : activeKind === "personal" && diaryView === "notes"
+                                ? `${notesData.liveNotes.length} ghi chép · chỉ mình bạn xem`
+                                : activeKind === "personal"
+                                  ? "Chỉ mình bạn đọc"
+                                  : threadSubtitle}
                     </p>
                   )}
                 </div>
@@ -2384,23 +2645,60 @@ const Messages = () => {
                 </div>
               ) : null}
 
-              {isDiaryAside ? (
+              {activeKind === "personal" && conversationId !== undefined ? (
+                <DiaryCountRow journalId={conversationId} active={diaryView} counts={diaryCounts} dots={diaryDots} />
+              ) : null}
+              {isDiaryAside && diaryView === "notes" ? (
+                <div className="min-h-0 flex-1">
+                  <NotesPanel
+                    data={notesData}
+                    isWide={isWide}
+                    request={notesRequest}
+                    onRequestHandled={clearNotesRequest}
+                    onCreateTask={setNoteTaskExit}
+                    onToBoard={setNoteBoardExit}
+                    onOpenBook={(recordId) => navigate(`/ke-hoach/ke-sach?sach=${encodeURIComponent(recordId)}`)}
+                  />
+                </div>
+              ) : isDiaryAside ? (
                 <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-10">
                   {diaryView === "files" ? (
                     <DiaryFilesView
                       notes={diaryFiles}
                       meetingNotes={savedMeetingNotes}
+                      noteFiles={noteFileRows}
                       urlOf={attachmentUrlOf}
+                      noteUrlOf={notesData.urlOf}
                       isLoading={isAttachmentsLoading}
-                      onOpenNote={(messageId) => {
-                        openDiaryView("journal");
-                        window.setTimeout(() => jumpToMessage(messageId), 120);
+                      onOpenNote={openJournalEntry}
+                      onOpenWriting={openWriting}
+                      onDelete={(entry) => askDeleteEntry(entry.messageId, entry.note, entry.attachments.length, entry.place !== "files")}
+                    />
+                  ) : diaryView === "links" ? (
+                    <DiaryLinksView
+                      links={diaryLinkRows}
+                      onOpenNote={openJournalEntry}
+                      onOpenWriting={openWriting}
+                      onDelete={(link) => {
+                        if (link.from.kind !== "journal") return;
+                        const entry = messages.find((message) => message.id === (link.from as { messageId: string }).messageId);
+                        if (entry === undefined) return;
+                        const chips = entryChips({ content: entry.content, attachments: journalFilesOf(entry.id), hasTask: false });
+                        askDeleteEntry(entry.id, entry.content, chips.files + chips.links, link.from.place !== "links");
                       }}
                     />
                   ) : (
                     <DiarySourcesView
                       tasks={pasteTasks}
+                      contextOf={(task) => {
+                        const snapshot = task.contextSnapshot;
+                        const messageId = snapshot?.originalMessageId ?? null;
+                        const live = messageId === null ? undefined : messages.find((message) => message.id === messageId);
+                        const text = (snapshot?.origin?.content ?? "").trim() || (live?.content ?? snapshot?.originalMessageText ?? "").trim();
+                        return { text, messageId: messageId !== null && snapshot?.conversationId === journalConversationId ? messageId : null };
+                      }}
                       onOpenTask={(task) => setOpenedSourceTaskId(task.id)}
+                      onOpenEntry={openJournalEntry}
                       onPaste={() => void startPaste()}
                     />
                   )}
@@ -2449,6 +2747,12 @@ const Messages = () => {
                   </p>
                 ) : (
                   <div className="mx-auto flex max-w-2xl flex-col gap-6">
+                    {activeKind === "personal" ? (
+                      <label className="flex items-center justify-end gap-2 text-[12.5px] text-muted-foreground">
+                        <span>Hiện tất cả (cả tệp, link, việc)</span>
+                        <Switch checked={showAllTimeline} onCheckedChange={setShowAllTimeline} aria-label="Hiện tất cả" />
+                      </label>
+                    ) : null}
                     {/* Paged thread (A7): the top says whether more is coming or this is the start. */}
                     {conversationId !== undefined && reachedStart[conversationId] === true ? (
                       <p className="text-center text-[12px] text-task-idle">Đầu cuộc trò chuyện</p>
@@ -2838,6 +3142,26 @@ const Messages = () => {
                                     </MessageActionsAffordance>
                                   )}
 
+                                  {activeKind === "personal" && !recalled
+                                    ? (() => {
+                                        const chips = entryChips({ content: message.content, attachments: attachmentsOf(message.id), hasTask: false });
+                                        if (chips.files + chips.links === 0 || message.content.trim() === "") return null;
+                                        return (
+                                          <div className="mt-1 flex justify-end gap-1.5 text-[11.5px] text-muted-foreground">
+                                            {chips.files > 0 ? (
+                                              <button type="button" onClick={() => openDiaryView("files")} className="press rounded-full border border-border bg-card px-2 py-0.5 hover:text-foreground">
+                                                {`📎${chips.files}`}
+                                              </button>
+                                            ) : null}
+                                            {chips.links > 0 ? (
+                                              <button type="button" onClick={() => openDiaryView("links")} className="press rounded-full border border-border bg-card px-2 py-0.5 hover:text-foreground">
+                                                {`🔗${chips.links}`}
+                                              </button>
+                                            ) : null}
+                                          </div>
+                                        );
+                                      })()
+                                    : null}
                                   {/*
                                     Someone has asked the sender to take this back. Only the
                                     sender sees it, and it decides nothing: the two answers are
@@ -3306,8 +3630,8 @@ const Messages = () => {
         }}
       />
 
-      {/* Also from the phone's Diary list, where no thread is open yet. */}
       {pasteDialog}
+      <NoteExits task={noteTaskExit} board={noteBoardExit} onTaskClose={() => setNoteTaskExit(null)} onBoardClose={() => setNoteBoardExit(null)} />
       <TaskDetailSheet
         task={openedSourceTask}
         today={todayIso()}

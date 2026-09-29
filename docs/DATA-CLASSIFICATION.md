@@ -31,7 +31,7 @@ khi hai bên lệch nhau, file code là đúng.
 - `scheduled_messages` — personal; `content` = sensitive (chỉ người gửi thấy trước giờ gửi)
 - `shared_proposals`, `shared_proposal_votes` — internal; `reason` = sensitive (ADR-031, đọc theo cuộc trò chuyện)
 - `conversation_groups` — personal
-- `messages` — sensitive; `content` = sensitive
+- `messages` — sensitive; `content` = sensitive; `trashed_at` = internal (Thùng rác Nhật ký, 30 ngày)
 - `message_attachments` — sensitive; `file_name` = sensitive, `storage_path` = internal
 - `message_reactions`, `message_pins`, `message_recall_request` — personal; `message_recall_request.close_reason` = internal (hết hạn 30 ngày / tự khép khi chặn)
 - `mute_settings` — internal
@@ -56,6 +56,7 @@ khi hai bên lệch nhau, file code là đúng.
 - `think_hub_table`, `think_hub_record` — personal; `think_hub_record.notes` = sensitive
 - `think_hub_record_tasks` — internal
 - `think_hub_template` — public (mẫu hệ thống); `think_hub_user_template` — personal ("Mẫu của tôi", chỉ cấu trúc, chỉ chủ đọc)
+- `note_folders`, `notes`, `note_attachments` — personal, chỉ chủ (Ghi chép, AVORA-44); `notes.blocks/title/search_text`, `note_attachments.file_name` = sensitive; tệp ở bucket riêng tư `note-files` (thư mục của chủ)
 - `think_hub_record_stars` — personal (sao chỉ của người đánh)
 - `think_hub_delete_cascade` — internal (sổ ghi việc đi theo khi xoá Bảng, để khôi phục)
 
@@ -70,3 +71,6 @@ khi hai bên lệch nhau, file code là đúng.
 - `currencies`, `currency_rates` — public
 - `dismissed_guidance` — internal
 - `user_reports` — **sensitive**; `reported_content`, `note` = sensitive (người báo cáo chỉ đọc lại báo cáo của mình; AVORA xem qua service role)
+- `push_subscriptions` — personal, chỉ chủ đọc / gỡ; `endpoint`, `p256dh`, `auth` = secret (AVORA-46)
+- `push_outbox` — internal, chỉ chủ đọc; ghi và gửi chỉ qua server (service role)
+- `profiles.push_show_content`, `profiles.push_reminders` — internal

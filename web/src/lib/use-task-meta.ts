@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { offerPushSoon } from "@/lib/push";
 import { useCallback, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
 
@@ -114,7 +115,10 @@ export function useTaskReminderActions() {
       if (definition === null) return Promise.resolve(null);
       return createTaskReminder(taskId, userId, definition, deadline, deadlineTime, browserTimezone());
     },
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      offerPushSoon();
+    },
   });
 
   const clear = useMutation({

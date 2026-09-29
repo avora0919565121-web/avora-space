@@ -55,12 +55,13 @@ describe("forwardSummaryText", () => {
 
 describe("deleteSummaryText", () => {
   it("counts what was actually removed", () => {
-    expect(deleteSummaryText(1)).toBe("Đã xoá 1 ghi chú.");
-    expect(deleteSummaryText(5)).toBe("Đã xoá 5 ghi chú.");
+    // AVORA-44 · A.5: deleting from Nhật ký is a trip to the bin (30 days), and says so.
+    expect(deleteSummaryText(1)).toBe("Đã chuyển 1 mục vào Thùng rác.");
+    expect(deleteSummaryText(5)).toBe("Đã chuyển 5 mục vào Thùng rác.");
   });
 
   it("does not claim a deletion that did not happen", () => {
-    expect(deleteSummaryText(0)).toBe("Không có ghi chú nào được xoá.");
+    expect(deleteSummaryText(0)).toBe("Không có mục nào được xoá.");
   });
 });
 

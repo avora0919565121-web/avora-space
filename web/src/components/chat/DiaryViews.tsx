@@ -1,16 +1,22 @@
 import {
   ChevronRight,
   ClipboardPaste,
+  ExternalLink,
   FileText,
+  Link2,
   Loader2,
   NotebookPen,
+  NotebookText,
   Paperclip,
   ScrollText,
+  Trash2,
   type LucideIcon,
 } from "lucide-react";
+import { useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
+import type { MessageAttachment } from "@/lib/attachments";
 import { formatClock, formatDayLabel } from "@/lib/chat";
 import {
   DIARY_VIEW_PARAM,
@@ -18,56 +24,118 @@ import {
   diaryFileSourceLabel,
   diaryViewSlug,
   type DiaryFileNote,
+  type DiaryLink,
   type DiaryView,
 } from "@/lib/diary-views";
 import type { SavedMeetingNote } from "@/lib/meeting-notes";
 import type { TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
-/** What each Diary row holds, in one line under its name. */
+/** What each Nhật ký view holds, in one line under its name. */
 const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
-  journal: "Ghi chú chỉ mình bạn đọc được",
-  files: "Ảnh và tệp đã lưu vào Diary",
-  sources: "Việc tạo từ nội dung bạn dán vào",
+  journal: "Ý nghĩ, thu nhanh, tin chuyển tiếp — chỉ mình bạn đọc",
+  notes: "Bài bạn tự viết, xếp theo thư mục",
+  files: "Mọi ảnh và tệp trong Nhật ký và Ghi chép",
+  links: "Mọi đường link bạn đã lưu",
+  sources: "Việc tạo từ Nhật ký",
 };
 
 const DIARY_ICONS: Readonly<Record<DiaryView, LucideIcon>> = {
   journal: NotebookPen,
+  notes: NotebookText,
   files: Paperclip,
+  links: Link2,
   sources: ClipboardPaste,
 };
 
-/** The icon a Diary view is shown with, in its row and in the header once it is open. */
 export function diaryViewIcon(view: DiaryView): LucideIcon {
   return DIARY_ICONS[view];
 }
 
-/** The open Diary reading's icon, in the header beside its name. */
 export function DiaryHeaderIcon({ view }: { view: DiaryView }) {
   const Icon = DIARY_ICONS[view];
   return <Icon className="h-[17px] w-[17px]" strokeWidth={1.7} aria-hidden="true" />;
 }
 
+export type DiaryCounts = Readonly<Record<DiaryView, number | null>>;
+export type DiaryDots = Readonly<Partial<Record<DiaryView, boolean>>>;
+
 /**
- * The Nhật ký tab's list: the three readings of Diary as three rows, plus the one way in for
- * outside content.
- *
- * It takes the list column's place on a computer (the open view sits beside it) and is the
- * first screen on a phone, where a row opens its view and the header steps back here.
- * `journalId` is null while the journal is still being created on a first visit.
+ * The count row (A.2): always on top, and the one way to switch view. On a phone it scrolls
+ * sideways and keeps the open view in sight.
+ */
+export function DiaryCountRow({
+  journalId,
+  active,
+  counts,
+  dots,
+}: {
+  journalId: string;
+  active: DiaryView;
+  counts: DiaryCounts;
+  dots: DiaryDots;
+}) {
+  const activeRef = useRef<HTMLAnchorElement | null>(null);
+  useEffect(() => {
+    activeRef.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [active]);
+  return (
+    <nav aria-label="Các mục Nhật ký" className="border-b border-border bg-card/80">
+      <ul className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 py-2 md:px-8">
+        {DIARY_VIEWS.map((view) => {
+          const isActive = view.id === active;
+          const count = counts[view.id];
+          const Icon = DIARY_ICONS[view.id];
+          return (
+            <li key={view.id} className="shrink-0">
+              <Link
+                ref={isActive ? activeRef : undefined}
+                to={`/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
+                replace
+                aria-current={isActive ? "page" : undefined}
+                className={cn(
+                  "press relative flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors",
+                  isActive
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-accent/40",
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden="true" />
+                <span>{view.short}</span>
+                {count !== null ? (
+                  <span className={cn("tabular text-[12px]", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                    {count}
+                  </span>
+                ) : null}
+                {dots[view.id] === true && !isActive ? (
+                  <span className="h-1.5 w-1.5 rounded-full bg-primary" aria-label="có mục mới" />
+                ) : null}
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
+
+/**
+ * The Nhật ký tab's list on a computer: the five views as rows, with counts. A phone never rests
+ * here — it opens the view used last, with the count row on top.
  */
 export function DiaryList({
   journalId,
   active,
   counts,
+  dots = {},
   isWide,
   onPaste,
   isPasting,
 }: {
   journalId: string | null;
-  /** The view open beside the list on a computer; nothing is marked on a phone. */
   active: DiaryView | null;
-  counts: Readonly<Record<DiaryView, number | null>>;
+  counts: DiaryCounts;
+  dots?: DiaryDots;
   isWide: boolean;
   onPaste: () => void;
   isPasting: boolean;
@@ -89,17 +157,18 @@ export function DiaryList({
               ) : (
                 <Link
                   to={`/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
-                  // A computer swaps the view beside the list; a phone steps into it, so back returns here.
                   replace={isWide}
-                  state={{ fromDiaryList: true }}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex items-center gap-3 rounded-lg px-3 py-3 transition-colors",
                     isActive ? "bg-accent/70" : "hover:bg-accent/35",
                   )}
                 >
-                  <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
+                  <span className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
                     <Icon className="h-[19px] w-[19px]" strokeWidth={1.7} aria-hidden="true" />
+                    {dots[view.id] === true && !isActive ? (
+                      <span className="absolute right-0.5 top-0.5 h-2 w-2 rounded-full bg-primary ring-2 ring-card" aria-label="có mục mới" />
+                    ) : null}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[15px] font-semibold text-foreground">
@@ -152,20 +221,56 @@ function EmptyView({ icon: Icon, title, body }: { icon: typeof FileText; title: 
   );
 }
 
-/** File của bạn: every photo and file kept in Diary, newest first, each with its note and source. */
+function SourceTag({ children }: { children: string }) {
+  return <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-foreground/80">{children}</span>;
+}
+
+function RowAction({ onClick, children, danger = false, label }: { onClick: () => void; children: React.ReactNode; danger?: boolean; label?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      className={cn(
+        "press inline-flex min-h-8 items-center gap-1 rounded-md px-2 py-1 font-medium transition-colors",
+        danger ? "text-muted-foreground hover:bg-destructive/10 hover:text-destructive" : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+/** A file kept in a Ghi chép: shown here, deleted only inside the note (A.5). */
+export type NoteFileRow = {
+  id: string;
+  noteId: string;
+  noteTitle: string;
+  attachment: MessageAttachment;
+  createdAt: string;
+};
+
+/** File của tôi: every photo and file, newest first, each with its caption and where it lives. */
 export function DiaryFilesView({
   notes,
   meetingNotes = [],
+  noteFiles = [],
   urlOf,
+  noteUrlOf,
   isLoading,
   onOpenNote,
+  onOpenWriting,
+  onDelete,
 }: {
   notes: readonly DiaryFileNote[];
-  /** Diary notes posted by "Lưu vào Nhật ký" — a finalized meeting note, by link, never a copy. */
   meetingNotes?: readonly (SavedMeetingNote & { messageId: string; createdAt: string })[];
+  noteFiles?: readonly NoteFileRow[];
   urlOf: (storagePath: string) => string | null;
+  noteUrlOf?: (storagePath: string) => string | null;
   isLoading: boolean;
   onOpenNote: (messageId: string) => void;
+  onOpenWriting?: (noteId: string) => void;
+  onDelete: (entry: DiaryFileNote) => void;
 }) {
   if (isLoading) {
     return (
@@ -174,96 +279,187 @@ export function DiaryFilesView({
       </div>
     );
   }
-  if (notes.length === 0 && meetingNotes.length === 0) {
+  type Row =
+    | { kind: "journal"; at: string; entry: DiaryFileNote }
+    | { kind: "meeting"; at: string; ref: SavedMeetingNote & { messageId: string; createdAt: string } }
+    | { kind: "note"; at: string; file: NoteFileRow };
+  const rows: Row[] = [
+    ...notes.map((entry): Row => ({ kind: "journal", at: entry.createdAt, entry })),
+    ...meetingNotes.map((ref): Row => ({ kind: "meeting", at: ref.createdAt, ref })),
+    ...noteFiles.map((file): Row => ({ kind: "note", at: file.createdAt, file })),
+  ].sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
+
+  if (rows.length === 0) {
     return (
       <EmptyView
         icon={Paperclip}
-        title="Chưa có file nào trong Diary"
-        body="Ảnh và tệp bạn tải lên, chuyển tiếp vào hoặc dán vào để tạo việc sẽ nằm ở đây, theo thời gian."
+        title="Chưa có file nào"
+        body="Ảnh và tệp bạn tải lên, chuyển tiếp vào Nhật ký hoặc đính kèm trong Ghi chép sẽ nằm ở đây, theo thời gian."
       />
     );
   }
   return (
     <ul className="mx-auto flex max-w-2xl flex-col gap-3">
-      {meetingNotes.map((ref) => (
-        <li key={ref.messageId} className="rounded-[14px] border border-border bg-card p-3.5 animate-bubble-in">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted-foreground">
-            <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-foreground/80">
-              Từ Sổ quyết định
-            </span>
-            <span className="tabular">{stamp(ref.createdAt)}</span>
-            <button
-              type="button"
-              onClick={() => onOpenNote(ref.messageId)}
-              className="press ml-auto rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-            >
-              Xem trong Nhật ký
-            </button>
-          </div>
-          <div className="mt-2.5 flex items-start gap-3">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-primary/30 bg-primary/10 text-primary">
-              <ScrollText className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
-            </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-[14.5px] font-semibold text-foreground">{ref.title}</p>
-              <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
-                {[ref.groupLine, ref.fileName === null ? null : `Mẫu riêng: ${ref.fileName}`]
-                  .filter((part): part is string => part !== null && part !== "")
-                  .join(" · ")}
-              </p>
+      {rows.map((row) => {
+        if (row.kind === "meeting") {
+          const ref = row.ref;
+          return (
+            <li key={`m-${ref.messageId}`} className="rounded-[14px] border border-border bg-card p-3.5 animate-bubble-in">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted-foreground">
+                <SourceTag>Từ Sổ quyết định</SourceTag>
+                <span className="tabular">{stamp(ref.createdAt)}</span>
+                <span className="ml-auto">
+                  <RowAction onClick={() => onOpenNote(ref.messageId)}>Mở mục gốc</RowAction>
+                </span>
+              </div>
+              <div className="mt-2.5 flex items-start gap-3">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-primary/30 bg-primary/10 text-primary">
+                  <ScrollText className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[14.5px] font-semibold text-foreground">{ref.title}</p>
+                  <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground">
+                    {[ref.groupLine, ref.fileName === null ? null : `Mẫu riêng: ${ref.fileName}`]
+                      .filter((part): part is string => part !== null && part !== "")
+                      .join(" · ")}
+                  </p>
+                </div>
+                <Link
+                  to={ref.href}
+                  className="press flex h-9 shrink-0 items-center rounded-[9px] border border-border px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-secondary"
+                >
+                  Mở biên bản
+                </Link>
+              </div>
+            </li>
+          );
+        }
+        if (row.kind === "note") {
+          const file = row.file;
+          return (
+            <li key={`n-${file.id}`} className="rounded-[14px] border border-border bg-card p-3.5 animate-bubble-in">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted-foreground">
+                <SourceTag>{`Ghi chép: ${file.noteTitle}`}</SourceTag>
+                <span className="tabular">{stamp(file.createdAt)}</span>
+                {onOpenWriting !== undefined ? (
+                  <span className="ml-auto">
+                    <RowAction onClick={() => onOpenWriting(file.noteId)}>Mở trong ghi chép</RowAction>
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-2.5 max-w-full overflow-hidden">
+                <MessageAttachments attachments={[file.attachment]} urlOf={noteUrlOf ?? urlOf} outgoing={false} />
+              </div>
+            </li>
+          );
+        }
+        const entry = row.entry;
+        return (
+          <li key={entry.messageId} className="rounded-[14px] border border-border bg-card p-3.5 animate-bubble-in">
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted-foreground">
+              <SourceTag>Nhật ký</SourceTag>
+              <span>{diaryFileSourceLabel(entry.source)}</span>
+              <span className="tabular">{stamp(entry.createdAt)}</span>
+              <span className="ml-auto flex items-center">
+                <RowAction onClick={() => onOpenNote(entry.messageId)}>Mở mục gốc</RowAction>
+                <RowAction danger label="Xoá mục Nhật ký này" onClick={() => onDelete(entry)}>
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                </RowAction>
+              </span>
             </div>
-            <Link
-              to={ref.href}
-              className="press flex h-9 shrink-0 items-center rounded-[9px] border border-border px-3 text-[12.5px] font-semibold text-foreground transition-colors hover:bg-secondary"
-            >
-              Mở biên bản
-            </Link>
-          </div>
-        </li>
-      ))}
-      {notes.map((entry) => (
-        <li key={entry.messageId} className="rounded-[14px] border border-border bg-card p-3.5 animate-bubble-in">
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-muted-foreground">
-            <span className="rounded-full bg-secondary px-2 py-0.5 font-medium text-foreground/80">
-              {diaryFileSourceLabel(entry.source)}
-            </span>
-            <span className="tabular">{stamp(entry.createdAt)}</span>
-            {/* A note with words sits in the written timeline too; a bare file lives only here. */}
+            <div className="mt-2.5 max-w-full overflow-hidden">
+              <MessageAttachments attachments={entry.attachments} urlOf={urlOf} outgoing={false} />
+            </div>
             {entry.note !== "" ? (
-              <button
-                type="button"
-                onClick={() => onOpenNote(entry.messageId)}
-                className="press ml-auto rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-              >
-                Xem trong Nhật ký
-              </button>
+              <p className="mt-2.5 line-clamp-2 whitespace-pre-wrap break-words text-[13.5px] leading-6 text-foreground">{entry.note}</p>
             ) : null}
-          </div>
-          <div className="mt-2.5 max-w-full overflow-hidden">
-            <MessageAttachments attachments={entry.attachments} urlOf={urlOf} outgoing={false} />
-          </div>
-          <p
-            className={cn(
-              "mt-2.5 whitespace-pre-wrap break-words text-[13.5px] leading-6",
-              entry.note === "" ? "italic text-muted-foreground" : "text-foreground",
-            )}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+/**
+ * Liên kết: a reading, not a new store. Domain, caption, date; the tap opens the link in a new
+ * tab. Nothing is fetched from the linked site — no preview, no request, no IP handed over.
+ */
+export function DiaryLinksView({
+  links,
+  onOpenNote,
+  onOpenWriting,
+  onDelete,
+}: {
+  links: readonly DiaryLink[];
+  onOpenNote: (messageId: string) => void;
+  onOpenWriting?: (noteId: string) => void;
+  onDelete: (link: DiaryLink) => void;
+}) {
+  if (links.length === 0) {
+    return (
+      <EmptyView
+        icon={Link2}
+        title="Chưa có liên kết nào"
+        body="Ghi một đường link vào Nhật ký hoặc Ghi chép — mọi link sẽ tự gom về đây, kèm chú thích."
+      />
+    );
+  }
+  return (
+    <ul className="mx-auto flex max-w-2xl flex-col gap-2">
+      {links.map((link) => (
+        <li key={link.key} className="rounded-[14px] border border-border bg-card px-3.5 py-3 animate-bubble-in">
+          <a
+            href={link.url}
+            target="_blank"
+            rel="noopener noreferrer nofollow"
+            referrerPolicy="no-referrer"
+            className="group flex items-start gap-3"
           >
-            {entry.note === "" ? "Không có ghi chú kèm theo" : entry.note}
-          </p>
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-border bg-background text-muted-foreground group-hover:text-primary">
+              <ExternalLink className="h-[17px] w-[17px]" strokeWidth={1.7} aria-hidden="true" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[14.5px] font-semibold text-foreground group-hover:underline">{link.domain}</span>
+              <span className="mt-0.5 block line-clamp-2 break-words text-[13px] text-muted-foreground">
+                {link.caption === "" ? link.url : link.caption}
+              </span>
+            </span>
+          </a>
+          <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-[11.5px] text-muted-foreground">
+            <SourceTag>{link.from.kind === "note" ? `Ghi chép: ${link.from.title}` : "Nhật ký"}</SourceTag>
+            <span className="tabular">{stamp(link.createdAt)}</span>
+            <span className="ml-auto flex items-center">
+              {link.from.kind === "journal" ? (
+                <>
+                  <RowAction onClick={() => onOpenNote((link.from as { messageId: string }).messageId)}>Mở mục gốc</RowAction>
+                  <RowAction danger label="Xoá mục Nhật ký này" onClick={() => onDelete(link)}>
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                  </RowAction>
+                </>
+              ) : onOpenWriting !== undefined ? (
+                <RowAction onClick={() => onOpenWriting((link.from as { noteId: string }).noteId)}>Mở trong ghi chép</RowAction>
+              ) : null}
+            </span>
+          </div>
         </li>
       ))}
     </ul>
   );
 }
 
-/** Nguồn tạo việc: each personal task made from pasted content, newest first. */
+/** Nguồn tạo việc: my tasks that came from Nhật ký — pasted in, or raised from an entry. */
 export function DiarySourcesView({
   tasks,
+  contextOf,
   onOpenTask,
+  onOpenEntry,
   onPaste,
 }: {
   tasks: readonly TaskItem[];
+  /** The entry's words (the task's context), or null when the entry is gone. */
+  contextOf: (task: TaskItem) => { text: string; messageId: string | null };
   onOpenTask: (task: TaskItem) => void;
+  onOpenEntry: (messageId: string) => void;
   onPaste: () => void;
 }) {
   if (tasks.length === 0) {
@@ -271,8 +467,8 @@ export function DiarySourcesView({
       <div>
         <EmptyView
           icon={ClipboardPaste}
-          title="Chưa có việc nào tạo từ nội dung dán"
-          body="Copy một đoạn chữ, ảnh hay tệp ở bất kỳ đâu rồi dán vào AVORA — việc tạo ra sẽ được ghi lại ở đây kèm nội dung gốc."
+          title="Chưa có việc nào tạo từ Nhật ký"
+          body="Tạo việc từ một mục Nhật ký, hoặc copy một đoạn chữ, ảnh hay tệp rồi dán vào — việc tạo ra sẽ nằm ở đây kèm bối cảnh."
         />
         <div className="flex justify-center">
           <button
@@ -290,20 +486,14 @@ export function DiarySourcesView({
   return (
     <ul className="mx-auto flex max-w-2xl flex-col gap-2.5">
       {tasks.map((task) => {
-        const origin = task.contextSnapshot?.origin;
-        const preview = origin?.content.trim() ?? "";
-        const fileNames = origin?.fileNames ?? [];
+        const context = contextOf(task);
+        const fileNames = task.contextSnapshot?.origin?.fileNames ?? [];
         const isDone = task.status === "done";
         return (
           <li key={task.id} className="rounded-[14px] border border-border bg-card px-4 py-3 animate-bubble-in">
             <div className="flex items-start gap-3">
               <div className="min-w-0 flex-1">
-                <p
-                  className={cn(
-                    "truncate text-[14.5px] font-semibold",
-                    isDone ? "text-muted-foreground line-through" : "text-foreground",
-                  )}
-                >
+                <p className={cn("truncate text-[14.5px] font-semibold", isDone ? "text-muted-foreground line-through" : "text-foreground")}>
                   {task.title}
                 </p>
                 <p className="tabular mt-0.5 text-[11.5px] text-muted-foreground">Tạo lúc {stamp(task.createdAt)}</p>
@@ -316,21 +506,27 @@ export function DiarySourcesView({
                 Xem việc
               </button>
             </div>
-            {preview !== "" ? (
+            {context.text !== "" ? (
               <p className="mt-2 line-clamp-3 whitespace-pre-wrap break-words border-l-2 border-primary/40 pl-2.5 text-[13px] leading-5 text-foreground/80">
-                {preview}
+                {context.text}
               </p>
             ) : null}
-            {fileNames.length > 0 ? (
-              <p className="mt-2 flex min-w-0 items-center gap-1.5 text-[12px] text-muted-foreground">
-                <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
-                <span className="truncate">{fileNames.join(" · ")}</span>
-              </p>
-            ) : null}
+            <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[12px] text-muted-foreground">
+              {fileNames.length > 0 ? (
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <FileText className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+                  <span className="truncate">{fileNames.join(" · ")}</span>
+                </span>
+              ) : null}
+              {context.messageId !== null ? (
+                <span className="ml-auto">
+                  <RowAction onClick={() => onOpenEntry(context.messageId as string)}>Mở mục gốc</RowAction>
+                </span>
+              ) : null}
+            </div>
           </li>
         );
       })}
     </ul>
   );
 }
-

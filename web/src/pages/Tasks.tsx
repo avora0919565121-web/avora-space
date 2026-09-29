@@ -48,6 +48,7 @@ import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
 import { BlockLoadError } from "@/components/RouteErrorBoundary";
 import { useComposerActions } from "@/lib/use-task-composer";
+import { AvoraSearchButton } from "@/components/search/AvoraSearch";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { TaskViewTabs } from "@/components/tasks/TaskViewTabs";
 import { useAuth } from "@/lib/auth";
@@ -1670,7 +1671,7 @@ export default function Tasks() {
 
   return (
     <div className="paper flex min-h-0 flex-1 flex-col">
-      <HubTitle title="Nhiệm vụ" className="max-w-[720px] md:px-6" />
+      <HubTitle title="Nhiệm vụ" className="max-w-[720px] md:px-6" action={<AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />} />
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8">
         <ReturnChip className="-mt-2 mb-1" />
