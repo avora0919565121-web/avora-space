@@ -3,6 +3,7 @@ import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { ChatMessage, ConversationKind, ConversationSummary } from "@/lib/chat-cache";
 import { peerLabel } from "@/lib/initials";
+import { parseForwardBundle } from "@/lib/chat-transcript";
 import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
 
 /** Shown when one side has used its 5 messages in a verification frame. */
@@ -31,6 +32,8 @@ export {
   formatMissedMessages,
   formatUnreadBadge,
   groupMessagesByDay,
+  firstUnreadByCount,
+  firstUnreadMessageId,
   isEdited,
   isNearThreadBottom,
   isRecalled,
@@ -174,20 +177,31 @@ export async function markConversationRead(conversationId: string): Promise<stri
 
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle";
 
-/** Full thread, oldest first. RLS returns nothing for conversations you are not in. */
-export async function fetchMessages(conversationId: string): Promise<ChatMessage[]> {
-  const { data, error } = await supabase
-    .from("messages")
-    .select(MESSAGE_COLUMNS)
-    .eq("conversation_id", conversationId)
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true });
+/** How many messages one page holds (Đợt gộp 2 · A7). */
+export const MESSAGE_PAGE_SIZE = 50;
 
-  if (error) throw fail(error.code, error.message);
+type MessageRowShape = {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  edited_at: string | null;
+  deleted_at: string | null;
+  reply_to_message_id: string | null;
+  mentioned_user_ids: string[] | null;
+  origin_group_id: string | null;
+  attachment_count: number | null;
+  origin_content_id: string | null;
+  origin_sender_id: string | null;
+  system_kind: string | null;
+  forward_bundle?: unknown;
+};
 
-  return (data ?? []).map((row) => ({
+function toChatMessageRow(row: MessageRowShape): ChatMessage {
+  return {
     id: row.id,
     conversationId: row.conversation_id,
     senderId: row.sender_id,
@@ -202,7 +216,50 @@ export async function fetchMessages(conversationId: string): Promise<ChatMessage
     originContentId: row.origin_content_id,
     originSenderId: row.origin_sender_id,
     systemKind: row.system_kind ?? null,
-  }));
+    forwardBundle: parseForwardBundle(row.forward_bundle),
+  };
+}
+
+/**
+ * The newest part of a thread, oldest first. RLS returns nothing for conversations you are not in.
+ *
+ * Read newest-first at the database: the API caps a read at 1,000 rows, so reading oldest-first
+ * used to lose the newest messages of a long thread. `since` keeps a window the reader already
+ * scrolled back through: a refresh re-reads from that oldest message on instead of one page.
+ */
+export async function fetchMessages(conversationId: string, since: string | null = null): Promise<ChatMessage[]> {
+  const base = supabase
+    .from("messages")
+    .select(MESSAGE_COLUMNS)
+    .eq("conversation_id", conversationId)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false });
+  const { data, error } = await (since === null
+    ? base.limit(MESSAGE_PAGE_SIZE)
+    : base.gte("created_at", since).limit(1000));
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map(toChatMessageRow).reverse();
+}
+
+/** The page just before `before` (older), oldest first. Fewer than a page means the start was reached. */
+export async function fetchOlderMessages(conversationId: string, before: string): Promise<ChatMessage[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select(MESSAGE_COLUMNS)
+    .eq("conversation_id", conversationId)
+    .lt("created_at", before)
+    .order("created_at", { ascending: false })
+    .order("id", { ascending: false })
+    .limit(MESSAGE_PAGE_SIZE);
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map(toChatMessageRow).reverse();
+}
+
+/** Where one message sits in time, so the window can be widened back to it. Null if unreadable. */
+export async function fetchMessageTime(messageId: string): Promise<string | null> {
+  const { data, error } = await supabase.from("messages").select("created_at").eq("id", messageId).maybeSingle();
+  if (error) throw fail(error.code, error.message);
+  return data?.created_at ?? null;
 }
 
 /**

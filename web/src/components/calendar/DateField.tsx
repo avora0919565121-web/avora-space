@@ -98,7 +98,7 @@ export function DateField({
           <PopoverAnchor asChild>{trigger}</PopoverAnchor>
           <PopoverContent
             align="start"
-            className="w-[min(440px,calc(100vw-2rem))] rounded-xl border-border bg-background p-0 pb-2"
+            className="w-[min(360px,calc(100vw-16px))] rounded-xl border-border bg-background p-0 pb-2"
             onOpenAutoFocus={(event) => {
               event.preventDefault();
               const node = event.currentTarget as HTMLElement | null;
@@ -111,7 +111,7 @@ export function DateField({
       ) : (
         <>
           {trigger}
-          <CalendarPeekSheet {...sheetProps} />
+          <CalendarPeekSheet {...sheetProps} placement="top" />
         </>
       )}
       {hasValue && !required && !disabled ? (

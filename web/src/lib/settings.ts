@@ -27,17 +27,22 @@ export type ProfileSettings = {
    * people would leave it on to avoid paying the price.
    */
   hideTypingSignal: boolean;
+  /** Âm báo tin nhắn / Âm báo nhắc việc while the app is open (Đợt gộp 2 · A11). Default on. */
+  soundMessages: boolean;
+  soundReminders: boolean;
 };
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
 const PROFILE_SETTINGS_COLUMNS =
-  "base_currency, timezone, daily_thought_category, hide_typing_signal";
+  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders";
 
 type ProfileSettingsRow = {
   base_currency: string | null;
   timezone: string | null;
   daily_thought_category: string | null;
   hide_typing_signal: boolean | null;
+  sound_messages?: boolean | null;
+  sound_reminders?: boolean | null;
 };
 
 /**
@@ -57,7 +62,26 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     // Absent means the signal is on, which is the useful default: the indicator only helps
     // when most people send it.
     hideTypingSignal: row?.hide_typing_signal ?? false,
+    soundMessages: row?.sound_messages ?? true,
+    soundReminders: row?.sound_reminders ?? true,
   };
+}
+
+/** One of the two in-app sound switches (A11). */
+export async function updateSoundPref(
+  userId: string,
+  which: "messages" | "reminders",
+  on: boolean,
+): Promise<ProfileSettings> {
+  const patch = which === "messages" ? { sound_messages: on } : { sound_reminders: on };
+  const { data, error } = await supabase
+    .from("profiles")
+    .update(patch)
+    .eq("id", userId)
+    .select(PROFILE_SETTINGS_COLUMNS)
+    .single();
+  if (error) throw fail("settings", error.code, error.message);
+  return toProfileSettings(data);
 }
 
 export const settingsKeys = {

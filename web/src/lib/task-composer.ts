@@ -288,6 +288,48 @@ export function suggestedEnd(startLocal: string, estimateMinutes: number | null)
   return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}T${pad(end.getHours())}:${pad(end.getMinutes())}`;
 }
 
+function localStamp(date: Date): string {
+  const pad = (value: number): string => `${value}`.padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+/** Latest end a same-day Event may have (no overnight Events yet). */
+const LAST_END = "23:55";
+
+/**
+ * The end that goes with a new start (Đợt gộp 2 · A12):
+ * - no end yet, or the old end is not after the new start → start + 60 minutes;
+ * - a valid end already → keep the length (18:00–21:00 moved to 19:00 becomes 19:00–22:00).
+ * Never past 23:55 of the start's own day.
+ */
+export function eventEndFor(nextStartLocal: string, prevStartLocal: string, prevEndLocal: string): string {
+  const start = new Date(nextStartLocal);
+  if (Number.isNaN(start.getTime())) return "";
+  const prevStart = new Date(prevStartLocal);
+  const prevEnd = new Date(prevEndLocal);
+  const hadLength =
+    !Number.isNaN(prevStart.getTime()) && !Number.isNaN(prevEnd.getTime()) && prevEnd.getTime() > prevStart.getTime();
+  const lengthMs = hadLength ? prevEnd.getTime() - prevStart.getTime() : 60 * 60_000;
+  const end = new Date(start.getTime() + lengthMs);
+  const dayEnd = new Date(`${nextStartLocal.slice(0, 10)}T${LAST_END}`);
+  const capped = end.getTime() > dayEnd.getTime() ? dayEnd : end;
+  if (capped.getTime() <= start.getTime()) return "";
+  return localStamp(capped);
+}
+
+/** "1 giờ", "3 giờ 30 phút", "45 phút" — shown beside the end time. Null when not a valid span. */
+export function eventDurationLabel(startLocal: string, endLocal: string): string | null {
+  const start = new Date(startLocal);
+  const end = new Date(endLocal);
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return null;
+  const minutes = Math.round((end.getTime() - start.getTime()) / 60_000);
+  if (minutes <= 0) return null;
+  const hours = Math.floor(minutes / 60);
+  const rest = minutes % 60;
+  if (hours === 0) return `${rest} phút`;
+  return rest === 0 ? `${hours} giờ` : `${hours} giờ ${rest} phút`;
+}
+
 /** Local `YYYY-MM-DDTHH:MM` ↔ ISO, as the Event fields store them. */
 export function toLocalInput(iso: string | null): string {
   if (iso === null) return "";

@@ -1,5 +1,6 @@
 import { CalendarDays, ChevronLeft, ChevronRight, Flag, Loader2, MapPin, MessagesSquare } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Link } from "react-router-dom";
 
 import { FadeIn } from "@/components/tasks/FadeIn";
 import { useAuth } from "@/lib/auth";
@@ -74,26 +75,38 @@ function DayList({
   today,
   onOpenContext,
   external,
+  limit,
+  moreHref,
 }: {
   day: CalendarDay;
   today: string;
   onOpenContext?: (task: TaskItem) => void;
   /** Lịch khác for this day — read-only, listed after Avora's own work. */
   external: readonly CalendarLayerEntry[];
+  /** Compact calendar: at most this many rows, then "+N việc khác". */
+  limit?: number;
+  /** Compact calendar: where "Mở ngày này trong Lịch" goes (already carrying the way back). */
+  moreHref?: string;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const others = orderDayEntries(external.filter((entry) => entry.layer === "external" && entry.day === day.day));
+  const allOthers = orderDayEntries(external.filter((entry) => entry.layer === "external" && entry.day === day.day));
+  const shownEntries = limit === undefined ? day.entries : day.entries.slice(0, limit);
+  const others = limit === undefined ? allOthers : allOthers.slice(0, Math.max(0, limit - shownEntries.length));
+  const hidden = day.entries.length + allOthers.length - shownEntries.length - others.length;
+  const isCompact = limit !== undefined;
 
   return (
     <section aria-label={`Việc ngày ${longDayLabel(day.day, today)}`} className="rounded-[12px] border border-border bg-card">
-      <p className={cn("border-b border-border px-4 py-2.5 text-[13px] font-semibold", day.day === today ? "text-primary" : "text-foreground")}>
+      <p className={cn("border-b border-border font-semibold", isCompact ? "px-3 py-2 text-[12.5px]" : "px-4 py-2.5 text-[13px]", day.day === today ? "text-primary" : "text-foreground")}>
         {longDayLabel(day.day, today)}
       </p>
       {day.entries.length === 0 && others.length === 0 ? (
-        <p className="px-4 py-4 text-[13.5px] text-muted-foreground">Ngày này trống — không có hạn chót hay sự kiện nào.</p>
-      ) : day.entries.length === 0 ? null : (
+        <p className={cn("text-muted-foreground", isCompact ? "px-3 py-2.5 text-[12.5px]" : "px-4 py-4 text-[13.5px]")}>
+          {isCompact ? "Ngày này trống." : "Ngày này trống — không có hạn chót hay sự kiện nào."}
+        </p>
+      ) : shownEntries.length === 0 ? null : (
         <ul>
-          {day.entries.map((entry) => {
+          {shownEntries.map((entry) => {
             const isOpen = openId === entry.task.id;
             return (
               <li key={`${entry.kind}-${entry.task.id}`} className="border-t border-border first:border-t-0">
@@ -103,7 +116,8 @@ function DayList({
                   aria-expanded={isOpen}
                   data-calendar-kind={entry.kind}
                   className={cn(
-                    "press flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-accent/30",
+                    "press flex w-full items-center gap-3 text-left transition-colors hover:bg-accent/30",
+                    isCompact ? "min-h-10 px-3 py-1.5" : "min-h-12 px-4 py-2.5",
                     entry.kind === "block" && "border-l-[3px] border-l-primary bg-primary/[0.06]",
                   )}
                 >
@@ -163,6 +177,17 @@ function DayList({
           </ul>
         </div>
       ) : null}
+      {isCompact && (hidden > 0 || moreHref !== undefined) ? (
+        <p className="flex items-center gap-1.5 border-t border-border px-3 py-2 text-[12.5px] text-muted-foreground">
+          {hidden > 0 ? <span className="tabular">+{hidden} việc khác</span> : null}
+          {hidden > 0 && moreHref !== undefined ? <span aria-hidden="true">·</span> : null}
+          {moreHref !== undefined ? (
+            <Link to={moreHref} className="font-medium text-foreground underline-offset-2 hover:underline">
+              Mở ngày này trong Lịch
+            </Link>
+          ) : null}
+        </p>
+      ) : null}
     </section>
   );
 }
@@ -175,10 +200,13 @@ function MonthGrid({
   isPickable,
   onSelect,
   compact = false,
+  dense = false,
   range = null,
   external = [],
   onKeyMove,
 }: {
+  /** The compact Lịch (Đợt gộp 2 · A3): 40px cells (44px under a finger), number + up to 3 dots. */
+  dense?: boolean;
   anchor: string;
   today: string;
   byDay: Map<string, CalendarDay>;
@@ -243,13 +271,15 @@ function MonthGrid({
                   onKeyDown={onKeyMove === undefined ? undefined : (event) => onKeyMove(event, day)}
                   aria-label={`${longDayLabel(day, today)}${entries.length > 0 ? `, ${entries.length} mục` : ", trống"}`}
                   className={cn(
-                    "press flex h-14 w-full flex-col items-center gap-1 rounded-[10px] pt-1.5 transition-colors disabled:cursor-not-allowed disabled:opacity-35 sm:h-16",
+                    "press flex w-full flex-col items-center rounded-[10px] transition-colors disabled:cursor-not-allowed disabled:opacity-35",
+                    dense ? "h-10 gap-0.5 pt-1 [@media(pointer:coarse)]:h-11" : "h-14 gap-1 pt-1.5 sm:h-16",
                     isSelected ? "bg-foreground/[0.07] ring-1 ring-foreground/25" : "hover:bg-accent/40",
                   )}
                 >
                   <span
                     className={cn(
-                      "tabular flex h-6 w-6 items-center justify-center rounded-full text-[13px]",
+                      "tabular flex items-center justify-center rounded-full",
+                      dense ? "h-6 w-6 text-[12.5px]" : "h-6 w-6 text-[13px]",
                       isToday ? "bg-foreground font-semibold text-background" : inMonth ? "text-foreground" : "text-task-idle",
                     )}
                   >
@@ -259,7 +289,7 @@ function MonthGrid({
                     {entries.slice(0, 3).map((entry) => (
                       <CellMark key={`${entry.kind}-${entry.task.id}`} entry={entry} />
                     ))}
-                    {entries.length > 3 ? <span className="text-[9px] leading-none text-muted-foreground">+{entries.length - 3}</span> : null}
+                    {entries.length > 3 && !dense ? <span className="text-[9px] leading-none text-muted-foreground">+{entries.length - 3}</span> : null}
                     {/* Lịch khác: one faint neutral ring, drawn after (under) Avora's marks. */}
                     {outside > 0 ? <span aria-hidden="true" className="block h-1.5 w-1.5 rounded-full border border-muted-foreground/50 opacity-55" /> : null}
                   </span>
@@ -279,12 +309,14 @@ function WeekStrip({
   byDay,
   isPickable,
   onSelect,
+  dense = false,
 }: {
   anchor: string;
   today: string;
   byDay: Map<string, CalendarDay>;
   isPickable: (day: string) => boolean;
   onSelect: (day: string) => void;
+  dense?: boolean;
 }) {
   const from = startOfWeek(anchor);
   const days = daysBetween(from, rangeFor("week", anchor).to);
@@ -304,7 +336,8 @@ function WeekStrip({
             aria-pressed={isSelected}
             aria-label={`${longDayLabel(day, today)}${entries.length > 0 ? `, ${blocks} sự kiện, ${markers} hạn chót` : ", trống"}`}
             className={cn(
-              "press flex min-h-[88px] flex-col items-center gap-1.5 rounded-[12px] border px-1 py-2 transition-colors disabled:opacity-35",
+              "press flex flex-col items-center rounded-[12px] border px-1 transition-colors disabled:opacity-35",
+              dense ? "min-h-[64px] gap-1 py-1.5" : "min-h-[88px] gap-1.5 py-2",
               isSelected ? "border-foreground/30 bg-foreground/[0.06]" : "border-border bg-card hover:bg-accent/30",
             )}
           >
@@ -347,6 +380,13 @@ export type CalendarViewProps = {
   onTitleClick?: () => void;
   /** Other calendars the person chose to show. None exist yet; always read-only. */
   externalEntries?: readonly CalendarLayerEntry[];
+  /**
+   * "compact" (Đợt gộp 2 · A3): the quick-look and date-picker Lịch — height follows content,
+   * small cells, at most 4 rows for the chosen day. The full Lịch screen keeps "full".
+   */
+  density?: "full" | "compact";
+  /** Compact: where "Mở ngày này trong Lịch" goes for a given day. */
+  dayHref?: (day: string) => string;
 };
 
 /**
@@ -368,7 +408,10 @@ export function CalendarView({
   highlightRange = null,
   onTitleClick,
   externalEntries = [],
+  density = "full",
+  dayHref,
 }: CalendarViewProps) {
+  const isCompact = density === "compact";
   const { user } = useAuth();
   const range = useMemo(() => rangeFor(mode, anchor), [mode, anchor]);
   const { data: tasks, isLoading, isError, refetch } = useTasksInRange(range.from, range.to);
@@ -409,11 +452,16 @@ export function CalendarView({
   };
 
   return (
-    <div className="space-y-3">
+    <div className={isCompact ? "space-y-2" : "space-y-3"}>
       {/* The selector stays put while the grid scrolls under it. */}
-      <div className="sticky top-0 z-10 -mx-1 bg-background/95 px-1 pb-2 pt-1 backdrop-blur-sm">
+      <div className={cn("sticky top-0 z-10 -mx-1 bg-background/95 px-1 backdrop-blur-sm", isCompact ? "pb-1" : "pb-2 pt-1")}>
         {offered.length > 1 ? (
-          <div role="tablist" aria-label="Chế độ xem lịch" className="grid rounded-[12px] border border-border bg-card p-1" style={{ gridTemplateColumns: `repeat(${offered.length}, minmax(0, 1fr))` }}>
+          <div
+            role="tablist"
+            aria-label="Chế độ xem lịch"
+            className={cn("grid border border-border bg-card p-0.5", isCompact ? "mx-auto w-40 rounded-[10px]" : "rounded-[12px] p-1")}
+            style={{ gridTemplateColumns: `repeat(${offered.length}, minmax(0, 1fr))` }}
+          >
             {offered.map((option) => (
               <button
                 key={option.id}
@@ -422,7 +470,8 @@ export function CalendarView({
                 aria-selected={mode === option.id}
                 onClick={() => onModeChange(option.id)}
                 className={cn(
-                  "press min-h-10 rounded-[9px] text-[13.5px] transition-colors",
+                  "press rounded-[9px] transition-colors",
+                  isCompact ? "min-h-8 text-[12.5px]" : "min-h-10 text-[13.5px]",
                   mode === option.id ? "bg-foreground font-semibold text-background" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -431,11 +480,13 @@ export function CalendarView({
             ))}
           </div>
         ) : null}
-        <p className="mt-2 text-[12.5px] text-muted-foreground">
-          {isPicking ? (pickHint ?? "Chạm một ngày để điền vào ô hạn — từ hôm nay trở đi.") : calendarModeOption(mode).description}
-        </p>
+        {isCompact ? null : (
+          <p className="mt-2 text-[12.5px] text-muted-foreground">
+            {isPicking ? (pickHint ?? "Chạm một ngày để điền vào ô hạn — từ hôm nay trở đi.") : calendarModeOption(mode).description}
+          </p>
+        )}
 
-        <div className="mt-2 flex items-center gap-1">
+        <div className={cn("flex items-center gap-1", isCompact ? "mt-1" : "mt-2")}>
           <button type="button" onClick={() => onAnchorChange(shiftAnchor(mode, anchor, -1))} aria-label="Lùi lại" className="press flex h-10 w-10 items-center justify-center rounded-[10px] text-muted-foreground hover:bg-secondary hover:text-foreground">
             <ChevronLeft className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -466,7 +517,7 @@ export function CalendarView({
         </div>
       </div>
 
-      <div className="flex items-center gap-4 text-[11.5px] text-muted-foreground" aria-hidden="true">
+      <div className={cn("flex items-center gap-4 text-[11.5px] text-muted-foreground", isCompact && "hidden")} aria-hidden="true">
         <span className="flex items-center gap-1.5"><span className="h-1 w-3 rounded-full bg-primary" /> Sự kiện</span>
         <span className="flex items-center gap-1.5"><span className="h-1 w-2 rounded-full bg-task-due-soon" /> Hạn chót</span>
         {hasExternalLayer(externalEntries) ? (
@@ -477,7 +528,7 @@ export function CalendarView({
 
       {/* One fixed height for every view: switching Ngày/Tuần/Tháng/Năm never makes the page jump;
           whatever does not fit scrolls inside. */}
-      <div className="h-[min(560px,62vh)] overflow-y-auto overscroll-contain pr-0.5">
+      <div className={isCompact ? "" : "h-[min(560px,62vh)] overflow-y-auto overscroll-contain pr-0.5"}>
       {isError ? (
         <div className="rounded-[12px] border border-border bg-card px-4 py-4 text-[13.5px] text-muted-foreground">
           Chưa tải được lịch.{" "}
@@ -492,8 +543,9 @@ export function CalendarView({
       ) : (
         <FadeIn key={`${mode}-${range.from}`} className="space-y-3">
           {mode === "month" ? (
-            <div ref={gridRef} className="rounded-[14px] border border-border bg-card p-2">
+            <div ref={gridRef} className={cn("rounded-[14px] border border-border bg-card", isCompact ? "p-1" : "p-2")}>
               <MonthGrid
+                dense={isCompact}
                 anchor={anchor}
                 today={today}
                 byDay={byDay}
@@ -507,7 +559,7 @@ export function CalendarView({
             </div>
           ) : null}
 
-          {mode === "week" ? <WeekStrip anchor={anchor} today={today} byDay={byDay} isPickable={isPickable} onSelect={select} /> : null}
+          {mode === "week" ? <WeekStrip anchor={anchor} today={today} byDay={byDay} isPickable={isPickable} onSelect={select} dense={isCompact} /> : null}
 
           {mode === "year" ? (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -541,7 +593,15 @@ export function CalendarView({
           ) : null}
 
           {mode !== "year" ? (
-            <DayList key={anchor} day={selectedDay} today={today} onOpenContext={onOpenContext} external={externalEntries} />
+            <DayList
+              key={anchor}
+              day={selectedDay}
+              today={today}
+              onOpenContext={onOpenContext}
+              external={externalEntries}
+              limit={isCompact ? 4 : undefined}
+              moreHref={isCompact && !isPicking && dayHref !== undefined ? dayHref(anchor) : undefined}
+            />
           ) : null}
         </FadeIn>
       )}

@@ -2,6 +2,7 @@ import { Bell, CalendarClock, CalendarDays, ChevronRight, Loader2, MailOpen, Mes
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBoundary";
 import { ThoughtNote } from "@/components/space/ThoughtNote";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { conversationsWithUnread, unreadSummaryText } from "@/lib/chat";
@@ -128,11 +129,12 @@ const rowClass =
 export default function Dashboard() {
   const { user } = useAuth();
   const displayName = useDisplayName();
-  const { data: tasks, isLoading } = useTasks();
-  const { data: conversations } = useConversations();
-  const { data: reminders } = useTaskReminders();
-  const { data: hubRecords } = useThinkRecords();
-  const { data: hubTables } = useThinkTables();
+  // A failed load is said as a failure, never shown as "nothing here" (Đợt gộp 2 · A6).
+  const { data: tasks, isLoading, isError: tasksFailed, refetch: refetchTasks } = useTasks();
+  const { data: conversations, isError: conversationsFailed, refetch: refetchConversations } = useConversations();
+  const { data: reminders, isError: remindersFailed, refetch: refetchReminders } = useTaskReminders();
+  const { data: hubRecords, isError: recordsFailed, refetch: refetchRecords } = useThinkRecords();
+  const { data: hubTables, isError: tablesFailed, refetch: refetchTables } = useThinkTables();
   const invitationCount = usePendingInvitationCount();
   const thoughtCategory = useDailyThoughtCategory();
   const userId: string | undefined = user?.id;
@@ -198,7 +200,9 @@ export default function Dashboard() {
       case "attention":
         return (
           <Block key={id} id={id} icon={<CalendarClock className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
-            {isLoading ? (
+            {tasksFailed ? (
+              <BlockLoadError name="việc cần chú ý" onRetry={() => void refetchTasks()} />
+            ) : isLoading ? (
               <div className="flex justify-center py-8" role="status" aria-label="Đang tải nhiệm vụ">
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
@@ -289,7 +293,15 @@ export default function Dashboard() {
       case "reminders":
         return (
           <Block key={id} id={id} icon={<Bell className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
-            {upcoming.length === 0 ? (
+            {remindersFailed || tasksFailed ? (
+              <BlockLoadError
+                name="lời nhắc"
+                onRetry={() => {
+                  void refetchReminders();
+                  void refetchTasks();
+                }}
+              />
+            ) : upcoming.length === 0 ? (
               <EmptyLine id={id} />
             ) : (
               <div className="overflow-hidden rounded-[12px] border border-border bg-card">
@@ -308,6 +320,19 @@ export default function Dashboard() {
         );
 
       case "planning":
+        if (recordsFailed || tablesFailed) {
+          return (
+            <Block key={id} id={id} icon={<Table2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
+              <BlockLoadError
+                name="Góc hoạch định"
+                onRetry={() => {
+                  void refetchRecords();
+                  void refetchTables();
+                }}
+              />
+            </Block>
+          );
+        }
         if (!isBlockVisible(id, planning.length)) return null;
         return (
           <Block key={id} id={id} icon={<Table2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
@@ -343,7 +368,9 @@ export default function Dashboard() {
       case "communication":
         return (
           <Block key={id} id={id} icon={<MessagesSquare className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
-            {unreadThreads > 0 ? (
+            {conversationsFailed ? (
+              <BlockLoadError name="tin nhắn" onRetry={() => void refetchConversations()} />
+            ) : unreadThreads > 0 ? (
               <Link
                 to={singleUnreadId === null ? "/tin-nhan" : `/tin-nhan/${singleUnreadId}`}
                 aria-label={`${unreadSummaryText(unreadThreads)}. Mở Kết nối`}
@@ -374,7 +401,16 @@ export default function Dashboard() {
       style={{ backgroundImage: `${tone.wash}, radial-gradient(hsl(38 28% 86% / 0.55) 0.5px, transparent 0.5px)`, backgroundSize: "100% 100%, 22px 22px" }}
     >
       <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
-        {SPACE_BLOCK_ORDER.map((id) => renderBlock(id))}
+        {SPACE_BLOCK_ORDER.map((id) => {
+          const block = renderBlock(id);
+          if (block === null) return null;
+          // Each block in its own boundary: a fault in one leaves the others standing.
+          return (
+            <BlockErrorBoundary key={id} name={SPACE_BLOCK_COPY[id].title}>
+              {block}
+            </BlockErrorBoundary>
+          );
+        })}
       </div>
     </div>
   );

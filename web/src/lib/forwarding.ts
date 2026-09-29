@@ -12,6 +12,10 @@ export type ForwardResult = {
   forwarded: number;
   filesCarried: number;
   filesBlocked: number;
+  /** True when two or more messages went as one conversation bundle (Đợt gộp 2 · B1). */
+  asBundle?: boolean;
+  /** Bundle only: files that stayed behind (a bundle carries words only). */
+  filesLeftBehind?: number;
 };
 
 function fail(code: string | undefined, message: string): Error {
@@ -20,6 +24,14 @@ function fail(code: string | undefined, message: string): Error {
   if (isContactUnavailable(normalized)) return new Error(CONTACT_UNAVAILABLE_MESSAGE);
   if (normalized.includes("avora_not_a_participant"))
     return new Error("Bạn không có quyền trong cuộc trò chuyện này.");
+  if (normalized.includes("avora_forward_bundle_mixed"))
+    return new Error("Chỉ chuyển tiếp được các tin trong cùng một cuộc trò chuyện.");
+  if (normalized.includes("avora_forward_bundle_min_two"))
+    return new Error("Cần ít nhất 2 tin còn nội dung để chuyển thành đoạn hội thoại.");
+  if (normalized.includes("avora_verification_text_only"))
+    return new Error("Chỉ gửi được chữ khi chưa kết bạn.");
+  if (normalized.includes("avora_not_connected"))
+    return new Error("Hai bạn không còn là bạn nên không gửi thêm được.");
   if (normalized.includes("avora_forward_too_many"))
     return new Error("Chỉ chuyển tiếp được tối đa 50 tin một lần.");
   if (normalized.includes("avora_delete_too_many"))
@@ -35,11 +47,31 @@ function fail(code: string | undefined, message: string): Error {
   return new Error("Không thực hiện được. Vui lòng thử lại.");
 }
 
-/** Copies messages into another thread, keeping each file's own permission. */
+/**
+ * Copies messages into another thread.
+ *
+ * One message keeps its files (each at its own permission). Two or more become ONE message that
+ * carries the conversation as words only (Đợt gộp 2 · B1).
+ */
 export async function forwardMessages(
   messageIds: readonly string[],
   targetConversationId: string,
 ): Promise<ForwardResult> {
+  if (messageIds.length >= 2) {
+    const { data, error } = await supabase.rpc("forward_messages_as_bundle", {
+      p_message_ids: [...messageIds],
+      p_target_conversation_id: targetConversationId,
+    });
+    if (error) throw fail(error.code, error.message);
+    const row = (data ?? {}) as { forwarded?: number; files_left_behind?: number };
+    return {
+      forwarded: row.forwarded ?? 0,
+      filesCarried: 0,
+      filesBlocked: 0,
+      asBundle: true,
+      filesLeftBehind: row.files_left_behind ?? 0,
+    };
+  }
   const { data, error } = await supabase.rpc("forward_messages", {
     p_message_ids: [...messageIds],
     p_target_conversation_id: targetConversationId,
@@ -77,6 +109,10 @@ export function forwardedFromLabel(senderName: string | null | undefined): strin
  */
 export function forwardSummaryText(result: ForwardResult, targetName: string): string {
   if (result.forwarded === 0) return "Không có tin nào được chuyển tiếp.";
+  if (result.asBundle === true) {
+    const head = `Đã chuyển ${result.forwarded} tin thành một đoạn hội thoại tới ${targetName}`;
+    return (result.filesLeftBehind ?? 0) > 0 ? `${head} · Ảnh và tệp không đi kèm` : head;
+  }
 
   const head =
     result.forwarded === 1

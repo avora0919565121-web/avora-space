@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
   Check,
+  Clock3,
   CalendarClock,
   ClipboardPaste,
   CircleAlert,
@@ -35,7 +36,7 @@ function PlaceholderComingSoon({ id }: { id: MessageTab }) {
     />
   );
 }
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -54,6 +55,10 @@ import { MessageComposer } from "@/components/chat/MessageComposer";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import { ForwardDialog } from "@/components/chat/ForwardDialog";
+import { ForwardBundleCard } from "@/components/chat/ForwardBundleCard";
+import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
+import { ScheduledStrip } from "@/components/chat/ScheduledStrip";
+import { sendAtLine, useMyScheduled, useScheduleActions } from "@/lib/scheduled-messages";
 import { SelectionBar } from "@/components/chat/SelectionBar";
 import {
   MessageActionsAffordance,
@@ -134,13 +139,18 @@ import {
   editMessage,
   ensureJournalConversation,
   fetchConversationPeer,
+  canReplyToMessage,
   fetchMessages,
+  fetchMessageTime,
+  fetchOlderMessages,
+  MESSAGE_PAGE_SIZE,
   filterConversationsByTab,
   formatClock,
   formatInboxTime,
   formatMissedMessages,
   formatUnreadBadge,
   groupMessagesByDay,
+  firstUnreadByCount,
   isEdited,
   isNearThreadBottom,
   isPlaceholderTab,
@@ -183,7 +193,7 @@ import {
 import { projectLink } from "@/lib/projects";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { TaskContextStrip } from "@/components/chat/TaskContextStrip";
-import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote, todayIso } from "@/lib/tasks";
+import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote, TASK_DESCRIPTION_MAX_LEN, todayIso } from "@/lib/tasks";
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
 import { canPinForGroup } from "@/lib/pins";
 import { useThreadPins } from "@/lib/use-pins";
@@ -199,6 +209,8 @@ import { useTasks } from "@/lib/use-tasks";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { typingText, useThreadPresence } from "@/lib/use-thread-presence";
 import { cn } from "@/lib/utils";
+import { transcriptText } from "@/lib/chat-transcript";
+import { draftPreview, readDraft, useDraftsVersion, writeDraft } from "@/lib/chat-drafts";
 import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
 
 /**
@@ -260,7 +272,27 @@ const Messages = () => {
    * button beside the composer means; a bubble's own action names that bubble instead.
    */
   const [taskSourceMessage, setTaskSourceMessage] = useState<ChatMessage | null>(null);
-  const [draft, setDraft] = useState<string>("");
+  /**
+   * The composer belongs to exactly one conversation (Đợt gộp 2 · A8). Its words are stored with
+   * their owner, so a render for another thread can never show — or send — them: that thread
+   * reads its own saved draft instead.
+   */
+  const [composer, setComposer] = useState<{ owner: string | undefined; text: string }>({ owner: undefined, text: "" });
+  const draft: string = composer.owner === conversationId ? composer.text : readDraft(userId, conversationId);
+  const setDraft = useCallback(
+    (next: string | ((current: string) => string)): void => {
+      setComposer((current) => {
+        const base = current.owner === conversationId ? current.text : readDraft(userId, conversationId);
+        const text = typeof next === "function" ? next(base) : next;
+        writeDraft(userId, conversationId, text);
+        return { owner: conversationId, text };
+      });
+    },
+    [conversationId, userId],
+  );
+  /** The thread on screen right now, for the last-line check before a send. */
+  const activeConversationRef = useRef<string | undefined>(conversationId);
+  activeConversationRef.current = conversationId;
   /**
    * Files chosen but not yet sent. Held here rather than inside the composer so that leaving
    * the thread genuinely abandons them — a file staged in one conversation must never follow
@@ -275,6 +307,10 @@ const Messages = () => {
   const [isSelecting, setIsSelecting] = useState<boolean>(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isForwardOpen, setIsForwardOpen] = useState<boolean>(false);
+  /** "Gửi hẹn giờ" dialog (Đợt gộp 2 · B2). */
+  const [isScheduleOpen, setIsScheduleOpen] = useState<boolean>(false);
+  /** A task made from the picked messages (Đợt gộp 2 · A5): ids oldest first + the words. */
+  const [taskSelection, setTaskSelection] = useState<{ messageIds: string[]; transcript: string } | null>(null);
   /** Chặn / Báo cáo (AVORA-37). */
   const [isBlockConfirmOpen, setIsBlockConfirmOpen] = useState<boolean>(false);
   const [reportTarget, setReportTarget] = useState<ReportTarget | null>(null);
@@ -300,6 +336,16 @@ const Messages = () => {
   // landed since they last were — together they decide the jump-to-newest pill.
   const [isThreadAtBottom, setIsThreadAtBottom] = useState<boolean>(true);
   const [missedMessages, setMissedMessages] = useState<number>(0);
+  /**
+   * Paged thread (Đợt gộp 2 · A7): per conversation, the oldest moment already loaded (null = only
+   * the newest page) and whether the start of the conversation has been reached.
+   */
+  const windowSinceRef = useRef<Map<string, string>>(new Map());
+  const [reachedStart, setReachedStart] = useState<Record<string, boolean>>({});
+  const [isLoadingOlder, setIsLoadingOlder] = useState<boolean>(false);
+  const scrollAnchorRef = useRef<{ height: number; top: number } | null>(null);
+  /** Messages looked up and found gone for good (deleted, or never readable). */
+  const [missingMessageIds, setMissingMessageIds] = useState<ReadonlySet<string>>(new Set());
 
   const conversationsQuery = useConversations();
 
@@ -311,6 +357,8 @@ const Messages = () => {
     [conversations, activeTab],
   );
 
+  /** Any draft changing re-reads the list rows' "✎ Nháp" lines (A8). */
+  const draftsVersion: number = useDraftsVersion();
   const visibleConversations: ConversationSummary[] = useMemo(
     () => tabConversations.filter((item) => matchesConversationQuery(item, query)),
     [tabConversations, query],
@@ -374,7 +422,14 @@ const Messages = () => {
 
   const messagesQuery = useQuery<ChatMessage[]>({
     queryKey: chatKeys.messages(conversationId ?? ""),
-    queryFn: () => fetchMessages(conversationId as string),
+    queryFn: async () => {
+      const id = conversationId as string;
+      const since = windowSinceRef.current.get(id) ?? null;
+      const rows = await fetchMessages(id, since);
+      // A first page shorter than a page is the whole conversation.
+      if (since === null && rows.length < MESSAGE_PAGE_SIZE) setReachedStart((current) => ({ ...current, [id]: true }));
+      return rows;
+    },
     enabled: Boolean(conversationId) && Boolean(userId),
     refetchInterval: isLive ? false : OFFLINE_THREAD_POLL_MS,
   });
@@ -398,6 +453,15 @@ const Messages = () => {
   const activeVerification = activeKind === "direct" ? (activeSummary?.verification ?? null) : null;
   const isNoLongerConnected: boolean =
     activeKind === "direct" && activeVerification === null && activeSummary?.isConnected === false;
+  /** Send later (B2): not in the journal, a verification frame, or a 1-1 that can no longer talk. */
+  const canSchedule: boolean =
+    activeKind !== "personal" && activeVerification === null && !isNoLongerConnected;
+  const scheduledQuery = useMyScheduled(conversationId, canSchedule);
+  const scheduleActions = useScheduleActions(conversationId);
+  const scheduledSentIds: ReadonlySet<string> = useMemo(
+    () => new Set((scheduledQuery.data ?? []).filter((item) => item.status === "sent" && item.sentMessageId !== null).map((item) => item.sentMessageId as string)),
+    [scheduledQuery.data],
+  );
 
   const reportMutation = useMutation({
     mutationFn: (input: { target: ReportTarget; reason: ReportReason; note: string; alsoBlock: boolean }) =>
@@ -820,6 +884,40 @@ const Messages = () => {
     [staged.length],
   );
 
+  /*
+   * Dropping files on the thread (Đợt gộp 2 · A10, computer): the very same path as the picker —
+   * same limits, same permission choice. Never in a "Chờ kết bạn" frame (text only).
+   */
+  const [isDraggingFiles, setIsDraggingFiles] = useState<boolean>(false);
+  const canDropFiles: boolean = activeVerification === null && !isNoLongerConnected && !hasBlockedPeer;
+  const dragDepthRef = useRef<number>(0);
+  const hasFiles = (event: DragEvent): boolean => Array.from(event.dataTransfer.types).includes("Files");
+  const handleDragEnter = useCallback((event: DragEvent<HTMLDivElement>): void => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    dragDepthRef.current += 1;
+    setIsDraggingFiles(true);
+  }, []);
+  const handleDragOver = useCallback((event: DragEvent<HTMLDivElement>): void => {
+    if (!hasFiles(event)) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "copy";
+  }, []);
+  const handleDragLeave = useCallback((): void => {
+    dragDepthRef.current = Math.max(0, dragDepthRef.current - 1);
+    if (dragDepthRef.current === 0) setIsDraggingFiles(false);
+  }, []);
+  const handleDrop = useCallback(
+    (event: DragEvent<HTMLDivElement>): void => {
+      if (!hasFiles(event)) return;
+      event.preventDefault();
+      dragDepthRef.current = 0;
+      setIsDraggingFiles(false);
+      void stageFiles(Array.from(event.dataTransfer.files));
+    },
+    [stageFiles],
+  );
+
   const removeStaged = useCallback((localId: string): void => {
     setStaged((current) => {
       const target = current.find((item) => item.localId === localId);
@@ -882,6 +980,19 @@ const Messages = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [conversationId]);
 
+  /*
+   * Switching threads starts clean (A8): no reply quote, no picking, no half-made edit carried
+   * across. The draft itself is per-thread and comes back on its own.
+   */
+  useEffect(() => {
+    setReplyTarget(null);
+    setIsSelecting(false);
+    setSelectedIds([]);
+    setEditingMessageId(null);
+    setEditDraft("");
+    setTaskSelection(null);
+  }, [conversationId]);
+
   /** The message awaiting a "for the room, or for me?" answer. */
   const [pinChoiceMessageId, setPinChoiceMessageId] = useState<string | null>(null);
 
@@ -909,9 +1020,43 @@ const Messages = () => {
     }
   }, [diaryView, scrollThreadToBottom]);
 
+  /**
+   * One page further back (A7). Merged in front of what is already shown, and the reader stays on
+   * the same line: the scroll offset is moved by exactly the height the new page added.
+   */
+  const loadOlder = useCallback(async (): Promise<void> => {
+    if (!conversationId || isLoadingOlder || reachedStart[conversationId] === true) return;
+    const loaded = queryClient.getQueryData<ChatMessage[]>(chatKeys.messages(conversationId)) ?? [];
+    const oldest = loaded.find((message) => message.pending !== true);
+    if (oldest === undefined) return;
+    const node = threadScrollRef.current;
+    if (node !== null) scrollAnchorRef.current = { height: node.scrollHeight, top: node.scrollTop };
+    setIsLoadingOlder(true);
+    try {
+      const older = await fetchOlderMessages(conversationId, oldest.createdAt);
+      if (older.length < MESSAGE_PAGE_SIZE) setReachedStart((current) => ({ ...current, [conversationId]: true }));
+      if (older.length === 0) {
+        scrollAnchorRef.current = null;
+        return;
+      }
+      windowSinceRef.current.set(conversationId, older[0].createdAt);
+      queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(conversationId), (current) => {
+        const known = new Set((current ?? []).map((message) => message.id));
+        return [...older.filter((message) => !known.has(message.id)), ...(current ?? [])];
+      });
+    } catch (error) {
+      scrollAnchorRef.current = null;
+      logError("chat", error);
+    } finally {
+      setIsLoadingOlder(false);
+    }
+  }, [conversationId, isLoadingOlder, reachedStart, queryClient]);
+
   const handleThreadScroll = useCallback((): void => {
     const node = threadScrollRef.current;
     if (!node) return;
+    // Close to the oldest message on screen: fetch the page before it.
+    if (node.scrollTop < 240) void loadOlder();
     const nearBottom = isNearThreadBottom({
       scrollTop: node.scrollTop,
       scrollHeight: node.scrollHeight,
@@ -920,7 +1065,7 @@ const Messages = () => {
     setIsThreadAtBottom(nearBottom);
     // Reaching the end reads whatever was waiting there, so the pill has nothing left to say.
     if (nearBottom) setMissedMessages(0);
-  }, []);
+  }, [loadOlder]);
 
   const jumpToNewest = useCallback((): void => {
     scrollThreadToBottom("smooth");
@@ -935,16 +1080,81 @@ const Messages = () => {
    * for the second after the scroll lands, and a permanent mark would still be sitting there
    * an hour later claiming to be the answer to a question nobody is asking any more.
    */
-  const jumpToMessage = useCallback((messageId: string): void => {
+  const flashAt = useCallback((messageId: string): boolean => {
     const node = document.getElementById(`message-${messageId}`);
-    if (node === null) return;
+    if (node === null) return false;
     node.scrollIntoView({ behavior: "smooth", block: "center" });
     setFlashedMessageId(messageId);
     window.setTimeout(
       () => setFlashedMessageId((current) => (current === messageId ? null : current)),
       2_000,
     );
+    return true;
   }, []);
+
+  /**
+   * A message not loaded yet (a quote, a search result, `?tin=`): widen the window back to it,
+   * which keeps everything from there to the newest message joined up, then light it (A7).
+   */
+  const revealMessage = useCallback(
+    async (messageId: string): Promise<boolean> => {
+      if (!conversationId) return false;
+      try {
+        const at = await fetchMessageTime(messageId);
+        if (at === null) {
+          setMissingMessageIds((current) => new Set(current).add(messageId));
+          return false;
+        }
+        const current = windowSinceRef.current.get(conversationId);
+        if (current === undefined || at < current) windowSinceRef.current.set(conversationId, at);
+        await queryClient.refetchQueries({ queryKey: chatKeys.messages(conversationId), exact: true });
+        return true;
+      } catch (error) {
+        logError("chat", error);
+        return false;
+      }
+    },
+    [conversationId, queryClient],
+  );
+
+  const jumpToMessage = useCallback(
+    (messageId: string): void => {
+      if (flashAt(messageId)) return;
+      void revealMessage(messageId).then((found) => {
+        if (found) window.requestAnimationFrame(() => window.setTimeout(() => flashAt(messageId), 60));
+      });
+    },
+    [flashAt, revealMessage],
+  );
+
+  /*
+   * The "Tin chưa đọc" line (A9): worked out once when a thread opens, from the reader's own
+   * unread count, and kept still while they read. Reopening the thread works it out again.
+   * Nothing about it is sent anywhere (ADR-028).
+   */
+  const unreadMarker = useRef<{ conversationId: string | null; id: string | null }>({ conversationId: null, id: null });
+  if (
+    conversationId !== undefined &&
+    unreadMarker.current.conversationId !== conversationId &&
+    messagesQuery.data !== undefined &&
+    activeSummary !== undefined
+  ) {
+    unreadMarker.current = {
+      conversationId,
+      id: firstUnreadByCount(messagesQuery.data, userId, activeSummary.unreadCount),
+    };
+  }
+  const unreadMarkerId: string | null =
+    unreadMarker.current.conversationId === conversationId ? unreadMarker.current.id : null;
+
+  // After an older page lands above, keep the reader on the same line (no jump).
+  useLayoutEffect(() => {
+    const anchor = scrollAnchorRef.current;
+    const node = threadScrollRef.current;
+    if (anchor === null || node === null) return;
+    scrollAnchorRef.current = null;
+    node.scrollTop = anchor.top + (node.scrollHeight - anchor.height);
+  }, [messages]);
 
   /** The thread position already accounted for, so one arrival is followed exactly once. */
   const scrollSeenRef = useRef<{ conversationId: string | null; messageId: string | null }>({
@@ -981,6 +1191,15 @@ const Messages = () => {
       setMissedMessages((count) => count + 1);
       setIsThreadAtBottom(false);
       return;
+    }
+    // Opening a thread with unread messages lands on "Tin chưa đọc", not the end (A9).
+    if (firstPaint && unreadMarker.current.id !== null && unreadMarker.current.conversationId === nextConversationId) {
+      const markerNode = document.getElementById("unread-marker");
+      if (markerNode !== null) {
+        markerNode.scrollIntoView({ block: "start" });
+        setIsThreadAtBottom(false);
+        return;
+      }
     }
     scrollThreadToBottom(decision === "jump" ? "auto" : "smooth");
     setMissedMessages(0);
@@ -1125,8 +1344,13 @@ const Messages = () => {
             current.map((send) => (send.localId === retryId ? { ...send, isRetrying: false } : send)),
           );
         } else {
-          setDraft((current) => (current.trim() === "" ? payload.content : current));
-          setStaged((current) => (current.length === 0 ? payload.files : current));
+          if (payload.conversationId === activeConversationRef.current) {
+            setDraft((current) => (current.trim() === "" ? payload.content : current));
+            setStaged((current) => (current.length === 0 ? payload.files : current));
+          } else if (readDraft(userId, payload.conversationId).trim() === "") {
+            // Refused after the person moved on: the words wait in their own thread's draft.
+            writeDraft(userId, payload.conversationId, payload.content);
+          }
         }
         setRefusedSendConversationId(payload.conversationId);
         return;
@@ -1178,6 +1402,11 @@ const Messages = () => {
     (content: string): void => {
       // A message with no words but a photo attached is a real message.
       if ((content.length === 0 && staged.length === 0) || sendMutation.isPending || !conversationId) return;
+      // Last line of defence (A8): the composer's own thread must be the one on screen.
+      if (activeConversationRef.current !== conversationId) {
+        logError("chat", new Error("avora_composer_conversation_mismatch"));
+        return;
+      }
       const files = staged;
       setDraft("");
       // The files travel with this message now — into the thread, or into its failed bubble —
@@ -1196,7 +1425,7 @@ const Messages = () => {
         retryOf: null,
       });
     },
-    [sendMutation, clearTyping, staged, conversationId, replyTarget],
+    [sendMutation, clearTyping, staged, conversationId, replyTarget, setDraft],
   );
 
   /** Tapping a failed bubble sends the very same message again, from where it sits. */
@@ -1298,13 +1527,15 @@ const Messages = () => {
         picker with a selection of one rather than a second, simpler dialog.
       */
       if (action === "forward") {
-        setSelectedIds([message.id]);
+        // While picking, the ticks already made are the selection: never replace them (A2).
+        if (!isSelecting) setSelectedIds([message.id]);
         setIsForwardOpen(true);
         return;
       }
       if (action === "select") {
+        // Joining the selection adds this message; it never throws away what was ticked.
         setIsSelecting(true);
-        setSelectedIds([message.id]);
+        setSelectedIds((current) => (current.includes(message.id) ? current : [...current, message.id]));
         return;
       }
       if (action === "task") {
@@ -1379,6 +1610,7 @@ const Messages = () => {
       }
     },
     [
+      isSelecting,
       openTaskDialogFor,
       recallMutation,
       activeKind,
@@ -1391,11 +1623,39 @@ const Messages = () => {
     ],
   );
 
+  /** The first lines of the picked messages, for the bundle preview in the forward dialog (B1). */
+  const forwardPreviewLines: string[] = useMemo(() => {
+    if (selectedIds.length < 2) return [];
+    return messages
+      .filter((message) => selectedIds.includes(message.id) && !isRecalled(message) && message.systemKind == null)
+      .slice(0, 4)
+      .map((message) => `${senderNameOf(message)}: ${messageBodyText(message).split("\n")[0] ?? ""}`);
+  }, [messages, selectedIds, senderNameOf]);
+
   /** Clearing the selection without acting on it. */
   const cancelSelection = useCallback((): void => {
     setIsSelecting(false);
     setSelectedIds([]);
   }, []);
+
+  /**
+   * "Tạo nhiệm vụ" from the selection bar (Đợt gộp 2 · A5): the picked messages, oldest first,
+   * become the description as "Tên: nội dung" blocks; the first one is the quoted source.
+   */
+  const openTaskFromSelection = useCallback((): void => {
+    const picked = messages.filter((message) => selectedIds.includes(message.id) && !isRecalled(message));
+    if (picked.length === 0) return;
+    const transcript = transcriptText(
+      picked.map((message) => ({
+        name: senderNameOf(message),
+        text: message.content,
+        files: message.attachmentCount ?? 0,
+      })),
+      TASK_DESCRIPTION_MAX_LEN,
+    );
+    setTaskSelection({ messageIds: picked.map((message) => message.id), transcript });
+    openTaskDialogFor(picked[0] ?? null);
+  }, [messages, selectedIds, senderNameOf, openTaskDialogFor]);
 
   const deleteJournalMutation = useMutation({
     mutationFn: (ids: readonly string[]) => deleteJournalMessages(ids),
@@ -1765,8 +2025,12 @@ const Messages = () => {
               {visibleConversations.map((item) => {
                 const isActive = item.conversationId === conversationId;
                 const isUnread = item.unreadCount > 0;
-                const preview =
-                  item.lastMessageContent === null
+                // A half-typed message shows instead of the last one; the row does not move (A8).
+                const savedDraft = draftsVersion >= 0 && !isActive ? readDraft(userId, item.conversationId) : "";
+                const hasDraft = savedDraft.trim() !== "";
+                const preview = hasDraft
+                  ? draftPreview(savedDraft)
+                  : item.lastMessageContent === null
                     ? "Chưa có tin nhắn nào"
                     : `${item.lastMessageSenderId === userId ? "Bạn: " : ""}${item.lastMessageContent}`;
                 return (
@@ -1813,7 +2077,9 @@ const Messages = () => {
                           <span
                             className={cn(
                               "min-w-0 flex-1 truncate text-[13px]",
-                              item.lastMessageContent === null
+                              hasDraft
+                                ? "text-primary/90"
+                                : item.lastMessageContent === null
                                 ? "italic text-muted-foreground/70"
                                 : isUnread
                                   ? "font-medium text-foreground"
@@ -2133,7 +2399,21 @@ const Messages = () => {
                   )}
                 </div>
               ) : (
-              <div className="relative min-h-0 flex-1">
+              <div
+                className="relative min-h-0 flex-1"
+                onDragEnter={canDropFiles ? handleDragEnter : undefined}
+                onDragOver={canDropFiles ? handleDragOver : undefined}
+                onDragLeave={canDropFiles ? handleDragLeave : undefined}
+                onDrop={canDropFiles ? handleDrop : undefined}
+              >
+              {isDraggingFiles ? (
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute inset-2 z-40 flex items-center justify-center rounded-[16px] border-2 border-dashed border-primary/60 bg-background/80 text-[15px] font-medium text-foreground backdrop-blur-[2px]"
+                >
+                  Thả để đính kèm
+                </div>
+              ) : null}
               <div
                 ref={threadScrollRef}
                 onScroll={handleThreadScroll}
@@ -2162,9 +2442,15 @@ const Messages = () => {
                   </p>
                 ) : (
                   <div className="mx-auto flex max-w-2xl flex-col gap-6">
+                    {/* Paged thread (A7): the top says whether more is coming or this is the start. */}
+                    {conversationId !== undefined && reachedStart[conversationId] === true ? (
+                      <p className="text-center text-[12px] text-task-idle">Đầu cuộc trò chuyện</p>
+                    ) : isLoadingOlder ? (
+                      <p className="text-center text-[12px] text-muted-foreground" role="status">Đang tải tin cũ hơn…</p>
+                    ) : null}
                     {dayGroups.map((group) => (
                       <div key={group.key}>
-                        <p className="mb-6 text-center text-[13px] text-muted-foreground">{group.label}</p>
+                        <p className="mb-6 text-center text-[12px] font-medium text-muted-foreground/80">{group.label}</p>
                         <ul className="flex flex-col gap-3">
                           {group.messages.map((message, index) => {
                             // A line the server wrote itself: no bubble, no sender, no actions.
@@ -2256,6 +2542,13 @@ const Messages = () => {
                                   );
                             return (
                               <Fragment key={message.id}>
+                              {message.id === unreadMarkerId ? (
+                                <li id="unread-marker" className="flex scroll-mt-4 items-center gap-3 py-1" aria-label="Tin chưa đọc">
+                                  <span className="h-px flex-1 bg-primary/40" aria-hidden="true" />
+                                  <span className="text-[12px] font-medium text-primary">Tin chưa đọc</span>
+                                  <span className="h-px flex-1 bg-primary/40" aria-hidden="true" />
+                                </li>
+                              ) : null}
                               <li
                                 id={`message-${message.id}`}
                                 style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
@@ -2309,6 +2602,9 @@ const Messages = () => {
                                   className={cn(
                                     "flex min-w-0 flex-col",
                                     outgoing ? "items-end" : "items-start",
+                                    // Picking does one thing: a tap anywhere on the row ticks it.
+                                    // Images, links and quotes stop answering until picking ends (A2).
+                                    isSelecting ? "pointer-events-none select-none" : "",
                                   )}
                                 >
                                   {senderLabel ? (
@@ -2396,6 +2692,8 @@ const Messages = () => {
                                     </div>
                                   ) : (
                                     <MessageActionsAffordance
+                                      disabled={isSelecting}
+                                      onSwipeReply={canReplyToMessage(message) ? () => setReplyTarget(message) : undefined}
                                       message={message}
                                       viewerId={userId}
                                       canRaiseTask={canRaiseTask}
@@ -2441,7 +2739,9 @@ const Messages = () => {
                                         coloured rectangle under the image would be a bubble
                                         pretending there were words.
                                       */}
-                                      {message.content.trim() === "" ? null : (
+                                      {message.forwardBundle != null ? (
+                                        <ForwardBundleCard bundle={message.forwardBundle} outgoing={outgoing} />
+                                      ) : message.content.trim() === "" ? null : (
                                       <div
                                         className={cn(
                                           "whitespace-pre-wrap break-words rounded-bubble px-4 py-2.5 text-[15px] leading-relaxed",
@@ -2623,6 +2923,11 @@ const Messages = () => {
                                         />
                                       );
                                     })()}
+                                    {outgoing && scheduledSentIds.has(message.id) ? (
+                                      <span title="Đã gửi theo hẹn giờ" aria-label="Đã gửi theo hẹn giờ" className="flex items-center">
+                                        <Clock3 className="h-3 w-3" strokeWidth={1.8} aria-hidden="true" />
+                                      </span>
+                                    ) : null}
                                     {showsReceipt ? (
                                       <span className="flex items-center gap-1">
                                         <Check className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
@@ -2660,6 +2965,9 @@ const Messages = () => {
                   count={selectedIds.length}
                   canDelete={activeKind === "personal"}
                   onForward={() => setIsForwardOpen(true)}
+                  onCreateTask={
+                    activeVerification === null && !isNoLongerConnected ? openTaskFromSelection : undefined
+                  }
                   onDelete={confirmDeleteSelected}
                   onCancel={cancelSelection}
                   isWorking={deleteJournalMutation.isPending}
@@ -2768,6 +3076,9 @@ const Messages = () => {
                   </div>
                 ) : (
                 <>
+                {canSchedule && conversationId ? (
+                  <ScheduledStrip conversationId={conversationId} items={scheduledQuery.data ?? []} />
+                ) : null}
                 {activeVerification !== null && conversationId && userId ? (
                   <VerificationPanel conversationId={conversationId} verification={activeVerification} viewerId={userId} />
                 ) : null}
@@ -2840,6 +3151,14 @@ const Messages = () => {
                           activeKind === "personal" ? "Tạo nhiệm vụ cá nhân" : "Tạo nhiệm vụ từ cuộc trò chuyện"
                         }
                         disabled={sendMutation.isPending || isUploading || recorder.isRecording}
+                        schedule={
+                          canSchedule
+                            ? {
+                                onSelect: () => setIsScheduleOpen(true),
+                                note: staged.length > 0 ? "Hẹn giờ chỉ gửi được chữ" : draft.trim() === "" ? "Gõ tin trước" : null,
+                              }
+                            : undefined
+                        }
                       />
                       {/* Stays on its own beside the box: a quick, read-only look at the calendar. */}
                       <CalendarPeekButton className="h-12 w-12" />
@@ -2899,11 +3218,37 @@ const Messages = () => {
           if (!next && !isSelecting) setSelectedIds([]);
         }}
         messageIds={selectedIds}
+        previewLines={forwardPreviewLines}
         conversations={conversations}
         currentConversationId={conversationId}
         onForwarded={() => {
           cancelSelection();
           void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+        }}
+      />
+
+      <ScheduleMessageDialog
+        open={isScheduleOpen}
+        onOpenChange={setIsScheduleOpen}
+        content={draft}
+        isWorking={scheduleActions.schedule.isPending}
+        onSubmit={(at) => {
+          const content = draft.trim();
+          if (content === "") return;
+          void scheduleActions.schedule
+            .mutateAsync({
+              content,
+              sendAt: at,
+              mentionedIds: extractMentionedIds(content, mentionable),
+              replyToId: replyTarget?.id ?? null,
+            })
+            .then(() => {
+              setDraft("");
+              setReplyTarget(null);
+              setIsScheduleOpen(false);
+              toast.success(`Đã hẹn gửi lúc ${sendAtLine(at)}.`);
+            })
+            .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không hẹn giờ được."));
         }}
       />
 
@@ -2959,8 +3304,13 @@ const Messages = () => {
           onOpenChange={(next) => {
             setIsTaskDialogOpen(next);
             // Closing forgets the chosen bubble, so the next task starts from the thread's end.
-            if (!next) setTaskSourceMessage(null);
+            if (!next) {
+              setTaskSourceMessage(null);
+              setTaskSelection(null);
+            }
           }}
+          selection={taskSelection}
+          onCreated={taskSelection !== null ? cancelSelection : undefined}
           conversationId={conversationId}
           conversationKind={activeKind}
           conversationName={threadTitle}

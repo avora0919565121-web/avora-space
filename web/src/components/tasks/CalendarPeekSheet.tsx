@@ -13,6 +13,9 @@ import { cn } from "@/lib/utils";
 
 const MONTH_SHORT: readonly string[] = Array.from({ length: 12 }, (_, index) => `Thg ${index + 1}`);
 
+/** The compact Lịch offers only these two (Đợt gộp 2 · A3); the full Lịch keeps all four. */
+const COMPACT_MODES: readonly CalendarMode[] = ["month", "week"];
+
 export type CalendarPickRange = { from: string; to: string };
 
 export type CalendarPeekSheetProps = {
@@ -32,8 +35,13 @@ export type CalendarPeekSheetProps = {
   allow?: DateAllow;
   min?: string | null;
   max?: string | null;
-  /** Desktop only: render as a popover body instead of a bottom sheet. */
+  /** Desktop only: render as a popover body instead of a floating panel. */
   inline?: boolean;
+  /**
+   * Where the floating panel sits (Đợt gộp 2 · A3). "top-end": under the top-right bubble;
+   * "top": across the top of a phone screen, 8px from each edge. Never a bottom sheet.
+   */
+  placement?: "top-end" | "top";
 };
 
 /**
@@ -43,9 +51,12 @@ export type CalendarPeekSheetProps = {
  * date picker — the person still sees what already sits on each day before choosing. Tapping the
  * month title jumps by year then month (a birthday in 1965 is five taps, not seven hundred).
  * It fades rather than slides: the motion tokens allow opacity and nothing else.
+ *
+ * One compact size everywhere (Đợt gộp 2 · A3): Tháng · Tuần only, at most ~440px tall in
+ * Tháng, opened just under where it was asked for and never covering the whole screen.
  */
 export function CalendarPeekSheet(props: CalendarPeekSheetProps) {
-  const { open, onOpenChange, inline = false } = props;
+  const { open, onOpenChange, inline = false, placement = "top-end" } = props;
   const motion = motionFor(currentRhythm());
   const animation = { animationDuration: `${motion.durationMs}ms`, animationTimingFunction: MOTION_EASING };
 
@@ -56,16 +67,18 @@ export function CalendarPeekSheet(props: CalendarPeekSheetProps) {
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           style={animation}
-          className="fixed inset-0 z-50 bg-black/40 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
+          className="fixed inset-0 z-50 bg-black/15 data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0"
         />
         <DialogPrimitive.Content
           style={animation}
           className={cn(
-            "fixed inset-x-0 bottom-0 z-50 mx-auto flex max-h-[88vh] w-full max-w-[560px] flex-col rounded-t-[20px] border border-b-0 border-border bg-background shadow-lg outline-none",
+            "fixed top-[calc(env(safe-area-inset-top)+56px)] z-50 flex max-h-[calc(100dvh-env(safe-area-inset-top)-72px)] flex-col rounded-[16px] border border-border bg-background shadow-lg outline-none md:top-14",
+            placement === "top-end"
+              ? "right-2 w-[min(360px,calc(100vw-16px))]"
+              : "inset-x-2 mx-auto w-auto max-w-[360px]",
             "data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:animate-in data-[state=open]:fade-in-0",
           )}
         >
-          <div className="mx-auto mt-2 h-1 w-10 shrink-0 rounded-full bg-border" aria-hidden="true" />
           {open ? <CalendarPickerBody {...props} /> : null}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
@@ -108,8 +121,8 @@ function CalendarPickerBody({
 
   const heading = title ?? (isRange ? "Chọn khoảng thời gian" : isPicking ? "Chọn ngày" : "Xem nhanh lịch");
   const description = isPicking
-    ? "Xem lịch trước khi chọn — việc và sự kiện đã có vẫn hiện trên từng ngày."
-    : "Chỉ để xem, không sửa được gì ở đây. Đóng lại là quay về đúng chỗ bạn đang gõ.";
+    ? (pickHint(rule, isRange ? (rangeStart === null ? "start" : "end") : null) ?? "Việc đã có vẫn hiện trên từng ngày.")
+    : "Chỉ để xem.";
 
   const handlePick = (day: string): void => {
     if (isRange) {
@@ -141,11 +154,11 @@ function CalendarPickerBody({
 
   return (
     <>
-      <div className="flex items-start gap-3 px-4 pb-1 pt-3">
-        <CalendarDays className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+      <div className="flex items-center gap-2 px-3 pb-0.5 pt-2">
+        <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
         <div className="min-w-0 flex-1">
-          <TitleTag className="text-[16px] font-semibold text-foreground">{heading}</TitleTag>
-          <DescTag className="mt-0.5 text-[12.5px] leading-5 text-muted-foreground">{description}</DescTag>
+          <TitleTag className="truncate text-[14px] font-semibold text-foreground">{heading}</TitleTag>
+          <DescTag className="truncate text-[11.5px] leading-4 text-muted-foreground">{description}</DescTag>
         </div>
         <button
           type="button"
@@ -153,10 +166,10 @@ function CalendarPickerBody({
           aria-label="Đóng lịch"
           className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground"
         >
-          <X className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+          <X className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
         </button>
       </div>
-      <div className={cn("min-h-0 flex-1 overflow-y-auto px-4 pb-[max(1rem,env(safe-area-inset-bottom))]", inline && "max-h-[70vh]")}>
+      <div className={cn("min-h-0 flex-1 overflow-y-auto px-3 pb-3", inline && "max-h-[70vh]")}>
         {chooser !== "none" ? (
           <div className="pt-2">
             <div className="mb-2 flex items-center gap-1">
@@ -201,7 +214,9 @@ function CalendarPickerBody({
             today={today}
             onModeChange={setMode}
             onAnchorChange={setAnchor}
-            modes={["day", "week", "month", "year"]}
+            modes={COMPACT_MODES}
+            density="compact"
+            dayHref={(day) => withReturn(`/nhiem-vu?muc=lich&xem=ngay&ngay=${day}`, hereFrom(location, "Quay lại"))}
             onPickDay={isPicking ? handlePick : undefined}
             canPickDay={isPicking ? canPick : undefined}
             pickHint={isPicking ? pickHint(rule, isRange ? (rangeStart === null ? "start" : "end") : null) : undefined}
@@ -213,7 +228,7 @@ function CalendarPickerBody({
           <Link
             to={withReturn(`/nhiem-vu?muc=lich&xem=ngay&ngay=${anchor}`, hereFrom(location, "Quay lại"))}
             onClick={() => onOpenChange(false)}
-            className="press mt-3 flex min-h-11 items-center justify-center rounded-[10px] border border-border text-[13.5px] font-medium text-foreground hover:bg-secondary"
+            className="press mt-2 flex min-h-10 items-center justify-center rounded-[10px] border border-border text-[13px] font-medium text-foreground hover:bg-secondary"
           >
             Mở Lịch đầy đủ trong Nhiệm vụ
           </Link>
@@ -226,7 +241,7 @@ function CalendarPickerBody({
 function YearGrid({ years, current, onPick }: { years: readonly number[]; current: number; onPick: (year: number) => void }) {
   return (
     <div
-      className="grid max-h-[50vh] grid-cols-4 gap-1.5 overflow-y-auto"
+      className="grid max-h-[320px] grid-cols-4 gap-1.5 overflow-y-auto"
       ref={(node) => {
         node?.querySelector<HTMLButtonElement>(`[data-year="${current}"]`)?.scrollIntoView({ block: "center" });
       }}

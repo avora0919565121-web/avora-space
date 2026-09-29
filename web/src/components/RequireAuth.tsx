@@ -4,6 +4,8 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { PinGate, PinReminderBanner } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { InAppAlerts } from "@/components/InAppAlerts";
 import { MobileTopBar } from "@/components/nav/MobileTopBar";
 import { ToolBelt } from "@/components/nav/ToolBelt";
 import { hidesToolBelt } from "@/lib/navigation";
@@ -42,11 +44,15 @@ export function RequireAuth() {
       {/* min-w-0: a wide table scrolls inside its own frame instead of pushing the page wider. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         <PinReminderBanner />
-        <Outlet />
+        {/* A fault in one screen stays in that screen; bars and bubble live outside (A6). */}
+        <RouteErrorBoundary resetKey={location.pathname}>
+          <Outlet />
+        </RouteErrorBoundary>
       </main>
       {hidesToolBelt(location.pathname) ? null : <ToolBelt />}
       {/* Floats at the top right on every screen; takes no row of its own. */}
       <QuickActionBubble />
+      <InAppAlerts />
     </div>
     </PinGate>
   );

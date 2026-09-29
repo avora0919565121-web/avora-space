@@ -22,6 +22,8 @@ export type ForwardDialogProps = {
   /** The thread being forwarded FROM — never a destination for its own messages. */
   currentConversationId: string | undefined;
   onForwarded: (result: ForwardResult, targetConversationId: string) => void;
+  /** Two or more messages: the first lines of the conversation as "Tên: nội dung" (B1). */
+  previewLines?: readonly string[];
 };
 
 /**
@@ -41,6 +43,7 @@ export function ForwardDialog({
   conversations,
   currentConversationId,
   onForwarded,
+  previewLines = [],
 }: ForwardDialogProps) {
   const [query, setQuery] = useState<string>("");
 
@@ -52,6 +55,8 @@ export function ForwardDialog({
     () =>
       conversations
         .filter((item) => item.conversationId !== currentConversationId)
+        // A "Chờ kết bạn" frame is text only, and a pair no longer bạn cannot receive more.
+        .filter((item) => item.verification == null && item.isConnected !== false)
         .filter((item) => matchesConversationQuery(item, query)),
     [conversations, currentConversationId, query],
   );
@@ -82,11 +87,22 @@ export function ForwardDialog({
       <DialogContent className="max-w-md gap-0 p-0">
         <div className="border-b border-border px-5 py-4">
           <DialogTitle className="text-[17px] font-semibold tracking-tight">
-            Chuyển tiếp {count > 1 ? `${count} tin nhắn` : "tin nhắn"}
+            {count > 1 ? `Chuyển tiếp đoạn hội thoại · ${count} tin` : "Chuyển tiếp tin nhắn"}
           </DialogTitle>
           <DialogDescription className="mt-1 text-[13px] text-muted-foreground">
-            Chọn nơi nhận. Tệp chỉ đi theo nếu người gửi cho phép chuyển tiếp.
+            {count > 1
+              ? "Người nhận thấy tên người nói và nội dung chữ. Ảnh và tệp không đi kèm."
+              : "Chọn nơi nhận. Tệp chỉ đi theo nếu người gửi cho phép chuyển tiếp."}
           </DialogDescription>
+          {count > 1 && previewLines.length > 0 ? (
+            <div className="mt-3 space-y-0.5 rounded-[10px] border border-border bg-secondary/40 px-3 py-2 text-[12.5px] leading-5 text-foreground/85">
+              {previewLines.slice(0, 4).map((line, index) => (
+                <p key={index} className="truncate">
+                  {line}
+                </p>
+              ))}
+            </div>
+          ) : null}
         </div>
 
         <div className="px-5 py-3">

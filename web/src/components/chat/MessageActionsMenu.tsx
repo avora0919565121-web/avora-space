@@ -11,17 +11,69 @@ import {
   Reply,
   Trash2,
 } from "lucide-react";
-import { useState } from "react";
+import { useCallback, useRef, useState, type PointerEvent } from "react";
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useLongPress } from "@/components/chat/MessageTaskButton";
+import { useLongPress } from "@/hooks/use-long-press";
 import { canEditMessage, canRecallMessage, canReplyToMessage, type ChatMessage } from "@/lib/chat";
 import { cn } from "@/lib/utils";
+
+/** How far a finger must travel right before a swipe means "answer this" (Đợt gộp 2 · A10). */
+export const SWIPE_REPLY_PX = 56;
+
+/**
+ * Swipe right to reply, fingers only. A mostly vertical move is a scroll and cancels it; the
+ * bubble follows the finger (at most a little past the threshold) and springs back on release.
+ */
+function useSwipeToReply(onReply: (() => void) | undefined) {
+  const [offset, setOffset] = useState<number>(0);
+  const startRef = useRef<{ x: number; y: number; decided: "swipe" | "scroll" | null; fired: boolean } | null>(null);
+
+  const onPointerDown = useCallback(
+    (event: PointerEvent<HTMLElement>): void => {
+      if (onReply === undefined || event.pointerType !== "touch") return;
+      startRef.current = { x: event.clientX, y: event.clientY, decided: null, fired: false };
+    },
+    [onReply],
+  );
+
+  const onPointerMove = useCallback(
+    (event: PointerEvent<HTMLElement>): void => {
+      const start = startRef.current;
+      if (start === null || onReply === undefined) return;
+      const dx = event.clientX - start.x;
+      const dy = event.clientY - start.y;
+      if (start.decided === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        start.decided = Math.abs(dx) > Math.abs(dy) * 1.5 && dx > 0 ? "swipe" : "scroll";
+      }
+      if (start.decided !== "swipe") return;
+      setOffset(Math.min(Math.max(0, dx), SWIPE_REPLY_PX + 16));
+      if (!start.fired && dx >= SWIPE_REPLY_PX) {
+        start.fired = true;
+        if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(10);
+      }
+    },
+    [onReply],
+  );
+
+  const onPointerEnd = useCallback((): void => {
+    const start = startRef.current;
+    startRef.current = null;
+    setOffset(0);
+    if (start?.fired === true) onReply?.();
+  }, [onReply]);
+
+  return { offset, onPointerDown, onPointerMove, onPointerEnd };
+}
+
+/** Long press on a bubble is for fingers: a mouse already has hover and the visible "…". */
+const TOUCH_ONLY: readonly string[] = ["touch"];
 
 /** Everything that can be done to a single message. */
 export type MessageAction =
@@ -39,9 +91,15 @@ export type MessageAction =
 /**
  * Everything you can do to one message, in one place.
  *
- * "Tạo task" used to be its own icon on every bubble, which worked while it was the only
+ * Creating a task used to be its own icon on every bubble, which worked while it was the only
  * action. Adding reply, edit and recall beside it would have put four icons on every line of a
  * conversation — so they collapse into a single "…" that stays quiet until wanted.
+ *
+ * Three groups (Đợt gộp 2 · A1), what people reach for most first:
+ * 1. Làm với tin này — Trả lời · Chuyển tiếp · Tạo nhiệm vụ
+ * 2. Sắp xếp — Chọn nhiều tin · Ghim / Bỏ ghim · Sửa
+ * 3. Rút lại / báo — Thu hồi or Đề nghị thu hồi · Báo cáo tin nhắn
+ * A group with nothing in it takes its separator with it.
  *
  * What appears inside depends on who sent the message and how long ago. Edit and recall are
  * simply absent past the 24-hour window rather than shown and refused: an action that is
@@ -97,25 +155,19 @@ export function MessageActionsMenu({
   const showReport =
     canReport && message.pending !== true && viewerId !== undefined && message.senderId !== viewerId;
 
-  if (
-    !showReply &&
-    !showEdit &&
-    !showRecall &&
-    !showTask &&
-    !showPin &&
-    !showRequestRecall &&
-    !showForward &&
-    !showReport
-  )
-    return null;
+  const hasAct = showReply || showForward || showTask;
+  const hasArrange = showForward || showPin || showEdit;
+  const hasWithdraw = showRecall || showRequestRecall || showReport;
+
+  if (!hasAct && !hasArrange && !hasWithdraw) return null;
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
       <DropdownMenuTrigger asChild>
         <button
           type="button"
-          aria-label={`Nhiệm vụ cho tin nhắn: ${message.content.slice(0, 60)}`}
-          title="Nhiệm vụ"
+          aria-label={`Tuỳ chọn tin nhắn: ${message.content.slice(0, 60)}`}
+          title="Tuỳ chọn"
           className={cn(
             "press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 group-hover:opacity-100 motion-reduce:transition-none",
             className,
@@ -131,22 +183,20 @@ export function MessageActionsMenu({
             Trả lời
           </DropdownMenuItem>
         ) : null}
-        {showTask ? (
-          <DropdownMenuItem onSelect={() => onAction("task")}>
-            <ListPlus className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Tạo nhiệm vụ
-          </DropdownMenuItem>
-        ) : null}
-        {/*
-          Carrying one message, and the way into carrying several. Selecting starts from the
-          message the menu was opened on, so the first tick is already made.
-        */}
         {showForward ? (
           <DropdownMenuItem onSelect={() => onAction("forward")}>
             <Forward className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
             Chuyển tiếp
           </DropdownMenuItem>
         ) : null}
+        {showTask ? (
+          <DropdownMenuItem onSelect={() => onAction("task")}>
+            <ListPlus className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Tạo nhiệm vụ
+          </DropdownMenuItem>
+        ) : null}
+        {hasAct && (hasArrange || hasWithdraw) ? <DropdownMenuSeparator /> : null}
+        {/* Selecting starts from the message the menu was opened on, so the first tick is made. */}
         {showForward ? (
           <DropdownMenuItem onSelect={() => onAction("select")}>
             <CheckSquare className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
@@ -169,6 +219,7 @@ export function MessageActionsMenu({
             Sửa
           </DropdownMenuItem>
         ) : null}
+        {hasArrange && hasWithdraw ? <DropdownMenuSeparator /> : null}
         {showRecall ? (
           <DropdownMenuItem onSelect={() => onAction("recall")} className="text-destructive">
             <Trash2 className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
@@ -207,6 +258,9 @@ export function MessageActionsMenu({
  * same menu. Open state is held here so both gestures reach one menu rather than two
  * lookalikes, and the long-press hook lives here rather than in the thread's render loop,
  * where it would be a hook inside a map.
+ *
+ * `disabled` (while picking several messages): no "…", no reactions, no long press — the row
+ * only ticks. Picking does one thing (Đợt gộp 2 · A2).
  */
 export function MessageActionsAffordance({
   message,
@@ -221,8 +275,13 @@ export function MessageActionsAffordance({
   outgoing,
   onAction,
   reactionPicker,
+  disabled = false,
+  onSwipeReply,
   children,
 }: {
+  disabled?: boolean;
+  /** Phone: swiping the bubble right past ~56px makes it the message being answered (A10). */
+  onSwipeReply?: () => void;
   message: ChatMessage;
   viewerId: string | undefined;
   canRaiseTask: boolean;
@@ -242,14 +301,49 @@ export function MessageActionsAffordance({
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const { handlers, isPressing } = useLongPress(() => setIsOpen(true));
+  const [isPressing, setIsPressing] = useState<boolean>(false);
+  const { onClick: _ignoredTap, ...handlers } = useLongPress({
+    onHold: () => setIsOpen(true),
+    pointerTypes: TOUCH_ONLY,
+    onPressChange: setIsPressing,
+    contextMenu: "after-hold",
+    isEnabled: () => !disabled,
+  });
+  void _ignoredTap;
+  const swipe = useSwipeToReply(disabled ? undefined : onSwipeReply);
+
+  if (disabled) {
+    return (
+      <div className={cn("flex w-full items-center gap-1.5", outgoing ? "flex-row-reverse" : "flex-row")}>
+        <div className="max-w-[80%]">{children}</div>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("flex w-full items-center gap-1.5", outgoing ? "flex-row-reverse" : "flex-row")}>
       <div
         {...handlers}
+        onPointerDown={(event) => {
+          handlers.onPointerDown(event);
+          swipe.onPointerDown(event);
+        }}
+        onPointerMove={(event) => {
+          handlers.onPointerMove(event);
+          swipe.onPointerMove(event);
+        }}
+        onPointerUp={() => {
+          handlers.onPointerUp();
+          swipe.onPointerEnd();
+        }}
+        onPointerCancel={() => {
+          handlers.onPointerCancel();
+          swipe.onPointerEnd();
+        }}
+        style={swipe.offset > 0 ? { transform: `translateX(${swipe.offset}px)` } : undefined}
         className={cn(
           "max-w-[80%] transition-opacity",
+          swipe.offset === 0 && "transition-transform",
           isPressing ? "select-none opacity-70" : "opacity-100",
         )}
       >

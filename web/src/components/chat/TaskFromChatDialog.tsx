@@ -23,6 +23,12 @@ type TaskFromChatDialogProps = {
   contextSenderName: string;
   /** Project chat: filed under this project when accepted. */
   projectId?: string | null;
+  /**
+   * Several picked messages (Đợt gộp 2 · A5): the description starts as the conversation in
+   * words ("Tên: nội dung"), and the snapshot keeps every id so Nguồn reopens the first one.
+   */
+  selection?: { messageIds: readonly string[]; transcript: string } | null;
+  onCreated?: () => void;
 };
 
 /**
@@ -45,6 +51,8 @@ export function TaskFromChatDialog({
   contextMessage,
   contextSenderName,
   projectId = null,
+  selection = null,
+  onCreated,
 }: TaskFromChatDialogProps) {
   const { user } = useAuth();
   const { createPersonal, proposeOne } = useComposerActions();
@@ -67,12 +75,22 @@ export function TaskFromChatDialog({
       message: contextMessage,
       senderName: contextSenderName,
       userResponse: values.description,
+      selectedMessageIds: selection?.messageIds,
     });
 
   const source: ComposerSource | null =
     contextMessage === null
       ? null
-      : {
+      : selection !== null && selection.messageIds.length > 1
+        ? {
+            label: `Từ ${selection.messageIds.length} tin nhắn đã chọn`,
+            render: () => (
+              <p className="line-clamp-3 whitespace-pre-wrap text-[13px] leading-5 text-foreground">
+                {selection.transcript}
+              </p>
+            ),
+          }
+        : {
           label: place === "personal" ? "Từ ghi chú trong Nhật ký" : `Từ tin nhắn của ${contextSenderName}`,
           render: () => (
             <p className="line-clamp-2 whitespace-pre-wrap text-[13px] leading-5 text-foreground">
@@ -90,6 +108,8 @@ export function TaskFromChatDialog({
       peerId={peerId}
       peerName={peerName}
       members={reachable}
+      initial={selection !== null ? { description: selection.transcript } : undefined}
+      onCreated={onCreated === undefined ? undefined : () => onCreated()}
       onCreateMine={async (values) => {
         if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
         if (place === "group") {

@@ -46,6 +46,7 @@ import {
 } from "@/components/tasks/ScheduleFields";
 import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { BlockLoadError } from "@/components/RouteErrorBoundary";
 import { useComposerActions } from "@/lib/use-task-composer";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { TaskViewTabs } from "@/components/tasks/TaskViewTabs";
@@ -1414,7 +1415,7 @@ function ScopeChips({ value, onChange }: { value: TaskScope | null; onChange: (n
 /** Nhiệm vụ — personal to-dos plus shared tasks from 1-1s, groups and projects, read four ways. */
 export default function Tasks() {
   const { user } = useAuth();
-  const { data: tasks, isLoading } = useTasks();
+  const { data: tasks, isLoading, isError: tasksFailed, refetch: refetchTasks } = useTasks();
   const { data: allSuggestions } = useTaskSuggestions();
   const userId: string | undefined = user?.id;
   const today = todayIso();
@@ -1680,7 +1681,9 @@ export default function Tasks() {
         {hubSection.id !== "tasks" ? (
           <div className="mt-5 space-y-3 pb-10">
             <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} />
-            {isLoading ? (
+            {tasksFailed ? (
+              <BlockLoadError name="nhiệm vụ" onRetry={() => void refetchTasks()} />
+            ) : isLoading ? (
               <div className="flex justify-center py-16" role="status" aria-label="Đang tải nhiệm vụ">
                 <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
               </div>
@@ -1739,7 +1742,9 @@ export default function Tasks() {
           />
         </div>
 
-        {isLoading ? (
+        {tasksFailed ? (
+          <BlockLoadError className="mt-5" name="nhiệm vụ" onRetry={() => void refetchTasks()} />
+        ) : isLoading ? (
           <div className="flex justify-center py-16" role="status" aria-label="Đang tải nhiệm vụ">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>

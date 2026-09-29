@@ -15,6 +15,7 @@ import {
   updateBaseCurrency,
   updateDailyThoughtCategory,
   updateTimezone,
+  updateSoundPref,
   updateTypingSignal,
   type ProfileSettings,
 } from "@/lib/settings";
@@ -99,12 +100,21 @@ export function useSettingsActions() {
     },
   });
 
+  const setSoundPref = useMutation({
+    mutationFn: ({ which, on }: { which: "messages" | "reminders"; on: boolean }) => updateSoundPref(userId, which, on),
+    onSuccess: (settings) => {
+      queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, settings);
+    },
+  });
+
   return {
     setBaseCurrency,
     setTimezone,
     setDailyThoughtCategory,
     setTypingSignal,
+    setSoundPref,
     isWorking:
+      setSoundPref.isPending ||
       setBaseCurrency.isPending ||
       setTimezone.isPending ||
       setDailyThoughtCategory.isPending ||

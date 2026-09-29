@@ -26,6 +26,11 @@ export type TaskContextSnapshot = {
    * every task raised from a chat; present only on tasks made from something pasted in.
    */
   origin?: TaskOrigin;
+  /**
+   * A task made from several picked messages (Đợt gộp 2 · A5): every picked id, oldest first.
+   * `originalMessageId` is the first of them, so "Nguồn" opens there and lights it up.
+   */
+  selectedMessageIds?: string[];
 };
 
 /**
@@ -57,6 +62,8 @@ export type TaskContextSnapshotJson = {
   origin_type?: "external_paste";
   origin_content?: string;
   origin_file_names?: string[];
+  /** Only on tasks made from several picked messages. Extra keys are allowed by the trigger. */
+  selected_message_ids?: string[];
 };
 
 export type ContextMessage = {
@@ -80,9 +87,15 @@ export function buildContextSnapshot(input: {
   senderName: string;
   userResponse: string;
   now?: Date;
+  selectedMessageIds?: readonly string[];
 }): TaskContextSnapshot {
   const now = input.now ?? new Date();
+  const selected =
+    input.selectedMessageIds !== undefined && input.selectedMessageIds.length > 1
+      ? { selectedMessageIds: [...input.selectedMessageIds] }
+      : {};
   return {
+    ...selected,
     conversationType: input.conversationType,
     conversationId: input.conversationId,
     conversationName: input.conversationName,
@@ -105,8 +118,11 @@ export function snapshotToJson(snapshot: TaskContextSnapshot): TaskContextSnapsh
           origin_content: snapshot.origin.content,
           origin_file_names: [...snapshot.origin.fileNames],
         };
+  const selected: Partial<TaskContextSnapshotJson> =
+    snapshot.selectedMessageIds === undefined ? {} : { selected_message_ids: [...snapshot.selectedMessageIds] };
   return {
     ...origin,
+    ...selected,
     conversation_type: snapshot.conversationType,
     conversation_id: snapshot.conversationId,
     conversation_name: snapshot.conversationName,
@@ -159,8 +175,14 @@ export function parseContextSnapshot(raw: unknown): TaskContextSnapshot | null {
         }
       : {};
 
+  const rawSelected = record.selected_message_ids;
+  const selected: Pick<TaskContextSnapshot, "selectedMessageIds"> = Array.isArray(rawSelected)
+    ? { selectedMessageIds: rawSelected.filter((id): id is string => typeof id === "string") }
+    : {};
+
   return {
     ...origin,
+    ...selected,
     conversationType,
     conversationId,
     conversationName: readString(record, "conversation_name"),

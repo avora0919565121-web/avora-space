@@ -19,6 +19,8 @@ type TimeFieldProps = {
   onChange: (next: string) => void;
   /** Announced to screen readers in place of a visible label. */
   ariaLabel?: string;
+  /** `HH:MM`: only marks strictly after this can be picked (an Event's end, Đợt gộp 2 · A12). */
+  after?: string | null;
 };
 
 /**
@@ -29,7 +31,11 @@ type TimeFieldProps = {
  * intention: five-minute marks say everything anyone means by "về chiều" and fit on one
  * screen. The field stays optional, so the resting state is an empty clock, not a time.
  */
-export function TimeField({ id, value, onChange, ariaLabel }: TimeFieldProps) {
+export function TimeField({ id, value, onChange, ariaLabel, after = null }: TimeFieldProps) {
+  const floor = after === null || after === "" ? null : splitTime(after);
+  const floorMinutes = floor === null ? -1 : floor.hour * 60 + floor.minute;
+  const isAllowed = (hour: number, minute: number): boolean => hour * 60 + minute > floorMinutes;
+  const hourAllowed = (hour: number): boolean => isAllowed(hour, 59);
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const chosen = splitTime(value === "" ? null : value);
   // Which hour the minute grid belongs to while the popover is open, before a full time exists.
@@ -42,13 +48,18 @@ export function TimeField({ id, value, onChange, ariaLabel }: TimeFieldProps) {
   const activeHour: number | null = pendingHour ?? chosen?.hour ?? null;
 
   const pickHour = (hour: number): void => {
+    if (!hourAllowed(hour)) return;
     setPendingHour(hour);
-    // An hour on its own is already a usable answer: the minute defaults to the o'clock mark.
-    const next = composeTime(hour, chosen?.minute ?? 0);
+    // An hour on its own is already a usable answer: the minute defaults to the first allowed mark.
+    const wanted = chosen?.minute ?? 0;
+    const minute = isAllowed(hour, wanted) ? wanted : (MINUTE_OPTIONS.find((option) => isAllowed(hour, option)) ?? null);
+    if (minute === null) return;
+    const next = composeTime(hour, minute);
     if (next !== null) onChange(next);
   };
 
   const pickMinute = (minute: number): void => {
+    if (!isAllowed(activeHour ?? 0, minute)) return;
     const next = composeTime(activeHour ?? 0, minute);
     if (next !== null) onChange(next);
     setIsOpen(false);
@@ -95,9 +106,10 @@ export function TimeField({ id, value, onChange, ariaLabel }: TimeFieldProps) {
                 type="button"
                 aria-label={`${padTwo(hour)} giờ`}
                 aria-pressed={activeHour === hour}
+                disabled={!hourAllowed(hour)}
                 onClick={() => pickHour(hour)}
                 className={cn(
-                  "press tabular h-9 rounded-md text-[13px] transition-colors",
+                  "press tabular h-9 rounded-md text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-30",
                   activeHour === hour
                     ? "bg-primary font-semibold text-primary-foreground"
                     : "text-foreground hover:bg-accent/60",
@@ -116,9 +128,10 @@ export function TimeField({ id, value, onChange, ariaLabel }: TimeFieldProps) {
                 type="button"
                 aria-label={`${padTwo(minute)} phút`}
                 aria-pressed={chosen?.minute === minute && value !== ""}
+                disabled={!isAllowed(activeHour ?? 0, minute)}
                 onClick={() => pickMinute(minute)}
                 className={cn(
-                  "press tabular h-9 rounded-md text-[13px] transition-colors",
+                  "press tabular h-9 rounded-md text-[13px] transition-colors disabled:cursor-not-allowed disabled:opacity-30",
                   chosen?.minute === minute && value !== ""
                     ? "bg-primary font-semibold text-primary-foreground"
                     : "text-foreground hover:bg-accent/60",

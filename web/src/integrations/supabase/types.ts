@@ -424,27 +424,50 @@ export type Database = {
         Row: {
           conversation_id: string
           joined_at: string
-          last_read_at: string | null
           role: string
           user_id: string
         }
         Insert: {
           conversation_id: string
           joined_at?: string
-          last_read_at?: string | null
           role?: string
           user_id: string
         }
         Update: {
           conversation_id?: string
           joined_at?: string
-          last_read_at?: string | null
           role?: string
           user_id?: string
         }
         Relationships: [
           {
             foreignKeyName: "conversation_participants_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      conversation_read_marks: {
+        Row: {
+          conversation_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          last_read_at: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          last_read_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_read_marks_conversation_id_fkey"
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
@@ -1273,6 +1296,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           edited_at: string | null
+          forward_bundle: Json | null
           id: string
           key_version: number | null
           mentioned_user_ids: string[]
@@ -1292,6 +1316,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
+          forward_bundle?: Json | null
           id?: string
           key_version?: number | null
           mentioned_user_ids?: string[]
@@ -1311,6 +1336,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           edited_at?: string | null
+          forward_bundle?: Json | null
           id?: string
           key_version?: number | null
           mentioned_user_ids?: string[]
@@ -1386,6 +1412,8 @@ export type Database = {
           id: string
           last_opened_date: string | null
           pin_required_at: string | null
+          sound_messages: boolean
+          sound_reminders: boolean
           timezone: string
         }
         Insert: {
@@ -1399,6 +1427,8 @@ export type Database = {
           id: string
           last_opened_date?: string | null
           pin_required_at?: string | null
+          sound_messages?: boolean
+          sound_reminders?: boolean
           timezone?: string
         }
         Update: {
@@ -1412,6 +1442,8 @@ export type Database = {
           id?: string
           last_opened_date?: string | null
           pin_required_at?: string | null
+          sound_messages?: boolean
+          sound_reminders?: boolean
           timezone?: string
         }
         Relationships: [
@@ -1634,6 +1666,73 @@ export type Database = {
           {
             foreignKeyName: "projects_thanks_message_id_fkey"
             columns: ["thanks_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scheduled_messages: {
+        Row: {
+          content: string
+          conversation_id: string
+          created_at: string
+          fail_reason: string | null
+          id: string
+          mentioned_user_ids: string[]
+          reply_to_message_id: string | null
+          send_at: string
+          sender_id: string
+          sent_message_id: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          conversation_id: string
+          created_at?: string
+          fail_reason?: string | null
+          id?: string
+          mentioned_user_ids?: string[]
+          reply_to_message_id?: string | null
+          send_at: string
+          sender_id: string
+          sent_message_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          fail_reason?: string | null
+          id?: string
+          mentioned_user_ids?: string[]
+          reply_to_message_id?: string | null
+          send_at?: string
+          sender_id?: string
+          sent_message_id?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_reply_to_message_id_fkey"
+            columns: ["reply_to_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_messages_sent_message_id_fkey"
+            columns: ["sent_message_id"]
             isOneToOne: false
             referencedRelation: "messages"
             referencedColumns: ["id"]
@@ -2949,6 +3048,7 @@ export type Database = {
         Returns: string
       }
       block_user: { Args: { p_user_id: string }; Returns: undefined }
+      cancel_scheduled_message: { Args: { p_id: string }; Returns: undefined }
       cast_group_vote: {
         Args: { p_decision_id: string; p_option_id: string }
         Returns: undefined
@@ -4158,6 +4258,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           edited_at: string | null
+          forward_bundle: Json | null
           id: string
           key_version: number | null
           mentioned_user_ids: string[]
@@ -4302,6 +4403,10 @@ export type Database = {
       }
       forward_blocked_note: { Args: never; Returns: string }
       forward_messages: {
+        Args: { p_message_ids: string[]; p_target_conversation_id: string }
+        Returns: Json
+      }
+      forward_messages_as_bundle: {
         Args: { p_message_ids: string[]; p_target_conversation_id: string }
         Returns: Json
       }
@@ -4494,6 +4599,29 @@ export type Database = {
           verification_status: string
           verification_via_group_id: string
         }[]
+      }
+      list_my_scheduled_messages: {
+        Args: { p_conversation_id: string }
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          fail_reason: string | null
+          id: string
+          mentioned_user_ids: string[]
+          reply_to_message_id: string | null
+          send_at: string
+          sender_id: string
+          sent_message_id: string | null
+          status: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "scheduled_messages"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       mark_1_1_task_done: {
         Args: { p_task_id: string }
@@ -4742,6 +4870,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           edited_at: string | null
+          forward_bundle: Json | null
           id: string
           key_version: number | null
           mentioned_user_ids: string[]
@@ -5356,6 +5485,35 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      schedule_message: {
+        Args: {
+          p_content: string
+          p_conversation_id: string
+          p_mentioned_user_ids: string[]
+          p_reply_to_message_id: string
+          p_send_at: string
+        }
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          fail_reason: string | null
+          id: string
+          mentioned_user_ids: string[]
+          reply_to_message_id: string | null
+          send_at: string
+          sender_id: string
+          sent_message_id: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "scheduled_messages"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       seed_finance_categories: { Args: { p_user_id: string }; Returns: number }
       send_message_with_attachments: {
         Args: {
@@ -5374,6 +5532,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           edited_at: string | null
+          forward_bundle: Json | null
           id: string
           key_version: number | null
           mentioned_user_ids: string[]
@@ -5392,6 +5551,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      send_scheduled_message_now: { Args: { p_id: string }; Returns: string }
       set_group_admin: {
         Args: {
           make_admin: boolean
@@ -5750,6 +5910,29 @@ export type Database = {
         SetofOptions: {
           from: "*"
           to: "crm_opportunity"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      update_scheduled_message: {
+        Args: { p_content: string; p_id: string; p_send_at: string }
+        Returns: {
+          content: string
+          conversation_id: string
+          created_at: string
+          fail_reason: string | null
+          id: string
+          mentioned_user_ids: string[]
+          reply_to_message_id: string | null
+          send_at: string
+          sender_id: string
+          sent_message_id: string | null
+          status: string
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "scheduled_messages"
           isOneToOne: true
           isSetofReturn: false
         }
@@ -6181,3 +6364,4 @@ export const Constants = {
     },
   },
 } as const
+

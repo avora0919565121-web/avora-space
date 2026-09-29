@@ -1718,6 +1718,20 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   A recipient answers only Đồng ý or Từ chối; after Đồng ý the work is theirs ("Đã vào lịch của bạn · Chỉnh
   theo cách của bạn" opens the same form, Giao cho locked), and the proposer reads "✓ {Tên} đã nhận vào lịch",
   "đã đổi" and "đã sắp xếp đi lại" — never the travel minutes, steps or things to bring.
+- 2026-09-29 — Messages and the compact Lịch (Đợt gộp 2 · A/B). What people do most sits together: the message
+  menu opens with Trả lời · Chuyển tiếp · Tạo nhiệm vụ, then Sắp xếp, then Rút lại / báo, with separators.
+  Picking several messages does one thing: while picking, no "…", no reactions, no long press, and a tap anywhere on
+  a row only ticks it; the selection bar is the only place to act (Chuyển tiếp, Tạo nhiệm vụ). Forwarding two or
+  more messages sends one conversation card — speaker names and words only, never files, ids or avatars. Send-later
+  belongs to the sender until it goes; the recipient sees nothing before then, and the database delivers it. Nobody
+  can see how far anyone else has read; the "Tin chưa đọc" line is the reader's alone. A composer belongs to one
+  conversation: drafts are kept per thread on this device, shown as "✎ Nháp: …" without moving the row, and wiped
+  on sign-out. A thread opens on its newest 50 messages and loads older ones as you scroll up. One Lịch, one compact
+  size (Tháng · Tuần, ≤ ~440px) opened just under where it was asked for, never a full-height sheet. An Event's end
+  always follows its start (+60 minutes, then the same length when the start moves). A task's detail reads in the
+  form's own order, with "Mở rộng" (Các bước · Cần mang theo · Kế hoạch) below and actions pinned to the bottom.
+  One broken screen never blanks the app: each route and each Avora Space block has its own error state, and a
+  failed load is always said as a failure, never shown as empty.
 
 ## Out of scope
 

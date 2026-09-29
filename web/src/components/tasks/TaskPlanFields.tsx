@@ -1,5 +1,5 @@
 import { Flag, Link2, Play, Square, Sun, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { dependenciesOf, dependencyCandidates } from "@/lib/task-dependencies";
@@ -30,7 +30,7 @@ const CONTROL_CLASS =
  * nobody maintains is worse than no percentage at all. So this block stays quiet: nothing is
  * required, nothing is counted, and leaving all of it alone is the ordinary outcome.
  */
-export function TaskPlanFields({ task }: { task: TaskItem }) {
+export function TaskPlanFields({ task, footer = null }: { task: TaskItem; footer?: ReactNode }) {
   const { editPlan } = useTaskActions();
   const shared = isSharedTask(task);
 
@@ -42,9 +42,8 @@ export function TaskPlanFields({ task }: { task: TaskItem }) {
 
   return (
     <div className="space-y-3 rounded-[10px] border border-border bg-card p-3">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-        Kế hoạch (không bắt buộc)
-      </p>
+      <p className="text-[12px] font-medium text-muted-foreground">Kế hoạch</p>
+      {footer}
 
       <MilestoneToggle
         checked={task.isMilestone}

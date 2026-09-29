@@ -33,7 +33,8 @@ import {
   recipientSummary,
   REMINDER_CHIPS,
   resolveRecipients,
-  suggestedEnd,
+  eventDurationLabel,
+  eventEndFor,
   toLocalInput,
   TRAVEL_CHIPS,
   type ComposerPlace,
@@ -440,24 +441,36 @@ function ComposerBody({
               allow="any"
               onChange={(range) => {
                 const nextStart = joinLocalDateTime(range.from, start.time);
+                const candidate = draft.endAt === "" ? "" : joinLocalDateTime(range.to, end.time, start.time || "09:00");
                 patch({
                   startAt: nextStart,
-                  endAt: draft.endAt === "" ? suggestedEnd(nextStart, null) : joinLocalDateTime(range.to, end.time, start.time || "09:00"),
+                  endAt:
+                    candidate !== "" && candidate > nextStart
+                      ? candidate
+                      : eventEndFor(nextStart, draft.startAt, draft.endAt),
                 });
               }}
               times={{
                 start: start.time,
                 end: end.time,
+                // Same-day Event: an end before the start cannot be picked (Đợt gộp 2 · A12).
+                endAfterStart: end.date === "" || end.date === start.date,
+                durationLabel: eventDurationLabel(draft.startAt, draft.endAt),
                 onChange: (next) => {
-                  if (start.date === "") return;
-                  const nextStart = joinLocalDateTime(start.date, next.start);
-                  const nextEnd =
-                    next.end === ""
-                      ? draft.endAt === ""
-                        ? suggestedEnd(nextStart, null)
-                        : ""
-                      : joinLocalDateTime(end.date === "" ? start.date : end.date, next.end);
-                  patch({ startAt: nextStart, endAt: nextEnd });
+                  // No day yet: the Event's day defaults to the deadline's (or today).
+                  const day = start.date !== "" ? start.date : draft.deadline !== "" ? draft.deadline : today;
+                  const nextStart = joinLocalDateTime(day, next.start);
+                  if (next.start !== start.time || start.date === "") {
+                    // A new start: +60 min with no valid end, else the same length.
+                    patch({ startAt: nextStart, endAt: eventEndFor(nextStart, draft.startAt, draft.endAt) });
+                    return;
+                  }
+                  if (next.end === "") {
+                    patch({ startAt: nextStart, endAt: "" });
+                    return;
+                  }
+                  const nextEnd = joinLocalDateTime(end.date === "" ? day : end.date, next.end);
+                  patch({ startAt: nextStart, endAt: nextEnd > nextStart ? nextEnd : eventEndFor(nextStart, "", "") });
                 },
               }}
             />

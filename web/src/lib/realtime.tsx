@@ -8,6 +8,7 @@ import type {
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { INCOMING_MESSAGE_EVENT, type IncomingMessageSignal } from "@/lib/in-app-alerts";
 
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -37,7 +38,7 @@ import {
 import { removeTask, taskFromRealtimeRow, taskKeys, upsertTask, type TaskItem } from "@/lib/tasks";
 
 type MessageRow = Database["public"]["Tables"]["messages"]["Row"];
-type ParticipantRow = Database["public"]["Tables"]["conversation_participants"]["Row"];
+type ReadMarkRow = Database["public"]["Tables"]["conversation_read_marks"]["Row"];
 type TaskRow = Database["public"]["Tables"]["tasks"]["Row"];
 type SuggestionRow = Database["public"]["Tables"]["task_suggestions"]["Row"];
 type RemovalRequestRow = Database["public"]["Tables"]["group_removal_requests"]["Row"];
@@ -206,6 +207,20 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
         readingRef.current === incoming.conversationId &&
         (typeof document === "undefined" || document.visibilityState === "visible");
 
+      // In-app sound (Đợt gộp 2 · A11): the alerts layer decides, with the mute rules.
+      if (incoming.senderId !== userId && incoming.systemKind == null && typeof window !== "undefined") {
+        window.dispatchEvent(
+          new CustomEvent<IncomingMessageSignal>(INCOMING_MESSAGE_EVENT, {
+            detail: {
+              conversationId: incoming.conversationId,
+              senderId: incoming.senderId,
+              mentionsViewer: userId !== undefined && (incoming.mentionedUserIds ?? []).includes(userId),
+              isReading,
+            },
+          }),
+        );
+      }
+
       const inbox = queryClient.getQueryData<ConversationSummary[]>(chatKeys.conversations);
       const patched = inbox
         ? applyMessageToInbox(inbox, incoming, {
@@ -227,11 +242,13 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
 
     /**
      * The viewer's own read watermark, moved on another device, clears the badge here too.
-     * Someone else's watermark is ignored: the sender is not told whether they read (ADR-028).
+     * Read marks live in their own table whose RLS returns only the reader's rows, so nobody
+     * else's watermark ever reaches this socket (Đợt gộp 2 · B3, ADR-028). The user check stays
+     * as a second guard.
      */
-    const handleParticipantUpdate = (payload: RealtimePostgresUpdatePayload<ParticipantRow>): void => {
+    const handleReadMark = (payload: { new: Partial<ReadMarkRow> }): void => {
       const row = payload.new;
-      if (row.last_read_at === null || row.user_id !== userId) return;
+      if (row.conversation_id === undefined || row.user_id !== userId) return;
 
       const inbox = queryClient.getQueryData<ConversationSummary[]>(chatKeys.conversations);
       if (!inbox) return;
@@ -371,10 +388,10 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
           { event: "INSERT", schema: "public", table: "conversation_participants" },
           handleParticipantInsert,
         )
-        .on<ParticipantRow>(
+        .on<ReadMarkRow>(
           "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "conversation_participants" },
-          handleParticipantUpdate,
+          { event: "*", schema: "public", table: "conversation_read_marks" },
+          (payload) => handleReadMark({ new: payload.new as Partial<ReadMarkRow> }),
         )
         .on<TaskRow>("postgres_changes", { event: "*", schema: "public", table: "tasks" }, handleTaskChange)
         .on<SuggestionRow>(

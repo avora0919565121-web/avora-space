@@ -21,7 +21,15 @@ export type DateRangeFieldProps = {
   /** Offer Tháng này · Tháng trước · Quý này · Năm nay (reports). */
   showQuickRanges?: boolean;
   /** With times: start/end clocks under the range (Sự kiện / chuẩn bị việc). */
-  times?: { start: string; end: string; onChange: (next: { start: string; end: string }) => void };
+  times?: {
+    start: string;
+    end: string;
+    onChange: (next: { start: string; end: string }) => void;
+    /** Same-day span: end marks before the start are dimmed and cannot be picked (A12). */
+    endAfterStart?: boolean;
+    /** "3 giờ 30 phút", shown beside the end. */
+    durationLabel?: string | null;
+  };
   className?: string;
 };
 
@@ -92,7 +100,7 @@ export function DateRangeField({
           <PopoverAnchor asChild>{trigger}</PopoverAnchor>
           <PopoverContent
             align="start"
-            className="w-[min(440px,calc(100vw-2rem))] rounded-xl border-border bg-background p-0 pb-2"
+            className="w-[min(360px,calc(100vw-16px))] rounded-xl border-border bg-background p-0 pb-2"
             onOpenAutoFocus={(event) => event.preventDefault()}
           >
             <CalendarPeekSheet {...sheetProps} inline />
@@ -101,7 +109,7 @@ export function DateRangeField({
       ) : (
         <>
           {trigger}
-          <CalendarPeekSheet {...sheetProps} />
+          <CalendarPeekSheet {...sheetProps} placement="top" />
         </>
       )}
 
@@ -135,8 +143,19 @@ export function DateRangeField({
           </span>
           <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground">
             Kết thúc
-            <TimeField id={`${id}-end`} value={times.end} ariaLabel="Giờ kết thúc" onChange={(end) => times.onChange({ start: times.start, end })} />
+            <TimeField
+              id={`${id}-end`}
+              value={times.end}
+              ariaLabel="Giờ kết thúc"
+              after={times.endAfterStart === true ? times.start : null}
+              onChange={(end) => times.onChange({ start: times.start, end })}
+            />
           </span>
+          {times.durationLabel != null ? (
+            <span className="tabular text-[12px] text-muted-foreground" aria-live="polite">
+              {times.durationLabel}
+            </span>
+          ) : null}
         </div>
       ) : null}
     </div>

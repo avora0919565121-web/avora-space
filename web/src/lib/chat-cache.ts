@@ -1,3 +1,4 @@
+import type { ForwardBundle } from "@/lib/chat-transcript";
 import { logError } from "@/lib/log";
 /**
  * Pure chat helpers: shapes, cache reducers and Vietnamese time formatting.
@@ -219,6 +220,8 @@ export type ChatMessage = {
    * type with no sender, never as a bubble. `senderId` still names whoever caused it.
    */
   systemKind?: string | null;
+  /** Two or more messages forwarded as one conversation, words only (Đợt gộp 2 · B1). */
+  forwardBundle?: ForwardBundle | null;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
   /**
@@ -661,6 +664,7 @@ export function formatMissedMessages(count: number): string {
 }
 
 const WEEKDAYS: readonly string[] = ["CN", "Thứ 2", "Thứ 3", "Thứ 4", "Thứ 5", "Thứ 6", "Thứ 7"];
+const WEEKDAYS_LONG: readonly string[] = ["Chủ Nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"];
 
 function startOfDay(date: Date): number {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
@@ -687,13 +691,57 @@ export function formatInboxTime(iso: string | null): string {
   return new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" });
 }
 
-/** Separator label above each day of a thread. */
-export function formatDayLabel(iso: string): string {
-  const distance = dayDistance(iso);
-  if (distance <= 0) return "Hôm nay";
+/**
+ * Separator label above each day of a thread (Đợt gộp 2 · A9): "Hôm nay", "Hôm qua",
+ * "Thứ Hai, 28/09", and the year only when it is not this year ("Thứ Hai, 28/09/2025").
+ */
+export function formatDayLabel(iso: string, now: Date = new Date()): string {
+  const date = new Date(iso);
+  const distance = Math.round((startOfDay(now) - startOfDay(date)) / 86_400_000);
+  if (distance === 0) return "Hôm nay";
   if (distance === 1) return "Hôm qua";
-  if (distance < 7) return WEEKDAYS[new Date(iso).getDay()];
-  return new Date(iso).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" });
+  const pad = (value: number): string => `${value}`.padStart(2, "0");
+  const dayMonth = `${pad(date.getDate())}/${pad(date.getMonth() + 1)}`;
+  const year = date.getFullYear() === now.getFullYear() ? "" : `/${date.getFullYear()}`;
+  return `${WEEKDAYS_LONG[date.getDay()]}, ${dayMonth}${year}`;
+}
+
+/**
+ * The same line from an unread count (the reader's own count, taken when the thread opened):
+ * the n-th newest message from someone else. Null when nothing is unread.
+ */
+export function firstUnreadByCount(
+  messages: readonly Pick<ChatMessage, "id" | "senderId" | "pending" | "systemKind">[],
+  viewerId: string | undefined,
+  unreadCount: number,
+): string | null {
+  if (viewerId === undefined || unreadCount <= 0) return null;
+  let seen = 0;
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message.pending === true || message.systemKind != null || message.senderId === viewerId) continue;
+    seen += 1;
+    if (seen === unreadCount) return message.id;
+  }
+  return null;
+}
+
+/**
+ * Where the "Tin chưa đọc" line goes (A9): before the first message from someone else that is
+ * newer than the reader's own read mark. Null when nothing is unread. Seen by the reader only.
+ */
+export function firstUnreadMessageId(
+  messages: readonly Pick<ChatMessage, "id" | "senderId" | "createdAt" | "pending" | "systemKind">[],
+  viewerId: string | undefined,
+  lastReadAt: string | null,
+): string | null {
+  if (viewerId === undefined || lastReadAt === null) return null;
+  const mark = new Date(lastReadAt).getTime();
+  for (const message of messages) {
+    if (message.pending === true || message.systemKind != null || message.senderId === viewerId) continue;
+    if (new Date(message.createdAt).getTime() > mark) return message.id;
+  }
+  return null;
 }
 
 export type MessageDayGroup = {

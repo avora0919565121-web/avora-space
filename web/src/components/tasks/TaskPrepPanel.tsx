@@ -30,7 +30,7 @@ import { eventSummary } from "@/lib/task-composer";
 
 const FIELD =
   "mt-1 w-full rounded-[8px] border border-input bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-muted-foreground";
-const LABEL = "text-[11px] font-medium uppercase tracking-wide text-muted-foreground";
+const LABEL = "text-[12px] font-medium text-muted-foreground";
 
 function toLocalInput(iso: string | null): string {
   if (iso === null) return "";
@@ -248,9 +248,12 @@ export function TaskPrepPanel({
   task,
   canEdit,
   showPrivate = true,
+  showSchedule = true,
 }: {
   task: TaskItem;
   canEdit: boolean;
+  /** False inside the task detail, which already shows Sự kiện in the form's own order (A13). */
+  showSchedule?: boolean;
   /**
    * False for the proposer of a task that came from a suggestion (D3): Các bước and Mang theo are
    * the assignee's own and the server does not return them to anyone else.
@@ -260,7 +263,7 @@ export function TaskPrepPanel({
   const shared = isSharedTask(task);
   return (
     <div className="space-y-3">
-      <ScheduleSummary task={task} />
+      {showSchedule ? <ScheduleSummary task={task} /> : null}
       {showPrivate ? <ChecklistBlock task={task} canEdit={canEdit} /> : null}
       {showPrivate ? <ResourcesBlock task={task} canEdit={canEdit} /> : null}
       {shared ? <ParticipantsBlock task={task} /> : null}

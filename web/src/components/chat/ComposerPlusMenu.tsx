@@ -1,4 +1,4 @@
-import { ListPlus, Mic, Paperclip, Plus } from "lucide-react";
+import { Clock, ListPlus, Mic, Paperclip, Plus } from "lucide-react";
 
 import {
   DropdownMenu,
@@ -19,7 +19,10 @@ export function ComposerPlusMenu({
   onCreateTask,
   createTaskLabel,
   disabled,
+  schedule,
 }: {
+  /** "Gửi hẹn giờ" (B2). Absent in the journal and a verification frame. `note` dims it with a reason. */
+  schedule?: { onSelect: () => void; note: string | null };
   onPickFiles: () => void;
   onStartRecording: () => void;
   canRecord: boolean;
@@ -55,6 +58,19 @@ export function ComposerPlusMenu({
           <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
           {createTaskLabel}
         </DropdownMenuItem>
+        {schedule !== undefined ? (
+          <DropdownMenuItem
+            onSelect={schedule.note === null ? schedule.onSelect : (event) => event.preventDefault()}
+            aria-disabled={schedule.note !== null}
+            className={`min-h-11 gap-2.5 text-[14px] ${schedule.note !== null ? "opacity-50" : ""}`}
+          >
+            <Clock className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            <span className="flex flex-col">
+              Gửi hẹn giờ
+              {schedule.note !== null ? <span className="text-[11.5px] text-muted-foreground">{schedule.note}</span> : null}
+            </span>
+          </DropdownMenuItem>
+        ) : null}
       </DropdownMenuContent>
     </DropdownMenu>
   );

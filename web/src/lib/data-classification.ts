@@ -44,11 +44,16 @@ export const DATA_CLASSIFICATION = {
 
   // connect
   conversations: { level: "internal", domain: "connect" },
-  conversation_participants: { level: "internal", domain: "connect", columns: { last_read_at: "personal" } },
+  conversation_participants: { level: "internal", domain: "connect" },
+  // Đợt gộp 2 · B3: read marks, owner-only RLS (ADR-028). Replaces conversation_participants.last_read_at.
+  conversation_read_marks: { level: "personal", domain: "connect" },
   conversation_groups: { level: "personal", domain: "connect" },
   // Each side's "Đồng ý" inside a verification frame.
   conversation_verification_confirms: { level: "internal", domain: "connect" },
-  messages: { level: "sensitive", domain: "connect", columns: { content: "sensitive" } },
+  // B2: messages waiting to be sent — the sender's only until delivery (owner-only RLS).
+  scheduled_messages: { level: "personal", domain: "connect", columns: { content: "sensitive" } },
+  // B1: forward_bundle carries forwarded words + public names only.
+  messages: { level: "sensitive", domain: "connect", columns: { content: "sensitive", forward_bundle: "sensitive" } },
   message_attachments: {
     level: "sensitive",
     domain: "connect",

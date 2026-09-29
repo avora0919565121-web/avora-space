@@ -1,4 +1,5 @@
 import { ChevronRight, FolderKanban, GitBranch, MessageSquare, Users } from "lucide-react";
+import { draftPreview, readDraft, useDraftsVersion } from "@/lib/chat-drafts";
 import { memo, useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
@@ -130,6 +131,7 @@ const TreeRow = memo(function TreeRow({
   hasTable: (node: GroupTreeNode) => boolean;
 }) {
   const { conversation, kind } = node;
+  const draftsVersion = useDraftsVersion();
   const id = conversation.conversationId;
   const isOpen = openIds.has(id);
   const shown = visibleChildren(node, isOpen);
@@ -141,8 +143,11 @@ const TreeRow = memo(function TreeRow({
   const title = conversationTitle(conversation);
   const chatHref = `/tin-nhan/${id}`;
   const mainHref = kind === "project" && node.projectId !== null ? projectLink(node.projectId) : chatHref;
-  const preview =
-    conversation.lastMessageContent === null
+  const savedDraft = draftsVersion >= 0 && !isActive ? readDraft(userId, id) : "";
+  const hasDraft = savedDraft.trim() !== "";
+  const preview = hasDraft
+    ? draftPreview(savedDraft)
+    : conversation.lastMessageContent === null
       ? "Chưa có tin nhắn nào"
       : `${conversation.lastMessageSenderId === userId ? "Bạn: " : ""}${conversation.lastMessageContent}`;
   const KindIcon = kind === "project" ? FolderKanban : kind === "subgroup" ? GitBranch : Users;
@@ -195,7 +200,9 @@ const TreeRow = memo(function TreeRow({
               <span
                 className={cn(
                   "min-w-0 flex-1 truncate text-[13px]",
-                  conversation.lastMessageContent === null
+                  hasDraft
+                    ? "text-primary/90"
+                    : conversation.lastMessageContent === null
                     ? "italic text-muted-foreground/70"
                     : isUnread
                       ? "font-medium text-foreground"

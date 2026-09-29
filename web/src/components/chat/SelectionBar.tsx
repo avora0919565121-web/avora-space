@@ -1,4 +1,4 @@
-import { Forward, Trash2, X } from "lucide-react";
+import { Forward, ListPlus, Trash2, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 
@@ -7,6 +7,8 @@ export type SelectionBarProps = {
   /** True only in a journal, where a note is nobody else's record. */
   canDelete: boolean;
   onForward: () => void;
+  /** Present only where a task may be raised (never in a verification frame). */
+  onCreateTask?: () => void;
   onDelete: () => void;
   onCancel: () => void;
   isWorking: boolean;
@@ -26,6 +28,7 @@ export function SelectionBar({
   count,
   canDelete,
   onForward,
+  onCreateTask,
   onDelete,
   onCancel,
   isWorking,
@@ -53,6 +56,23 @@ export function SelectionBar({
           <Forward className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
           Chuyển tiếp{nothingPicked ? "" : ` (${count})`}
         </button>
+
+        {onCreateTask !== undefined ? (
+          <button
+            type="button"
+            onClick={onCreateTask}
+            disabled={nothingPicked || isWorking}
+            className={cn(
+              "press flex h-10 items-center gap-1.5 rounded-full px-3.5 text-[13.5px] font-medium transition-colors",
+              nothingPicked || isWorking
+                ? "cursor-not-allowed text-muted-foreground/60"
+                : "text-foreground hover:bg-accent/50",
+            )}
+          >
+            <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Tạo nhiệm vụ
+          </button>
+        ) : null}
 
         {canDelete ? (
           <button

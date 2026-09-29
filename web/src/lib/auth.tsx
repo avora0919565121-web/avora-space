@@ -3,6 +3,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { clearAllDrafts } from "@/lib/chat-drafts";
 import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
 
 export type Profile = {
@@ -207,6 +208,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async (): Promise<void> => {
     await supabase.auth.signOut();
+    // Half-typed messages stay on this device only while signed in (Đợt gộp 2 · A8).
+    clearAllDrafts();
     writeRecoveryFlag(false);
     setIsRecovering(false);
     setProfile(null);
