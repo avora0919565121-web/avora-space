@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { AccountDialog, CategoryDialog } from "@/components/finance/dialogs";
+import { FinanceTrashPanel, RemoveAccountDialog } from "@/components/finance/FinanceTrash";
 import { EmptyNote, FinanceHeader, FinancePage, Money, Panel } from "@/components/finance/primitives";
 import {
   ACCOUNT_TYPE_LABELS,
@@ -29,6 +30,7 @@ function AccountCard({
   rates,
   onEdit,
   onToggleClosed,
+  onRemove,
   onOpenLedger,
 }: {
   account: Account;
@@ -38,6 +40,7 @@ function AccountCard({
   rates: RateTable;
   onEdit: (account: Account) => void;
   onToggleClosed: (account: Account) => void;
+  onRemove: (account: Account) => void;
   onOpenLedger: (account: Account) => void;
 }) {
   const closed = account.deletedAt !== null;
@@ -125,6 +128,15 @@ function AccountCard({
           >
             {closed ? <RotateCcw className="h-4 w-4" strokeWidth={1.7} /> : <Archive className="h-4 w-4" strokeWidth={1.7} />}
           </button>
+          <button
+            type="button"
+            onClick={() => onRemove(account)}
+            aria-label={`Xoá ${account.name}`}
+            title="Xoá (vào Thùng rác)"
+            className="press rounded p-2 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.7} />
+          </button>
         </div>
       </div>
     </li>
@@ -140,6 +152,7 @@ const FinanceAccounts = () => {
     open: false,
     editing: null,
   });
+  const [removing, setRemoving] = useState<Account | null>(null);
   const [categoryDialog, setCategoryDialog] = useState<{ open: boolean; editing: Category | null; scope: CategoryScope }>({
     open: false,
     editing: null,
@@ -299,6 +312,7 @@ const FinanceAccounts = () => {
                   rates={rates}
                   onEdit={(item) => setAccountDialog({ open: true, editing: item })}
                   onToggleClosed={(item) => void handleToggleClosed(item)}
+                  onRemove={setRemoving}
                   onOpenLedger={(item) => navigate(`/ket-sat/giao-dich?tai_khoan=${item.id}`)}
                 />
               ))}
@@ -325,6 +339,7 @@ const FinanceAccounts = () => {
                   rates={rates}
                   onEdit={(item) => setAccountDialog({ open: true, editing: item })}
                   onToggleClosed={(item) => void handleToggleClosed(item)}
+                  onRemove={setRemoving}
                   onOpenLedger={(item) => navigate(`/ket-sat/giao-dich?tai_khoan=${item.id}`)}
                 />
               ))}
@@ -340,6 +355,18 @@ const FinanceAccounts = () => {
         <Panel title="Danh mục thu">{renderCategoryList(incomeCategories, "income")}</Panel>
         <Panel title="Danh mục chi">{renderCategoryList(expenseCategories, "expense")}</Panel>
       </div>
+
+      <div className="mt-3">
+        <FinanceTrashPanel />
+      </div>
+
+      <RemoveAccountDialog
+        account={removing}
+        transactionCount={removing === null ? 0 : entries.filter((entry) => entry.accountId === removing.id).length}
+        onOpenChange={(next) => {
+          if (!next) setRemoving(null);
+        }}
+      />
 
       <AccountDialog
         open={accountDialog.open}

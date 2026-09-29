@@ -1,4 +1,5 @@
 import {
+  Ban,
   Bell,
   BellPlus,
   Briefcase,
@@ -83,6 +84,7 @@ function EntryRow({
   currency,
   onEdit,
   onVoid,
+  onRemove,
   onOpen,
   onSettle,
   reminder,
@@ -93,6 +95,8 @@ function EntryRow({
   currency: string;
   onEdit: (entry: LedgerEntry) => void;
   onVoid: (entry: LedgerEntry) => void;
+  /** "Xoá": to Thùng rác Tài chính, gone from lists and reports (Đợt gộp 2 · D2). */
+  onRemove: (entry: LedgerEntry) => void;
   onOpen: (entry: LedgerEntry) => void;
   onSettle: (entry: LedgerEntry) => void;
   /** The reminder task already made for this obligation, if any. */
@@ -211,9 +215,19 @@ function EntryRow({
             type="button"
             onClick={() => onVoid(entry)}
             aria-label={voided ? "Khôi phục giao dịch" : "Đánh dấu nhầm"}
+            title={voided ? "Bỏ đánh dấu nhầm" : "Đánh dấu nhầm (vẫn hiện, gạch ngang)"}
             className="press rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
           >
-            {voided ? <RotateCcw className="h-4 w-4" strokeWidth={1.7} /> : <Trash2 className="h-4 w-4" strokeWidth={1.7} />}
+            {voided ? <RotateCcw className="h-4 w-4" strokeWidth={1.7} /> : <Ban className="h-4 w-4" strokeWidth={1.7} />}
+          </button>
+          <button
+            type="button"
+            onClick={() => onRemove(entry)}
+            aria-label="Xoá giao dịch"
+            title="Xoá (vào Thùng rác)"
+            className="press rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.7} />
           </button>
         </div>
       </div>
@@ -224,7 +238,7 @@ function EntryRow({
 const FinanceTransactions = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { accounts, categories, allEntries, entries, currency, isLoading } = useLedger();
-  const { voidTransaction, addTransaction, settleTransaction } = useFinanceActions();
+  const { voidTransaction, addTransaction, settleTransaction, binTransaction, unbinTransaction } = useFinanceActions();
   const { dismissed, dismiss } = useDismissedRecurring();
   const contactsQuery = useContacts();
   const contacts = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
@@ -339,6 +353,20 @@ const FinanceTransactions = () => {
       }
     },
     [voidTransaction],
+  );
+
+  const handleRemove = useCallback(
+    async (entry: LedgerEntry): Promise<void> => {
+      try {
+        await binTransaction.mutateAsync(entry.id);
+        toast.success("Đã chuyển vào Thùng rác.", {
+          action: { label: "Hoàn tác", onClick: () => unbinTransaction.mutate(entry.id) },
+        });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Không xoá được giao dịch.");
+      }
+    },
+    [binTransaction, unbinTransaction],
   );
 
   const acceptSuggestion = useCallback(
@@ -517,6 +545,7 @@ const FinanceTransactions = () => {
                           currency={currency}
                           onEdit={setEditing}
                           onVoid={(item) => void handleVoid(item)}
+                          onRemove={(item) => void handleRemove(item)}
                           onOpen={setViewing}
                           onSettle={openSettle}
                           reminder={reminders.get(entry.id)}

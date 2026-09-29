@@ -51,6 +51,7 @@ function table(overrides: Partial<ThinkTable> & { id: string }): ThinkTable {
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
+    statusOptions: null, titleLabel: null, defaultView: null, mobileColumns: [], sourceTemplateKey: null, archivedAt: null, kind: null, orphanOrigin: null, 
     ...overrides,
   };
 }
@@ -73,6 +74,7 @@ function record(
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
+    movedFrom: null,
     ...overrides,
   };
 }
@@ -481,7 +483,7 @@ describe("turning the database's refusals into something actionable", () => {
 });
 
 describe("scope, sub-tables and column ids", () => {
-  const base = { ownerUserId: ME, position: 0, columns: [], purpose: null, createdAt: "", updatedAt: "", deletedAt: null };
+  const base = { ownerUserId: ME, position: 0, columns: [], purpose: null, createdAt: "", updatedAt: "", deletedAt: null, statusOptions: null, titleLabel: null, defaultView: null, mobileColumns: [], sourceTemplateKey: null, archivedAt: null, kind: null, orphanOrigin: null, };
   const personal: ThinkTable = { ...base, id: "p", name: "Riêng", projectId: null, conversationId: null, parentRecordId: null, depth: 1 };
   const direct: ThinkTable = { ...base, id: "d", name: "1-1", projectId: null, conversationId: "c-d", parentRecordId: null, depth: 1 };
   const group: ThinkTable = { ...base, id: "g", name: "Nhóm", projectId: null, conversationId: "c-g", parentRecordId: null, depth: 1 };

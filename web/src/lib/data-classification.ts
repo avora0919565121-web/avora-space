@@ -126,6 +126,16 @@ export const DATA_CLASSIFICATION = {
   think_hub_table: { level: "personal", domain: "personal" },
   think_hub_record: { level: "personal", domain: "personal", columns: { notes: "sensitive" } },
   think_hub_record_tasks: { level: "internal", domain: "personal" },
+  // Đợt gộp 2 · C: system templates are public structure; "Mẫu của tôi" is structure only, owner-only.
+  think_hub_template: { level: "public", domain: "personal" },
+  think_hub_user_template: { level: "personal", domain: "personal" },
+  // Each person's own ★, never shown to anyone else.
+  think_hub_record_stars: { level: "personal", domain: "personal" },
+  // Which tasks a table deletion binned — server-only bookkeeping, no client access.
+  think_hub_delete_cascade: { level: "internal", domain: "personal" },
+  // ADR-031 proposals: readable by the conversation they belong to; the reason is free text.
+  shared_proposals: { level: "internal", domain: "connect", columns: { reason: "sensitive" } },
+  shared_proposal_votes: { level: "internal", domain: "connect", columns: { reason: "sensitive" } },
 
   // finance
   accounts: {

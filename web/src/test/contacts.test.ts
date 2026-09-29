@@ -62,6 +62,7 @@ function person(overrides: Partial<Contact> & { id: string; name: string }): Con
     representativePhone: null,
     representativeEmail: null,
     industry: null,
+    needsDetails: false,
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     ...overrides,

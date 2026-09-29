@@ -69,6 +69,7 @@ function person(id: string, name: string): Contact {
     representativePhone: null,
     representativeEmail: null,
     industry: null,
+    needsDetails: false,
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
   };

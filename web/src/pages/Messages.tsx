@@ -58,6 +58,8 @@ import { ForwardDialog } from "@/components/chat/ForwardDialog";
 import { ForwardBundleCard } from "@/components/chat/ForwardBundleCard";
 import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { ScheduledStrip } from "@/components/chat/ScheduledStrip";
+import { ProposalCard } from "@/components/chat/ProposalCard";
+import { useProposals } from "@/lib/use-think-hub-shelf";
 import { sendAtLine, useMyScheduled, useScheduleActions } from "@/lib/scheduled-messages";
 import { SelectionBar } from "@/components/chat/SelectionBar";
 import {
@@ -241,6 +243,12 @@ const Messages = () => {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId: string | undefined = user?.id;
+  // ADR-031: proposal cards in the thread read their live state from here.
+  const proposalsQuery = useProposals();
+  const proposalsByMessage = useMemo(
+    () => new Map((proposalsQuery.data ?? []).flatMap((proposal) => (proposal.messageId === null ? [] : [[proposal.messageId, proposal] as const]))),
+    [proposalsQuery.data],
+  );
   const { isLive, setReadingConversation } = useChatRealtime();
   const isTabVisible = useDocumentVisible();
 
@@ -2454,6 +2462,18 @@ const Messages = () => {
                         <ul className="flex flex-col gap-3">
                           {group.messages.map((message, index) => {
                             // A line the server wrote itself: no bubble, no sender, no actions.
+                            if (message.systemKind === "proposal_opened") {
+                              return (
+                                <li key={message.id} id={`message-${message.id}`} className="px-2">
+                                  <ProposalCard
+                                    content={message.content}
+                                    proposal={proposalsByMessage.get(message.id)}
+                                    userId={userId}
+                                    nameOf={(id) => senderNames.get(id) ?? (id === userId ? "Bạn" : threadTitle)}
+                                  />
+                                </li>
+                              );
+                            }
                             if (message.systemKind != null) {
                               return (
                                 <li

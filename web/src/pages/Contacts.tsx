@@ -112,6 +112,22 @@ const Contacts = () => {
           </div>
         </header>
 
+        {/* Đợt gộp 2 · D5: people added from a finance picker with only a name. */}
+        {(contactsQuery.data ?? []).some((contact) => contact.needsDetails) ? (
+          <section aria-label="Thiếu SĐT / email" className="mt-6 rounded-xl border border-border bg-card px-5 py-3.5">
+            <p className="text-[14.5px] font-medium text-foreground">Cần xem lại · Thiếu SĐT / email</p>
+            <ul className="mt-1.5 flex flex-wrap gap-1.5">
+              {(contactsQuery.data ?? []).filter((contact) => contact.needsDetails).map((contact) => (
+                <li key={contact.id}>
+                  <button type="button" onClick={() => openContact(contact.id)} className="press rounded-full border border-border px-3 py-1 text-[13px] hover:bg-accent/40">
+                    {contact.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
         {/* Only ever shown when there is something to do about it — a count of zero is not news. */}
         {reviewCount > 0 ? (
           <button

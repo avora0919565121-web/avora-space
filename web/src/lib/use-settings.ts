@@ -16,6 +16,7 @@ import {
   updateDailyThoughtCategory,
   updateTimezone,
   updateSoundPref,
+  updateReviewPrefs,
   updateTypingSignal,
   type ProfileSettings,
 } from "@/lib/settings";
@@ -107,13 +108,22 @@ export function useSettingsActions() {
     },
   });
 
+  const setReviewPrefs = useMutation({
+    mutationFn: (patch: Parameters<typeof updateReviewPrefs>[1]) => updateReviewPrefs(userId, patch),
+    onSuccess: (settings) => {
+      queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, settings);
+    },
+  });
+
   return {
+    setReviewPrefs,
     setBaseCurrency,
     setTimezone,
     setDailyThoughtCategory,
     setTypingSignal,
     setSoundPref,
     isWorking:
+      setReviewPrefs.isPending ||
       setSoundPref.isPending ||
       setBaseCurrency.isPending ||
       setTimezone.isPending ||

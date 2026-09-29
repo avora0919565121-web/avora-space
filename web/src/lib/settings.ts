@@ -30,11 +30,17 @@ export type ProfileSettings = {
   /** Âm báo tin nhắn / Âm báo nhắc việc while the app is open (Đợt gộp 2 · A11). Default on. */
   soundMessages: boolean;
   soundReminders: boolean;
+  /** Đợt gộp 2 · C7: 0 = Chủ nhật … 6 = Thứ Bảy. Nhìn lại tuần shows the day before it. */
+  restWeekday: number;
+  reviewDailyEnabled: boolean;
+  /** From this hour "Nhìn lại hôm nay" appears (12–23). */
+  reviewDailyHour: number;
+  reviewWeeklyEnabled: boolean;
 };
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
 const PROFILE_SETTINGS_COLUMNS =
-  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders";
+  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled";
 
 type ProfileSettingsRow = {
   base_currency: string | null;
@@ -43,6 +49,10 @@ type ProfileSettingsRow = {
   hide_typing_signal: boolean | null;
   sound_messages?: boolean | null;
   sound_reminders?: boolean | null;
+  rest_weekday?: number | null;
+  review_daily_enabled?: boolean | null;
+  review_daily_hour?: number | null;
+  review_weekly_enabled?: boolean | null;
 };
 
 /**
@@ -64,7 +74,26 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     hideTypingSignal: row?.hide_typing_signal ?? false,
     soundMessages: row?.sound_messages ?? true,
     soundReminders: row?.sound_reminders ?? true,
+    restWeekday: row?.rest_weekday ?? 0,
+    reviewDailyEnabled: row?.review_daily_enabled ?? true,
+    reviewDailyHour: row?.review_daily_hour ?? 19,
+    reviewWeeklyEnabled: row?.review_weekly_enabled ?? true,
   };
+}
+
+/** Ngày nghỉ và hai thói quen Nhìn lại (C7). */
+export async function updateReviewPrefs(
+  userId: string,
+  patch: Partial<Pick<ProfileSettings, "restWeekday" | "reviewDailyEnabled" | "reviewDailyHour" | "reviewWeeklyEnabled">>,
+): Promise<ProfileSettings> {
+  const row: { rest_weekday?: number; review_daily_enabled?: boolean; review_daily_hour?: number; review_weekly_enabled?: boolean } = {};
+  if (patch.restWeekday !== undefined) row.rest_weekday = patch.restWeekday;
+  if (patch.reviewDailyEnabled !== undefined) row.review_daily_enabled = patch.reviewDailyEnabled;
+  if (patch.reviewDailyHour !== undefined) row.review_daily_hour = patch.reviewDailyHour;
+  if (patch.reviewWeeklyEnabled !== undefined) row.review_weekly_enabled = patch.reviewWeeklyEnabled;
+  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(PROFILE_SETTINGS_COLUMNS).single();
+  if (error) throw fail("settings", error.code, error.message);
+  return toProfileSettings(data);
 }
 
 /** One of the two in-app sound switches (A11). */

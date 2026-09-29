@@ -31,6 +31,8 @@ export type Contact = {
   industry: string | null;
   createdAt: string;
   updatedAt: string;
+  /** D5: made from a finance picker with only a name — still needs a phone or email. */
+  needsDetails: boolean;
 };
 
 /** How an invitation was sent. QR exists in the database but has no screen yet. */
@@ -176,6 +178,7 @@ type ContactRow = {
   industry: string | null;
   created_at: string;
   updated_at: string;
+  needs_details?: boolean | null;
 };
 
 /** Anything that is not one of the two reads as a person rather than breaking the screen. */
@@ -204,7 +207,28 @@ function toContact(row: ContactRow): Contact {
     industry: row.industry,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    needsDetails: row.needs_details === true,
   };
+}
+
+/**
+ * "＋ Thêm … vào Danh bạ" from a finance person picker (Đợt gộp 2 · D5): a name is enough. Without
+ * a phone or email the contact is flagged "Thiếu SĐT / email" in Liên hệ › Cần xem lại.
+ */
+export async function createContactQuick(input: { name: string; phone?: string; email?: string }): Promise<Contact> {
+  const { data, error } = await supabase.rpc("create_contact_quick", {
+    p_name: input.name.trim(),
+    p_phone: input.phone?.trim() || undefined,
+    p_email: input.email?.trim() || undefined,
+  });
+  if (error) {
+    logError("contacts", { code: error.code, message: error.message });
+    const normalized = error.message.toLowerCase();
+    if (normalized.includes("avora_contact_email_invalid")) throw new Error("Email chưa đúng dạng.");
+    if (normalized.includes("avora_contact_name_required")) throw new Error("Hãy ghi tên người này.");
+    throw new Error("Không thêm được liên hệ. Vui lòng thử lại.");
+  }
+  return toContact(data as unknown as ContactRow);
 }
 
 /**

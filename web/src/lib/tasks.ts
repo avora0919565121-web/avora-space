@@ -808,13 +808,57 @@ export function deletedByOtherNote(task: TaskItem, userId: string | undefined): 
  * two-party flow exists to prevent. The server enforces the same rule; this only decides
  * whether to offer the button.
  */
-export function canDeleteTask(task: TaskItem, userId: string | undefined): boolean {
+export function canDeleteTask(
+  task: TaskItem,
+  userId: string | undefined,
+  serverClosedReason?: TaskClosedReason | null,
+): boolean {
   if (userId === undefined) return false;
   if (task.type === "personal") return task.creatorId === userId;
   if (task.creatorId === userId) return true;
   // A bystander is not party to the request, so it is not theirs to clear.
   if (!isTaskAssignee(task, userId)) return false;
-  return task.status === "done";
+  // Đợt gộp 2 · D4: work that can no longer move is the assignee's to clear — never a dead end.
+  return (serverClosedReason ?? taskClosedReason(task, userId)) !== null;
+}
+
+/**
+ * Why a shared task can no longer move for its assignee (Đợt gộp 2 · D4). What the task row alone
+ * shows is read here; the rest (requester left, blocked, disconnected, room or project closed)
+ * comes from `list_my_closed_shared_tasks` — the same rule the server applies to delete.
+ */
+export type TaskClosedReason =
+  | "done"
+  | "skipped"
+  | "creator_deleted"
+  | "creator_left"
+  | "blocked"
+  | "disconnected"
+  | "conversation_deleted"
+  | "project_closed";
+
+export const TASK_CLOSED_REASON_LABELS: Readonly<Record<TaskClosedReason, string>> = {
+  done: "Đã hoàn thành",
+  skipped: "Bạn đã bỏ qua",
+  creator_deleted: "Người giao đã xoá",
+  creator_left: "Người giao đã rời cuộc trò chuyện",
+  blocked: "Hai bên không còn liên lạc",
+  disconnected: "Không còn là bạn",
+  conversation_deleted: "Cuộc trò chuyện đã bị xoá",
+  project_closed: "Dự án đã lưu trữ hoặc xoá",
+};
+
+export function isTaskClosedReason(value: unknown): value is TaskClosedReason {
+  return typeof value === "string" && value in TASK_CLOSED_REASON_LABELS;
+}
+
+export function taskClosedReason(task: TaskItem, userId: string | undefined): TaskClosedReason | null {
+  if (userId === undefined || !isSharedTask(task) || task.creatorId === userId) return null;
+  if (!isTaskAssignee(task, userId)) return null;
+  if (task.status === "done") return "done";
+  if (task.status === "skipped") return "skipped";
+  if (task.deletedByCreator) return "creator_deleted";
+  return null;
 }
 
 /**
@@ -922,7 +966,18 @@ export const OPEN_TASK_STATUSES: readonly TaskStatus[] = [
 export function isOpenTask(task: TaskItem, viewerId?: string): boolean {
   if (isTaskGone(task)) return false;
   if (viewerId !== undefined && isDeletedFor(task, viewerId)) return false;
+  // D4: the requester dropped it — nothing left to do, it waits in "Đã khép" to be cleared.
+  if (viewerId !== undefined && taskClosedReason(task, viewerId) === "creator_deleted") return false;
   return OPEN_TASK_STATUSES.includes(task.status);
+}
+
+/** The assignee's closed shared tasks with their server-side reason (D4). */
+export async function fetchClosedSharedTasks(): Promise<Map<string, TaskClosedReason>> {
+  const { data, error } = await supabase.rpc("list_my_closed_shared_tasks");
+  if (error) throw fail(error.code, error.message);
+  const map = new Map<string, TaskClosedReason>();
+  for (const row of data ?? []) if (isTaskClosedReason(row.reason)) map.set(row.task_id, row.reason);
+  return map;
 }
 
 /**

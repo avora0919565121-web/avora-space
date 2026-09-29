@@ -59,6 +59,7 @@ function table(overrides: Partial<ThinkTable> & { id: string; name: string }): T
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
+    statusOptions: null, titleLabel: null, defaultView: null, mobileColumns: [], sourceTemplateKey: null, archivedAt: null, kind: null, orphanOrigin: null, 
     ...overrides,
   };
 }
@@ -78,6 +79,7 @@ function record(overrides: Partial<ThinkRecord> & { id: string; tableId: string;
     createdAt: "2026-09-02T00:00:00Z",
     updatedAt: "2026-09-02T00:00:00Z",
     deletedAt: null,
+    movedFrom: null,
     ...overrides,
   };
 }

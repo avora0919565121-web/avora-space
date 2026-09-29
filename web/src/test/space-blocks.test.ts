@@ -80,12 +80,13 @@ function record(overrides: Partial<ThinkRecord> & { id: string; tableId: string 
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
+    movedFrom: null,
     ...overrides,
   };
 }
 
 function table(id: string, name: string, deletedAt: string | null = null): ThinkTable {
-  return { id, ownerUserId: ME, name, position: 0, columns: [], projectId: null, conversationId: null, parentRecordId: null, depth: 1, purpose: null,  createdAt: "", updatedAt: "", deletedAt };
+  return { id, ownerUserId: ME, name, position: 0, columns: [], projectId: null, conversationId: null, parentRecordId: null, depth: 1, purpose: null,  createdAt: "", updatedAt: "", deletedAt, statusOptions: null, titleLabel: null, defaultView: null, mobileColumns: [], sourceTemplateKey: null, archivedAt: null, kind: null, orphanOrigin: null, };
 }
 
 describe("Avora Space block order", () => {

@@ -8,6 +8,7 @@ import {
   DEFAULT_DAILY_THOUGHT_CATEGORY,
   type DailyThoughtCategory,
 } from "@/lib/daily-thoughts";
+import { Switch } from "@/components/ui/switch";
 import { TIMEZONE_OPTIONS } from "@/lib/settings";
 import { useCurrencyRates, useProfileSettings, useSettingsActions } from "@/lib/use-settings";
 
@@ -27,8 +28,11 @@ const SELECT_CLASS =
 const SettingsPreferences = () => {
   const { data: settings, isLoading } = useProfileSettings();
   const { data: rates } = useCurrencyRates();
-  const { setBaseCurrency, setTimezone, setDailyThoughtCategory, setTypingSignal, isWorking } =
+  const { setBaseCurrency, setTimezone, setDailyThoughtCategory, setTypingSignal, setReviewPrefs, isWorking } =
     useSettingsActions();
+  const saveReview = (patch: Parameters<typeof setReviewPrefs.mutateAsync>[0]): void => {
+    setReviewPrefs.mutateAsync(patch).catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không lưu được."));
+  };
 
   const base = settings?.baseCurrency ?? "VND";
   const zone = settings?.timezone ?? "Asia/Ho_Chi_Minh";
@@ -216,6 +220,52 @@ const SettingsPreferences = () => {
             </div>
           )}
         </div>
+
+        <section aria-labelledby="review-heading" className="rounded-xl border border-border bg-card p-5">
+          <h2 id="review-heading" className="text-[17px] font-semibold tracking-tight text-foreground">Nhìn lại</h2>
+          <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
+            Thói quen ôn lại điều đã nghĩ, đã đọc, đã làm. Không chấm điểm, không thông báo đẩy.
+          </p>
+          <div className="mt-4 space-y-3 text-[14.5px]">
+            <label className="flex min-h-11 items-center justify-between gap-3">
+              Ngày nghỉ trong tuần
+              <select
+                value={settings?.restWeekday ?? 0}
+                disabled={settings === undefined || isWorking}
+                onChange={(event) => saveReview({ restWeekday: Number(event.target.value) })}
+                className="h-10 rounded-md border border-border bg-background px-2 text-[14px]"
+              >
+                {["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"].map((label, index) => (
+                  <option key={label} value={index}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex min-h-11 items-center justify-between gap-3">
+              <span>
+                Nhìn lại tuần
+                <span className="block text-[12px] text-muted-foreground">Hiện vào ngày trước ngày nghỉ.</span>
+              </span>
+              <Switch checked={settings?.reviewWeeklyEnabled ?? true} disabled={settings === undefined} onCheckedChange={(on) => saveReview({ reviewWeeklyEnabled: on })} aria-label="Nhìn lại tuần" />
+            </label>
+            <div className="flex min-h-11 items-center justify-between gap-3">
+              <span>Nhìn lại hôm nay</span>
+              <span className="flex items-center gap-2">
+                <select
+                  value={settings?.reviewDailyHour ?? 19}
+                  disabled={settings === undefined || settings.reviewDailyEnabled === false}
+                  onChange={(event) => saveReview({ reviewDailyHour: Number(event.target.value) })}
+                  aria-label="Giờ hiện"
+                  className="h-10 rounded-md border border-border bg-background px-2 text-[14px]"
+                >
+                  {Array.from({ length: 12 }, (_, i) => i + 12).map((hour) => (
+                    <option key={hour} value={hour}>từ {hour}:00</option>
+                  ))}
+                </select>
+                <Switch checked={settings?.reviewDailyEnabled ?? true} disabled={settings === undefined} onCheckedChange={(on) => saveReview({ reviewDailyEnabled: on })} aria-label="Nhìn lại hôm nay" />
+              </span>
+            </div>
+          </div>
+        </section>
 
         <BlockedPeopleCard />
       </div>

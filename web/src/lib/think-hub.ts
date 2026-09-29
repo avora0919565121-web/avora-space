@@ -120,7 +120,24 @@ export type ThinkTable = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Đợt gộp 2 · C1: the table's own statuses; null = the four defaults. */
+  statusOptions: readonly StatusOption[] | null;
+  /** What the title column is called, e.g. "Khách hàng". */
+  titleLabel: string | null;
+  defaultView: "table" | "kanban" | "tree" | null;
+  /** Column keys shown on a phone beside the title (≤ 2). */
+  mobileColumns: readonly string[];
+  sourceTemplateKey: string | null;
+  /** C10: read-only for everyone until reopened. */
+  archivedAt: string | null;
+  /** C6: "bookshelf" for the one Kệ sách per person. */
+  kind: "bookshelf" | null;
+  /** C9: "Từng thuộc nhóm …" on a copy taken out of a dissolved group. */
+  orphanOrigin: string | null;
 };
+
+/** One status a table offers; `done` ones count as finished for the ★ tile. */
+export type StatusOption = { key: string; label: string; done?: boolean };
 
 export type ThinkRecord = {
   id: string;
@@ -145,6 +162,8 @@ export type ThinkRecord = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** C11: "Chuyển từ Bảng … · dd/mm". */
+  movedFrom: { tableName: string; at: string } | null;
 };
 
 export const thinkHubKeys = {
@@ -205,6 +224,14 @@ type TableRow = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  status_options?: unknown;
+  title_label?: string | null;
+  default_view?: string | null;
+  mobile_columns?: string[] | null;
+  source_template_key?: string | null;
+  archived_at?: string | null;
+  kind?: string | null;
+  orphan_origin?: string | null;
 };
 
 type RecordRow = {
@@ -224,7 +251,29 @@ type RecordRow = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  moved_from?: unknown;
 };
+
+/** Reads `[{key,label,done?}]`, skipping anything unreadable; null when nothing usable is left. */
+export function parseStatusOptions(raw: unknown): StatusOption[] | null {
+  if (!Array.isArray(raw)) return null;
+  const options: StatusOption[] = [];
+  for (const entry of raw) {
+    if (entry === null || typeof entry !== "object") continue;
+    const item = entry as Record<string, unknown>;
+    if (typeof item.key !== "string" || typeof item.label !== "string") continue;
+    if (item.key.trim() === "" || item.label.trim() === "") continue;
+    options.push(item.done === true ? { key: item.key, label: item.label, done: true } : { key: item.key, label: item.label });
+  }
+  return options.length === 0 ? null : options;
+}
+
+function parseMovedFrom(raw: unknown): ThinkRecord["movedFrom"] {
+  if (raw === null || typeof raw !== "object") return null;
+  const item = raw as Record<string, unknown>;
+  if (typeof item.table_name !== "string" || typeof item.at !== "string") return null;
+  return { tableName: item.table_name, at: item.at };
+}
 
 function isColumnType(value: unknown): value is ColumnType {
   return typeof value === "string" && (COLUMN_TYPES as readonly string[]).includes(value);
@@ -296,6 +345,14 @@ function toTable(row: TableRow): ThinkTable {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    statusOptions: parseStatusOptions(row.status_options),
+    titleLabel: row.title_label ?? null,
+    defaultView: row.default_view === "kanban" || row.default_view === "tree" || row.default_view === "table" ? row.default_view : null,
+    mobileColumns: row.mobile_columns ?? [],
+    sourceTemplateKey: row.source_template_key ?? null,
+    archivedAt: row.archived_at ?? null,
+    kind: row.kind === "bookshelf" ? "bookshelf" : null,
+    orphanOrigin: row.orphan_origin ?? null,
   };
 }
 
@@ -319,6 +376,7 @@ function toRecord(row: RecordRow): ThinkRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    movedFrom: parseMovedFrom(row.moved_from),
   };
 }
 
@@ -539,9 +597,14 @@ export type StatusColumn = {
  * is a board that says nothing. Anything a person actually typed gets its own column at the
  * end, in first-seen order, because the alternative is quietly hiding their records.
  */
-export function groupByStatus(records: readonly ThinkRecord[]): StatusColumn[] {
+export function groupByStatus(
+  records: readonly ThinkRecord[],
+  statusOptions: readonly StatusOption[] | null = null,
+): StatusColumn[] {
   const buckets = new Map<string, ThinkRecord[]>();
-  for (const status of SUGGESTED_STATUSES) buckets.set(status, []);
+  const labels = new Map<string, string>((statusOptions ?? []).map((option) => [option.key, option.label] as const));
+  // C1: Kanban reads the table's own statuses when it has them.
+  for (const status of statusOptions === null ? SUGGESTED_STATUSES : statusOptions.map((option) => option.key)) buckets.set(status, []);
 
   for (const record of records) {
     const key = record.status.trim();
@@ -552,9 +615,22 @@ export function groupByStatus(records: readonly ThinkRecord[]): StatusColumn[] {
 
   return [...buckets.entries()].map(([status, items]) => ({
     status,
-    label: statusLabel(status),
+    label: labels.get(status) ?? statusLabel(status),
     records: items,
   }));
+}
+
+/** A status's label in this table — its own word first, then the defaults, then as typed. */
+export function statusLabelIn(table: Pick<ThinkTable, "statusOptions"> | null | undefined, status: string): string {
+  const own = table?.statusOptions?.find((option) => option.key === status);
+  return own?.label ?? statusLabel(status);
+}
+
+/** Whether a status means finished in this table ("Xong" by default). */
+export function isDoneStatus(table: Pick<ThinkTable, "statusOptions"> | null | undefined, status: string): boolean {
+  const own = table?.statusOptions?.find((option) => option.key === status);
+  if (own !== undefined) return own.done === true;
+  return status === "xong" || status === "khong_lam";
 }
 
 /** What a cell shows for one extension column of one record. */
@@ -709,6 +785,8 @@ export function toVietnameseHubError(code: string | undefined, message: string):
   if (normalized.includes("avora_task_description_required")) return "Việc cần một dòng mô tả.";
   if (normalized.includes("avora_think_hub_column_id_immutable"))
     return "Không đổi được kiểu của một cột đã có dữ liệu.";
+  const extra = extraHubError(normalized);
+  if (extra !== null) return extra;
   if (normalized.includes("avora_not_a_participant"))
     return "Bạn không còn trong cuộc trò chuyện này.";
   if (normalized.includes("avora_not_signed_in"))
@@ -721,9 +799,55 @@ export function toVietnameseHubError(code: string | undefined, message: string):
   return "Có lỗi xảy ra. Vui lòng thử lại.";
 }
 
+/** Đợt gộp 2 · C refusals (templates, archive, proposals, move/copy). */
+function extraHubError(normalized: string): string | null {
+  const table: readonly (readonly [string, string])[] = [
+    ["avora_template_table_not_empty", "Chỉ áp mẫu được cho Bảng chưa có Hạng mục nào."],
+    ["avora_template_missing", "Mẫu này không còn nữa."],
+    ["avora_template_limit", "Bạn đã có 50 mẫu. Xoá bớt trước khi lưu thêm."],
+    ["avora_template_bookshelf_only", "Mẫu Kệ sách chỉ dùng cho Kệ sách của bạn."],
+    ["avora_table_archived", "Bảng này đã lưu trữ — chỉ xem. Đề nghị mở lại để sửa."],
+    ["avora_shared_needs_proposal", "Đây là tài sản chung — cần đề nghị và mọi bên liên quan đồng ý."],
+    ["avora_shared_use_restore_shared", "Bảng chung khôi phục từ Thùng rác chung."],
+    ["avora_shared_restore_not_party", "Chỉ bên liên quan của đề nghị mới khôi phục được."],
+    ["avora_shared_no_purge", "Tài sản chung không xoá vĩnh viễn được."],
+    ["avora_confirm_name_mismatch", "Tên gõ lại chưa khớp."],
+    ["avora_bookshelf_locked", "Kệ sách luôn ở đây, không xoá hay lưu trữ."],
+    ["avora_think_hub_sub_table_follows_root", "Bảng con theo trạng thái của Bảng gốc."],
+    ["avora_proposal_already_open", "Đã có một đề nghị đang chờ cho mục này."],
+    ["avora_proposal_reason_required", "Hãy ghi lý do."],
+    ["avora_proposal_reason_too_long", "Lý do tối đa 300 ký tự."],
+    ["avora_proposal_closed", "Đề nghị này đã khép."],
+    ["avora_proposal_not_stakeholder", "Bạn không nằm trong danh sách được hỏi."],
+    ["avora_proposal_personal_table", "Bảng cá nhân tự xoá hoặc lưu trữ được, không cần đề nghị."],
+    ["avora_proposal_action_invalid", "Không đề nghị được việc này cho mục này."],
+    ["avora_record_has_subtable", "Hạng mục này có bảng con. Gỡ bảng con trước, hoặc sao chép thay vì di chuyển."],
+    ["avora_record_move_shared", "Hạng mục chung chỉ di chuyển được khi hoàn toàn là của bạn. Hãy sao chép."],
+    ["avora_record_move_unmatched", "Có cột không khớp — xác nhận ghi vào Ghi chú trước."],
+    ["avora_record_move_same_table", "Hạng mục đã ở Bảng này."],
+    ["avora_record_move_bookshelf", "Kệ sách chỉ nhận sách."],
+  ];
+  for (const [code, text] of table) if (normalized.includes(code)) return text;
+  return null;
+}
+
 function fail(code: string | undefined, message: string): Error {
   logError("think-hub", { code, message });
   return new Error(toVietnameseHubError(code, message));
+}
+
+/** Shared failure mapper for the Đợt gộp 2 companion module. */
+export function hubFail(code: string | undefined, message: string): Error {
+  return fail(code, message);
+}
+
+/** Maps a raw row (from an RPC) to the screen shape. */
+export function tableFromRow(row: unknown): ThinkTable {
+  return toTable(row as TableRow);
+}
+
+export function recordFromRow(row: unknown): ThinkRecord {
+  return toRecord(row as RecordRow);
 }
 
 // ------------------------------------------------------------------ reading

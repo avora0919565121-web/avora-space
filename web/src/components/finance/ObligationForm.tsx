@@ -2,6 +2,8 @@ import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
 import { DateField } from "@/components/calendar/DateField";
+import { ContactPicker } from "@/components/finance/ContactPicker";
+import { amountForValidation, formatAmountTyping, isWholeCurrency, missingLine } from "@/lib/contact-picker";
 import {
   FieldLabel,
   inputClass,
@@ -64,8 +66,16 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
   const [periodEnd, setPeriodEnd] = useState<string>("");
   const [touched, setTouched] = useState<boolean>(false);
 
-  const amountCheck = validateAmount(amount);
+  const currency = open.find((account) => account.id === accountId)?.currency ?? open[0]?.currency ?? "VND";
+  const whole = isWholeCurrency(currency);
+  const amountCheck = validateAmount(amountForValidation(amount, currency));
+  // D5: an error only after "Ghi" or after leaving a box that was typed in.
   const amountError = touched ? amountCheck.error : null;
+  const missing: string[] = [];
+  if (amountCheck.error !== null) missing.push("Số tiền");
+  if (needsContact(type) && contactId === "") missing.push(type === "vay" ? "Người cho vay" : "Người vay");
+  if (accountId === "") missing.push("Tài khoản");
+  if (dueDate === "") missing.push("Ngày đến hạn");
 
   const complete =
     accountId !== "" &&
@@ -78,7 +88,7 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
       event.preventDefault();
       setTouched(true);
 
-      const check = validateAmount(amount);
+      const check = validateAmount(amountForValidation(amount, currency));
       if (check.cents === null) return;
       if (accountId === "") {
         toast.error("Hãy chọn tài khoản.");
@@ -121,7 +131,7 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
         toast.error(error instanceof Error ? error.message : "Không lưu được khoản này.");
       }
     },
-    [accountId, addObligation, amount, contactId, description, dueDate, onDone, periodEnd, periodStart, type],
+    [accountId, addObligation, amount, contactId, currency, description, dueDate, onDone, periodEnd, periodStart, type],
   );
 
   if (open.length === 0) {
@@ -144,11 +154,11 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
         </FieldLabel>
         <input
           id="ob-amount"
-          inputMode="decimal"
+          inputMode={whole ? "numeric" : "decimal"}
           value={amount}
-          onChange={(event) => setAmount(event.target.value)}
-          onBlur={() => setTouched(true)}
-          placeholder="0.00"
+          onChange={(event) => setAmount(formatAmountTyping(event.target.value, currency))}
+          onBlur={() => amount.trim() !== "" && setTouched(true)}
+          placeholder={whole ? "0" : "0.00"}
           aria-invalid={amountError !== null}
           className={cn(inputClass, "mt-1.5 tabular text-[16px]", amountError !== null && "border-destructive")}
         />
@@ -162,26 +172,14 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
           <FieldLabel htmlFor="ob-contact" required>
             {type === "vay" ? "Vay từ ai" : "Cho ai vay"}
           </FieldLabel>
-          {contacts.length === 0 ? (
-            <p className="mt-1.5 text-[13px] text-muted-foreground">
-              Chưa có liên hệ nào. Hãy thêm người này vào Liên hệ trước.
-            </p>
-          ) : (
-            <select
-              id="ob-contact"
-              value={contactId}
-              onChange={(event) => setContactId(event.target.value)}
-              className={cn(selectClass, "mt-1.5")}
-              style={{ backgroundImage: selectChevron }}
-            >
-              <option value="">Chọn người</option>
-              {contacts.map((contact) => (
-                <option key={contact.id} value={contact.id}>
-                  {contact.name}
-                </option>
-              ))}
-            </select>
-          )}
+          <ContactPicker
+            id="ob-contact"
+            contacts={contacts}
+            value={contactId}
+            onChange={setContactId}
+            placeholder={type === "vay" ? "Chọn người cho bạn vay" : "Chọn người bạn cho vay"}
+            invalid={touched && contactId === ""}
+          />
         </div>
       ) : null}
 
@@ -270,7 +268,10 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
         />
       </div>
 
-      <div className="mt-5 flex gap-2">
+      {!complete && missingLine(missing) !== null ? (
+        <p className="mt-4 text-[12.5px] text-muted-foreground">{missingLine(missing)}</p>
+      ) : null}
+      <div className="mt-3 flex gap-2">
         <button
           type="submit"
           disabled={!complete || isWorking}

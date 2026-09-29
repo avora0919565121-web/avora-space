@@ -1,4 +1,18 @@
-import { ChevronRight, KanbanSquare, Loader2, Network, Pencil, Plus, Table2 } from "lucide-react";
+import {
+  ChevronRight,
+  KanbanSquare,
+  Library,
+  Loader2,
+  Lock,
+  Maximize2,
+  Minimize2,
+  MoreHorizontal,
+  Network,
+  Pencil,
+  Plus,
+  Star,
+  Table2,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -11,7 +25,36 @@ import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTable
 import { RecordDialog } from "@/components/think-hub/RecordDialog";
 import { RenameColumnDialog } from "@/components/think-hub/RenameColumnDialog";
 import { TableView } from "@/components/think-hub/TableView";
-import { ThinkSpace } from "@/components/think-hub/ThinkSpace";
+import { HubShelf } from "@/components/think-hub/HubShelf";
+import { TemplateGallery } from "@/components/think-hub/TemplateGallery";
+import {
+  ApplyTemplateRow,
+  DeleteTableDialog,
+  HubTrashDialog,
+  MoveRecordDialog,
+  ProposeDialog,
+  SaveTemplateDialog,
+} from "@/components/think-hub/TableActions";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  arrangeShelf,
+  drawerOfTable,
+  isArchivedTree,
+  readLastTable,
+  reminderTiles,
+  rememberLastTable,
+  type Drawer,
+  type ProposalAction,
+  type ProposalTarget,
+} from "@/lib/think-hub-shelf";
+import { useProposals, useShelfActions, useStars, useTemplates } from "@/lib/use-think-hub-shelf";
+import { useThinkTables } from "@/lib/use-think-hub";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import {
@@ -72,8 +115,24 @@ const ThinkHub = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
-  const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM));
+  // C3 ③: the URL wins, then the table last opened on this device.
+  const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM) ?? readLastTable(user?.id));
   const [view, setView] = useState<ViewMode>("table");
+  const viewChosenRef = useRef<string | null>(null);
+  const isFullscreen: boolean = searchParams.get("toan-man") === "1";
+  const shelfActions = useShelfActions();
+  const starsQuery = useStars();
+  const stars: Set<string> = useMemo(() => starsQuery.data ?? new Set<string>(), [starsQuery.data]);
+  const proposalsQuery = useProposals();
+  const templatesQuery = useTemplates();
+  const allTablesQuery = useThinkTables();
+  const [isTrashOpen, setIsTrashOpen] = useState<boolean>(false);
+  const [onlyStarred, setOnlyStarred] = useState<boolean>(false);
+  const [proposeTarget, setProposeTarget] = useState<{ action: ProposalAction; targetType: ProposalTarget; targetId: string; name: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ThinkTable | null>(null);
+  const [saveTemplateTarget, setSaveTemplateTarget] = useState<ThinkTable | null>(null);
+  const [moveRequest, setMoveRequest] = useState<{ record: ThinkRecord; mode: "move" | "copy" } | null>(null);
+  const [galleryConversationId, setGalleryConversationId] = useState<string | null>(null);
   // "+ Bảng mới" from a thread arrives with `?moi=1`.
   const [isNewTableOpen, setIsNewTableOpen] = useState<boolean>(() => searchParams.get("moi") === "1");
   // Where "Bảng mới" was pressed (`?noi=`), kept after the address is cleaned so a reload never reopens the form.
@@ -116,12 +175,105 @@ const ThinkHub = () => {
   // and a table put away should not leave the screen pointing at nothing.
   const active: ThinkTable | null = useMemo(() => {
     if (tables.length === 0) return null;
-    return tables.find((table) => table.id === activeId) ?? roots[0] ?? tables[0];
+    const shelfRoots = roots.filter((table) => table.kind !== "bookshelf");
+    return (
+      tables.find((table) => table.id === activeId) ??
+      shelfRoots.find((table) => table.conversationId === null && table.projectId === null) ??
+      shelfRoots[0] ??
+      tables[0]
+    );
   }, [tables, roots, activeId]);
 
   useEffect(() => {
     if (active !== null && active.id !== activeId) setActiveId(active.id);
-  }, [active, activeId]);
+    if (active !== null) rememberLastTable(user?.id, active.id);
+  }, [active, activeId, user?.id]);
+
+  // A table opens in its template's view the first time it is shown (C1 default_view).
+  useEffect(() => {
+    if (active === null || viewChosenRef.current === active.id) return;
+    viewChosenRef.current = active.id;
+    setView(active.defaultView === "kanban" ? "kanban" : active.defaultView === "tree" ? "mindmap" : "table");
+  }, [active]);
+
+  const kindOf = useCallback(
+    (conversationId: string) => conversationById.get(conversationId)?.kind,
+    [conversationById],
+  );
+  const placeOf = useCallback(
+    (table: ThinkTable): string | null => {
+      if (table.projectId !== null) return projectById.get(table.projectId)?.title ?? "Dự án";
+      if (table.conversationId === null) return null;
+      const conversation = conversationById.get(table.conversationId);
+      return conversation === undefined ? null : conversationTitle(conversation);
+    },
+    [conversationById, projectById],
+  );
+  const isQuiet = useCallback(
+    (table: ThinkTable): boolean => {
+      if (isArchivedTree(tables, records, table.id)) return true;
+      const project = table.projectId === null ? undefined : projectById.get(table.projectId);
+      return project !== undefined && project.status !== "active";
+    },
+    [tables, records, projectById],
+  );
+  const shelf = useMemo(
+    () => arrangeShelf(tables, records, user?.id, kindOf, placeOf, today),
+    [tables, records, user?.id, kindOf, placeOf, today],
+  );
+  const tiles = useMemo(() => reminderTiles(tables, records, stars, today, isQuiet), [tables, records, stars, today, isQuiet]);
+  const drawerOf = useCallback((table: ThinkTable): Drawer => drawerOfTable(table, kindOf), [kindOf]);
+  const activeRoot: ThinkTable | null = useMemo(() => {
+    if (active === null) return null;
+    const steps = tableAncestry(tables, records, active.id);
+    return steps[0]?.table ?? active;
+  }, [active, tables, records]);
+  const selectedShelf = useMemo(() => {
+    if (activeRoot === null) return null;
+    for (const drawer of Object.values(shelf)) {
+      const found = [...drawer.live, ...drawer.archived].find((item) => item.table.id === activeRoot.id);
+      if (found !== undefined) return found;
+    }
+    return null;
+  }, [shelf, activeRoot]);
+  const isArchived: boolean = active !== null && isArchivedTree(tables, records, active.id);
+  const isShared: boolean = active !== null && (active.conversationId !== null || active.projectId !== null);
+  const openProposal = useMemo(
+    () =>
+      activeRoot === null
+        ? undefined
+        : (proposalsQuery.data ?? []).find((proposal) => proposal.status === "open" && proposal.targetId === (active?.id ?? "")),
+    [proposalsQuery.data, activeRoot, active],
+  );
+  const binnedPersonal: ThinkTable[] = useMemo(
+    () =>
+      (allTablesQuery.data ?? []).filter(
+        (table) => table.deletedAt !== null && table.conversationId === null && table.projectId === null && table.ownerUserId === user?.id && table.parentRecordId === null,
+      ),
+    [allTablesQuery.data, user?.id],
+  );
+
+  const setFullscreen = useCallback(
+    (on: boolean): void => {
+      const next = new URLSearchParams(searchParams);
+      if (on) {
+        next.set("toan-man", "1");
+        setSearchParams(next);
+      } else if (searchParams.get("toan-man") === "1") {
+        navigate(-1);
+      }
+    },
+    [searchParams, setSearchParams, navigate],
+  );
+
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "Escape") setFullscreen(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isFullscreen, setFullscreen]);
 
   const openTable = useCallback(
     (tableId: string): void => {
@@ -141,10 +293,10 @@ const ThinkHub = () => {
   );
   const activeRootId: string | undefined = ancestry[0]?.table.id ?? active?.id;
 
-  const visibleRecords: ThinkRecord[] = useMemo(
-    () => (active === null ? [] : recordsOf(records, active.id)),
-    [records, active],
-  );
+  const visibleRecords: ThinkRecord[] = useMemo(() => {
+    const list = active === null ? [] : recordsOf(records, active.id);
+    return onlyStarred ? list.filter((record) => stars.has(record.id)) : list;
+  }, [records, active, onlyStarred, stars]);
 
   const tasksById = useMemo(() => new Map((tasksQuery.data ?? []).map((task) => [task.id, task] as const)), [tasksQuery.data]);
 
@@ -197,7 +349,7 @@ const ThinkHub = () => {
   const activeProject = active?.projectId != null ? projectById.get(active.projectId) : undefined;
   const isProjectRoot = active !== null && active.projectId !== null && active.parentRecordId === null;
   // A closed project's tables stay readable and stop taking changes; the server enforces the same.
-  const isReadOnly: boolean = activeProject !== undefined && activeProject.status !== "active";
+  const isReadOnly: boolean = (activeProject !== undefined && activeProject.status !== "active") || isArchived;
 
   const scopeLabel = useCallback(
     (table: ThinkTable): string => {
@@ -386,60 +538,68 @@ const ThinkHub = () => {
     editing === null ? undefined : tables.find((table) => table.id === editing.tableId);
 
   return (
-    <div className="paper flex min-h-0 flex-1 flex-col">
+    <div className={cn("paper flex min-h-0 flex-1 flex-col", isFullscreen && "fixed inset-0 z-50 bg-background")}>
+      {isFullscreen ? null : (
       <HubTitle
         title="Kế hoạch"
         className="max-w-6xl"
         action={
-          <button
+          <div className="flex items-center gap-2">
+            <button
               type="button"
-              onClick={openNewRecord}
-              disabled={active === null || isReadOnly}
-              title={isReadOnly ? "Dự án đã đóng — bảng chỉ còn để đọc" : undefined}
-              className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-[14.5px] md:px-5 md:text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-50"
+              onClick={() => navigate(withReturn("/ke-hoach/ke-sach", hereFrom(location, "Kế hoạch")))}
+              aria-label="Kệ sách"
+              className="press inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2.5 text-[14.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
+            >
+              <Library className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
+              <span className="hidden md:inline">Kệ sách</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setGalleryConversationId(null);
+                setIsNewTableOpen(true);
+              }}
+              className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-[14.5px] md:px-5 md:text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
             >
               <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
-              Thêm Hạng mục
+              Bảng mới
             </button>
+          </div>
         }
       />
+      )}
       <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-6xl px-4 pb-10 pt-5 sm:px-6 md:px-10">
+      <div className={cn("mx-auto px-4 pb-10 pt-5 sm:px-6 md:px-10", isFullscreen ? "max-w-none pt-2" : "max-w-6xl")}>
 
-        <ReturnChip className="-mt-2 mb-2" />
-        <div>
-          <ThinkSpace tables={roots} records={records} today={today} onOpenTable={openTable} />
-        </div>
-
-        <nav aria-label="Các bảng" className="mt-7 flex flex-wrap items-center gap-1.5">
-          {roots.map((table) => (
-            <button
-              key={table.id}
-              type="button"
-              onClick={() => openTable(table.id)}
-              aria-current={activeRootId === table.id ? "page" : undefined}
-              title={scopeLabel(table)}
-              className={cn(
-                "press rounded-md px-3.5 py-2 text-[14.5px] transition-colors",
-                activeRootId === table.id
-                  ? "bg-accent/70 font-semibold text-foreground"
-                  : "font-medium text-muted-foreground hover:bg-accent/40 hover:text-foreground",
-              )}
-            >
-              {table.name}
-              <span className="tabular ml-2 text-[12.5px] text-muted-foreground">{recordCountOf(records, table.id)}</span>
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={() => setIsNewTableOpen(true)}
-            aria-label="Tạo bảng mới"
-            className="press inline-flex items-center gap-1 rounded-md border border-dashed border-border px-3 py-2 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-          >
-            <Plus className="h-[16px] w-[16px]" strokeWidth={2} aria-hidden="true" />
-            Bảng mới
-          </button>
-        </nav>
+        {isFullscreen ? null : (
+          <>
+            <ReturnChip className="-mt-2 mb-2" />
+            <HubShelf
+              tiles={tiles}
+              shelf={shelf}
+              today={today}
+              selected={selectedShelf}
+              selectedDrawer={selectedShelf?.drawer ?? null}
+              drawerOfLine={(line) => drawerOf(line.table)}
+              onPickTable={openTable}
+              onPickLine={(line) => {
+                openTable(line.record.tableId);
+                setView("table");
+                spotlight("data-record-id", line.record.id);
+              }}
+              onNewTable={(drawer) => {
+                setGalleryConversationId(null);
+                if (drawer === "project") {
+                  toast("Bảng của Dự án tạo từ Hạng mục của bảng gốc dự án.");
+                  return;
+                }
+                setIsNewTableOpen(true);
+              }}
+              onOpenTrash={() => setIsTrashOpen(true)}
+            />
+          </>
+        )}
 
         {active === null ? (
           <p className="mt-8 text-[15px] text-muted-foreground">Chưa có bảng nào. Tạo bảng đầu tiên để bắt đầu.</p>
@@ -528,6 +688,23 @@ const ThinkHub = () => {
               )}
             </section>
 
+            {isArchived ? (
+              <p role="status" className="mt-4 flex items-center gap-2 rounded-lg bg-secondary/70 px-4 py-2.5 text-[13.5px] text-muted-foreground">
+                <Lock className="h-4 w-4" aria-hidden="true" />
+                Đã lưu trữ{activeRoot?.archivedAt != null ? ` ngày ${activeRoot.archivedAt.slice(8, 10)}/${activeRoot.archivedAt.slice(5, 7)}` : ""} · Chỉ xem
+              </p>
+            ) : null}
+            {openProposal !== undefined ? (
+              <button
+                type="button"
+                onClick={() => active?.conversationId != null && navigate(`/tin-nhan?c=${active.conversationId}`)}
+                className="press mt-3 w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-left text-[13px] text-amber-800 dark:text-amber-200"
+              >
+                Đang có đề nghị {openProposal.action === "delete" ? "xoá" : openProposal.action === "archive" ? "lưu trữ" : "mở lại"} · Xem
+              </button>
+            ) : null}
+            {active.orphanOrigin !== null ? <p className="mt-3 text-[12.5px] text-muted-foreground">{active.orphanOrigin}</p> : null}
+
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               <div role="group" aria-label="Kiểu xem" className="inline-flex rounded-md border border-border p-0.5">
                 <button
@@ -568,12 +745,92 @@ const ThinkHub = () => {
                 </button>
               </div>
 
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button
+                  type="button"
+                  aria-pressed={onlyStarred}
+                  onClick={() => setOnlyStarred(!onlyStarred)}
+                  className={cn("press inline-flex min-h-9 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium", onlyStarred ? "bg-amber-400/20 text-foreground" : "text-muted-foreground hover:text-foreground")}
+                >
+                  <Star className={cn("h-4 w-4", onlyStarred && "fill-amber-400 text-amber-400")} aria-hidden="true" />
+                  <span className="hidden sm:inline">Chỉ quan trọng</span>
+                </button>
+                {isReadOnly ? null : (
+                  <button
+                    type="button"
+                    onClick={openNewRecord}
+                    className="press inline-flex min-h-9 items-center gap-1 rounded-md bg-primary px-3 text-[13.5px] font-semibold text-primary-foreground"
+                  >
+                    <Plus className="h-4 w-4" aria-hidden="true" /> Hạng mục
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setFullscreen(!isFullscreen)}
+                  aria-label={isFullscreen ? "Thu gọn" : "Xem toàn màn"}
+                  title={isFullscreen ? "Thu gọn (Esc)" : "Xem toàn màn"}
+                  className="press inline-flex min-h-9 items-center gap-1 rounded-md border border-border px-2.5 text-[13px]"
+                >
+                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  {isFullscreen ? <span>Thu gọn</span> : null}
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button type="button" aria-label="Thêm thao tác với Bảng" className="press inline-flex min-h-9 items-center rounded-md border border-border px-2">
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="min-w-[220px]">
+                    {isOwner && !isReadOnly ? (
+                      <DropdownMenuItem onSelect={() => setSaveTemplateTarget(active)}>Lưu làm mẫu của tôi</DropdownMenuItem>
+                    ) : null}
+                    {isShared && active.kind === null ? (
+                      <DropdownMenuItem onSelect={() => shelfActions.copyToJournal.mutateAsync(active.id).then((copied) => { toast.success("Đã sao chép về Nhật ký (chỉ Hạng mục của bạn)."); openTable(copied.id); }, (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không sao chép được."))}>
+                        Sao chép về Nhật ký
+                      </DropdownMenuItem>
+                    ) : null}
+                    <DropdownMenuSeparator />
+                    {active.kind === "bookshelf" || isProjectRoot ? null : !isShared ? (
+                      <>
+                        {active.parentRecordId === null ? (
+                          <DropdownMenuItem onSelect={() => shelfActions.archive.mutateAsync({ tableId: active.id, archived: !isArchived }).then(() => toast.success(isArchived ? "Đã mở lại Bảng." : "Đã lưu trữ Bảng — chỉ xem."), (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."))}>
+                            {isArchived ? "Mở lại" : "Lưu trữ"}
+                          </DropdownMenuItem>
+                        ) : null}
+                        {isOwner ? (
+                          <DropdownMenuItem className="text-destructive" onSelect={() => setDeleteTarget(active)}>Xoá Bảng</DropdownMenuItem>
+                        ) : null}
+                      </>
+                    ) : (
+                      <>
+                        {active.parentRecordId === null && active.projectId === null ? (
+                          <DropdownMenuItem onSelect={() => setProposeTarget({ action: isArchived ? "reopen" : "archive", targetType: "think_hub_table", targetId: active.id, name: active.name })}>
+                            {isArchived ? "Đề nghị mở lại" : "Đề nghị lưu trữ"}
+                          </DropdownMenuItem>
+                        ) : null}
+                        <DropdownMenuItem className="text-destructive" onSelect={() => setProposeTarget({ action: "delete", targetType: "think_hub_table", targetId: active.id, name: active.name })}>
+                          Đề nghị xoá
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               {isTableFull(records, active.id) ? (
-                <p role="status" className="text-[13.5px] text-destructive">
+                <p role="status" className="w-full text-[13.5px] text-destructive">
                   Bảng đã đầy {RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục, hãy dọn bớt trước khi thêm.
                 </p>
               ) : null}
             </div>
+
+            {visibleRecords.length === 0 && !onlyStarred && (active.purpose !== null || active.sourceTemplateKey !== null) ? (
+              <div className="mt-4 rounded-xl border border-dashed border-border px-5 py-5 text-center">
+                {active.purpose !== null ? <p className="text-[15px] font-medium text-foreground">{active.purpose}</p> : null}
+                {isOwner && !isReadOnly && active.sourceTemplateKey === null && active.columns.length === 0 ? (
+                  <ApplyTemplateRow tableId={active.id} templates={templatesQuery.data ?? []} onApply={(template) => shelfActions.apply.mutateAsync({ tableId: active.id, template }).then(() => toast.success("Đã áp mẫu."), (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không áp được mẫu."))} />
+                ) : null}
+              </div>
+            ) : null}
 
             {/* Rendered even when empty: the columns ARE what a new table is offering. */}
             {view === "table" ? (
@@ -591,7 +848,7 @@ const ThinkHub = () => {
               />
             ) : (
               view === "kanban" ? (
-                <KanbanView records={visibleRecords} onOpenRecord={openRecord} today={today} />
+                <KanbanView records={visibleRecords} onOpenRecord={openRecord} today={today} statusOptions={active.statusOptions} />
               ) : (
                 <MindmapView
                   table={active}
@@ -608,8 +865,16 @@ const ThinkHub = () => {
       </div>
       </div>
 
-      <NewTableDialog
+      <TemplateGallery
         open={isNewTableOpen}
+        places={places}
+        initialConversationId={originConversationId ?? galleryConversationId}
+        lockPlace={originConversationId !== null}
+        kindOf={kindOf}
+        onCreated={(created) => {
+          createdTableRef.current = true;
+          openTable(created.id);
+        }}
         onOpenChange={(next) => {
           setIsNewTableOpen(next);
           if (next) {
@@ -622,10 +887,49 @@ const ThinkHub = () => {
           if (!createdTableRef.current && origin !== null) navigate(origin.path, { replace: true });
           createdTableRef.current = false;
         }}
-        onCreate={handleCreateTable}
-        isWorking={actions.isWorking}
-        places={places}
-        initialConversationId={originConversationId}
+      />
+
+      <ProposeDialog target={proposeTarget} onOpenChange={(next) => !next && setProposeTarget(null)} />
+      <SaveTemplateDialog table={saveTemplateTarget} onOpenChange={(next) => !next && setSaveTemplateTarget(null)} />
+      <DeleteTableDialog
+        table={deleteTarget}
+        onOpenChange={(next) => !next && setDeleteTarget(null)}
+        onRename={() => {
+          setDeleteTarget(null);
+          setPurposeDraft(active?.purpose ?? "");
+          setIsEditingPurpose(true);
+        }}
+        onDelete={async (table) => {
+          try {
+            await actions.removeTable(table.id);
+            setDeleteTarget(null);
+            setActiveId(null);
+            toast.success("Đã chuyển Bảng vào Thùng rác.", { action: { label: "Hoàn tác", onClick: () => void actions.restoreTable(table.id) } });
+          } catch (caught) {
+            toast.error(caught instanceof Error ? caught.message : "Không xoá được Bảng.");
+          }
+        }}
+      />
+      <HubTrashDialog
+        open={isTrashOpen}
+        onOpenChange={setIsTrashOpen}
+        personalBinned={binnedPersonal}
+        onRestorePersonal={async (tableId) => {
+          try {
+            await actions.restoreTable(tableId);
+            toast.success("Đã khôi phục Bảng cùng nhiệm vụ đã đi theo.");
+          } catch (caught) {
+            toast.error(caught instanceof Error ? caught.message : "Không khôi phục được.");
+          }
+        }}
+      />
+      <MoveRecordDialog
+        request={moveRequest}
+        tables={tables}
+        records={records}
+        drawerOf={drawerOf}
+        onOpenChange={(next) => !next && setMoveRequest(null)}
+        onDone={(targetTableId) => openTable(targetTableId)}
       />
 
       <AddColumnDialog
@@ -701,6 +1005,25 @@ const ThinkHub = () => {
           setIsRecordOpen(false);
           navigate(withReturn(taskLink(taskId), hereFrom(location, "Kế hoạch")));
         }}
+        isStarred={editing !== null && stars.has(editing.id)}
+        onToggleStar={editing === null ? undefined : () => shelfActions.star.mutate(editing.id)}
+        onMove={
+          editing === null || isReadOnly
+            ? undefined
+            : () => {
+                setIsRecordOpen(false);
+                setMoveRequest({ record: editing, mode: "move" });
+              }
+        }
+        onCopy={
+          editing === null || isReadOnly
+            ? undefined
+            : () => {
+                setIsRecordOpen(false);
+                setMoveRequest({ record: editing, mode: "copy" });
+              }
+        }
+        isReadOnly={isReadOnly && editing !== null}
       />
     </div>
   );

@@ -1,12 +1,14 @@
 import { useMemo } from "react";
 
-import { groupByStatus, priorityLabel, type ThinkRecord } from "@/lib/think-hub";
+import { groupByStatus, priorityLabel, type StatusOption, type ThinkRecord } from "@/lib/think-hub";
 import { cn } from "@/lib/utils";
 
 type KanbanViewProps = {
   records: readonly ThinkRecord[];
   onOpenRecord: (record: ThinkRecord) => void;
   today: string;
+  /** The table's own statuses (Đợt gộp 2 · C1); null = the four defaults. */
+  statusOptions?: readonly StatusOption[] | null;
 };
 
 /**
@@ -16,8 +18,8 @@ type KanbanViewProps = {
  * of decisions (what happens to records with no value, what the column order is, whether the
  * grouping is remembered per table) and the one grouping people actually reach for is status.
  */
-export function KanbanView({ records, onOpenRecord, today }: KanbanViewProps) {
-  const columns = useMemo(() => groupByStatus(records), [records]);
+export function KanbanView({ records, onOpenRecord, today, statusOptions = null }: KanbanViewProps) {
+  const columns = useMemo(() => groupByStatus(records, statusOptions), [records, statusOptions]);
 
   return (
     <div className="mt-5 flex gap-4 overflow-x-auto pb-2">

@@ -24,6 +24,7 @@ import FinanceReports from "./pages/FinanceReports";
 import FinanceTransactions from "./pages/FinanceTransactions";
 import JoinGroup from "./pages/JoinGroup";
 import Messages from "./pages/Messages";
+import Bookshelf from "./pages/Bookshelf";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import ProjectDetail from "./pages/ProjectDetail";
@@ -64,6 +65,7 @@ const App = () => (
                 <Route path="/nhiem-vu" element={<Tasks />} />
                 <Route path="/du-an/:projectId" element={<ProjectDetail />} />
                 <Route path="/ke-hoach" element={<ThinkHub />} />
+                <Route path="/ke-hoach/ke-sach" element={<Bookshelf />} />
 
                 <Route path="/ket-sat" element={<Vault />}>
                   <Route index element={<Finance />} />

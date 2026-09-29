@@ -22,6 +22,14 @@ import {
   deleteCategory,
   fetchAccounts,
   fetchCategories,
+  fetchFinanceTrash,
+  purgeAccount,
+  purgeTransaction,
+  removeAccount,
+  removeTransaction,
+  restoreAccount,
+  restoreTransaction,
+  type FinanceTrash,
   fetchTransactions,
   financeKeys,
   setAccountClosed,
@@ -64,6 +72,16 @@ export function useTransactions(): UseQueryResult<Transaction[], Error> {
     queryKey: financeKeys.transactions,
     queryFn: fetchTransactions,
     enabled: Boolean(user?.id),
+  });
+}
+
+/** Thùng rác Tài chính (Đợt gộp 2 · D2). */
+export function useFinanceTrash(enabled: boolean = true): UseQueryResult<FinanceTrash, Error> {
+  const { user } = useAuth();
+  return useQuery<FinanceTrash, Error>({
+    queryKey: financeKeys.trash,
+    queryFn: fetchFinanceTrash,
+    enabled: Boolean(user?.id) && enabled,
   });
 }
 
@@ -160,6 +178,7 @@ export function useFinanceActions() {
   const refreshLedger = useCallback((): void => {
     void queryClient.invalidateQueries({ queryKey: financeKeys.accounts });
     void queryClient.invalidateQueries({ queryKey: financeKeys.transactions });
+    void queryClient.invalidateQueries({ queryKey: financeKeys.trash });
   }, [queryClient]);
 
   const refreshCategories = useCallback((): void => {
@@ -219,6 +238,23 @@ export function useFinanceActions() {
     onSuccess: refreshLedger,
   });
 
+  const binAccount = useMutation({
+    mutationFn: ({ accountId, withTransactions }: { accountId: string; withTransactions: boolean }) =>
+      removeAccount(accountId, withTransactions),
+    onSuccess: refreshLedger,
+  });
+  const unbinAccount = useMutation({ mutationFn: (accountId: string) => restoreAccount(accountId), onSuccess: refreshLedger });
+  const binTransaction = useMutation({ mutationFn: (transactionId: string) => removeTransaction(transactionId), onSuccess: refreshLedger });
+  const unbinTransaction = useMutation({ mutationFn: (transactionId: string) => restoreTransaction(transactionId), onSuccess: refreshLedger });
+  const purgeTransactionMutation = useMutation({
+    mutationFn: ({ transactionId, confirm }: { transactionId: string; confirm: string }) => purgeTransaction(transactionId, confirm),
+    onSuccess: refreshLedger,
+  });
+  const purgeAccountMutation = useMutation({
+    mutationFn: ({ accountId, confirm }: { accountId: string; confirm: string }) => purgeAccount(accountId, confirm),
+    onSuccess: refreshLedger,
+  });
+
   const addObligation = useMutation({
     mutationFn: (input: ObligationInput) => createObligation(input),
     onSuccess: refreshLedger,
@@ -242,7 +278,19 @@ export function useFinanceActions() {
     voidTransaction,
     addObligation,
     settleTransaction,
+    binAccount,
+    unbinAccount,
+    binTransaction,
+    unbinTransaction,
+    purgeTransaction: purgeTransactionMutation,
+    purgeAccount: purgeAccountMutation,
     isWorking:
+      binAccount.isPending ||
+      unbinAccount.isPending ||
+      binTransaction.isPending ||
+      unbinTransaction.isPending ||
+      purgeTransactionMutation.isPending ||
+      purgeAccountMutation.isPending ||
       addAccount.isPending ||
       editAccount.isPending ||
       closeAccount.isPending ||

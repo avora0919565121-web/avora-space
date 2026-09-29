@@ -2,6 +2,7 @@ import { Heart, RotateCcw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 
+import { ProposeDialog } from "@/components/think-hub/TableActions";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
@@ -156,77 +157,6 @@ function EarlyCloseDialog({ project, open, onOpenChange }: { project: Project; o
   );
 }
 
-function DeleteDialog({ project, open, onOpenChange, onDeleted }: { project: Project; open: boolean; onOpenChange: (open: boolean) => void; onDeleted: () => void }) {
-  const { remove } = useProjectActions();
-  const { isSubmitting, guard } = useSubmitGuard();
-  const [typed, setTyped] = useState<string>("");
-  const [reason, setReason] = useState<string>("");
-  const [notice, setNotice] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (open) {
-      setTyped("");
-      setReason("");
-      setNotice(null);
-    }
-  }, [open]);
-
-  const matches = deleteConfirmMatches(project, typed);
-
-  const submit = useCallback(async (): Promise<void> => {
-    await guard(async () => {
-      try {
-        await remove(project.id, typed, reason);
-        onOpenChange(false);
-        toast.success("Đã chuyển dự án vào thùng rác. Bạn khôi phục được ở tab Dự án.");
-        onDeleted();
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Không xoá được dự án.");
-      }
-    });
-  }, [guard, remove, project.id, typed, reason, onOpenChange, onDeleted]);
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogTitle className="text-[19px] font-semibold tracking-tight">Xoá dự án</DialogTitle>
-        <DialogDescription className="text-[14.5px] text-muted-foreground">
-          Dự án, nhóm của nó và các bảng sẽ biến khỏi mọi nơi. Một dòng ghi lý do được đăng vào nhóm dự án. Bạn vẫn khôi
-          phục được từ thùng rác.
-        </DialogDescription>
-        <label className="mt-2 block">
-          <span className="text-[13px] font-medium text-muted-foreground">
-            Gõ lại đúng tên dự án: <span className="font-semibold text-foreground">{project.title}</span>
-          </span>
-          <input value={typed} autoFocus onChange={(event) => setTyped(event.target.value)} className={inputClass} />
-        </label>
-        <label className="block">
-          <span className="text-[13px] font-medium text-muted-foreground">Lý do</span>
-          <textarea value={reason} rows={3} maxLength={2000} onChange={(event) => setReason(event.target.value)} className={areaClass} />
-        </label>
-        {notice !== null ? (
-          <p role="alert" className="text-[13.5px] text-destructive">
-            {notice}
-          </p>
-        ) : null}
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Để sau
-          </Button>
-          <Button
-            type="button"
-            variant="destructive"
-            disabled={isSubmitting || !matches || reason.trim().length === 0}
-            onClick={() => void submit()}
-          >
-            {isSubmitting ? "Đang xoá…" : "Xoá dự án"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 /**
  * Check-Adjust (ADR-021): the private look back after closing early. Only the opener sees it —
  * the reason, which criteria were met, what was left unfinished, and one note of their own.
@@ -339,13 +269,14 @@ export function ProjectLifecycle({
   unfinished: readonly TaskItem[];
   onDeleted: () => void;
 }) {
-  const { close, reopen } = useProjectActions();
-  const isRootOwner = useIsProjectRootOwner(project.id);
+  const { close } = useProjectActions();
   const { isSubmitting, guard } = useSubmitGuard();
   const [isThanksOpen, setIsThanksOpen] = useState<boolean>(false);
   const [isEarlyOpen, setIsEarlyOpen] = useState<boolean>(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState<boolean>(false);
+  // ADR-031 (Đợt gộp 2 · C9/C10): deleting and reopening a project go through a proposal every member answers.
+  const [proposing, setProposing] = useState<"delete" | "reopen" | null>(null);
   const sentence = closeBlockerSentence(blockers);
+  void onDeleted;
 
   const handleClose = useCallback(async (): Promise<void> => {
     await guard(async () => {
@@ -359,18 +290,6 @@ export function ProjectLifecycle({
     });
   }, [guard, close, project.id]);
 
-  const handleReopen = useCallback(async (): Promise<void> => {
-    await guard(async () => {
-      try {
-        await reopen(project.id);
-        toast.success("Đã mở lại dự án.");
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Không mở lại được.");
-      }
-    });
-  }, [guard, reopen, project.id]);
-
-  if (!isOwner && !isRootOwner) return null;
 
   return (
     <>
@@ -388,7 +307,7 @@ export function ProjectLifecycle({
                 disabled={!canClose(blockers) || isSubmitting}
                 onClick={() => void handleClose()}
               >
-                Đóng dự án
+                Kết thúc &amp; lưu trữ dự án
               </Button>
               {!canClose(blockers) ? (
                 <Button variant="ghost" className="press h-11 px-5" onClick={() => setIsEarlyOpen(true)}>
@@ -402,42 +321,43 @@ export function ProjectLifecycle({
           </>
         ) : null}
 
-        {isOwner && project.status !== "active" ? (
+        {project.status !== "active" ? (
           <div className="flex flex-wrap items-center gap-2">
-            {project.status === "done" && project.thanksMessageId === null ? (
+            {isOwner && project.status === "done" && project.thanksMessageId === null ? (
               <Button variant="outline" className="press h-11 px-5" onClick={() => setIsThanksOpen(true)}>
                 <Heart className="mr-1.5 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
                 Gửi lời cảm ơn
               </Button>
             ) : null}
-            <Button variant="outline" className="press h-11 px-5" disabled={isSubmitting} onClick={() => void handleReopen()}>
+            <Button variant="outline" className="press h-11 px-5" onClick={() => setProposing("reopen")}>
               <RotateCcw className="mr-1.5 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              Mở lại
+              Đề nghị mở lại dự án
             </Button>
             <p className="basis-full text-[12.5px] text-muted-foreground">
-              Dự án đã đóng: nhóm, bảng và việc giữ nguyên, chỉ còn để đọc.
+              Dự án đã lưu trữ: nhóm, bảng và việc giữ nguyên, chỉ còn để đọc. Mở lại khi mọi thành viên đồng ý.
             </p>
           </div>
         ) : null}
 
-        {isRootOwner ? (
-          <div className="mt-6">
-            <button
-              type="button"
-              onClick={() => setIsDeleteOpen(true)}
-              className="press inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 py-2 text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/10"
-            >
-              <Trash2 className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              Xoá dự án
-            </button>
-            <p className="text-[12px] text-muted-foreground">Chỉ Owner của nhóm gốc thấy nút này.</p>
-          </div>
-        ) : null}
+        <div className="mt-6">
+          <button
+            type="button"
+            onClick={() => setProposing("delete")}
+            className="press inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 py-2 text-[13px] font-medium text-destructive transition-colors hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Đề nghị xoá dự án
+          </button>
+          <p className="text-[12px] text-muted-foreground">Dự án là tài sản chung — chỉ xoá khi mọi thành viên đồng ý.</p>
+        </div>
       </section>
 
       <ThanksDialog project={project} open={isThanksOpen} onOpenChange={setIsThanksOpen} />
       <EarlyCloseDialog project={project} open={isEarlyOpen} onOpenChange={setIsEarlyOpen} />
-      <DeleteDialog project={project} open={isDeleteOpen} onOpenChange={setIsDeleteOpen} onDeleted={onDeleted} />
+      <ProposeDialog
+        target={proposing === null ? null : { action: proposing, targetType: "project", targetId: project.id, name: project.title }}
+        onOpenChange={(next) => !next && setProposing(null)}
+      />
     </>
   );
 }

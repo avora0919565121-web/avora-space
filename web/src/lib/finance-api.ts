@@ -24,6 +24,7 @@ export const financeKeys = {
   accounts: ["finance", "accounts"] as const,
   categories: ["finance", "categories"] as const,
   transactions: ["finance", "transactions"] as const,
+  trash: ["finance", "trash"] as const,
 };
 
 const RECEIPT_BUCKET = "receipts";
@@ -83,6 +84,19 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
     return "Danh mục này đã có giao dịch nên chỉ có thể ẩn đi, không xoá hẳn.";
 
   if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
+
+  // Đợt gộp 2 · D2 — Thùng rác Tài chính.
+  if (normalized.includes("avora_finance_in_trash")) return "Mục này đang ở Thùng rác. Khôi phục trước khi sửa.";
+  if (normalized.includes("avora_finance_business_no_purge"))
+    return "Dòng Kinh doanh không xoá vĩnh viễn được — chỉ để trong Thùng rác hoặc khôi phục.";
+  if (normalized.includes("avora_confirm_name_mismatch")) return "Chữ xác nhận chưa khớp.";
+  if (normalized.includes("avora_account_has_live_transactions"))
+    return "Tài khoản còn giao dịch chưa xoá, chưa xoá vĩnh viễn được.";
+  if (normalized.includes("avora_txn_account_in_trash"))
+    return "Tài khoản của giao dịch này đang ở Thùng rác. Khôi phục tài khoản trước.";
+  if (normalized.includes("avora_account_not_yours")) return "Tài khoản này không còn nữa.";
+  if (normalized.includes("avora_contact_name_required")) return "Hãy ghi tên người này.";
+  if (normalized.includes("avora_contact_email_invalid")) return "Email chưa đúng dạng.";
 
   if (code === "23505" && normalized.includes("accounts_user_name_uniq"))
     return "Bạn đã có một tài khoản trùng tên.";
@@ -169,6 +183,7 @@ export async function fetchAccounts(): Promise<Account[]> {
   const { data, error } = await supabase
     .from("accounts")
     .select("*")
+    .is("removed_at", null)
     .order("deleted_at", { ascending: true, nullsFirst: true })
     .order("created_at", { ascending: true });
   if (error) throw fail(error.code, error.message);
@@ -309,11 +324,77 @@ export async function fetchTransactions(): Promise<Transaction[]> {
   const { data, error } = await supabase
     .from("transactions")
     .select("*")
+    .is("removed_at", null)
     .order("transaction_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(5000);
   if (error) throw fail(error.code, error.message);
   return (data ?? []).map(toTransaction);
+}
+
+// ---------------------------------------------------------------- trash (Đợt gộp 2 · D2)
+
+/** What sits in Thùng rác Tài chính: accounts and transactions someone chose "Xoá" for. */
+export type FinanceTrash = {
+  accounts: (Account & { removedAt: string })[];
+  transactions: (Transaction & { removedAt: string; removedWithAccount: boolean })[];
+};
+
+export async function fetchFinanceTrash(): Promise<FinanceTrash> {
+  const [accounts, transactions] = await Promise.all([
+    supabase.from("accounts").select("*").not("removed_at", "is", null).order("removed_at", { ascending: false }),
+    supabase.from("transactions").select("*").not("removed_at", "is", null).order("removed_at", { ascending: false }).limit(2000),
+  ]);
+  if (accounts.error) throw fail(accounts.error.code, accounts.error.message);
+  if (transactions.error) throw fail(transactions.error.code, transactions.error.message);
+  return {
+    accounts: (accounts.data ?? []).map((row) => ({ ...toAccount(row), removedAt: row.removed_at ?? "" })),
+    transactions: (transactions.data ?? []).map((row) => ({
+      ...toTransaction(row),
+      removedAt: row.removed_at ?? "",
+      removedWithAccount: row.removed_with_account,
+    })),
+  };
+}
+
+/**
+ * "Xoá" an account. With transactions left and `withTransactions` false the account is only closed
+ * (its history stays in every report); otherwise account and transactions go to the bin together.
+ */
+export async function removeAccount(accountId: string, withTransactions: boolean): Promise<void> {
+  const { error } = await supabase.rpc("remove_account", { p_account_id: accountId, p_with_transactions: withTransactions });
+  if (error) throw fail(error.code, error.message);
+}
+
+export async function restoreAccount(accountId: string): Promise<void> {
+  const { error } = await supabase.rpc("restore_account", { p_account_id: accountId });
+  if (error) throw fail(error.code, error.message);
+}
+
+export async function removeTransaction(transactionId: string): Promise<void> {
+  const { error } = await supabase.rpc("remove_transaction", { p_transaction_id: transactionId });
+  if (error) throw fail(error.code, error.message);
+}
+
+export async function restoreTransaction(transactionId: string): Promise<void> {
+  const { error } = await supabase.rpc("restore_transaction", { p_transaction_id: transactionId });
+  if (error) throw fail(error.code, error.message);
+}
+
+/** The words typed back to purge a transaction — its description, or "XOÁ" when it has none. */
+export function transactionConfirmWord(description: string | null): string {
+  const trimmed = (description ?? "").trim();
+  return trimmed.length === 0 ? "XOÁ" : trimmed;
+}
+
+export async function purgeTransaction(transactionId: string, confirm: string): Promise<void> {
+  const { error } = await supabase.rpc("purge_transaction", { p_transaction_id: transactionId, p_confirm: confirm });
+  if (error) throw fail(error.code, error.message);
+}
+
+export async function purgeAccount(accountId: string, confirmName: string): Promise<void> {
+  const { error } = await supabase.rpc("purge_account", { p_account_id: accountId, p_confirm_name: confirmName });
+  if (error) throw fail(error.code, error.message);
 }
 
 export type TransactionInput = {

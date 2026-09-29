@@ -19,6 +19,7 @@ import {
   createPersonalTask,
   createSharedTask,
   deleteSharedTask,
+  fetchClosedSharedTasks,
   fetchTasks,
   fetchTasksInRange,
   isTaskGone,
@@ -44,9 +45,24 @@ import {
   type TaskItem,
   type TaskPlanPatch,
   type TaskSchedulePatch,
+  type TaskClosedReason,
 } from "@/lib/tasks";
 
 export { taskKeys };
+
+/**
+ * Đợt gộp 2 · D4: shared tasks the viewer was given that can no longer move, and why — the same
+ * rule the server uses to let the assignee clear them.
+ */
+export function useClosedSharedTasks(): UseQueryResult<Map<string, TaskClosedReason>, Error> {
+  const { user } = useAuth();
+  return useQuery<Map<string, TaskClosedReason>, Error>({
+    queryKey: [...taskKeys.all, "closed-shared"],
+    queryFn: fetchClosedSharedTasks,
+    enabled: Boolean(user?.id),
+    staleTime: 60_000,
+  });
+}
 
 /**
  * Realtime is the delivery path; this interval only engages while the socket is down

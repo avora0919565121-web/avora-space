@@ -768,7 +768,8 @@ describe("countOpenTasks", () => {
       }),
     ];
     expect(countOpenTasks(tasks, "u1")).toBe(1);
-    expect(countOpenTasks(tasks, "u2")).toBe(2);
+    // Đợt gộp 2 · D4: the requester let go, so for the assignee it is closed ("Đã khép"), not open work.
+    expect(countOpenTasks(tasks, "u2")).toBe(1);
   });
 
   it("never counts a row both sides deleted, whoever is looking", () => {

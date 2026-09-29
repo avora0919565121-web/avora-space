@@ -37,6 +37,7 @@ vi.mock("@/lib/think-hub", async () => {
       createdAt: "2026-09-01T00:00:00Z",
       updatedAt: "2026-09-01T00:00:00Z",
       deletedAt: null,
+      statusOptions: null, titleLabel: null, defaultView: null, mobileColumns: [], sourceTemplateKey: null, archivedAt: null, kind: null, orphanOrigin: null, 
       ...over,
     };
   }
@@ -116,6 +117,7 @@ vi.mock("@/lib/think-hub", async () => {
         createdAt: "2026-09-10T00:00:00Z",
         updatedAt: "2026-09-10T00:00:00Z",
         deletedAt: null,
+        movedFrom: null,
       };
       state.records = [row, ...state.records];
       return row;
@@ -150,6 +152,7 @@ function record(
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
+    movedFrom: null,
     ...over,
   };
 }
@@ -165,6 +168,7 @@ function businessTable(
     createdAt: "2026-09-01T00:00:00Z",
     updatedAt: "2026-09-01T00:00:00Z",
     deletedAt: null,
+    statusOptions: null, titleLabel: null, defaultView: null, mobileColumns: [], sourceTemplateKey: null, archivedAt: null, kind: null, orphanOrigin: null, 
     ...over,
   };
 }

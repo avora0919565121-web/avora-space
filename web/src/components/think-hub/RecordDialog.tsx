@@ -5,7 +5,7 @@ import { DateTimeField } from "@/components/calendar/DateTimeField";
 import { Button } from "@/components/ui/button";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { ListPlus, Table2 } from "lucide-react";
+import { Copy, ListPlus, MoveRight, Star, Table2 } from "lucide-react";
 
 import {
   DEPTH_LIMIT_MESSAGE,
@@ -52,6 +52,14 @@ type RecordDialogProps = {
   /** The tasks hanging under this Hạng mục, read-only; each row carries `data-record-task-id` so a link can light it. */
   tasks?: readonly TaskItem[];
   onOpenTask?: (taskId: string) => void;
+  /** Đợt gộp 2 · C8: this person's own ★. */
+  isStarred?: boolean;
+  onToggleStar?: () => void;
+  /** C11: absent when the source table is archived. */
+  onMove?: () => void;
+  onCopy?: () => void;
+  /** C10: an archived table is read-only — the form shows, saving is off. */
+  isReadOnly?: boolean;
 };
 
 /**
@@ -226,6 +234,11 @@ export function RecordDialog({
   onQuickTask,
   tasks,
   onOpenTask,
+  isStarred = false,
+  onToggleStar,
+  onMove,
+  onCopy,
+  isReadOnly = false,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
@@ -523,7 +536,7 @@ export function RecordDialog({
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Để sau
             </Button>
-            <Button type="submit" disabled={isWorking || isSubmitting}>
+            <Button type="submit" disabled={isWorking || isSubmitting || isReadOnly}>
               {isWorking ? "Đang lưu…" : "Lưu"}
             </Button>
           </div>
@@ -554,6 +567,38 @@ export function RecordDialog({
                 </li>
               ))}
             </ul>
+          </div>
+        ) : null}
+
+        {record !== null ? (
+          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border pt-4">
+            {onToggleStar !== undefined ? (
+              <button
+                type="button"
+                onClick={onToggleStar}
+                aria-pressed={isStarred}
+                className="press inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px] font-medium transition-colors hover:bg-accent/40"
+              >
+                <Star className={cn("h-4 w-4", isStarred ? "fill-amber-400 text-amber-400" : "text-muted-foreground")} aria-hidden="true" />
+                {isStarred ? "Quan trọng" : "Đánh dấu quan trọng"}
+              </button>
+            ) : null}
+            {onMove !== undefined ? (
+              <button type="button" onClick={onMove} className="press inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px] font-medium hover:bg-accent/40">
+                <MoveRight className="h-4 w-4" aria-hidden="true" /> Di chuyển sang Bảng khác
+              </button>
+            ) : null}
+            {onCopy !== undefined ? (
+              <button type="button" onClick={onCopy} className="press inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px] font-medium hover:bg-accent/40">
+                <Copy className="h-4 w-4" aria-hidden="true" /> Sao chép sang Bảng khác
+              </button>
+            ) : null}
+            {record.movedFrom !== null ? (
+              <p className="w-full text-[12px] text-muted-foreground">
+                Chuyển từ Bảng {record.movedFrom.tableName} · {record.movedFrom.at.slice(8, 10)}/{record.movedFrom.at.slice(5, 7)}
+              </p>
+            ) : null}
+            {isReadOnly ? <p className="w-full text-[12px] text-muted-foreground">🔒 Bảng đã lưu trữ · Chỉ xem</p> : null}
           </div>
         ) : null}
 

@@ -40,13 +40,14 @@ import {
   isSharedTask,
   isTaskAssignee,
   sharedTaskNote,
+  taskClosedReason,
   taskStatusLabel,
   TIER_LABELS,
   taskTier,
   type TaskItem,
 } from "@/lib/tasks";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
-import { useTaskActions } from "@/lib/use-tasks";
+import { useClosedSharedTasks, useTaskActions } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
 const DAY = new Intl.DateTimeFormat("vi-VN", { weekday: "short", day: "2-digit", month: "2-digit" });
@@ -133,7 +134,9 @@ export function TaskDetailSheet({
   const projectIndex = useTaskProjectIndex();
   const { data: suggestions } = useTaskSuggestions();
   const { data: travelPlans } = useMyTravelPlans();
+  const closedShared = useClosedSharedTasks();
   if (task === null) return null;
+  const closedReason = closedShared.data?.get(task.id) ?? taskClosedReason(task, user?.id);
 
   const userId = user?.id;
   // D3: a task from an accepted suggestion is the assignee's alone; the proposer only reads it.
@@ -239,7 +242,7 @@ export function TaskDetailSheet({
   };
 
   const openEdit = (): void => setIsEditing(true);
-  const hasMore = target !== null || canDeleteTask(task, userId);
+  const hasMore = target !== null || canDeleteTask(task, userId, closedReason);
 
   return (
     <Sheet
@@ -450,7 +453,7 @@ export function TaskDetailSheet({
                     Xem trong ngữ cảnh
                   </DropdownMenuItem>
                 ) : null}
-                {canDeleteTask(task, userId) ? (
+                {canDeleteTask(task, userId, closedReason) ? (
                   <DropdownMenuItem onSelect={remove} className="text-destructive">
                     <Trash2 className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
                     Xoá

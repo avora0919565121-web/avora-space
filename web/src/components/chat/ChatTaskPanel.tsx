@@ -34,12 +34,14 @@ import {
   sharedTaskNote,
   sortTasksByPriority,
   suggestedByNote,
+  taskClosedReason,
   taskStatusLabel,
   todayIso,
+  TASK_CLOSED_REASON_LABELS,
   type TaskItem,
 } from "@/lib/tasks";
 import { TASK_VOICE_HINT, TASK_VOICE_TITLE_CLASS, taskVoice } from "@/lib/task-voice";
-import { useTaskActions, useTasks } from "@/lib/use-tasks";
+import { useClosedSharedTasks, useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
 type ChatTaskPanelProps = {
@@ -225,7 +227,10 @@ function ChatTaskRow({
   const canMarkDone = canMarkSharedDone(task, userId);
   const canReview = canReviewSharedDone(task, userId);
   const canReturn = canReturnSharedTask(task, userId);
-  const canDelete = canDeleteTask(task, userId);
+  const closedShared = useClosedSharedTasks();
+  const closedReason = closedShared.data?.get(task.id) ?? taskClosedReason(task, userId);
+  const canDelete = canDeleteTask(task, userId, closedReason);
+  const closedNote = closedReason === null || closedReason === "done" ? null : TASK_CLOSED_REASON_LABELS[closedReason];
   const { data: suggestions } = useTaskSuggestions();
   // D3: once a suggestion was accepted into it, only the assignee edits.
   const isOwned = ownedTaskIds(suggestions ?? []).has(task.id);
@@ -339,7 +344,7 @@ function ChatTaskRow({
                   </>
                 ) : null}
                 <span aria-hidden="true">·</span>
-                <span>{sharedTaskNote(task, userId)}</span>
+                <span>{closedNote ?? sharedTaskNote(task, userId)}</span>
               </p>
             </>
           )}
