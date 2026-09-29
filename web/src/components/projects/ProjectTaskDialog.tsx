@@ -1,29 +1,19 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useMemo, useState } from "react";
 
-import { DateField } from "@/components/calendar/DateField";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { useAuth } from "@/lib/auth";
 import type { GroupMember } from "@/lib/groups";
-import { memberLabel } from "@/lib/member-search";
 import type { Project } from "@/lib/projects";
-import { todayIso } from "@/lib/tasks";
+import { buildContextSnapshot } from "@/lib/task-context";
 import type { ThinkRecord } from "@/lib/think-hub";
-import { useProjectActions } from "@/lib/use-projects";
-
-const fieldClass =
-  "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-primary";
-const labelClass = "text-[13px] font-medium text-muted-foreground";
-
-/** The "no Hạng mục" choice in the picker — ad-hoc work that came up in the project. */
-const AD_HOC = "";
+import { useComposerActions, useTaskRecipientIds, type ComposerValues } from "@/lib/use-task-composer";
 
 /**
- * Hands out one Task from the project screen.
+ * Tạo việc from the project screen — the one task form (ADR-030), place "group".
  *
- * Choosing a Hạng mục is optional: left empty, the task is ad-hoc and still shows in the
- * project's own list. The task goes through the same two-step handshake as one raised in chat —
- * nothing starts until the person asked confirms it there.
+ * The Nguồn line names the project and holds the optional Hạng mục. Everything goes through the
+ * suggestion path with the project (and Hạng mục) attached, so the task is filed there the moment
+ * it is accepted — "Cho tôi" is accepted at once (the group's self-take path).
  */
 export function ProjectTaskDialog({
   open,
@@ -31,180 +21,87 @@ export function ProjectTaskDialog({
   project,
   groupName,
   members,
-  selfId,
   records,
   initialRecordId,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  project: Pick<Project, "id" | "conversationId" | "targetEndDate">;
+  project: Pick<Project, "id" | "conversationId" | "title">;
   groupName: string;
   members: readonly GroupMember[];
-  selfId: string | undefined;
+  /** Kept for callers; the form resolves "you" from the session. */
+  selfId?: string | undefined;
   records: readonly ThinkRecord[];
   /** Pre-selects a Hạng mục when opened from under one; null opens as ad-hoc. */
   initialRecordId: string | null;
 }) {
-  const { createTask, isWorking } = useProjectActions();
-  const [title, setTitle] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [deadline, setDeadline] = useState<string>("");
-  const [assigneeId, setAssigneeId] = useState<string>("");
-  const [recordId, setRecordId] = useState<string>(AD_HOC);
-  const [notice, setNotice] = useState<string | null>(null);
+  const { user } = useAuth();
+  const { proposeOne } = useComposerActions();
+  const [recordId, setRecordId] = useState<string | null>(initialRecordId);
+  const recipientIds = useTaskRecipientIds(open ? project.conversationId : null);
+  const reachable = useMemo(() => {
+    const allowed = new Set<string>(recipientIds.data ?? []);
+    return members.filter((member) => allowed.has(member.userId));
+  }, [members, recipientIds.data]);
+  const record = records.find((entry) => entry.id === recordId) ?? null;
 
-  const candidates = useMemo(() => members.filter((member) => member.userId !== selfId), [members, selfId]);
-
-  useEffect(() => {
-    if (!open) return;
-    setTitle("");
-    setDescription("");
-    setDeadline("");
-    setAssigneeId("");
-    setRecordId(initialRecordId ?? AD_HOC);
-    setNotice(null);
-  }, [open, initialRecordId]);
-
-  const isLate = deadline.length > 0 && deadline > project.targetEndDate;
-
-  const handleSubmit = useCallback(async (): Promise<void> => {
-    if (assigneeId.length === 0) {
-      setNotice("Hãy chọn người nhận việc.");
-      return;
-    }
-    setNotice(null);
-    try {
-      await createTask({
-        project,
-        groupName,
-        recordId: recordId === AD_HOC ? null : recordId,
+  const send = async (assigneeId: string, values: ComposerValues, isSelf: boolean): Promise<void> => {
+    await proposeOne(
+      {
+        conversationId: project.conversationId,
         assigneeId,
-        title,
-        description,
-        deadline,
-      });
-      onOpenChange(false);
-      toast.success("Đã giao việc. Việc bắt đầu khi người nhận xác nhận trong nhóm.");
-    } catch (error) {
-      setNotice(error instanceof Error ? error.message : "Không giao được việc.");
-    }
-  }, [assigneeId, createTask, project, groupName, recordId, title, description, deadline, onOpenChange]);
+        messageId: null,
+        contextSnapshot: buildContextSnapshot({
+          conversationType: "group",
+          conversationId: project.conversationId,
+          conversationName: groupName,
+          message: null,
+          senderName: "",
+          userResponse: record === null ? `Dự án: ${project.title}` : `Hạng mục: ${record.title}`,
+        }),
+        projectId: project.id,
+        recordId,
+      },
+      values,
+      isSelf,
+    );
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogTitle className="text-[19px] font-semibold tracking-tight">Giao việc trong dự án</DialogTitle>
-        <DialogDescription className="text-[14.5px] text-muted-foreground">
-          Việc được gửi vào {groupName} để người nhận xác nhận.
-        </DialogDescription>
-
-        <div className="mt-5 max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+    <TaskComposer
+      open={open}
+      onOpenChange={onOpenChange}
+      place="group"
+      members={reachable}
+      source={{
+        label: `Dự án ${project.title}${record !== null ? ` · Hạng mục ${record.title}` : ""}`,
+        defaultOpen: records.length > 0 && initialRecordId === null,
+        render: () => (
           <div>
-            <label htmlFor="project-task-record" className={labelClass}>
-              Thuộc Hạng mục
+            <label htmlFor="composer-project-record" className="mb-1 block text-[12px] font-medium text-muted-foreground">
+              Hạng mục (không bắt buộc)
             </label>
             <select
-              id="project-task-record"
-              value={recordId}
-              onChange={(event) => setRecordId(event.target.value)}
-              className={fieldClass}
+              id="composer-project-record"
+              value={recordId ?? ""}
+              onChange={(event) => setRecordId(event.target.value === "" ? null : event.target.value)}
+              className="h-11 w-full rounded-[10px] border border-input bg-card px-3 text-[14px] text-foreground outline-none focus:border-muted-foreground"
             >
-              <option value={AD_HOC}>Không thuộc Hạng mục nào (việc phát sinh)</option>
-              {records.map((record) => (
-                <option key={record.id} value={record.id}>
-                  {record.title}
+              <option value="">Không thuộc Hạng mục nào (việc phát sinh)</option>
+              {records.map((entry) => (
+                <option key={entry.id} value={entry.id}>
+                  {entry.title}
                 </option>
               ))}
             </select>
           </div>
-
-          <div>
-            <label htmlFor="project-task-title" className={labelClass}>
-              Việc cần làm
-            </label>
-            <input
-              id="project-task-title"
-              value={title}
-              autoFocus
-              maxLength={200}
-              onChange={(event) => setTitle(event.target.value)}
-              className={fieldClass}
-            />
-          </div>
-
-          <div>
-            <label htmlFor="project-task-description" className={labelClass}>
-              Mô tả
-            </label>
-            <textarea
-              id="project-task-description"
-              value={description}
-              rows={3}
-              maxLength={2000}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Cần làm gì, xong thì trông như thế nào"
-              className={fieldClass}
-            />
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label htmlFor="project-task-assignee" className={labelClass}>
-                Người nhận
-              </label>
-              <select
-                id="project-task-assignee"
-                value={assigneeId}
-                onChange={(event) => setAssigneeId(event.target.value)}
-                className={fieldClass}
-              >
-                <option value="">Chọn thành viên</option>
-                {candidates.map((member) => (
-                  <option key={member.userId} value={member.userId}>
-                    {memberLabel(member)}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="project-task-deadline" className={labelClass}>
-                Hạn
-              </label>
-              <DateField
-                id="project-task-deadline"
-                value={deadline}
-                onChange={setDeadline}
-                label="Hạn"
-                title="Chọn ngày hạn"
-                required
-                allow="future"
-                min={todayIso()}
-              />
-            </div>
-          </div>
-
-          {isLate ? (
-            <p className="text-[12.5px] text-[hsl(var(--task-important))]">
-              Hạn này sau ngày kết thúc dự kiến ({project.targetEndDate}). Dự án chưa đóng được khi còn việc như vậy.
-            </p>
-          ) : null}
-
-          {notice !== null ? (
-            <p role="alert" className="text-[13.5px] text-destructive">
-              {notice}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Để sau
-          </Button>
-          <Button type="button" disabled={isWorking} onClick={() => void handleSubmit()}>
-            {isWorking ? "Đang giao…" : "Giao việc"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+        ),
+      }}
+      onCreateMine={async (values) => {
+        if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+        await send(user.id, values, true);
+      }}
+      onPropose={(assigneeId, values) => send(assigneeId, values, false)}
+    />
   );
 }

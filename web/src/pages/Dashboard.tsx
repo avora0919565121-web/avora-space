@@ -75,7 +75,9 @@ function reminderWhen(iso: string, today: string): string {
 function attentionMeta(item: AttentionItem, today: string): { text: string; tone: string } {
   if (item.kind === "event") {
     const where = item.task.location === null ? "" : ` · ${item.task.location}`;
-    return { text: `Có mặt lúc ${clock(item.task.startAt ?? "")}${where}`, tone: "text-foreground" };
+    // ADR-030: an Event is any task with a start; "Có mặt lúc" only when presence is asked for.
+    const lead = item.task.requiresPresence ? "Có mặt lúc" : "Lúc";
+    return { text: `${lead} ${clock(item.task.startAt ?? "")}${where}`, tone: "text-foreground" };
   }
   if (item.kind === "overdue")
     return { text: deadlineLabel(item.task.deadline, today) ?? "Quá hạn", tone: "text-task-overdue" };

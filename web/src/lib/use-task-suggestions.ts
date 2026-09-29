@@ -11,7 +11,9 @@ import {
   suggestionKeys,
   upsertSuggestion,
   withdrawTaskSuggestion,
+  NO_EVENT,
   type SuggestionEditDraft,
+  type SuggestionEvent,
   type SuggestionTarget,
   type TaskSuggestion,
 } from "@/lib/task-suggestions";
@@ -58,10 +60,12 @@ export function useSuggestionActions() {
     mutationFn: ({
       target,
       draft,
+      event,
     }: {
       target: SuggestionTarget;
       draft: { title: string; description: string; deadline: string; deadlineTime: string | null };
-    }) => createTaskSuggestion(target, draft),
+      event?: SuggestionEvent;
+    }) => createTaskSuggestion(target, draft, event ?? NO_EVENT),
     /**
      * Work someone took on themselves comes back already accepted, with its task alongside.
      *
@@ -85,6 +89,7 @@ export function useSuggestionActions() {
   const accept = useMutation({
     mutationFn: (suggestionId: string) => acceptTaskSuggestion(suggestionId),
     onSuccess: (row, suggestionId) => {
+      void queryClient.invalidateQueries({ queryKey: suggestionKeys.travelFlags });
       const task: TaskItem = taskFromRealtimeRow(row);
       const cachedTasks = queryClient.getQueryData<TaskItem[]>(taskKeys.list);
       if (cachedTasks) queryClient.setQueryData<TaskItem[]>(taskKeys.list, upsertTask(cachedTasks, task));

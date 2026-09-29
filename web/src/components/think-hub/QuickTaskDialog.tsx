@@ -1,30 +1,27 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { toast } from "sonner";
+import { useMemo } from "react";
 
-import { DateField } from "@/components/calendar/DateField";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { useSubmitGuard } from "@/hooks/use-submit-guard";
+import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { useAuth } from "@/lib/auth";
 import { fetchGroupMembers, groupKeys } from "@/lib/groups";
-import { memberLabel } from "@/lib/member-search";
-import { createProjectTask, projectKeys, type Project } from "@/lib/projects";
+import type { Project } from "@/lib/projects";
+import { buildContextSnapshot } from "@/lib/task-context";
+import { departureTimes, type ComposerPlace } from "@/lib/task-composer";
 import { browserTimezone } from "@/lib/task-schedule";
-import { taskKeys, todayIso } from "@/lib/tasks";
+import { taskKeys, todayIso, updatePersonalTaskSchedule } from "@/lib/tasks";
 import { createRecordTask, thinkHubKeys, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
-
-const fieldClass =
-  "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-primary";
-const labelClass = "text-[13px] font-medium text-muted-foreground";
+import { useConversations } from "@/lib/use-conversations";
+import { useComposerActions, useTaskRecipientIds, type ComposerValues } from "@/lib/use-task-composer";
 
 /**
- * "Tạo tác vụ" from one Hạng mục: title, a line of description, a deadline, and — in a group —
- * who takes it. The task is filed under this Hạng mục automatically.
+ * Tạo nhiệm vụ from one Hạng mục — the one task form (ADR-030), Nguồn "Từ Hạng mục … · Bảng …".
  *
- * Where it goes follows the table: a Diary table makes a personal task; a 1-1 table asks the
- * other person; a group or project table asks the member chosen. Shared tasks wait for the
- * assignee to confirm in the conversation, exactly as if they had been raised there.
+ * Where it goes follows the Bảng:
+ * - a private Bảng: only "Cho tôi" (personal task filed under the Hạng mục);
+ * - a 1-1 Bảng: "Cho tôi" is a personal task the other person does not see; the other person
+ *   gets a suggestion, filed under the Hạng mục once they agree;
+ * - a group / project Bảng: "Cho tôi" is accepted at once, others get suggestions — all filed
+ *   under the Hạng mục (and the project) when accepted.
  */
 export function QuickTaskDialog({
   record,
@@ -38,196 +35,115 @@ export function QuickTaskDialog({
   table: ThinkTable | undefined;
   /** Set when the table belongs to a project. */
   project: Project | undefined;
-  /** For a table shared in a conversation: which kind, so the right assignee field shows. */
   conversationKind: "direct" | "group" | null;
   conversationName: string;
   onOpenChange: (open: boolean) => void;
 }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
-  const { isSubmitting, guard } = useSubmitGuard();
-  const [title, setTitle] = useState<string>("");
-  const [description, setDescription] = useState<string>("");
-  const [deadline, setDeadline] = useState<string>("");
-  const [assigneeId, setAssigneeId] = useState<string>("");
-  const [notice, setNotice] = useState<string | null>(null);
+  const { data: conversations } = useConversations();
+  const { proposeOne } = useComposerActions();
 
-  const groupConversationId: string | null =
-    project !== undefined ? project.conversationId : conversationKind === "group" ? (table?.conversationId ?? null) : null;
+  const conversationId: string | null =
+    project !== undefined ? project.conversationId : (table?.conversationId ?? null);
+  const place: ComposerPlace =
+    project !== undefined || conversationKind === "group" ? "group" : conversationKind === "direct" ? "direct" : "personal";
+  const peerId =
+    place === "direct" ? (conversations?.find((item) => item.conversationId === conversationId)?.peerId ?? null) : null;
 
   const membersQuery = useQuery({
-    queryKey: groupKeys.members(groupConversationId ?? ""),
-    queryFn: () => fetchGroupMembers(groupConversationId as string),
-    enabled: record !== null && groupConversationId !== null,
+    queryKey: groupKeys.members(conversationId ?? ""),
+    queryFn: () => fetchGroupMembers(conversationId as string),
+    enabled: record !== null && place === "group" && conversationId !== null,
   });
-  const candidates = useMemo(
-    () => (membersQuery.data ?? []).filter((member) => member.userId !== user?.id),
-    [membersQuery.data, user?.id],
-  );
+  const recipientIds = useTaskRecipientIds(record !== null && place === "group" ? conversationId : null);
+  const reachable = useMemo(() => {
+    const allowed = new Set<string>(recipientIds.data ?? []);
+    return (membersQuery.data ?? []).filter((member) => allowed.has(member.userId));
+  }, [membersQuery.data, recipientIds.data]);
 
-  useEffect(() => {
-    if (record === null) return;
-    setTitle(record.title);
-    setDescription("");
-    setDeadline(record.nextActionDate !== null && record.nextActionDate >= todayIso() ? record.nextActionDate : "");
-    setAssigneeId("");
-    setNotice(null);
-  }, [record]);
+  if (record === null || table === undefined) return null;
 
-  const needsAssignee = groupConversationId !== null;
-  const where =
-    project !== undefined
-      ? `Việc được gửi vào nhóm dự án ${project.title} để người nhận xác nhận.`
-      : conversationKind === "group"
-        ? `Việc được gửi vào ${conversationName} để người nhận xác nhận.`
-        : conversationKind === "direct"
-          ? `Việc được gửi cho ${conversationName} để xác nhận.`
-          : "Việc riêng của bạn, hiện ở Nhiệm vụ.";
+  const refresh = (): void => {
+    void queryClient.invalidateQueries({ queryKey: thinkHubKeys.recordTasks });
+    void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+  };
 
-  const submit = useCallback(async (): Promise<void> => {
-    if (record === null || table === undefined) return;
-    if (needsAssignee && assigneeId.length === 0) {
-      setNotice("Hãy chọn người nhận việc.");
-      return;
-    }
-    setNotice(null);
-    await guard(async () => {
-      try {
-        if (project !== undefined) {
-          await createProjectTask({
-            project,
-            groupName: conversationName,
-            recordId: record.id,
-            assigneeId,
-            title,
-            description,
-            deadline,
-          });
-          void queryClient.invalidateQueries({ queryKey: projectKeys.all });
-        } else {
-          await createRecordTask({
-            recordId: record.id,
-            title,
-            description,
-            deadline,
-            assigneeId: needsAssignee ? assigneeId : null,
-            deadlineTz: browserTimezone(),
-          });
-          void queryClient.invalidateQueries({ queryKey: thinkHubKeys.recordTasks });
-        }
-        void queryClient.invalidateQueries({ queryKey: taskKeys.all });
-        toast.success(needsAssignee || conversationKind === "direct" ? "Đã giao việc, chờ người nhận xác nhận." : "Đã tạo việc.");
-        onOpenChange(false);
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Không tạo được tác vụ.");
-      }
+  /**
+   * The existing Hạng mục route: personal on a private Bảng, or "Cho tôi" on a 1-1 Bảng. That route
+   * carries no Sự kiện, so one is written right after — the task is the author's own, and personal.
+   */
+  const createOnRecord = async (values: ComposerValues): Promise<void> => {
+    const taskId = await createRecordTask({
+      recordId: record.id,
+      title: values.title,
+      description: values.description,
+      deadline: values.deadline,
+      deadlineTime: values.deadlineTime,
+      assigneeId: place === "direct" ? (user?.id ?? null) : null,
+      deadlineTz: browserTimezone(),
     });
-  }, [
-    record,
-    table,
-    needsAssignee,
-    assigneeId,
-    guard,
-    project,
-    conversationName,
-    title,
-    description,
-    deadline,
-    queryClient,
-    conversationKind,
-    onOpenChange,
-  ]);
+    if (values.startAt !== null) {
+      const presence = values.requiresPresence;
+      const times = presence ? departureTimes(values.startAt, values.travelMinutes, values.reminderOffsetMinutes) : null;
+      await updatePersonalTaskSchedule(taskId, {
+        startAt: values.startAt,
+        endAt: values.endAt,
+        location: values.location,
+        requiresPresence: presence,
+        travelDurationMinutes: presence ? values.travelMinutes : null,
+        departureReminderAt: times === null ? null : times.remindAt.toISOString(),
+      });
+    }
+    refresh();
+  };
+
+  const suggest = async (assigneeId: string, values: ComposerValues, isSelf: boolean): Promise<void> => {
+    if (conversationId === null) throw new Error("Bảng này không thuộc cuộc trò chuyện nào.");
+    await proposeOne(
+      {
+        conversationId,
+        assigneeId,
+        messageId: null,
+        contextSnapshot: buildContextSnapshot({
+          conversationType: place === "group" ? "group" : "direct",
+          conversationId,
+          conversationName,
+          message: null,
+          senderName: "",
+          userResponse: `Từ Hạng mục: ${record.title}`,
+        }),
+        recordId: record.id,
+        projectId: project?.id ?? null,
+      },
+      values,
+      isSelf,
+    );
+    refresh();
+  };
 
   return (
-    <Dialog open={record !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogTitle className="text-[19px] font-semibold tracking-tight">Tạo tác vụ</DialogTitle>
-        <DialogDescription className="text-[14.5px] text-muted-foreground">
-          Gắn vào Hạng mục “{record?.title ?? ""}”. {where}
-        </DialogDescription>
-
-        <div className="mt-5 space-y-4">
-          <div>
-            <label htmlFor="quick-task-title" className={labelClass}>
-              Việc cần làm
-            </label>
-            <input
-              id="quick-task-title"
-              value={title}
-              autoFocus
-              maxLength={200}
-              onChange={(event) => setTitle(event.target.value)}
-              className={fieldClass}
-            />
-          </div>
-          <div>
-            <label htmlFor="quick-task-description" className={labelClass}>
-              Mô tả
-            </label>
-            <textarea
-              id="quick-task-description"
-              value={description}
-              rows={2}
-              maxLength={2000}
-              onChange={(event) => setDescription(event.target.value)}
-              placeholder="Cần làm gì, xong thì trông như thế nào"
-              className={fieldClass}
-            />
-          </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            {needsAssignee ? (
-              <div>
-                <label htmlFor="quick-task-assignee" className={labelClass}>
-                  Người nhận
-                </label>
-                <select
-                  id="quick-task-assignee"
-                  value={assigneeId}
-                  onChange={(event) => setAssigneeId(event.target.value)}
-                  className={fieldClass}
-                >
-                  <option value="">Chọn thành viên</option>
-                  {candidates.map((member) => (
-                    <option key={member.userId} value={member.userId}>
-                      {memberLabel(member)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-            ) : null}
-            <div>
-              <label htmlFor="quick-task-deadline" className={labelClass}>
-                Hạn
-              </label>
-              <DateField
-                id="quick-task-deadline"
-                value={deadline}
-                onChange={setDeadline}
-                label="Hạn"
-                title="Chọn ngày hạn"
-                required
-                allow="future"
-                min={todayIso()}
-              />
-            </div>
-          </div>
-
-          {notice !== null ? (
-            <p role="alert" className="text-[13.5px] text-destructive">
-              {notice}
-            </p>
-          ) : null}
-        </div>
-
-        <div className="mt-2 flex justify-end gap-2">
-          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Để sau
-          </Button>
-          <Button type="button" disabled={isSubmitting} onClick={() => void submit()}>
-            {isSubmitting ? "Đang tạo…" : "Tạo tác vụ"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    <TaskComposer
+      open
+      onOpenChange={onOpenChange}
+      place={place}
+      source={{ label: `Từ Hạng mục ${record.title} · Bảng ${table.name}` }}
+      peerId={peerId}
+      peerName={conversationName}
+      members={reachable}
+      initial={{
+        title: record.title,
+        deadline: record.nextActionDate !== null && record.nextActionDate >= todayIso() ? record.nextActionDate : "",
+      }}
+      onCreateMine={async (values) => {
+        if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+        if (place === "group") {
+          await suggest(user.id, values, true);
+          return;
+        }
+        await createOnRecord(values);
+      }}
+      onPropose={(assigneeId, values) => suggest(assigneeId, values, false)}
+    />
   );
 }

@@ -78,7 +78,7 @@ export function MindmapView({ table, tables, records, taskCountByRecord, onOpenR
                 {count > 0 ? (
                   <span
                     className="tabular inline-flex shrink-0 items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground"
-                    title={`${count} tác vụ gắn với Hạng mục này`}
+                    title={`${count} nhiệm vụ gắn với Hạng mục này`}
                   >
                     <ListChecks className="h-3 w-3" strokeWidth={2} aria-hidden="true" />
                     {count}

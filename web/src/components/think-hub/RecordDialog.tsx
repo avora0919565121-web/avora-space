@@ -47,7 +47,7 @@ type RecordDialogProps = {
   canGrowSubTable?: boolean;
   onCreateSubTable?: (input: { name: string; purpose: string }) => Promise<void>;
   onOpenTable?: (tableId: string) => void;
-  /** "Tạo tác vụ" for an existing Hạng mục; absent when the table is read-only. */
+  /** "Tạo nhiệm vụ" for an existing Hạng mục; absent when the table is read-only. */
   onQuickTask?: () => void;
   /** The tasks hanging under this Hạng mục, read-only; each row carries `data-record-task-id` so a link can light it. */
   tasks?: readonly TaskItem[];
@@ -565,7 +565,7 @@ export function RecordDialog({
               className="press inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3.5 py-2 text-[13.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
             >
               <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              Tạo tác vụ từ Hạng mục này
+              Tạo nhiệm vụ từ Hạng mục này
             </button>
           </div>
         ) : null}

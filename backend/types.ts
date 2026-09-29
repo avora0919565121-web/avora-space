@@ -1,7 +1,6 @@
 /* eslint-disable */
 // AUTO-GENERATED — DO NOT EDIT
 // Run migrations to regenerate.
-
 export type Json =
   | string
   | number
@@ -2032,6 +2031,12 @@ export type Database = {
           proposed_deadline_time: string | null
           proposed_deadline_tz: string
           proposed_description: string
+          proposed_end_at: string | null
+          proposed_location: string | null
+          proposed_project_id: string | null
+          proposed_record_id: string | null
+          proposed_requires_presence: boolean
+          proposed_start_at: string | null
           proposed_title: string
           proposer_id: string
           resolved_at: string | null
@@ -2050,6 +2055,12 @@ export type Database = {
           proposed_deadline_time?: string | null
           proposed_deadline_tz?: string
           proposed_description?: string
+          proposed_end_at?: string | null
+          proposed_location?: string | null
+          proposed_project_id?: string | null
+          proposed_record_id?: string | null
+          proposed_requires_presence?: boolean
+          proposed_start_at?: string | null
           proposed_title: string
           proposer_id: string
           resolved_at?: string | null
@@ -2068,6 +2079,12 @@ export type Database = {
           proposed_deadline_time?: string | null
           proposed_deadline_tz?: string
           proposed_description?: string
+          proposed_end_at?: string | null
+          proposed_location?: string | null
+          proposed_project_id?: string | null
+          proposed_record_id?: string | null
+          proposed_requires_presence?: boolean
+          proposed_start_at?: string | null
           proposed_title?: string
           proposer_id?: string
           resolved_at?: string | null
@@ -2094,6 +2111,55 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_suggestions_proposed_project_id_fkey"
+            columns: ["proposed_project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_suggestions_proposed_record_id_fkey"
+            columns: ["proposed_record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_travel_plans: {
+        Row: {
+          departure_reminder_at: string | null
+          reminder_offset_minutes: number
+          task_id: string
+          travel_duration_minutes: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          departure_reminder_at?: string | null
+          reminder_offset_minutes?: number
+          task_id: string
+          travel_duration_minutes: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          departure_reminder_at?: string | null
+          reminder_offset_minutes?: number
+          task_id?: string
+          travel_duration_minutes?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_travel_plans_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: true
+            referencedRelation: "tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -3679,7 +3745,13 @@ export type Database = {
           p_deadline_time?: string
           p_deadline_tz?: string
           p_description: string
+          p_end_at?: string
+          p_location?: string
           p_message_id?: string
+          p_project_id?: string
+          p_record_id?: string
+          p_requires_presence?: boolean
+          p_start_at?: string
           p_suggestion_id?: string
           p_title: string
         }
@@ -3695,6 +3767,12 @@ export type Database = {
           proposed_deadline_time: string | null
           proposed_deadline_tz: string
           proposed_description: string
+          proposed_end_at: string | null
+          proposed_location: string | null
+          proposed_project_id: string | null
+          proposed_record_id: string | null
+          proposed_requires_presence: boolean
+          proposed_start_at: string | null
           proposed_title: string
           proposer_id: string
           resolved_at: string | null
@@ -4104,6 +4182,10 @@ export type Database = {
           p_deadline_time?: string
           p_deadline_tz?: string
           p_description: string
+          p_end_at?: string
+          p_location?: string
+          p_requires_presence?: boolean
+          p_start_at?: string
           p_suggestion_id: string
           p_title: string
         }
@@ -4119,6 +4201,12 @@ export type Database = {
           proposed_deadline_time: string | null
           proposed_deadline_tz: string
           proposed_description: string
+          proposed_end_at: string | null
+          proposed_location: string | null
+          proposed_project_id: string | null
+          proposed_record_id: string | null
+          proposed_requires_presence: boolean
+          proposed_start_at: string | null
           proposed_title: string
           proposer_id: string
           resolved_at: string | null
@@ -5312,6 +5400,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      set_task_travel: {
+        Args: {
+          p_reminder_offset_minutes?: number
+          p_task_id: string
+          p_travel_duration_minutes: number
+        }
+        Returns: boolean
+      }
       set_think_hub_column_hidden: {
         Args: { p_column_id: string; p_hidden: boolean; p_table_id: string }
         Returns: {
@@ -5494,6 +5590,12 @@ export type Database = {
           proposed_deadline_time: string | null
           proposed_deadline_tz: string
           proposed_description: string
+          proposed_end_at: string | null
+          proposed_location: string | null
+          proposed_project_id: string | null
+          proposed_record_id: string | null
+          proposed_requires_presence: boolean
+          proposed_start_at: string | null
           proposed_title: string
           proposer_id: string
           resolved_at: string | null
@@ -5543,9 +5645,20 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: string[]
       }
+      suggestion_travel_flags: {
+        Args: never
+        Returns: {
+          suggestion_id: string
+          travel_arranged: boolean
+        }[]
+      }
       task_deadline_instant: {
         Args: { p_date: string; p_time: string; p_tz: string }
         Returns: string
+      }
+      task_recipient_ids: {
+        Args: { p_conversation_id: string }
+        Returns: string[]
       }
       transfer_group_ownership: {
         Args: { new_owner_user_id: string; target_conversation_id: string }
@@ -5770,6 +5883,7 @@ export type Database = {
           p_end_at: string
           p_estimated_duration_minutes: number
           p_location: string
+          p_reminder_offset_minutes?: number
           p_requires_presence: boolean
           p_start_at: string
           p_task_id: string
@@ -5874,6 +5988,12 @@ export type Database = {
           proposed_deadline_time: string | null
           proposed_deadline_tz: string
           proposed_description: string
+          proposed_end_at: string | null
+          proposed_location: string | null
+          proposed_project_id: string | null
+          proposed_record_id: string | null
+          proposed_requires_presence: boolean
+          proposed_start_at: string | null
           proposed_title: string
           proposer_id: string
           resolved_at: string | null

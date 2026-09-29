@@ -294,8 +294,19 @@ export function toVietnameseTaskError(code: string | undefined, message: string)
     return "Không lưu được ngữ cảnh cuộc trò chuyện. Thử lại nhé.";
   if (normalized.includes("avora_task_not_awaiting_review"))
     return "Nhiệm vụ chưa được báo xong nên chưa có gì để duyệt.";
+  if (normalized.includes("avora_task_owned_by_assignee"))
+    return "Việc này đã thuộc về người nhận — chỉ họ chỉnh được. Muốn đổi, hãy nhắn hoặc gửi gợi ý mới.";
   if (normalized.includes("avora_task_not_party"))
     return "Chỉ người giao và người nhận nhiệm vụ này mới sửa được.";
+  if (normalized.includes("avora_event_needs_start")) return "Sự kiện cần giờ bắt đầu.";
+  if (normalized.includes("avora_event_end_before_start")) return "Giờ kết thúc phải sau giờ bắt đầu.";
+  if (normalized.includes("avora_task_location_max_len")) return "Địa điểm tối đa 300 ký tự.";
+  if (normalized.includes("avora_verification_text_only"))
+    return "Chỉ gửi được chữ khi chưa kết bạn.";
+  if (normalized.includes("avora_not_connected")) return "Hai bạn không còn kết nối.";
+  if (normalized.includes("avora_think_hub_record_foreign"))
+    return "Hạng mục này không thuộc cuộc trò chuyện hoặc dự án này.";
+  if (normalized.includes("avora_project_missing")) return "Không tìm thấy dự án này.";
   if (normalized.includes("avora_task_edit_closed"))
     return "Nhiệm vụ đã báo xong nên không sửa được nữa.";
   if (
@@ -330,13 +341,12 @@ export function validateTaskTitle(raw: string): TitleValidation {
 }
 
 /**
- * A task is what someone needs, plus when they need it. Both are required, so the description
- * is validated exactly as strictly as the title — an empty one is rejected, not silently stored.
+ * Ghi chú (the description) is optional since AVORA-39 Phần 3 (ADR-030): a task needs a name and a
+ * deadline, and the note is whatever the person wants to remember. Only its length is bounded;
+ * an empty note comes back as "" (the column stays NOT NULL).
  */
 export function validateTaskDescription(raw: string): { description: string | null; error: string | null } {
   const trimmed = raw.trim();
-  if (trimmed.length === 0)
-    return { description: null, error: "Mô tả cụ thể là bắt buộc: bạn cần gì, kết quả dự kiến là gì?" };
   if (trimmed.length > TASK_DESCRIPTION_MAX_LEN)
     return {
       description: null,
@@ -398,7 +408,7 @@ export function validateTaskDraft(
   const title = validateTaskTitle(draft.title);
   if (!title.title) return { value: null, error: title.error };
   const description = validateTaskDescription(draft.description);
-  if (!description.description) return { value: null, error: description.error };
+  if (description.description === null) return { value: null, error: description.error };
   const deadline = validateTaskDeadline(draft.deadline, today);
   if (!deadline.deadline) return { value: null, error: deadline.error };
   const time = validateDeadlineTime(draft.deadlineTime ?? "");
@@ -426,11 +436,11 @@ export function validateTaskDraft(
 }
 
 /**
- * Whether anything has been typed in all three required fields. Used only to keep the submit
- * button dark until the form can succeed — the real check is `validateTaskDraft`.
+ * Whether both required fields — name and deadline — have something in them. Used only to keep
+ * the submit button dark until the form can succeed; the real check is `validateTaskDraft`.
  */
 export function isTaskDraftComplete(draft: TaskDraft): boolean {
-  return draft.title.trim() !== "" && draft.description.trim() !== "" && draft.deadline.trim() !== "";
+  return draft.title.trim() !== "" && draft.deadline.trim() !== "";
 }
 
 /** Only the assignee — never the creator, never a bystander — can accept a pending shared task. */
@@ -729,7 +739,7 @@ export function validateTaskEdit(
   const title = validateTaskTitle(edit.title);
   if (!title.title) return { value: null, error: title.error };
   const description = validateTaskDescription(edit.description);
-  if (!description.description) return { value: null, error: description.error };
+  if (description.description === null) return { value: null, error: description.error };
   const deadline = validateTaskDeadline(edit.deadline, today);
   if (!deadline.deadline) return { value: null, error: deadline.error };
   const time = validateDeadlineTime(edit.deadlineTime ?? "");
@@ -1607,13 +1617,22 @@ export async function createPersonalTask(
    * "Xem trong ngữ cảnh" reads to find its way back.
    */
   contextSnapshot: TaskContextSnapshot | null = null,
+  /** Sự kiện / Hiện diện written in the same insert (TaskComposer, ADR-030). */
+  schedule: TaskSchedulePatch = {},
 ): Promise<TaskItem> {
   const clean = validateTaskDraft(draft, today);
   if (!clean.value) throw new Error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
+  const presence = schedule.requiresPresence ?? false;
 
   const { data, error } = await supabase
     .from("tasks")
     .insert({
+      start_at: schedule.startAt ?? null,
+      end_at: schedule.endAt ?? null,
+      location: schedule.location ?? null,
+      requires_presence: presence,
+      travel_duration_minutes: presence ? (schedule.travelDurationMinutes ?? null) : null,
+      departure_reminder_at: presence ? (schedule.departureReminderAt ?? null) : null,
       type: "personal",
       creator_id: userId,
       title: clean.value.title,
@@ -1634,7 +1653,11 @@ export async function createPersonalTask(
     .select(TASK_COLUMNS)
     .single();
 
-  if (error) throw fail(error.code, error.message);
+  if (error) {
+    const friendly = scheduleErrorMessage(error.message);
+    if (friendly !== null) throw new Error(friendly);
+    throw fail(error.code, error.message);
+  }
   return toTaskItem(data as TaskRow);
 }
 
@@ -1918,7 +1941,15 @@ export type TaskSchedulePatch = {
 
 function scheduleErrorMessage(message: string): string | null {
   const normalized = message.toLowerCase();
-  if (normalized.includes("tasks_event_needs_start") || normalized.includes("avora_event_needs_start")) return "Sự kiện cần giờ bắt đầu.";
+  if (
+    normalized.includes("tasks_event_needs_start") ||
+    normalized.includes("tasks_presence_needs_start") ||
+    normalized.includes("avora_event_needs_start")
+  )
+    return "Sự kiện cần giờ bắt đầu.";
+  if (normalized.includes("tasks_travel_needs_presence")) return "Thời gian đi chỉ dùng khi bạn cần có mặt.";
+  if (normalized.includes("avora_task_owned_by_assignee"))
+    return "Việc này đã thuộc về người nhận — chỉ họ chỉnh được.";
   if (normalized.includes("tasks_event_end_after_start")) return "Giờ kết thúc phải sau giờ bắt đầu.";
   if (normalized.includes("tasks_departure_before_start")) return "Giờ nhắc lên đường phải trước giờ bắt đầu.";
   if (normalized.includes("tasks_estimated_duration_range")) return "Thời lượng phải từ 1 phút đến 7 ngày.";
@@ -1944,6 +1975,8 @@ export async function updateSharedTaskSchedule(
     endAt: string | null;
     location: string | null;
     travelDurationMinutes: number | null;
+    /** Minutes before leaving to be reminded (0 = "Đúng giờ đi"). */
+    reminderOffsetMinutes?: number;
   },
 ): Promise<TaskItem> {
   // The generated types mark every argument as non-null; null is how "not set" is said here.
@@ -1955,6 +1988,7 @@ export async function updateSharedTaskSchedule(
     p_end_at: schedule.endAt,
     p_location: schedule.location,
     p_travel_duration_minutes: schedule.travelDurationMinutes,
+    p_reminder_offset_minutes: schedule.reminderOffsetMinutes ?? 0,
   } as unknown as Database["public"]["Functions"]["update_shared_task_schedule"]["Args"];
   const { data, error } = await supabase.rpc("update_shared_task_schedule", args);
   if (error) {

@@ -28,8 +28,8 @@ function Empty({ text }: { text: string }) {
 
 function TaskLine({ task, today, onOpen, trailing }: { task: TaskItem; today: string; onOpen: (task: TaskItem) => void; trailing?: string }) {
   const meta =
-    task.requiresPresence && task.startAt !== null
-      ? `${dayLabel(localDayOf(task.startAt), today)} · ${clock(task.startAt)}${task.location !== null ? ` · ${task.location}` : ""}`
+    task.startAt !== null
+      ? `${dayLabel(localDayOf(task.startAt), today)} · ${task.requiresPresence ? "Có mặt lúc" : "Lúc"} ${clock(task.startAt)}${task.location !== null ? ` · ${task.location}` : ""}`
       : deadlineLabel(task.deadline, today) ?? "Không có hạn";
   return (
     <button type="button" onClick={() => onOpen(task)} className="press flex min-h-12 w-full items-center gap-3 border-t border-border px-4 py-2.5 text-left first:border-t-0 hover:bg-accent/30">

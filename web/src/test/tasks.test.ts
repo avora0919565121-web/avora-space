@@ -126,11 +126,11 @@ describe("a task needs a description and a deadline", () => {
     });
   });
 
-  it("refuses an empty or whitespace-only description, and says what is wanted", () => {
+  it("accepts an empty Ghi chú as \"\" — the note is optional since ADR-030", () => {
     for (const raw of ["", "   ", "\n"]) {
       const result = validateTaskDescription(raw);
-      expect(result.description).toBeNull();
-      expect(result.error).toContain("bắt buộc");
+      expect(result.description).toBe("");
+      expect(result.error).toBeNull();
     }
   });
 
@@ -185,14 +185,13 @@ describe("validateTaskDraft", () => {
 
   it("reports the first missing part in reading order, one thing at a time", () => {
     expect(validateTaskDraft({ ...good, title: "" }, TODAY).error).toContain("Tên nhiệm vụ");
-    expect(validateTaskDraft({ ...good, description: "" }, TODAY).error).toContain("Mô tả");
+    expect(validateTaskDraft({ ...good, description: "" }, TODAY).error).toBeNull();
     expect(validateTaskDraft({ ...good, deadline: "" }, TODAY).error).toContain("hạn");
   });
 
   it("never returns a value alongside an error", () => {
     for (const draft of [
       { ...good, title: "" },
-      { ...good, description: "" },
       { ...good, deadline: "" },
       { ...good, deadline: "2026-01-01" },
     ]) {
@@ -202,10 +201,10 @@ describe("validateTaskDraft", () => {
     }
   });
 
-  it("keeps the submit button inert until all three fields carry something", () => {
+  it("keeps the submit button inert until name and deadline carry something", () => {
     expect(isTaskDraftComplete(good)).toBe(true);
     expect(isTaskDraftComplete({ ...good, title: "  " })).toBe(false);
-    expect(isTaskDraftComplete({ ...good, description: "" })).toBe(false);
+    expect(isTaskDraftComplete({ ...good, description: "" })).toBe(true);
     expect(isTaskDraftComplete({ ...good, deadline: "" })).toBe(false);
   });
 });

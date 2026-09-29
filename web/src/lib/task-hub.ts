@@ -75,11 +75,11 @@ export function tasksForSection(
           isOpenTask(task, userId) &&
           (task.deadline === today ||
             (flags !== undefined && isOnMyDay(flags, task.id, today)) ||
-            (task.requiresPresence && task.startAt !== null && localDayOf(task.startAt) === today)),
+            (task.startAt !== null && localDayOf(task.startAt) === today)),
       );
     case "events":
       return live
-        .filter((task) => isOpenTask(task, userId) && task.requiresPresence && task.startAt !== null && localDayOf(task.startAt) >= today)
+        .filter((task) => isOpenTask(task, userId) && task.startAt !== null && localDayOf(task.startAt) >= today)
         .sort(byStart);
     case "overdue":
       return live.filter((task) => isOpenTask(task, userId) && taskPriority(task, today) === "overdue");
@@ -98,7 +98,7 @@ export function tasksForSection(
 
 /**
  * One entry on the calendar. The calendar owns no data: every entry is projected from a task.
- * An Event (`requiresPresence`) is a BLOCK spanning its start and end; any other task is a
+ * An Event (a task with `startAt`, ADR-030) is a BLOCK spanning its start and end; any other task is a
  * MARKER on its deadline day.
  */
 export type CalendarEntry =
@@ -133,7 +133,7 @@ export function calendarProjection(
   for (const task of kept(tasks, userId)) {
     const drawable = isOpenTask(task, userId) || (options.includeDone === true && task.status === "done");
     if (!drawable) continue;
-    if (task.requiresPresence && task.startAt !== null) {
+    if (task.startAt !== null) {
       const slot = index.get(localDayOf(task.startAt));
       if (slot !== undefined) slot.entries.push({ kind: "block", task, day: slot.day, startAt: task.startAt, endAt: task.endAt });
       continue;

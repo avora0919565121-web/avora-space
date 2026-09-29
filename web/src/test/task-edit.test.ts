@@ -161,7 +161,7 @@ describe("validateTaskEdit", () => {
 
   it("holds an edit to the same bar as a new task", () => {
     expect(validateTaskEdit({ ...good, title: "  " }, TODAY).error).toContain("Tên nhiệm vụ");
-    expect(validateTaskEdit({ ...good, description: "" }, TODAY).error).toContain("Mô tả");
+    expect(validateTaskEdit({ ...good, description: "" }, TODAY).error).toBeNull();
     expect(validateTaskEdit({ ...good, deadline: "" }, TODAY).error).toContain("hạn");
   });
 

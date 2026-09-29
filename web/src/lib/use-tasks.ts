@@ -43,6 +43,7 @@ import {
   type TaskEdit,
   type TaskItem,
   type TaskPlanPatch,
+  type TaskSchedulePatch,
 } from "@/lib/tasks";
 
 export { taskKeys };
@@ -146,12 +147,14 @@ export function useTaskActions() {
       userId,
       draft,
       contextSnapshot,
+      schedule,
     }: {
       userId: string;
       draft: TaskDraft;
       /** Set when the task was raised from a journal note rather than the Nhiệm vụ page. */
       contextSnapshot?: TaskContextSnapshot | null;
-    }) => createPersonalTask(userId, draft, todayIso(), contextSnapshot ?? null),
+      schedule?: TaskSchedulePatch;
+    }) => createPersonalTask(userId, draft, todayIso(), contextSnapshot ?? null, schedule ?? {}),
     onSuccess: (task, variables) => {
       applyOwnResult(task);
       void applyOwnFlags(task.id, variables.draft);

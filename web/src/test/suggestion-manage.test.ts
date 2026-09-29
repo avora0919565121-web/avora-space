@@ -15,6 +15,7 @@ import {
   toVietnameseSuggestionError,
   upsertSuggestion,
   withdrawTaskSuggestion,
+  NO_EVENT,
   type TaskSuggestion,
 } from "@/lib/task-suggestions";
 
@@ -24,6 +25,12 @@ const OTHER = "u-other";
 
 function makeSuggestion(overrides: Partial<TaskSuggestion> & { id: string }): TaskSuggestion {
   return {
+    startAt: null,
+    endAt: null,
+    location: null,
+    requiresPresence: false,
+    recordId: null,
+    projectId: null,
     conversationId: "conv-1",
     messageId: "msg-1",
     proposerId: ME,
@@ -165,6 +172,7 @@ describe("an edit sends only the wording", () => {
       description: "Mô tả mới",
       deadline: "2099-09-25",
       deadlineTime: "09:30",
+      event: NO_EVENT,
     });
     expect(rpcMock).toHaveBeenCalledWith(
       "edit_task_suggestion",
@@ -193,6 +201,7 @@ describe("an edit sends only the wording", () => {
         description: "D",
         deadline: "2099-09-25",
         deadlineTime: null,
+        event: NO_EVENT,
       }),
     ).rejects.toThrow("Gợi ý này đã được trả lời rồi.");
   });

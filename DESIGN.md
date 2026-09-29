@@ -1704,6 +1704,20 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - 2026-09-27 — How a "Sắp ra mắt" page is worded. Where the direction of a feature is settled, the description says
   what the person will get (the outcome), never field or schema names. Where it is still open (Avora AI), it keeps
   the short one-line description. Settled so far: Mật khẩu, Chứng chỉ, Tài liệu, Tài sản, Email.
+- 2026-09-29 — One task form (ADR-030, AVORA-39 Phần 3 · Nhóm E bản 2). Every place that creates or edits a task
+  opens the same `TaskComposer`, in the same order: Nguồn (only when there is one) → Giao cho → Tên việc → Hạn
+  (+ giờ) → three folded rows Sự kiện · Hiện diện · Ghi chú → Huỷ / send, pinned to the bottom. Desktop: a box
+  at most 540px wide and 90% tall that scrolls inside; phone: a bottom sheet. Only the Nguồn line and the Giao cho
+  choices change by place: personal places show only "Cho tôi"; a 1-1 shows Cho tôi · Cho {tên} · Cả hai; a group
+  or project shows Cho tôi · Cả nhóm · Chọn người (Tôi pinned first, accent-free search). Nothing is pre-chosen
+  except where "Cho tôi" is the only answer, and with nobody chosen there is no send button. Header, subline and
+  button always name what will happen (Nhiệm vụ mới / Tạo nhiệm vụ / Gợi ý nhiệm vụ / Tạo và gợi ý nhiệm vụ), a
+  summary line says exactly who receives, and "Còn thiếu: …" sits above a dimmed button. Required: Giao cho, Tên
+  việc, Hạn. Ghi chú is optional. "Cho tôi" in a 1-1 is a personal task the other person does not see.
+  Sự kiện is any task with a start; Hiện diện ("cần có mặt") needs a start and owns travel + departure reminder.
+  A recipient answers only Đồng ý or Từ chối; after Đồng ý the work is theirs ("Đã vào lịch của bạn · Chỉnh
+  theo cách của bạn" opens the same form, Giao cho locked), and the proposer reads "✓ {Tên} đã nhận vào lịch",
+  "đã đổi" and "đã sắp xếp đi lại" — never the travel minutes, steps or things to bring.
 
 ## Out of scope
 

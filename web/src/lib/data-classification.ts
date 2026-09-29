@@ -91,8 +91,15 @@ export const DATA_CLASSIFICATION = {
   task_suggestions: {
     level: "personal",
     domain: "personal",
-    columns: { proposed_description: "sensitive", context_snapshot: "sensitive" },
+    columns: {
+      proposed_description: "sensitive",
+      context_snapshot: "sensitive",
+      // AVORA-39 Phần 3 · D4: where the proposer wants the person to be.
+      proposed_location: "sensitive",
+    },
   },
+  // AVORA-39 Phần 3 · D3: the assignee's own travel for a task from a suggestion. Owner-only RLS.
+  task_travel_plans: { level: "personal", domain: "personal" },
   task_participants: { level: "internal", domain: "personal" },
   task_confirmations: { level: "internal", domain: "personal" },
   task_dependencies: { level: "internal", domain: "personal" },

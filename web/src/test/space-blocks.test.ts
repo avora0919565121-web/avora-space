@@ -152,9 +152,9 @@ describe("Cần chú ý hôm nay", () => {
     expect(items).toEqual([]);
   });
 
-  it("does not treat a plain task with a start time as an event", () => {
+  it("treats any task with a start today as an event, presence or not (ADR-030)", () => {
     const items = attentionItems([makeTask({ id: "t", startAt: startToday })], ME, TODAY);
-    expect(items).toEqual([]);
+    expect(items.map((item) => item.kind)).toEqual(["event"]);
   });
 });
 

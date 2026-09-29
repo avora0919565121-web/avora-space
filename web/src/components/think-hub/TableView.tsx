@@ -22,7 +22,7 @@ type TableViewProps = {
   onRenameColumn?: (column: ColumnDef) => void;
   onResizeColumn?: (column: ColumnDef, width: number | null) => void;
   onToggleColumnHidden?: (column: ColumnDef, hidden: boolean) => void;
-  /** "Tạo tác vụ" on a row — anyone who can add to the table may hand work out from it. */
+  /** "Tạo nhiệm vụ" on a row — anyone who can add to the table may hand work out from it. */
   onQuickTask?: (record: ThinkRecord) => void;
   /** How many tasks hang under each Hạng mục, for the small count beside its title. */
   taskCountByRecord?: ReadonlyMap<string, number>;
@@ -275,7 +275,7 @@ export function TableView({
                       {taskCount > 0 ? (
                         <span
                           className="tabular shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground"
-                          title={`${taskCount} tác vụ`}
+                          title={`${taskCount} nhiệm vụ`}
                         >
                           {taskCount} việc
                         </span>
@@ -330,12 +330,12 @@ export function TableView({
                           event.stopPropagation();
                           onQuickTask(record);
                         }}
-                        aria-label={`Tạo tác vụ từ "${record.title}"`}
-                        title="Tạo tác vụ"
+                        aria-label={`Tạo nhiệm vụ từ "${record.title}"`}
+                        title="Tạo nhiệm vụ"
                         className="press inline-flex min-h-9 items-center gap-1 rounded-md px-2 py-1.5 text-[12.5px] font-medium text-muted-foreground opacity-70 transition-colors hover:bg-accent/50 hover:text-foreground group-hover/row:opacity-100"
                       >
                         <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                        <span className="hidden lg:inline">Tạo tác vụ</span>
+                        <span className="hidden lg:inline">Tạo nhiệm vụ</span>
                       </button>
                     ) : null}
                   </td>

@@ -321,9 +321,9 @@ describe("validateTaskDraft with a schedule", () => {
     expect(result.value?.recurrencePattern).toBeNull();
   });
 
-  it("still enforces the three required fields", () => {
+  it("still enforces the two required fields; Ghi chú may be empty", () => {
     expect(validateTaskDraft({ title: "", description: "x", deadline: TODAY }, TODAY).value).toBeNull();
-    expect(validateTaskDraft({ title: "x", description: "", deadline: TODAY }, TODAY).value).toBeNull();
+    expect(validateTaskDraft({ title: "x", description: "", deadline: TODAY }, TODAY).value?.description).toBe("");
     expect(validateTaskDraft({ title: "x", description: "y", deadline: "" }, TODAY).value).toBeNull();
   });
 });

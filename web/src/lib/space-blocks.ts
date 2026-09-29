@@ -103,7 +103,8 @@ export function localDayOf(iso: string): string {
 /**
  * What needs attention today: late work first, then work due today, then today's events.
  *
- * An event is a task that asks you to be somewhere (`requiresPresence`) and starts today; it is
+ * An event is a task with a start time (`startAt`, ADR-030) that starts today — whether or not it
+ * asks you to be there in person (`requiresPresence`); it is
  * listed once, as an event, even if its deadline is also today — one row per thing to do.
  */
 export function attentionItems(
@@ -117,7 +118,7 @@ export function attentionItems(
 
   for (const task of tasks) {
     if (!isOpenTask(task, userId)) continue;
-    if (task.requiresPresence && task.startAt !== null && localDayOf(task.startAt) === today) {
+    if (task.startAt !== null && localDayOf(task.startAt) === today) {
       events.push({ task, kind: "event" });
       continue;
     }

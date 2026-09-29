@@ -134,7 +134,7 @@ export function MessageActionsMenu({
         {showTask ? (
           <DropdownMenuItem onSelect={() => onAction("task")}>
             <ListPlus className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Tạo task
+            Tạo nhiệm vụ
           </DropdownMenuItem>
         ) : null}
         {/*

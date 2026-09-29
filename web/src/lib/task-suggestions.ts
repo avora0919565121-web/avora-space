@@ -15,6 +15,9 @@ import { toVietnameseTaskError, type TaskDraft } from "@/lib/tasks";
 export const suggestionKeys = {
   all: ["task-suggestions"] as const,
   list: ["task-suggestions", "list"] as const,
+  travelFlags: ["task-suggestions", "travel-flags"] as const,
+  travelPlans: ["task-suggestions", "travel-plans"] as const,
+  recipients: (conversationId: string) => ["task-suggestions", "recipients", conversationId] as const,
 };
 
 /**
@@ -60,6 +63,16 @@ export type TaskSuggestion = {
   /** When it was answered, either way. Null exactly while it is still pending. */
   resolvedAt: string | null;
   createdAt: string;
+  /** Sự kiện (ADR-030): a start makes it an Event; end and place need one. */
+  startAt: string | null;
+  endAt: string | null;
+  /** A place or a link — one field, like `tasks.location`. */
+  location: string | null;
+  /** "Cần bạn có mặt". Travel time is never proposed: only the assignee knows it. */
+  requiresPresence: boolean;
+  /** Where the task is filed once accepted (Hạng mục / Dự án). */
+  recordId: string | null;
+  projectId: string | null;
 };
 
 type SuggestionRow = {
@@ -79,10 +92,16 @@ type SuggestionRow = {
   accepted_task_id: string | null;
   resolved_at: string | null;
   created_at: string;
+  proposed_start_at: string | null;
+  proposed_end_at: string | null;
+  proposed_location: string | null;
+  proposed_requires_presence: boolean | null;
+  proposed_record_id: string | null;
+  proposed_project_id: string | null;
 };
 
 const SUGGESTION_COLUMNS =
-  "id, conversation_id, message_id, proposer_id, assignee_id, proposed_title, proposed_description, proposed_deadline, proposed_deadline_time, proposed_deadline_tz, context_snapshot, status, skipped_silently, accepted_task_id, resolved_at, created_at";
+  "id, conversation_id, message_id, proposer_id, assignee_id, proposed_title, proposed_description, proposed_deadline, proposed_deadline_time, proposed_deadline_tz, context_snapshot, status, skipped_silently, accepted_task_id, resolved_at, created_at, proposed_start_at, proposed_end_at, proposed_location, proposed_requires_presence, proposed_record_id, proposed_project_id";
 
 function toStatus(raw: string): SuggestionStatus {
   if (
@@ -113,6 +132,12 @@ function toSuggestion(row: SuggestionRow): TaskSuggestion {
     acceptedTaskId: row.accepted_task_id,
     resolvedAt: row.resolved_at,
     createdAt: row.created_at,
+    startAt: row.proposed_start_at,
+    endAt: row.proposed_end_at,
+    location: row.proposed_location,
+    requiresPresence: row.proposed_requires_presence ?? false,
+    recordId: row.proposed_record_id,
+    projectId: row.proposed_project_id,
   };
 }
 
@@ -137,6 +162,12 @@ export function suggestionFromRealtimeRow(
     acceptedTaskId: row.accepted_task_id,
     resolvedAt: row.resolved_at === null ? null : toIsoTimestamp(row.resolved_at),
     createdAt: toIsoTimestamp(row.created_at),
+    startAt: row.proposed_start_at === null ? null : toIsoTimestamp(row.proposed_start_at),
+    endAt: row.proposed_end_at === null ? null : toIsoTimestamp(row.proposed_end_at),
+    location: row.proposed_location,
+    requiresPresence: row.proposed_requires_presence ?? false,
+    recordId: row.proposed_record_id,
+    projectId: row.proposed_project_id,
   };
 }
 
@@ -178,7 +209,20 @@ export type SuggestionTarget = {
   /** The message being answered, quoted on the suggestion. Null in an empty thread. */
   messageId: string | null;
   contextSnapshot: TaskContextSnapshot;
+  /** Filed under this Hạng mục / Dự án when accepted (VMT 29/09 mục 3). */
+  recordId?: string | null;
+  projectId?: string | null;
 };
+
+/** The Sự kiện / Hiện diện half a suggestion carries. Empty = a plain task. */
+export type SuggestionEvent = {
+  startAt: string | null;
+  endAt: string | null;
+  location: string | null;
+  requiresPresence: boolean;
+};
+
+export const NO_EVENT: SuggestionEvent = { startAt: null, endAt: null, location: null, requiresPresence: false };
 
 /**
  * Proposes work to someone. Writes nothing to `tasks` — that is the point of the split.
@@ -189,6 +233,7 @@ export type SuggestionTarget = {
 export async function createTaskSuggestion(
   target: SuggestionTarget,
   draft: { title: string; description: string; deadline: string; deadlineTime: string | null },
+  event: SuggestionEvent = NO_EVENT,
 ): Promise<TaskSuggestion> {
   const { data, error } = await supabase.rpc("create_task_suggestion", {
     p_conversation_id: target.conversationId,
@@ -201,7 +246,13 @@ export async function createTaskSuggestion(
     p_message_id: target.messageId,
     p_deadline_time: draft.deadlineTime,
     p_deadline_tz: browserTimezone(),
-  });
+    p_start_at: event.startAt,
+    p_end_at: event.endAt,
+    p_location: event.location,
+    p_requires_presence: event.requiresPresence,
+    p_record_id: target.recordId ?? null,
+    p_project_id: target.projectId ?? null,
+  } as unknown as Database["public"]["Functions"]["create_task_suggestion"]["Args"]);
 
   if (error) throw fail(error.code, error.message);
   return toSuggestion(data as unknown as SuggestionRow);
@@ -250,6 +301,7 @@ export type SuggestionEditDraft = {
   description: string;
   deadline: string;
   deadlineTime: string | null;
+  event: SuggestionEvent;
 };
 
 /**
@@ -270,9 +322,113 @@ export async function editTaskSuggestion(
     p_deadline: draft.deadline,
     p_deadline_time: draft.deadlineTime,
     p_deadline_tz: browserTimezone(),
-  });
+    p_start_at: draft.event.startAt,
+    p_end_at: draft.event.endAt,
+    p_location: draft.event.location,
+    p_requires_presence: draft.event.requiresPresence,
+  } as unknown as Database["public"]["Functions"]["edit_task_suggestion"]["Args"]);
   if (error) throw fail(error.code, error.message);
   return toSuggestion(data as unknown as SuggestionRow);
+}
+
+/**
+ * "Bạn đi mất bao lâu?" — the assignee's own travel for a task that came from a suggestion.
+ * Stored where only they can read it; the proposer only ever learns "đã sắp xếp đi lại".
+ * Null clears it.
+ */
+export async function setTaskTravel(
+  taskId: string,
+  travelMinutes: number | null,
+  reminderOffsetMinutes: number = 10,
+): Promise<void> {
+  const { error } = await supabase.rpc("set_task_travel", {
+    p_task_id: taskId,
+    p_travel_duration_minutes: travelMinutes,
+    p_reminder_offset_minutes: reminderOffsetMinutes,
+  } as unknown as Database["public"]["Functions"]["set_task_travel"]["Args"]);
+  if (error) throw fail(error.code, error.message);
+}
+
+/**
+ * Who "Cả nhóm" / "Chọn người" may reach in a room: live members, nobody blocked either way,
+ * the caller included. Decided by the server so a pick it would refuse never leaves the form.
+ */
+export async function fetchTaskRecipientIds(conversationId: string): Promise<string[]> {
+  const { data, error } = await supabase.rpc("task_recipient_ids", { p_conversation_id: conversationId });
+  if (error) throw fail(error.code, error.message);
+  return ((data ?? []) as unknown as string[]).filter((id) => typeof id === "string");
+}
+
+/** Tasks some suggestion was accepted into: from then on they belong to the assignee (D3). */
+export function ownedTaskIds(suggestions: readonly TaskSuggestion[]): Set<string> {
+  const ids = new Set<string>();
+  for (const entry of suggestions) {
+    if (entry.status === "accepted" && entry.acceptedTaskId !== null) ids.add(entry.acceptedTaskId);
+  }
+  return ids;
+}
+
+/** Accepted suggestions still worth a line in the chat: answered in the last few days. */
+export const RECENTLY_ACCEPTED_DAYS = 3;
+
+export function recentlyAcceptedInConversation(
+  suggestions: readonly TaskSuggestion[],
+  conversationId: string,
+  now: Date = new Date(),
+): TaskSuggestion[] {
+  const since = now.getTime() - RECENTLY_ACCEPTED_DAYS * 86_400_000;
+  return suggestions.filter(
+    (entry) =>
+      entry.conversationId === conversationId &&
+      entry.status === "accepted" &&
+      entry.acceptedTaskId !== null &&
+      entry.proposerId !== entry.assigneeId &&
+      entry.resolvedAt !== null &&
+      new Date(entry.resolvedAt).getTime() >= since,
+  );
+}
+
+/** Per accepted "Cần bạn có mặt" suggestion: has the assignee arranged travel? Never the minutes. */
+export async function fetchSuggestionTravelFlags(): Promise<Map<string, boolean>> {
+  const { data, error } = await supabase.rpc("suggestion_travel_flags");
+  if (error) throw fail(error.code, error.message);
+  const rows = (data ?? []) as { suggestion_id: string; travel_arranged: boolean }[];
+  return new Map(rows.map((row) => [row.suggestion_id, row.travel_arranged]));
+}
+
+/** The assignee's own travel plans (only theirs come back). */
+export type TravelPlan = { taskId: string; travelMinutes: number; reminderOffsetMinutes: number; departureReminderAt: string | null };
+
+export async function fetchMyTravelPlans(): Promise<TravelPlan[]> {
+  const { data, error } = await supabase
+    .from("task_travel_plans")
+    .select("task_id, travel_duration_minutes, reminder_offset_minutes, departure_reminder_at");
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => ({
+    taskId: row.task_id,
+    travelMinutes: row.travel_duration_minutes,
+    reminderOffsetMinutes: row.reminder_offset_minutes,
+    departureReminderAt: row.departure_reminder_at,
+  }));
+}
+
+/**
+ * Whether the task the assignee now owns moved away from what was proposed — the small "đã đổi"
+ * on the proposer's card. Only the Event half counts: that is what the proposer planned around.
+ */
+export function suggestionChanged(
+  suggestion: Pick<TaskSuggestion, "startAt" | "endAt" | "location" | "title" | "deadline">,
+  task: { startAt: string | null; endAt: string | null; location: string | null; title: string; deadline: string | null },
+): boolean {
+  const same = (a: string | null, b: string | null): boolean =>
+    a === null || b === null ? a === b : new Date(a).getTime() === new Date(b).getTime();
+  return (
+    !same(suggestion.startAt, task.startAt) ||
+    !same(suggestion.endAt, task.endAt) ||
+    (suggestion.location ?? null) !== (task.location ?? null) ||
+    suggestion.title !== task.title ||
+    suggestion.deadline !== task.deadline
+  );
 }
 
 /**
@@ -411,7 +567,14 @@ export function upsertSuggestion(
     current.status === incoming.status &&
     current.skippedSilently === incoming.skippedSilently &&
     current.acceptedTaskId === incoming.acceptedTaskId &&
-    current.title === incoming.title
+    current.title === incoming.title &&
+    current.description === incoming.description &&
+    current.deadline === incoming.deadline &&
+    current.deadlineTime === incoming.deadlineTime &&
+    current.startAt === incoming.startAt &&
+    current.endAt === incoming.endAt &&
+    current.location === incoming.location &&
+    current.requiresPresence === incoming.requiresPresence
   ) {
     return list;
   }

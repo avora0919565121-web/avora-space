@@ -858,6 +858,7 @@ export async function createRecordTask(input: {
   deadline: string;
   assigneeId: string | null;
   deadlineTz: string;
+  deadlineTime?: string | null;
 }): Promise<string> {
   const taskId = crypto.randomUUID();
   const { error } = await supabase.rpc("create_record_task", {
@@ -867,6 +868,7 @@ export async function createRecordTask(input: {
     p_description: input.description.trim(),
     p_deadline: input.deadline,
     p_assignee_id: input.assigneeId ?? undefined,
+    p_deadline_time: input.deadlineTime ?? undefined,
     p_deadline_tz: input.deadlineTz,
   });
   if (error) throw fail(error.code, error.message);

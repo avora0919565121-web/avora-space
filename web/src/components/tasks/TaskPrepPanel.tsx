@@ -26,8 +26,7 @@ import {
   useTaskParticipants,
 } from "@/lib/use-task-collab";
 import { cn } from "@/lib/utils";
-import { DateRangeField } from "@/components/calendar/DateRangeField";
-import { joinLocalDateTime, splitLocalDateTime } from "@/lib/date-field";
+import { eventSummary } from "@/lib/task-composer";
 
 const FIELD =
   "mt-1 w-full rounded-[8px] border border-input bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-muted-foreground";
@@ -59,151 +58,23 @@ function Heading({ title, note }: { title: string; note: string }) {
 }
 
 /**
- * Duration and, when it asks you to be present, the Event's when and where.
- *
- * Personal tasks write straight to their row; shared tasks go through the same party rule as
- * rewording (creator + assignee, while pending or confirmed), re-checked on the server.
+ * The schedule as one read-only block (ADR-030): Sự kiện, Hiện diện, duration. Editing happens in
+ * the one task form ("Sửa"), so there is no separate "Lưu lịch" any more. Empty blocks are hidden.
  */
-function ScheduleBlock({ task }: { task: TaskItem }) {
-  const shared = isSharedTask(task);
-  const queryClient = useQueryClient();
-  const [duration, setDuration] = useState<string>(task.estimatedDurationMinutes?.toString() ?? "");
-  const [isEvent, setIsEvent] = useState<boolean>(task.requiresPresence);
-  const [startAt, setStartAt] = useState<string>(toLocalInput(task.startAt));
-  const [endAt, setEndAt] = useState<string>(toLocalInput(task.endAt));
-  const [location, setLocation] = useState<string>(task.location ?? "");
-  const [travel, setTravel] = useState<string>(task.travelDurationMinutes?.toString() ?? "");
-  const [isSaving, setIsSaving] = useState<boolean>(false);
-
-  const save = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    const travelMinutes = parseDurationInput(travel);
-    const start = isEvent ? fromLocalInput(startAt) : null;
-    const patch: TaskSchedulePatch = {
-      estimatedDurationMinutes: parseDurationInput(duration),
-      requiresPresence: isEvent,
-      startAt: start,
-      endAt: isEvent ? fromLocalInput(endAt) : null,
-      location: isEvent && location.trim() !== "" ? location.trim() : null,
-      travelDurationMinutes: isEvent ? travelMinutes : null,
-      // Leave on time: the start minus the travel, only when both are known.
-      departureReminderAt:
-        isEvent && start !== null && travelMinutes !== null
-          ? new Date(new Date(start).getTime() - travelMinutes * 60_000).toISOString()
-          : null,
-    };
-    setIsSaving(true);
-    try {
-      if (shared) {
-        await updateSharedTaskSchedule(task.id, {
-          estimatedDurationMinutes: patch.estimatedDurationMinutes ?? null,
-          requiresPresence: patch.requiresPresence ?? false,
-          startAt: patch.startAt ?? null,
-          endAt: patch.endAt ?? null,
-          location: patch.location ?? null,
-          travelDurationMinutes: patch.travelDurationMinutes ?? null,
-        });
-      } else {
-        await updatePersonalTaskSchedule(task.id, patch);
-      }
-      await queryClient.invalidateQueries({ queryKey: taskKeys.all });
-      toast.success("Đã lưu lịch.");
-    } catch (error) {
-      showError(error);
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
-  return (
-    <form onSubmit={(event) => void save(event)} className="space-y-3 rounded-[10px] border border-border bg-card p-3">
-      <Heading
-        title="Thời lượng & lịch"
-        note={
-          shared
-            ? "Lịch chung của việc này — người giao và người nhận đều sửa được, hai bên cùng thấy."
-            : "Ước lượng việc mất bao lâu — tách hẳn khỏi hạn hoàn thành."
-        }
-      />
-      <div>
-        <label htmlFor="prep-duration" className="text-[12.5px] text-muted-foreground">
-          Dự kiến mất (phút)
-        </label>
-        <input id="prep-duration" inputMode="numeric" value={duration} onChange={(e) => setDuration(e.target.value)} placeholder="Ví dụ: 45" className={FIELD} />
-      </div>
-
-      <label className="flex min-h-11 items-center gap-2 text-[14px] text-foreground">
-        <input type="checkbox" checked={isEvent} onChange={(e) => setIsEvent(e.target.checked)} className="h-4 w-4 accent-[hsl(var(--primary))]" />
-        Việc này cần tôi có mặt
-      </label>
-
-      {isEvent ? (
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label htmlFor="prep-range" className="text-[12.5px] text-muted-foreground">Bắt đầu → Kết thúc</label>
-            {(() => {
-              const start = splitLocalDateTime(startAt);
-              const end = splitLocalDateTime(endAt);
-              return (
-                <DateRangeField
-                  id="prep-range"
-                  className="mt-1"
-                  from={start.date}
-                  to={end.date === "" ? start.date : end.date}
-                  label="Thời gian sự kiện"
-                  title="Chọn ngày sự kiện"
-                  allow="any"
-                  onChange={(range) => {
-                    setStartAt(joinLocalDateTime(range.from, start.time));
-                    setEndAt(end.time === "" && endAt === "" ? "" : joinLocalDateTime(range.to, end.time, start.time || "09:00"));
-                  }}
-                  times={{
-                    start: start.time,
-                    end: end.time,
-                    onChange: (next) => {
-                      if (start.date === "") return;
-                      setStartAt(joinLocalDateTime(start.date, next.start));
-                      setEndAt(next.end === "" ? "" : joinLocalDateTime(end.date === "" ? start.date : end.date, next.end));
-                    },
-                  }}
-                />
-              );
-            })()}
-          </div>
-          <div className="sm:col-span-2">
-            <label htmlFor="prep-location" className="text-[12.5px] text-muted-foreground">Địa điểm</label>
-            <input id="prep-location" value={location} maxLength={300} onChange={(e) => setLocation(e.target.value)} placeholder="Quán cà phê, văn phòng…" className={FIELD} />
-          </div>
-          <div className="sm:col-span-2">
-            <label htmlFor="prep-travel" className="text-[12.5px] text-muted-foreground">Thời gian di chuyển (phút)</label>
-            <input id="prep-travel" inputMode="numeric" value={travel} onChange={(e) => setTravel(e.target.value)} placeholder="Ví dụ: 20" className={FIELD} />
-            <p className="mt-1 text-[12px] text-muted-foreground">Có giờ bắt đầu và thời gian đi, AVORA tính luôn giờ nên lên đường.</p>
-          </div>
-        </div>
-      ) : null}
-
-      <button type="submit" disabled={isSaving} className="press flex h-11 items-center gap-2 rounded-[10px] border border-border px-4 text-[13px] font-medium text-foreground hover:bg-secondary disabled:opacity-50">
-        {isSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Check className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />}
-        Lưu lịch
-      </button>
-    </form>
-  );
-}
-
-/** A read-only line of the schedule, for anyone not allowed to edit it (bystanders, closed work). */
 function ScheduleSummary({ task }: { task: TaskItem }) {
   const duration = formatDuration(task.estimatedDurationMinutes);
-  if (duration === null && !task.requiresPresence) return null;
+  const event = eventSummary(task.startAt, task.endAt, task.location);
+  if (duration === null && event === null) return null;
   return (
-    <div className="rounded-[10px] border border-border bg-card px-3 py-2 text-[13px] text-foreground">
-      {duration !== null ? <p>Dự kiến mất {duration}</p> : null}
-      {task.requiresPresence && task.startAt !== null ? (
+    <div className="space-y-0.5 rounded-[10px] border border-border bg-card px-3 py-2 text-[13px] text-foreground">
+      {event !== null ? (
         <p className="flex items-center gap-1.5">
           <MapPin className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-          Có mặt lúc {new Date(task.startAt).toLocaleString("vi-VN", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "2-digit" })}
-          {task.location !== null ? ` · ${task.location}` : ""}
+          {event}
         </p>
       ) : null}
+      {task.requiresPresence && task.startAt !== null ? <p className="pl-5 text-muted-foreground">Có mặt trực tiếp</p> : null}
+      {duration !== null ? <p className="text-muted-foreground">Dự kiến mất {duration}</p> : null}
     </div>
   );
 }
@@ -373,16 +244,25 @@ function ParticipantsBlock({ task }: { task: TaskItem }) {
  * What a task carries beside itself: how long and where (Phần 4–5), the steps and the things to
  * bring (Phần 6), and who is coming along. Each part says in one line what it is for.
  */
-export function TaskPrepPanel({ task, canEdit }: { task: TaskItem; canEdit: boolean }) {
+export function TaskPrepPanel({
+  task,
+  canEdit,
+  showPrivate = true,
+}: {
+  task: TaskItem;
+  canEdit: boolean;
+  /**
+   * False for the proposer of a task that came from a suggestion (D3): Các bước and Mang theo are
+   * the assignee's own and the server does not return them to anyone else.
+   */
+  showPrivate?: boolean;
+}) {
   const shared = isSharedTask(task);
   return (
     <div className="space-y-3">
-      <p className="text-[12.5px] leading-5 text-muted-foreground">
-        Chuẩn bị & cùng làm — muốn tránh trùng giờ, xem lịch ở góc phải trên.
-      </p>
-      {canEdit ? <ScheduleBlock key={task.id} task={task} /> : <ScheduleSummary task={task} />}
-      <ChecklistBlock task={task} canEdit={canEdit} />
-      <ResourcesBlock task={task} canEdit={canEdit} />
+      <ScheduleSummary task={task} />
+      {showPrivate ? <ChecklistBlock task={task} canEdit={canEdit} /> : null}
+      {showPrivate ? <ResourcesBlock task={task} canEdit={canEdit} /> : null}
       {shared ? <ParticipantsBlock task={task} /> : null}
     </div>
   );

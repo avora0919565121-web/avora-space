@@ -44,7 +44,9 @@ import {
   TimeTag,
   type ScheduleDraft,
 } from "@/components/tasks/ScheduleFields";
+import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { useComposerActions } from "@/lib/use-task-composer";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { TaskViewTabs } from "@/components/tasks/TaskViewTabs";
 import { useAuth } from "@/lib/auth";
@@ -674,179 +676,6 @@ function BinRow({ task, userId, today }: { task: TaskItem; userId: string | unde
   );
 }
 
-/** Field label carrying the one thing the person needs to know: this cannot be left out. */
-function FieldLabel({ htmlFor, children }: { htmlFor: string; children: ReactNode }) {
-  return (
-    <label htmlFor={htmlFor} className="mb-1 block text-[12px] font-medium text-muted-foreground">
-      {children}
-      <span aria-hidden="true" className="ml-1 text-primary">
-        *
-      </span>
-      <span className="sr-only"> (bắt buộc)</span>
-    </label>
-  );
-}
-
-const FIELD_CLASS =
-  "w-full rounded-[10px] border border-input bg-card px-3 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-muted-foreground";
-
-/**
- * One composer for both kinds of task, because both have to clear the same bar: a title, a
- * description of what is actually wanted, and a day it is due. The submit button stays inert
- * until all three carry something, so the form never invites a request it will refuse.
- */
-function TaskComposer({
-  idPrefix,
-  titlePlaceholder,
-  submitLabel,
-  pendingLabel,
-  pending,
-  today,
-  onCreate,
-  children,
-}: {
-  idPrefix: string;
-  titlePlaceholder: string;
-  submitLabel: string;
-  pendingLabel: string;
-  pending: boolean;
-  today: string;
-  onCreate: (draft: TaskDraft) => Promise<TaskItem | null>;
-  children?: ReactNode;
-}) {
-  const [draft, setDraft] = useState<TaskDraft>({ title: "", description: "", deadline: "" });
-  const [schedule, setSchedule] = useState<ScheduleDraft>(emptyScheduleDraft);
-  const { data: categories } = useTaskCategories();
-  const reminders = useTaskReminderActions();
-  const complete = isTaskDraftComplete(draft);
-
-  const patch = (part: Partial<TaskDraft>): void => setDraft((previous) => ({ ...previous, ...part }));
-  const patchSchedule = (part: Partial<ScheduleDraft>): void =>
-    setSchedule((previous) => ({ ...previous, ...part }));
-
-  const onSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-    event.preventDefault();
-    const clean = validateTaskDraft(
-      {
-        ...draft,
-        deadlineTime: schedule.deadlineTime,
-        categoryId: schedule.categoryId,
-        isImportant: schedule.isImportant,
-        recurrence: schedule.recurrence,
-        recurrencePattern:
-          schedule.recurrence === "custom"
-            ? { interval: schedule.customInterval, frequency: schedule.customFrequency }
-            : null,
-      },
-      today,
-    );
-    if (!clean.value) {
-      toast.error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
-      return;
-    }
-    try {
-      const created = await onCreate(clean.value);
-      // The reminder needs the task's id, so it can only be attached once the row exists.
-      // A failed reminder must not read as a failed task: the task is already saved.
-      if (created !== null && schedule.reminder !== null && created.deadline !== null) {
-        try {
-          await reminders.set.mutateAsync({
-            taskId: created.id,
-            preset: schedule.reminder,
-            deadline: created.deadline,
-            deadlineTime: created.deadlineTime,
-          });
-        } catch (error) {
-          showError(error);
-        }
-      }
-      setDraft({ title: "", description: "", deadline: "" });
-      setSchedule(emptyScheduleDraft);
-    } catch (error) {
-      showError(error);
-    }
-  };
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-3 border-t border-border p-4">
-      <p className="text-[12px] leading-5 text-muted-foreground">
-        Một nhiệm vụ cần đủ ba phần: tên, mô tả cụ thể và hạn hoàn thành. Thiếu một trong ba thì đó chỉ là
-        một ghi chú.
-      </p>
-
-      {children}
-
-      <div>
-        <FieldLabel htmlFor={`${idPrefix}-title`}>Tiêu đề</FieldLabel>
-        <input
-          id={`${idPrefix}-title`}
-          value={draft.title}
-          onChange={(event) => patch({ title: event.target.value })}
-          placeholder={titlePlaceholder}
-          maxLength={200}
-          required={true}
-          className={cn(FIELD_CLASS, "h-11")}
-        />
-      </div>
-
-      <div>
-        <FieldLabel htmlFor={`${idPrefix}-description`}>Mô tả cụ thể</FieldLabel>
-        <textarea
-          id={`${idPrefix}-description`}
-          value={draft.description}
-          onChange={(event) => patch({ description: event.target.value })}
-          placeholder="Mô tả cụ thể (bắt buộc) — Bạn cần gì? Kết quả dự kiến là gì?"
-          rows={2}
-          maxLength={2000}
-          required={true}
-          className={cn(FIELD_CLASS, "resize-y py-2.5 leading-6")}
-        />
-      </div>
-
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
-        <div className="sm:w-[240px]">
-          <FieldLabel htmlFor={`${idPrefix}-deadline`}>Hạn hoàn thành</FieldLabel>
-          <DateField
-            id={`${idPrefix}-deadline`}
-            value={draft.deadline}
-            onChange={(day) => patch({ deadline: day })}
-            label="Hạn hoàn thành"
-            title="Chọn ngày hạn"
-            required
-            allow="future"
-            min={today}
-          />
-        </div>
-        <div className="flex-1" />
-      </div>
-
-      <ScheduleFields
-        idPrefix={idPrefix}
-        deadline={draft.deadline}
-        draft={schedule}
-        categories={categories ?? []}
-        onPatch={patchSchedule}
-      />
-
-      <div className="flex justify-end">
-        <button
-          type="submit"
-          disabled={pending || !complete}
-          title={complete ? undefined : "Cần đủ tiêu đề, mô tả và hạn hoàn thành"}
-          className="press flex h-11 shrink-0 items-center justify-center gap-1.5 rounded-[10px] bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {pending ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-          )}
-          {pending ? pendingLabel : submitLabel}
-        </button>
-      </div>
-    </form>
-  );
-}
-
 function PersonalSection({
   tasks,
   today,
@@ -857,8 +686,9 @@ function PersonalSection({
   onOpen: (task: TaskItem) => void;
 }) {
   const { user } = useAuth();
-  const { addPersonal } = useTaskActions();
+  const { createPersonal } = useComposerActions();
   const { isOpen, toggle } = useTree();
+  const [isComposerOpen, setIsComposerOpen] = useState<boolean>(false);
 
   const openCount = countOpenTasks(tasks);
   const tone = highestOpenPriority(tasks, today);
@@ -886,20 +716,27 @@ function PersonalSection({
             <p className="px-5 pb-3 text-[14px] text-muted-foreground">Chưa có việc gì. Thêm việc bạn cần làm nhé.</p>
           )}
 
-          <TaskComposer
-            idPrefix="personal"
-            titlePlaceholder="Tiêu đề"
-            submitLabel="Thêm"
-            pendingLabel="Đang thêm…"
-            pending={addPersonal.isPending}
-            today={today}
-            onCreate={async (draft) => {
-              if (!user) return null;
-              return await addPersonal.mutateAsync({ userId: user.id, draft });
-            }}
-          />
+          <div className="border-t border-border px-5 py-3">
+            <button
+              type="button"
+              onClick={() => setIsComposerOpen(true)}
+              className="press flex h-11 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+              Nhiệm vụ
+            </button>
+          </div>
         </div>
       ) : null}
+      <TaskComposer
+        open={isComposerOpen}
+        onOpenChange={setIsComposerOpen}
+        place="personal"
+        onCreateMine={async (values) => {
+          if (!user) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+          await createPersonal(user.id, values, null);
+        }}
+      />
     </section>
   );
 }
@@ -1154,17 +991,8 @@ function ProposedSection({
       ) : null}
 
       <EditSuggestionDialog
-        suggestionId={editTarget?.id ?? null}
-        draft={
-          editTarget === null
-            ? null
-            : {
-                title: editTarget.title,
-                description: editTarget.description,
-                deadline: editTarget.deadline,
-                deadlineTime: editTarget.deadlineTime,
-              }
-        }
+        suggestion={editTarget}
+        assigneeName="người được gợi ý"
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
       />

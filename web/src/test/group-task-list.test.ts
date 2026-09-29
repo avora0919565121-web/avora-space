@@ -134,6 +134,12 @@ import { recordLink, recordPath, type ThinkRecord, type ThinkTable } from "@/lib
 
 function suggestion(overrides: Partial<TaskSuggestion> & { id: string }): TaskSuggestion {
   return {
+    startAt: null,
+    endAt: null,
+    location: null,
+    requiresPresence: false,
+    recordId: null,
+    projectId: null,
     conversationId: "conv-project",
     messageId: null,
     proposerId: "u-hoa",

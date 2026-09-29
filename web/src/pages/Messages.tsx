@@ -2195,7 +2195,8 @@ const Messages = () => {
                             // can be raised from either side's bubble. A journal note counts too:
                             // there is nobody to ask, so it becomes the writer's own task outright
                             // rather than a suggestion. Only a message still in flight is refused.
-                            const canRaiseTask = message.pending !== true;
+                            // Chờ kết bạn frame (AVORA-38): text only — no task entry at all.
+                            const canRaiseTask = message.pending !== true && activeVerification === null && !isNoLongerConnected;
                             const recalled = isRecalled(message);
                             const isBeingEdited = editingMessageId === message.id;
                             // A journal has nobody to react to you, and a withdrawn message has
@@ -2828,6 +2829,7 @@ const Messages = () => {
                     </>
                   }
                   leadingAction={
+                    activeVerification !== null ? null : (
                     <>
                       <ComposerPlusMenu
                         onPickFiles={() => fileInputRef.current?.click()}
@@ -2842,6 +2844,7 @@ const Messages = () => {
                       {/* Stays on its own beside the box: a quick, read-only look at the calendar. */}
                       <CalendarPeekButton className="h-12 w-12" />
                     </>
+                    )
                   }
                 />
                 {refusedSendConversationId === conversationId ? (
@@ -2950,7 +2953,7 @@ const Messages = () => {
         }}
       />
 
-      {conversationId ? (
+      {conversationId && activeVerification === null ? (
         <TaskFromChatDialog
           open={isTaskDialogOpen}
           onOpenChange={(next) => {
@@ -2966,6 +2969,7 @@ const Messages = () => {
           members={groupMembersQuery.data ?? []}
           contextMessage={taskContextMessage}
           contextSenderName={senderNameOf(taskContextMessage)}
+          projectId={projectHere?.id ?? null}
         />
       ) : null}
 

@@ -8,7 +8,9 @@ import { forwardTaskOutputToJournal } from "@/lib/task-report";
 
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
-import { TaskEditForm } from "@/components/tasks/TaskEditForm";
+import { TaskEditComposer } from "@/components/tasks/TaskEditComposer";
+import { ownedTaskIds } from "@/lib/task-suggestions";
+import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { MyDayButton, StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
 import { TaskPrepPanel } from "@/components/tasks/TaskPrepPanel";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -70,11 +72,18 @@ export function TaskDetailSheet({
   const [isForwarding, setIsForwarding] = useState<boolean>(false);
 
   const projectIndex = useTaskProjectIndex();
+  const { data: suggestions } = useTaskSuggestions();
   if (task === null) return null;
 
   const userId = user?.id;
-  const canEdit = canEditTask(task, userId);
-  const blocked = editBlockedReason(task, userId);
+  // D3: a task from an accepted suggestion is the assignee's alone; the proposer only reads it.
+  const isOwned = ownedTaskIds(suggestions ?? []).has(task.id);
+  const isAssignee = task.assigneeId === userId;
+  const canEdit = canEditTask(task, userId) && (!isOwned || isAssignee);
+  const blocked =
+    isOwned && !isAssignee && canEditTask(task, userId)
+      ? "Việc này đã thuộc về người nhận — bạn chỉ xem. Muốn đổi, hãy nhắn hoặc gửi gợi ý mới."
+      : editBlockedReason(task, userId);
   // Project work opens the project's own sub-group chat.
   const target = taskContextTarget(task, projectIndex);
   const deadline = deadlineLabel(task.deadline, today);
@@ -171,15 +180,10 @@ export function TaskDetailSheet({
             </div>
           </div>
 
-          {isEditing ? (
-            <div className="rounded-[10px] border border-border bg-secondary/30 p-3">
-              <TaskEditForm task={task} today={today} onClose={() => setIsEditing(false)} />
-            </div>
-          ) : (
-            <>
+          <>
               <div className="rounded-[10px] border border-border bg-card p-3">
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-                  Mô tả
+                  Ghi chú
                 </p>
                 <p className="mt-1 whitespace-pre-wrap text-[14px] leading-6 text-foreground">
                   {task.description.trim() === "" ? "—" : task.description}
@@ -224,17 +228,16 @@ export function TaskDetailSheet({
               */}
               {canEdit ? <TaskPlanFields task={task} /> : null}
 
-              <TaskPrepPanel task={task} canEdit={canEdit && !done} />
+              <TaskPrepPanel task={task} canEdit={canEdit && !done} showPrivate={!isOwned || isAssignee} />
 
               <div className="flex flex-wrap items-center gap-2">
                 <MyDayButton task={task} />
                 <StartButton task={task} />
               </div>
-            </>
-          )}
+          </>
 
           <div className="flex flex-wrap items-center gap-2">
-            {canEdit && !isEditing ? (
+            {canEdit ? (
               <button
                 type="button"
                 onClick={() => setIsEditing(true)}
@@ -278,7 +281,7 @@ export function TaskDetailSheet({
           </div>
 
           {/* Say why editing is unavailable rather than leaving an absent button to be read. */}
-          {!canEdit && blocked !== null && !isEditing ? (
+          {!canEdit && blocked !== null ? (
             <p className="text-[12px] leading-5 text-muted-foreground">{blocked}</p>
           ) : null}
 

@@ -5,7 +5,9 @@ import { toast } from "sonner";
 import { SkipSuggestionDialog } from "@/components/chat/SkipSuggestionDialog";
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
-import { TaskEditForm } from "@/components/tasks/TaskEditForm";
+import { TaskEditComposer } from "@/components/tasks/TaskEditComposer";
+import { ownedTaskIds } from "@/lib/task-suggestions";
+import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { useAuth } from "@/lib/auth";
 import { celebrate } from "@/lib/confetti";
 import type { GroupMember } from "@/lib/groups";
@@ -224,7 +226,10 @@ function ChatTaskRow({
   const canReview = canReviewSharedDone(task, userId);
   const canReturn = canReturnSharedTask(task, userId);
   const canDelete = canDeleteTask(task, userId);
-  const canEdit = canEditTask(task, userId);
+  const { data: suggestions } = useTaskSuggestions();
+  // D3: once a suggestion was accepted into it, only the assignee edits.
+  const isOwned = ownedTaskIds(suggestions ?? []).has(task.id);
+  const canEdit = canEditTask(task, userId) && (!isOwned || task.assigneeId === userId);
   const canSkip = canSkipSharedTask(task, userId);
   const editBlocked = editBlockedReason(task, userId);
   const permanent = deleteIsPermanent(task, userId);
@@ -307,9 +312,7 @@ function ChatTaskRow({
       <div className="flex items-start gap-3">
         <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
         <div className="min-w-0 flex-1">
-          {isEditing ? (
-            <TaskEditForm task={task} today={today} onClose={() => setIsEditing(false)} />
-          ) : (
+          {(
             <>
               <p
                 className={cn(
@@ -341,7 +344,7 @@ function ChatTaskRow({
             </>
           )}
         </div>
-        {canEdit && !isEditing ? (
+        {canEdit ? (
           <button
             type="button"
             onClick={() => setIsEditing(true)}
@@ -358,7 +361,7 @@ function ChatTaskRow({
         What the work brought, said by the person who did it. Visible to the whole room while
         the claim is in review and after it closes — a finished result is worth reading.
       */}
-      {!isEditing && task.outputValue !== null && (task.status === "done_pending_review" || task.status === "done") ? (
+      {task.outputValue !== null && (task.status === "done_pending_review" || task.status === "done") ? (
         <div className="ml-11 mt-2 rounded-[10px] border border-border bg-secondary/40 px-3 py-2">
           <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
             {task.status === "done" ? "Kết quả đạt được" : "Kết quả báo xong"}
@@ -379,11 +382,11 @@ function ChatTaskRow({
         above the two buttons is what makes "Bỏ qua" read as a legitimate answer rather than as
         refusing an order.
       */}
-      {suggested && !isEditing ? (
+      {suggested ? (
         <p className="mt-1.5 pl-11 text-[11.5px] text-muted-foreground">{suggestedByNote(askedBy)}</p>
       ) : null}
 
-      {!isEditing && (canConfirm || canSkip || canMarkDone || canReview || canReturn || canDelete) ? (
+      {(canConfirm || canSkip || canMarkDone || canReview || canReturn || canDelete) ? (
         <div className="mt-2 flex flex-wrap items-center gap-2 pl-11">
           {canConfirm ? (
             <button
@@ -485,6 +488,13 @@ function ChatTaskRow({
         confirmLabel="Báo đã xong"
         onComplete={(output) => void handleComplete(output)}
         isWorking={markSharedDone.isPending}
+      />
+      <TaskEditComposer
+        task={isEditing ? task : null}
+        open={isEditing}
+        onOpenChange={setIsEditing}
+        lockedLabel={isOwned ? "Chỉ bạn" : `Giao cho ${assigneeLabel(task, members, peerName, userId)}`}
+        isOwnedByAssignee={isOwned}
       />
     </li>
   );

@@ -30,8 +30,8 @@ export function MessageTaskButton({ onCreateTask, messageLabel, className }: Mes
     <button
       type="button"
       onClick={onCreateTask}
-      aria-label={`Tạo task từ tin nhắn này: ${messageLabel}`}
-      title="Tạo task từ tin nhắn này"
+      aria-label={`Tạo nhiệm vụ từ tin nhắn này: ${messageLabel}`}
+      title="Tạo nhiệm vụ từ tin nhắn này"
       className={cn(
         "press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100 motion-reduce:transition-none",
         className,
