@@ -192,6 +192,8 @@ const STATUS_LABELS: Readonly<Record<string, string>> = {
   dang_lam: "Đang làm",
   cho_phan_hoi: "Chờ phản hồi",
   xong: "Xong",
+  /** Nhìn lại · Còn treo › Bỏ: set aside, not deleted (C7). Counts as finished. */
+  khong_lam: "Không làm nữa",
 };
 
 /**
@@ -628,6 +630,8 @@ export function statusLabelIn(table: Pick<ThinkTable, "statusOptions"> | null | 
 
 /** Whether a status means finished in this table ("Xong" by default). */
 export function isDoneStatus(table: Pick<ThinkTable, "statusOptions"> | null | undefined, status: string): boolean {
+  // "Không làm nữa" (Nhìn lại · Còn treo › Bỏ) is set aside in every table, whatever its own statuses.
+  if (status === "khong_lam") return true;
   const own = table?.statusOptions?.find((option) => option.key === status);
   if (own !== undefined) return own.done === true;
   return status === "xong" || status === "khong_lam";

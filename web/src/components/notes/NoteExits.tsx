@@ -3,6 +3,8 @@ import { toast } from "sonner";
 
 import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
+import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { normalizeSearch } from "@/lib/normalize-search";
 import { createThinkRecord, type ThinkTable } from "@/lib/think-hub";
@@ -63,16 +65,19 @@ export function NoteExits({
         onCreated={() => onTaskClose()}
       />
       <Dialog open={board !== null} onOpenChange={(open) => !open && onBoardClose()}>
-        <DialogContent className="max-w-md">
+        <DialogContent className={cn(longDialogContentClass, "max-w-md")}>
+          <LongDialogHeader>
           <DialogTitle>Đưa vào Bảng</DialogTitle>
-          <DialogDescription>Tạo một Hạng mục mới từ ghi chép này. Ghi chép vẫn giữ nguyên.</DialogDescription>
+          <DialogDescription className="mt-1">Tạo một Hạng mục mới từ ghi chép này. Ghi chép vẫn giữ nguyên.</DialogDescription>
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tìm Bảng"
-            className="h-10 w-full rounded-md border border-border bg-background px-3 text-[14px] outline-none focus:border-primary"
+            className="mt-3 h-10 w-full rounded-md border border-border bg-background px-3 text-[14px] outline-none focus:border-primary"
           />
-          <ul className="max-h-[50dvh] space-y-1 overflow-y-auto">
+          </LongDialogHeader>
+          <LongDialogBody>
+          <ul className="space-y-1">
             {tables.isPending ? <li className="py-4 text-center text-[13px] text-muted-foreground">Đang tải Bảng…</li> : null}
             {tables.isError ? <li className="py-4 text-center text-[13px] text-destructive">Chưa tải được danh sách Bảng.</li> : null}
             {tables.isSuccess && targets.length === 0 ? <li className="py-4 text-center text-[13px] text-muted-foreground">Không có Bảng phù hợp.</li> : null}
@@ -105,6 +110,12 @@ export function NoteExits({
               </li>
             ))}
           </ul>
+          </LongDialogBody>
+          <LongDialogFooter>
+            <button type="button" onClick={onBoardClose} className="press h-10 rounded-md border border-border px-4 text-[14px]">
+              Huỷ
+            </button>
+          </LongDialogFooter>
         </DialogContent>
       </Dialog>
     </>

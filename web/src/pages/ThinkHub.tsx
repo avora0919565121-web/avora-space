@@ -26,6 +26,8 @@ import { RecordDialog } from "@/components/think-hub/RecordDialog";
 import { RenameColumnDialog } from "@/components/think-hub/RenameColumnDialog";
 import { TableView } from "@/components/think-hub/TableView";
 import { HubShelf } from "@/components/think-hub/HubShelf";
+import { ReviewPrompt } from "@/components/review/ReviewSheet";
+import { useReview } from "@/lib/use-review";
 import { TemplateGallery } from "@/components/think-hub/TemplateGallery";
 import {
   ApplyTemplateRow,
@@ -106,6 +108,7 @@ export const HUB_TABLE_PARAM = "bang";
 const ThinkHub = () => {
   const { user } = useAuth();
   const { tables, records, isPending, isError, error } = useThinkHub();
+  const review = useReview();
   const actions = useThinkHubActions();
   const conversationsQuery = useConversations();
   const projectsQuery = useProjects();
@@ -577,6 +580,8 @@ const ThinkHub = () => {
         {isFullscreen ? null : (
           <>
             <ReturnChip className="-mt-2 mb-2" />
+            {/* C7 · AVORA-50 B: Nhìn lại tuần (card) / hôm nay (one line), only when due. */}
+            <ReviewPrompt review={review} variant="card" />
             <HubShelf
               tiles={tiles}
               shelf={shelf}

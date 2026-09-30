@@ -258,8 +258,9 @@ export function TaskDetailSheet({
           Xem nhiệm vụ theo đúng thứ tự lúc tạo. Nhận việc và xác nhận hoàn thành nằm trong cuộc trò chuyện.
         </SheetDescription>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-6">
-          <div className="flex items-start gap-3 pr-8">
+        <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-0">
+          {/* 44b · H4 / AVORA-50 · C: the task's name stays in view while the details scroll. */}
+          <div className="sticky top-0 z-10 -mx-5 flex items-start gap-3 border-b border-border/60 bg-background px-5 pb-3 pr-12 pt-[max(1.5rem,env(safe-area-inset-top))]">
             <TaskBubble
               state={shared ? SHARED_BUBBLE_STATE[task.status] : PERSONAL_BUBBLE_STATE[task.status]}
               label={taskStatusLabel(task.status)}

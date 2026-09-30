@@ -4,6 +4,8 @@ import { Link } from "react-router-dom";
 
 import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBoundary";
 import { ThoughtNote } from "@/components/space/ThoughtNote";
+import { ReviewPrompt } from "@/components/review/ReviewSheet";
+import { useReview } from "@/lib/use-review";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { conversationsWithUnread, unreadSummaryText } from "@/lib/chat";
 import { dailyThoughtKey, dailyThoughtView } from "@/lib/daily-thoughts";
@@ -144,6 +146,7 @@ export default function Dashboard() {
   const [opened] = useState<Date>(() => new Date());
   const [tone] = useState(() => ambientTone(opened));
   const today = todayIso(opened);
+  const review = useReview();
 
   const thought = useMemo(() => dailyThoughtView(thoughtCategory, opened), [thoughtCategory, opened]);
   const thoughtKey = useMemo(() => dailyThoughtKey(thoughtCategory, opened), [thoughtCategory, opened]);
@@ -406,6 +409,8 @@ export default function Dashboard() {
       style={{ backgroundImage: `${tone.wash}, radial-gradient(hsl(38 28% 86% / 0.55) 0.5px, transparent 0.5px)`, backgroundSize: "100% 100%, 22px 22px" }}
     >
       <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
+        {/* C7 · AVORA-50 B: one line when a review is due; never pushed. */}
+        <ReviewPrompt review={review} variant="line" />
         {SPACE_BLOCK_ORDER.map((id) => {
           const block = renderBlock(id);
           if (block === null) return null;

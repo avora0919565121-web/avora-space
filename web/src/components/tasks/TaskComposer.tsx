@@ -9,6 +9,7 @@ import { RecipientPicker } from "@/components/tasks/RecipientPicker";
 import { TimeField } from "@/components/tasks/TimeField";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { longDialogContentClass, longSheetContentClass } from "@/components/ui/long-dialog";
 import { Switch } from "@/components/ui/switch";
 import { useAutoList } from "@/hooks/use-auto-list";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -133,7 +134,7 @@ export function TaskComposer(props: TaskComposerProps) {
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent
           side="bottom"
-          className="flex max-h-[92dvh] flex-col gap-0 rounded-t-[18px] border-border bg-card p-0 [&>button:last-child]:hidden"
+          className={cn(longSheetContentClass, "rounded-t-[18px] border-border bg-card pb-0 [&>button:last-child]:hidden")}
         >
           {body}
         </SheetContent>
@@ -144,7 +145,7 @@ export function TaskComposer(props: TaskComposerProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[90vh] max-w-[540px] flex-col gap-0 overflow-hidden rounded-xl border-border bg-card p-0"
+        className={cn(longDialogContentClass, "max-w-[540px] rounded-xl border-border bg-card")}
       >
         {body}
       </DialogContent>

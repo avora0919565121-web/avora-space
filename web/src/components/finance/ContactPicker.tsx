@@ -90,7 +90,8 @@ export function ContactPicker({
 
   const typed = query.trim();
   const body = (
-    <div className="flex max-h-[70dvh] flex-col">
+    // Lớp nổi H1: at most 480px (or the room there is), the search stuck on top, the list scrolling.
+    <div className="flex max-h-[min(480px,70dvh,var(--radix-popover-content-available-height,70dvh))] flex-col">
       <label className="flex items-center gap-2 border-b border-border px-3 py-2">
         <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <input

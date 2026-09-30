@@ -5,6 +5,7 @@ import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import {
   conversationTitle,
   matchesConversationQuery,
@@ -84,8 +85,8 @@ export function ForwardDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md gap-0 p-0">
-        <div className="border-b border-border px-5 py-4">
+      <DialogContent className={cn(longDialogContentClass, "max-w-md")}>
+        <LongDialogHeader>
           <DialogTitle className="text-[17px] font-semibold tracking-tight">
             {count > 1 ? `Chuyển tiếp đoạn hội thoại · ${count} tin` : "Chuyển tiếp tin nhắn"}
           </DialogTitle>
@@ -103,9 +104,9 @@ export function ForwardDialog({
               ))}
             </div>
           ) : null}
-        </div>
+        </LongDialogHeader>
 
-        <div className="px-5 py-3">
+        <div className="shrink-0 px-5 py-3">
           <div className="relative">
             <Search
               className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
@@ -122,7 +123,7 @@ export function ForwardDialog({
           </div>
         </div>
 
-        <div className="max-h-[320px] overflow-y-auto px-2 pb-3">
+        <LongDialogBody className="px-2 pb-3 pt-0">
           {destinations.length === 0 ? (
             <p className="px-3 py-6 text-center text-[13.5px] text-muted-foreground">
               {query.trim() === ""
@@ -167,7 +168,12 @@ export function ForwardDialog({
               })}
             </ul>
           )}
-        </div>
+        </LongDialogBody>
+        <LongDialogFooter>
+          <button type="button" onClick={() => onOpenChange(false)} className="press h-10 rounded-md border border-border px-4 text-[14px]">
+            Huỷ
+          </button>
+        </LongDialogFooter>
       </DialogContent>
     </Dialog>
   );

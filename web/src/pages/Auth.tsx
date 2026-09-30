@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
+import { AUTH_TAGLINE, BRAND_MOTTO, BRAND_PRODUCT } from "@/lib/brand";
 import { returnPathFrom } from "@/lib/navigation";
 
 type Mode = "signin" | "signup" | "forgot";
@@ -139,12 +140,19 @@ const Auth = () => {
             height={1052}
             className="h-auto w-[264px] max-w-full md:w-[240px]"
           />
-          <h1 className="mt-10 max-w-md text-[34px] font-semibold leading-[1.15] tracking-tight text-foreground md:text-[40px]">
-            Nhắn tin riêng tư, tức thì!
-          </h1>
-          <p className="mt-4 max-w-sm text-[16px] leading-relaxed text-muted-foreground">
-            Chỉ bạn và người bạn đang trò chuyện.
+          {/* AVORA-50 · A: the two brand lines stay in English in every language (translate="no");
+              only the explaining sentence below is translated. */}
+          <p translate="no" className="notranslate mt-9 text-[17px] font-semibold tracking-tight text-foreground/80 md:text-[18px]">
+            {BRAND_PRODUCT}
           </p>
+          <h1
+            translate="no"
+            lang="en"
+            className="notranslate mt-2 max-w-md text-[32px] font-semibold leading-[1.15] tracking-tight text-foreground md:text-[40px]"
+          >
+            {BRAND_MOTTO}
+          </h1>
+          <p className="mt-4 max-w-sm text-[16px] leading-relaxed text-muted-foreground">{AUTH_TAGLINE}</p>
         </div>
         <p className="mt-14 text-[13px] text-muted-foreground md:mt-auto md:pt-16">© 2026 AVORA</p>
       </section>

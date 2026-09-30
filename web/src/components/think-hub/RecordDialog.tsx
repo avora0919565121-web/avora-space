@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 import { DateField } from "@/components/calendar/DateField";
 import { DateTimeField } from "@/components/calendar/DateTimeField";
 import { Button } from "@/components/ui/button";
+import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Copy, ListPlus, MoveRight, Star, Table2 } from "lucide-react";
@@ -322,18 +323,20 @@ export function RecordDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 44b · H4: the title and the Lưu row stay in view; only the middle scrolls. */}
-      <DialogContent className="flex max-w-lg flex-col gap-2 overflow-hidden">
-        <DialogTitle className="pr-8 text-[19px] font-semibold tracking-tight">
-          {record === null ? "Hạng mục mới" : "Sửa Hạng mục"}
-        </DialogTitle>
-        <DialogDescription className="text-[14.5px] text-muted-foreground">
-          {record === null
-            ? "Chỉ tiêu đề là bắt buộc. Những ô còn lại điền dần cũng được."
-            : "Sửa gì lưu nấy — những ô bạn không đụng tới giữ nguyên."}
-        </DialogDescription>
+      <DialogContent className={cn(longDialogContentClass, "max-w-lg")}>
+        <LongDialogHeader>
+          <DialogTitle className="text-[19px] font-semibold tracking-tight">
+            {record === null ? "Hạng mục mới" : "Sửa Hạng mục"}
+          </DialogTitle>
+          <DialogDescription className="mt-1 text-[14px] text-muted-foreground">
+            {record === null
+              ? "Chỉ tiêu đề là bắt buộc. Những ô còn lại điền dần cũng được."
+              : "Sửa gì lưu nấy — những ô bạn không đụng tới giữ nguyên."}
+          </DialogDescription>
+        </LongDialogHeader>
 
-        <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">
-        <form onSubmit={handleSubmit} className="mt-3 space-y-4">
+        <LongDialogBody className="px-6">
+        <form id="record-form" onSubmit={handleSubmit} className="space-y-4">
           {record === null && tableChoices !== undefined && tableChoices.length > 1 ? (
             <div>
               <label htmlFor="record-table" className={labelClass}>
@@ -534,14 +537,6 @@ export function RecordDialog({
             </p>
           ) : null}
 
-          <div className="sticky bottom-0 z-10 -mx-6 flex justify-end gap-2 border-t border-border bg-background px-6 py-3">
-            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-              Để sau
-            </Button>
-            <Button type="submit" disabled={isWorking || isSubmitting || isReadOnly}>
-              {isWorking ? "Đang lưu…" : "Lưu"}
-            </Button>
-          </div>
         </form>
 
         {record !== null && tasks !== undefined && tasks.length > 0 ? (
@@ -628,7 +623,15 @@ export function RecordDialog({
             isWorking={isWorking}
           />
         ) : null}
-        </div>
+        </LongDialogBody>
+        <LongDialogFooter className="px-6">
+          <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
+            Để sau
+          </Button>
+          <Button type="submit" form="record-form" disabled={isWorking || isSubmitting || isReadOnly}>
+            {isWorking ? "Đang lưu…" : "Lưu"}
+          </Button>
+        </LongDialogFooter>
       </DialogContent>
     </Dialog>
   );

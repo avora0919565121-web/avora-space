@@ -5,6 +5,7 @@ import { DateField } from "@/components/calendar/DateField";
 import { TimeField } from "@/components/tasks/TimeField";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import { quickScheduleTimes, sendAtLine } from "@/lib/scheduled-messages";
 import { todayIso } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
@@ -71,8 +72,8 @@ export function ScheduleMessageDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[420px] gap-0 p-0">
-        <div className="border-b border-border px-5 py-4">
+      <DialogContent className={cn(longDialogContentClass, "max-w-[420px]")}>
+        <LongDialogHeader>
           <DialogTitle className="flex items-center gap-2 text-[17px] font-semibold tracking-tight">
             <Clock className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
             {title}
@@ -80,8 +81,8 @@ export function ScheduleMessageDialog({
           <DialogDescription className="mt-1 text-[12.5px] text-muted-foreground">
             Người nhận không thấy gì cho tới lúc gửi.
           </DialogDescription>
-        </div>
-        <div className="space-y-4 px-5 py-4">
+        </LongDialogHeader>
+        <LongDialogBody className="space-y-4">
           <p className="line-clamp-3 whitespace-pre-wrap rounded-[10px] border border-border bg-secondary/40 px-3 py-2 text-[13.5px] leading-5 text-foreground">
             {content}
           </p>
@@ -136,8 +137,8 @@ export function ScheduleMessageDialog({
                   ? "Chỉ hẹn được trong vòng 30 ngày."
                   : `Sẽ gửi lúc ${sendAtLine(chosen, now)}`}
           </p>
-        </div>
-        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+        </LongDialogBody>
+        <LongDialogFooter>
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
             Huỷ
           </Button>
@@ -150,7 +151,7 @@ export function ScheduleMessageDialog({
           >
             {submitLabel}
           </Button>
-        </div>
+        </LongDialogFooter>
       </DialogContent>
     </Dialog>
   );

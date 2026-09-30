@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import type { TablePlace } from "@/lib/table-places";
 import type { ThinkTable } from "@/lib/think-hub";
 import { orderTemplates, THINKING_TYPES, type BoardTemplate, type TemplateScope, type ThinkingType } from "@/lib/think-hub-shelf";
@@ -93,15 +94,15 @@ export function TemplateGallery({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[88dvh] max-w-[640px] flex-col gap-0 p-0">
-        <div className="border-b border-border px-5 py-4">
+      <DialogContent className={cn(longDialogContentClass, "max-w-[640px]")}>
+        <LongDialogHeader>
           <DialogTitle className="text-[18px]">{picked === null ? "Bảng mới" : picked.name}</DialogTitle>
           <DialogDescription className="text-[13px]">
             {picked === null ? "Bạn muốn làm gì?" : picked.guidingQuestion ?? "Tự đặt cột và trạng thái."}
           </DialogDescription>
-        </div>
+        </LongDialogHeader>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <LongDialogBody>
           {templates.isPending ? (
             <p className="flex items-center gap-2 text-[13.5px] text-muted-foreground">
               <Loader2 className="h-4 w-4 animate-spin" /> Đang tải mẫu…
@@ -193,9 +194,9 @@ export function TemplateGallery({
               </dl>
             </div>
           )}
-        </div>
+        </LongDialogBody>
 
-        <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-3">
+        <LongDialogFooter className="justify-between">
           {picked !== null ? (
             <button type="button" onClick={() => setPicked(null)} className="press inline-flex items-center gap-1 rounded-md px-3 py-2 text-[14px] text-muted-foreground hover:text-foreground">
               <ArrowLeft className="h-4 w-4" /> Mẫu khác
@@ -218,7 +219,7 @@ export function TemplateGallery({
               </button>
             ) : null}
           </div>
-        </div>
+        </LongDialogFooter>
       </DialogContent>
     </Dialog>
   );

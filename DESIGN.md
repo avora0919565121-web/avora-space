@@ -31,7 +31,7 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 ## Screens
 
 - **Đăng nhập / Đăng ký / Quên mật khẩu** (`/dang-nhap`, root, no site nav) — full-height split: left warm canvas
-  brand column (wordmark, "Nhắn tin riêng tư, tức thì!", © line), right white column with the form. One screen
+  brand column (wordmark, "Nhắn tin riêng tư, tức thì!" — thay 30/09 bằng "Avora Space / Clarity - Inner Space - My Space", © line), right white column with the form. One screen
   covers three states via `?mode=dang-ky` and `?mode=quen-mat-khau`. In Quên mật khẩu only the email field shows,
   with "Gửi liên kết đặt lại" and "Quay lại đăng nhập"; the terms line and "hoặc" divider are hidden there.
 - **Đặt lại mật khẩu** (`/dat-lai-mat-khau`, no site nav) — where the emailed link lands, same split layout with
@@ -144,7 +144,7 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   already had one) — it says an email was sent, the same answer for both cases, matching the reset screen.
 - 2026-09-05 — Signing in before confirming shows "Gửi lại email xác nhận" inside the error itself, so an
   unconfirmed account is never a dead end.
-- 2026-09-05 — Brand tagline corrected by user: "Nhắn tin riêng tư, tức thì!" (dấu chấm than, không phải dấu chấm).
+- 2026-09-05 — Brand tagline corrected by user: "Nhắn tin riêng tư, tức thì!" (dấu chấm than, không phải dấu chấm). **Đã thay 30/09 (AVORA-50 · A)** — xem mục 2026-09-30 "Khẩu hiệu".
   Applies to the auth screen headline and the meta/og description in index.html.
 - 2026-09-05 — An exhausted project mail quota never reads as "bạn thử quá nhiều lần" — the quota is shared, so
   another person's signup can trigger it. It says the system cannot send email right now and to retry in about an
@@ -1887,4 +1887,38 @@ end: Chặn · Báo cáo · Rời nhóm. Confirmations use the app's own box, ne
 | `Chỉ mình bạn xem` | chỉ mình bạn đọc |
 | `tệp` trong câu; tên mục `File của tôi` giữ nguyên | lẫn file / tệp trong một câu |
 | `Nhật ký` | Diary |
+
+- 2026-09-30 — Khẩu hiệu màn đăng nhập / đăng ký (AVORA-50 · A, VMT chốt 18:03). Brand column top to
+  bottom: logo · `Avora Space` (product name, medium) · `Clarity - Inner Space - My Space` (the large
+  line) · `Trò chuyện, suy nghĩ và quản trị việc cần làm — ở cùng một nơi của riêng bạn.` (small) ·
+  `© 2026 AVORA`. **Luật ngôn ngữ:** `Avora Space` and `Clarity - Inner Space - My Space` are brand
+  names and stay in English in every language — rendered with `translate="no"` (the motto also
+  `lang="en"`) so a browser's own translation leaves them alone. The explaining sentence is the one
+  string that is translated (`AUTH_TAGLINE` in `lib/brand.ts`). "Chỉ bạn và người bạn đang trò
+  chuyện." is gone from the screen, `index.html` and the manifest: it promised end-to-end encryption
+  AVORA does not have (ADR-020). `index.html` is `lang="vi"`; description / og:description =
+  "Avora Space — Clarity - Inner Space - My Space. Trò chuyện, suy nghĩ và quản trị việc cần làm — ở
+  cùng một nơi của riêng bạn."
+
+- 2026-09-30 — Nhìn lại tuần / hôm nay (AVORA-50 · B, phần còn thiếu của Đợt gộp 2 · C7). The weekly
+  card sits at the top of Kế hoạch (and as one line on Avora Space) on the day before the rest day
+  set in Cài đặt › Tuỳ chọn chung (`profiles.rest_weekday`, default Chủ nhật → card on Thứ Bảy). Opening
+  it shows four read-only blocks worked out from existing data over the seven days ending today:
+  `Đã suy nghĩ` (my Hạng mục created / edited, by Bảng, 8 rows + Xem thêm), `Đã đọc` (books touched on
+  the Kệ sách + reading notes written), `Đã làm xong` (my tasks closed, count + 5 rows), `Còn treo`
+  (my Hạng mục past their date, not finished, each with `Dời ngày` · `Chia nhỏ` (opens the Hạng mục) ·
+  `Bỏ` (status `Không làm nữa`, never deleted; counts as finished in every table)). Three short,
+  optional questions; the third can star one Hạng mục. `Lưu vào Nhật ký` writes exactly one entry in the
+  person's own journal: `Nhìn lại tuần dd/mm–dd/mm`, the counts, and only the answers given. From the
+  chosen hour (default 19:00), on other days, one line `Hôm nay: …` appears only when something
+  happened, opening the same screen for today with one question. Opening, saving or `Để sau` folds the
+  prompt for the rest of that day (on this device). No push, no badge, no streak, no comparison.
+
+- 2026-09-30 — Hộp dài hơn màn (AVORA-50 · C, 44b · H4). One shell, `components/ui/long-dialog.tsx`:
+  `longDialogContentClass` / `longSheetContentClass` on the Dialog / Sheet content and
+  `LongDialogHeader` · `LongDialogBody` · `LongDialogFooter` inside — the title row and the button row
+  never move, only the middle scrolls, the footer adds the home-bar inset. Used by the Hạng mục box,
+  TaskComposer, the template box, ScheduleMessageDialog, ForwardDialog, "Đưa vào Bảng" (chọn Bảng đích),
+  the review screen; TaskDetailSheet keeps the task's name stuck on top with its pinned action row;
+  ContactPicker is capped at 480px with its search stuck on top. Button words never wrap in a footer.
 
