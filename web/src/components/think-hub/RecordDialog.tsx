@@ -321,8 +321,9 @@ export function RecordDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <DialogTitle className="text-[19px] font-semibold tracking-tight">
+      {/* 44b · H4: the title and the Lưu row stay in view; only the middle scrolls. */}
+      <DialogContent className="flex max-w-lg flex-col gap-2 overflow-hidden">
+        <DialogTitle className="pr-8 text-[19px] font-semibold tracking-tight">
           {record === null ? "Hạng mục mới" : "Sửa Hạng mục"}
         </DialogTitle>
         <DialogDescription className="text-[14.5px] text-muted-foreground">
@@ -331,7 +332,8 @@ export function RecordDialog({
             : "Sửa gì lưu nấy — những ô bạn không đụng tới giữ nguyên."}
         </DialogDescription>
 
-        <form onSubmit={handleSubmit} className="mt-5 max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+        <div className="-mx-6 min-h-0 flex-1 overflow-y-auto px-6">
+        <form onSubmit={handleSubmit} className="mt-3 space-y-4">
           {record === null && tableChoices !== undefined && tableChoices.length > 1 ? (
             <div>
               <label htmlFor="record-table" className={labelClass}>
@@ -396,7 +398,7 @@ export function RecordDialog({
                     onClick={() => setField("priority", option)}
                     aria-pressed={draft.priority === option}
                     className={cn(
-                      "press flex-1 rounded-md border px-2 py-2.5 text-[13.5px] font-medium transition-colors",
+                      "press min-w-0 flex-1 whitespace-nowrap rounded-md border px-1 py-2.5 text-[13px] font-medium transition-colors",
                       draft.priority === option
                         ? "border-primary bg-accent/60 text-foreground"
                         : "border-border text-muted-foreground hover:bg-accent/30",
@@ -532,7 +534,7 @@ export function RecordDialog({
             </p>
           ) : null}
 
-          <div className="flex justify-end gap-2 pt-1">
+          <div className="sticky bottom-0 z-10 -mx-6 flex justify-end gap-2 border-t border-border bg-background px-6 py-3">
             <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
               Để sau
             </Button>
@@ -626,6 +628,7 @@ export function RecordDialog({
             isWorking={isWorking}
           />
         ) : null}
+        </div>
       </DialogContent>
     </Dialog>
   );

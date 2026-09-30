@@ -58,7 +58,19 @@ type ChatSuggestionPanelProps = {
    * this message" when the work is still a question nobody has answered.
    */
   focusedSuggestionId?: string | null;
+  /** AVORA-49 · 2.1: opened from the thread's chip row — the list only, capped at 35% of the screen. */
+  embedded?: boolean;
 };
+
+/** Suggestions waiting in this thread, for the chip row's count (AVORA-49 · 2.1). */
+export function useChatSuggestions(conversationId: string) {
+  const { user } = useAuth();
+  const { data: suggestions } = useTaskSuggestions();
+  const pending: TaskSuggestion[] = useMemo(() => pendingInConversation(suggestions ?? [], conversationId), [suggestions, conversationId]);
+  const accepted: TaskSuggestion[] = useMemo(() => recentlyAcceptedInConversation(suggestions ?? [], conversationId), [suggestions, conversationId]);
+  const awaitingMe = pending.some((entry) => canAnswerSuggestion(entry, user?.id));
+  return { pending, accepted, awaitingMe };
+}
 
 /**
  * Work that has been proposed here and not yet answered.
@@ -75,6 +87,7 @@ export function ChatSuggestionPanel({
   members,
   onSendMessage,
   focusedSuggestionId = null,
+  embedded = false,
 }: ChatSuggestionPanelProps) {
   const { user } = useAuth();
   const { data: suggestions } = useTaskSuggestions();
@@ -102,6 +115,35 @@ export function ChatSuggestionPanel({
   const isOpen = isFocusedHere ? true : (isOpenOverride ?? awaitingMe);
 
   if (pending.length === 0 && accepted.length === 0) return null;
+
+  const rows = (
+    <>
+      {pending.map((suggestion) => (
+        <SuggestionRow
+          key={suggestion.id}
+          suggestion={suggestion}
+          userId={userId}
+          today={today}
+          conversationKind={conversationKind}
+          peerName={peerName}
+          members={members}
+          onSendMessage={onSendMessage}
+          isHighlighted={suggestion.id === focusedSuggestionId}
+        />
+      ))}
+      {accepted.map((suggestion) => (
+        <AcceptedRow key={suggestion.id} suggestion={suggestion} userId={userId} peerName={peerName} members={members} />
+      ))}
+    </>
+  );
+
+  if (embedded) {
+    return (
+      <section aria-label="Gợi ý nhiệm vụ" className="max-h-[35dvh] overflow-y-auto border-b border-border bg-card px-3 md:px-10">
+        <ul className="mx-auto max-w-2xl space-y-1 py-2">{rows}</ul>
+      </section>
+    );
+  }
 
   return (
     <section aria-label="Gợi ý nhiệm vụ" className="border-t border-border bg-card px-5 md:px-10">

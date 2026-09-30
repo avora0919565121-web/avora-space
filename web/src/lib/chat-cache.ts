@@ -75,7 +75,7 @@ export function isProjectTab(tab: MessageTab): tab is "projects" {
 }
 
 export const JOURNAL_TITLE = "Nhật ký của tôi";
-export const JOURNAL_SUBTITLE = "Chỉ mình bạn đọc được";
+export const JOURNAL_SUBTITLE = "Chỉ mình bạn xem";
 
 /**
  * Names the group a private thread was opened from, in the address bar.
@@ -770,3 +770,9 @@ export const chatKeys = {
   messages: (conversationId: string) => ["messages", conversationId] as const,
   peer: (conversationId: string) => ["conversation-peer", conversationId] as const,
 };
+
+/** Days an entry has left before the hourly sweep empties it (kept 30 days). */
+export function daysLeftInTrash(trashedAt: string, now: Date = new Date()): number {
+  const ends = new Date(trashedAt).getTime() + 30 * 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((ends - now.getTime()) / (24 * 60 * 60 * 1000)));
+}

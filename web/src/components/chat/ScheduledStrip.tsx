@@ -10,8 +10,23 @@ import { cn } from "@/lib/utils";
  * "🕒 2 tin hẹn giờ · gần nhất 20:00 hôm nay" above the composer — the sender's only. Opens the
  * list: Sửa · Gửi ngay · Huỷ; a failed one says why, with Sửa & hẹn lại · Xoá.
  */
-export function ScheduledStrip({ conversationId, items }: { conversationId: string; items: readonly ScheduledMessage[] }) {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+/** Scheduled messages still waiting or failed — the chip row's count (AVORA-49 · 2.1). */
+export function waitingScheduled(items: readonly ScheduledMessage[]): ScheduledMessage[] {
+  return items.filter((item) => item.status === "pending" || item.status === "failed");
+}
+
+export function ScheduledStrip({
+  conversationId,
+  items,
+  embedded = false,
+}: {
+  conversationId: string;
+  items: readonly ScheduledMessage[];
+  /** Opened from the thread's chip row: the list at once, capped at 35% of the screen. */
+  embedded?: boolean;
+}) {
+  const [isOpenState, setIsOpen] = useState<boolean>(false);
+  const isOpen = embedded || isOpenState;
   const [editing, setEditing] = useState<ScheduledMessage | null>(null);
   const { update, cancel, sendNow } = useScheduleActions(conversationId);
   const waiting = items.filter((item) => item.status === "pending" || item.status === "failed");
@@ -25,7 +40,8 @@ export function ScheduledStrip({ conversationId, items }: { conversationId: stri
   };
 
   return (
-    <div className="mx-auto mb-2 max-w-2xl rounded-[12px] border border-border bg-card">
+    <div className={cn("mx-auto mb-2 max-w-2xl rounded-[12px] border border-border bg-card", embedded && "mb-0 max-h-[35dvh] overflow-y-auto rounded-none border-x-0 border-t-0")}>
+      {embedded ? null : (
       <button
         type="button"
         onClick={() => setIsOpen((current) => !current)}
@@ -40,6 +56,7 @@ export function ScheduledStrip({ conversationId, items }: { conversationId: stri
         </span>
         <ChevronDown className={cn("h-4 w-4 text-muted-foreground transition-transform", isOpen && "rotate-180")} strokeWidth={1.8} aria-hidden="true" />
       </button>
+      )}
       {isOpen ? (
         <ul className="border-t border-border">
           {waiting.map((item) => (

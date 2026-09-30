@@ -24,6 +24,7 @@ export function PinnedStrip({
   onJumpTo,
   onUnpin,
   isWorking,
+  embedded = false,
 }: {
   pins: readonly MessagePin[];
   messages: readonly ChatMessage[];
@@ -33,8 +34,11 @@ export function PinnedStrip({
   onJumpTo: (messageId: string) => void;
   onUnpin: (pinId: string) => Promise<void>;
   isWorking: boolean;
+  /** AVORA-49 · 2.1: opened from the thread's chip row — the list only, capped at 35% of the screen. */
+  embedded?: boolean;
 }) {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isOpenState, setIsOpen] = useState<boolean>(false);
+  const isOpen = embedded || isOpenState;
 
   if (pins.length === 0) return null;
 
@@ -57,9 +61,10 @@ export function PinnedStrip({
   return (
     <section
       aria-label="Tin nhắn đã ghim"
-      className="border-b border-border bg-accent/25 px-5 py-2 md:px-10"
+      className={cn("border-b border-border bg-accent/25 px-5 py-2 md:px-10", embedded && "max-h-[35dvh] overflow-y-auto px-3")}
     >
       <div className="mx-auto max-w-2xl">
+        {embedded ? null : (
         <button
           type="button"
           aria-expanded={isOpen}
@@ -87,6 +92,7 @@ export function PinnedStrip({
                 : `${personalCount}/${PIN_LIMIT} riêng`}
           </span>
         </button>
+        )}
 
         {isOpen ? (
           <ul className="rise-in mt-1 space-y-1 pb-1">

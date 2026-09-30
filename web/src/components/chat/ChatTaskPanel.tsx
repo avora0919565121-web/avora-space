@@ -64,29 +64,19 @@ type ChatTaskPanelProps = {
    * speaking for the person, and the whole point is that they said it themselves.
    */
   onSendMessage: (content: string) => Promise<void>;
+  /** AVORA-49 · 2.1: opened from the thread's chip row — the list only, capped at 35% of the screen. */
+  embedded?: boolean;
 };
 
 /**
- * Every shared task belonging to this conversation, with the buttons that move it along.
- *
- * These actions live here and nowhere else. A task is a promise between two people, and the
- * place to accept, hand back or close one is the conversation it was made in — where both
- * sides can see what was actually agreed. Tab Nhiệm vụ reads them; this decides them.
+ * The shared tasks this thread shows, and how many are still open (AVORA-49 · 2.1 chip count).
+ * The same list the panel renders, so the chip and the panel can never disagree.
  */
-export function ChatTaskPanel({
-  conversationId,
-  peerName,
-  members,
-  highlightTaskId,
-  scope = "all",
-  onSendMessage,
-}: ChatTaskPanelProps) {
+export function useChatThreadTasks(conversationId: string, highlightTaskId: string | null, scope: "mine" | "all") {
   const { user } = useAuth();
   const { data: tasks } = useTasks();
   const userId: string | undefined = user?.id;
   const today = todayIso();
-  const [isOpenOverride, setIsOpenOverride] = useState<boolean | null>(null);
-
   const threadTasks: TaskItem[] = useMemo(() => {
     const kept = partitionByBin(tasks ?? [], userId).kept;
     const sorted = sortTasksByPriority(
@@ -108,20 +98,57 @@ export function ChatTaskPanel({
     const pointed = highlightTaskId === null ? undefined : (tasks ?? []).find((task) => task.id === highlightTaskId);
     return pointed !== undefined && isSharedTask(pointed) ? [pointed, ...sorted] : sorted;
   }, [tasks, userId, conversationId, today, scope, highlightTaskId]);
-
   const openCount = threadTasks.filter((task) => isOpenTask(task, userId)).length;
+  const wantsAttention = threadTasks.some(
+    (task) => canConfirmSharedTask(task, userId) || canMarkSharedDone(task, userId) || canReviewSharedDone(task, userId),
+  );
+  return { threadTasks, openCount, wantsAttention, userId, today };
+}
+
+/**
+ * Every shared task belonging to this conversation, with the buttons that move it along.
+ *
+ * These actions live here and nowhere else. A task is a promise between two people, and the
+ * place to accept, hand back or close one is the conversation it was made in — where both
+ * sides can see what was actually agreed. Tab Nhiệm vụ reads them; this decides them.
+ */
+export function ChatTaskPanel({
+  conversationId,
+  peerName,
+  members,
+  highlightTaskId,
+  scope = "all",
+  onSendMessage,
+  embedded = false,
+}: ChatTaskPanelProps) {
+  const { threadTasks, openCount, wantsAttention: needsMe, userId, today } = useChatThreadTasks(conversationId, highlightTaskId, scope);
+  const [isOpenOverride, setIsOpenOverride] = useState<boolean | null>(null);
   // A task the viewer must act on, or one they were just sent here to look at, opens the panel.
-  const wantsAttention =
-    highlightTaskId !== null ||
-    threadTasks.some(
-      (task) =>
-        canConfirmSharedTask(task, userId) ||
-        canMarkSharedDone(task, userId) ||
-        canReviewSharedDone(task, userId),
-    );
+  const wantsAttention = highlightTaskId !== null || needsMe;
   const isOpen = isOpenOverride ?? wantsAttention;
 
   if (threadTasks.length === 0) return null;
+
+  if (embedded) {
+    return (
+      <section aria-label={scope === "mine" ? "Việc của bạn ở đây" : "Nhiệm vụ chung"} className="max-h-[35dvh] overflow-y-auto border-b border-border bg-card px-3 md:px-10">
+        <ul className="mx-auto max-w-2xl space-y-1 py-2">
+          {threadTasks.map((task) => (
+            <ChatTaskRow
+              key={task.id}
+              task={task}
+              userId={userId}
+              today={today}
+              peerName={peerName}
+              members={members}
+              isHighlighted={task.id === highlightTaskId}
+              onSendMessage={onSendMessage}
+            />
+          ))}
+        </ul>
+      </section>
+    );
+  }
 
   return (
     <section aria-label="Nhiệm vụ chung" className="border-t border-border bg-card px-5 md:px-10">

@@ -15,6 +15,7 @@ import { recordsOf, subTablesOf, TABLE_LAYERS, tablesByLayer, type ThinkRecord, 
 import { TYPE } from "@/lib/type-scale";
 import { groupProjectsOnly, useDeletedProjects, useProjectActions } from "@/lib/use-projects";
 import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
+import { matchesSearch } from "@/lib/normalize-search";
 import { cn } from "@/lib/utils";
 
 type SectionKey = "tables" | "groups" | "trash";
@@ -164,11 +165,14 @@ export function ProjectList({
   conversations,
   activeProjectId,
   isPending,
+  query = "",
 }: {
   projects: readonly Project[];
   conversations: readonly ConversationSummary[];
   activeProjectId: string | undefined;
   isPending: boolean;
+  /** The tab's search box: narrows the projects by name, accent-free (AVORA-44 · việc 5). */
+  query?: string;
 }) {
   const { user } = useAuth();
   const tablesQuery = useThinkTables();
@@ -198,8 +202,11 @@ export function ProjectList({
     peeking?.conversationId == null ? undefined : conversationById.get(peeking.conversationId);
 
   const groupProjects = useMemo(
-    () => groupProjectsOnly(projects, (id) => conversationById.get(id)?.kind),
-    [projects, conversationById],
+    () =>
+      groupProjectsOnly(projects, (id) => conversationById.get(id)?.kind).filter((project) =>
+        matchesSearch(query, [project.title, conversationById.get(project.conversationId)?.groupName ?? null]),
+      ),
+    [projects, conversationById, query],
   );
 
   const toggle = (key: SectionKey): void =>
@@ -239,7 +246,15 @@ export function ProjectList({
       <section className="mt-1">
         <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Bảng của tôi" count={mineCount} />
         {tablesOpen ? (
-          mineCount === 0 ? (
+          tablesQuery.isError ? (
+            // AVORA-49 · 1.8: a failed load says so; it never passes for an empty list.
+            <p className="flex items-center gap-2 px-9 pb-3 text-[12.5px] text-muted-foreground">
+              Không tải được
+              <button type="button" onClick={() => void tablesQuery.refetch()} className="press rounded-md border border-border px-2 py-0.5 font-medium text-foreground hover:bg-accent/40">
+                Thử lại
+              </button>
+            </p>
+          ) : mineCount === 0 ? (
             <p className={cn(TYPE.blockDescription, "px-9 pb-3 text-[12.5px]")}>
               Chưa có bảng nào. Mở Kế hoạch để dựng bảng đầu tiên.
             </p>

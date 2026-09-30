@@ -7,7 +7,9 @@ import {
   CloudOff,
   FolderOpen,
   Loader2,
+  Maximize2,
   Mic,
+  Minimize2,
   MoreHorizontal,
   Paperclip,
   Pin,
@@ -20,6 +22,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import { toast } from "sonner";
 
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
+import { askConfirm } from "@/components/ConfirmHost";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -43,7 +46,8 @@ import {
   pressBackspaceAtStart,
   pressEnter,
   readDraft,
-  rememberNotesPlace,
+  readNotesPlace,
+  rememberNotePosition,
   saveNote,
   uploadNoteAttachment,
   visibleBlocks,
@@ -68,6 +72,10 @@ export type EditingNote = Pick<Note, "id" | "folderId" | "title" | "blocks" | "t
   pinnedAt: string | null;
   bookTitle: string | null;
   isNew: boolean;
+  /** Opened with words already in it (a paste): saved without waiting for a keystroke. */
+  startDirty?: boolean;
+  /** Bumped to reopen the same note with new content. */
+  revision?: number;
 };
 
 export function toAttachmentView(item: NoteAttachment): MessageAttachment {
@@ -154,6 +162,8 @@ export function NoteEditor({
   attachments,
   notesData,
   knownTags,
+  showBack = true,
+  fullscreen = null,
   onBack,
   onMove,
   onCreateTask,
@@ -166,6 +176,10 @@ export function NoteEditor({
   attachments: readonly NoteAttachment[];
   notesData: NotesData;
   knownTags: readonly string[];
+  /** Phone: the ‹ back to the list. A computer keeps the list in sight instead. */
+  showBack?: boolean;
+  /** Computer: `⤢ Viết toàn màn` / `⤡` (44b · B). */
+  fullscreen?: { isOn: boolean; toggle: () => void } | null;
   onBack: () => void;
   onMove: (noteId: string, folderId: string | null) => void;
   onCreateTask: (input: { title: string; text: string; sourceLabel: string }) => void;
@@ -181,7 +195,7 @@ export function NoteEditor({
   const [tagDraft, setTagDraft] = useState<string>("");
   const [folderId, setFolderId] = useState<string | null>(initial.folderId);
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
-  const [dirty, setDirty] = useState<boolean>(false);
+  const [dirty, setDirty] = useState<boolean>(initial.startDirty === true);
   const [exists, setExists] = useState<boolean>(!initial.isNew);
   const [selection, setSelection] = useState<string>("");
   const refs = useRef<Map<string, HTMLTextAreaElement>>(new Map());
@@ -261,10 +275,33 @@ export function NoteEditor({
   const remember = useCallback(
     (blockId: string, caret: number): void => {
       lastFocus.current = { blockId, caret };
-      rememberNotesPlace({ folderId, noteId, blockId, caret, scrollTop: scrollRef.current?.scrollTop ?? 0 });
+      rememberNotePosition({ noteId, blockId, caret, scrollTop: scrollRef.current?.scrollTop ?? 0 });
     },
-    [folderId, noteId],
+    [noteId],
   );
+
+  // Việc 2: reopening a note lands on the same caret and scroll it was left at.
+  useLayoutEffect(() => {
+    const place = readNotesPlace();
+    if (place === null || place.noteId !== noteId) return;
+    const node = scrollRef.current;
+    if (node !== null && typeof place.scrollTop === "number") node.scrollTop = place.scrollTop;
+    const blockId = place.blockId ?? null;
+    if (blockId === null) return;
+    const field = refs.current.get(blockId);
+    if (field === undefined) return;
+    const caret = Math.min(place.caret ?? 0, field.value.length);
+    lastFocus.current = { blockId, caret };
+    field.focus({ preventScroll: true });
+    field.setSelectionRange(caret, caret);
+    // noteId is the editor's identity (it is keyed on it); this runs once per opened note.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // The scroll position is kept as the reader moves, not only when the caret moves.
+  const onEditorScroll = useCallback((): void => {
+    rememberNotePosition({ noteId, scrollTop: scrollRef.current?.scrollTop ?? 0 });
+  }, [noteId]);
 
   const change = (next: NoteBlock[], focus?: { blockId: string; caret: number }): void => {
     setBlocks(next);
@@ -423,13 +460,16 @@ export function NoteEditor({
   const plain = (): string => blocks.map((block, index) => (labels[index] === null ? block.text : `${labels[index]} ${block.text}`)).join("\n");
   const displayTitle = title.trim() === "" ? (blocks.find((block) => block.text.trim() !== "")?.text.trim().slice(0, 120) ?? "Ghi chép mới") : title.trim();
   const isRecordingHere = recorder.isRecording && recorder.ownerKey === noteId;
+  const sourceOfSelection = initial.bookRecordId !== null ? `Từ sách ${initial.bookTitle ?? ""}` : `Từ ghi chép ${displayTitle}`;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 md:px-8">
-        <button type="button" onClick={onBack} aria-label="Về danh sách" className="press rounded-md p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
-          <ArrowLeft className="h-5 w-5" strokeWidth={1.7} />
-        </button>
+        {showBack ? (
+          <button type="button" onClick={onBack} aria-label="Về danh sách" className="press rounded-md p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
+            <ArrowLeft className="h-5 w-5" strokeWidth={1.7} />
+          </button>
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" className="press flex min-w-0 items-center gap-1.5 rounded-md px-2 py-1 text-[13px] text-muted-foreground hover:bg-accent/50 hover:text-foreground">
@@ -465,6 +505,17 @@ export function NoteEditor({
             </button>
           ) : null}
         </span>
+        {fullscreen !== null ? (
+          <button
+            type="button"
+            onClick={fullscreen.toggle}
+            aria-label={fullscreen.isOn ? "Thu lại (Esc)" : "Viết toàn màn"}
+            title={fullscreen.isOn ? "Thu lại (Esc)" : "Viết toàn màn"}
+            className="press rounded-md p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+          >
+            {fullscreen.isOn ? <Minimize2 className="h-[18px] w-[18px]" strokeWidth={1.7} /> : <Maximize2 className="h-[18px] w-[18px]" strokeWidth={1.7} />}
+          </button>
+        ) : null}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button type="button" aria-label="Thêm thao tác" className="press rounded-md p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
@@ -491,7 +542,7 @@ export function NoteEditor({
         </DropdownMenu>
       </div>
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-5 md:px-10">
+      <div ref={scrollRef} onScroll={onEditorScroll} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-5 md:px-10">
         <div className="mx-auto max-w-2xl">
           {initial.bookRecordId !== null || initial.bookTitle !== null ? (
             <button
@@ -511,7 +562,8 @@ export function NoteEditor({
               setDirty(true);
             }}
             maxLength={200}
-            placeholder="Tiêu đề (để trống thì lấy dòng đầu)"
+            placeholder="Tiêu đề"
+            title="Để trống thì lấy dòng đầu"
             aria-label="Tiêu đề ghi chép"
             className="w-full bg-transparent text-[24px] font-semibold leading-tight tracking-tight text-foreground outline-none placeholder:text-muted-foreground/60"
           />
@@ -632,9 +684,11 @@ export function NoteEditor({
                       type="button"
                       aria-label={`Xoá tệp ${item.fileName}`}
                       onClick={() => {
-                        if (!window.confirm(`Xoá tệp "${item.fileName}" khỏi ghi chép?`)) return;
-                        change(blocks.map((block) => ({ ...block, attachmentRefs: (block.attachmentRefs ?? []).filter((id) => id !== item.id) })));
-                        notesData.removeAttachment.mutate(item);
+                        void askConfirm({ title: `Xoá tệp "${item.fileName}" khỏi ghi chép?`, confirmLabel: "Xoá tệp", danger: true }).then((ok) => {
+                          if (!ok) return;
+                          change(blocks.map((block) => ({ ...block, attachmentRefs: (block.attachmentRefs ?? []).filter((id) => id !== item.id) })));
+                          notesData.removeAttachment.mutate(item);
+                        });
                       }}
                       className="press mt-1 rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                     >
@@ -646,15 +700,21 @@ export function NoteEditor({
             </section>
           ) : null}
 
-          {selection !== "" && initial.bookRecordId !== null ? (
-            <div className="sticky bottom-20 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-card p-2 shadow-lg">
-              <span className="px-1 text-[12.5px] font-medium text-amber-700 dark:text-amber-300">Áp dụng đoạn đã chọn</span>
-              <button type="button" onClick={() => onToBoard({ title: selection.slice(0, 120), text: `Từ sách ${initial.bookTitle ?? ""}\n\n${selection}` })} className="press rounded-md border border-border px-2.5 py-1.5 text-[13px]">
+          {selection !== "" ? (
+            <div role="toolbar" aria-label="Áp dụng đoạn đã chọn" className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-card p-2 shadow-lg">
+              <span className="px-1 text-[12.5px] font-medium text-amber-700 dark:text-amber-300">Áp dụng</span>
+              <button
+                type="button"
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onToBoard({ title: selection.slice(0, 120), text: `${sourceOfSelection}\n\n${selection}` })}
+                className="press whitespace-nowrap rounded-md border border-border px-2.5 py-1.5 text-[13px]"
+              >
                 Tạo Hạng mục
               </button>
               <button
                 type="button"
-                onClick={() => onCreateTask({ title: selection.slice(0, 120), text: selection, sourceLabel: `Từ sách ${initial.bookTitle ?? ""}` })}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => onCreateTask({ title: selection.slice(0, 120), text: selection, sourceLabel: sourceOfSelection })}
                 className="press rounded-md bg-primary px-2.5 py-1.5 text-[13px] font-semibold text-primary-foreground"
               >
                 Tạo nhiệm vụ

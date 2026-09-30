@@ -22,7 +22,7 @@ export type QuickAction = {
 /** In display order. */
 export const QUICK_ACTIONS: readonly QuickAction[] = [
   { id: "calendar", label: "Xem lịch", note: "Hôm nay và những ngày tới", isUpcoming: false },
-  { id: "paste-task", label: "Tạo việc từ nội dung copy", note: "Dán chữ, ảnh hoặc tệp bạn vừa copy", isUpcoming: false },
+  { id: "paste-task", label: "Tạo nhiệm vụ từ nội dung copy", note: "Dán chữ, ảnh hoặc tệp bạn vừa copy", isUpcoming: false },
   { id: "quick-transaction", label: "Tạo giao dịch nhanh", note: "Ghi thu/chi ngay, chọn sổ", isUpcoming: false },
   { id: "assistant", label: "Avora AI", note: "Trợ lý riêng của bạn", isUpcoming: true },
 ];

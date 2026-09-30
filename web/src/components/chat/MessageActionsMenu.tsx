@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useLongPress } from "@/hooks/use-long-press";
 import { canEditMessage, canRecallMessage, canReplyToMessage, type ChatMessage } from "@/lib/chat";
+import { QUICK_REACTIONS } from "@/lib/reactions";
 import { cn } from "@/lib/utils";
 
 /** How far a finger must travel right before a swipe means "answer this" (Đợt gộp 2 · A10). */
@@ -117,6 +118,7 @@ export function MessageActionsMenu({
   canForward = false,
   canReport = false,
   onAction,
+  onQuickReact,
   open,
   onOpenChange,
   className,
@@ -138,6 +140,8 @@ export function MessageActionsMenu({
   /** True on someone else's message in a 1-1 or group (AVORA-37 / B). Never on your own. */
   canReport?: boolean;
   onAction: (action: MessageAction) => void;
+  /** AVORA-49 · 2.4: six quick reactions on top of the menu — the one way in on a phone. */
+  onQuickReact?: (emoji: string) => void;
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
   className?: string;
@@ -159,7 +163,8 @@ export function MessageActionsMenu({
   const hasArrange = showForward || showPin || showEdit;
   const hasWithdraw = showRecall || showRequestRecall || showReport;
 
-  if (!hasAct && !hasArrange && !hasWithdraw) return null;
+  const canQuickReact = onQuickReact !== undefined && message.pending !== true && message.deletedAt == null;
+  if (!hasAct && !hasArrange && !hasWithdraw && !canQuickReact) return null;
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -176,7 +181,24 @@ export function MessageActionsMenu({
           <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
+      <DropdownMenuContent align="end" className={canQuickReact ? "w-[272px]" : "w-48"}>
+        {canQuickReact ? (
+          <>
+            <div role="group" aria-label="Thả cảm xúc" className="flex items-center justify-between px-1 py-1">
+              {QUICK_REACTIONS.slice(0, 6).map((entry) => (
+                <DropdownMenuItem
+                  key={entry.emoji}
+                  aria-label={entry.label}
+                  onSelect={() => onQuickReact?.(entry.emoji)}
+                  className="flex h-11 w-11 items-center justify-center rounded-full p-0 text-[22px] leading-none focus:bg-accent"
+                >
+                  {entry.emoji}
+                </DropdownMenuItem>
+              ))}
+            </div>
+            {hasAct || hasArrange || hasWithdraw ? <DropdownMenuSeparator /> : null}
+          </>
+        ) : null}
         {showReply ? (
           <DropdownMenuItem onSelect={() => onAction("reply")}>
             <Reply className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
@@ -274,6 +296,7 @@ export function MessageActionsAffordance({
   canReport = false,
   outgoing,
   onAction,
+  onQuickReact,
   reactionPicker,
   disabled = false,
   onSwipeReply,
@@ -293,6 +316,7 @@ export function MessageActionsAffordance({
   canReport?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
+  onQuickReact?: (emoji: string) => void;
   /**
    * Sits beside the menu rather than inside it. A reaction is a one-tap gesture, and burying
    * it two taps deep in a list would make it slower than typing "ok".
@@ -361,6 +385,7 @@ export function MessageActionsAffordance({
         canForward={canForward}
         canReport={canReport}
         onAction={onAction}
+        onQuickReact={onQuickReact}
         open={isOpen}
         onOpenChange={setIsOpen}
       />

@@ -1817,3 +1817,74 @@ illustration are deliberately avoided.
 | 7 | Ghi âm tự ghi (≤ 5 phút) | Nhật ký của tôi |
 | 8 | Lưu biên bản từ Sổ quyết định | File của tôi (Từ Sổ quyết định) |
 | 9 | Ghi chép: tự viết / dán chữ / chụp / ghi âm (≤ 30 phút) / tệp — không có chuyển tiếp vào Ghi chép | Ghi chép (tệp cũng hiện ở File, link ở Liên kết) |
+
+- 2026-09-30 (chiều) — Bố cục Nhật ký, Lớp nổi, Vùng an toàn, Kết nối (AVORA-44b · AVORA-49).
+
+**Nhật ký (44b).** One place to switch views per screen: on a computer the left column (with the
+`mới` dot) — the chip row is hidden; on a phone the chip row. Ghi chép on a computer is a writing
+space: the Kết nối list folds away (`‹ Nhật ký` brings it back), and the content is Thư mục ~220 ·
+Danh sách ~300 · Trình soạn (≥ 560). Not enough width → the folders fold into the list's header
+(name ▾). `⤢ Viết toàn màn` hides both; `Esc` / `⤡` returns to the same folder, note, caret and
+scroll (remembered on the device). No editor opens on its own: an empty state says "Chọn một ghi
+chép, hoặc + Ghi chép"; a note exists only once something is typed. One `+ Ghi chép` and one
+search box (`Tìm ghi chép · #thẻ`, with `Tìm trong mọi ghi chép ›`), both at the top of the list;
+pasting while the list has focus asks `Ghi chép mới / Thêm vào ghi chép cũ`. The 📊 Bảng strip left
+Nhật ký: `⋯ › Bảng (n)` in the same frame as 1-1 / Nhóm, next to `Thùng rác` (30 days, `Còn N
+ngày`, Khôi phục). Every header line says `Chỉ mình bạn xem`.
+
+**Nguyên tắc Lớp nổi (44b · Phần 2).** Lớp nổi = everything that pops over a screen: calendar, time,
+people, menus, confirmations, edit boxes. One set of rules and one shell (`FloatingPanel`):
+- H1 · Sizes: calendar 344 wide, tall enough for 6 rows + `Tuần/Tháng` + the day list; time 280 /
+  ≤ 360; people and lists 360 / ≤ 480 with the search stuck on top; menus 220–280; edit boxes 560
+  (720 large) and at most `100dvh − 32px`. Tap targets ≥ 44×44. Button words never wrap
+  (`Thấp · Trung bình · Cao` shrink evenly).
+- H2 · Computer: under the field, left-aligned; flipped above when the whole panel does not fit
+  below; centred with a dim backdrop when neither side fits. Always ≥ 16px from every edge; if still
+  short, it scrolls inside. Portalled, so a dialog it was opened from never clips it.
+- H3 · Phone: calendar / time / people are a sheet from the top, full width with 8px margins,
+  under the notch, ≤ 85% tall, scrolling inside, with its close button always in view. Menus slide
+  up from the bottom, above the home bar. Edit boxes are full screen.
+- H4 · A box taller than the screen keeps its title and its last row of buttons fixed; only the
+  middle scrolls.
+- H5 · Applies to DateField, DateRangeField, TimeField, the people pickers, target-table choice,
+  message menus, TaskComposer, TaskDetailSheet, the Hạng mục edit box and the template box.
+  The shared Popover / DropdownMenu / Dialog / AlertDialog / Sheet carry the same limits.
+
+**Vùng an toàn điện thoại (44b · Phần 3).** The viewport is `viewport-fit=cover`, so every header adds
+`env(safe-area-inset-top)` and everything at the bottom adds `env(safe-area-inset-bottom)`. The
+five-icon bar: `padding-bottom: max(env(safe-area-inset-bottom), 10px)`, each target ≥ 48px tall,
+icon and label centred. The composer, sheets and bottom menus follow the same rule. It is a real
+row in the layout (not floating), so the last line of a scrolled page is never under it.
+
+**Kết nối — nguyên tắc (AVORA-49).**
+1. The most frequent thing is the fastest: in a thread, reading and answering; everything else yields.
+2. Height budget on a phone: fixed parts (header + strips + composer) ≤ 35% of the screen; messages
+   keep ≥ 65%. Inside a thread the AVORA top bar and the five icons step aside; ghim · dự án · gợi ý ·
+   việc · hẹn giờ are one ~36px chip row, and a chip opens its list below, capped at 35%. Nothing
+   opens on its own; a chip that needs you carries a dot.
+3. One job — one place — one name. No two buttons for one job on one screen; the same action has the
+   same words everywhere. One `＋` starts everything new (Trò chuyện mới · Nhóm mới · Kết bạn qua
+   PIN / QR). A room's header holds at most 🔍 and ⋯ (a 1-1 keeps its call button).
+4. Every way out has a way back to the same place: ReturnChip under a thread's header, `withReturn`
+   on links out, and the line being read is kept per thread for the tab (not the end).
+5. No dead ends: an empty or blocked screen always has a next step (e.g. no friends → `Kết bạn qua
+   PIN / QR`); a failed load says `Không tải được · Thử lại`, never an empty list.
+The composer: `+` · the box · one round button that is 🎙 when the box is empty and ↑ (Gửi) once
+there is something to send. A real keyboard sends on Enter, Shift+Enter is a new line, and Enter
+while an IME is still composing a Vietnamese letter never sends; a phone keeps Enter as a new line.
+Holding a message on a phone opens six quick reactions above the menu. The ⋯ panel is one frame for
+1-1, Nhóm and Nhật ký: ① picture + name (+ `Sửa` for a group) ② Thông báo ③ Thành viên (n) · Mời vào
+nhóm ④ Nhiệm vụ · Bảng · Dự án · Sổ quyết định ⑤ Tìm trong cuộc · Lên lịch cuộc gọi ⑥ in red at the
+end: Chặn · Báo cáo · Rời nhóm. Confirmations use the app's own box, never the browser's.
+
+**Bảng thuật ngữ**
+
+| Dùng | Không dùng |
+|---|---|
+| `nhiệm vụ` (hành động: `Tạo nhiệm vụ`) | tác vụ, task, "Tạo việc" trong nút |
+| Tên mục đã chốt giữ nguyên: `Nguồn tạo việc` | — |
+| `chủ nhóm`, `quản trị viên` | Owner, Admin |
+| `Chỉ mình bạn xem` | chỉ mình bạn đọc |
+| `tệp` trong câu; tên mục `File của tôi` giữ nguyên | lẫn file / tệp trong một câu |
+| `Nhật ký` | Diary |
+

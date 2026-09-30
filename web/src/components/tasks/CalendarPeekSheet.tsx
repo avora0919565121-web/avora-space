@@ -169,7 +169,7 @@ function CalendarPickerBody({
           <X className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
         </button>
       </div>
-      <div className={cn("min-h-0 flex-1 overflow-y-auto px-3 pb-3", inline && "max-h-[70vh]")}>
+      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {chooser !== "none" ? (
           <div className="pt-2">
             <div className="mb-2 flex items-center gap-1">

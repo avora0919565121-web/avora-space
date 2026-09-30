@@ -280,7 +280,7 @@ export async function createGroupConversation(name: string, memberIds: string[])
 export const MAX_GROUP_DEPTH = 3;
 
 /** Shown to a member who sees the sub-group button: the rule is visible rather than hidden. */
-export const SUB_GROUP_BLOCKED_MESSAGE = "Chỉ Owner/Admin được tạo nhóm con.";
+export const SUB_GROUP_BLOCKED_MESSAGE = "Chỉ chủ nhóm hoặc quản trị viên được tạo nhóm con.";
 
 /** Shown at the third level, where no further sub-group can open. */
 export const SUB_GROUP_DEPTH_MESSAGE =

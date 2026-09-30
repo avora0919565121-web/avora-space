@@ -391,7 +391,7 @@ describe("message tabs", () => {
   it("says who else is in the room on the second line", () => {
     expect(conversationSubtitle(group)).toBe("5 thành viên");
     expect(conversationSubtitle(direct)).toBe("Người dùng AVORA");
-    expect(conversationSubtitle(journal)).toBe("Chỉ mình bạn đọc được");
+    expect(conversationSubtitle(journal)).toBe("Chỉ mình bạn xem");
   });
 
   it("gives each tab its own badge instead of one shared total", () => {

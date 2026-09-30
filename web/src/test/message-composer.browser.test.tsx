@@ -7,7 +7,15 @@ import { MessageComposer } from "@/components/chat/MessageComposer";
 const LABEL = "Nhắn tin cho Minh";
 
 /** Mirrors how Messages.tsx drives the composer: it owns the draft and clears it on send. */
-function Harness({ onSend, isSending = false }: { onSend: (content: string) => void; isSending?: boolean }) {
+function Harness({
+  onSend,
+  isSending = false,
+  enterToSend = false,
+}: {
+  onSend: (content: string) => void;
+  isSending?: boolean;
+  enterToSend?: boolean;
+}) {
   const [value, setValue] = useState<string>("");
   return (
     <MessageComposer
@@ -20,6 +28,7 @@ function Harness({ onSend, isSending = false }: { onSend: (content: string) => v
       placeholder="Nhắn tin cho Minh…"
       ariaLabel={LABEL}
       isSending={isSending}
+      enterToSend={enterToSend}
     />
   );
 }
@@ -30,7 +39,7 @@ function fieldOf(container: HTMLElement): HTMLTextAreaElement {
   return field;
 }
 
-test("Enter opens a new line and sends nothing", async () => {
+test("on a phone, Enter opens a new line and sends nothing", async () => {
   const sent: string[] = [];
   const screen = await render(<Harness onSend={(content) => sent.push(content)} />);
 
@@ -133,4 +142,48 @@ test("the box grows with the message instead of hiding earlier lines", async () 
 
   expect(oneLine).toBeGreaterThan(0);
   expect(manyLines).toBeGreaterThan(oneLine);
+});
+
+// AVORA-49 · 2.5: a real keyboard sends on Enter, keeps Shift+Enter for a new line.
+test("with a keyboard, Enter sends and Shift+Enter writes a line", async () => {
+  const sent: string[] = [];
+  const screen = await render(<Harness enterToSend onSend={(content) => sent.push(content)} />);
+
+  await userEvent.click(screen.getByRole("textbox", { name: LABEL }));
+  await userEvent.keyboard("trên{Shift>}{Enter}{/Shift}dưới");
+  expect(sent).toEqual([]);
+  await userEvent.keyboard("{Enter}");
+  expect(sent).toEqual(["trên\ndưới"]);
+  expect(fieldOf(screen.container).value).toBe("");
+});
+
+test("with a keyboard, Enter while an IME is still composing sends nothing", async () => {
+  const sent: string[] = [];
+  const screen = await render(<Harness enterToSend onSend={(content) => sent.push(content)} />);
+  const field = screen.getByRole("textbox", { name: LABEL });
+  await userEvent.click(field);
+  await userEvent.keyboard("vie");
+  const node = fieldOf(screen.container);
+  node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }));
+  expect(sent).toEqual([]);
+  expect(node.value).toBe("vie");
+});
+
+test("an empty box offers the microphone in place of Gửi", async () => {
+  let started = 0;
+  const screen = await render(
+    <MessageComposer
+      value=""
+      onValueChange={() => undefined}
+      onSend={() => undefined}
+      placeholder="…"
+      ariaLabel={LABEL}
+      isSending={false}
+      onStartRecording={() => {
+        started += 1;
+      }}
+    />,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Ghi âm tin nhắn thoại" }));
+  expect(started).toBe(1);
 });

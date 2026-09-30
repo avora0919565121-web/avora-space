@@ -30,6 +30,7 @@ import { useContactsNeedingReview, useSharedChannels } from "@/lib/use-contact-c
 import { useConnections } from "@/lib/use-connections";
 import { useContacts } from "@/lib/use-contacts";
 import { useOpenOpportunityContacts } from "@/lib/use-opportunities";
+import { SearchEverywhereLine } from "@/components/search/AvoraSearch";
 import { cn } from "@/lib/utils";
 
 type Group = "individual" | "business" | "friends";
@@ -211,6 +212,8 @@ const Contacts = () => {
             className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
           />
         </label>
+        {/* AVORA-44 · việc 5: this box filters here; the line below searches all of AVORA (ADR-032). */}
+        <SearchEverywhereLine query={query} here={{ tab: "ket-noi", conversationId: null, label: "Liên hệ" }} />
 
         {group === "friends" ? (
           <div className="mt-5">

@@ -1,6 +1,8 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Ban,
+  Bell,
+  ChevronRight,
   Copy,
   Crown,
   GitBranchPlus,
@@ -19,6 +21,7 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -123,9 +126,26 @@ type GroupInfoSheetProps = {
   onOpenConversation: (conversationId: string, originGroupId?: string | null) => void;
   /** Called after the viewer leaves the group, once the thread is no longer theirs to read. */
   onLeft: () => void;
-  /** Bảng / Dự án / Sổ quyết định — the "Thêm" part, shown above the roster (AVORA 32). */
+  /** Nhiệm vụ · Bảng · Dự án · Sổ quyết định · Tìm · Lên lịch (and a 1-1's Chặn / Báo cáo at the end). */
   moreSections?: ReactNode;
+  /** Nhật ký uses the same frame (44b · C): its own name, and only the rows it has. */
+  kind?: "personal" | "direct" | "group";
 };
+
+/** ② Thông báo (AVORA-49 · 4.1): a place kept for per-thread settings (AVORA-47); today it opens Cài đặt › Thông báo. */
+function NotifyRow() {
+  return (
+    <Link
+      to="/cai-dat/thong-bao"
+      className="press mx-3 mb-3 flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/40"
+    >
+      <Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+      <span className="min-w-0 flex-1 text-[14px] text-foreground">Thông báo</span>
+      <span className="text-[12.5px] text-muted-foreground">Cài đặt</span>
+      <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+    </Link>
+  );
+}
 
 const roleBadgeClasses: Record<GroupRole, string> = {
   owner: "border-primary/40 bg-primary/10 text-primary",
@@ -147,6 +167,7 @@ export function GroupInfoSheet({
   onOpenConversation,
   onLeft,
   moreSections = null,
+  kind,
 }: GroupInfoSheetProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -165,7 +186,7 @@ export function GroupInfoSheet({
   const metaQuery = useQuery({
     queryKey: groupKeys.meta(conversationId),
     queryFn: () => fetchGroupMeta(conversationId),
-    enabled: open,
+    enabled: open && kind !== "personal",
   });
 
   const isGroup = metaQuery.data !== null;
@@ -531,7 +552,15 @@ export function GroupInfoSheet({
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md">
-          {metaQuery.isPending ? (
+          {kind === "personal" ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="border-b border-border px-6 pb-5 pt-7">
+                <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">Nhật ký của tôi</SheetTitle>
+                <SheetDescription className="mt-1 text-[13px] text-muted-foreground">Chỉ mình bạn xem</SheetDescription>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto pt-4">{moreSections}</div>
+            </div>
+          ) : metaQuery.isPending ? (
             <p className="p-6 text-[14px] text-muted-foreground">Đang tải…</p>
           ) : metaQuery.isError ? (
             <div className="p-6">
@@ -546,7 +575,9 @@ export function GroupInfoSheet({
             </div>
           ) : isGroup ? (
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="flex items-start gap-3 border-b border-border px-6 pb-5 pt-7">
+              {/* ① Đầu: ảnh + tên + Sửa (AVORA-49 · 4.1). */}
+              <div className="flex items-center gap-3 border-b border-border px-6 pb-5 pt-7">
+                <InitialsAvatar name={groupName ?? "Nhóm"} />
                 <div className="min-w-0 flex-1">
                   <SheetTitle className="truncate text-[20px] font-semibold tracking-tight text-foreground">
                     {groupName ?? "Nhóm"}
@@ -556,44 +587,20 @@ export function GroupInfoSheet({
                   </SheetDescription>
                 </div>
                 {myRole ? (
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        aria-label="Cài đặt nhóm"
-                        className="press mt-0.5 shrink-0 rounded-md border border-border p-2 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-                      >
-                        <Settings className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end" className="w-60 border-border bg-card">
-                      <DropdownMenuLabel className="text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                        Cài đặt nhóm
-                      </DropdownMenuLabel>
-                      <DropdownMenuItem
-                        disabled={!canRename || isBusy}
-                        onSelect={(event) => {
-                          event.preventDefault();
-                          if (!canRename || isBusy) return;
-                          openRename();
-                        }}
-                        className="gap-2 text-[14px]"
-                      >
-                        <Pencil className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                        Đổi tên nhóm
-                      </DropdownMenuItem>
-                      {canRename ? null : (
-                        <p className="px-2 pb-2 pt-1 text-[12px] leading-snug text-muted-foreground">
-                          {RENAME_BLOCKED_MESSAGE}.
-                        </p>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                  <button
+                    type="button"
+                    disabled={!canRename || isBusy}
+                    title={canRename ? "Đổi tên nhóm" : `${RENAME_BLOCKED_MESSAGE}.`}
+                    onClick={openRename}
+                    className="press inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" /> Sửa
+                  </button>
                 ) : null}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4">
-                {moreSections !== null ? <div className="-mx-3 mb-2 border-b border-border">{moreSections}</div> : null}
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
+                <div className="-mx-3"><NotifyRow /></div>
                 {canSeeRemovalRequests(myRole as GroupRole) && (requestsQuery.data ?? []).length > 0 ? (
                   <section className="mb-5 px-3" aria-label="Đề nghị xoá đang chờ duyệt">
                     <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -663,7 +670,7 @@ export function GroupInfoSheet({
                 <section className="mb-5 px-3" aria-label="Liên kết mời tham gia nhóm">
                   <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <Link2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                    Liên kết mời
+                    Mời vào nhóm
                   </h3>
                   {inviteState === "loading" ? (
                     <p className="mt-2 text-[13px] text-muted-foreground">Đang tải liên kết…</p>
@@ -770,7 +777,7 @@ export function GroupInfoSheet({
 
                 <section aria-label="Danh sách thành viên">
                   <h3 className="px-3 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Thành viên
+                    Thành viên <span className="tabular font-medium normal-case">({members.length})</span>
                   </h3>
                   {showSearch ? (
                     <div className="relative mx-3 mt-2">
@@ -932,10 +939,11 @@ export function GroupInfoSheet({
                     </p>
                   ) : null}
                 </section>
-              </div>
+                {/* ④ Nhiệm vụ · Bảng · Dự án · Sổ quyết định  ⑤ Tìm · Lên lịch cuộc gọi */}
+                {moreSections !== null ? <div className="-mx-3 mt-5 border-t border-border pt-4">{moreSections}</div> : null}
 
               {myRole ? (
-                <div className="border-t border-border px-6 py-4">
+                <div className="-mx-3 mt-2 border-t border-border px-6 py-4">
                   {/* Always shown: a member sees the rule instead of a missing button. */}
                   <div className="mb-4">
                     <button
@@ -984,34 +992,24 @@ export function GroupInfoSheet({
                   )}
                 </div>
               ) : null}
+              </div>
             </div>
           ) : (
             <div className="flex min-h-0 flex-1 flex-col">
-              <div className="border-b border-border px-6 pb-5 pt-7">
-                <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">
-                  Thêm
-                </SheetTitle>
-                <SheetDescription className="mt-1 text-[13px] text-muted-foreground">
-                  Cuộc trò chuyện trực tiếp giữa hai người
-                </SheetDescription>
-              </div>
-              <div className="flex items-center gap-3 px-6 py-5">
+              {/* ① Đầu: ảnh + tên — the same frame as a group (AVORA-49 · 4.1). */}
+              <div className="flex items-center gap-3 border-b border-border px-6 pb-5 pt-7">
                 <InitialsAvatar name={peerName ?? "?"} />
-                <div className="min-w-0">
-                  <p className="truncate text-[15px] font-medium text-foreground">{peerName}</p>
-                  <p className="truncate text-[13px] text-muted-foreground">
-                    Người dùng AVORA
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <SheetTitle className="truncate text-[20px] font-semibold tracking-tight text-foreground">{peerName}</SheetTitle>
+                  <SheetDescription className="mt-1 text-[13px] text-muted-foreground">Trò chuyện 1-1</SheetDescription>
                 </div>
               </div>
-
-              {/* Only in a 1-1: family is a relationship between two people, not a room. */}
-              {peerId ? (
-                <FamilyFlagCard peerId={peerId} peerName={peerName ?? "người này"} />
-              ) : null}
-              {moreSections !== null ? (
-                <div className="mt-2 min-h-0 flex-1 overflow-y-auto border-t border-border pt-4">{moreSections}</div>
-              ) : null}
+              <div className="min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
+                <NotifyRow />
+                {/* Only in a 1-1: family is a relationship between two people, not a room. */}
+                {peerId ? <FamilyFlagCard peerId={peerId} peerName={peerName ?? "người này"} /> : null}
+                {moreSections !== null ? <div className="mt-2 border-t border-border pt-4">{moreSections}</div> : null}
+              </div>
             </div>
           )}
         </SheetContent>

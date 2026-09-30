@@ -33,7 +33,7 @@ export function BlockConfirmDialog({
           Chặn {name}?
         </AlertDialogTitle>
         <AlertDialogDescription className="text-[13.5px] leading-6 text-muted-foreground">
-          {name} sẽ không nhắn, gửi gợi ý việc hay tìm thấy bạn qua PIN/email được nữa. Họ không nhận
+          {name} sẽ không nhắn, gửi gợi ý việc hay tìm thấy bạn qua PIN được nữa. Họ không nhận
           thông báo nào. Trong Nhóm chung, hai bạn vẫn thấy tin của nhau.
         </AlertDialogDescription>
         <AlertDialogFooter className="gap-2">

@@ -142,7 +142,8 @@ const TreeRow = memo(function TreeRow({
   const hiddenUnread = isOpen ? 0 : node.unreadTotal - conversation.unreadCount;
   const title = conversationTitle(conversation);
   const chatHref = `/tin-nhan/${id}`;
-  const mainHref = kind === "project" && node.projectId !== null ? projectLink(node.projectId) : chatHref;
+  // AVORA-49 · 1.8: a project opens its chat everywhere (the project page is one tap away there).
+  const mainHref = chatHref;
   const savedDraft = draftsVersion >= 0 && !isActive ? readDraft(userId, id) : "";
   const hasDraft = savedDraft.trim() !== "";
   const preview = hasDraft

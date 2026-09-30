@@ -262,7 +262,7 @@ export function AvoraSearchHost() {
                         type="button"
                         onClick={() => {
                           setOpen(false);
-                          if (journalId !== null) navigate(`/tin-nhan/${journalId}?xem=ghi-chep`);
+                          if (journalId !== null) navigate(withReturn(`/tin-nhan/${journalId}?xem=ghi-chep`, { path: `${location.pathname}${location.search}`, label: here.label }));
                         }}
                         className="press rounded-full bg-primary/10 px-2.5 py-1 text-[13px] text-primary"
                       >

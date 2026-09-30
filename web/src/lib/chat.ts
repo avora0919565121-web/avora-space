@@ -242,6 +242,25 @@ export async function fetchMessages(conversationId: string, since: string | null
   return (data ?? []).map(toChatMessageRow).reverse();
 }
 
+/** A journal entry in Thùng rác: what it said, and when it went in (AVORA-44 · việc 8). */
+export type TrashedJournalEntry = ChatMessage & { trashedAt: string };
+
+/** Nhật ký's Thùng rác, newest first. Only the owner's journal is readable (RLS). */
+export async function fetchTrashedJournal(conversationId: string): Promise<TrashedJournalEntry[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select(`${MESSAGE_COLUMNS}, trashed_at`)
+    .eq("conversation_id", conversationId)
+    .not("trashed_at", "is", null)
+    .order("trashed_at", { ascending: false })
+    .limit(200);
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => ({
+    ...toChatMessageRow(row as MessageRowShape),
+    trashedAt: (row as { trashed_at: string }).trashed_at,
+  }));
+}
+
 /** The page just before `before` (older), oldest first. Fewer than a page means the start was reached. */
 export async function fetchOlderMessages(conversationId: string, before: string): Promise<ChatMessage[]> {
   const { data, error } = await supabase

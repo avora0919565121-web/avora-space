@@ -33,7 +33,7 @@ import { cn } from "@/lib/utils";
 
 /** What each Nhật ký view holds, in one line under its name. */
 const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
-  journal: "Ý nghĩ, thu nhanh, tin chuyển tiếp — chỉ mình bạn đọc",
+  journal: "Ý nghĩ, thu nhanh, tin chuyển tiếp — chỉ mình bạn xem",
   notes: "Bài bạn tự viết, xếp theo thư mục",
   files: "Mọi ảnh và tệp trong Nhật ký và Ghi chép",
   links: "Mọi đường link bạn đã lưu",
@@ -120,8 +120,10 @@ export function DiaryCountRow({
 }
 
 /**
- * The Nhật ký tab's list on a computer: the five views as rows, with counts. A phone never rests
- * here — it opens the view used last, with the count row on top.
+ * The Nhật ký tab's list on a computer: the five views as rows, with counts and the "mới" dot —
+ * the one place to switch views there (44b · A). A phone never rests here — it opens the view
+ * used last, with the count row on top. Creating a task from what was copied lives only in
+ * Nguồn tạo việc (AVORA-49 · chặng 5).
  */
 export function DiaryList({
   journalId,
@@ -179,6 +181,7 @@ export function DiaryList({
                     </span>
                     <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{DIARY_HINTS[view.id]}</span>
                   </span>
+                  {dots[view.id] === true && !isActive ? <span className="tabular shrink-0 text-[11px] font-semibold text-primary">mới</span> : null}
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.8} aria-hidden="true" />
                 </Link>
               )}
@@ -186,21 +189,6 @@ export function DiaryList({
           );
         })}
       </ul>
-      <div className="px-3 pt-4">
-        <button
-          type="button"
-          onClick={onPaste}
-          disabled={isPasting || journalId === null}
-          className="press flex min-h-11 w-full items-center justify-center gap-2 rounded-full border border-primary/35 bg-primary/[0.07] px-4 text-[13px] font-semibold text-primary transition-colors hover:bg-primary/[0.13] disabled:opacity-50"
-        >
-          {isPasting ? (
-            <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-          ) : (
-            <ClipboardPaste className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-          )}
-          Tạo việc từ nội dung vừa copy
-        </button>
-      </div>
     </div>
   );
 }
@@ -454,6 +442,7 @@ export function DiarySourcesView({
   onOpenTask,
   onOpenEntry,
   onPaste,
+  isPasting = false,
 }: {
   tasks: readonly TaskItem[];
   /** The entry's words (the task's context), or null when the entry is gone. */
@@ -461,30 +450,36 @@ export function DiarySourcesView({
   onOpenTask: (task: TaskItem) => void;
   onOpenEntry: (messageId: string) => void;
   onPaste: () => void;
+  isPasting?: boolean;
 }) {
+  // The one "from what was copied" button in the app (AVORA-49 · chặng 5; 44b · G).
+  const pasteButton = (
+    <button
+      type="button"
+      onClick={onPaste}
+      disabled={isPasting}
+      className="press flex min-h-11 w-full items-center justify-center gap-2 whitespace-nowrap rounded-[10px] border border-primary/35 bg-primary/[0.07] px-4 text-[13.5px] font-semibold text-primary transition-colors hover:bg-primary/[0.13] disabled:opacity-50"
+    >
+      {isPasting ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <ClipboardPaste className="h-4 w-4" strokeWidth={2} aria-hidden="true" />}
+      Tạo nhiệm vụ từ nội dung vừa copy
+    </button>
+  );
   if (tasks.length === 0) {
     return (
-      <div>
+      <div className="mx-auto max-w-2xl">
+        {pasteButton}
         <EmptyView
           icon={ClipboardPaste}
-          title="Chưa có việc nào tạo từ Nhật ký"
-          body="Tạo việc từ một mục Nhật ký, hoặc copy một đoạn chữ, ảnh hay tệp rồi dán vào — việc tạo ra sẽ nằm ở đây kèm bối cảnh."
+          title="Chưa có nhiệm vụ nào tạo từ Nhật ký"
+          body="Tạo nhiệm vụ từ một mục Nhật ký, hoặc copy một đoạn chữ, ảnh hay tệp rồi dán vào — nhiệm vụ tạo ra sẽ nằm ở đây kèm bối cảnh."
         />
-        <div className="flex justify-center">
-          <button
-            type="button"
-            onClick={onPaste}
-            className="press flex h-11 items-center gap-2 rounded-[10px] bg-primary px-5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-          >
-            <ClipboardPaste className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-            Tạo việc từ nội dung vừa copy
-          </button>
-        </div>
       </div>
     );
   }
   return (
-    <ul className="mx-auto flex max-w-2xl flex-col gap-2.5">
+    <div className="mx-auto max-w-2xl">
+    <div className="mb-3">{pasteButton}</div>
+    <ul className="flex flex-col gap-2.5">
       {tasks.map((task) => {
         const context = contextOf(task);
         const fileNames = task.contextSnapshot?.origin?.fileNames ?? [];
@@ -528,5 +523,6 @@ export function DiarySourcesView({
         );
       })}
     </ul>
+    </div>
   );
 }

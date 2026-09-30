@@ -1,7 +1,8 @@
 import { BookOpen, ExternalLink, Library, Loader2, NotebookText, Plus, Search, Star, Table2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
+import { hereFrom, withReturn } from "@/lib/return-to";
 
 import { DateField } from "@/components/calendar/DateField";
 import { HubTitle } from "@/components/nav/HubTitle";
@@ -61,6 +62,7 @@ function addDays(days: number): string {
  */
 const Bookshelf = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { tables, records, isPending } = useThinkHub();
   const actions = useThinkHubActions();
   const { bookshelf, star } = useShelfActions();
@@ -82,7 +84,8 @@ const Bookshelf = () => {
   const openNotes = async (params: string): Promise<void> => {
     try {
       const journalId = findJournal(conversations)?.conversationId ?? (await ensureJournalConversation());
-      navigate(`/tin-nhan/${journalId}?xem=ghi-chep&${params}`);
+      // AVORA-49 · 3.2: Nhật ký shows `← Kệ sách` to come back here.
+      navigate(withReturn(`/tin-nhan/${journalId}?xem=ghi-chep&${params}`, hereFrom(location, "Kệ sách")));
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Chưa mở được Ghi chép.");
     }

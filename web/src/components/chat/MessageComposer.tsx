@@ -1,5 +1,7 @@
+import { ArrowUp, Mic } from "lucide-react";
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -45,14 +47,41 @@ export type MessageComposerProps = {
   trailingAction?: ReactNode;
   /** Thumbnails of what is attached, drawn above the box. */
   attachmentSlot?: ReactNode;
+  /**
+   * AVORA-49 · 2.3: with an empty box the send button is 🎙 — recording is one tap, not "+ › Ghi âm".
+   * Omitted where recording is not possible.
+   */
+  onStartRecording?: () => void;
+  /**
+   * AVORA-49 · 2.5: a real keyboard sends on Enter (Shift+Enter = new line). Decided by the device
+   * when omitted: a fine pointer with hover means a keyboard; a phone keeps Enter as a new line.
+   */
+  enterToSend?: boolean;
 };
+
+const KEYBOARD_QUERY = "(hover: hover) and (pointer: fine)";
+
+/** True on a computer with a real keyboard and mouse. */
+function useHasKeyboard(): boolean {
+  const [matches, setMatches] = useState<boolean>(() =>
+    typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia(KEYBOARD_QUERY).matches : false,
+  );
+  useEffect(() => {
+    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
+    const list = window.matchMedia(KEYBOARD_QUERY);
+    const update = (): void => setMatches(list.matches);
+    list.addEventListener("change", update);
+    return () => list.removeEventListener("change", update);
+  }, []);
+  return matches;
+}
 
 /**
  * The one composer behind every thread — 1-1, group and Nhật ký all render this.
  *
- * Enter belongs to the message, not to sending: it opens a new line like any other
- * text box. A message leaves only when "Gửi" is pressed, and that button is unavailable
- * until there is something other than whitespace to send.
+ * On a computer Enter sends and Shift+Enter opens a new line (AVORA-49 · 2.5); on a phone Enter
+ * is a new line and the round send button sends. While an IME is still composing a Vietnamese
+ * letter (Telex / VNI), Enter finishes the letter and never sends.
  */
 export function MessageComposer({
   value,
@@ -66,8 +95,13 @@ export function MessageComposer({
   attachmentCount = 0,
   trailingAction,
   attachmentSlot,
+  onStartRecording,
+  enterToSend,
 }: MessageComposerProps) {
   const fieldRef = useRef<HTMLTextAreaElement>(null);
+  const hasKeyboard = useHasKeyboard();
+  const sendsOnEnter = enterToSend ?? hasKeyboard;
+  const showMic = onStartRecording !== undefined && value.trim() === "" && attachmentCount === 0;
   const canSend: boolean = canSendDraft(value, isSending, attachmentCount);
 
   /**
@@ -160,7 +194,15 @@ export function MessageComposer({
    */
   const handleFieldKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-      if (mentionRange === null || suggestions.length === 0) return;
+      if (mentionRange === null || suggestions.length === 0) {
+        // keyCode 229 = an IME is mid-letter; isComposing covers the browsers that report it.
+        const isComposing = event.nativeEvent.isComposing || event.keyCode === 229;
+        if (sendsOnEnter && event.key === "Enter" && !event.shiftKey && !event.altKey && !isComposing) {
+          event.preventDefault();
+          submit();
+        }
+        return;
+      }
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -184,14 +226,14 @@ export function MessageComposer({
         setMentionRange(null);
       }
     },
-    [mentionRange, suggestions, highlighted, choose],
+    [mentionRange, suggestions, highlighted, choose, sendsOnEnter, submit],
   );
 
   return (
     <>
       {attachmentSlot}
       <form
-        className="mx-auto flex max-w-2xl items-end gap-3"
+        className="mx-auto flex max-w-2xl items-end gap-2 md:gap-3"
         onSubmit={handleSubmit}
         onKeyDown={blockEnterSubmit}
       >
@@ -248,17 +290,33 @@ export function MessageComposer({
           maxLength={4000}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          className="min-h-12 w-full resize-none rounded-md border border-border bg-card px-4 py-3.5 text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+          enterKeyHint={sendsOnEnter ? "send" : "enter"}
+          className="min-h-11 w-full resize-none rounded-[22px] border border-border bg-card px-4 py-[11px] text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
         />
       </div>
         {trailingAction}
-        <button
-          type="submit"
-          disabled={!canSend}
-          className="press h-12 shrink-0 rounded-md bg-primary px-6 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
-        >
-          Gửi
-        </button>
+        {showMic ? (
+          <button
+            type="button"
+            onClick={onStartRecording}
+            disabled={isSending}
+            aria-label="Ghi âm tin nhắn thoại"
+            title="Ghi âm"
+            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-secondary disabled:opacity-45"
+          >
+            <Mic className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        ) : (
+          <button
+            type="submit"
+            disabled={!canSend}
+            aria-label="Gửi"
+            title={sendsOnEnter ? "Gửi (Enter)" : "Gửi"}
+            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        )}
       </form>
     </>
   );

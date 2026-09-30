@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Check, Search, X } from "lucide-react";
+import { Check, QrCode, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -17,13 +17,15 @@ type NewGroupDialogProps = {
   onOpenChange: (open: boolean) => void;
   /** Called with the new group's conversation id once it exists on the server. */
   onCreated: (conversationId: string) => void;
+  /** AVORA-49 · 1.4: no friends yet → a way straight to the PIN step instead of a dead end. */
+  onConnectByPin?: () => void;
 };
 
 /**
  * Creates a group: a name, then members picked among bạn bè (AVORA-38 / ADR-029).
  * A Nhóm needs 3 people counting the creator; talking with one person is a 1-1.
  */
-export function NewGroupDialog({ open, onOpenChange, onCreated }: NewGroupDialogProps) {
+export function NewGroupDialog({ open, onOpenChange, onCreated, onConnectByPin }: NewGroupDialogProps) {
   const queryClient = useQueryClient();
   const { connections, isLoading } = useConnections();
   const [name, setName] = useState<string>("");
@@ -146,13 +148,20 @@ export function NewGroupDialog({ open, onOpenChange, onCreated }: NewGroupDialog
             );
           })}
           {filtered.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[14px] text-muted-foreground">
-              {isLoading
-                ? "Đang tải bạn bè…"
-                : connections.length === 0
-                  ? "Chỉ thêm được bạn bè vào nhóm. Kết bạn qua PIN trước nhé."
-                  : "Không có bạn nào khớp."}
-            </p>
+            <div className="px-3 py-6 text-center">
+              <p className="text-[14px] text-muted-foreground">
+                {isLoading
+                  ? "Đang tải bạn bè…"
+                  : connections.length === 0
+                    ? "Chỉ thêm được bạn bè vào nhóm. Kết bạn qua PIN trước nhé."
+                    : "Không có bạn nào khớp."}
+              </p>
+              {!isLoading && connections.length === 0 && onConnectByPin !== undefined ? (
+                <Button type="button" variant="outline" className="press mt-3 h-11 gap-1.5 px-4" onClick={onConnectByPin}>
+                  <QrCode className="h-4 w-4" aria-hidden="true" /> Kết bạn qua PIN / QR
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </div>
         {notice ? <p className="border-t border-border px-6 py-3 text-[13px] text-primary">{notice}</p> : null}

@@ -2,11 +2,13 @@ import { CalendarDays, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { dateFieldLabel, type DateAllow } from "@/lib/date-field";
 import { todayIso } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
+
+/** Tháng view at its fullest: title + Tuần/Tháng + 6 week rows + the day's list (44b · H1). */
+export const CALENDAR_PANEL_HEIGHT = 470;
 
 export type DateFieldProps = {
   id?: string;
@@ -48,7 +50,6 @@ export function DateField({
   placeholder = "Chọn ngày",
 }: DateFieldProps) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const today = todayIso();
   const hasValue = typeof value === "string" && value !== "";
@@ -93,27 +94,22 @@ export function DateField({
 
   return (
     <div className={cn("flex min-w-0 items-center gap-1.5", className)}>
-      {isDesktop ? (
-        <Popover open={isOpen} onOpenChange={setOpen}>
-          <PopoverAnchor asChild>{trigger}</PopoverAnchor>
-          <PopoverContent
-            align="start"
-            className="w-[min(360px,calc(100vw-16px))] rounded-xl border-border bg-background p-0 pb-2"
-            onOpenAutoFocus={(event) => {
-              event.preventDefault();
-              const node = event.currentTarget as HTMLElement | null;
-              window.setTimeout(() => node?.querySelector<HTMLButtonElement>("[data-day][tabindex='0']")?.focus(), 60);
-            }}
-          >
-            <CalendarPeekSheet {...sheetProps} inline />
-          </PopoverContent>
-        </Popover>
-      ) : (
-        <>
-          {trigger}
-          <CalendarPeekSheet {...sheetProps} placement="top" />
-        </>
-      )}
+      {/* Lớp nổi (44b · H1–H3): under the field, above it, or centred — never cut off. */}
+      <FloatingPanel
+        open={isOpen}
+        onOpenChange={setOpen}
+        anchor={trigger}
+        label={sheetProps.title}
+        width={344}
+        height={CALENDAR_PANEL_HEIGHT}
+        onOpenAutoFocus={(event) => {
+          event.preventDefault();
+          const node = event.currentTarget as HTMLElement | null;
+          window.setTimeout(() => node?.querySelector<HTMLButtonElement>("[data-day][tabindex='0']")?.focus(), 60);
+        }}
+      >
+        {isOpen ? <CalendarPeekSheet {...sheetProps} inline /> : null}
+      </FloatingPanel>
       {hasValue && !required && !disabled ? (
         <button
           type="button"

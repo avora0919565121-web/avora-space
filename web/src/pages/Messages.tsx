@@ -16,6 +16,8 @@ import {
   MessageSquarePlus,
   MoreHorizontal,
   NotebookPen,
+  Plus,
+  QrCode,
   Search,
   SquarePen,
   UserRound,
@@ -45,8 +47,14 @@ import { ComingSoon } from "@/components/ComingSoon";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { NewGroupDialog } from "@/components/NewGroupDialog";
-import { ChatSuggestionPanel } from "@/components/chat/ChatSuggestionPanel";
-import { ChatTaskPanel } from "@/components/chat/ChatTaskPanel";
+import { ChatSuggestionPanel, useChatSuggestions } from "@/components/chat/ChatSuggestionPanel";
+import { ThreadChipRow, type ThreadChip, type ThreadChipId } from "@/components/chat/ThreadChipRow";
+import { askConfirm } from "@/components/ConfirmHost";
+import { JournalTrashSheet, useJournalTrashCount } from "@/components/chat/JournalTrashSheet";
+import { ReturnChip } from "@/components/nav/ReturnChip";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { firstVisibleMessage, forgetThreadPlace, readThreadPlace, rememberThreadPlace } from "@/lib/thread-place";
+import { ChatTaskPanel, useChatThreadTasks } from "@/components/chat/ChatTaskPanel";
 import { GroupDecisionSheet } from "@/components/chat/GroupDecisionSheet";
 import { GroupInfoSheet } from "@/components/chat/GroupInfoSheet";
 import { GroupTaskListSheet } from "@/components/chat/GroupTaskListSheet";
@@ -57,7 +65,7 @@ import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import { ForwardDialog } from "@/components/chat/ForwardDialog";
 import { ForwardBundleCard } from "@/components/chat/ForwardBundleCard";
 import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
-import { ScheduledStrip } from "@/components/chat/ScheduledStrip";
+import { ScheduledStrip, waitingScheduled } from "@/components/chat/ScheduledStrip";
 import { ProposalCard } from "@/components/chat/ProposalCard";
 import { useProposals } from "@/lib/use-think-hub-shelf";
 import { sendAtLine, useMyScheduled, useScheduleActions } from "@/lib/scheduled-messages";
@@ -301,6 +309,12 @@ const Messages = () => {
   const [isGroupTasksOpen, setIsGroupTasksOpen] = useState<boolean>(false);
   const [isDecisionsOpen, setIsDecisionsOpen] = useState<boolean>(false);
   const [isScheduleCallOpen, setIsScheduleCallOpen] = useState<boolean>(false);
+  /** AVORA-49 · 2.1: which chip of the thread's chip row is open (nothing opens on its own). */
+  const [openChip, setOpenChip] = useState<ThreadChipId | null>(null);
+  /** AVORA-49 · 2.1c: the "not live" line, hidden with ✕ until the connection changes. */
+  const [isLiveNoticeHidden, setIsLiveNoticeHidden] = useState<boolean>(false);
+  /** AVORA-44 · việc 8: Nhật ký's Thùng rác (entries kept 30 days). */
+  const [isJournalTrashOpen, setIsJournalTrashOpen] = useState<boolean>(false);
   /**
    * The message a new task will quote. Null means "whatever was said last", which is what the
    * button beside the composer means; a bubble's own action names that bubble instead.
@@ -823,7 +837,54 @@ const Messages = () => {
     },
     [conversationId, navigate],
   );
+  /** AVORA-49 · 2.1: ghim · dự án · gợi ý · việc · hẹn giờ as one chip row above the thread. */
+  const chipTasks = useChatThreadTasks(conversationId ?? "", highlightTaskId, activeKind === "group" ? "mine" : "all");
+  const chipSuggestions = useChatSuggestions(conversationId ?? "");
+  const waitingScheduledCount: number = canSchedule ? waitingScheduled(scheduledQuery.data ?? []).length : 0;
+  const threadChips: ThreadChip[] = useMemo(() => {
+    const chips: ThreadChip[] = [];
+    if (orderedPinList.length > 0) chips.push({ id: "pins", label: `${orderedPinList.length} ghim`, count: orderedPinList.length });
+    if (projectHere !== undefined) {
+      chips.push({
+        id: "project",
+        label: `Dự án ${projectHere.title}${isProjectChatClosed ? " · đã đóng" : ""}`,
+        to: withReturn(projectLink(projectHere.id), hereFrom(location, threadTitle)),
+      });
+    }
+    if (activeKind !== "personal") {
+      const suggestionCount = chipSuggestions.pending.length + chipSuggestions.accepted.length;
+      if (suggestionCount > 0) {
+        chips.push({
+          id: "suggestions",
+          label: chipSuggestions.pending.length > 0 ? `${chipSuggestions.pending.length} gợi ý` : `${chipSuggestions.accepted.length} gợi ý đã nhận`,
+          count: suggestionCount,
+          needsMe: chipSuggestions.awaitingMe,
+        });
+      }
+      if (chipTasks.threadTasks.length > 0) {
+        const count = chipTasks.openCount > 0 ? chipTasks.openCount : chipTasks.threadTasks.length;
+        chips.push({
+          id: "tasks",
+          label: activeKind === "group" ? `Việc của bạn ở đây (${count})` : `${count} việc`,
+          count,
+          needsMe: chipTasks.wantsAttention,
+        });
+      }
+    }
+    if (waitingScheduledCount > 0) chips.push({ id: "scheduled", label: `${waitingScheduledCount} hẹn giờ`, count: waitingScheduledCount });
+    return chips;
+  }, [orderedPinList.length, projectHere, isProjectChatClosed, location, threadTitle, activeKind, chipSuggestions, chipTasks, waitingScheduledCount]);
+  // Sent here to look at one task or one suggestion: that chip opens; otherwise every thread opens closed.
+  useEffect(() => {
+    if (highlightTaskId !== null) setOpenChip("tasks");
+    else if (focusedSuggestionId !== null) setOpenChip("suggestions");
+    else setOpenChip(null);
+  }, [conversationId, highlightTaskId, focusedSuggestionId]);
+  useEffect(() => setIsLiveNoticeHidden(false), [isLive]);
+  const journalTrashCount: number | null = useJournalTrashCount(conversationId, activeKind === "personal" && isInfoOpen);
   const isDiaryAside: boolean = activeKind === "personal" && diaryView !== "journal";
+  /** 44b · B: Ghi chép on a computer folds the Kết nối list away; `‹ Nhật ký` brings it back. */
+  const isWritingSpace: boolean = isWide && isDiaryAside && diaryView === "notes";
   const [notesRequest, setNotesRequest] = useState<{ noteId?: string; book?: { recordId: string; title: string } } | null>(null);
   const clearNotesRequest = useCallback((): void => setNotesRequest(null), []);
   const [noteTaskExit, setNoteTaskExit] = useState<TaskExit | null>(null);
@@ -1238,6 +1299,7 @@ const Messages = () => {
     }
   }, [conversationId, isLoadingOlder, reachedStart, queryClient]);
 
+  const placeTimerRef = useRef<number | null>(null);
   const handleThreadScroll = useCallback((): void => {
     const node = threadScrollRef.current;
     if (!node) return;
@@ -1251,7 +1313,15 @@ const Messages = () => {
     setIsThreadAtBottom(nearBottom);
     // Reaching the end reads whatever was waiting there, so the pill has nothing left to say.
     if (nearBottom) setMissedMessages(0);
-  }, [loadOlder]);
+    // AVORA-49 · 3.1: where the reader is, kept after the scroll settles.
+    if (placeTimerRef.current !== null) window.clearTimeout(placeTimerRef.current);
+    const threadId = conversationId;
+    placeTimerRef.current = window.setTimeout(() => {
+      if (threadId === undefined || threadScrollRef.current !== node) return;
+      const seen = firstVisibleMessage(node);
+      if (seen !== null) rememberThreadPlace(threadId, { ...seen, atBottom: nearBottom });
+    }, 180);
+  }, [loadOlder, conversationId]);
 
   const jumpToNewest = useCallback((): void => {
     scrollThreadToBottom("smooth");
@@ -1377,6 +1447,18 @@ const Messages = () => {
       setMissedMessages((count) => count + 1);
       setIsThreadAtBottom(false);
       return;
+    }
+    // AVORA-49 · 3.1: back from a Bảng / Dự án → the same line, unless I just sent something.
+    if (firstPaint && nextConversationId !== null && !(newestMessage !== null && newestMessage.senderId === userId && newestMessage.pending === true)) {
+      const place = readThreadPlace(nextConversationId);
+      const anchorNode = place === null || place.atBottom ? null : document.getElementById(`message-${place.messageId}`);
+      if (place !== null && anchorNode !== null) {
+        const delta = anchorNode.getBoundingClientRect().top - node.getBoundingClientRect().top - place.offset;
+        node.scrollTop += delta;
+        setIsThreadAtBottom(false);
+        return;
+      }
+      if (place !== null && !place.atBottom) forgetThreadPlace(nextConversationId);
     }
     // Opening a thread with unread messages lands on "Tin chưa đọc", not the end (A9).
     if (firstPaint && unreadMarker.current.id !== null && unreadMarker.current.conversationId === nextConversationId) {
@@ -1795,9 +1877,14 @@ const Messages = () => {
 
       // Recall destroys the text for everyone, so it asks first — this is the one action on a
       // message that cannot be walked back.
-      if (window.confirm("Thu hồi tin nhắn này? Nội dung sẽ bị xoá với cả hai bên.")) {
-        recallMutation.mutate(message.id);
-      }
+      void askConfirm({
+        title: "Thu hồi tin nhắn này?",
+        body: activeKind === "group" ? "Nội dung sẽ bị xoá với mọi người trong nhóm." : "Nội dung sẽ bị xoá với cả hai bên.",
+        confirmLabel: "Thu hồi",
+        danger: true,
+      }).then((ok) => {
+        if (ok) recallMutation.mutate(message.id);
+      });
     },
     [
       isSelecting,
@@ -1889,9 +1976,16 @@ const Messages = () => {
    */
   const askDeleteEntry = useCallback(
     (messageId: string, text: string, itemCount: number, hasOwnWords: boolean): void => {
-      if (hasOwnWords && text.trim() !== "") {
-        if (!window.confirm(`Xoá cả mục Nhật ký này (có chữ và ${itemCount} tệp/link)?`)) return;
-      }
+      const go = hasOwnWords && text.trim() !== ""
+        ? askConfirm({
+            title: "Xoá cả mục Nhật ký này?",
+            body: `Mục có chữ và ${itemCount} tệp/link. Mục vào Thùng rác, khôi phục được trong 30 ngày.`,
+            confirmLabel: "Chuyển vào Thùng rác",
+            danger: true,
+          })
+        : Promise.resolve(true);
+      void go.then((ok) => {
+      if (!ok) return;
       void deleteJournalMessages([messageId])
         .then(() => {
           if (conversationId !== undefined) {
@@ -1913,6 +2007,7 @@ const Messages = () => {
           });
         })
         .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không xoá được."));
+      });
     },
     [conversationId, queryClient],
   );
@@ -1929,8 +2024,9 @@ const Messages = () => {
       selectedIds.length === 1
         ? "Chuyển mục này vào Thùng rác? Khôi phục được trong 30 ngày."
         : `Chuyển ${selectedIds.length} mục vào Thùng rác? Khôi phục được trong 30 ngày.`;
-    if (!window.confirm(question)) return;
-    deleteJournalMutation.mutate(selectedIds);
+    void askConfirm({ title: question, confirmLabel: "Chuyển vào Thùng rác", danger: true }).then((ok) => {
+      if (ok) deleteJournalMutation.mutate(selectedIds);
+    });
   }, [selectedIds, deleteJournalMutation]);
 
   const openConversation = useCallback(
@@ -2080,7 +2176,8 @@ const Messages = () => {
         style={listColumn.isDesktop ? { width: listColumn.width } : undefined}
         className={cn(
           "relative flex min-h-0 w-full flex-col border-border bg-card md:w-[360px] md:shrink-0 md:border-r",
-          conversationId && !isPlaceholder && !isProjects && !isDiaryListScreen ? "hidden md:flex" : "flex",
+          conversationId && !isPlaceholder && !isDiaryListScreen ? "hidden md:flex" : "flex",
+          isWritingSpace && "md:hidden",
         )}
         aria-label="Danh sách cuộc trò chuyện"
       >
@@ -2099,9 +2196,12 @@ const Messages = () => {
               </span>
             ) : null}
             <div className="flex items-center gap-2">
-              <AvoraSearchButton
-                here={{ tab: activeTab === "journal" ? "nhat-ky" : "ket-noi", conversationId: conversationId ?? null, label: activeTab === "journal" ? "Nhật ký" : "Kết nối" }}
-              />
+              {/* 1.5: 1-1 and Nhóm search from their own box (with "trong toàn AVORA"); 🔍 stays where there is none. */}
+              {activeTab === "direct" || activeTab === "group" ? null : (
+                <AvoraSearchButton
+                  here={{ tab: activeTab === "journal" ? "nhat-ky" : "ket-noi", conversationId: conversationId ?? null, label: activeTab === "journal" ? "Nhật ký" : "Kết nối" }}
+                />
+              )}
               {/* Liên hệ left the main rail: the people you talk to belong beside the talking. */}
               <Link
                 to={withReturn("/lien-he", hereFrom(location, "Kết nối"))}
@@ -2111,29 +2211,46 @@ const Messages = () => {
               >
                 <UserRound className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
               </Link>
-              {activeTab === "group" ? (
-                <button
-                  type="button"
-                  aria-label="Tạo nhóm mới"
-                  onClick={() => setIsNewGroupOpen(true)}
-                  className="press rounded-md border border-border p-2.5 text-foreground transition-colors hover:bg-accent/50"
-                >
-                  <Users className="h-[18px] w-[18px]" strokeWidth={1.6} />
-                </button>
-              ) : activeTab === "direct" ? (
-                <button
-                  type="button"
-                  aria-label="Trò chuyện mới"
-                  onClick={() => setIsNewChatOpen(true)}
-                  className="press rounded-md border border-border p-2.5 text-foreground transition-colors hover:bg-accent/50"
-                >
-                  <SquarePen className="h-[18px] w-[18px]" strokeWidth={1.6} />
-                </button>
-              ) : null}
+              {/* 1.6: one ＋ for everything that starts something new here. */}
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Tạo mới"
+                    title="Tạo mới"
+                    className="press rounded-md border border-border bg-primary p-2.5 text-primary-foreground transition-colors hover:bg-primary/90"
+                  >
+                    <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-60">
+                  <DropdownMenuItem onSelect={() => setIsNewChatOpen(true)} className="min-h-11 gap-2.5 text-[14px]">
+                    <SquarePen className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Trò chuyện mới
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setIsNewGroupOpen(true)} className="min-h-11 gap-2.5 text-[14px]">
+                    <Users className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Nhóm mới
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => setIsNewChatOpen(true)} className="min-h-11 gap-2.5 text-[14px]">
+                    <QrCode className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Kết bạn qua PIN / QR
+                  </DropdownMenuItem>
+                  {isProjects ? (
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        setActiveTab("group");
+                        navigate("/tin-nhan");
+                        toast.info("Dự án mở trong một nhóm: chọn nhóm, rồi ⋯ › Dự án › Tạo dự án.");
+                      }}
+                      className="min-h-11 gap-2.5 text-[14px]"
+                    >
+                      <FolderKanban className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Dự án mới
+                    </DropdownMenuItem>
+                  ) : null}
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           </div>
 
-          <div role="tablist" aria-label="Hướng trò chuyện" className="mt-5 flex items-center border-b border-border">
+          <div role="tablist" aria-label="Hướng trò chuyện" className="no-scrollbar mt-5 flex items-center overflow-x-auto border-b border-border">
             {MESSAGE_TABS.map((tab) => {
               const isActive = tab.id === activeTab;
               const tabUnread = unreadForTab(conversations, tab.id);
@@ -2145,11 +2262,15 @@ const Messages = () => {
                   aria-selected={isActive}
                   onClick={() => handleSelectTab(tab.id)}
                   className={cn(
-                    "press relative flex flex-1 items-center justify-center gap-1.5 px-2 pb-2.5 pt-1 text-[13.5px] transition-colors",
+                    "press relative flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-2 pb-2.5 pt-1 text-[13.5px] transition-colors",
                     isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
+                    isPlaceholderTab(tab.id) && !isActive && "text-muted-foreground/60",
                   )}
                 >
                   {tab.label}
+                  {isPlaceholderTab(tab.id) ? (
+                    <span className="rounded-full border border-border px-1.5 py-px text-[9.5px] font-medium leading-tight text-muted-foreground">Sắp có</span>
+                  ) : null}
                   {tabUnread > 0 ? (
                     <span
                       aria-label={`${tabUnread} tin nhắn chưa đọc`}
@@ -2166,7 +2287,7 @@ const Messages = () => {
             })}
           </div>
 
-          {activeTab === "journal" || isPlaceholder || isProjects ? null : (
+          {activeTab === "journal" || isPlaceholder ? null : (
             <label className="relative mt-4 block">
               <span className="sr-only">Tìm cuộc trò chuyện</span>
               <Search
@@ -2177,12 +2298,12 @@ const Messages = () => {
               <input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder={activeTab === "group" ? "Tìm nhóm" : "Tìm người hoặc email"}
+                placeholder={activeTab === "group" ? "Tìm nhóm theo tên" : isProjects ? "Tìm dự án theo tên" : "Tìm theo tên"}
                 className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
               />
             </label>
           )}
-          {activeTab === "journal" || isPlaceholder || isProjects ? null : (
+          {activeTab === "journal" || isPlaceholder ? null : (
             <SearchEverywhereLine query={query} here={{ tab: "ket-noi", conversationId: null, label: "Kết nối" }} />
           )}
         </div>
@@ -2212,6 +2333,7 @@ const Messages = () => {
                 conversations={conversations}
                 activeProjectId={undefined}
                 isPending={projectsQuery.isPending || conversationsQuery.isPending}
+                query={query}
               />
             )}
           </div>
@@ -2259,7 +2381,7 @@ const Messages = () => {
                   ? "Không có kết quả phù hợp."
                   : activeTab === "group"
                     ? "Chưa có nhóm nào. Tạo nhóm để trò chuyện cùng nhiều người."
-                    : "Chưa có cuộc trò chuyện nào. Bắt đầu bằng email của một người dùng AVORA."}
+                    : "Chưa có cuộc trò chuyện nào."}
               </p>
               {tabConversations.length === 0 && activeTab === "group" ? (
                 <button
@@ -2274,9 +2396,9 @@ const Messages = () => {
                 <button
                   type="button"
                   onClick={() => setIsNewChatOpen(true)}
-                  className="press mt-3 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
+                  className="press mt-3 inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
                 >
-                  Trò chuyện mới
+                  <QrCode className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Kết bạn qua PIN / QR
                 </button>
               ) : null}
             </div>
@@ -2374,7 +2496,7 @@ const Messages = () => {
       <section
         className={cn(
           "paper min-h-0 min-w-0 flex-1 flex-col",
-          conversationId && !isPlaceholder && !isProjects && !isDiaryListScreen ? "flex" : "hidden md:flex",
+          conversationId && !isPlaceholder && !isDiaryListScreen ? "flex" : "hidden md:flex",
         )}
       >
         {isPlaceholder ? (
@@ -2410,22 +2532,26 @@ const Messages = () => {
             </div>
           ) : (
             <>
-              <header className="flex items-center gap-3 border-b border-border bg-card px-5 py-3.5 md:pr-[4.25rem]">
-                {activeKind === "personal" ? (
+              <header className="flex items-center gap-2 border-b border-border bg-card px-3 pb-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] md:gap-3 md:px-5 md:py-3.5 md:pr-[4.25rem]">
+                {isWritingSpace ? (
+                  /* 44b · B: the writing space hides the Kết nối list; this is the way back to it. */
                   <button
                     type="button"
-                    aria-label="Quay lại Kết nối"
-                    onClick={() => navigate("/tin-nhan")}
-                    className="press rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
+                    onClick={() => openDiaryView("journal")}
+                    className="press inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-md pl-1 pr-2 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
-                    <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
+                    <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" /> Nhật ký
                   </button>
                 ) : (
                   <button
                     type="button"
                     aria-label="Quay lại Kết nối"
-                    onClick={() => navigate("/tin-nhan")}
-                    className="press rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
+                    onClick={() => {
+                      // 49 · 1.1: out of Nhật ký lands on the conversation list, and stays there.
+                      if (activeKind === "personal") setActiveTab("direct");
+                      navigate("/tin-nhan");
+                    }}
+                    className="press flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
                   >
                     <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
                   </button>
@@ -2466,50 +2592,12 @@ const Messages = () => {
                     </p>
                   ) : (
                     <p className="truncate text-[13px] text-muted-foreground">
-                      {isPeerOnline
-                        ? "Đang trực tuyến"
-                        : activeKind === "personal" && diaryView === "files"
-                          ? `${diaryCounts.files} mục · chỉ mình bạn xem`
-                          : activeKind === "personal" && diaryView === "sources"
-                            ? `${pasteTasks.length} việc tạo từ Nhật ký`
-                            : activeKind === "personal" && diaryView === "links"
-                              ? `${diaryLinkRows.length} liên kết · không tải trang ngoài`
-                              : activeKind === "personal" && diaryView === "notes"
-                                ? `${notesData.liveNotes.length} ghi chép · chỉ mình bạn xem`
-                                : activeKind === "personal"
-                                  ? "Chỉ mình bạn đọc"
-                                  : threadSubtitle}
+                      {isPeerOnline ? "Đang trực tuyến" : activeKind === "personal" ? "Chỉ mình bạn xem" : threadSubtitle}
                     </p>
                   )}
                 </div>
-                <div className="ml-auto flex items-center gap-1 text-muted-foreground">
-                  {activeKind === "group" ? (
-                    <>
-                      <button
-                        type="button"
-                        aria-label="Danh sách nhiệm vụ nhóm"
-                        title="Danh sách nhiệm vụ nhóm"
-                        onClick={() => setIsGroupTasksOpen(true)}
-                        className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
-                      >
-                        <ListTodo className="h-[19px] w-[19px]" strokeWidth={1.6} />
-                      </button>
-                    </>
-                  ) : null}
-                  {/* Searching a thread is useful in a journal too — that is where people
-                      keep the things they most often come back looking for. */}
-                  {activeKind === "personal" && diaryView === "sources" ? (
-                    <button
-                      type="button"
-                      aria-label="Tạo việc từ nội dung vừa copy"
-                      title="Tạo việc từ nội dung vừa copy"
-                      onClick={() => void startPaste()}
-                      disabled={isReadingClipboard}
-                      className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground disabled:opacity-50"
-                    >
-                      <ClipboardPaste className="h-[19px] w-[19px]" strokeWidth={1.6} />
-                    </button>
-                  ) : null}
+                <div className="ml-auto flex shrink-0 items-center gap-0.5 text-muted-foreground">
+                  {/* 49 · 2.6: at most 🔍 and ⋯ in a room's header; tasks and scheduling live in ⋯. */}
                   {activeKind === "personal" && diaryView !== "journal" ? null : (
                   <button
                     type="button"
@@ -2518,40 +2606,25 @@ const Messages = () => {
                     aria-pressed={isSearchOpen}
                     onClick={() => setIsSearchOpen((current) => !current)}
                     className={cn(
-                      "press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground",
+                      "press flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent/50 hover:text-foreground",
                       isSearchOpen ? "bg-accent/60 text-foreground" : "",
                     )}
                   >
                     <Search className="h-[19px] w-[19px]" strokeWidth={1.6} />
                   </button>
                   )}
-                  {activeKind === "personal" ? null : (
-                  <>
                   {activeKind === "direct" ? (
                     <CallMenu peerId={activeSummary?.peerId ?? peerQuery.data?.peerId ?? null} peerName={threadTitle} />
-                  ) : isProjectChatClosed ? null : (
-                    // A group or project is not rung at once: a time and a link are posted instead.
-                    <button
-                      type="button"
-                      aria-label="Lên lịch cuộc gọi"
-                      title="Lên lịch cuộc gọi"
-                      onClick={() => setIsScheduleCallOpen(true)}
-                      className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
-                    >
-                      <CalendarClock className="h-[19px] w-[19px]" strokeWidth={1.6} />
-                    </button>
-                  )}
+                  ) : null}
                   <button
                     type="button"
                     aria-label="Thêm"
                     title="Thêm"
                     onClick={() => setIsInfoOpen(true)}
-                    className="press rounded-md p-2 transition-colors hover:bg-accent/50 hover:text-foreground"
+                    className="press flex h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent/50 hover:text-foreground"
                   >
                     <MoreHorizontal className="h-[19px] w-[19px]" strokeWidth={1.6} />
                   </button>
-                  </>
-                  )}
                 </div>
               </header>
 
@@ -2564,48 +2637,61 @@ const Messages = () => {
                 />
               ) : null}
 
-              <PinnedStrip
-                pins={orderedPinList}
-                messages={messages}
-                viewerId={userId}
-                myRole={myGroupRole}
-                senderNameOf={senderNameOf}
-                onJumpTo={jumpToMessage}
-                onUnpin={removePin}
-                isWorking={isPinning}
-              />
+              {/* 49 · 3.2: the way back to wherever this thread was opened from. */}
+              <ReturnChip className="border-b border-border bg-card px-4 md:px-10" />
 
-              {/* Its own strip, below the pins and never folded into them: a pin says "read
-                  this again", a project says "this is what we are building". */}
-              {/* Projects are group work; the journal and 1-1 threads show the person's tables. */}
-              {projectHere !== undefined ? (
-                <div className="border-b border-border bg-primary/[0.06] px-5 py-2 md:px-10">
-                  <div className="mx-auto flex max-w-2xl items-center gap-2 text-[12.5px]">
-                    <FolderKanban className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={1.9} aria-hidden="true" />
-                    <span className="min-w-0 flex-1 truncate text-foreground">
-                      Đang thảo luận trong Dự án: <span className="font-semibold">{projectHere.title}</span>
-                      {isProjectChatClosed ? <span className="text-muted-foreground"> · đã đóng</span> : null}
-                    </span>
-                    <Link
-                      to={withReturn(projectLink(projectHere.id), hereFrom(location, threadTitle))}
-                      className="press shrink-0 rounded-md px-2 py-1 font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-                    >
-                      Xem dự án
-                    </Link>
-                  </div>
-                </div>
-              ) : null}
-              {/* 1-1 and group keep their tables, projects and Sổ quyết định under "Thêm"; only the
-                  journal keeps its 📊 Bảng strip in place. */}
-              {activeKind === "personal" ? <TableStrip conversationId={null} placeLabel={threadTitle} /> : null}
+              {isDiaryAside ? null : (
+                <ThreadChipRow chips={threadChips} open={openChip} onToggle={(id) => setOpenChip((current) => (current === id ? null : id))}>
+                  {openChip === "pins" ? (
+                    <PinnedStrip
+                      embedded
+                      pins={orderedPinList}
+                      messages={messages}
+                      viewerId={userId}
+                      myRole={myGroupRole}
+                      senderNameOf={senderNameOf}
+                      onJumpTo={(messageId) => {
+                        setOpenChip(null);
+                        jumpToMessage(messageId);
+                      }}
+                      onUnpin={removePin}
+                      isWorking={isPinning}
+                    />
+                  ) : openChip === "suggestions" && activeKind !== "personal" ? (
+                    <ChatSuggestionPanel
+                      embedded
+                      conversationId={conversationId}
+                      conversationKind={activeKind}
+                      peerName={threadTitle}
+                      members={groupMembersQuery.data ?? []}
+                      onSendMessage={sendPlainMessage}
+                      focusedSuggestionId={focusedSuggestionId}
+                    />
+                  ) : openChip === "tasks" && activeKind !== "personal" ? (
+                    <ChatTaskPanel
+                      embedded
+                      conversationId={conversationId}
+                      peerName={threadTitle}
+                      members={groupMembersQuery.data ?? []}
+                      highlightTaskId={highlightTaskId}
+                      scope={activeKind === "group" ? "mine" : "all"}
+                      onSendMessage={sendPlainMessage}
+                    />
+                  ) : openChip === "scheduled" && canSchedule ? (
+                    <ScheduledStrip embedded conversationId={conversationId} items={scheduledQuery.data ?? []} />
+                  ) : null}
+                </ThreadChipRow>
+              )}
 
-
-              {!isLive ? (
+              {!isLive && !isLiveNoticeHidden ? (
                 <p
                   role="status"
-                  className="border-b border-border bg-accent/40 px-5 py-2 text-center text-[12px] text-muted-foreground md:px-10"
+                  className="flex items-center gap-2 border-b border-border bg-accent/40 px-4 py-1.5 text-[12px] text-muted-foreground md:px-10"
                 >
-                  Chưa kết nối trực tiếp — tạm thời tải lại tin nhắn mỗi 5 giây.
+                  <span className="min-w-0 flex-1 truncate">Chưa kết nối trực tiếp — tạm tải lại mỗi 5 giây.</span>
+                  <button type="button" onClick={() => setIsLiveNoticeHidden(true)} aria-label="Ẩn dòng này" className="press -my-1 rounded p-1.5 hover:bg-accent">
+                    <X className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+                  </button>
                 </p>
               ) : null}
 
@@ -2645,7 +2731,7 @@ const Messages = () => {
                 </div>
               ) : null}
 
-              {activeKind === "personal" && conversationId !== undefined ? (
+              {activeKind === "personal" && conversationId !== undefined && !isWide ? (
                 <DiaryCountRow journalId={conversationId} active={diaryView} counts={diaryCounts} dots={diaryDots} />
               ) : null}
               {isDiaryAside && diaryView === "notes" ? (
@@ -2657,7 +2743,7 @@ const Messages = () => {
                     onRequestHandled={clearNotesRequest}
                     onCreateTask={setNoteTaskExit}
                     onToBoard={setNoteBoardExit}
-                    onOpenBook={(recordId) => navigate(`/ke-hoach/ke-sach?sach=${encodeURIComponent(recordId)}`)}
+                    onOpenBook={(recordId) => navigate(withReturn(`/ke-hoach/ke-sach?sach=${encodeURIComponent(recordId)}`, hereFrom(location, "Ghi chép")))}
                   />
                 </div>
               ) : isDiaryAside ? (
@@ -2700,6 +2786,7 @@ const Messages = () => {
                       onOpenTask={(task) => setOpenedSourceTaskId(task.id)}
                       onOpenEntry={openJournalEntry}
                       onPaste={() => void startPaste()}
+                      isPasting={isReadingClipboard}
                     />
                   )}
                 </div>
@@ -3028,6 +3115,7 @@ const Messages = () => {
                                       canForward={canForwardThis}
                                       canReport={activeKind !== "personal" && !outgoing && message.systemKind == null}
                                       onAction={(action) => handleMessageAction(message, action)}
+                                      onQuickReact={canReact ? (emoji) => toggleReaction(message.id, emoji) : undefined}
                                       reactionPicker={
                                         canReact ? (
                                           <ReactionPicker
@@ -3336,32 +3424,8 @@ const Messages = () => {
               </div>
               )}
 
-              {activeKind === "personal" ? null : (
-                <ChatSuggestionPanel
-                  conversationId={conversationId}
-                  conversationKind={activeKind}
-                  peerName={threadTitle}
-                  members={groupMembersQuery.data ?? []}
-                  onSendMessage={sendPlainMessage}
-                  focusedSuggestionId={focusedSuggestionId}
-                />
-              )}
-
-              {activeKind === "personal" ? null : (
-                <ChatTaskPanel
-                  conversationId={conversationId}
-                  peerName={threadTitle}
-                  members={groupMembersQuery.data ?? []}
-                  highlightTaskId={highlightTaskId}
-                  // A group keeps this panel to the viewer's own work; the room's full list
-                  // opens from the header. A 1-1 has only two people, so it stays whole.
-                  scope={activeKind === "group" ? "mine" : "all"}
-                  onSendMessage={sendPlainMessage}
-                />
-              )}
-
               {isDiaryAside ? null : (
-              <div className="border-t border-border bg-card px-5 py-4 md:px-10">
+              <div className="border-t border-border bg-card px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 md:px-10 md:py-4">
                 {/*
                   What the next message will answer, shown before it is sent so nobody replies
                   to the wrong thing. Dismissable, because changing your mind about replying is
@@ -3419,9 +3483,6 @@ const Messages = () => {
                   </div>
                 ) : (
                 <>
-                {canSchedule && conversationId ? (
-                  <ScheduledStrip conversationId={conversationId} items={scheduledQuery.data ?? []} />
-                ) : null}
                 {activeVerification !== null && conversationId && userId ? (
                   <VerificationPanel conversationId={conversationId} verification={activeVerification} viewerId={userId} />
                 ) : null}
@@ -3436,6 +3497,7 @@ const Messages = () => {
                     else notifyTyping();
                   }}
                   onSend={handleSend}
+                  onStartRecording={!recorder.isUnsupported && !recorder.isRecording && activeVerification === null ? startRecording : undefined}
                   isSending={sendMutation.isPending || isUploading}
                   placeholder={activeKind === "personal" ? "Ghi vào nhật ký…" : `Nhắn tin cho ${threadTitle}…`}
                   ariaLabel={activeKind === "personal" ? "Ghi vào nhật ký" : `Nhắn tin cho ${threadTitle}`}
@@ -3490,9 +3552,7 @@ const Messages = () => {
                         onStartRecording={startRecording}
                         canRecord={!recorder.isUnsupported}
                         onCreateTask={() => openTaskDialogFor(null)}
-                        createTaskLabel={
-                          activeKind === "personal" ? "Tạo nhiệm vụ cá nhân" : "Tạo nhiệm vụ từ cuộc trò chuyện"
-                        }
+                        createTaskLabel="Tạo nhiệm vụ"
                         disabled={sendMutation.isPending || isUploading || recorder.isRecording}
                         schedule={
                           canSchedule
@@ -3503,8 +3563,6 @@ const Messages = () => {
                             : undefined
                         }
                       />
-                      {/* Stays on its own beside the box: a quick, read-only look at the calendar. */}
-                      <CalendarPeekButton className="h-12 w-12" />
                     </>
                     )
                   }
@@ -3532,8 +3590,8 @@ const Messages = () => {
             </h2>
             <p className="mt-2 text-[15px] text-muted-foreground">
               {activeTab === "group"
-                ? "Hoặc tạo nhóm mới và thêm thành viên bằng email"
-                : "Hoặc bắt đầu cuộc trò chuyện mới bằng email"}
+                ? "Hoặc tạo nhóm mới với bạn bè của bạn"
+                : "Hoặc kết bạn qua PIN / QR để bắt đầu"}
             </p>
             <button
               type="button"
@@ -3547,7 +3605,15 @@ const Messages = () => {
       </section>
 
       <NewChatDialog open={isNewChatOpen} onOpenChange={setIsNewChatOpen} onCreated={openConversation} />
-      <NewGroupDialog open={isNewGroupOpen} onOpenChange={setIsNewGroupOpen} onCreated={openConversation} />
+      <NewGroupDialog
+        open={isNewGroupOpen}
+        onOpenChange={setIsNewGroupOpen}
+        onCreated={openConversation}
+        onConnectByPin={() => {
+          setIsNewGroupOpen(false);
+          setIsNewChatOpen(true);
+        }}
+      />
 
       {/*
         Forwarding leaves the selection behind once it succeeds: the messages have gone where
@@ -3728,6 +3794,10 @@ const Messages = () => {
         />
       ) : null}
 
+      {conversationId && activeKind === "personal" ? (
+        <JournalTrashSheet conversationId={conversationId} open={isJournalTrashOpen} onOpenChange={setIsJournalTrashOpen} />
+      ) : null}
+
       {conversationId ? (
         <GroupInfoSheet
           conversationId={conversationId}
@@ -3741,8 +3811,23 @@ const Messages = () => {
           }
           onOpenConversation={openConversation}
           onLeft={() => navigate("/tin-nhan")}
+          kind={activeKind === "personal" ? "personal" : activeKind === "group" ? "group" : "direct"}
           moreSections={
-            activeSummary !== undefined && (activeKind === "direct" || activeKind === "group") ? (
+            activeKind === "personal" ? (
+              <ConversationMoreSections
+                conversationId={null}
+                placeLabel="Nhật ký"
+                kind="personal"
+                trash={{
+                  count: journalTrashCount,
+                  onOpen: () => {
+                    setIsInfoOpen(false);
+                    setIsJournalTrashOpen(true);
+                  },
+                }}
+                onNavigate={() => setIsInfoOpen(false)}
+              />
+            ) : activeSummary !== undefined && (activeKind === "direct" || activeKind === "group") ? (
               <ConversationMoreSections
                 conversationId={conversationId}
                 placeLabel={threadTitle}
@@ -3750,7 +3835,7 @@ const Messages = () => {
                 projects={threadProjects}
                 showProjects={projectHere === undefined}
                 canCreateProjectReason={
-                  myGroupRole === "owner" || myGroupRole === "admin" ? null : "Chỉ Owner/Admin được mở dự án."
+                  myGroupRole === "owner" || myGroupRole === "admin" ? null : "Chỉ chủ nhóm hoặc quản trị viên được mở dự án."
                 }
                 onNewProject={() => {
                   setIsInfoOpen(false);
@@ -3760,6 +3845,26 @@ const Messages = () => {
                   setIsInfoOpen(false);
                   setIsDecisionsOpen(true);
                 }}
+                onOpenTasks={
+                  activeKind === "group"
+                    ? () => {
+                        setIsInfoOpen(false);
+                        setIsGroupTasksOpen(true);
+                      }
+                    : undefined
+                }
+                onSearch={() => {
+                  setIsInfoOpen(false);
+                  setIsSearchOpen(true);
+                }}
+                onScheduleCall={
+                  activeKind === "group" && !isProjectChatClosed
+                    ? () => {
+                        setIsInfoOpen(false);
+                        setIsScheduleCallOpen(true);
+                      }
+                    : undefined
+                }
                 onNavigate={() => setIsInfoOpen(false)}
                 safety={
                   directPeerId !== null

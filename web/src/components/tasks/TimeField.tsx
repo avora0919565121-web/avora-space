@@ -1,7 +1,7 @@
 import { Clock, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import {
   composeTime,
   HOUR_OPTIONS,
@@ -78,11 +78,19 @@ export function TimeField({ id, value, onChange, ariaLabel, after = null }: Time
 
   return (
     <div className="flex items-center gap-1.5">
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
-        <PopoverTrigger asChild>
+      <FloatingPanel
+        open={isOpen}
+        onOpenChange={setIsOpen}
+        label="Chọn giờ"
+        width={280}
+        height={360}
+        anchor={
           <button
             id={id}
             type="button"
+            onClick={() => setIsOpen(true)}
+            aria-haspopup="dialog"
+            aria-expanded={isOpen}
             aria-label={ariaLabel ?? (value === "" ? "Chọn giờ" : `Giờ đã chọn ${value}`)}
             className={cn(
               "press flex h-12 items-center gap-2 rounded-[10px] border border-input bg-card px-3 text-[14px] transition-colors hover:bg-accent/40 sm:h-11",
@@ -96,8 +104,9 @@ export function TimeField({ id, value, onChange, ariaLabel, after = null }: Time
               <span className="tabular font-medium">{value}</span>
             )}
           </button>
-        </PopoverTrigger>
-        <PopoverContent align="start" className="w-[268px] rounded-xl border-border bg-card p-3">
+        }
+      >
+        <div className="min-h-0 flex-1 overflow-y-auto bg-card p-3">
           <p className="mb-1.5 text-[12px] font-medium text-muted-foreground">Giờ</p>
           <div className="grid grid-cols-6 gap-1">
             {HOUR_OPTIONS.map((hour) => (
@@ -181,8 +190,8 @@ export function TimeField({ id, value, onChange, ariaLabel, after = null }: Time
               Phút khác
             </button>
           )}
-        </PopoverContent>
-      </Popover>
+        </div>
+      </FloatingPanel>
 
       {value !== "" ? (
         <button

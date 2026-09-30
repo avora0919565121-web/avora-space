@@ -375,7 +375,8 @@ const DRAFT_PREFIX = "avora.notes.draft.";
 const LAST_FOLDER_KEY = "avora.notes.lastFolder";
 
 export type NotesPlace = {
-  folderId: string | null | "unsorted";
+  /** A folder id, or "recent" · "unsorted" · "trash"; null = the folder list (phone). */
+  folderId: string | null;
   noteId: string | null;
   blockId?: string | null;
   caret?: number;
@@ -395,10 +396,62 @@ export function readNotesPlace(): NotesPlace | null {
 
 export function rememberNotesPlace(place: NotesPlace): void {
   try {
-    window.localStorage.setItem(PLACE_KEY, JSON.stringify(place));
+    const previous = readNotesPlace();
+    // Same note: keep the caret and scroll the editor already wrote.
+    const kept = previous !== null && previous.noteId === place.noteId ? previous : {};
+    window.localStorage.setItem(PLACE_KEY, JSON.stringify({ ...kept, ...place }));
   } catch {
     // Coming back to the folder list is the fallback.
   }
+}
+
+/** Where the caret and scroll were inside the open note (AVORA-44 · việc 2); only for that note. */
+export function rememberNotePosition(position: { noteId: string; blockId?: string | null; caret?: number; scrollTop?: number }): void {
+  try {
+    const previous = readNotesPlace();
+    if (previous === null || previous.noteId !== position.noteId) return;
+    window.localStorage.setItem(PLACE_KEY, JSON.stringify({ ...previous, ...position }));
+  } catch {
+    // Not important enough to report.
+  }
+}
+
+const FULLSCREEN_KEY = "avora.notes.fullscreen";
+
+/** `⤢ Viết toàn màn` is remembered on this device (44b · B). */
+export function readNotesFullscreen(): boolean {
+  try {
+    return window.localStorage.getItem(FULLSCREEN_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function rememberNotesFullscreen(on: boolean): void {
+  try {
+    if (on) window.localStorage.setItem(FULLSCREEN_KEY, "1");
+    else window.localStorage.removeItem(FULLSCREEN_KEY);
+  } catch {
+    // Not important enough to report.
+  }
+}
+
+/** The three-column Ghi chép needs folders 220 + list 300 + editor 560 (44b · B). */
+export const NOTES_THREE_COLUMNS_MIN = 220 + 300 + 560;
+
+export type NotesLayout = "phone" | "two" | "three";
+
+/** Phone steps through screens; a narrow computer folds the folders into the list's header. */
+export function notesLayout(isWide: boolean, width: number): NotesLayout {
+  if (!isWide) return "phone";
+  return width >= NOTES_THREE_COLUMNS_MIN ? "three" : "two";
+}
+
+/** Pasted text appended to a note as new blocks (việc 3 · "Thêm vào ghi chép cũ"). */
+export function appendPasted(blocks: readonly NoteBlock[], text: string): NoteBlock[] {
+  const pasted = blocksFromText(text);
+  const kept = blocks.length === 1 && blocks[0].text.trim() === "" && (blocks[0].attachmentRefs ?? []).length === 0 ? [] : [...blocks];
+  return [...kept, ...pasted];
 }
 
 export function readLastFolder(): string | null {
@@ -663,4 +716,24 @@ export function attachmentKindFor(mime: string): NoteAttachment["kind"] {
   if (mime.startsWith("image/")) return "image";
   if (mime.startsWith("audio/")) return "voice";
   return "file";
+}
+
+/**
+ * Ghi chép đọc sách written or edited in a week (C7 · "Đã đọc", AVORA-44 · việc 4): notes tied to
+ * a book, or kept in the system reading folder. Ready for the Nhìn lại tuần card to count.
+ */
+export function weekReadingNoteCount(
+  notes: readonly Pick<Note, "folderId" | "bookRecordId" | "bookTitle" | "updatedAt" | "deletedAt">[],
+  readingFolderId: string | null,
+  from: Date,
+  to: Date,
+): number {
+  const start = from.getTime();
+  const end = to.getTime();
+  return notes.filter((note) => {
+    if (note.deletedAt !== null) return false;
+    const isReading = note.bookRecordId !== null || note.bookTitle !== null || (readingFolderId !== null && note.folderId === readingFolderId);
+    const at = new Date(note.updatedAt).getTime();
+    return isReading && at >= start && at < end;
+  }).length;
 }

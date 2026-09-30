@@ -3,8 +3,8 @@ import { useRef, useState } from "react";
 
 import { TimeField } from "@/components/tasks/TimeField";
 import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
-import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
-import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
+import { CALENDAR_PANEL_HEIGHT } from "@/components/calendar/DateField";
+import { FloatingPanel } from "@/components/ui/floating-panel";
 import { dateFieldLabel, isIsoDay, quickRanges, type DateAllow } from "@/lib/date-field";
 import { todayIso } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,6 @@ export function DateRangeField({
   className,
 }: DateRangeFieldProps) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
-  const isDesktop = useMediaQuery(DESKTOP_QUERY);
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const today = todayIso();
   const hasRange = isIsoDay(from) && isIsoDay(to);
@@ -95,23 +94,17 @@ export function DateRangeField({
 
   return (
     <div className={cn("min-w-0 space-y-2", className)}>
-      {isDesktop ? (
-        <Popover open={isOpen} onOpenChange={setOpen}>
-          <PopoverAnchor asChild>{trigger}</PopoverAnchor>
-          <PopoverContent
-            align="start"
-            className="w-[min(360px,calc(100vw-16px))] rounded-xl border-border bg-background p-0 pb-2"
-            onOpenAutoFocus={(event) => event.preventDefault()}
-          >
-            <CalendarPeekSheet {...sheetProps} inline />
-          </PopoverContent>
-        </Popover>
-      ) : (
-        <>
-          {trigger}
-          <CalendarPeekSheet {...sheetProps} placement="top" />
-        </>
-      )}
+      <FloatingPanel
+        open={isOpen}
+        onOpenChange={setOpen}
+        anchor={trigger}
+        label={title}
+        width={344}
+        height={CALENDAR_PANEL_HEIGHT}
+        onOpenAutoFocus={(event) => event.preventDefault()}
+      >
+        {isOpen ? <CalendarPeekSheet {...sheetProps} inline /> : null}
+      </FloatingPanel>
 
       {showQuickRanges ? (
         <div role="group" aria-label="Khoảng nhanh" className="flex flex-wrap gap-1.5">

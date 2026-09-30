@@ -225,7 +225,7 @@ export function toVietnameseProjectError(code: string | undefined, message: stri
     return "Nhiệm vụ này thuộc cuộc trò chuyện khác.";
   if (normalized.includes("avora_project_missing")) return "Dự án này không còn nữa.";
   if (normalized.includes("avora_group_sub_not_allowed"))
-    return "Chỉ Owner hoặc Admin của nhóm mới mở được dự án.";
+    return "Chỉ chủ nhóm hoặc quản trị viên mới mở được dự án.";
   if (normalized.includes("avora_group_depth_limit"))
     return "Nhóm này đã ở tầng thứ 3. Hãy mở dự án từ một nhóm tầng trên, hoặc tạo một nhóm gốc mới.";
   if (normalized.includes("avora_project_close_reason_required")) return "Hãy ghi lý do đóng sớm.";
@@ -234,7 +234,7 @@ export function toVietnameseProjectError(code: string | undefined, message: stri
   if (normalized.includes("avora_project_thanks_empty")) return "Hãy viết vài dòng trước khi gửi.";
   if (normalized.includes("avora_project_thanks_not_closed")) return "Chỉ gửi lời cảm ơn sau khi dự án đã đóng.";
   if (normalized.includes("avora_project_delete_root_owner_only"))
-    return "Chỉ Owner của nhóm gốc mới xoá hoặc khôi phục được dự án.";
+    return "Chỉ chủ nhóm gốc mới xoá hoặc khôi phục được dự án.";
   if (normalized.includes("avora_project_delete_title_mismatch")) return "Tên gõ lại chưa khớp đúng tên dự án.";
   if (normalized.includes("avora_project_delete_reason_required")) return "Hãy ghi lý do xoá.";
   if (normalized.includes("avora_project_chat_closed"))

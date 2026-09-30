@@ -39,6 +39,7 @@ import { usePendingInvitationCount } from "@/lib/use-task-collab";
 import { useTaskReminders } from "@/lib/use-task-meta";
 import { useTasks } from "@/lib/use-tasks";
 import { TYPE } from "@/lib/type-scale";
+import { AvoraSearchButton } from "@/components/search/AvoraSearch";
 import { cn } from "@/lib/utils";
 
 /** Morning, afternoon or evening — the same greeting a person would actually use. */
@@ -174,7 +175,8 @@ export default function Dashboard() {
       case "greeting":
         return (
           <header key={id}>
-            <h1 className="text-[19px] leading-snug text-foreground">
+            <div className="flex items-start gap-2">
+            <h1 className="min-w-0 flex-1 text-[19px] leading-snug text-foreground">
               <span className="font-normal text-muted-foreground">{greeting(opened.getHours())}, </span>
               <span className="font-semibold">{displayName}</span>
               <span className="font-normal text-muted-foreground">
@@ -184,6 +186,9 @@ export default function Dashboard() {
                 {spaceDateLabel(opened)}
               </span>
             </h1>
+            {/* AVORA-44 · việc 5: the one search, from Avora Space too. */}
+            <AvoraSearchButton here={{ tab: "avora-space", label: "Avora Space" }} />
+            </div>
             {thought === null ? null : (
               <section aria-label={SPACE_BLOCK_COPY.greeting.title} className="mt-4 border-l-2 border-primary/30 pl-4">
                 <blockquote className="text-[20px] leading-[1.65] text-foreground">{thought.text}</blockquote>

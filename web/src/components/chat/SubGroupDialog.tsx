@@ -68,7 +68,7 @@ export function SubGroupDialog({
       <DialogContent className="max-w-md">
         <DialogTitle className="text-[19px] font-semibold tracking-tight">Tạo nhóm con</DialogTitle>
         <DialogDescription className="text-[14.5px] text-muted-foreground">
-          Nằm dưới {parentName}. Bạn là Owner của nhóm con; chỉ mời được người đang ở nhóm này.
+          Nằm dưới {parentName}. Bạn là chủ nhóm của nhóm con; chỉ mời được người đang ở nhóm này.
         </DialogDescription>
         <label className="mt-2 block">
           <span className="text-[13px] font-medium text-muted-foreground">Tên nhóm con</span>

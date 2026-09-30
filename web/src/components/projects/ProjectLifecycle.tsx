@@ -121,7 +121,7 @@ function EarlyCloseDialog({ project, open, onOpenChange }: { project: Project; o
       <DialogContent className="max-w-lg">
         <DialogTitle className="text-[19px] font-semibold tracking-tight">Đóng sớm dự án</DialogTitle>
         <DialogDescription className="text-[14.5px] text-muted-foreground">
-          Lý do chỉ mình bạn đọc được. Nhóm không nhận thông báo nào; mọi dữ liệu giữ nguyên, chuyển sang chỉ đọc. Mở lại
+          Lý do chỉ mình bạn xem. Nhóm không nhận thông báo nào; mọi dữ liệu giữ nguyên, chuyển sang chỉ đọc. Mở lại
           lúc nào cũng được.
         </DialogDescription>
         <label className="mt-2 block">
