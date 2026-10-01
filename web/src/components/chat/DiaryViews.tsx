@@ -1,4 +1,5 @@
 import {
+  ChevronDown,
   ChevronRight,
   ClipboardPaste,
   ExternalLink,
@@ -12,7 +13,7 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
@@ -145,6 +146,12 @@ export function DiaryList({
   /** AVORA-52 · A: on a computer, the Ghi chép tree unfolds right under its row. */
   notesTree?: ReactNode;
 }) {
+  const [isTreeOpen, setIsTreeOpen] = useState<boolean>(() => readNotesTreeOpen());
+  const toggleTree = (): void =>
+    setIsTreeOpen((current) => {
+      rememberNotesTreeOpen(!current);
+      return !current;
+    });
   return (
     <div className="px-3 pb-6">
       <ul aria-label="Nhật ký">
@@ -160,12 +167,30 @@ export function DiaryList({
                   <span className="block h-3.5 w-2/5 animate-pulse rounded bg-secondary" />
                 </span>
               ) : (
+                <div className="flex items-center">
+                {/* AVORA-61 · B: on a computer the Ghi chép row folds its tree away, remembered per device. */}
+                {view.id === "notes" && notesTree !== undefined ? (
+                  <button
+                    type="button"
+                    onClick={toggleTree}
+                    aria-expanded={isTreeOpen}
+                    aria-label={isTreeOpen ? "Thu gọn cây Ghi chép" : "Mở rộng cây Ghi chép"}
+                    data-notes-tree-toggle=""
+                    className="press -ml-1 flex h-9 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                  >
+                    {isTreeOpen ? (
+                      <ChevronDown className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                    )}
+                  </button>
+                ) : null}
                 <Link
                   to={`/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
                   replace={isWide}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
-                    "flex items-center gap-3 rounded-lg px-3 py-3 transition-colors",
+                    "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-3 transition-colors",
                     isActive ? "bg-accent/70" : "hover:bg-accent/35",
                   )}
                 >
@@ -187,8 +212,9 @@ export function DiaryList({
                   {dots[view.id] === true && !isActive ? <span className="tabular shrink-0 text-[11px] font-semibold text-primary">mới</span> : null}
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.8} aria-hidden="true" />
                 </Link>
+                </div>
               )}
-              {view.id === "notes" && notesTree !== undefined ? (
+              {view.id === "notes" && notesTree !== undefined && isTreeOpen ? (
                 <div className="ml-4 border-l border-border/70 pl-1">{notesTree}</div>
               ) : null}
             </li>
@@ -197,6 +223,25 @@ export function DiaryList({
       </ul>
     </div>
   );
+}
+
+const NOTES_TREE_OPEN_KEY = "avora.notes-tree-open";
+
+/** Whether the Ghi chép tree is unfolded on this device. Open unless it was folded away. */
+export function readNotesTreeOpen(): boolean {
+  try {
+    return window.localStorage.getItem(NOTES_TREE_OPEN_KEY) !== "0";
+  } catch {
+    return true;
+  }
+}
+
+function rememberNotesTreeOpen(isOpen: boolean): void {
+  try {
+    window.localStorage.setItem(NOTES_TREE_OPEN_KEY, isOpen ? "1" : "0");
+  } catch {
+    // Remembering is a courtesy.
+  }
 }
 
 function stamp(iso: string): string {

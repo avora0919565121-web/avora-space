@@ -234,7 +234,9 @@ async function open() {
   );
 }
 
-beforeEach(() => {
+beforeEach(async () => {
+  // AVORA-61 · G: a phone reads boards as cards; these tests are about the computer's grid.
+  await page.viewport(1280, 800);
   state.tables = [];
   state.records = [];
   state.ensured = 0;
@@ -278,12 +280,11 @@ test("an empty table still shows the columns it is offering", async () => {
 
 test("a table is created by name and becomes the one on screen", async () => {
   state.tables = [businessTable({ id: "t-1", name: "Bảng tổng hợp" })];
-  // The ▾ beside `+` is the computer's way in (a phone holds `+`).
+  // AVORA-61 · A: no ▾ any more — a computer right-clicks (or holds) the `+` like a phone holds it.
   await page.viewport(1280, 800);
 
   const screen = await open();
-  // AVORA-57 · E: one `+`; Bảng mới sits in its menu (▾ on a computer, hold on a phone).
-  await userEvent.click(screen.getByRole("button", { name: "Chọn loại mới" }));
+  await userEvent.click(screen.getByRole("button", { name: /^Thêm Hạng mục/ }), { button: "right" });
   await userEvent.click(screen.getByRole("menuitem", { name: "Bảng mới" }));
   await expect.element(screen.getByRole("dialog")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Bảng trống/ }));
@@ -386,7 +387,7 @@ test("a record is written with only a title", async () => {
 
   const screen = await open();
   await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
-  await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Kho Long Biên");
+  await userEvent.fill(screen.getByLabelText("Tiêu đề", { exact: true }), "Kho Long Biên");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
   expect(state.createdRecords).toHaveLength(1);
@@ -406,7 +407,7 @@ test("a cell left blank is saved as nothing at all", async () => {
 
   const screen = await open();
   await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
-  await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Chưa định giá");
+  await userEvent.fill(screen.getByLabelText("Tiêu đề", { exact: true }), "Chưa định giá");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
   expect(state.createdRecords[0].extension).toEqual({ col_1: null });
@@ -423,11 +424,13 @@ test("a number column refuses a word, and says which column it means", async () 
 
   const screen = await open();
   await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
-  await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Khách sạn ABC");
+  await userEvent.fill(screen.getByLabelText("Tiêu đề", { exact: true }), "Khách sạn ABC");
   await userEvent.fill(screen.getByRole("textbox", { name: "Giá trị" }), "nhiều lắm");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
-  await expect.element(screen.getByText('Cột "Giá trị" chỉ nhận số.')).toBeInTheDocument();
+  // AVORA-61 · F: said right under the field, naming the column; what was typed stays.
+  await expect.element(screen.getByText('Cột "Giá trị" chỉ nhận số, vd. 1.000.000.')).toBeInTheDocument();
+  await expect.element(screen.getByRole("textbox", { name: "Giá trị" })).toHaveValue("nhiều lắm");
   expect(state.createdRecords).toEqual([]);
 });
 
@@ -463,7 +466,7 @@ test("a table one record short of the ceiling still accepts one", async () => {
   expect(screen.container.textContent).not.toContain("Bảng đã đầy");
 
   await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
-  await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Mục cuối cùng");
+  await userEvent.fill(screen.getByLabelText("Tiêu đề", { exact: true }), "Mục cuối cùng");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
   expect(state.createdRecords).toHaveLength(1);
@@ -476,7 +479,7 @@ test("opening a record edits that record rather than writing a new one", async (
 
   const screen = await open();
   await userEvent.click(screen.getByText("Khách sạn ABC"));
-  await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Khách sạn ABC - giai đoạn 2");
+  await userEvent.fill(screen.getByLabelText("Tiêu đề", { exact: true }), "Khách sạn ABC - giai đoạn 2");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
   expect(state.createdRecords).toEqual([]);

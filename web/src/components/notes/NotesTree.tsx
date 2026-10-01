@@ -33,6 +33,8 @@ import {
 import {
   canAddSubFolder,
   countInSubtree,
+  FOLDER_COLORS,
+  folderColorHex,
   folderPath,
   folderSubtreeIds,
   matchesNote,
@@ -184,6 +186,11 @@ export function NotesTree({
     });
   };
 
+  const recolorFolder = (folder: NoteFolder, color: (typeof FOLDER_COLORS)[number]["id"]): void => {
+    if (folder.color === color) return;
+    data.recolor.mutate({ id: folder.id, color }, { onError: (error) => toast.error(error.message) });
+  };
+
   const moveFolder = (folder: NoteFolder, parentId: string | null): void => {
     data.move.mutate(
       { id: folder.id, parentId },
@@ -222,14 +229,24 @@ export function NotesTree({
     const count = countInSubtree(folders, notes, folder.id);
     const Icon = folder.isSystem ? BookOpen : isOpen ? FolderOpen : Folder;
     const targets = folder.isSystem ? [] : moveTargets(folders, folder.id).filter((target) => target.id !== folder.parentId);
+    const cover = folderColorHex(folder.color);
     return (
       <li key={folder.id}>
         <div
+          data-folder-color={folder.isSystem ? undefined : (folder.color ?? "cam")}
           className={cn(
-            "group flex items-center rounded-md transition-colors",
+            "group relative flex items-center rounded-md transition-colors",
             selectedFolder === folder.id ? "bg-accent/50" : "hover:bg-accent/35",
           )}
         >
+          {/* AVORA-61 · B: a thin stripe in the folder's cover colour, like the spine of a file folder. */}
+          {folder.isSystem ? null : (
+            <span
+              aria-hidden="true"
+              style={{ backgroundColor: cover, left: depth * 16 }}
+              className="absolute bottom-1.5 top-1.5 w-[3px] rounded-full"
+            />
+          )}
           <button
             type="button"
             onClick={() => {
@@ -245,7 +262,12 @@ export function NotesTree({
             ) : (
               <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
             )}
-            <Icon className={cn("h-4 w-4 shrink-0", folder.isSystem ? "text-amber-600" : "text-primary")} strokeWidth={1.7} aria-hidden="true" />
+            <Icon
+              className={cn("h-4 w-4 shrink-0", folder.isSystem && "text-amber-600")}
+              style={folder.isSystem ? undefined : { color: cover }}
+              strokeWidth={1.7}
+              aria-hidden="true"
+            />
             <span className="min-w-0 flex-1 truncate text-[14px] font-medium text-foreground">{folder.name}</span>
             <span className="tabular shrink-0 text-[12px] text-muted-foreground">{count}</span>
           </button>
@@ -279,6 +301,38 @@ export function NotesTree({
                   <DropdownMenuItem onSelect={() => renameFolder(folder)} className="min-h-10">
                     Đổi tên
                   </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger className="min-h-10 gap-2">
+                      <span aria-hidden="true" className="h-3.5 w-3.5 rounded-[4px]" style={{ backgroundColor: cover }} /> Màu bìa
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent className="w-56 p-2">
+                      <div role="radiogroup" aria-label={`Màu bìa của ${folder.name}`} className="grid grid-cols-4 gap-2">
+                        {FOLDER_COLORS.map((entry) => {
+                          const isCurrent = (folder.color ?? "cam") === entry.id;
+                          return (
+                            <DropdownMenuItem
+                              key={entry.id}
+                              role="radio"
+                              aria-checked={isCurrent}
+                              aria-label={entry.label}
+                              title={entry.label}
+                              onSelect={() => recolorFolder(folder, entry.id)}
+                              className="flex h-11 items-center justify-center rounded-md p-0"
+                            >
+                              <span
+                                aria-hidden="true"
+                                style={{ backgroundColor: entry.hex }}
+                                className={cn(
+                                  "h-7 w-7 rounded-[7px] ring-offset-2 ring-offset-popover",
+                                  isCurrent ? "ring-2 ring-foreground" : "ring-1 ring-black/10",
+                                )}
+                              />
+                            </DropdownMenuItem>
+                          );
+                        })}
+                      </div>
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
                   <DropdownMenuSub>
                     <DropdownMenuSubTrigger className="min-h-10">Chuyển</DropdownMenuSubTrigger>
                     <DropdownMenuSubContent className="max-h-[50dvh] w-60 overflow-y-auto">

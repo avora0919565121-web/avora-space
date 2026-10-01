@@ -253,7 +253,41 @@ export type NoteFolder = {
   systemKey: string | null;
   position: number;
   createdAt: string;
+  /** AVORA-61 · B: the folder's cover colour, or null for folders made before colours. */
+  color: FolderColor | null;
 };
+
+/** AVORA-61 · B: eight quiet covers in AVORA's orange–black–white family, like file-folder covers. */
+export const FOLDER_COLORS = [
+  { id: "cam", label: "Cam", hex: "#E8742C" },
+  { id: "dat", label: "Đất nung", hex: "#B5583A" },
+  { id: "mat_ong", label: "Mật ong", hex: "#D49A2A" },
+  { id: "reu", label: "Rêu", hex: "#6F8A4E" },
+  { id: "suong", label: "Sương", hex: "#5E8C96" },
+  { id: "man", label: "Mận", hex: "#8E5A72" },
+  { id: "than", label: "Than", hex: "#3F3A36" },
+  { id: "tro", label: "Tro", hex: "#9A928A" },
+] as const;
+
+export type FolderColor = (typeof FOLDER_COLORS)[number]["id"];
+
+export function isFolderColor(value: unknown): value is FolderColor {
+  return typeof value === "string" && FOLDER_COLORS.some((color) => color.id === value);
+}
+
+/** The hex of a folder's cover; a folder with none reads as Cam, AVORA's own colour. */
+export function folderColorHex(color: FolderColor | null): string {
+  return FOLDER_COLORS.find((entry) => entry.id === color)?.hex ?? FOLDER_COLORS[0].hex;
+}
+
+/** A new folder takes the colour after the one used by the most recent folder that has one. */
+export function nextFolderColor(folders: readonly NoteFolder[]): FolderColor {
+  const colored = folders.filter((folder) => !folder.isSystem && folder.color !== null);
+  if (colored.length === 0) return FOLDER_COLORS[0].id;
+  const latest = [...colored].sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))[0];
+  const index = FOLDER_COLORS.findIndex((entry) => entry.id === latest.color);
+  return FOLDER_COLORS[(index + 1) % FOLDER_COLORS.length].id;
+}
 
 export type Note = {
   id: string;
@@ -651,7 +685,7 @@ export function isOfflineError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith("Chưa lưu");
 }
 
-type FolderRow = { id: string; parent_id: string | null; name: string; is_system: boolean; system_key: string | null; position: number; created_at: string };
+type FolderRow = { id: string; parent_id: string | null; name: string; is_system: boolean; system_key: string | null; position: number; created_at: string; color?: string | null };
 type NoteRow = {
   id: string; folder_id: string | null; title: string; blocks: unknown; tags: string[] | null; pinned_at: string | null;
   book_record_id: string | null; book_title: string | null; deleted_at: string | null; created_at: string; updated_at: string;
@@ -662,7 +696,10 @@ type AttachmentRow = {
 };
 
 function toFolder(row: FolderRow): NoteFolder {
-  return { id: row.id, parentId: row.parent_id ?? null, name: row.name, isSystem: row.is_system, systemKey: row.system_key, position: row.position, createdAt: row.created_at };
+  return {
+    id: row.id, parentId: row.parent_id ?? null, name: row.name, isSystem: row.is_system, systemKey: row.system_key,
+    position: row.position, createdAt: row.created_at, color: isFolderColor(row.color) ? row.color : null,
+  };
 }
 
 export function toNote(row: NoteRow): Note {
@@ -681,12 +718,13 @@ function toAttachment(row: AttachmentRow): NoteAttachment {
   };
 }
 
+const FOLDER_COLUMNS = "id, parent_id, name, is_system, system_key, position, created_at, color";
 const NOTE_COLUMNS = "id, folder_id, title, blocks, tags, pinned_at, book_record_id, book_title, deleted_at, created_at, updated_at";
 
 export async function fetchFolders(): Promise<NoteFolder[]> {
   const { error: ensureError } = await supabase.rpc("ensure_reading_folder");
   if (ensureError) throw fail(ensureError.code, ensureError.message);
-  const { data, error } = await supabase.from("note_folders").select("id, parent_id, name, is_system, system_key, position, created_at").order("position");
+  const { data, error } = await supabase.from("note_folders").select(FOLDER_COLUMNS).order("position");
   if (error) throw fail(error.code, error.message);
   return (data ?? []).map((row) => toFolder(row as FolderRow));
 }
@@ -706,14 +744,24 @@ export async function fetchNoteAttachments(): Promise<NoteAttachment[]> {
   return (data ?? []).map((row) => toAttachment(row as AttachmentRow));
 }
 
-export async function createFolder(name: string, position: number, parentId: string | null = null): Promise<NoteFolder> {
+export async function createFolder(
+  name: string,
+  position: number,
+  parentId: string | null = null,
+  color: FolderColor | null = null,
+): Promise<NoteFolder> {
   const { data, error } = await supabase
     .from("note_folders")
-    .insert({ name: name.trim(), position, parent_id: parentId })
-    .select("id, parent_id, name, is_system, system_key, position, created_at")
+    .insert({ name: name.trim(), position, parent_id: parentId, color })
+    .select(FOLDER_COLUMNS)
     .single();
   if (error) throw fail(error.code, error.message);
   return toFolder(data as FolderRow);
+}
+
+export async function recolorFolder(id: string, color: FolderColor): Promise<void> {
+  const { error } = await supabase.from("note_folders").update({ color }).eq("id", id);
+  if (error) throw fail(error.code, error.message);
 }
 
 export async function renameFolder(id: string, name: string): Promise<void> {

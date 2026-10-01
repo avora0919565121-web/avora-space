@@ -40,22 +40,92 @@ function isRecordPriority(value: string): value is RecordPriority {
 }
 
 /**
- * The kinds of extension column someone can add.
+ * The kinds of extension column someone can add (AVORA-61 · D: eight).
  *
- * Four, and they stay four in v1. Every extra kind (currency, checkbox, a link to a contact)
- * is a promise about how the value sorts, totals and validates — easy to add to a picker,
- * hard to take back once someone's data is in it.
+ * Each kind is a promise about how the value sorts, filters and validates: Liên kết sorts as
+ * words, Có / Không as true-before-false, Tệp by how many files the cell holds.
  */
-export type ColumnType = "text" | "number" | "date" | "select";
+export type ColumnType = "text" | "number" | "date" | "select" | "link" | "contact" | "checkbox" | "file";
 
-export const COLUMN_TYPES: readonly ColumnType[] = ["text", "number", "date", "select"];
+export const COLUMN_TYPES: readonly ColumnType[] = ["text", "number", "date", "select", "link", "contact", "checkbox", "file"];
 
 const COLUMN_TYPE_LABELS: Record<ColumnType, string> = {
   text: "Chữ",
   number: "Số",
   date: "Ngày",
   select: "Chọn 1 trong danh sách",
+  link: "Liên kết",
+  contact: "Liên hệ",
+  checkbox: "Có / Không",
+  file: "Tệp",
 };
+
+/** AVORA-61 · F: what each field says before anything is typed into it. */
+export const COLUMN_PLACEHOLDERS: Record<ColumnType, string> = {
+  text: "Nhập chữ",
+  number: "Nhập số, vd. 1.000.000",
+  date: "Chọn ngày",
+  select: "Chọn một mục",
+  link: "Dán link https://…",
+  contact: "Chọn từ Liên hệ",
+  checkbox: "Có / Không",
+  file: "Thêm tệp",
+};
+
+/**
+ * Kind changes that cannot lose or garble a value (AVORA-61 · E) — the same list the server
+ * enforces. Anything readable as words may become Chữ; Chữ may become Liên kết when every
+ * filled cell already is a link.
+ */
+export function safeTypeChanges(column: ColumnDef, values: readonly ExtensionValue[]): ColumnType[] {
+  if (column.type === "text") {
+    const filled = values.filter((value): value is string | number => value !== null && String(value).trim() !== "");
+    return filled.every((value) => isHttpLink(String(value))) ? ["link"] : [];
+  }
+  if (column.type === "number" || column.type === "date" || column.type === "select" || column.type === "link") return ["text"];
+  return [];
+}
+
+/** An http(s) link with something after the scheme, nothing else. */
+export function isHttpLink(value: string): boolean {
+  return /^https?:\/\/[^\s]+$/i.test(value.trim());
+}
+
+/**
+ * Reads what a person typed for one column. Wrong kind → an error to show under the field,
+ * and the text stays exactly as typed (the caller keeps the draft).
+ */
+export function parseColumnInput(column: Pick<ColumnDef, "type" | "label">, raw: string): { value: ExtensionValue } | { error: string } {
+  const text = raw.trim();
+  if (text === "") return { value: null };
+  if (column.type === "number") {
+    // "1.000.000" and "1 000 000" read as thousands; a comma is the decimal mark.
+    const normalized = text.replace(/[\s.]/g, "").replace(/,/g, ".");
+    const parsed = Number(normalized);
+    if (normalized === "" || !Number.isFinite(parsed)) return { error: `Cột "${column.label}" chỉ nhận số, vd. 1.000.000.` };
+    return { value: parsed };
+  }
+  if (column.type === "link") {
+    if (!isHttpLink(text)) return { error: "Link cần bắt đầu bằng https:// hoặc http://." };
+    return { value: text };
+  }
+  if (column.type === "checkbox") return { value: text === "1" || text === "true" ? "1" : null };
+  return { value: text };
+}
+
+/** Sorting key for a cell, by kind (AVORA-61 · D). */
+export function cellSortKey(record: ThinkRecord, column: ColumnDef, fileCount: number = 0): string | number {
+  const value = record.extensionFields[column.key];
+  if (column.type === "checkbox") return value === "1" ? 0 : 1;
+  if (column.type === "file") return -fileCount;
+  if (column.type === "number") return typeof value === "number" ? value : Number.POSITIVE_INFINITY;
+  if (value === null || value === undefined || String(value).trim() === "") return "\uffff";
+  return normalizeForSort(String(value));
+}
+
+function normalizeForSort(value: string): string {
+  return value.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
+}
 
 export function columnTypeLabel(type: ColumnType): string {
   return COLUMN_TYPE_LABELS[type];
@@ -105,12 +175,22 @@ export type TableScope = "personal" | "conversation" | "project";
 /** Deepest a sub-table chain may go: a root table is level 1. */
 export const MAX_TABLE_DEPTH = 3;
 
+/** A column in the board's bin: back with its values for 30 days (AVORA-61 · E). */
+export type TrashedColumn = {
+  column: ColumnDef;
+  deletedAt: string;
+  /** How many Hạng mục had something in it. */
+  filledCount: number;
+};
+
 export type ThinkTable = {
   id: string;
   ownerUserId: string;
   name: string;
   position: number;
   columns: readonly ColumnDef[];
+  /** AVORA-61 · E: deleted columns still restorable. */
+  columnTrash?: readonly TrashedColumn[];
   projectId: string | null;
   conversationId: string | null;
   /** The record this sub-table grew out of. Null for a root table. */
@@ -122,6 +202,9 @@ export type ThinkTable = {
   deletedAt: string | null;
   /** Đợt gộp 2 · C1: the table's own statuses; null = the four defaults. */
   statusOptions: readonly StatusOption[] | null;
+  /** AVORA-62 · F: who may press Báo nhóm, and how a shared board reports changes. */
+  announceWho?: "members" | "admins";
+  announceMode?: "manual" | "daily" | "silent";
   /** What the title column is called, e.g. "Khách hàng". */
   titleLabel: string | null;
   defaultView: "table" | "kanban" | "tree" | null;
@@ -218,6 +301,7 @@ type TableRow = {
   name: string;
   position: number;
   column_defs: unknown;
+  column_trash?: unknown;
   project_id?: string | null;
   conversation_id?: string | null;
   parent_record_id?: string | null;
@@ -227,6 +311,8 @@ type TableRow = {
   updated_at: string;
   deleted_at: string | null;
   status_options?: unknown;
+  announce_who?: string | null;
+  announce_mode?: string | null;
   title_label?: string | null;
   default_view?: string | null;
   mobile_columns?: string[] | null;
@@ -322,6 +408,23 @@ export function parseColumnDefs(raw: unknown): ColumnDef[] {
   return defs;
 }
 
+/** Reads the board's column bin, keeping only entries still inside their 30 days. */
+export function parseColumnTrash(raw: unknown, now: Date = new Date()): TrashedColumn[] {
+  if (!Array.isArray(raw)) return [];
+  const out: TrashedColumn[] = [];
+  for (const entry of raw) {
+    if (entry === null || typeof entry !== "object") continue;
+    const item = entry as Record<string, unknown>;
+    const [column] = parseColumnDefs([item.def]);
+    const deletedAt = typeof item.deleted_at === "string" ? item.deleted_at : null;
+    if (column === undefined || deletedAt === null) continue;
+    if (now.getTime() - new Date(deletedAt).getTime() > 30 * 86_400_000) continue;
+    const values = item.values !== null && typeof item.values === "object" ? Object.keys(item.values as object).length : 0;
+    out.push({ column, deletedAt, filledCount: values });
+  }
+  return out;
+}
+
 /** Reads stored extension values, keeping only what a cell can actually display. */
 export function parseExtensionFields(raw: unknown): Record<string, ExtensionValue> {
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return {};
@@ -339,6 +442,7 @@ function toTable(row: TableRow): ThinkTable {
     name: row.name,
     position: row.position,
     columns: parseColumnDefs(row.column_defs),
+    columnTrash: parseColumnTrash(row.column_trash),
     projectId: row.project_id ?? null,
     conversationId: row.conversation_id ?? null,
     parentRecordId: row.parent_record_id ?? null,
@@ -348,6 +452,8 @@ function toTable(row: TableRow): ThinkTable {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     statusOptions: parseStatusOptions(row.status_options),
+    announceWho: row.announce_who === "admins" ? "admins" : "members",
+    announceMode: row.announce_mode === "daily" ? "daily" : row.announce_mode === "silent" ? "silent" : "manual",
     titleLabel: row.title_label ?? null,
     defaultView: row.default_view === "kanban" || row.default_view === "tree" || row.default_view === "table" ? row.default_view : null,
     mobileColumns: row.mobile_columns ?? [],
@@ -644,7 +750,16 @@ export function cellValue(record: ThinkRecord, column: ColumnDef): string {
   if (column.type === "number" && typeof value === "number") {
     return new Intl.NumberFormat("vi-VN").format(value);
   }
+  if (column.type === "checkbox") return value === "1" ? "Có" : "";
   return String(value);
+}
+
+/** How many Hạng mục have something in a column — what deleting it would take away. */
+export function filledCountOf(records: readonly ThinkRecord[], column: ColumnDef): number {
+  return records.filter((record) => {
+    const value = record.extensionFields[column.key];
+    return value !== null && value !== undefined && String(value).trim() !== "";
+  }).length;
 }
 
 // ------------------------------------------------------------------ what needs attention
@@ -740,6 +855,8 @@ export function toVietnameseHubError(code: string | undefined, message: string):
     return "Cột dạng chọn cần ít nhất một lựa chọn.";
   if (normalized.includes("avora_think_hub_column_type_invalid"))
     return "Kiểu cột này không hợp lệ.";
+  if (normalized.includes("avora_think_hub_column_type_unsafe"))
+    return "Đổi loại này có thể làm mất dữ liệu, nên chưa đổi được.";
   if (normalized.includes("avora_think_hub_column_key_taken"))
     return "Cột này đã tồn tại trong bảng.";
   if (normalized.includes("avora_think_hub_column_limit"))
@@ -1023,6 +1140,41 @@ export async function renameThinkColumn(input: {
   });
   if (error) throw fail(error.code, error.message);
   return toTable(data as unknown as TableRow);
+}
+
+/** Changes a column's kind — only the safe changes; the server refuses the rest (AVORA-61 · E). */
+export async function changeThinkColumnType(input: { tableId: string; columnId: string; type: ColumnType }): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("change_think_hub_column_type", {
+    p_table_id: input.tableId,
+    p_column_id: input.columnId,
+    p_type: input.type,
+  });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/** Moves a column into the board's bin, values and all (owner only). */
+export async function deleteThinkColumn(input: { tableId: string; columnId: string }): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("delete_think_hub_column", { p_table_id: input.tableId, p_column_id: input.columnId });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/** Brings a column back from the bin with every value it had. */
+export async function restoreThinkColumn(input: { tableId: string; columnId: string }): Promise<ThinkTable> {
+  const { data, error } = await supabase.rpc("restore_think_hub_column", { p_table_id: input.tableId, p_column_id: input.columnId });
+  if (error) throw fail(error.code, error.message);
+  return toTable(data as unknown as TableRow);
+}
+
+/** A member of a shared board asks its owner to delete a column (ADR-031), in the conversation. */
+export async function requestThinkColumnDelete(input: { tableId: string; columnId: string; reason: string }): Promise<void> {
+  const { error } = await supabase.rpc("request_think_hub_column_delete", {
+    p_table_id: input.tableId,
+    p_column_id: input.columnId,
+    p_reason: input.reason.trim(),
+  });
+  if (error) throw fail(error.code, error.message);
 }
 
 /** Renames a table. */

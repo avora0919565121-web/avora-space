@@ -4,6 +4,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 import { LegacyRedirect } from "@/components/LegacyRedirect";
 import { LookSync } from "@/components/LookSync";
 import { KeyboardSync } from "@/components/KeyboardSync";
+import { NotchSync } from "@/components/NotchSync";
 import { MilestoneBurstLayer } from "@/components/MilestoneBurstLayer";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Toaster } from "@/components/ui/sonner";
@@ -16,6 +17,7 @@ import AcceptContactInvite from "./pages/AcceptContactInvite";
 import Auth from "./pages/Auth";
 import ThinkHub from "./pages/ThinkHub";
 import ConnectByPin from "./pages/ConnectByPin";
+import ContactNameRepair from "./pages/ContactNameRepair";
 import ContactChannelReview from "./pages/ContactChannelReview";
 import ContactDetail from "./pages/ContactDetail";
 import Contacts from "./pages/Contacts";
@@ -54,6 +56,7 @@ const App = () => (
           <MilestoneBurstLayer />
           <LookSync />
           <KeyboardSync />
+          <NotchSync />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/" element={<Navigate to={HOME_ROUTE} replace />} />
@@ -94,6 +97,7 @@ const App = () => (
                 <Route path="/lien-he" element={<Contacts />} />
                 {/* Above the :contactId route on purpose — otherwise it reads as a contact id. */}
                 <Route path="/lien-he/can-xem-lai" element={<ContactChannelReview />} />
+                <Route path="/lien-he/sua-ten" element={<ContactNameRepair />} />
                 <Route path="/lien-he/:contactId" element={<ContactDetail />} />
                 {/* Signed-in on purpose: accepting links two accounts, so there must be a second one. */}
                 <Route path="/loi-moi-lien-he/:token" element={<AcceptContactInvite />} />

@@ -21,7 +21,7 @@ function VaultBar() {
   const [isAbout, setIsAbout] = useState<boolean>(false);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl items-center justify-end gap-1 px-4 pt-2 sm:px-6 md:px-10">
+    <div className="mx-auto flex w-full max-w-6xl items-center justify-end gap-1 px-4 pt-2 sm:px-6 md:px-10 short:px-4">
       <button
         type="button"
         onClick={() => void vault.lock()}
@@ -108,7 +108,7 @@ const Vault = () => {
           // AVORA-57 · E: one `+` beside the title; none while locked or on a "Sắp có" sub-tab.
           const entry = vault.isUnlocked ? vaultAddFor(current) : null;
           if (entry === null) return null;
-          // AVORA-60 · D: the shared `+`. Tap = the sub-tab's own thing; no menu while each
+          // AVORA-60 · D / 61 · A: the shared `+`. Tap = the sub-tab's own thing; no menu while each
           // sub-tab has a single kind to add (the other sub-tabs are still "Sắp có").
           return (
             <PlusMenuButton
@@ -121,7 +121,7 @@ const Vault = () => {
           );
         }}
       />
-      <ReturnChip className="mx-auto w-full max-w-5xl px-6 md:px-10" />
+      <ReturnChip className="mx-auto w-full max-w-5xl px-6 md:px-10 short:px-4" />
       {body}
     </div>
   );

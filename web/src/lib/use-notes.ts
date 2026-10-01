@@ -12,9 +12,12 @@ import {
   moveFolder,
   noteKeys,
   patchNote,
+  recolorFolder,
   renameFolder,
+  nextFolderColor,
   signedNoteUrls,
   type Note,
+  type FolderColor,
   type NoteAttachment,
   type NoteFolder,
 } from "@/lib/notes";
@@ -53,7 +56,12 @@ export function useNotes({ enabled = true }: { enabled?: boolean } = {}) {
         input.name,
         (folders.data ?? []).filter((folder) => !folder.isSystem && folder.parentId === (input.parentId ?? null)).length,
         input.parentId ?? null,
+        nextFolderColor(folders.data ?? []),
       ),
+    onSuccess: refresh,
+  });
+  const recolor = useMutation({
+    mutationFn: (input: { id: string; color: FolderColor }) => recolorFolder(input.id, input.color),
     onSuccess: refresh,
   });
   const move = useMutation({ mutationFn: (input: { id: string; parentId: string | null }) => moveFolder(input.id, input.parentId), onSuccess: refresh });
@@ -84,6 +92,7 @@ export function useNotes({ enabled = true }: { enabled?: boolean } = {}) {
     refresh,
     addFolder,
     rename,
+    recolor,
     move,
     removeFolder,
     patch,

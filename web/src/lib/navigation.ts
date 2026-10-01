@@ -48,6 +48,8 @@ export function returnPathFrom(state: unknown): string {
  * the route table — a literal typed twice could drift into being read as a contact id.
  */
 export const CHANNEL_REVIEW_ROUTE = "/lien-he/can-xem-lai";
+/** AVORA-63 · B: names that may need fixing. */
+export const NAME_REPAIR_ROUTE = "/lien-he/sua-ten";
 
 /** The main rail. Liên hệ deliberately is NOT here: it opens from Tin nhắn. */
 export const NAV_ITEMS: readonly NavEntry[] = [

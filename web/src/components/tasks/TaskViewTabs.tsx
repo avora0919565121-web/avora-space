@@ -1,3 +1,4 @@
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { useCallback, useEffect, useState, type DragEvent, type KeyboardEvent } from "react";
 
 /** AVORA-53 · 4.7: the drag hint is read once per device, then gets out of the way. */
@@ -33,6 +34,7 @@ export function TaskViewTabs({ mode, order, onChange, onReorder }: TaskViewTabsP
   const [draggingId, setDraggingId] = useState<TaskViewMode | null>(null);
   const [overId, setOverId] = useState<TaskViewMode | null>(null);
   const [showHint] = useState<boolean>(() => !hintSeen());
+  const hasKeyboard = useMediaQuery("(hover: hover) and (pointer: fine) and (min-width: 768px)");
   useEffect(() => {
     if (!showHint) return;
     try {
@@ -115,8 +117,9 @@ export function TaskViewTabs({ mode, order, onChange, onReorder }: TaskViewTabsP
       </div>
       {showHint ? (
         <p className="mt-1.5 text-[12px] text-muted-foreground">
-          Kéo để đổi thứ tự — thẻ đầu tiên là cách xem mở sẵn khi bạn quay lại. Dùng phím: Ctrl/⌘ + ←
-          hoặc →.
+          Kéo để đổi thứ tự
+          {/* AVORA-61 · I: the keys are only mentioned where there is a keyboard and a mouse. */}
+          {hasKeyboard ? " — thẻ đầu tiên là cách xem mở sẵn khi bạn quay lại. Dùng phím: Ctrl/⌘ + ← hoặc →" : ""}.
         </p>
       ) : null}
     </div>

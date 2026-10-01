@@ -1,3 +1,4 @@
+import { decodeQuotedPrintableIn } from "@/lib/contact-name-repair";
 import { logError } from "@/lib/log";
 import vCard from "vcf";
 
@@ -132,6 +133,7 @@ function structuredParts(raw: string): string[] {
 type PropertyLike = {
   valueOf: () => string;
   encoding?: string | string[];
+  charset?: string | string[];
   type?: string | string[];
 };
 
@@ -149,7 +151,13 @@ function textOf(property: PropertyLike): string {
   const encoding = Array.isArray(property.encoding)
     ? property.encoding.join(",")
     : (property.encoding ?? "");
-  const decoded = /QUOTED-PRINTABLE/i.test(encoding) ? decodeQuotedPrintable(raw) : raw;
+  // AVORA-63 · A: the line's own CHARSET= decides how its bytes read (old Android: Windows-1258).
+  const charset = Array.isArray(property.charset) ? property.charset[0] : property.charset;
+  const decoded = /QUOTED-PRINTABLE/i.test(encoding)
+    ? charset !== undefined && !/utf-?8/i.test(charset)
+      ? decodeQuotedPrintableIn(raw, charset)
+      : decodeQuotedPrintable(raw)
+    : raw;
   return unescapeVcardText(decoded).trim();
 }
 

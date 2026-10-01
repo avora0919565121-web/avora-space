@@ -24,7 +24,7 @@ export function HubTitle({
     <header className="relative z-10 shrink-0 border-b border-border/70 bg-background/92 backdrop-blur-sm">
       <div
         className={cn(
-          "mx-auto flex w-full items-end justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6 short:pb-1.5 short:pt-2 short:pr-[4.25rem]",
+          "mx-auto flex w-full items-end justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6 short:mx-0 short:max-w-none short:pb-1.5 short:pl-4 short:pt-2 short:pr-[4.25rem]",
           className,
         )}
       >

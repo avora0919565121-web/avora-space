@@ -262,7 +262,7 @@ function AppFrame({ children }: { children: ReactNode }) {
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-card md:flex-row short:flex-row">
       <MobileTopBar />
       <LandscapeRail />
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col short:pr-[env(safe-area-inset-right)]">{children}</main>
+      <main className="flex min-h-0 min-w-0 flex-1 flex-col short:pr-[var(--inset-r)]">{children}</main>
       <ToolBelt />
       <QuickActionBubble />
     </div>
@@ -525,7 +525,8 @@ for (const [name, at, page_] of [
     await settle(1200);
     const rail = document.querySelector("nav[aria-label='Điều hướng chính']") as HTMLElement;
     const railRect = rail.getBoundingClientRect();
-    expect(railRect.width).toBeGreaterThanOrEqual(60);
+    // AVORA-61 · J: the strip is 56px now (plus the notch inset only on the notch side).
+    expect(railRect.width).toBeGreaterThanOrEqual(56);
     for (const link of rail.querySelectorAll("a")) {
       const rect = link.getBoundingClientRect();
       expect(rect.left).toBeGreaterThanOrEqual(railRect.left);

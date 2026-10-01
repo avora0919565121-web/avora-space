@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 const buttonPrimary = "press rounded-md bg-primary px-4 py-2 text-[14px] font-semibold text-primary-foreground disabled:opacity-50";
 const buttonQuiet = "press rounded-md border border-border px-4 py-2 text-[14px]";
-const field = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[15px] outline-none focus:border-primary";
+const field = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] md:text-[15px] outline-none focus:border-primary";
 
 /** "Đề nghị xoá / lưu trữ / mở lại" (ADR-031): reason required, stakeholders shown before sending. */
 export function ProposeDialog({
@@ -87,7 +87,11 @@ export function ProposeDialog({
   );
 }
 
-/** Xoá a personal table (C5): the way out first ("Đổi tên…"), counts of what goes to the bin. */
+/**
+ * Xoá a personal table (C5 / AVORA-61 · C). Deleting has to be hard: step 1 offers the way out
+ * ("Đổi tên / mục tiêu") and counts what goes to the bin; step 2 asks for the board's name typed
+ * back. Still a soft delete — the board comes back from Thùng rác Kế hoạch.
+ */
 export function DeleteTableDialog({
   table,
   onOpenChange,
@@ -99,40 +103,77 @@ export function DeleteTableDialog({
   onRename: () => void;
   onDelete: (table: ThinkTable) => Promise<void>;
 }) {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [typed, setTyped] = useState<string>("");
+  useEffect(() => {
+    setStep(1);
+    setTyped("");
+  }, [table]);
   const preview = useQuery({
     queryKey: ["think-hub", "delete-preview", table?.id],
     queryFn: () => previewTableDelete(table?.id ?? ""),
     enabled: table !== null,
   });
   const counts = preview.data;
+  const matches = table !== null && normalizeSearch(typed.trim()) === normalizeSearch(table.name.trim()) && typed.trim() !== "";
   return (
     <Dialog open={table !== null} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[460px]">
-        <DialogTitle className="text-[18px]">Đổi tên hoặc mục tiêu thay vì xoá?</DialogTitle>
-        <DialogDescription className="text-[13px]">Một Bảng thường chỉ cần đổi hướng, không cần bỏ.</DialogDescription>
-        <button type="button" className={buttonPrimary} onClick={onRename}>Đổi tên / mục tiêu</button>
-        <div className="rounded-lg border border-border px-3 py-2 text-[13px] text-muted-foreground">
-          {preview.isPending ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : counts === undefined ? (
-            "Chưa đếm được."
-          ) : (
-            <>
-              {counts.records} Hạng mục · {counts.subTables} bảng con · {counts.tasks} nhiệm vụ sẽ vào Thùng rác (khôi phục được cùng Bảng).
-              {counts.tasksKeptByAssignee > 0 ? ` ${counts.tasksKeptByAssignee} việc người nhận chưa xong vẫn ở lại danh sách của họ.` : ""}
-            </>
-          )}
-        </div>
-        <div className="flex justify-end gap-2">
-          <button type="button" className={buttonQuiet} onClick={() => onOpenChange(false)}>Huỷ</button>
-          <button
-            type="button"
-            className="press rounded-md px-4 py-2 text-[14px] font-medium text-destructive hover:bg-destructive/10"
-            onClick={() => table !== null && void onDelete(table)}
-          >
-            Xoá Bảng
-          </button>
-        </div>
+        {step === 1 ? (
+          <>
+            <DialogTitle className="text-[18px]">Đổi tên hoặc mục tiêu thay vì xoá?</DialogTitle>
+            <DialogDescription className="text-[13px]">Một Bảng thường chỉ cần đổi hướng, không cần bỏ.</DialogDescription>
+            <button type="button" className={buttonPrimary} onClick={onRename}>Đổi tên / mục tiêu</button>
+            <div className="rounded-lg border border-border px-3 py-2 text-[13px] text-muted-foreground" data-delete-counts="">
+              {preview.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : counts === undefined ? (
+                "Chưa đếm được."
+              ) : (
+                <>
+                  {counts.records} Hạng mục · {counts.subTables} bảng con · {counts.tasks} nhiệm vụ sẽ vào Thùng rác (khôi phục được cùng Bảng).
+                  {counts.tasksKeptByAssignee > 0 ? ` ${counts.tasksKeptByAssignee} việc người nhận chưa xong vẫn ở lại danh sách của họ.` : ""}
+                </>
+              )}
+            </div>
+            <div className="flex justify-end gap-2">
+              <button type="button" className={buttonQuiet} onClick={() => onOpenChange(false)}>Huỷ</button>
+              <button
+                type="button"
+                className="press rounded-md px-4 py-2 text-[14px] font-medium text-destructive hover:bg-destructive/10"
+                onClick={() => setStep(2)}
+              >
+                Vẫn xoá…
+              </button>
+            </div>
+          </>
+        ) : (
+          <>
+            <DialogTitle className="text-[18px]">Gõ lại tên Bảng để xoá</DialogTitle>
+            <DialogDescription className="text-[13px]">
+              Gõ <strong className="text-foreground">{table?.name}</strong> để chuyển Bảng vào Thùng rác Kế hoạch. Khôi phục được trong 30 ngày.
+            </DialogDescription>
+            <input
+              value={typed}
+              autoFocus
+              onChange={(event) => setTyped(event.target.value)}
+              aria-label="Gõ lại tên Bảng"
+              placeholder={table?.name}
+              className={cn(field, "text-[16px]")}
+            />
+            <div className="flex justify-end gap-2">
+              <button type="button" className={buttonQuiet} onClick={() => setStep(1)}>Quay lại</button>
+              <button
+                type="button"
+                disabled={!matches}
+                className="press rounded-md bg-destructive px-4 py-2 text-[14px] font-semibold text-destructive-foreground disabled:opacity-40"
+                onClick={() => table !== null && void onDelete(table)}
+              >
+                Xoá Bảng
+              </button>
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

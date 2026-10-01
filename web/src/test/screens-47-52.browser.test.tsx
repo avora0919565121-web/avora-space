@@ -60,6 +60,7 @@ const folder = (id: string, name: string, parentId: string | null, position: num
   name,
   isSystem,
   systemKey: isSystem ? "reading" : null,
+  color: null,
   position,
   createdAt: now,
 });

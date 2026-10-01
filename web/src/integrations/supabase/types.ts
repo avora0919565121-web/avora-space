@@ -1562,6 +1562,7 @@ export type Database = {
       }
       note_folders: {
         Row: {
+          color: string | null
           created_at: string
           id: string
           is_system: boolean
@@ -1572,6 +1573,7 @@ export type Database = {
           system_key: string | null
         }
         Insert: {
+          color?: string | null
           created_at?: string
           id?: string
           is_system?: boolean
@@ -1582,6 +1584,7 @@ export type Database = {
           system_key?: string | null
         }
         Update: {
+          color?: string | null
           created_at?: string
           id?: string
           is_system?: boolean
@@ -2933,6 +2936,196 @@ export type Database = {
           },
         ]
       }
+      think_hub_announcements: {
+        Row: {
+          actor_id: string
+          change_ids: string[]
+          conversation_id: string
+          created_at: string
+          id: string
+          kind: string
+          message_id: string | null
+          note: string | null
+          notified_ids: string[]
+          summary: Json
+          table_id: string
+          updated_at: string
+        }
+        Insert: {
+          actor_id: string
+          change_ids?: string[]
+          conversation_id: string
+          created_at?: string
+          id?: string
+          kind: string
+          message_id?: string | null
+          note?: string | null
+          notified_ids?: string[]
+          summary?: Json
+          table_id: string
+          updated_at?: string
+        }
+        Update: {
+          actor_id?: string
+          change_ids?: string[]
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          kind?: string
+          message_id?: string | null
+          note?: string | null
+          notified_ids?: string[]
+          summary?: Json
+          table_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_announcements_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_announcements_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_announcements_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      think_hub_cell_files: {
+        Row: {
+          byte_size: number
+          column_key: string
+          created_at: string
+          file_name: string
+          id: string
+          mime_type: string
+          record_id: string
+          storage_path: string
+          table_id: string
+          uploaded_by: string
+        }
+        Insert: {
+          byte_size: number
+          column_key: string
+          created_at?: string
+          file_name: string
+          id?: string
+          mime_type?: string
+          record_id: string
+          storage_path: string
+          table_id: string
+          uploaded_by?: string
+        }
+        Update: {
+          byte_size?: number
+          column_key?: string
+          created_at?: string
+          file_name?: string
+          id?: string
+          mime_type?: string
+          record_id?: string
+          storage_path?: string
+          table_id?: string
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_cell_files_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_cell_files_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      think_hub_change_log: {
+        Row: {
+          actor_id: string
+          after: Json | null
+          announced_at: string | null
+          announcement_id: string | null
+          before: Json | null
+          cells: number
+          column_id: string | null
+          created_at: string
+          id: string
+          kind: string
+          nudged_at: string | null
+          record_id: string | null
+          record_owner_id: string | null
+          record_title: string | null
+          table_id: string
+        }
+        Insert: {
+          actor_id: string
+          after?: Json | null
+          announced_at?: string | null
+          announcement_id?: string | null
+          before?: Json | null
+          cells?: number
+          column_id?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          nudged_at?: string | null
+          record_id?: string | null
+          record_owner_id?: string | null
+          record_title?: string | null
+          table_id: string
+        }
+        Update: {
+          actor_id?: string
+          after?: Json | null
+          announced_at?: string | null
+          announcement_id?: string | null
+          before?: Json | null
+          cells?: number
+          column_id?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          nudged_at?: string | null
+          record_id?: string | null
+          record_owner_id?: string | null
+          record_title?: string | null
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_change_log_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_change_log_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       think_hub_delete_cascade: {
         Row: {
           batch_id: string
@@ -2968,6 +3161,54 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      think_hub_nudges: {
+        Row: {
+          actor_id: string
+          content: string
+          created_at: string
+          id: string
+          record_id: string | null
+          seen_at: string | null
+          table_id: string
+          user_id: string
+        }
+        Insert: {
+          actor_id: string
+          content: string
+          created_at?: string
+          id?: string
+          record_id?: string | null
+          seen_at?: string | null
+          table_id: string
+          user_id: string
+        }
+        Update: {
+          actor_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          record_id?: string | null
+          seen_at?: string | null
+          table_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_nudges_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "think_hub_nudges_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
             referencedColumns: ["id"]
           },
         ]
@@ -3114,9 +3355,12 @@ export type Database = {
       }
       think_hub_table: {
         Row: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -3140,9 +3384,12 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          announce_mode?: string
+          announce_who?: string
           archived_at?: string | null
           archived_by?: string | null
           column_defs?: Json
+          column_trash?: Json
           conversation_id?: string | null
           created_at?: string
           default_view?: string | null
@@ -3166,9 +3413,12 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          announce_mode?: string
+          announce_who?: string
           archived_at?: string | null
           archived_by?: string | null
           column_defs?: Json
+          column_trash?: Json
           conversation_id?: string | null
           created_at?: string
           default_view?: string | null
@@ -3211,6 +3461,32 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      think_hub_table_seen: {
+        Row: {
+          seen_at: string
+          table_id: string
+          user_id: string
+        }
+        Insert: {
+          seen_at?: string
+          table_id: string
+          user_id: string
+        }
+        Update: {
+          seen_at?: string
+          table_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_table_seen_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
             referencedColumns: ["id"]
           },
         ]
@@ -3702,9 +3978,12 @@ export type Database = {
           p_type: string
         }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -3734,6 +4013,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      announce_think_hub_changes: {
+        Args: {
+          p_mentions?: string[]
+          p_note?: string
+          p_notify?: string[]
+          p_table_id: string
+        }
+        Returns: string
+      }
       apply_template_to_table: {
         Args: {
           p_table_id: string
@@ -3741,9 +4029,12 @@ export type Database = {
           p_user_template_id: string
         }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -3788,6 +4079,44 @@ export type Database = {
       cast_group_vote: {
         Args: { p_decision_id: string; p_option_id: string }
         Returns: undefined
+      }
+      change_think_hub_column_type: {
+        Args: { p_column_id: string; p_table_id: string; p_type: string }
+        Returns: {
+          announce_mode: string
+          announce_who: string
+          archived_at: string | null
+          archived_by: string | null
+          column_defs: Json
+          column_trash: Json
+          conversation_id: string | null
+          created_at: string
+          default_view: string | null
+          deleted_at: string | null
+          deleted_via: string | null
+          depth: number
+          id: string
+          kind: string | null
+          mobile_columns: string[] | null
+          name: string
+          orphan_origin: string | null
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          source_template_key: string | null
+          source_template_version: number | null
+          status_options: Json | null
+          title_label: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       check_user_pin: { Args: { p_pin: string }; Returns: string }
       claim_user_pin: {
@@ -4091,9 +4420,12 @@ export type Database = {
       copy_table_to_journal: {
         Args: { p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -4770,9 +5102,12 @@ export type Database = {
       create_think_hub_sub_table: {
         Args: { p_name?: string; p_purpose?: string; p_record_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -4805,9 +5140,12 @@ export type Database = {
       create_think_hub_table: {
         Args: { p_conversation_id?: string; p_name: string; p_purpose?: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -4845,9 +5183,12 @@ export type Database = {
           p_user_template_id: string
         }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -5075,6 +5416,44 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      delete_think_hub_column: {
+        Args: { p_column_id: string; p_table_id: string }
+        Returns: {
+          announce_mode: string
+          announce_who: string
+          archived_at: string | null
+          archived_by: string | null
+          column_defs: Json
+          column_trash: Json
+          conversation_id: string | null
+          created_at: string
+          default_view: string | null
+          deleted_at: string | null
+          deleted_via: string | null
+          depth: number
+          id: string
+          kind: string | null
+          mobile_columns: string[] | null
+          name: string
+          orphan_origin: string | null
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          source_template_key: string | null
+          source_template_version: number | null
+          status_options: Json | null
+          title_label: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       delete_think_hub_record: {
         Args: { p_record_id: string }
         Returns: {
@@ -5107,9 +5486,12 @@ export type Database = {
       delete_think_hub_table: {
         Args: { p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -5176,6 +5558,7 @@ export type Database = {
         Args: { p_contact_id: string }
         Returns: undefined
       }
+      dismiss_think_hub_nudge: { Args: { p_id: string }; Returns: undefined }
       edit_message: {
         Args: { p_content: string; p_message_id: string }
         Returns: {
@@ -5255,9 +5638,12 @@ export type Database = {
       ensure_bookshelf: {
         Args: never
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -5315,9 +5701,12 @@ export type Database = {
       ensure_default_think_hub_table: {
         Args: never
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -5351,6 +5740,7 @@ export type Database = {
       ensure_reading_folder: {
         Args: never
         Returns: {
+          color: string | null
           created_at: string
           id: string
           is_system: boolean
@@ -5842,6 +6232,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      mark_think_hub_table_seen: {
+        Args: { p_table_id: string }
+        Returns: string
+      }
       mark_unread_from: { Args: { p_message_id: string }; Returns: string }
       message_edit_window: { Args: never; Returns: string }
       message_pin_limit: { Args: never; Returns: number }
@@ -6153,6 +6547,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      rename_contacts_bulk: { Args: { p_changes: Json }; Returns: Json }
       rename_group_conversation: {
         Args: { p_conversation_id: string; p_name: string }
         Returns: string
@@ -6160,9 +6555,12 @@ export type Database = {
       rename_think_hub_column: {
         Args: { p_column_id: string; p_label: string; p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -6195,9 +6593,12 @@ export type Database = {
       rename_think_hub_table: {
         Args: { p_name: string; p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -6272,6 +6673,10 @@ export type Database = {
       request_remove_participant: {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: string
+      }
+      request_think_hub_column_delete: {
+        Args: { p_column_id: string; p_reason: string; p_table_id: string }
+        Returns: undefined
       }
       resolve_removal_request: {
         Args: { approve: boolean; target_request_id: string }
@@ -6414,9 +6819,12 @@ export type Database = {
       restore_shared_table: {
         Args: { p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -6502,6 +6910,44 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      restore_think_hub_column: {
+        Args: { p_column_id: string; p_table_id: string }
+        Returns: {
+          announce_mode: string
+          announce_who: string
+          archived_at: string | null
+          archived_by: string | null
+          column_defs: Json
+          column_trash: Json
+          conversation_id: string | null
+          created_at: string
+          default_view: string | null
+          deleted_at: string | null
+          deleted_via: string | null
+          depth: number
+          id: string
+          kind: string | null
+          mobile_columns: string[] | null
+          name: string
+          orphan_origin: string | null
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          source_template_key: string | null
+          source_template_version: number | null
+          status_options: Json | null
+          title_label: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       restore_think_hub_record: {
         Args: { p_record_id: string }
         Returns: {
@@ -6534,9 +6980,12 @@ export type Database = {
       restore_think_hub_table: {
         Args: { p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -7011,12 +7460,53 @@ export type Database = {
         }
         Returns: boolean
       }
-      set_think_hub_column_hidden: {
-        Args: { p_column_id: string; p_hidden: boolean; p_table_id: string }
+      set_think_hub_announce_settings: {
+        Args: { p_mode: string; p_table_id: string; p_who: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
+          conversation_id: string | null
+          created_at: string
+          default_view: string | null
+          deleted_at: string | null
+          deleted_via: string | null
+          depth: number
+          id: string
+          kind: string | null
+          mobile_columns: string[] | null
+          name: string
+          orphan_origin: string | null
+          owner_user_id: string
+          parent_record_id: string | null
+          position: number
+          project_id: string | null
+          purpose: string | null
+          source_template_key: string | null
+          source_template_version: number | null
+          status_options: Json | null
+          title_label: string | null
+          updated_at: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_table"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_think_hub_column_hidden: {
+        Args: { p_column_id: string; p_hidden: boolean; p_table_id: string }
+        Returns: {
+          announce_mode: string
+          announce_who: string
+          archived_at: string | null
+          archived_by: string | null
+          column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -7049,9 +7539,12 @@ export type Database = {
       set_think_hub_column_width: {
         Args: { p_column_id: string; p_table_id: string; p_width: number }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -7084,9 +7577,12 @@ export type Database = {
       set_think_hub_table_archived: {
         Args: { p_archived: boolean; p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -7119,9 +7615,12 @@ export type Database = {
       set_think_hub_table_purpose: {
         Args: { p_purpose: string; p_table_id: string }
         Returns: {
+          announce_mode: string
+          announce_who: string
           archived_at: string | null
           archived_by: string | null
           column_defs: Json
+          column_trash: Json
           conversation_id: string | null
           created_at: string
           default_view: string | null
@@ -7953,4 +8452,3 @@ export const Constants = {
     },
   },
 } as const
-

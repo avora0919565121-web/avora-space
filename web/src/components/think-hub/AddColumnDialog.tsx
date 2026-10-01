@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { ColumnTypeIcon } from "@/components/think-hub/ColumnTypeIcon";
 import { COLUMN_TYPES, columnTypeLabel, type ColumnType } from "@/lib/think-hub";
 import { cn } from "@/lib/utils";
 
@@ -106,12 +107,13 @@ export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddCol
                   onClick={() => setType(option)}
                   aria-pressed={type === option}
                   className={cn(
-                    "press rounded-md border px-3 py-2.5 text-[14px] font-medium transition-colors",
+                    "press inline-flex items-center gap-2 rounded-md border px-3 py-2.5 text-left text-[14px] font-medium transition-colors",
                     type === option
                       ? "border-primary bg-accent/60 text-foreground"
                       : "border-border text-muted-foreground hover:bg-accent/30",
                   )}
                 >
+                  <ColumnTypeIcon type={option} />
                   {columnTypeLabel(option)}
                 </button>
               ))}

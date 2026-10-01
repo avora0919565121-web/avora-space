@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import {
   DEPTH_LIMIT_MESSAGE,
+  parseColumnInput,
   priorityLabel,
   RECORD_PRIORITIES,
   statusLabel,
@@ -24,6 +25,7 @@ import {
   type RecordPriority,
 } from "@/lib/think-hub";
 import { deadlineLabel, taskStatusLabel, todayIso, type TaskItem } from "@/lib/tasks";
+import { ExtensionField } from "@/components/think-hub/ExtensionField";
 import { cn } from "@/lib/utils";
 
 type RecordDialogProps = {
@@ -62,6 +64,8 @@ type RecordDialogProps = {
   onCopy?: () => void;
   /** C10: an archived table is read-only — the form shows, saving is off. */
   isReadOnly?: boolean;
+  /** AVORA-61 · D: the board's owner, who may remove anyone's file from a Tệp cell. */
+  boardOwnerId?: string;
 };
 
 /**
@@ -243,6 +247,7 @@ export function RecordDialog({
   onMove,
   onCopy,
   isReadOnly = false,
+  boardOwnerId,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
@@ -280,16 +285,15 @@ export function RecordDialog({
           extension[column.key] = null;
           continue;
         }
-        if (column.type === "number") {
-          const parsed = Number(raw.replace(/\s/g, "").replace(/,/g, "."));
-          if (!Number.isFinite(parsed)) {
-            setNotice(`Cột "${column.label}" chỉ nhận số.`);
-            return null;
-          }
-          extension[column.key] = parsed;
-        } else {
-          extension[column.key] = raw;
+        // Files live in their own rows; the cell itself holds nothing.
+        if (column.type === "file") continue;
+        const parsed = parseColumnInput(column, raw);
+        if ("error" in parsed) {
+          // AVORA-61 · F: the message sits under the field itself; the typed text stays.
+          setNotice("Kiểm tra lại ô được đánh dấu đỏ.");
+          return null;
         }
+        extension[column.key] = parsed.value;
       }
 
       setNotice(null);
@@ -575,45 +579,15 @@ export function RecordDialog({
           {columns.length > 0 ? (
             <div className="space-y-4 border-t border-border pt-4">
               {columns.map((column) => (
-                <div key={column.key}>
-                  <label htmlFor={`record-ext-${column.key}`} className={labelClass}>
-                    {column.label}
-                  </label>
-                  {column.type === "select" ? (
-                    <select
-                      id={`record-ext-${column.key}`}
-                      value={draft.extension[column.key] ?? ""}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          extension: { ...current.extension, [column.key]: event.target.value },
-                        }))
-                      }
-                      className={fieldClass}
-                    >
-                      <option value="">Chưa chọn</option>
-                      {(column.options ?? []).map((option) => (
-                        <option key={option} value={option}>
-                          {option}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input
-                      id={`record-ext-${column.key}`}
-                      type={column.type === "date" ? "date" : "text"}
-                      inputMode={column.type === "number" ? "decimal" : undefined}
-                      value={draft.extension[column.key] ?? ""}
-                      onChange={(event) =>
-                        setDraft((current) => ({
-                          ...current,
-                          extension: { ...current.extension, [column.key]: event.target.value },
-                        }))
-                      }
-                      className={fieldClass}
-                    />
-                  )}
-                </div>
+                <ExtensionField
+                  key={column.key}
+                  column={column}
+                  value={draft.extension[column.key] ?? ""}
+                  onChange={(next) =>
+                    setDraft((current) => ({ ...current, extension: { ...current.extension, [column.key]: next } }))
+                  }
+                  file={record === null || boardOwnerId === undefined ? null : { tableId: record.tableId, recordId: record.id, boardOwnerId }}
+                />
               ))}
             </div>
           ) : null}

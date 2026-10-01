@@ -30,10 +30,14 @@
 import { MAXIM_SECTIONS } from "@/lib/daily-thought-maxims";
 
 /** What a person chose to see: scripture, a maxim, or nothing. */
-export type DailyThoughtCategory = "kinh_thanh" | "danh_ngon" | "khong_chon";
+export type DailyThoughtCategory = "kinh_thanh" | "danh_ngon" | "danh_ngon_luan_phien" | "khong_chon";
 
-/** Someone who has never picked anything opens on the maxims — a thought, not a blank. */
-export const DEFAULT_DAILY_THOUGHT_CATEGORY: DailyThoughtCategory = "danh_ngon";
+/**
+ * Someone who has never picked anything opens on the rotating maxims (AVORA-64): a different
+ * theme every day reads fresher than a month of one theme. People who already hold "danh_ngon"
+ * keep it — it is still a real choice, now labelled "Danh ngôn theo chủ đề".
+ */
+export const DEFAULT_DAILY_THOUGHT_CATEGORY: DailyThoughtCategory = "danh_ngon_luan_phien";
 
 /**
  * What the settings screen offers. Scripture is deliberately absent: it stays a working
@@ -42,12 +46,18 @@ export const DEFAULT_DAILY_THOUGHT_CATEGORY: DailyThoughtCategory = "danh_ngon";
  * The old "Không chọn" is now called "Ẩn": plainer about what it does.
  */
 export const DAILY_THOUGHT_OPTIONS: readonly { value: DailyThoughtCategory; label: string }[] = [
-  { value: "danh_ngon", label: "Danh ngôn" },
+  { value: "danh_ngon_luan_phien", label: "Danh ngôn luân phiên chủ đề" },
+  { value: "danh_ngon", label: "Danh ngôn theo chủ đề" },
   { value: "khong_chon", label: "Ẩn" },
 ] as const;
 
 export function isDailyThoughtCategory(value: string): value is DailyThoughtCategory {
-  return value === "kinh_thanh" || value === "danh_ngon" || value === "khong_chon";
+  return (
+    value === "kinh_thanh" ||
+    value === "danh_ngon" ||
+    value === "danh_ngon_luan_phien" ||
+    value === "khong_chon"
+  );
 }
 
 export type DailyThought = {
@@ -256,8 +266,46 @@ export const DANH_NGON: readonly DailyThought[] = MAXIM_SECTIONS.flatMap((sectio
 /** The list a category reads from. "Ẩn" has no list, by design. */
 export function thoughtPool(category: DailyThoughtCategory): readonly DailyThought[] {
   if (category === "kinh_thanh") return KINH_THANH;
-  if (category === "danh_ngon") return DANH_NGON;
+  if (category === "danh_ngon" || category === "danh_ngon_luan_phien") return DANH_NGON;
   return [];
+}
+
+const rotationCache = new Map<number, readonly DailyThought[]>();
+
+/**
+ * The whole year of rotating maxims, in day order (AVORA-64).
+ *
+ * Day by day it walks the themes round-robin — one line from each theme, then the next round —
+ * so two days in a row never share a theme and every theme comes back before any repeats.
+ * Inside a theme it takes the next unread line. A theme that runs out (they hold 29–31 lines)
+ * simply drops out of later rounds. Every line is used exactly once in the 365 days.
+ *
+ * The year turns both wheels: which theme opens the year, and where each theme starts
+ * reading, so next year's first day is a different line. Deterministic — no randomness.
+ */
+export function rotatingYear(year: number): readonly DailyThought[] {
+  const cached = rotationCache.get(year);
+  if (cached !== undefined) return cached;
+  const themes = MAXIM_SECTIONS.length;
+  const start = ((year % themes) + themes) % themes;
+  const order = Array.from({ length: themes }, (_, index) => MAXIM_SECTIONS[(start + index) % themes]);
+  const read = order.map(() => 0);
+  const days: DailyThought[] = [];
+  let progressed = true;
+  while (progressed) {
+    progressed = false;
+    order.forEach((section, index) => {
+      const length = section.lines.length;
+      if (read[index] >= length) return;
+      const offset = (((year * 7) % length) + length) % length;
+      const text = section.lines[(read[index] + offset) % length];
+      read[index] += 1;
+      progressed = true;
+      days.push({ text, speaker: null, theme: section.theme, ref: null });
+    });
+  }
+  rotationCache.set(year, days);
+  return days;
 }
 
 /**
@@ -342,6 +390,12 @@ export function pickDailyThought(category: DailyThoughtCategory, date: Date): Da
     const day = Math.min(dayOfYear(date), 365);
     const index = (day - 1 + maximOffset(date.getFullYear())) % pool.length;
     return pool[index];
+  }
+
+  if (category === "danh_ngon_luan_phien") {
+    const days = rotatingYear(date.getFullYear());
+    // Day 366 repeats day 365, exactly like the themed list.
+    return days[Math.min(dayOfYear(date), days.length) - 1] ?? null;
   }
 
   const step = dayNumber(date) * dailyStride(pool.length);

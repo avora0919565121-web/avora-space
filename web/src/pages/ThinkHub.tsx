@@ -14,7 +14,7 @@ import {
   Table2,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -23,10 +23,27 @@ import { KanbanView } from "@/components/think-hub/KanbanView";
 import { MindmapView } from "@/components/think-hub/MindmapView";
 import { QuickTaskDialog } from "@/components/think-hub/QuickTaskDialog";
 import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTableDialog";
+import { askConfirm, askText } from "@/components/ConfirmHost";
+import { BoardMenu, type BoardMenuItem } from "@/components/think-hub/BoardMenu";
+import {
+  AnnounceButton,
+  AnnounceDialog,
+  AnnounceSettingsDialog,
+  ChangeHistoryDialog,
+  ChangesSinceLine,
+  MarkingBar,
+  NudgeLines,
+  useBoardPeople,
+} from "@/components/think-hub/BoardChanges";
+import { BOARD_CHANGES_PARAM, marksSince, needsLeaveReminder, affectedOwners, type BoardChange } from "@/lib/board-changes";
+import { useBoardChanges } from "@/lib/use-board-changes";
+import { usePeopleNames } from "@/lib/use-task-owner";
+import type { ColumnMenuActions } from "@/components/think-hub/ColumnMenu";
+import { ColumnTrashDialog } from "@/components/think-hub/ColumnTrashDialog";
 import { PlanPlusButton } from "@/components/think-hub/PlanPlusButton";
 import { RecordDialog } from "@/components/think-hub/RecordDialog";
 import { RenameColumnDialog } from "@/components/think-hub/RenameColumnDialog";
-import { TableView } from "@/components/think-hub/TableView";
+import { TableView, type PhoneMode } from "@/components/think-hub/TableView";
 import { HubShelf } from "@/components/think-hub/HubShelf";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
 import { useReview } from "@/lib/use-review";
@@ -63,12 +80,15 @@ import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import {
   canGrowSubTable,
+  columnTypeLabel,
+  filledCountOf,
   HUB_RECORD_PARAM,
   isTableFull,
   RECORD_LIMIT,
   recordCountOf,
   recordsOf,
   rootTables,
+  safeTypeChanges,
   scopeOfTable,
   subTablesOf,
   tableAncestry,
@@ -160,6 +180,7 @@ const ThinkHub = () => {
   }, [searchParams, setSearchParams]);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState<boolean>(false);
   const [renaming, setRenaming] = useState<ColumnDef | null>(null);
+  const [isColumnTrashOpen, setIsColumnTrashOpen] = useState<boolean>(false);
   const [isRecordOpen, setIsRecordOpen] = useState<boolean>(false);
   const [editing, setEditing] = useState<ThinkRecord | null>(null);
   const [targetTableId, setTargetTableId] = useState<string>("");
@@ -379,6 +400,95 @@ const ThinkHub = () => {
   const targetTable: ThinkTable | null = tables.find((table) => table.id === targetTableId) ?? active;
   const isFull: boolean = targetTable !== null && isTableFull(records, targetTable.id);
   const activeProject = active?.projectId != null ? projectById.get(active.projectId) : undefined;
+
+  // ---------------------------------------------------------------- AVORA-62 · Báo nhóm
+  const boardChanges = useBoardChanges(active?.id ?? null, isShared);
+  const { nameOf } = usePeopleNames();
+  const boardConversationId: string | null =
+    active === null ? null : active.projectId !== null ? (projectById.get(active.projectId)?.conversationId ?? null) : active.conversationId;
+  const boardConversationKind: "group" | "direct" | null =
+    active === null ? null : active.projectId !== null ? "group" : boardConversationId === null ? null : conversationById.get(boardConversationId)?.kind === "direct" ? "direct" : "group";
+  const boardPeople = useBoardPeople(boardConversationId, boardConversationKind);
+  const [isAnnounceOpen, setIsAnnounceOpen] = useState<boolean>(false);
+  const [isHistoryOpen, setIsHistoryOpen] = useState<boolean>(false);
+  const [isAnnounceSettingsOpen, setIsAnnounceSettingsOpen] = useState<boolean>(false);
+  /** `Xem thay đổi`: "since" = since my last visit; otherwise one announcement's changes. */
+  const [marking, setMarking] = useState<string | null>(null);
+  const [isMarkingSeen, setIsMarkingSeen] = useState<boolean>(false);
+  const changesParam = searchParams.get(BOARD_CHANGES_PARAM);
+  useEffect(() => {
+    if (changesParam === null) return;
+    setMarking(changesParam === "1" ? "since" : changesParam);
+    setIsMarkingSeen(false);
+    const next = new URLSearchParams(searchParams);
+    next.delete(BOARD_CHANGES_PARAM);
+    setSearchParams(next, { replace: true });
+  }, [changesParam, searchParams, setSearchParams]);
+  useEffect(() => {
+    setMarking(null);
+  }, [active?.id]);
+  const markingMarks = useMemo(() => {
+    if (marking === null) return null;
+    if (marking === "since") return boardChanges.since;
+    return marksSince(boardChanges.changes, null, undefined, marking);
+  }, [marking, boardChanges.since, boardChanges.changes]);
+  // The marks fade once the reader has scrolled past them (or after a while on screen).
+  useEffect(() => {
+    if (marking === null) return;
+    const timer = window.setTimeout(() => setIsMarkingSeen(true), 12_000);
+    return () => window.clearTimeout(timer);
+  }, [marking]);
+
+  // D: leaving a board with unannounced changes to someone else's Hạng mục (or a deletion).
+  const pendingRef = useRef<{ table: ThinkTable | null; pending: readonly BoardChange[] }>({ table: null, pending: [] });
+  pendingRef.current = { table: active, pending: boardChanges.pending };
+  const leaveReminder = useCallback(
+    (table: ThinkTable | null, pending: readonly BoardChange[]): void => {
+      if (table === null || pending.length === 0 || !needsLeaveReminder(pending, user?.id)) return;
+      if ((table.announceMode ?? "manual") !== "manual") return;
+      const key = `avora.board-reminded.${table.id}`;
+      try {
+        const last = Number(window.localStorage.getItem(key) ?? "0");
+        if (Date.now() - last < 2 * 3_600_000) return;
+        window.localStorage.setItem(key, String(Date.now()));
+      } catch {
+        // Remembering is a courtesy.
+      }
+      const owners = affectedOwners(pending, user?.id).map((id) => nameOf(id));
+      const text =
+        owners.length > 0 ? `Bạn đã đổi việc của ${owners.slice(0, 3).join(", ")}` : `Bạn đã xoá trong Bảng "${table.name}"`;
+      toast(text, {
+        duration: 6000,
+        className: "board-leave-reminder",
+        action: {
+          label: "Báo ngay",
+          onClick: () => {
+            setActiveId(table.id);
+            window.setTimeout(() => setIsAnnounceOpen(true), 50);
+          },
+        },
+        cancel: { label: "Để sau", onClick: () => undefined },
+      });
+    },
+    [user?.id, nameOf],
+  );
+  const previousTableRef = useRef<string | null>(null);
+  const previousSnapshotRef = useRef<{ table: ThinkTable | null; pending: readonly BoardChange[] }>({ table: null, pending: [] });
+  useEffect(() => {
+    const previous = previousSnapshotRef.current;
+    if (previousTableRef.current !== null && previousTableRef.current !== (active?.id ?? null)) {
+      leaveReminder(previous.table, previous.pending);
+    }
+    previousTableRef.current = active?.id ?? null;
+  }, [active?.id, leaveReminder]);
+  useEffect(() => {
+    previousSnapshotRef.current = { table: active, pending: boardChanges.pending };
+  }, [active, boardChanges.pending]);
+  // Only a real unmount reminds — not every time a name list finishes loading.
+  const leaveRef = useRef(leaveReminder);
+  leaveRef.current = leaveReminder;
+  useEffect(() => () => leaveRef.current(pendingRef.current.table, pendingRef.current.pending), []);
+
   const isProjectRoot = active !== null && active.projectId !== null && active.parentRecordId === null;
   // A closed project's tables stay readable and stop taking changes; the server enforces the same.
   const isReadOnly: boolean = (activeProject !== undefined && activeProject.status !== "active") || isArchived;
@@ -524,6 +634,126 @@ const ThinkHub = () => {
     [actions, editing, targetTable, records],
   );
 
+  /** AVORA-61 · D: a Có / Không cell ticks in place; the rest of the record's fields stay as they are. */
+  const handleToggleCheckbox = useCallback(
+    (record: ThinkRecord, column: ColumnDef, next: boolean): void => {
+      actions
+        .updateRecord(record.id, { extensionFields: { ...record.extensionFields, [column.key]: next ? "1" : null } })
+        .catch((caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không lưu được."));
+    },
+    [actions],
+  );
+
+  /** AVORA-61 · E: every column action, in the ⋯ at the column's head. */
+  const columnActionsFor = (table: ThinkTable): Omit<ColumnMenuActions, "onSort" | "onFilter"> => {
+    const owns = table.ownerUserId === user?.id;
+    const shared = table.conversationId !== null || table.projectId !== null;
+    const readOnly = isReadOnly;
+    if (readOnly) return { lockedReason: "Bảng đang chỉ xem." };
+    const tableRecords = recordsOf(records, table.id);
+    if (!owns) {
+      return {
+        lockedReason: "Chỉ chủ Bảng đổi được cột.",
+        onRequestDelete: shared
+          ? (column) =>
+              void askText({ title: `Đề nghị xoá cột "${column.label}"`, body: "Lý do (chủ Bảng sẽ thấy trong cuộc trò chuyện).", confirmLabel: "Gửi đề nghị", maxLength: 300 }).then((reason) => {
+                if (reason === null || reason.trim() === "") return;
+                actions.requestColumnDelete({ tableId: table.id, columnId: column.id, reason }).then(
+                  () => toast.success("Đã gửi đề nghị vào cuộc trò chuyện."),
+                  (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không gửi được."),
+                );
+              })
+          : undefined,
+      };
+    }
+    return {
+      lockedReason: null,
+      onRename: setRenaming,
+      safeTypes: (column) => safeTypeChanges(column, tableRecords.map((record) => record.extensionFields[column.key] ?? null)),
+      onChangeType: (column, type) =>
+        void actions.changeColumnType({ tableId: table.id, columnId: column.id, type }).then(
+          () => toast.success(`Cột "${column.label}" giờ là ${columnTypeLabel(type)}.`),
+          (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được loại cột."),
+        ),
+      onHide: (column) =>
+        void actions.setColumnHidden({ tableId: table.id, columnId: column.id, hidden: true }).then(
+          () => toast.success(`Đã ẩn cột "${column.label}".`),
+          (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được cột."),
+        ),
+      onWidth: (column, width) =>
+        void actions.setColumnWidth({ tableId: table.id, columnId: column.id, width }).catch((caught: unknown) =>
+          toast.error(caught instanceof Error ? caught.message : "Không lưu được độ rộng cột."),
+        ),
+      onDelete: (column) => {
+        const filled = filledCountOf(tableRecords, column);
+        void askConfirm({
+          title: `Xoá cột "${column.label}"?`,
+          body: `${filled} Hạng mục đang có dữ liệu ở cột này. Cột vào Thùng rác của Bảng 30 ngày, khôi phục được kèm dữ liệu.`,
+          confirmLabel: "Xoá cột",
+          danger: true,
+        }).then((ok) => {
+          if (!ok) return;
+          actions.deleteColumn({ tableId: table.id, columnId: column.id }).then(
+            () =>
+              toast.success(`Đã xoá cột "${column.label}".`, {
+                duration: 8000,
+                action: {
+                  label: "Hoàn tác",
+                  onClick: () =>
+                    void actions.restoreColumn({ tableId: table.id, columnId: column.id }).then(
+                      () => toast.success("Đã khôi phục cột cùng dữ liệu."),
+                      (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không khôi phục được."),
+                    ),
+                },
+              }),
+            (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không xoá được cột."),
+          );
+        });
+      },
+    };
+  };
+
+  /** AVORA-61 · H: a sub-table, opened right under its Hạng mục — read, edit, add, then fold away. */
+  const renderSubTable = (sub: ThinkTable, mode: PhoneMode): ReactNode => (
+    <div className="py-1">
+      <div className="flex items-center gap-2 px-1 pb-1">
+        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">{sub.name}</span>
+        <span className="tabular text-[12px] text-muted-foreground">{recordCountOf(records, sub.id)} Hạng mục</span>
+        {!isReadOnly ? (
+          <button
+            type="button"
+            onClick={() => {
+              setTargetTableId(sub.id);
+              setEditing(null);
+              setIsRecordOpen(true);
+            }}
+            className="press inline-flex min-h-8 items-center gap-1 rounded-md border border-border bg-card px-2 text-[12.5px] font-medium"
+          >
+            <Plus className="h-3.5 w-3.5" aria-hidden="true" /> Hạng mục con
+          </button>
+        ) : null}
+        <button type="button" onClick={() => openTable(sub.id)} className="press rounded-md px-2 text-[12.5px] font-medium text-primary">
+          Mở
+        </button>
+      </div>
+      <TableView
+        tableId={sub.id}
+        records={recordsOf(records, sub.id)}
+        columns={sub.columns}
+        onOpenRecord={openRecord}
+        columnActions={columnActionsFor(sub)}
+        onToggleCheckbox={isReadOnly ? undefined : handleToggleCheckbox}
+        onOpenContact={(contactId) => navigate(withReturn(`/lien-he/${contactId}`, hereFrom(location, "Kế hoạch")))}
+        taskCountByRecord={taskCountByRecord}
+        today={today}
+        subTablesFor={(recordId) => subTablesOf(tables, recordId)}
+        renderSubTable={renderSubTable}
+        forcedMode={mode}
+        isNested
+      />
+    </div>
+  );
+
   const handleCreateSubTable = useCallback(
     async (input: { name: string; purpose: string }): Promise<void> => {
       if (editing === null) return;
@@ -593,6 +823,97 @@ const ThinkHub = () => {
   const editingTable: ThinkTable | undefined =
     editing === null ? undefined : tables.find((table) => table.id === editing.tableId);
 
+  /** AVORA-61 · C: the board's own actions, one list, shown beside its name. */
+  const boardMenuItems: BoardMenuItem[] = (() => {
+    if (active === null) return [];
+    const isFixed = active.kind === "bookshelf" || isProjectRoot;
+    const fixedReason = active.kind === "bookshelf" ? "Kệ sách là bảng hệ thống." : "Bảng gốc của Dự án đi cùng Dự án.";
+    const items: BoardMenuItem[] = [
+      {
+        id: "rename",
+        label: "Đổi tên",
+        blockedReason: isFixed ? fixedReason : isReadOnly ? "Bảng đang chỉ xem." : null,
+        onSelect: () => {
+          setNameDraft(active.name);
+          setIsRenamingTable(true);
+        },
+      },
+      {
+        id: "purpose",
+        label: "Sửa mục tiêu",
+        blockedReason: isProjectRoot ? "Mục tiêu của Dự án sửa trong Dự án." : !isOwner ? "Chỉ chủ Bảng sửa mục tiêu." : isReadOnly ? "Bảng đang chỉ xem." : null,
+        onSelect: () => {
+          setPurposeDraft(active.purpose ?? "");
+          setIsEditingPurpose(true);
+        },
+      },
+    ];
+    if (isOwner && !isReadOnly) items.push({ id: "template", label: "Lưu làm mẫu của tôi", onSelect: () => setSaveTemplateTarget(active) });
+    if (isShared) {
+      items.push({ id: "history", label: "Lịch sử thay đổi", onSelect: () => setIsHistoryOpen(true) });
+      items.push({
+        id: "announce-settings",
+        label: "Báo thay đổi",
+        blockedReason: isOwner ? null : "Chủ Bảng chọn cách báo.",
+        onSelect: () => setIsAnnounceSettingsOpen(true),
+      });
+    }
+    if (isOwner && (active.columnTrash ?? []).length > 0) {
+      items.push({ id: "column-trash", label: `Cột đã xoá (${(active.columnTrash ?? []).length})`, onSelect: () => setIsColumnTrashOpen(true) });
+    }
+    if (isShared && active.kind === null) {
+      items.push({
+        id: "copy",
+        label: "Sao chép về Nhật ký",
+        onSelect: () =>
+          void shelfActions.copyToJournal.mutateAsync(active.id).then(
+            (copied) => {
+              toast.success("Đã sao chép về Nhật ký (chỉ Hạng mục của bạn).");
+              openTable(copied.id);
+            },
+            (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không sao chép được."),
+          ),
+      });
+    }
+    const isSubTable = active.parentRecordId !== null;
+    if (!isShared) {
+      items.push({
+        id: "archive",
+        label: isArchived ? "Mở lại" : "Lưu trữ",
+        separated: true,
+        blockedReason: isFixed ? fixedReason : isSubTable ? "Bảng con lưu trữ cùng Bảng chứa nó." : null,
+        onSelect: () =>
+          void shelfActions.archive.mutateAsync({ tableId: active.id, archived: !isArchived }).then(
+            () => toast.success(isArchived ? "Đã mở lại Bảng." : "Đã lưu trữ Bảng — chỉ xem."),
+            (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."),
+          ),
+      });
+      items.push({
+        id: "delete",
+        label: "Xoá Bảng",
+        danger: true,
+        blockedReason: isFixed ? fixedReason : !isOwner ? "Chỉ chủ Bảng xoá được." : null,
+        onSelect: () => setDeleteTarget(active),
+      });
+    } else {
+      items.push({
+        id: "archive",
+        label: isArchived ? "Đề nghị mở lại" : "Đề nghị lưu trữ",
+        separated: true,
+        blockedReason: isFixed ? fixedReason : isSubTable || active.projectId !== null ? "Bảng này lưu trữ cùng nơi chứa nó." : null,
+        onSelect: () => setProposeTarget({ action: isArchived ? "reopen" : "archive", targetType: "think_hub_table", targetId: active.id, name: active.name }),
+      });
+      items.push({
+        id: "delete",
+        label: "Đề nghị xoá",
+        danger: true,
+        blockedReason: isFixed ? fixedReason : null,
+        onSelect: () => setProposeTarget({ action: "delete", targetType: "think_hub_table", targetId: active.id, name: active.name }),
+      });
+    }
+    return items;
+  })();
+
   return (
     <div className={cn("paper flex min-h-0 flex-1 flex-col", isFullscreen && "fixed inset-0 z-50 bg-background")}>
       {isFullscreen ? null : (
@@ -625,7 +946,7 @@ const ThinkHub = () => {
       />
       )}
       <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className={cn("mx-auto px-4 pb-10 pt-5 sm:px-6 md:px-10", isFullscreen ? "max-w-none pt-2" : "max-w-6xl")}>
+      <div className={cn("mx-auto px-4 pb-10 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pt-2" : "max-w-6xl")}>
 
         {isFullscreen ? null : (
           <>
@@ -735,21 +1056,34 @@ const ThinkHub = () => {
                     Huỷ
                   </button>
                 </form>
-              ) : isReadOnly || active.kind === "bookshelf" || isProjectRoot ? (
-                <h2 className="text-[20px] font-semibold tracking-tight text-foreground">{active.name}</h2>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNameDraft(active.name);
-                    setIsRenamingTable(true);
-                  }}
-                  title="Chạm để đổi tên"
-                  className="press group -mx-1 inline-flex max-w-full items-center gap-2 rounded-md px-1 text-left"
-                >
-                  <h2 className="truncate text-[20px] font-semibold tracking-tight text-foreground">{active.name}</h2>
-                  <Pencil className="h-4 w-4 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" strokeWidth={1.8} aria-hidden="true" />
-                </button>
+                <div className="flex min-w-0 items-center gap-1">
+                  {isReadOnly || active.kind === "bookshelf" || isProjectRoot ? (
+                    <h2 className="min-w-0 truncate text-[20px] font-semibold tracking-tight text-foreground">{active.name}</h2>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNameDraft(active.name);
+                        setIsRenamingTable(true);
+                      }}
+                      title="Chạm để đổi tên"
+                      className="press group -mx-1 inline-flex min-w-0 max-w-full items-center gap-2 rounded-md px-1 text-left"
+                    >
+                      <h2 className="truncate text-[20px] font-semibold tracking-tight text-foreground">{active.name}</h2>
+                      <Pencil className="h-4 w-4 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" strokeWidth={1.8} aria-hidden="true" />
+                    </button>
+                  )}
+                  {/* AVORA-61 · C: every board action lives here, beside the name — not by the Hạng mục toolbar. */}
+                  <BoardMenu boardName={active.name} items={boardMenuItems} />
+                  {/* AVORA-62 · B: only while I have changes not yet announced. */}
+                  {isShared && (active.announceMode ?? "manual") !== "silent" ? (
+                    <AnnounceButton
+                      count={boardChanges.pending.reduce((sum, change) => sum + (change.kind === "record_edit" ? change.cells : 1), 0)}
+                      onClick={() => setIsAnnounceOpen(true)}
+                    />
+                  ) : null}
+                </div>
               )}
             </div>
 
@@ -833,6 +1167,26 @@ const ThinkHub = () => {
               </button>
             ) : null}
             {active.orphanOrigin !== null ? <p className="mt-3 text-[12.5px] text-muted-foreground">{active.orphanOrigin}</p> : null}
+            {/* AVORA-62 · E: no need to wait to be told — what changed since I last looked. */}
+            {isShared && marking === null ? (
+              <ChangesSinceLine
+                count={boardChanges.since.count}
+                onView={() => {
+                  setMarking("since");
+                  setIsMarkingSeen(false);
+                }}
+              />
+            ) : null}
+            {markingMarks !== null ? (
+              <MarkingBar
+                count={markingMarks.count}
+                onDone={() => {
+                  setIsMarkingSeen(true);
+                  window.setTimeout(() => setMarking(null), 1300);
+                }}
+              />
+            ) : null}
+            <NudgeLines onOpen={(nudge) => openTable(nudge.tableId)} />
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               <div role="group" aria-label="Kiểu xem" className="inline-flex rounded-md border border-border p-0.5">
@@ -903,57 +1257,6 @@ const ThinkHub = () => {
                   {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   {isFullscreen ? <span>Thu gọn</span> : null}
                 </button>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <button type="button" aria-label="Thêm thao tác với Bảng" className="press inline-flex min-h-9 items-center rounded-md border border-border px-2">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="min-w-[220px]">
-                    {!isReadOnly && active.kind !== "bookshelf" && !isProjectRoot ? (
-                      <DropdownMenuItem
-                        onSelect={() => {
-                          setNameDraft(active.name);
-                          setIsRenamingTable(true);
-                        }}
-                      >
-                        Đổi tên
-                      </DropdownMenuItem>
-                    ) : null}
-                    {isOwner && !isReadOnly ? (
-                      <DropdownMenuItem onSelect={() => setSaveTemplateTarget(active)}>Lưu làm mẫu của tôi</DropdownMenuItem>
-                    ) : null}
-                    {isShared && active.kind === null ? (
-                      <DropdownMenuItem onSelect={() => shelfActions.copyToJournal.mutateAsync(active.id).then((copied) => { toast.success("Đã sao chép về Nhật ký (chỉ Hạng mục của bạn)."); openTable(copied.id); }, (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không sao chép được."))}>
-                        Sao chép về Nhật ký
-                      </DropdownMenuItem>
-                    ) : null}
-                    <DropdownMenuSeparator />
-                    {active.kind === "bookshelf" || isProjectRoot ? null : !isShared ? (
-                      <>
-                        {active.parentRecordId === null ? (
-                          <DropdownMenuItem onSelect={() => shelfActions.archive.mutateAsync({ tableId: active.id, archived: !isArchived }).then(() => toast.success(isArchived ? "Đã mở lại Bảng." : "Đã lưu trữ Bảng — chỉ xem."), (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."))}>
-                            {isArchived ? "Mở lại" : "Lưu trữ"}
-                          </DropdownMenuItem>
-                        ) : null}
-                        {isOwner ? (
-                          <DropdownMenuItem className="text-destructive" onSelect={() => setDeleteTarget(active)}>Xoá Bảng</DropdownMenuItem>
-                        ) : null}
-                      </>
-                    ) : (
-                      <>
-                        {active.parentRecordId === null && active.projectId === null ? (
-                          <DropdownMenuItem onSelect={() => setProposeTarget({ action: isArchived ? "reopen" : "archive", targetType: "think_hub_table", targetId: active.id, name: active.name })}>
-                            {isArchived ? "Đề nghị mở lại" : "Đề nghị lưu trữ"}
-                          </DropdownMenuItem>
-                        ) : null}
-                        <DropdownMenuItem className="text-destructive" onSelect={() => setProposeTarget({ action: "delete", targetType: "think_hub_table", targetId: active.id, name: active.name })}>
-                          Đề nghị xoá
-                        </DropdownMenuItem>
-                      </>
-                    )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
               </div>
               {isTableFull(records, active.id) ? (
                 <p role="status" className="w-full text-[13.5px] text-destructive">
@@ -971,19 +1274,40 @@ const ThinkHub = () => {
               </div>
             ) : null}
 
+            <div
+              data-change-seen={isMarkingSeen ? "true" : "false"}
+              onScroll={() => undefined}
+            >
             {/* Rendered even when empty: the columns ARE what a new table is offering. */}
             {view === "table" ? (
               <TableView
+                tableId={active.id}
                 records={visibleRecords}
                 columns={active.columns}
                 onOpenRecord={openRecord}
                 onAddColumn={isOwner && !isReadOnly ? () => setIsAddColumnOpen(true) : undefined}
-                onRenameColumn={isOwner && !isReadOnly ? setRenaming : undefined}
+                columnActions={columnActionsFor(active)}
                 onResizeColumn={isOwner && !isReadOnly ? handleResizeColumn : undefined}
-                onToggleColumnHidden={isOwner && !isReadOnly ? handleToggleColumnHidden : undefined}
+                onShowColumn={isOwner && !isReadOnly ? (column) => handleToggleColumnHidden(column, false) : undefined}
+                onToggleCheckbox={isReadOnly ? undefined : handleToggleCheckbox}
+                onOpenContact={(contactId) => navigate(withReturn(`/lien-he/${contactId}`, hereFrom(location, "Kế hoạch")))}
                 onQuickTask={isReadOnly ? undefined : setQuickTaskRecord}
                 taskCountByRecord={taskCountByRecord}
                 today={today}
+                subTablesFor={(recordId) => subTablesOf(tables, recordId)}
+                renderSubTable={renderSubTable}
+                defaultCardColumns={active.mobileColumns}
+                marks={markingMarks}
+                dots={isShared ? boardChanges.since : null}
+                onRestoreRecord={
+                  isReadOnly
+                    ? undefined
+                    : (recordId) =>
+                        void actions.restoreRecord(recordId).then(
+                          () => toast.success("Đã khôi phục Hạng mục."),
+                          (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không khôi phục được."),
+                        )
+                }
               />
             ) : (
               view === "kanban" ? (
@@ -999,6 +1323,7 @@ const ThinkHub = () => {
                 />
               )
             )}
+            </div>
           </>
         )}
       </div>
@@ -1028,6 +1353,47 @@ const ThinkHub = () => {
         }}
       />
 
+      {active !== null && isShared ? (
+        <>
+          <AnnounceDialog
+            open={isAnnounceOpen}
+            onOpenChange={setIsAnnounceOpen}
+            table={active}
+            pending={boardChanges.pending}
+            conversationName={placeOf(active) ?? "cuộc trò chuyện"}
+            people={boardPeople}
+            isSending={boardChanges.announce.isPending}
+            onSend={async (input) => {
+              try {
+                await boardChanges.announce.mutateAsync(input);
+                setIsAnnounceOpen(false);
+                toast.success("Đã báo vào cuộc trò chuyện.");
+              } catch (caught) {
+                toast.error(caught instanceof Error ? caught.message : "Chưa báo được.");
+              }
+            }}
+          />
+          <ChangeHistoryDialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen} changes={boardChanges.changes} columns={active.columns} />
+          {isOwner ? <AnnounceSettingsDialog open={isAnnounceSettingsOpen} onOpenChange={setIsAnnounceSettingsOpen} table={active} /> : null}
+        </>
+      ) : null}
+      <ColumnTrashDialog
+        open={isColumnTrashOpen}
+        onOpenChange={setIsColumnTrashOpen}
+        trash={active?.columnTrash ?? []}
+        onRestore={(columnId) =>
+          active === null
+            ? Promise.resolve()
+            : actions.restoreColumn({ tableId: active.id, columnId }).then(
+                () => {
+                  toast.success("Đã khôi phục cột cùng dữ liệu.");
+                },
+                (caught: unknown) => {
+                  toast.error(caught instanceof Error ? caught.message : "Không khôi phục được.");
+                },
+              )
+        }
+      />
       <ProposeDialog target={proposeTarget} onOpenChange={(next) => !next && setProposeTarget(null)} />
       <SaveTemplateDialog table={saveTemplateTarget} onOpenChange={(next) => !next && setSaveTemplateTarget(null)} />
       <DeleteTableDialog
@@ -1163,6 +1529,7 @@ const ThinkHub = () => {
               }
         }
         isReadOnly={isReadOnly && editing !== null}
+        boardOwnerId={(editing === null ? targetTable : editingTable)?.ownerUserId}
       />
     </div>
   );

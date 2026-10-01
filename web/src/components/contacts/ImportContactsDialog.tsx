@@ -53,10 +53,12 @@ import {
   isVcardName,
   readImportFile,
 } from "@/lib/contact-import-file";
+import { decodeContactFile } from "@/lib/contact-name-repair";
 import { parseVcards } from "@/lib/contact-vcard";
 import type { Contact, ContactType } from "@/lib/contacts";
 import { useAuth } from "@/lib/auth";
-import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
+import { CHANNEL_REVIEW_ROUTE, NAME_REPAIR_ROUTE } from "@/lib/navigation";
+import { useContactNameIssues } from "@/lib/use-contact-name-repair";
 import { useCandidateImport, type CandidateOutcome } from "@/lib/use-candidate-import";
 import { useChannelIndex } from "@/lib/use-contact-channels";
 import { useContacts } from "@/lib/use-contacts";
@@ -95,7 +97,8 @@ async function readVcardFile(file: File): Promise<{
   origins: string[];
   problems: FileProblems;
 }> {
-  const result = parseVcards(await file.text());
+  // AVORA-63 · A: bytes first, so a Windows-1258 phone book is not read as UTF-8.
+  const result = parseVcards(decodeContactFile(new Uint8Array(await file.arrayBuffer())).text);
 
   if (result.total > MAX_IMPORT_ROWS) {
     throw new ImportFileError(
@@ -145,6 +148,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
   const inputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
   const contactsQuery = useContacts();
+  const nameIssues = useContactNameIssues();
   const contacts: Contact[] = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
 
   // Both the book and its extra channels have to be loaded before anything is compared: an
@@ -455,6 +459,19 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
                     : ""}
                 </p>
               ) : null}
+              {/* AVORA-63 · A: three names as they will be saved, so a wrong encoding shows before anything is written. */}
+              {rows.length > 0 ? (
+                <div className="mb-3 rounded-md border border-border px-3 py-2.5" data-import-sample-names="">
+                  <p className="text-[12px] font-medium text-muted-foreground">Tên sẽ được lưu như sau — nếu chữ bị vỡ, đừng nhập, hãy xuất lại file.</p>
+                  <ul className="mt-1 space-y-0.5 text-[14px] font-medium text-foreground">
+                    {rows.slice(0, 3).map((row) => (
+                      <li key={row.key} className="truncate">
+                        {row.candidate.name}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
               <CandidatePreview
                 rows={rows}
                 picked={picked}
@@ -475,6 +492,11 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
             <InviteStep outcome={outcome} onDone={() => setStep("done")} />
           ) : (
             <DoneStep
+              nameFixCount={nameIssues.counts.broken + nameIssues.counts.case}
+              onFixNames={() => {
+                onOpenChange(false);
+                navigate(NAME_REPAIR_ROUTE);
+              }}
               outcome={outcome}
               onReview={() => {
                 onOpenChange(false);
@@ -683,11 +705,25 @@ function InviteStep({
  * When there is nothing to settle, the same slot says so and goes back to the book — either way
  * the flow ends on an action and never on a static list.
  */
+/** AVORA-63 · D: after an import, one sentence when names came in broken or in the wrong case. */
+function NameFixLine({ count, onFix }: { count: number; onFix: () => void }) {
+  if (count === 0) return null;
+  return (
+    <button type="button" onClick={onFix} data-import-name-fix="" className="press mt-3 inline-flex min-h-10 items-center gap-1 text-[13.5px] text-muted-foreground hover:text-foreground">
+      Có <span className="tabular font-semibold text-foreground">{count}</span> tên bị lỗi chữ / viết hoa · <span className="font-semibold text-primary">Sửa ngay</span>
+    </button>
+  );
+}
+
 function DoneStep({
   outcome,
   onReview,
   onClose,
+  nameFixCount,
+  onFixNames,
 }: {
+  nameFixCount: number;
+  onFixNames: () => void;
   outcome: CandidateOutcome | null;
   onReview: () => void;
   onClose: () => void;
@@ -708,6 +744,7 @@ function DoneStep({
           Xem lại ngay
           <ArrowRight className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
         </Button>
+        <NameFixLine count={nameFixCount} onFix={onFixNames} />
       </div>
     );
   }
@@ -724,6 +761,9 @@ function DoneStep({
       <Button variant="outline" className="press mt-4 h-10 px-4" onClick={onClose}>
         Quay lại Liên hệ
       </Button>
+      <div>
+        <NameFixLine count={nameFixCount} onFix={onFixNames} />
+      </div>
     </div>
   );
 }

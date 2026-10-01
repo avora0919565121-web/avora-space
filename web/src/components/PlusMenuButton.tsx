@@ -1,5 +1,5 @@
-import { ChevronDown, Plus, type LucideIcon } from "lucide-react";
-import { useState } from "react";
+import { Plus, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import {
   DropdownMenu,
@@ -19,18 +19,25 @@ export type PlusMenuEntry = {
   disabled?: boolean;
 };
 
+/** The hover caption of a `+` with a menu (AVORA-61 · A). */
+export function plusCaption(tapAction: string): string {
+  return `Bấm: ${tapAction} · Giữ: thêm lựa chọn`;
+}
+
 /**
- * The one `+` of every hub — Nhiệm vụ, Kế hoạch, Két sắt (AVORA-59 · D / AVORA-60 · D).
+ * The one `+` of every hub — Kết nối, Nhiệm vụ, Kế hoạch, Két sắt (AVORA-61 · A).
  *
- * Tap: the thing done most often there. Hold (phone) or the small arrow beside it (computer):
- * a short menu anchored to the button — under it, right edges aligned, flipped above when there
- * is no room (Lớp nổi: anchor → flip → centre). Holding never selects text and never opens the
- * phone's own Copy · Look Up · Translate (`no-callout` + contextmenu blocked). The first time,
- * a one-line hint explains the hold; it goes once dismissed or once the menu has been used.
+ * One way of working everywhere, phone and computer alike: a tap / click does the thing done
+ * most often there; holding (finger, pen, or a mouse held ~0.5 s) or a right-click opens a
+ * short menu anchored under the button, right edges aligned, flipped above when there is no
+ * room. There is no separate ▾ any more — it made Kế hoạch work differently from the rest.
+ * Holding never selects text and never opens the phone's Copy · Look Up · Translate. With a
+ * mouse, hovering shows `Bấm: … · Giữ: thêm lựa chọn`.
  */
 export function PlusMenuButton({
   label,
   tapLabel,
+  tapAction,
   onTap,
   entries,
   hintKey,
@@ -39,11 +46,23 @@ export function PlusMenuButton({
   label: string;
   /** Spoken after the name: "giữ để chọn loại". */
   tapLabel?: string;
+  /** What a click does, for the hover caption: "nhiệm vụ cho tôi". Defaults to the label. */
+  tapAction?: string;
   onTap: () => void;
   entries: readonly PlusMenuEntry[];
   hintKey?: GuidanceKey;
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [isCaptionShown, setIsCaptionShown] = useState<boolean>(false);
+  const captionTimer = useRef<number | null>(null);
+  const clearCaption = (): void => {
+    if (captionTimer.current !== null) window.clearTimeout(captionTimer.current);
+    captionTimer.current = null;
+    setIsCaptionShown(false);
+  };
+  useEffect(() => () => {
+    if (captionTimer.current !== null) window.clearTimeout(captionTimer.current);
+  }, []);
   const { shouldShow, dismiss } = useGuidance();
   const hasMenu = entries.length > 0;
   const showHint = hasMenu && hintKey !== undefined && shouldShow(hintKey);
@@ -53,63 +72,65 @@ export function PlusMenuButton({
     if (showHint && hintKey !== undefined) dismiss(hintKey);
   };
 
-  const { onClick, ...hold } = useLongPress({
+  const { onClick, onContextMenu: _ignored, ...hold } = useLongPress({
     onTap,
     onHold: openMenu,
     isEnabled: () => hasMenu,
-    pointerTypes: ["touch", "pen"],
     contextMenu: "always",
   });
 
   const name = hasMenu && tapLabel !== undefined ? `${label} (${tapLabel})` : label;
+  const caption = hasMenu ? plusCaption(tapAction ?? label.toLowerCase()) : label;
 
   return (
-    <div className="no-callout relative" onContextMenu={(event) => event.preventDefault()}>
+    <div
+      className="no-callout relative"
+      onPointerEnter={(event) => {
+        // Mouse only, after a short rest: a caption, never on touch.
+        if (event.pointerType !== "mouse" || !hasMenu) return;
+        clearCaption();
+        captionTimer.current = window.setTimeout(() => setIsCaptionShown(true), 500);
+      }}
+      onPointerLeave={clearCaption}
+      onPointerDown={clearCaption}
+      onContextMenu={(event) => {
+        // A right-click (or the phone's own long-press menu) opens ours instead.
+        event.preventDefault();
+        if (hasMenu) openMenu();
+      }}
+    >
       <DropdownMenu open={isMenuOpen} onOpenChange={(next) => (next ? openMenu() : setIsMenuOpen(false))} modal={false}>
-        <div className="flex items-center">
-          {/* The trigger is the + itself, so the menu anchors to it; it never opens on a tap. */}
-          <DropdownMenuTrigger asChild disabled={!hasMenu}>
-            <button
-              type="button"
-              {...hold}
-              onPointerDown={(event) => {
-                // Radix opens the menu on pointerdown; the + must stay a plain tap.
+        {/* The trigger is the + itself, so the menu anchors to it; it never opens on a tap. */}
+        <DropdownMenuTrigger asChild disabled={!hasMenu}>
+          <button
+            type="button"
+            {...hold}
+            onPointerDown={(event) => {
+              // Radix opens the menu on pointerdown; the + must stay a plain click.
+              event.preventDefault();
+              hold.onPointerDown(event);
+            }}
+            onKeyDown={(event) => {
+              // Enter / Space is the click; ArrowDown (or the menu key) opens the menu.
+              if ((event.key === "ArrowDown" || event.key === "ContextMenu") && hasMenu) {
                 event.preventDefault();
-                hold.onPointerDown(event);
-              }}
-              onKeyDown={(event) => {
-                // Enter / Space is the tap; ArrowDown opens the menu like the arrow does.
-                if (event.key === "ArrowDown" && hasMenu) {
-                  event.preventDefault();
-                  openMenu();
-                } else if (event.key === "Enter" || event.key === " ") {
-                  event.preventDefault();
-                  onTap();
-                }
-              }}
-              onClick={(event) => {
+                openMenu();
+              } else if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                onClick(event);
-              }}
-              aria-label={name}
-              title={name}
-              data-plus-button=""
-              className="icon-btn icon-btn-primary no-callout h-11 w-11"
-            >
-              <Plus className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden="true" />
-            </button>
-          </DropdownMenuTrigger>
-          {hasMenu ? (
-            <button
-              type="button"
-              aria-label="Chọn loại mới"
-              onClick={openMenu}
-              className="icon-btn no-callout ml-1 hidden h-11 w-8 text-muted-foreground hover:text-foreground md:inline-flex short:hidden"
-            >
-              <ChevronDown className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            </button>
-          ) : null}
-        </div>
+                onTap();
+              }
+            }}
+            onClick={(event) => {
+              event.preventDefault();
+              onClick(event);
+            }}
+            aria-label={name}
+            data-plus-button=""
+            className="icon-btn icon-btn-primary no-callout h-11 w-11"
+          >
+            <Plus className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden="true" />
+          </button>
+        </DropdownMenuTrigger>
         {hasMenu ? (
           <DropdownMenuContent
             align="end"
@@ -131,6 +152,16 @@ export function PlusMenuButton({
           </DropdownMenuContent>
         ) : null}
       </DropdownMenu>
+      {/* Mouse only: a small caption after a short rest; never on touch, never over the open menu. */}
+      {isCaptionShown && !isMenuOpen && !showHint ? (
+        <span
+          role="tooltip"
+          data-plus-caption=""
+          className="pointer-events-none absolute right-0 top-full z-30 mt-1.5 w-max max-w-[260px] rounded-md bg-foreground px-2 py-1 text-[11.5px] font-medium text-background shadow-md animate-in fade-in-0"
+        >
+          {caption}
+        </span>
+      ) : null}
       {showHint && hintKey !== undefined ? (
         <div
           role="note"

@@ -146,6 +146,13 @@ export const DATA_CLASSIFICATION = {
   think_hub_user_template: { level: "personal", domain: "personal" },
   // Each person's own ★, never shown to anyone else.
   think_hub_record_stars: { level: "personal", domain: "personal" },
+  // AVORA-61 · D: files in a Tệp cell — members of the board read them; names may be sensitive.
+  think_hub_cell_files: { level: "personal", domain: "personal", columns: { file_name: "sensitive" } },
+  // AVORA-62: what changed on a shared board (before/after values), only its members read it.
+  think_hub_change_log: { level: "personal", domain: "personal", columns: { before: "sensitive", after: "sensitive" } },
+  think_hub_announcements: { level: "personal", domain: "personal" },
+  think_hub_table_seen: { level: "internal", domain: "personal" },
+  think_hub_nudges: { level: "personal", domain: "personal" },
   // Which tasks a table deletion binned — server-only bookkeeping, no client access.
   think_hub_delete_cascade: { level: "internal", domain: "personal" },
   // AVORA-44 · B: Ghi chép — owner-only, what the person writes to read again.

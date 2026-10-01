@@ -1,3 +1,4 @@
+import { decodeContactFile } from "@/lib/contact-name-repair";
 import { logError } from "@/lib/log";
 import { readSheet } from "read-excel-file/browser";
 
@@ -86,7 +87,8 @@ export async function readImportFile(file: File): Promise<string[][]> {
     }
   }
 
-  const text = await file.text();
+  // AVORA-63 · A: an old CSV is often Windows-1258 / 1252, not UTF-8 — read the bytes, then decide.
+  const { text } = decodeContactFile(new Uint8Array(await file.arrayBuffer()));
   const table = parseDelimitedText(text);
   if (table.length === 0) {
     throw new ImportFileError("File này không có dòng nào.");

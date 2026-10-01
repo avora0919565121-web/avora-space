@@ -28,7 +28,8 @@ import {
   type Contact,
 } from "@/lib/contacts";
 import { reviewTotal } from "@/lib/contact-channels";
-import { CHANNEL_REVIEW_ROUTE } from "@/lib/navigation";
+import { useContactNameIssues } from "@/lib/use-contact-name-repair";
+import { CHANNEL_REVIEW_ROUTE, NAME_REPAIR_ROUTE } from "@/lib/navigation";
 import { useContactsNeedingReview, useSharedChannels } from "@/lib/use-contact-channels";
 import { useConnections } from "@/lib/use-connections";
 import { useContacts } from "@/lib/use-contacts";
@@ -76,6 +77,7 @@ const Contacts = () => {
   // One number, because the banner is one sentence. Someone with two unconfirmed numbers and one
   // number shared across contacts has three things to look at, not two counts to add up.
   const reviewCount: number = reviewTotal(review.count, shared.count);
+  const nameIssues = useContactNameIssues();
 
   const { individuals, businesses } = useMemo(
     () => splitContacts(contactsQuery.data ?? []),
@@ -160,6 +162,24 @@ const Contacts = () => {
               {shared.count > 0 && review.count === 0
                 ? "Vài số hoặc email đang nằm ở nhiều liên hệ — xem khi rảnh"
                 : "Vài số điện thoại hoặc email có thể xem lại khi rảnh"}
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+          </button>
+        ) : null}
+
+        {/* AVORA-63 · D: no red badge; gone when there is nothing to fix. */}
+        {nameIssues.total > 0 ? (
+          <button
+            type="button"
+            onClick={() => navigate(withCarry(NAME_REPAIR_ROUTE))}
+            data-name-repair-entry=""
+            className={cn(
+              "press inline-flex min-h-11 max-w-full items-center gap-1 text-left text-[13.5px] text-muted-foreground transition-colors hover:text-foreground",
+              reviewCount > 0 ? "ml-0 sm:ml-4" : "mt-4",
+            )}
+          >
+            <span className="min-w-0">
+              <span className="tabular">{nameIssues.total}</span> tên có thể cần sửa · Xem
             </span>
             <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={1.7} aria-hidden="true" />
           </button>

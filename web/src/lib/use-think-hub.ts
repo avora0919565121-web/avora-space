@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useAuth } from "@/lib/auth";
 import {
   addThinkColumn,
+  changeThinkColumnType,
+  deleteThinkColumn,
+  requestThinkColumnDelete,
+  restoreThinkColumn,
   thinkHubKeys,
   createThinkRecord,
   createThinkSubTable,
@@ -178,6 +182,10 @@ export function useThinkHubActions(): {
     type: ColumnType;
     options?: readonly string[];
   }) => Promise<ThinkTable>;
+  changeColumnType: (input: { tableId: string; columnId: string; type: ColumnType }) => Promise<ThinkTable>;
+  deleteColumn: (input: { tableId: string; columnId: string }) => Promise<ThinkTable>;
+  restoreColumn: (input: { tableId: string; columnId: string }) => Promise<ThinkTable>;
+  requestColumnDelete: (input: { tableId: string; columnId: string; reason: string }) => Promise<void>;
   createRecord: (input: NewRecordInput) => Promise<ThinkRecord>;
   updateRecord: (recordId: string, patch: RecordPatch) => Promise<ThinkRecord>;
   removeRecord: (recordId: string) => Promise<ThinkRecord>;
@@ -248,6 +256,22 @@ export function useThinkHubActions(): {
     onSuccess: invalidate,
   });
 
+  const columnTypeMutation = useMutation({
+    mutationFn: (input: { tableId: string; columnId: string; type: ColumnType }) => changeThinkColumnType(input),
+    onSuccess: invalidate,
+  });
+  const deleteColumnMutation = useMutation({
+    mutationFn: (input: { tableId: string; columnId: string }) => deleteThinkColumn(input),
+    onSuccess: invalidate,
+  });
+  const restoreColumnMutation = useMutation({
+    mutationFn: (input: { tableId: string; columnId: string }) => restoreThinkColumn(input),
+    onSuccess: invalidate,
+  });
+  const requestColumnDeleteMutation = useMutation({
+    mutationFn: (input: { tableId: string; columnId: string; reason: string }) => requestThinkColumnDelete(input),
+  });
+
   const createRecordMutation = useMutation({
     mutationFn: (input: NewRecordInput) => createThinkRecord(input),
     onSuccess: invalidate,
@@ -313,6 +337,22 @@ export function useThinkHubActions(): {
         addColumnMutation.mutateAsync(input),
       [addColumnMutation],
     ),
+    changeColumnType: useCallback(
+      (input: { tableId: string; columnId: string; type: ColumnType }) => columnTypeMutation.mutateAsync(input),
+      [columnTypeMutation],
+    ),
+    deleteColumn: useCallback(
+      (input: { tableId: string; columnId: string }) => deleteColumnMutation.mutateAsync(input),
+      [deleteColumnMutation],
+    ),
+    restoreColumn: useCallback(
+      (input: { tableId: string; columnId: string }) => restoreColumnMutation.mutateAsync(input),
+      [restoreColumnMutation],
+    ),
+    requestColumnDelete: useCallback(
+      (input: { tableId: string; columnId: string; reason: string }) => requestColumnDeleteMutation.mutateAsync(input),
+      [requestColumnDeleteMutation],
+    ),
     createRecord: useCallback(
       (input: NewRecordInput) => createRecordMutation.mutateAsync(input),
       [createRecordMutation],
@@ -340,6 +380,9 @@ export function useThinkHubActions(): {
       removeTableMutation.isPending ||
       restoreTableMutation.isPending ||
       addColumnMutation.isPending ||
+      columnTypeMutation.isPending ||
+      deleteColumnMutation.isPending ||
+      restoreColumnMutation.isPending ||
       createRecordMutation.isPending ||
       updateRecordMutation.isPending ||
       removeRecordMutation.isPending ||

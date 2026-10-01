@@ -45,9 +45,9 @@ function Frame({ children }: { children: ReactNode }) {
 
 const now = new Date().toISOString();
 const folders: NoteFolder[] = [
-  { id: "f1", parentId: null, name: "Bài giảng Chúa nhật", isSystem: false, systemKey: null, position: 0, createdAt: now },
-  { id: "f2", parentId: null, name: "Họp dự án", isSystem: false, systemKey: null, position: 1, createdAt: now },
-  { id: "f3", parentId: null, name: "Ghi chép đọc sách", isSystem: true, systemKey: "reading", position: 99, createdAt: now },
+  { id: "f1", parentId: null, name: "Bài giảng Chúa nhật", isSystem: false, systemKey: null, position: 0, createdAt: now, color: null },
+  { id: "f2", parentId: null, name: "Họp dự án", isSystem: false, systemKey: null, position: 1, createdAt: now, color: null },
+  { id: "f3", parentId: null, name: "Ghi chép đọc sách", isSystem: true, systemKey: "reading", position: 99, createdAt: now, color: null },
 ];
 const block = (id: string, text: string, level: 0 | 1 | 2 | null = null) => ({ id, text, level });
 const notes: Note[] = [
@@ -252,7 +252,7 @@ test("49.5 · iPhone width with the tasks chip open (list capped at 35%)", async
 
 test("49.7 · long press menu starts with six quick reactions", async () => {
   await page.viewport(390, 844);
-  const message = { id: "m1", conversationId: "c", senderId: "other", content: "Mai 7h họp nhé", createdAt: now } as const;
+  const message = { id: "m1", conversationId: "c", senderId: "other", content: "Mai 7h họp nhé", createdAt: now, color: null } as const;
   const screen = await render(
     <Frame>
       <div className="flex h-screen items-start justify-end bg-card p-6">

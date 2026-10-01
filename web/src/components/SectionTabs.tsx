@@ -28,7 +28,7 @@ export function SectionTabs({
   const current: string = activeSectionTab(location.pathname, tabs);
 
   return (
-    <header className="shrink-0 border-b border-border bg-card px-4 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6">
+    <header className="shrink-0 border-b border-border bg-card px-4 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6 short:px-4 short:pr-[4.25rem] short:pt-2">
       {/* The Hub's own large title, held above the page while its halves scroll beneath. */}
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>

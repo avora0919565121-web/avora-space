@@ -72,6 +72,9 @@ import { GroupDecisionSheet } from "@/components/chat/GroupDecisionSheet";
 import { GroupInfoSheet } from "@/components/chat/GroupInfoSheet";
 import { GroupTaskListSheet } from "@/components/chat/GroupTaskListSheet";
 import { ComposerPlusMenu } from "@/components/chat/ComposerPlusMenu";
+import { PlusMenuButton } from "@/components/PlusMenuButton";
+import { BoardUpdateCard } from "@/components/think-hub/BoardChanges";
+import { BOARD_CHANGES_PARAM, boardChangeKeys, fetchAnnouncements } from "@/lib/board-changes";
 import { MessageComposer } from "@/components/chat/MessageComposer";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
@@ -2418,6 +2421,18 @@ const Messages = () => {
     if (decisionParam !== null && activeKind === "group") setIsDecisionsOpen(true);
   }, [decisionParam, activeKind]);
 
+  /** AVORA-62: which board each update card in this conversation points at. */
+  const boardAnnouncements = useQuery({
+    queryKey: boardChangeKeys.announcements(conversationId ?? ""),
+    queryFn: () => fetchAnnouncements(conversationId ?? ""),
+    enabled: conversationId !== undefined && activeKind !== "personal",
+    staleTime: 30_000,
+  });
+  const boardAnnouncementByMessage = useMemo(
+    () => new Map((boardAnnouncements.data ?? []).filter((item) => item.messageId !== null).map((item) => [item.messageId as string, item] as const)),
+    [boardAnnouncements.data],
+  );
+
   const notesTreeNode = (
     <NotesTree
       data={notesData}
@@ -2457,7 +2472,7 @@ const Messages = () => {
           control={listColumn}
           label="Độ rộng danh sách"
         />
-        <div className="px-6 pb-4 pt-7">
+        <div className="px-6 pb-4 pt-7 short:px-4 short:pt-3">
           <div className="flex items-center justify-between gap-3">
             <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground md:text-[30px]">Kết nối</h1>
             {!isLive ? (
@@ -2483,42 +2498,32 @@ const Messages = () => {
               >
                 <UserRound className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
               </Link>
-              {/* 1.6: one ＋ for everything that starts something new here. */}
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button
-                    type="button"
-                    aria-label="Tạo mới"
-                    title="Tạo mới"
-                    className="icon-btn icon-btn-primary h-11 w-11"
-                  >
-                    <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
-                  </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-60">
-                  <DropdownMenuItem onSelect={() => setIsNewChatOpen(true)} className="min-h-11 gap-2.5 text-[14px]">
-                    <SquarePen className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Trò chuyện mới
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setIsNewGroupOpen(true)} className="min-h-11 gap-2.5 text-[14px]">
-                    <Users className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Nhóm mới
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onSelect={() => setIsNewChatOpen(true)} className="min-h-11 gap-2.5 text-[14px]">
-                    <QrCode className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Kết bạn qua PIN / QR
-                  </DropdownMenuItem>
-                  {isProjects ? (
-                    <DropdownMenuItem
-                      onSelect={() => {
-                        setActiveTab("group");
-                        navigate("/tin-nhan");
-                        toast.info("Dự án mở trong một nhóm: chọn nhóm, rồi ⋯ › Dự án › Tạo dự án.");
-                      }}
-                      className="min-h-11 gap-2.5 text-[14px]"
-                    >
-                      <FolderKanban className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Dự án mới
-                    </DropdownMenuItem>
-                  ) : null}
-                </DropdownMenuContent>
-              </DropdownMenu>
+              {/* 1.6 / AVORA-61 · A: the shared ＋ — click = a new chat, hold / right-click = the rest. */}
+              <PlusMenuButton
+                label="Tạo mới"
+                tapLabel="giữ để chọn loại"
+                tapAction="trò chuyện mới"
+                onTap={() => setIsNewChatOpen(true)}
+                entries={[
+                  { id: "chat", label: "Trò chuyện mới", icon: SquarePen, onSelect: () => setIsNewChatOpen(true) },
+                  { id: "group", label: "Nhóm mới", icon: Users, onSelect: () => setIsNewGroupOpen(true) },
+                  { id: "pin", label: "Kết bạn qua PIN / QR", icon: QrCode, onSelect: () => setIsNewChatOpen(true) },
+                  ...(isProjects
+                    ? [
+                        {
+                          id: "project",
+                          label: "Dự án mới",
+                          icon: FolderKanban,
+                          onSelect: () => {
+                            setActiveTab("group");
+                            navigate("/tin-nhan");
+                            toast.info("Dự án mở trong một nhóm: chọn nhóm, rồi ⋯ › Dự án › Tạo dự án.");
+                          },
+                        },
+                      ]
+                    : []),
+                ]}
+              />
             </div>
           </div>
 
@@ -3274,6 +3279,45 @@ const Messages = () => {
                                     proposal={proposalsByMessage.get(message.id)}
                                     userId={userId}
                                     nameOf={(id) => senderNames.get(id) ?? (id === userId ? "Bạn" : threadTitle)}
+                                  />
+                                </li>
+                              );
+                            }
+                            // AVORA-62 · C / E0: a board update card, or the quiet "tạo Bảng" line.
+                            if (message.systemKind === "board_update" || message.systemKind === "board_created") {
+                              const tableId = boardAnnouncementByMessage.get(message.id)?.tableId;
+                              const announcementId = boardAnnouncementByMessage.get(message.id)?.id;
+                              if (message.systemKind === "board_created") {
+                                return (
+                                  <li key={message.id} id={`message-${message.id}`} className="mx-auto max-w-md px-4 text-center text-[12.5px] leading-relaxed text-muted-foreground">
+                                    {message.content}
+                                    {tableId !== undefined ? (
+                                      <>
+                                        {" · "}
+                                        <button
+                                          type="button"
+                                          onClick={() => navigate(withReturn(`/ke-hoach?bang=${tableId}`, hereFrom(location, threadTitle)))}
+                                          className="press font-semibold text-primary"
+                                        >
+                                          Mở
+                                        </button>
+                                      </>
+                                    ) : null}
+                                  </li>
+                                );
+                              }
+                              return (
+                                <li key={message.id} id={`message-${message.id}`} className="px-2">
+                                  <BoardUpdateCard
+                                    content={message.content}
+                                    onView={
+                                      tableId === undefined
+                                        ? undefined
+                                        : () =>
+                                            navigate(
+                                              withReturn(`/ke-hoach?bang=${tableId}&${BOARD_CHANGES_PARAM}=${announcementId ?? "1"}`, hereFrom(location, threadTitle)),
+                                            )
+                                    }
                                   />
                                 </li>
                               );

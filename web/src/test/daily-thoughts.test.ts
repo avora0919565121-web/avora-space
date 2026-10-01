@@ -81,18 +81,65 @@ describe("the lists themselves", () => {
 
   it("offers only the maxims and Ẩn for choosing — scripture is paused, not gone", () => {
     expect(DAILY_THOUGHT_OPTIONS.map((option) => option.value)).toEqual([
+      "danh_ngon_luan_phien",
       "danh_ngon",
       "khong_chon",
     ]);
-    expect(DAILY_THOUGHT_OPTIONS.map((option) => option.label)).toEqual(["Danh ngôn", "Ẩn"]);
+    expect(DAILY_THOUGHT_OPTIONS.map((option) => option.label)).toEqual([
+      "Danh ngôn luân phiên chủ đề",
+      "Danh ngôn theo chủ đề",
+      "Ẩn",
+    ]);
     // But it remains a real category: people who chose it before keep their daily verse.
     expect(isDailyThoughtCategory("kinh_thanh")).toBe(true);
     expect(thoughtPool("kinh_thanh")).toHaveLength(30);
     expect(isDailyThoughtCategory("bible")).toBe(false);
   });
 
-  it("opens someone who never chose on the maxims, not on a blank", () => {
-    expect(DEFAULT_DAILY_THOUGHT_CATEGORY).toBe("danh_ngon");
+  it("64.4 · opens someone who never chose on the rotating maxims, not on a blank", () => {
+    expect(DEFAULT_DAILY_THOUGHT_CATEGORY).toBe("danh_ngon_luan_phien");
+    expect(isDailyThoughtCategory("danh_ngon_luan_phien")).toBe(true);
+  });
+});
+
+describe("AVORA-64 · rotating themes", () => {
+  const yearDays = (year: number): Date[] =>
+    Array.from({ length: 365 }, (_, index) => new Date(year, 0, 1 + index, 12, 0, 0));
+
+  it("64.1 · a 365-day year: no line repeats, no two days in a row share a theme", () => {
+    for (const year of [2026, 2027, 2028, 2031]) {
+      const lines = yearDays(year).map((day) => pickDailyThought("danh_ngon_luan_phien", day));
+      const texts = lines.map((line) => line?.text);
+      expect(new Set(texts).size).toBe(365);
+      for (let index = 1; index < lines.length; index += 1) {
+        expect(lines[index]?.theme).not.toBe(lines[index - 1]?.theme);
+      }
+    }
+  });
+
+  it("walks every theme before any theme comes back", () => {
+    const lines = yearDays(2026).map((day) => pickDailyThought("danh_ngon_luan_phien", day));
+    const firstRound = lines.slice(0, MAXIM_SECTIONS.length).map((line) => line?.theme);
+    expect(new Set(firstRound).size).toBe(MAXIM_SECTIONS.length);
+  });
+
+  it("64.2 · the same day opened five times reads the same line", () => {
+    const picks = [8, 9, 13, 18, 23].map(
+      (hour) => pickDailyThought("danh_ngon_luan_phien", new Date(2026, 9, 2, hour, 15))?.text,
+    );
+    expect(new Set(picks).size).toBe(1);
+  });
+
+  it("next year opens on a different line", () => {
+    expect(pickDailyThought("danh_ngon_luan_phien", noon(2027, 1, 1))?.text).not.toBe(
+      pickDailyThought("danh_ngon_luan_phien", noon(2026, 1, 1))?.text,
+    );
+  });
+
+  it("64.3 · the themed choice still reads exactly the old line", () => {
+    const day = noon(2026, 10, 2);
+    const index = (dayOfYear(day) - 1 + maximOffset(2026)) % 365;
+    expect(pickDailyThought("danh_ngon", day)?.text).toBe(DANH_NGON[index].text);
   });
 });
 

@@ -25,7 +25,7 @@ const ICONS: Record<QuickActionId, typeof CalendarDays> = {
 };
 
 const BUBBLE_CLASS =
-  "press fixed right-4 top-[calc(env(safe-area-inset-top)+10px)] z-40 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-[0_2px_10px_-2px_hsl(30_20%_20%/0.18)] backdrop-blur-sm transition-colors hover:bg-secondary data-[state=open]:bg-secondary md:right-3 md:top-3 md:h-9 md:w-9 short:right-[calc(env(safe-area-inset-right)+12px)] short:top-2";
+  "press fixed right-4 top-[calc(env(safe-area-inset-top)+10px)] z-40 flex h-10 w-10 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-[0_2px_10px_-2px_hsl(30_20%_20%/0.18)] backdrop-blur-sm transition-colors hover:bg-secondary data-[state=open]:bg-secondary md:right-3 md:top-3 md:h-9 md:w-9 short:right-[calc(var(--inset-r)+12px)] short:top-2";
 
 /**
  * A small round button floating at the top right of every signed-in screen.

@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 import { nameCaseSuggestion } from "@/lib/contact-clean";
+import { suspectSyllables } from "@/lib/contact-name-repair";
 
 /** A required field is marked once, visibly and for screen readers alike. */
 export function FieldLabel({
@@ -60,6 +61,9 @@ export function TextField({
   suggestCase?: boolean;
 }) {
   const suggestion = suggestCase ? nameCaseSuggestion(value) : null;
+  // AVORA-63 · C: a name field also flags syllables that do not look Vietnamese — a quiet dotted
+  // line under the word, never a block on saving.
+  const suspects = suggestCase ? suspectSyllables(value) : [];
   // AVORA-56 · C: no red underline under an email or a phone number.
   const isMachineValue = type === "email" || type === "tel";
   return (
@@ -76,12 +80,24 @@ export function TextField({
         inputMode={inputMode}
         maxLength={maxLength}
         placeholder={placeholder}
-        spellCheck={isMachineValue ? false : undefined}
+        spellCheck={isMachineValue ? false : suggestCase ? true : undefined}
+        lang={suggestCase ? "vi" : undefined}
         autoCapitalize={isMachineValue ? "off" : undefined}
         autoCorrect={isMachineValue ? "off" : undefined}
         onChange={(event) => onChange(event.target.value)}
         className={`mt-1.5 ${contactInputClass}`}
       />
+      {suspects.length > 0 ? (
+        <p className="mt-1 text-[12.5px] text-muted-foreground" data-name-suspects="">
+          Kiểm tra lại:{" "}
+          {suspects.map((word, index) => (
+            <span key={`${word}-${index}`} className="underline decoration-amber-500 decoration-dotted decoration-2 underline-offset-4">
+              {index > 0 ? ", " : ""}
+              {word}
+            </span>
+          ))}
+        </p>
+      ) : null}
       {suggestion !== null ? (
         <button
           type="button"

@@ -5,8 +5,8 @@ import { PlusMenuButton } from "@/components/PlusMenuButton";
 /**
  * Kế hoạch's one `+` (AVORA-57 · E), on the shared `PlusMenuButton` (AVORA-59 · D).
  *
- * Tap: a new Hạng mục in the open table (no table yet → a new table). Hold (phone) or the small
- * arrow beside it (computer): `Hạng mục mới` · `Bảng mới`, anchored under the button.
+ * Click: a new Hạng mục in the open table (no table yet → a new table). Hold or right-click:
+ * `Hạng mục mới` · `Bảng mới`, anchored under the button — the same on phone and computer.
  */
 export function PlanPlusButton({
   canAddRecord,
@@ -21,6 +21,7 @@ export function PlanPlusButton({
     <PlusMenuButton
       label={canAddRecord ? "Thêm Hạng mục" : "Tạo bảng mới"}
       tapLabel="giữ để tạo bảng mới"
+      tapAction={canAddRecord ? "Hạng mục mới" : "Bảng mới"}
       onTap={() => (canAddRecord ? onNewRecord() : onNewTable())}
       hintKey="plan_plus_hold"
       entries={[

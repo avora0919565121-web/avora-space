@@ -543,7 +543,7 @@ function SharedRow({
       aria-label={draggable === true ? `${task.title} — kéo để đổi vị trí` : undefined}
       data-task-mine={owner.isMine ? "true" : "false"}
       className={cn(
-        "-ml-3 flex flex-col gap-2 rounded-r-[10px] py-2 pl-[9px] transition-colors sm:flex-row sm:items-start sm:gap-3",
+        "-ml-3 flex flex-row items-start gap-2 rounded-r-[10px] py-2 pl-[9px] transition-colors sm:gap-3",
         ownerStripeClass(owner.isMine),
         draggable === true ? "cursor-grab active:cursor-grabbing" : "",
         isDragging === true ? "opacity-50" : "",
@@ -597,9 +597,9 @@ function SharedRow({
         </button>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1.5 pl-11 sm:pl-0">
-        {/* A task inside a project answers "why am I doing this" with the project, so that
-            comes first; the conversation it was agreed in stays available beside it. */}
+      {/* AVORA-61 · I: after ADR-038 the way to the conversation is secondary — a small icon at the
+          card's right edge, named for screen readers. The detail sheet keeps "Mở cuộc trò chuyện". */}
+      <div className="flex shrink-0 items-center gap-0.5">
         {projectOf !== undefined ? (
           <button
             type="button"
@@ -611,20 +611,24 @@ function SharedRow({
                 }),
               )
             }
-            className="press flex h-12 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
+            aria-label={`Xem "${task.title}" trong dự án`}
+            title="Xem trong dự án"
+            data-task-context="project"
+            className="press flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <FolderKanban className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Xem trong dự án
+            <FolderKanban className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
           </button>
         ) : null}
         {target !== null ? (
           <button
             type="button"
             onClick={() => navigate(contextLinkFromTasks(target.conversationId, task.id, window.location))}
-            className="press flex h-12 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
+            aria-label={`Xem "${task.title}" trong cuộc trò chuyện`}
+            title="Xem trong ngữ cảnh"
+            data-task-context="chat"
+            className="press flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
           >
-            <MessagesSquare className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Xem trong ngữ cảnh
+            <MessagesSquare className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
           </button>
         ) : null}
       </div>
@@ -1723,10 +1727,11 @@ export default function Tasks() {
           // AVORA-57 · E: Tìm kiếm first, the main `+` outermost on the right.
           <div className="flex items-center gap-1.5">
             <AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />
-            {/* AVORA-60 · D: the shared `+` — tap = a task for me, hold / ▾ = what kind. */}
+            {/* AVORA-61 · A: the shared `+` — click = a task for me, hold / right-click = what kind. */}
             <PlusMenuButton
               label="Thêm nhiệm vụ"
               tapLabel="giữ để chọn loại"
+              tapAction="nhiệm vụ cho tôi"
               onTap={() => openNew("task")}
               hintKey="task_plus_hold"
               entries={[
@@ -1740,7 +1745,7 @@ export default function Tasks() {
         }
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8">
+      <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 short:mx-0 short:max-w-none short:px-4">
         <ReturnChip className="-mt-2 mb-1" />
         <div>
           <TaskHubNav active={hubSection} counts={hubCounts} onChange={selectHubSection} />
