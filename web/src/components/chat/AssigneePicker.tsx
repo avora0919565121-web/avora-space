@@ -134,7 +134,7 @@ export function AssigneePicker({
           }}
           onKeyDown={onKeyDown}
           placeholder={selected.length === 0 ? "Gõ tên người đảm trách…" : "Thêm người nữa…"}
-          className="h-10 w-full bg-transparent px-1 text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
+          className="h-10 w-full bg-transparent px-1 text-[16px] md:text-[15px] text-foreground outline-none placeholder:text-muted-foreground"
         />
       </div>
 

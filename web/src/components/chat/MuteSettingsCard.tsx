@@ -138,7 +138,7 @@ function MuteRow({ scope }: { scope: MuteScope }) {
                 placeholder="số giờ"
                 onChange={(event) => setCustomHours(event.target.value)}
                 aria-label={`Số giờ tắt thông báo ${MUTE_SCOPE_LABELS[scope]}`}
-                className="tabular h-9 w-[96px] rounded-[8px] border border-input bg-card px-2.5 text-[13px] text-foreground outline-none focus:border-muted-foreground"
+                className="tabular h-9 w-[96px] rounded-[8px] border border-input bg-card px-2.5 text-[16px] md:text-[13px] text-foreground outline-none focus:border-muted-foreground"
               />
               <span className="text-[12px] text-muted-foreground">giờ</span>
               <button

@@ -10,7 +10,7 @@ import { todayIso } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
 const FIELD_CLASS =
-  "w-full rounded-[10px] border border-border bg-background px-3.5 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60";
+  "w-full rounded-[10px] border border-border bg-background px-3.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60";
 
 /**
  * "Lên lịch cuộc gọi" for a group or a project: a time, a room link, and one invitation posted
@@ -147,7 +147,7 @@ export function ScheduleCallDialog({
                 value={link}
                 inputMode="url"
                 onChange={(event) => setLink(event.target.value)}
-                className={cn(FIELD_CLASS, "h-12 min-w-0 flex-1 text-[14px]")}
+                className={cn(FIELD_CLASS, "h-12 min-w-0 flex-1 text-[16px] md:text-[14px]")}
               />
               <button
                 type="button"

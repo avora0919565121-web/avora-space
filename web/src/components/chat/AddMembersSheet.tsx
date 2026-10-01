@@ -84,7 +84,7 @@ export function AddMembersSheet({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm theo tên hoặc PIN"
               aria-label="Tìm bạn bè"
-              className="h-11 w-full rounded-md border border-border bg-card pl-9 pr-3 text-[15px] outline-none focus:border-primary/60"
+              className="h-11 w-full rounded-md border border-border bg-card pl-9 pr-3 text-[16px] md:text-[15px] outline-none focus:border-primary/60"
             />
           </label>
         </div>

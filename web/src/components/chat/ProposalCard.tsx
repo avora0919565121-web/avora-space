@@ -76,7 +76,7 @@ export function ProposalCard({
             onChange={(event) => setReason(event.target.value)}
             placeholder="Một câu lý do"
             aria-label="Lý do không đồng ý"
-            className="h-9 w-full rounded-md border border-border bg-background px-2 text-[13.5px] outline-none focus:border-primary"
+            className="h-9 w-full rounded-md border border-border bg-background px-2 text-[16px] md:text-[13.5px] outline-none focus:border-primary"
           />
           <div className="flex gap-2">
             <button type="button" disabled={reason.trim() === "" || vote.isPending} onClick={() => cast("disagree")} className="press rounded-md bg-destructive px-3 py-1.5 text-[13px] font-semibold text-destructive-foreground disabled:opacity-50">

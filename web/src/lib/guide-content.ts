@@ -53,7 +53,7 @@ export const GUIDE_CARDS: readonly GuideCard[] = [
     lines: [
       "Mỗi bảng là một việc lớn bạn đang theo dõi; mỗi dòng trong bảng là một hạng mục.",
       "Bấm + để thêm hạng mục vào bảng đang mở; giữ + để tạo bảng mới.",
-      "Cùng dữ liệu xem được dạng Bảng, Kanban hoặc Sơ đồ.",
+      "Cùng dữ liệu xem được dạng Bảng, Theo trạng thái hoặc Cây.",
       "Bắt đầu nhanh từ một mẫu có sẵn. Bảng đã xong cất lên Kệ sách.",
     ],
   },
@@ -73,7 +73,7 @@ export const GUIDE_CARDS: readonly GuideCard[] = [
     title: "Cài đặt",
     to: "/cai-dat",
     lines: [
-      "Hồ sơ: tên hiển thị và PIN AVORA để người khác tìm bạn.",
+      "Hồ sơ: tên hiển thị và PIN AVORA để người khác tìm bạn, và Đăng xuất mọi thiết bị khác khi lỡ đăng nhập ở máy lạ.",
       "Tuỳ chọn chung: loại tiền, múi giờ, Nhìn lại, hiệu ứng khi hoàn thành và kiểu nút.",
       "Thông báo: Chế độ tập trung, tắt thông báo có hạn và âm báo.",
       "Danh sách người đã chặn cũng nằm trong Tuỳ chọn chung.",

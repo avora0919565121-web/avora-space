@@ -212,7 +212,7 @@ export function HubShelf({
                       onChange={(event) => setQuery(event.target.value)}
                       placeholder="Tìm bảng…"
                       aria-label="Tìm bảng"
-                      className="h-8 min-w-0 flex-1 bg-transparent text-[14px] outline-none"
+                      className="h-8 min-w-0 flex-1 bg-transparent text-[16px] md:text-[14px] outline-none"
                     />
                   </label>
                 ) : null}

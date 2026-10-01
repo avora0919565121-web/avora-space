@@ -79,7 +79,7 @@ export function ThoughtNote({
         maxLength={THOUGHT_NOTE_MAX_LEN}
         onChange={(event) => setNote(event.target.value)}
         placeholder="Câu này khiến bạn nghĩ đến điều gì?"
-        className="w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2 text-[14px] leading-6 text-foreground outline-none transition-colors placeholder:text-task-idle focus:border-muted-foreground"
+        className="w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2 text-[16px] md:text-[14px] leading-6 text-foreground outline-none transition-colors placeholder:text-task-idle focus:border-muted-foreground"
       />
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <button

@@ -170,7 +170,7 @@ function PasteZone({
         onPaste={onPaste}
         rows={hasPaste ? 1 : 2}
         placeholder={hasPaste ? "Dán thêm vào đây" : "Dán vào đây — ⌘V / Ctrl+V, hoặc giữ để dán trên điện thoại"}
-        className="w-full resize-none rounded-[10px] border border-dashed border-input bg-card px-3 py-2.5 text-center text-[13px] leading-5 text-foreground caret-transparent outline-none placeholder:text-muted-foreground"
+        className="w-full resize-none rounded-[10px] border border-dashed border-input bg-card px-3 py-2.5 text-center text-[16px] md:text-[13px] leading-5 text-foreground caret-transparent outline-none placeholder:text-muted-foreground"
       />
       {textLength > 0 ? (
         <p className="flex items-center gap-1.5 text-[12.5px] text-muted-foreground">

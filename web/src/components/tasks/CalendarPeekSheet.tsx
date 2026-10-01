@@ -8,7 +8,7 @@ import { MOTION_EASING, currentRhythm, motionFor } from "@/lib/motion";
 import { parseIsoDay, type CalendarMode } from "@/lib/calendar-view";
 import { isDayAllowed, orderRange, pickHint, yearChoices, type DateAllow } from "@/lib/date-field";
 import { hereFrom, withReturn } from "@/lib/return-to";
-import { todayIso } from "@/lib/tasks";
+import { todayIso, type TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
 const MONTH_SHORT: readonly string[] = Array.from({ length: 12 }, (_, index) => `Thg ${index + 1}`);
@@ -42,6 +42,12 @@ export type CalendarPeekSheetProps = {
    * "top": across the top of a phone screen, 8px from each edge. Never a bottom sheet.
    */
   placement?: "top-end" | "top";
+  /** AVORA-60 · B (Lịch trong cuộc trò chuyện): start on this view instead of Tháng. */
+  initialMode?: CalendarMode;
+  /** Tapping a task opens it (ADR-038) instead of only folding its card open. */
+  onOpenTask?: (task: TaskItem) => void;
+  /** `Chỉ việc chung với {Tên}` / `Cả lịch của tôi` — the narrowing is on by default. */
+  sharedFilter?: { label: string; test: (task: TaskItem) => boolean };
 };
 
 /**
@@ -98,6 +104,9 @@ function CalendarPickerBody({
   min,
   max,
   inline = false,
+  initialMode,
+  onOpenTask,
+  sharedFilter,
 }: CalendarPeekSheetProps) {
   const today = todayIso();
   const location = useLocation();
@@ -107,7 +116,8 @@ function CalendarPickerBody({
   const rule: DateAllow = allow ?? "future";
   const startDay = parseIsoDay(initialRange?.from ?? initialDay ?? null) ?? today;
 
-  const [mode, setMode] = useState<CalendarMode>("month");
+  const [mode, setMode] = useState<CalendarMode>(initialMode ?? "month");
+  const [isSharedOnly, setIsSharedOnly] = useState<boolean>(true);
   const [anchor, setAnchor] = useState<string>(startDay);
   const [rangeStart, setRangeStart] = useState<string | null>(null);
   const [chooser, setChooser] = useState<"none" | "year" | "month">("none");
@@ -122,7 +132,9 @@ function CalendarPickerBody({
   const heading = title ?? (isRange ? "Chọn khoảng thời gian" : isPicking ? "Chọn ngày" : "Xem nhanh lịch");
   const description = isPicking
     ? (pickHint(rule, isRange ? (rangeStart === null ? "start" : "end") : null) ?? "Việc đã có vẫn hiện trên từng ngày.")
-    : "Chỉ để xem.";
+    : onOpenTask !== undefined
+      ? "Chạm một việc để xem và làm luôn."
+      : "Chỉ để xem.";
 
   const handlePick = (day: string): void => {
     if (isRange) {
@@ -169,6 +181,28 @@ function CalendarPickerBody({
           <X className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
         </button>
       </div>
+      {sharedFilter !== undefined ? (
+        <div role="radiogroup" aria-label="Lọc lịch" className="flex gap-1.5 overflow-x-auto px-3 pb-1 pt-2">
+          {[
+            { on: true, label: sharedFilter.label },
+            { on: false, label: "Cả lịch của tôi" },
+          ].map((option) => (
+            <button
+              key={option.label}
+              type="button"
+              role="radio"
+              aria-checked={isSharedOnly === option.on}
+              onClick={() => setIsSharedOnly(option.on)}
+              className={cn(
+                "press h-9 shrink-0 rounded-full border px-3 text-[13px] font-medium transition-colors",
+                isSharedOnly === option.on ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground hover:bg-accent/40",
+              )}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
+      ) : null}
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
         {chooser !== "none" ? (
           <div className="pt-2">
@@ -222,6 +256,8 @@ function CalendarPickerBody({
             pickHint={isPicking ? pickHint(rule, isRange ? (rangeStart === null ? "start" : "end") : null) : undefined}
             highlightRange={highlight}
             onTitleClick={() => setChooser("year")}
+            onOpenContext={onOpenTask}
+            taskFilter={sharedFilter !== undefined && isSharedOnly ? sharedFilter.test : undefined}
           />
         )}
         {showFullLink ? (

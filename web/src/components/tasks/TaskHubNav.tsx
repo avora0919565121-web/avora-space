@@ -87,7 +87,7 @@ export function TaskHubNav({
           </DropdownMenu>
         </div>
       </nav>
-      <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground/80">{active.description}</p>
+      <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground/80 short:hidden">{active.description}</p>
     </div>
   );
 }

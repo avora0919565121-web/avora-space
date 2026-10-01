@@ -232,7 +232,8 @@ test("keeping all of them confirms every number of that kind", async () => {
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Giữ tất cả" }));
+  // The card's own button (exact name); the page-wide `Giữ tất cả (N)` is AVORA-58's.
+  await userEvent.click(screen.getByRole("button", { name: "Giữ tất cả", exact: true }));
 
   await expect.poll(() => state.confirmed).toEqual(["ch1", "ch2"]);
 });

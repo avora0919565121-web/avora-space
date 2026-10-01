@@ -266,7 +266,7 @@ export function MessageComposer({
           placeholder={placeholder}
           aria-label={ariaLabel}
           enterKeyHint="enter"
-          className="min-h-11 w-full resize-none rounded-[22px] border border-border bg-card px-4 py-[11px] text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+          className="min-h-11 w-full resize-none rounded-[22px] border border-border bg-card px-4 py-[11px] text-[16px] md:text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
         />
       </div>
         {trailingAction}

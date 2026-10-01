@@ -47,7 +47,7 @@ import { TYPE } from "@/lib/type-scale";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
-  "h-10 w-full rounded-md border border-border bg-card px-3.5 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60";
+  "h-10 w-full rounded-md border border-border bg-card px-3.5 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60";
 
 function formatDay(iso: string): string {
   const [year, month, day] = iso.split("-");

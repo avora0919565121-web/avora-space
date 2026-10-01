@@ -16,7 +16,9 @@ export function LandscapeRail() {
   return (
     <nav
       aria-label="Điều hướng chính"
-      className="hidden h-[100dvh] w-[60px] shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-border bg-card/95 py-[max(env(safe-area-inset-top),8px)] pl-[env(safe-area-inset-left)] short:flex"
+      // AVORA-59 · C: the notch inset is added to the width, not taken out of it — 60px of icons
+      // always remain, centred in their own column, however deep the left inset is.
+      className="hidden h-[100dvh] w-[calc(60px+env(safe-area-inset-left))] shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-border bg-card/95 py-[max(env(safe-area-inset-top),8px)] pl-[env(safe-area-inset-left)] short:flex"
     >
       {NAV_ITEMS.map((item) => {
         const Icon = navIconFor(item.to);
@@ -29,7 +31,7 @@ export function LandscapeRail() {
             title={item.label}
             className={({ isActive }) =>
               cn(
-                "press relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors",
+                "press no-callout relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors",
                 isActive ? "bg-accent/70 text-primary" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
               )
             }

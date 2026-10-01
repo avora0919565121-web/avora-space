@@ -227,7 +227,7 @@ export function FinanceTrashPanel() {
             value={typed}
             onChange={(event) => setTyped(event.target.value)}
             aria-label="Gõ lại để xác nhận"
-            className="h-11 rounded-md border border-border bg-background px-3 text-[15px] outline-none focus:border-primary"
+            className="h-11 rounded-md border border-border bg-background px-3 text-[16px] md:text-[15px] outline-none focus:border-primary"
           />
           <AlertDialogFooter>
             <AlertDialogCancel>Huỷ</AlertDialogCancel>

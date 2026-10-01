@@ -3,7 +3,7 @@ import { KeyRound, MessageCircle, QrCode, UserMinus } from "lucide-react";
 import { useCallback, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { PersonAvatarButton } from "@/components/PersonCard";
 import { ConnectQrDialog } from "@/components/contacts/ConnectQrDialog";
 import { InviteMessageDialog } from "@/components/contacts/InviteMessageDialog";
 import { Switch } from "@/components/ui/switch";
@@ -110,7 +110,7 @@ export function FriendsPanel({ query }: { query: string }) {
             autoComplete="off"
             spellCheck={false}
             placeholder="Kết bạn qua PIN: A-XXXXXXXX"
-            className="h-11 w-full rounded-md border border-border bg-card pl-10 pr-3 font-mono text-[14.5px] uppercase text-foreground outline-none transition-colors placeholder:font-sans placeholder:normal-case placeholder:text-muted-foreground/70 focus:border-primary/60"
+            className="h-11 w-full rounded-md border border-border bg-card pl-10 pr-3 font-mono text-[16px] md:text-[14.5px] uppercase text-foreground outline-none transition-colors placeholder:font-sans placeholder:normal-case placeholder:text-muted-foreground/70 focus:border-primary/60"
           />
         </label>
         <button
@@ -138,7 +138,7 @@ export function FriendsPanel({ query }: { query: string }) {
       <div className="overflow-hidden rounded-xl border border-border bg-card">
         {visible.map((item) => (
           <div key={item.userId} className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0">
-            <InitialsAvatar name={item.displayName ?? "?"} size="sm" />
+            <PersonAvatarButton person={{ userId: item.userId, name: item.displayName ?? "Người dùng AVORA", pin: item.pin }} size="sm" />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-[15px] font-medium text-foreground">{item.displayName ?? "Người dùng AVORA"}</span>
               <span className="block truncate font-mono text-[12.5px] text-muted-foreground">{item.pin ?? NO_PIN_LABEL}</span>

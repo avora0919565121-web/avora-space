@@ -43,7 +43,7 @@ export const TASK_HUB_SECTIONS: readonly TaskHubSection[] = [
   { id: "tasks", placement: "top", slug: "viec", label: "Tất cả", description: "Mọi nhiệm vụ đang mở, đọc theo cách bạn quen.", empty: "Chưa có việc nào đang mở." },
   { id: "events", placement: "hidden", slug: "su-kien", label: "Sự kiện", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
   { id: "upcoming", placement: "top", slug: "sap-toi", label: "Sắp tới", description: "Bảy ngày tới trên một trang: khối là sự kiện, vạch là hạn chót.", empty: "Bảy ngày tới đang trống." },
-  { id: "calendar", placement: "top", slug: "lich", label: "Lịch", description: "Ngày, tuần, tháng, năm — chỉ để xem. Chạm một việc để về đúng chỗ nó được bàn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
+  { id: "calendar", placement: "top", slug: "lich", label: "Lịch", description: "Chạm một việc để xem và làm luôn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
   { id: "overdue", placement: "top", slug: "qua-han", label: "Quá hạn", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
   { id: "invitations", placement: "when-any", slug: "loi-moi", label: "Lời mời", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
   { id: "drafts", placement: "hidden", slug: "nhap", label: "Nháp", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },

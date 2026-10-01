@@ -339,7 +339,7 @@ export function NotesTree({
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tìm ghi chép · #thẻ"
             aria-label="Tìm ghi chép"
-            className="h-10 w-full rounded-full border border-border bg-background pl-8 pr-3 text-[14px] outline-none focus:border-primary"
+            className="h-10 w-full rounded-full border border-border bg-background pl-8 pr-3 text-[16px] md:text-[14px] outline-none focus:border-primary"
           />
         </label>
         <DropdownMenu>

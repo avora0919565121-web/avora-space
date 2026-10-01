@@ -3,6 +3,7 @@ import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
 import { LegacyRedirect } from "@/components/LegacyRedirect";
 import { LookSync } from "@/components/LookSync";
+import { KeyboardSync } from "@/components/KeyboardSync";
 import { MilestoneBurstLayer } from "@/components/MilestoneBurstLayer";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Toaster } from "@/components/ui/sonner";
@@ -52,6 +53,7 @@ const App = () => (
           <Toaster />
           <MilestoneBurstLayer />
           <LookSync />
+          <KeyboardSync />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/" element={<Navigate to={HOME_ROUTE} replace />} />

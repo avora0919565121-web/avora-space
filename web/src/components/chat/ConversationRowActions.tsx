@@ -265,7 +265,7 @@ export function ConversationRowActions({
               }}
               style={offset !== 0 ? { transform: `translateX(${offset}px)` } : undefined}
               className={cn(
-                "group/row relative flex items-center bg-background touch-pan-y",
+                "group/row no-callout relative flex items-center bg-background touch-pan-y",
                 startRef.current === null && "transition-transform duration-200",
               )}
             >

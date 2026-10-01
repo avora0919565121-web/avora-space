@@ -112,9 +112,16 @@
     -moz-osx-font-smoothing: grayscale;
   }
 
+  /* AVORA-60 · A: nothing is ever wider than the screen. `clip` on the root (not `hidden`) so
+     sticky headers keep working and no sideways scroll container is created. `body` keeps
+     `hidden`: a `clip` there turns body into the box popovers measure against (it is as tall as
+     the content, not the screen), and the calendar would stop flipping up near the bottom. */
+  html {
+    overflow-x: clip;
+  }
+
   body {
     @apply bg-background text-foreground;
-    /* Last line of defence: anything too wide scrolls inside its own frame, never the page sideways. */
     overflow-x: hidden;
     font-family:
       "Inter Tight",
@@ -201,5 +208,18 @@
 
   .press {
     @apply transition-transform duration-150 ease-out active:scale-[0.985];
+  }
+
+  /* AVORA-59 · D: anything that answers a long press never selects text or opens the
+     phone's own Copy · Look Up · Translate callout. */
+  .no-callout {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  /* AVORA-59 · E: while the on-screen keyboard is up, the bottom tab bar steps aside. */
+  html[data-keyboard="open"] .hide-on-keyboard {
+    display: none !important;
   }
 }

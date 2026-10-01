@@ -47,7 +47,7 @@ export function AppSidebar() {
       ref={asideRef}
       style={navColumn.isDesktop ? { width: navColumn.width } : undefined}
       // A computer only: on a phone the top bar and the tool-belt take over.
-      className="paper relative hidden h-screen w-[240px] shrink-0 flex-col border-r border-border md:flex short:hidden"
+      className="paper relative hidden h-[100dvh] w-[240px] shrink-0 flex-col border-r border-border md:flex short:hidden"
     >
       <ResizeHandle columnRef={asideRef} control={navColumn} label="Độ rộng thanh điều hướng" />
       {/*

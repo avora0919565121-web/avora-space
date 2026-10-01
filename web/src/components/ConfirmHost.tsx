@@ -135,7 +135,7 @@ export function ConfirmHost() {
               maxLength={request.maxLength}
               onChange={(event) => setText(event.target.value)}
               aria-label={request.title}
-              className="h-11 w-full rounded-[10px] border border-input bg-background px-3 text-[15px] outline-none focus:border-primary"
+              className="h-11 w-full rounded-[10px] border border-input bg-background px-3 text-[16px] md:text-[15px] outline-none focus:border-primary"
             />
           </form>
         ) : null}

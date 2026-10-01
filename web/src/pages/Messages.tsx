@@ -20,6 +20,7 @@ import {
   Mail,
   MessageSquarePlus,
   MoreHorizontal,
+  CalendarDays,
   NotebookPen,
   Plus,
   QrCode,
@@ -119,6 +120,8 @@ import { ConnectionRequestsRow } from "@/components/contacts/ConnectionRequests"
 import { REPORT_SENT_TOAST, submitReport, type ReportReason } from "@/lib/reports";
 import { useBlocks } from "@/lib/use-blocks";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { PersonAvatarButton } from "@/components/PersonCard";
+import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
 import {
   DIARY_VIEW_PARAM,
   DIARY_VIEWS,
@@ -328,6 +331,8 @@ const Messages = () => {
    */
   const [projectTarget, setProjectTarget] = useState<ConversationSummary | null>(null);
   const [isInfoOpen, setIsInfoOpen] = useState<boolean>(false);
+  // AVORA-60 · B: Lịch inside the conversation (phone: first row of ⋯; computer: beside ⋯).
+  const [isThreadCalendarOpen, setIsThreadCalendarOpen] = useState<boolean>(false);
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<boolean>(false);
   const [isGroupTasksOpen, setIsGroupTasksOpen] = useState<boolean>(false);
   const [isDecisionsOpen, setIsDecisionsOpen] = useState<boolean>(false);
@@ -2562,7 +2567,7 @@ const Messages = () => {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={activeTab === "group" ? "Tìm nhóm theo tên" : isProjects ? "Tìm dự án theo tên" : "Tìm theo tên"}
-                className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+                className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
               />
             </label>
           )}
@@ -2775,6 +2780,8 @@ const Messages = () => {
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
                           <NotebookPen className="h-[19px] w-[19px]" strokeWidth={1.7} aria-hidden="true" />
                         </span>
+                      ) : item.kind === "direct" && item.peerId !== null ? (
+                        <PersonAvatarButton person={{ userId: item.peerId, name: conversationTitle(item), pin: item.peerPin ?? null }} />
                       ) : (
                         <InitialsAvatar name={conversationTitle(item)} />
                       )}
@@ -2949,7 +2956,11 @@ const Messages = () => {
                   </span>
                 ) : (
                   <span className="relative shrink-0">
-                    <InitialsAvatar name={threadTitle} size="sm" />
+                    {activeKind === "direct" && directPeerId !== null ? (
+                      <PersonAvatarButton person={{ userId: directPeerId, name: threadTitle, pin: activeSummary?.peerPin ?? null }} size="sm" />
+                    ) : (
+                      <InitialsAvatar name={threadTitle} size="sm" />
+                    )}
                     {/*
                       Online or not, and nothing more. A "last seen at" would outlive the
                       moment it described and quietly become a log of when someone was at
@@ -3002,6 +3013,17 @@ const Messages = () => {
                   )}
                   {activeKind === "direct" ? (
                     <CallMenu peerId={activeSummary?.peerId ?? peerQuery.data?.peerId ?? null} peerName={threadTitle} />
+                  ) : null}
+                  {activeKind !== "personal" ? (
+                    <button
+                      type="button"
+                      aria-label="Lịch"
+                      title="Lịch"
+                      onClick={() => setIsThreadCalendarOpen(true)}
+                      className="press hidden h-10 w-10 items-center justify-center rounded-md transition-colors hover:bg-accent/50 hover:text-foreground md:flex"
+                    >
+                      <CalendarDays className="h-[19px] w-[19px]" strokeWidth={1.6} />
+                    </button>
                   ) : null}
                   <button
                     type="button"
@@ -3396,8 +3418,9 @@ const Messages = () => {
                                   </span>
                                 ) : null}
                                 {senderLabel ? (
-                                  <div className="shrink-0 pb-5" aria-hidden="true">
-                                    <InitialsAvatar name={senderLabel} size="sm" />
+                                  <div className="shrink-0 pb-5">
+                                    {/* AVORA-60 · C: tap a sender's face → their card. */}
+                                    <PersonAvatarButton person={{ userId: message.senderId, name: senderLabel, groupId: conversationId ?? null }} size="sm" />
                                   </div>
                                 ) : null}
                                 <div
@@ -3455,7 +3478,7 @@ const Messages = () => {
                                         rows={2}
                                         maxLength={4000}
                                         aria-label="Sửa tin nhắn"
-                                        className="w-full resize-y rounded-bubble border border-input bg-card px-3 py-2 text-[15px] leading-relaxed text-foreground outline-none focus:border-primary/60"
+                                        className="w-full resize-y rounded-bubble border border-input bg-card px-3 py-2 text-[16px] md:text-[15px] leading-relaxed text-foreground outline-none focus:border-primary/60"
                                       />
                                       <div className="flex items-center gap-1.5">
                                         <button
@@ -4135,6 +4158,20 @@ const Messages = () => {
 
       {pasteDialog}
       <NoteExits task={noteTaskExit} board={noteBoardExit} onTaskClose={() => setNoteTaskExit(null)} onBoardClose={() => setNoteBoardExit(null)} />
+      {conversationId && activeKind !== "personal" ? (
+        <CalendarPeekSheet
+          open={isThreadCalendarOpen}
+          onOpenChange={setIsThreadCalendarOpen}
+          title={`Lịch · ${threadTitle}`}
+          initialMode="week"
+          placement="top"
+          onOpenTask={(task) => setOpenedSourceTaskId(task.id)}
+          sharedFilter={{
+            label: activeKind === "group" ? "Chỉ việc chung trong nhóm" : `Chỉ việc chung với ${threadTitle}`,
+            test: (task) => task.conversationId === conversationId,
+          }}
+        />
+      ) : null}
       <TaskDetailSheet
         task={openedSourceTask}
         today={todayIso()}
@@ -4283,6 +4320,14 @@ const Messages = () => {
           onLeft={() => navigate("/tin-nhan")}
           kind={activeKind === "personal" ? "personal" : activeKind === "group" ? "group" : "direct"}
           onOpenDiary={activeKind === "personal" ? undefined : () => setIsConversationDiaryOpen(true)}
+          onOpenCalendar={
+            activeKind === "personal"
+              ? undefined
+              : () => {
+                  setIsInfoOpen(false);
+                  setIsThreadCalendarOpen(true);
+                }
+          }
           moreSections={
             activeKind === "personal" ? (
               <ConversationMoreSections

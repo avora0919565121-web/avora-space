@@ -21,7 +21,7 @@ import { useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
 const CONTROL_CLASS =
-  "rounded-[10px] border border-input bg-card px-3 text-[14px] text-foreground outline-none focus:border-muted-foreground";
+  "rounded-[10px] border border-input bg-card px-3 text-[16px] md:text-[14px] text-foreground outline-none focus:border-muted-foreground";
 
 /**
  * The depth a task only has if somebody wants it: a flag, a percentage, and what it waits on.

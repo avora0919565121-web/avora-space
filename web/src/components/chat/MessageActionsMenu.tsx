@@ -413,7 +413,8 @@ export function MessageActionsAffordance({
         }}
         style={swipe.offset > 0 ? { transform: `translateX(${swipe.offset}px)` } : undefined}
         className={cn(
-          "max-w-[80%] transition-opacity",
+          // AVORA-59 · D: holding a bubble opens our menu, never the phone's text callout.
+          "no-callout max-w-[80%] transition-opacity",
           swipe.offset === 0 && "transition-transform",
           isPressing ? "select-none opacity-70" : "opacity-100",
         )}

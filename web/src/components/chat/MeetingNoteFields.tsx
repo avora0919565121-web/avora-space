@@ -230,7 +230,7 @@ export function MeetingNoteSummary({
 }
 
 const INPUT_CLASS =
-  "w-full rounded-[8px] border border-border bg-card px-2.5 py-2 text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60";
+  "w-full rounded-[8px] border border-border bg-card px-2.5 py-2 text-[16px] md:text-[13.5px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60";
 
 /** A field's name, always shown — including when the field is empty. */
 function FieldLabel({ children }: { children: React.ReactNode }) {

@@ -33,6 +33,7 @@ import {
   type ProjectIndex,
 } from "@/lib/task-scope";
 import { deadlineLabel, todayIso, type TaskItem } from "@/lib/tasks";
+import { TaskOwnerLine } from "@/components/tasks/TaskOwner";
 import { useTaskProjectIndex } from "@/lib/use-projects";
 import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { useConversations } from "@/lib/use-conversations";
@@ -278,6 +279,7 @@ export default function Dashboard() {
                             <span className="min-w-0 flex-1">
                               <span className={cn(TYPE.body, "block truncate font-medium")}>{item.task.title}</span>
                               <span className={cn("block text-[12px]", meta.tone)}>{meta.text}</span>
+                              <TaskOwnerLine task={item.task} />
                             </span>
                             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
                           </Link>
@@ -318,6 +320,7 @@ export default function Dashboard() {
                     <span className="min-w-0 flex-1">
                       <span className={cn(TYPE.body, "block truncate font-medium")}>{task.title}</span>
                       <span className={cn(TYPE.meta, "block")}>{reminderWhen(reminder.at, today)}</span>
+                      <TaskOwnerLine task={task} />
                     </span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
                   </Link>

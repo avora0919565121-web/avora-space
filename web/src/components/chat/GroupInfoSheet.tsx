@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Ban,
   Bell,
+  CalendarDays,
   ChevronRight,
   MoreHorizontal,
   NotebookText,
@@ -34,6 +35,7 @@ import { ConversationNotifySheet } from "@/components/chat/ConversationNotifyShe
 import { shortUntil, useRhythm } from "@/lib/use-rhythm";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { PersonAvatarButton } from "@/components/PersonCard";
 import { FamilyFlagCard } from "@/components/chat/FamilyFlagCard";
 import { SubGroupDialog } from "@/components/chat/SubGroupDialog";
 import {
@@ -141,6 +143,8 @@ type GroupInfoSheetProps = {
   kind?: "personal" | "direct" | "group";
   /** ③ Nhật ký trò chuyện (AVORA-52 · B): opens over `⋯`; the page owns it (it needs the thread). */
   onOpenDiary?: () => void;
+  /** AVORA-60 · B: `Lịch` — the first row of `⋯`, opens the week of this conversation. */
+  onOpenCalendar?: () => void;
 };
 
 /** One `⋯` row that opens a panel over it (AVORA-52 · C). */
@@ -191,6 +195,7 @@ export function GroupInfoSheet({
   moreSections = null,
   kind,
   onOpenDiary,
+  onOpenCalendar,
 }: GroupInfoSheetProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -650,6 +655,13 @@ export function GroupInfoSheet({
               <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
                 <div className="-mx-3">
                   {/* ② Thông báo ③ Nhật ký trò chuyện — both open over `⋯` (AVORA-52 · C). */}
+                  {onOpenCalendar !== undefined ? (
+                    <PanelRow
+                      icon={<CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
+                      label="Lịch"
+                      onClick={onOpenCalendar}
+                    />
+                  ) : null}
                   <PanelRow
                     icon={<Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
                     label="Thông báo"
@@ -865,7 +877,7 @@ export function GroupInfoSheet({
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Tìm theo tên"
                         aria-label="Tìm thành viên"
-                        className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-9 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60 [&::-webkit-search-cancel-button]:hidden"
+                        className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-9 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60 [&::-webkit-search-cancel-button]:hidden"
                       />
                       {search ? (
                         <button
@@ -907,7 +919,7 @@ export function GroupInfoSheet({
                             key={member.userId}
                             className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/30"
                           >
-                            <InitialsAvatar name={memberName(member)} size="sm" />
+                            <PersonAvatarButton person={{ userId: member.userId, name: memberName(member), groupId: conversationId }} size="sm" />
                             <div className="min-w-0 flex-1">
                               <p className="flex min-w-0 items-center gap-2">
                                 <span className="truncate text-[15px] font-medium text-foreground">
@@ -1068,6 +1080,13 @@ export function GroupInfoSheet({
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
+                {onOpenCalendar !== undefined ? (
+                  <PanelRow
+                    icon={<CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
+                    label="Lịch"
+                    onClick={onOpenCalendar}
+                  />
+                ) : null}
                 <PanelRow
                   icon={<Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
                   label="Thông báo"
@@ -1163,7 +1182,7 @@ export function GroupInfoSheet({
                 maxLength={GROUP_NAME_MAX_LENGTH}
                 autoFocus
                 placeholder="Tên nhóm"
-                className="h-11 w-full rounded-md border border-border bg-background px-3.5 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+                className="h-11 w-full rounded-md border border-border bg-background px-3.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
               />
               <p className="mt-1.5 text-right text-[12px] text-muted-foreground">
                 {nameDraft.trim().length}/{GROUP_NAME_MAX_LENGTH}

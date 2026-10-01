@@ -103,7 +103,7 @@ export function ContactPicker({
           }}
           placeholder="Tìm tên, SĐT, email…"
           aria-label="Tìm người"
-          className="h-9 min-w-0 flex-1 bg-transparent text-[15px] outline-none"
+          className="h-9 min-w-0 flex-1 bg-transparent text-[16px] md:text-[15px] outline-none"
         />
       </label>
       {adding ? (
@@ -119,8 +119,8 @@ export function ContactPicker({
               ))}
             </div>
           ) : null}
-          <input value={phone} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="SĐT (không bắt buộc)" aria-label="Số điện thoại" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[14.5px] outline-none focus:border-primary" />
-          <input value={email} inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="Email (không bắt buộc)" aria-label="Email" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[14.5px] outline-none focus:border-primary" />
+          <input value={phone} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="SĐT (không bắt buộc)" aria-label="Số điện thoại" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-primary" />
+          <input value={email} inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="Email (không bắt buộc)" aria-label="Email" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-primary" />
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setAdding(false)} className="press rounded-md border border-border px-3 py-1.5 text-[13.5px]">Quay lại</button>
             <button type="button" disabled={isSaving} onClick={() => void addAndPick()} className="press rounded-md bg-primary px-3 py-1.5 text-[13.5px] font-semibold text-primary-foreground disabled:opacity-50">

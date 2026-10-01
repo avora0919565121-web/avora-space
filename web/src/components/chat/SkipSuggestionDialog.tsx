@@ -144,7 +144,7 @@ export function SkipSuggestionDialog({
                     onChange={(event) => setCustom(event.target.value)}
                     placeholder="Viết điều bạn muốn nói…"
                     aria-label="Lời nhắn của bạn"
-                    className="mt-2 w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2.5 text-[14px] leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+                    className="mt-2 w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2.5 text-[16px] md:text-[14px] leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
                   />
                 ) : null}
               </div>

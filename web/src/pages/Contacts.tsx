@@ -126,12 +126,13 @@ const Contacts = () => {
           </div>
         </header>
 
-        {/* AVORA-53 · 6.13: one "Cần xem lại (n)" box, split by kind. Shown only when something waits. */}
-        {missingDetails.length > 0 || reviewCount > 0 ? (
+        {/* AVORA-58 · 2: Cần xem lại is optional — no count, no badge, only this one quiet line
+            for the channel review. The "missing details" chips stay because each is one tap. */}
+        {missingDetails.length > 0 ? (
           <section aria-labelledby="contacts-review" className="mt-6 rounded-xl border border-border bg-card px-5 py-4">
             <h2 id="contacts-review" className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
               <AlertCircle className="h-[18px] w-[18px] text-accent-foreground" strokeWidth={1.8} aria-hidden="true" />
-              Cần xem lại ({missingDetails.length + reviewCount})
+              Thiếu thông tin
             </h2>
             {missingDetails.length > 0 ? (
               <div className="mt-3">
@@ -147,26 +148,21 @@ const Contacts = () => {
                 </ul>
               </div>
             ) : null}
-            {reviewCount > 0 ? (
-              <button
-                type="button"
-                onClick={() => navigate(withCarry(CHANNEL_REVIEW_ROUTE))}
-                className="press mt-3 flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 text-left transition-colors hover:bg-accent/35"
-              >
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[13px] font-medium text-muted-foreground">Kênh liên lạc ({reviewCount})</span>
-                  <span className="block text-[14px] text-foreground">
-                    {review.count > 0 && shared.count > 0
-                      ? "Kênh chưa xác nhận, và kênh đang dùng chung nhiều liên hệ"
-                      : shared.count > 0
-                        ? "Cùng một số hoặc email đang gắn với nhiều liên hệ"
-                        : "Số điện thoại hoặc email chưa được xác nhận"}
-                  </span>
-                </span>
-                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
-              </button>
-            ) : null}
           </section>
+        ) : null}
+        {reviewCount > 0 ? (
+          <button
+            type="button"
+            onClick={() => navigate(withCarry(CHANNEL_REVIEW_ROUTE))}
+            className="press mt-4 inline-flex min-h-11 max-w-full items-center gap-1 text-left text-[13.5px] text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <span className="min-w-0">
+              {shared.count > 0 && review.count === 0
+                ? "Vài số hoặc email đang nằm ở nhiều liên hệ — xem khi rảnh"
+                : "Vài số điện thoại hoặc email có thể xem lại khi rảnh"}
+            </span>
+            <ChevronRight className="h-4 w-4 shrink-0" strokeWidth={1.7} aria-hidden="true" />
+          </button>
         ) : null}
 
         <nav aria-label="Loại liên hệ" className="mt-7">
@@ -218,7 +214,7 @@ const Contacts = () => {
                   ? "Tìm bạn bè theo tên hoặc PIN"
                   : "Tìm theo tên hoặc mã số thuế"
             }
-            className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+            className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
           />
         </label>
         {/* AVORA-44 · việc 5: this box filters here; the line below searches all of AVORA (ADR-032). */}

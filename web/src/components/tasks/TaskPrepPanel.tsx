@@ -29,7 +29,7 @@ import { cn } from "@/lib/utils";
 import { eventSummary } from "@/lib/task-composer";
 
 const FIELD =
-  "mt-1 w-full rounded-[8px] border border-input bg-card px-3 py-2 text-[14px] text-foreground outline-none focus:border-muted-foreground";
+  "mt-1 w-full rounded-[8px] border border-input bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none focus:border-muted-foreground";
 const LABEL = "text-[12px] font-medium text-muted-foreground";
 
 function toLocalInput(iso: string | null): string {

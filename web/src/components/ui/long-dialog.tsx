@@ -10,7 +10,10 @@ import { cn } from "@/lib/utils";
 export const longDialogContentClass = "flex max-h-[calc(100dvh-32px)] flex-col gap-0 overflow-hidden p-0";
 
 /** The same, for a bottom sheet on a phone (never taller than 92% of the screen). */
-export const longSheetContentClass = "flex max-h-[92dvh] flex-col gap-0 overflow-hidden p-0";
+export const longSheetContentClass =
+  // AVORA-59 · E: when the keyboard is up (iOS keeps the layout full height), the sheet stops
+  // above it, so the title stays at the top and Huỷ / Lưu sit right on the keyboard.
+  "flex max-h-[calc(92dvh-var(--keyboard-inset,0px))] flex-col gap-0 overflow-hidden p-0 mb-[var(--keyboard-inset,0px)] data-[state=open]:duration-300";
 
 export function LongDialogHeader({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
   return <div className={cn("shrink-0 border-b border-border px-5 pb-3.5 pt-5 pr-12", className)} {...props} />;

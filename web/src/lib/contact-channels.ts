@@ -633,6 +633,34 @@ export async function markContactReviewed(contactId: string): Promise<void> {
   if (error) throw fail(error.code, error.message);
 }
 
+const BULK_CHUNK = 100;
+
+/**
+ * `Giữ tất cả (N)` on Cần xem lại (AVORA-58 · 2): clears every flag the viewer still has and
+ * returns the ids it cleared, so `Hoàn tác` can put back exactly those and nothing else. RLS
+ * limits the update to the viewer's own contacts.
+ */
+export async function markAllChannelsReviewed(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("contact_channel")
+    .update({ needs_review: false })
+    .eq("needs_review", true)
+    .select("id");
+
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => (row as { id: string }).id);
+}
+
+/** Puts the review flag back on the given channels (the undo of `markAllChannelsReviewed`). */
+export async function restoreChannelReviewFlags(channelIds: readonly string[]): Promise<void> {
+  // Chunked: hundreds of ids in one `in.(…)` filter would outgrow a request URL.
+  for (let start = 0; start < channelIds.length; start += BULK_CHUNK) {
+    const slice = channelIds.slice(start, start + BULK_CHUNK);
+    const { error } = await supabase.from("contact_channel").update({ needs_review: true }).in("id", slice);
+    if (error) throw fail(error.code, error.message);
+  }
+}
+
 export async function renameChannel(channelId: string, label: string): Promise<void> {
   const trimmed = label.trim();
   const { error } = await supabase

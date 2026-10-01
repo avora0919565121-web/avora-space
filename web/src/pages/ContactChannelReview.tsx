@@ -1,6 +1,7 @@
 import { ArrowLeft, Check, Mail, Phone, Trash2 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
+import { toast } from "sonner";
 
 import { carryReturn, readReturn } from "@/lib/return-to";
 
@@ -46,7 +47,7 @@ const ContactChannelReview = () => {
   const back = { to: returnTo?.path ?? "/lien-he", label: returnTo?.label ?? "Liên hệ" };
   const { groups, isPending, isError, error } = useContactsNeedingReview();
   const shared = useSharedChannels();
-  const { confirm, remove, promote, isWorking } = useContactChannelActions();
+  const { confirm, remove, promote, keepAll, restoreFlags, isWorking } = useContactChannelActions();
   const { apply, isWorking: isFixing } = useSharedChannelFix();
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -78,6 +79,33 @@ const ContactChannelReview = () => {
     },
     [apply],
   );
+
+  /**
+   * AVORA-58 · 2: one press answers the whole list. The cleared ids ride in the toast so
+   * `Hoàn tác` puts back exactly those flags — nothing raised since then gets touched.
+   */
+  const keepEverything = useCallback(async (): Promise<void> => {
+    setNotice(null);
+    try {
+      const cleared = await keepAll();
+      if (cleared.length === 0) return;
+      toast(`Đã giữ ${cleared.length} số điện thoại và email`, {
+        duration: 8000,
+        action: {
+          label: "Hoàn tác",
+          onClick: () => {
+            void restoreFlags(cleared).catch((problem: unknown) => {
+              toast("Chưa hoàn tác được", { description: (problem as Error).message });
+            });
+          },
+        },
+      });
+    } catch (problem) {
+      setNotice((problem as Error).message);
+    }
+  }, [keepAll, restoreFlags]);
+
+  const pendingCount: number = groups.reduce((sum, group) => sum + group.channels.length, 0);
 
   const openContact = useCallback(
     (contactId: string): void => {
@@ -136,11 +164,23 @@ const ContactChannelReview = () => {
 
   return (
     <Shell backLabel={back.label} onBack={() => navigate(back.to)}>
-      <header>
-        <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Cần xem lại</h1>
-        <p className="mt-1 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-          AVORA không tự chọn giúp bạn — hãy giữ lại cái đúng và bỏ cái không còn dùng.
-        </p>
+      <header className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Cần xem lại</h1>
+          <p className="mt-1 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+            Không bắt buộc. AVORA không tự chọn giúp bạn — xem khi rảnh, hoặc giữ tất cả một lần.
+          </p>
+        </div>
+        {pendingCount > 0 ? (
+          <Button
+            className="press h-11 shrink-0 gap-1.5 px-4 text-[14px]"
+            disabled={isWorking}
+            onClick={() => void keepEverything()}
+          >
+            <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Giữ tất cả ({pendingCount})
+          </Button>
+        ) : null}
       </header>
 
       {notice !== null ? (

@@ -234,7 +234,7 @@ const SettingsPreferences = () => {
                 value={settings?.restWeekday ?? 0}
                 disabled={settings === undefined || isWorking}
                 onChange={(event) => saveReview({ restWeekday: Number(event.target.value) })}
-                className="h-10 rounded-md border border-border bg-background px-2 text-[14px]"
+                className="h-10 rounded-md border border-border bg-background px-2 text-[16px] md:text-[14px]"
               >
                 {["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"].map((label, index) => (
                   <option key={label} value={index}>{label}</option>
@@ -256,7 +256,7 @@ const SettingsPreferences = () => {
                   disabled={settings === undefined || settings.reviewDailyEnabled === false}
                   onChange={(event) => saveReview({ reviewDailyHour: Number(event.target.value) })}
                   aria-label="Giờ hiện"
-                  className="h-10 rounded-md border border-border bg-background px-2 text-[14px]"
+                  className="h-10 rounded-md border border-border bg-background px-2 text-[16px] md:text-[14px]"
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 12).map((hour) => (
                     <option key={hour} value={hour}>từ {hour}:00</option>

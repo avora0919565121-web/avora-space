@@ -117,7 +117,7 @@ export function NoteField({
         spellCheck
         placeholder="Điều bạn muốn nhớ về người này"
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1.5 w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+        className="mt-1.5 w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
       />
     </div>
   );

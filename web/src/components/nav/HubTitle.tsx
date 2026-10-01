@@ -24,16 +24,16 @@ export function HubTitle({
     <header className="relative z-10 shrink-0 border-b border-border/70 bg-background/92 backdrop-blur-sm">
       <div
         className={cn(
-          "mx-auto flex w-full items-end justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6",
+          "mx-auto flex w-full items-end justify-between gap-3 px-4 pb-3 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6 short:pb-1.5 short:pt-2 short:pr-[4.25rem]",
           className,
         )}
       >
         <div className="min-w-0">
-          <h1 className="truncate text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">
+          <h1 className="truncate text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px] short:text-[24px]">
             {title}
           </h1>
           {subtitle !== undefined ? (
-            <p className="mt-0.5 truncate text-[13.5px] text-muted-foreground">{subtitle}</p>
+            <p className="mt-0.5 truncate text-[13.5px] text-muted-foreground short:hidden">{subtitle}</p>
           ) : null}
         </div>
         {action !== undefined ? <div className="shrink-0">{action}</div> : null}

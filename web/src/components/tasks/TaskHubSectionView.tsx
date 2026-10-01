@@ -3,6 +3,8 @@ import { useMemo } from "react";
 import { toast } from "sonner";
 
 import { PERSONAL_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
+import { ownerStripeClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
+import { useTaskOwnership } from "@/lib/use-task-owner";
 import { celebrate } from "@/lib/confetti";
 import { localDayOf } from "@/lib/space-blocks";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
@@ -64,8 +66,9 @@ function TaskLine({ task, today, onOpen, trailing, canComplete = true, dayNote }
       ? `${dayLabel(localDayOf(task.startAt), today)} · ${task.requiresPresence ? "Có mặt lúc" : "Lúc"} ${clock(task.startAt)}${task.location !== null ? ` · ${task.location}` : ""}`
       : deadlineLabel(task.deadline, today) ?? "Không có hạn";
   const canFinish = canComplete && task.type === "personal" && trailing === undefined;
+  const owner = useTaskOwnership(task);
   return (
-    <div className="flex items-center border-t border-border first:border-t-0">
+    <div data-task-mine={owner.isMine ? "true" : "false"} className={cn("flex items-center border-t border-border first:border-t-0", ownerStripeClass(owner.isMine))}>
     {canFinish ? <DoneCircle task={task} /> : null}
     <button type="button" onClick={() => onOpen(task)} className={cn("press flex min-h-12 min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/30", canFinish && "pl-2")}>
       {task.requiresPresence ? <MapPin className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.8} aria-hidden="true" /> : null}
@@ -76,6 +79,7 @@ function TaskLine({ task, today, onOpen, trailing, canComplete = true, dayNote }
         <span className={cn("block text-[12px]", dayNote?.tone === "overdue" ? "font-medium text-task-overdue" : "text-muted-foreground")}>
           {dayNote?.text ?? trailing ?? meta}
         </span>
+        <TaskOwnerLine task={task} ownership={owner} className="mt-0.5" />
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
     </button>

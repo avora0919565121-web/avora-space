@@ -62,7 +62,7 @@ const ResetPassword = () => {
   const isChecking: boolean = isLoading && linkError === null;
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row">
+    <div className="flex min-h-[100dvh] flex-col md:flex-row">
       <section className="paper flex flex-col justify-center border-b border-border px-8 py-12 md:w-1/2 md:border-b-0 md:border-r md:px-16 lg:px-24">
         <div className="animate-rise-in">
           <span className="wordmark text-[22px] text-foreground">AVORA</span>
@@ -118,7 +118,7 @@ const ResetPassword = () => {
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     placeholder="••••••••"
-                    className="h-12 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/70"
+                    className="h-12 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/70"
                   />
                 </div>
 
@@ -135,7 +135,7 @@ const ResetPassword = () => {
                     value={confirmation}
                     onChange={(event) => setConfirmation(event.target.value)}
                     placeholder="••••••••"
-                    className="h-12 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/70"
+                    className="h-12 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/70"
                   />
                 </div>
 

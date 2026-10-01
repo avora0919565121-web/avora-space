@@ -120,6 +120,12 @@ function Notes({ list, isWide }: { list: Note[]; isWide: boolean }) {
 
 beforeEach(() => {
   window.localStorage.clear();
+  // The selection tests leave a live range and a scrolled document behind; a later popover
+  // would measure itself against that leftover scroll offset.
+  window.getSelection()?.removeAllRanges();
+  (document.activeElement as HTMLElement | null)?.blur?.();
+  window.scrollTo(0, 0);
+  document.scrollingElement?.scrollTo(0, 0);
 });
 
 test("52.A · the pane holds only the editor (the tree lives in the Nhật ký column)", async () => {
@@ -290,6 +296,10 @@ for (const [name, top, height] of [
 ] as const) {
   test(`${name} · the calendar is never cut off`, async () => {
     await page.viewport(1280, height);
+    // In the full run the frame is still at the previous file's size when `viewport()` resolves;
+    // the calendar then measures its room against a stale height. Wait until the frame really is
+    // the size this test is about.
+    await expect.poll(() => window.innerHeight).toBe(height);
     const screen = await render(<DateAt top={top} />);
     await userEvent.click(screen.getByRole("button", { name: /Ngày hạn/ }));
     const tuan = screen.getByRole("tab", { name: "Tuần" });

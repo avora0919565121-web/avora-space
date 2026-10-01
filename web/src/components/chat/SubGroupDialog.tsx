@@ -77,7 +77,7 @@ export function SubGroupDialog({
             autoFocus
             maxLength={120}
             onChange={(event) => setName(event.target.value)}
-            className="mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-primary"
+            className="mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-primary"
           />
         </label>
         {others.length > 0 ? (

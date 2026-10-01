@@ -155,7 +155,7 @@ export function TemplateGallery({
                   autoFocus
                   maxLength={120}
                   onChange={(event) => setName(event.target.value)}
-                  className="mt-1 h-11 w-full rounded-md border border-border bg-background px-3 text-[15px] outline-none focus:border-primary"
+                  className="mt-1 h-11 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[15px] outline-none focus:border-primary"
                 />
               </label>
               <label className="block">
@@ -164,7 +164,7 @@ export function TemplateGallery({
                   value={place}
                   disabled={lockPlace}
                   onChange={(event) => setPlace(event.target.value)}
-                  className="mt-1 h-11 w-full rounded-md border border-border bg-background px-3 text-[15px] outline-none focus:border-primary disabled:opacity-70"
+                  className="mt-1 h-11 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[15px] outline-none focus:border-primary disabled:opacity-70"
                 >
                   {places.map((item) => (
                     <option key={item.conversationId ?? PERSONAL} value={item.conversationId ?? PERSONAL}>

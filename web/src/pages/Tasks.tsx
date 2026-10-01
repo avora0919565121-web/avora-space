@@ -1,6 +1,10 @@
 import {
+  CalendarClock,
   CalendarDays,
   BookOpen,
+  StickyNote,
+  UserPlus,
+  UserRound,
   ChevronRight,
   FolderKanban,
   GripVertical,
@@ -46,6 +50,14 @@ import {
 } from "@/components/tasks/ScheduleFields";
 import { TaskComposer } from "@/components/tasks/TaskComposer";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { ownerCircleClass, ownerStripeClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
+import { AssignTaskFlow } from "@/components/tasks/AssignTaskFlow";
+import { PlusMenuButton } from "@/components/PlusMenuButton";
+import { askText } from "@/components/ConfirmHost";
+import { emptyBlock, saveNote } from "@/lib/notes";
+import { DIARY_VIEW_PARAM, diaryViewSlug } from "@/lib/diary-views";
+import { ensureJournalConversation } from "@/lib/chat";
+import { useTaskOwnership } from "@/lib/use-task-owner";
 import { BlockLoadError } from "@/components/RouteErrorBoundary";
 import { useComposerActions } from "@/lib/use-task-composer";
 import { AvoraSearchButton } from "@/components/search/AvoraSearch";
@@ -380,7 +392,7 @@ function PersonalRow({
   };
 
   return (
-    <li data-task-id={task.id} className="flex items-start gap-3 py-2">
+    <li data-task-id={task.id} data-task-mine="true" className={cn("-ml-3 flex items-start gap-3 py-2 pl-[9px]", ownerStripeClass(true))}>
       <TaskBubble
         state={PERSONAL_BUBBLE_STATE[task.status]}
         onClick={() => {
@@ -404,7 +416,8 @@ function PersonalRow({
         {/* A personal task is always the reader's own move — nobody else can carry it. */}
         <TaskTitle task={task} muted={false} voice="mine" />
         <TaskDescription task={task} />
-        <div className="mt-0.5 text-[12px]">
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
+          <TaskOwnerLine task={task} />
           <DeadlineChip task={task} today={today} category={categories.get(task.categoryId ?? "")} />
         </div>
       </button>
@@ -490,6 +503,7 @@ function SharedRow({
   const voice = taskVoice(task, userId);
   /** Set when this task was linked to a deliverable — then the project is its first context. */
   const projectOf = useTaskProjectLinks().get(task.id);
+  const owner = useTaskOwnership(task);
 
   return (
     <li
@@ -527,8 +541,10 @@ function SharedRow({
       }}
       tabIndex={draggable === true ? 0 : undefined}
       aria-label={draggable === true ? `${task.title} — kéo để đổi vị trí` : undefined}
+      data-task-mine={owner.isMine ? "true" : "false"}
       className={cn(
-        "flex flex-col gap-2 rounded-[10px] py-2 transition-colors sm:flex-row sm:items-start sm:gap-3",
+        "-ml-3 flex flex-col gap-2 rounded-r-[10px] py-2 pl-[9px] transition-colors sm:flex-row sm:items-start sm:gap-3",
+        ownerStripeClass(owner.isMine),
         draggable === true ? "cursor-grab active:cursor-grabbing" : "",
         isDragging === true ? "opacity-50" : "",
         isDropTarget === true ? "bg-accent/50 ring-1 ring-primary/40" : "",
@@ -542,7 +558,9 @@ function SharedRow({
             className="mt-1.5 hidden h-4 w-4 shrink-0 text-muted-foreground/60 sm:block"
           />
         ) : null}
-        <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
+        <span className={ownerCircleClass(owner.isMine)}>
+          <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
+        </span>
 
         {/* The text opens the task; dragging still belongs to the row around it. */}
         <button
@@ -554,6 +572,7 @@ function SharedRow({
           <TaskTitle task={task} muted={false} voice={voice} />
           <TaskDescription task={task} />
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
+            <TaskOwnerLine task={task} ownership={owner} />
             <DeadlineChip task={task} today={today} category={categories.get(task.categoryId ?? "")} />
             <span className="text-task-idle" aria-hidden="true">
               ·
@@ -1481,6 +1500,29 @@ export default function Tasks() {
     next.delete("moi");
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
+  const [newKind, setNewKind] = useState<"task" | "event">("task");
+  const [isAssignOpen, setIsAssignOpen] = useState<boolean>(false);
+  const openNew = useCallback((kind: "task" | "event"): void => {
+    setNewKind(kind);
+    setIsNewOpen(true);
+  }, []);
+  /**
+   * `Ghi chú nhanh`: only a title, no deadline. A task always carries a deadline (server rule),
+   * so this lands as a Ghi chép in Nhật ký instead — nothing half-made sits in the task list.
+   */
+  const quickNote = useCallback(async (): Promise<void> => {
+    const title = await askText({ title: "Ghi chú nhanh", body: "Chỉ cần một dòng, không có hạn.", confirmLabel: "Lưu", maxLength: 200 });
+    if (title === null || title.trim() === "") return;
+    try {
+      await saveNote({ id: crypto.randomUUID(), folderId: null, title: title.trim(), blocks: [emptyBlock()], tags: [], bookRecordId: null });
+      const journal = await ensureJournalConversation();
+      toast.success("Đã lưu vào Ghi chép", {
+        action: { label: "Mở", onClick: () => navigate(`/tin-nhan/${journal}?${DIARY_VIEW_PARAM}=${diaryViewSlug("notes")}`) },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Chưa lưu được ghi chú.");
+    }
+  }, [navigate]);
   const newTaskDeadline: string | undefined =
     hubSection.id === "my_day" ? today : hubSection.id === "calendar" && calendarAnchor >= today ? calendarAnchor : undefined;
 
@@ -1648,18 +1690,11 @@ export default function Tasks() {
    * Lịch never edits. A task with a conversation goes back to where it was agreed; a personal
    * task with no thread opens in Nhiệm vụ — the calendar itself stays read-only.
    */
-  const openFromCalendar = useCallback(
-    (task: TaskItem): void => {
-      const target = taskContextTarget(task, projectIndex);
-      if (target !== null) {
-        navigate(contextLinkFromTasks(target.conversationId, task.id, window.location));
-        return;
-      }
-      // AVORA-53 · 2.8: the detail opens right over Lịch; closing it leaves the same day and view.
-      setOpenTaskId(task.id);
-    },
-    [navigate, projectIndex],
-  );
+  const openFromCalendar = useCallback((task: TaskItem): void => {
+    // ADR-038: the detail opens right over Lịch and its owner acts there; closing it leaves
+    // the same day and view. The conversation stays one tap away inside the detail.
+    setOpenTaskId(task.id);
+  }, []);
 
   const { data: conversations } = useConversations();
   const namedGroups = useMemo<NamedGroup[]>(() => {
@@ -1688,14 +1723,19 @@ export default function Tasks() {
           // AVORA-57 · E: Tìm kiếm first, the main `+` outermost on the right.
           <div className="flex items-center gap-1.5">
             <AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />
-            <button
-              type="button"
-              onClick={() => setIsNewOpen(true)}
-              className="icon-btn icon-btn-primary h-11 gap-1.5 px-4 text-[14px] font-semibold"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-              Nhiệm vụ
-            </button>
+            {/* AVORA-60 · D: the shared `+` — tap = a task for me, hold / ▾ = what kind. */}
+            <PlusMenuButton
+              label="Thêm nhiệm vụ"
+              tapLabel="giữ để chọn loại"
+              onTap={() => openNew("task")}
+              hintKey="task_plus_hold"
+              entries={[
+                { id: "mine", label: "Nhiệm vụ cho tôi", icon: UserRound, onSelect: () => openNew("task") },
+                { id: "assign", label: "Giao việc cho người khác", icon: UserPlus, onSelect: () => setIsAssignOpen(true) },
+                { id: "event", label: "Sự kiện", icon: CalendarClock, onSelect: () => openNew("event") },
+                { id: "note", label: "Ghi chú nhanh", icon: StickyNote, onSelect: () => void quickNote() },
+              ]}
+            />
           </div>
         }
       />
@@ -1831,9 +1871,12 @@ export default function Tasks() {
         saved inside it, or the other side moving the task along, is reflected immediately
         instead of freezing whatever was clicked.
       */}
+      <AssignTaskFlow open={isAssignOpen} onOpenChange={setIsAssignOpen} />
       <TaskComposer
+        key={newKind}
         open={isNewOpen}
         onOpenChange={setIsNewOpen}
+        startWithEvent={newKind === "event"}
         place="personal"
         initial={newTaskDeadline !== undefined ? { deadline: newTaskDeadline } : undefined}
         onCreateMine={async (values) => {

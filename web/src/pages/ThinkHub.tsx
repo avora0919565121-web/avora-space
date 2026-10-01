@@ -778,7 +778,7 @@ const ThinkHub = () => {
                       if (event.key === "Enter") void savePurpose();
                       if (event.key === "Escape") setIsEditingPurpose(false);
                     }}
-                    className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[14px] text-foreground outline-none focus:border-primary"
+                    className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[16px] md:text-[14px] text-foreground outline-none focus:border-primary"
                   />
                   <button
                     type="button"

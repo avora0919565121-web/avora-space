@@ -252,7 +252,7 @@ export function ReviewSheet({
                   rows={2}
                   maxLength={1000}
                   placeholder="Không bắt buộc"
-                  className="mt-1.5 w-full resize-y rounded-[10px] border border-border bg-card px-3 py-2 text-[14.5px] outline-none focus:border-primary"
+                  className="mt-1.5 w-full resize-y rounded-[10px] border border-border bg-card px-3 py-2 text-[16px] md:text-[14.5px] outline-none focus:border-primary"
                 />
                 {kind === "week" && index === 2 && focusChoices.length > 0 ? (
                   <div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Chọn một Hạng mục để đánh sao">

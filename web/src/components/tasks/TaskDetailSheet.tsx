@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink, Loader2, Lock, MapPin, MessagesSquare, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, Check, ExternalLink, Loader2, Lock, MapPin, MessagesSquare, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,6 +13,9 @@ import { ownedTaskIds } from "@/lib/task-suggestions";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { MyDayButton, StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
 import { TaskPrepPanel } from "@/components/tasks/TaskPrepPanel";
+import { ownerCircleClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
+import { usePeopleNames } from "@/lib/use-task-owner";
+import { taskOwnership } from "@/lib/task-owner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -91,6 +94,21 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
+/** The one orange button of the detail (ADR-038). */
+function PrimaryAction({ label, isWorking, onClick }: { label: string; isWorking: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={isWorking}
+      className="press flex h-11 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-60"
+    >
+      {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Check className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />}
+      {label}
+    </button>
+  );
+}
+
 /** A quiet "＋ Thêm …" for an empty part, only for someone who may edit. */
 function AddRow({ label, onClick }: { label: string; onClick: () => void }) {
   return (
@@ -144,7 +162,8 @@ export function TaskDetailSheet({
   const navigate = useNavigate();
   const flags = useTaskFlagIndex();
   const { setFlag } = useTaskFlagActions();
-  const { togglePersonalDone, binPersonal, deleteShared, restoreShared } = useTaskActions();
+  const { togglePersonalDone, binPersonal, deleteShared, restoreShared, confirmShared, markSharedDone, reviewSharedDone } = useTaskActions();
+  const { nameOf, peerOf } = usePeopleNames();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isCompleteOpen, setIsCompleteOpen] = useState<boolean>(false);
   const [isForwarding, setIsForwarding] = useState<boolean>(false);
@@ -173,11 +192,17 @@ export function TaskDetailSheet({
   const progress = formatProgress(task.progressPercent);
   const showPrivate = !isOwned || isAssignee;
 
-  const awaitsDecision =
-    canConfirmSharedTask(task, userId) ||
-    canMarkSharedDone(task, userId) ||
-    canReviewSharedDone(task, userId) ||
-    canReturnSharedTask(task, userId);
+  const owner = taskOwnership(task, userId, nameOf, peerOf);
+  /*
+   * ADR-038 (AVORA-59 · A): the doer acts right here, wherever the task was opened. The same
+   * server steps as in the chat run behind each button — `Xong` on shared work is the "báo xong"
+   * claim, and the one who gave it still confirms. Nothing skips the giver.
+   */
+  const canAccept = canConfirmSharedTask(task, userId);
+  const canClaimDone = canMarkSharedDone(task, userId);
+  const canConfirmDone = canReviewSharedDone(task, userId);
+  const canFinishOwn = !shared && task.creatorId === userId && !done && task.status !== "skipped";
+  void canReturnSharedTask;
 
   const snapshot = task.contextSnapshot;
   const sourceLabel: string | null =
@@ -193,18 +218,17 @@ export function TaskDetailSheet({
               ? `Từ ${snapshot.conversationName === "Nhật ký của bạn" ? "Nhật ký của tôi" : snapshot.conversationName}`
               : null;
 
+  // AVORA-59 · B: real display names, never "Người khác", never an email.
+  void isTaskAssignee;
   const assignLabel: string =
     task.type === "personal"
-      ? "Chỉ bạn"
+      ? "Tôi"
       : isOwned && !isAssignee
-        ? "Bạn đã gợi ý · người nhận đã đồng ý"
-        : isOwned
-          ? "Do người khác gợi ý · việc của bạn"
-          : task.creatorId === userId
-            ? "Bạn giao"
-            : isTaskAssignee(task, userId)
-              ? "Người khác giao cho bạn"
-              : "Việc trong nhóm";
+        ? `${owner.line.replace(/^Giao /, "")} · đã đồng ý gợi ý của tôi`
+        : owner.line
+            .replace(/^Của tôi · từ (.+)$/, "Tôi · do $1 giao")
+            .replace(/^Của tôi$/, "Tôi")
+            .replace(/^Giao /, "");
 
   const start = task.startAt === null ? null : new Date(task.startAt);
   const end = task.endAt === null ? null : new Date(task.endAt);
@@ -213,7 +237,28 @@ export function TaskDetailSheet({
   const departure = showPrivate ? departureTimes(task.startAt, travel.travelMinutes, travel.reminderOffsetMinutes) : null;
   const location = task.location?.trim() ?? "";
 
+  const runStep = (step: Promise<unknown>, success: string, celebrateAfter = false): void => {
+    void step
+      .then(() => {
+        toast.success(success);
+        if (celebrateAfter) celebrate(task.isMilestone ? "milestone" : "task", { taskId: task.id });
+      })
+      .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra. Thử lại nhé."));
+  };
+
   const complete = (output: string | null): void => {
+    if (canClaimDone) {
+      // Shared work: the same "báo xong" as the chat panel; the giver confirms after.
+      void markSharedDone
+        .mutateAsync({ taskId: task.id, output })
+        .then(() => {
+          setIsCompleteOpen(false);
+          toast.success(`Đã báo xong — chờ ${nameOf(task.creatorId)} xác nhận.`);
+          celebrate(task.isMilestone ? "milestone" : "task", { taskId: task.id });
+        })
+        .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không báo xong được."));
+      return;
+    }
     void togglePersonalDone
       .mutateAsync({ taskId: task.id, done: true, output })
       .then(() => {
@@ -276,18 +321,23 @@ export function TaskDetailSheet({
     >
       <SheetContent side="right" className="flex w-full flex-col gap-0 p-0 sm:max-w-md">
         <SheetTitle className="sr-only">Chi tiết nhiệm vụ</SheetTitle>
-        <SheetDescription className="sr-only">
-          Xem nhiệm vụ theo đúng thứ tự lúc tạo. Nhận việc và xác nhận hoàn thành nằm trong cuộc trò chuyện.
-        </SheetDescription>
+        <SheetDescription className="sr-only">Xem nhiệm vụ theo đúng thứ tự lúc tạo và làm luôn tại đây.</SheetDescription>
 
         <div className="min-h-0 flex-1 overflow-y-auto px-5 pb-4 pt-0">
           {/* 44b · H4 / AVORA-50 · C: the task's name stays in view while the details scroll. */}
-          <div className="sticky top-0 z-10 -mx-5 flex items-start gap-3 border-b border-border/60 bg-background px-5 pb-3 pr-12 pt-[max(1.5rem,env(safe-area-inset-top))]">
-            <TaskBubble
-              state={shared ? SHARED_BUBBLE_STATE[task.status] : PERSONAL_BUBBLE_STATE[task.status]}
-              label={taskStatusLabel(task.status)}
-              onClick={shared || done ? undefined : () => setIsCompleteOpen(true)}
-            />
+          {/*
+            AVORA-59 · F: on a phone the panel's own `‹` bar (sheet.tsx) sits above this and owns the
+            notch inset, so this title row starts right under it instead of padding for the notch
+            a second time.
+          */}
+          <div className="sticky top-0 z-10 -mx-5 flex items-start gap-3 border-b border-border/60 bg-background px-5 pb-3 pt-3 md:pr-12 md:pt-[max(1.5rem,env(safe-area-inset-top))]">
+            <span className={ownerCircleClass(owner.isMine)}>
+              <TaskBubble
+                state={shared ? SHARED_BUBBLE_STATE[task.status] : PERSONAL_BUBBLE_STATE[task.status]}
+                label={taskStatusLabel(task.status)}
+                onClick={canFinishOwn || canClaimDone ? () => setIsCompleteOpen(true) : undefined}
+              />
+            </span>
             <div className="min-w-0 flex-1">
               <h2 className={cn("text-[17px] font-semibold leading-6", done ? "text-muted-foreground line-through" : "text-foreground")}>
                 {task.title}
@@ -296,11 +346,11 @@ export function TaskDetailSheet({
                 <span className={done ? undefined : "font-medium text-foreground"}>
                   {shared ? sharedTaskNote(task, userId) : taskStatusLabel(task.status)}
                 </span>
-                {" · "}
-                {TIER_LABELS[taskTier(task, userId)]}
+                {/* AVORA-59 · B: whose it is is said once, by name, in the line below. */}
                 {task.isMilestone ? " · Cột mốc" : ""}
                 {progress !== null ? ` · ${progress}` : ""}
               </p>
+              <TaskOwnerLine task={task} ownership={owner} className="mt-1" />
             </div>
           </div>
 
@@ -436,27 +486,40 @@ export function TaskDetailSheet({
           </div>
 
           {!canEdit && blocked !== null ? <p className="mt-3 text-[12px] leading-5 text-muted-foreground">{blocked}</p> : null}
-          {awaitsDecision ? (
-            <p className="mt-3 rounded-[10px] border border-border bg-secondary/40 px-3 py-2.5 text-[12px] leading-5 text-muted-foreground">
-              Nhiệm vụ này đang chờ bạn quyết định. Nhận việc, báo xong và xác nhận hoàn thành nằm trong cuộc trò chuyện — nơi cả hai
-              bên cùng thấy điều đã thống nhất.
-            </p>
-          ) : null}
         </div>
 
         {/* Pinned: never scrolled away. */}
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border bg-background px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
-          <MyDayButton task={task} />
-          <StartButton task={task} />
-          {/* AVORA-53 · 4.8: while the decision waits, the conversation is where it is made — so it is the main button. */}
-          {awaitsDecision && target !== null ? (
+          {/* ADR-038: the one orange button follows the viewer's role. */}
+          {canAccept ? (
+            <PrimaryAction
+              label="Nhận việc"
+              isWorking={confirmShared.isPending}
+              onClick={() => runStep(confirmShared.mutateAsync(task.id), "Đã nhận việc.")}
+            />
+          ) : canClaimDone || canFinishOwn ? (
+            <PrimaryAction label="Xong" isWorking={markSharedDone.isPending || togglePersonalDone.isPending} onClick={() => setIsCompleteOpen(true)} />
+          ) : canConfirmDone ? (
+            <PrimaryAction
+              label="Xác nhận xong"
+              isWorking={reviewSharedDone.isPending}
+              onClick={() => runStep(reviewSharedDone.mutateAsync(task.id), "Đã xác nhận hoàn thành.", true)}
+            />
+          ) : null}
+          {owner.isMine && !done ? (
+            <>
+              <MyDayButton task={task} />
+              <StartButton task={task} />
+            </>
+          ) : null}
+          {target !== null ? (
             <button
               type="button"
               onClick={() => {
                 close();
                 navigate(contextLinkFromTasks(target.conversationId, task.id, window.location));
               }}
-              className="press flex h-11 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[13.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="press flex h-11 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
             >
               <MessagesSquare className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
               Mở cuộc trò chuyện
@@ -536,8 +599,8 @@ export function TaskDetailSheet({
           task={task}
           open={isCompleteOpen}
           onOpenChange={setIsCompleteOpen}
-          confirmLabel="Hoàn thành"
-          isWorking={togglePersonalDone.isPending}
+          confirmLabel={canClaimDone ? "Báo xong" : "Hoàn thành"}
+          isWorking={togglePersonalDone.isPending || markSharedDone.isPending}
           onComplete={complete}
         />
         <TaskEditComposer

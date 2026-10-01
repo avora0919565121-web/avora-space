@@ -443,7 +443,7 @@ export function ApplyTemplateRow({
         value={pickedId}
         onChange={(event) => setPickedId(event.target.value)}
         aria-label="Chọn mẫu"
-        className="h-9 rounded-md border border-border bg-background px-2 text-[13.5px]"
+        className="h-9 rounded-md border border-border bg-background px-2 text-[16px] md:text-[13.5px]"
       >
         <option value="">Chọn mẫu…</option>
         {choices.map((template) => (

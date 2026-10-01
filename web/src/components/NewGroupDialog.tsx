@@ -95,7 +95,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated, onConnectByPin }
               maxLength={120}
               onChange={(event) => setName(event.target.value)}
               placeholder="Ví dụ: Nhóm dự án AVORA"
-              className="mt-1.5 h-11 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+              className="mt-1.5 h-11 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
             />
           </label>
         </div>
@@ -112,7 +112,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated, onConnectByPin }
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm theo tên hoặc PIN"
-              className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+              className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
             />
           </label>
         </div>

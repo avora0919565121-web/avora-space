@@ -6,6 +6,8 @@ import { SkipSuggestionDialog } from "@/components/chat/SkipSuggestionDialog";
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import { TaskEditComposer } from "@/components/tasks/TaskEditComposer";
+import { ownerCircleClass, ownerStripeClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
+import { useTaskOwnership } from "@/lib/use-task-owner";
 import { ownedTaskIds } from "@/lib/task-suggestions";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { useAuth } from "@/lib/auth";
@@ -274,6 +276,7 @@ function ChatTaskRow({
   // between scanning your own work and reading the room's.
   const voice = taskVoice(task, userId);
   const settled = task.status === "done" || task.status === "skipped";
+  const owner = useTaskOwnership(task);
 
   const run = async (action: Promise<unknown>): Promise<void> => {
     try {
@@ -337,13 +340,17 @@ function ChatTaskRow({
     <li
       id={`task-${task.id}`}
       data-task-id={task.id}
+      data-task-mine={owner.isMine ? "true" : "false"}
       className={cn(
         "rounded-[10px] border px-3 py-2.5 transition-colors",
         isHighlighted ? "border-primary bg-primary/5" : "border-border bg-card",
+        ownerStripeClass(owner.isMine),
       )}
     >
       <div className="flex items-start gap-3">
-        <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
+        <span className={ownerCircleClass(owner.isMine)}>
+          <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
+        </span>
         <div className="min-w-0 flex-1">
           {(
             <>
@@ -364,7 +371,8 @@ function ChatTaskRow({
                 </p>
               ) : null}
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px] text-muted-foreground">
-                <span>Giao cho {assigneeLabel(task, members, peerName, userId)}</span>
+                <TaskOwnerLine task={task} ownership={owner} />
+                <span className="sr-only">Giao cho {assigneeLabel(task, members, peerName, userId)}</span>
                 {deadline !== null ? (
                   <>
                     <span aria-hidden="true">·</span>

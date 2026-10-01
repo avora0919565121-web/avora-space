@@ -26,7 +26,7 @@ import { cn } from "@/lib/utils";
  */
 
 const SELECT_CLASS =
-  "h-10 w-full appearance-none rounded-md border border-border bg-card bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pl-3 pr-9 text-[13.5px] text-foreground outline-none transition-colors focus:border-primary/60";
+  "h-10 w-full appearance-none rounded-md border border-border bg-card bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pl-3 pr-9 text-[16px] md:text-[13.5px] text-foreground outline-none transition-colors focus:border-primary/60";
 
 /** Drawn in the border colour so a native select still reads as AVORA paper. */
 const SELECT_CHEVRON =

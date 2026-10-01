@@ -3,6 +3,8 @@ import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react"
 import { Link } from "react-router-dom";
 
 import { FadeIn } from "@/components/tasks/FadeIn";
+import { ownerStripeClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
+import { useTaskOwnership } from "@/lib/use-task-owner";
 import { useAuth } from "@/lib/auth";
 import {
   CALENDAR_MODES,
@@ -61,6 +63,45 @@ function CellMark({ entry }: { entry: CalendarEntry }) {
   );
 }
 
+/** One row of a day: who it belongs to at a glance (AVORA-59 · B) and a tap that opens it. */
+function CalendarRow({
+  entry,
+  isCompact,
+  isOpen,
+  onTap,
+}: {
+  entry: CalendarEntry;
+  isCompact: boolean;
+  isOpen: boolean;
+  onTap: () => void;
+}) {
+  const owner = useTaskOwnership(entry.task);
+  return (
+    <button
+      type="button"
+      onClick={onTap}
+      aria-expanded={isOpen}
+      data-calendar-kind={entry.kind}
+      data-task-mine={owner.isMine ? "true" : "false"}
+      className={cn(
+        "press flex w-full items-center gap-3 text-left transition-colors hover:bg-accent/30",
+        isCompact ? "min-h-10 px-3 py-1.5" : "min-h-12 px-4 py-2.5",
+        ownerStripeClass(owner.isMine),
+        entry.kind === "block" && "bg-primary/[0.06]",
+      )}
+    >
+      <EntryIcon entry={entry} />
+      <span className="tabular w-[84px] shrink-0 text-[12px] text-muted-foreground">{entryTime(entry)}</span>
+      <span className="min-w-0 flex-1">
+        <span className={cn("block truncate text-[14px]", isDone(entry) ? "text-muted-foreground line-through" : "font-medium text-foreground")}>
+          {entry.task.title}
+        </span>
+        <TaskOwnerLine task={entry.task} ownership={owner} />
+      </span>
+    </button>
+  );
+}
+
 function entryTime(entry: CalendarEntry): string {
   if (entry.kind === "block") return entry.endAt !== null ? `${clock(entry.startAt)} – ${clock(entry.endAt)}` : clock(entry.startAt);
   return entry.time ?? "Cả ngày";
@@ -110,24 +151,14 @@ function DayList({
             const isOpen = openId === entry.task.id;
             return (
               <li key={`${entry.kind}-${entry.task.id}`} className="border-t border-border first:border-t-0">
-                <button
-                  type="button"
-                  onClick={() => setOpenId(isOpen ? null : entry.task.id)}
-                  aria-expanded={isOpen}
-                  data-calendar-kind={entry.kind}
-                  className={cn(
-                    "press flex w-full items-center gap-3 text-left transition-colors hover:bg-accent/30",
-                    isCompact ? "min-h-10 px-3 py-1.5" : "min-h-12 px-4 py-2.5",
-                    entry.kind === "block" && "border-l-[3px] border-l-primary bg-primary/[0.06]",
-                  )}
-                >
-                  <EntryIcon entry={entry} />
-                  <span className="tabular w-[84px] shrink-0 text-[12px] text-muted-foreground">{entryTime(entry)}</span>
-                  <span className={cn("min-w-0 flex-1 truncate text-[14px]", isDone(entry) ? "text-muted-foreground line-through" : "font-medium text-foreground")}>
-                    {entry.task.title}
-                  </span>
-                </button>
-                {isOpen ? (
+                <CalendarRow
+                  entry={entry}
+                  isCompact={isCompact}
+                  isOpen={isOpen}
+                  // ADR-038: a tap opens the task itself, where its owner can act on it.
+                  onTap={() => (onOpenContext !== undefined ? onOpenContext(entry.task) : setOpenId(isOpen ? null : entry.task.id))}
+                />
+                {isOpen && onOpenContext === undefined ? (
                   <FadeIn className="space-y-2 bg-secondary/30 px-4 pb-3 pt-2">
                     <p className="text-[12px] text-muted-foreground">
                       {entry.kind === "block" ? (entry.task.requiresPresence ? "Sự kiện — cần bạn có mặt" : "Sự kiện") : "Hạn chót"}
@@ -387,6 +418,8 @@ export type CalendarViewProps = {
   density?: "full" | "compact";
   /** Compact: where "Mở ngày này trong Lịch" goes for a given day. */
   dayHref?: (day: string) => string;
+  /** AVORA-60 · B: keep only some tasks (e.g. those shared with one person). */
+  taskFilter?: (task: TaskItem) => boolean;
 };
 
 /**
@@ -410,6 +443,7 @@ export function CalendarView({
   externalEntries = [],
   density = "full",
   dayHref,
+  taskFilter,
 }: CalendarViewProps) {
   const isCompact = density === "compact";
   const { user } = useAuth();
@@ -418,8 +452,9 @@ export function CalendarView({
 
   const days = useMemo(() => {
     const span = daysBetween(range.from, range.to).length;
-    return calendarProjection(tasks ?? [], user?.id, range.from, span, { includeDone: true });
-  }, [tasks, user?.id, range.from, range.to]);
+    const shown = taskFilter === undefined ? (tasks ?? []) : (tasks ?? []).filter(taskFilter);
+    return calendarProjection(shown, user?.id, range.from, span, { includeDone: true });
+  }, [tasks, user?.id, range.from, range.to, taskFilter]);
   const byDay = useMemo(() => new Map<string, CalendarDay>(days.map((day) => [day.day, day])), [days]);
   const selectedDay: CalendarDay = byDay.get(anchor) ?? { day: anchor, entries: [] };
   const offered = CALENDAR_MODES.filter((option) => modes === undefined || modes.includes(option.id));

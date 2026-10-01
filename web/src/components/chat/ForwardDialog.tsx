@@ -118,7 +118,7 @@ export function ForwardDialog({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm cuộc trò chuyện…"
               aria-label="Tìm nơi nhận"
-              className="h-11 w-full rounded-md border border-border bg-card pl-9 pr-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+              className="h-11 w-full rounded-md border border-border bg-card pl-9 pr-3 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
             />
           </div>
         </div>

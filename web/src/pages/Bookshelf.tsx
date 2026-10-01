@@ -167,7 +167,7 @@ const Bookshelf = () => {
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-card px-3">
               <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm sách, tác giả…" aria-label="Tìm sách" className="min-w-0 flex-1 bg-transparent text-[14.5px] outline-none" />
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm sách, tác giả…" aria-label="Tìm sách" className="min-w-0 flex-1 bg-transparent text-[16px] md:text-[14.5px] outline-none" />
             </label>
             <button type="button" onClick={() => navigate(withReturn(`/ke-hoach?bang=${shelf.id}`, hereFrom(location, "Kệ sách")))} className="press inline-flex h-10 items-center gap-1.5 rounded-md border border-border px-3 text-[13.5px]">
               <Table2 className="h-4 w-4" aria-hidden="true" /> Xem dạng bảng
@@ -263,7 +263,7 @@ const Bookshelf = () => {
                   defaultValue={field(opened, keys.position)}
                   placeholder="40% · trang 120/300 · chương 5"
                   onBlur={(event) => event.target.value !== field(opened, keys.position) && patchField(opened, keys.position, event.target.value)}
-                  className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-[14.5px] outline-none focus:border-primary"
+                  className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-primary"
                 />
               </label>
               <label className="block">
@@ -273,7 +273,7 @@ const Bookshelf = () => {
                   rows={3}
                   defaultValue={field(opened, keys.lesson)}
                   onBlur={(event) => event.target.value !== field(opened, keys.lesson) && patchField(opened, keys.lesson, event.target.value)}
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[14.5px] outline-none focus:border-primary"
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] md:text-[14.5px] outline-none focus:border-primary"
                 />
               </label>
               <div className="flex flex-wrap gap-2">

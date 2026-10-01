@@ -85,7 +85,7 @@ export function ProjectTaskDialog({
               id="composer-project-record"
               value={recordId ?? ""}
               onChange={(event) => setRecordId(event.target.value === "" ? null : event.target.value)}
-              className="h-11 w-full rounded-[10px] border border-input bg-card px-3 text-[14px] text-foreground outline-none focus:border-muted-foreground"
+              className="h-11 w-full rounded-[10px] border border-input bg-card px-3 text-[16px] md:text-[14px] text-foreground outline-none focus:border-muted-foreground"
             >
               <option value="">Không thuộc Hạng mục nào (việc phát sinh)</option>
               {records.map((entry) => (

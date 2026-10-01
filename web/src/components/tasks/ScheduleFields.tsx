@@ -28,7 +28,7 @@ import {
 import { TASK_VIEW_LABELS, type TaskViewMode } from "@/lib/tasks";
 
 const CONTROL_CLASS =
-  "w-full rounded-[10px] border border-input bg-card px-3 text-[14px] text-foreground outline-none focus:border-muted-foreground";
+  "w-full rounded-[10px] border border-input bg-card px-3 text-[16px] md:text-[14px] text-foreground outline-none focus:border-muted-foreground";
 
 function OptionalLabel({ htmlFor, children }: { htmlFor: string; children: React.ReactNode }) {
   return (

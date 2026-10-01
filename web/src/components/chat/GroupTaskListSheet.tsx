@@ -3,6 +3,8 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
+import { ownerCircleClass, ownerStripeClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
+import { useTaskOwnership } from "@/lib/use-task-owner";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
@@ -438,16 +440,38 @@ function EntryRow({
       </li>
     );
   }
-  const task: TaskItem = entry.task;
+  return <TaskEntryRow entry={entry} task={entry.task} today={today} assignee={assignee} onOpen={onOpen} originNote={originNote} />;
+}
+
+/** A real task row — its own component so the ownership hook always runs (AVORA-59 · B). */
+function TaskEntryRow({
+  entry,
+  task,
+  today,
+  assignee,
+  onOpen,
+  originNote,
+}: {
+  entry: TaskListEntry;
+  task: TaskItem;
+  today: string;
+  assignee: (id: string | null) => string;
+  onOpen: (entry: TaskListEntry) => void;
+  originNote: string | null;
+}) {
   const deadline = deadlineLabel(task.deadline, today);
+  const owner = useTaskOwnership(task);
   return (
     <li>
       <button
         type="button"
         onClick={() => onOpen(entry)}
-        className="press flex w-full items-start gap-3 rounded-[10px] border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-accent/40"
+        data-task-mine={owner.isMine ? "true" : "false"}
+        className={cn("press flex w-full items-start gap-3 rounded-[10px] border border-border bg-card px-3 py-2.5 text-left transition-colors hover:bg-accent/40", ownerStripeClass(owner.isMine))}
       >
-        <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
+        <span className={ownerCircleClass(owner.isMine)}>
+          <TaskBubble state={SHARED_BUBBLE_STATE[task.status]} label={taskStatusLabel(task.status)} />
+        </span>
         <span className="min-w-0 flex-1">
           <span
             className={cn(
@@ -458,7 +482,8 @@ function EntryRow({
             {task.title}
           </span>
           <span className="mt-1 flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
-            <span>{assignee(task.assigneeId)}</span>
+            <TaskOwnerLine task={task} ownership={owner} />
+            <span className="sr-only">{assignee(task.assigneeId)}</span>
             <span aria-hidden="true">·</span>
             <span>{taskStatusLabel(task.status)}</span>
             {deadline !== null ? (

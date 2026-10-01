@@ -47,7 +47,7 @@ import { sendToRecipients, type ComposerValues } from "@/lib/use-task-composer";
 import { cn } from "@/lib/utils";
 
 const FIELD =
-  "w-full rounded-[10px] border border-input bg-card px-3 text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-muted-foreground";
+  "w-full rounded-[10px] border border-input bg-card px-3 text-[16px] md:text-[15px] text-foreground outline-none placeholder:text-muted-foreground focus:border-muted-foreground";
 
 /** The one line at the top that says where the task came from, and opens to show it. */
 export type ComposerSource = {
@@ -86,6 +86,10 @@ export type TaskComposerProps = {
   onSave?: (values: ComposerValues) => Promise<void>;
   /** Called after a successful create, with who received it. */
   onCreated?: (recipients: Recipients) => void;
+  /** `+ › Sự kiện` (AVORA-60 · D): open with the Sự kiện block already unfolded. */
+  startWithEvent?: boolean;
+  /** `+ › Giao việc cho người khác`: open with Giao cho already on the other person. */
+  startChoice?: RecipientChoice;
 };
 
 type Draft = {
@@ -169,6 +173,8 @@ function ComposerBody({
   onPropose,
   onSave,
   onCreated,
+  startWithEvent = false,
+  startChoice,
 }: TaskComposerProps) {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -178,11 +184,11 @@ function ComposerBody({
   const isEdit = mode !== "create";
 
   const [draft, setDraft] = useState<Draft>(() => draftFrom(initial));
-  const [choice, setChoice] = useState<RecipientChoice>(() => (isEdit ? "me" : initialChoice(place)));
+  const [choice, setChoice] = useState<RecipientChoice>(() => (isEdit ? "me" : (startChoice ?? initialChoice(place))));
   const [pickedIds, setPickedIds] = useState<string[]>([]);
   const [isSourceOpen, setIsSourceOpen] = useState<boolean>(source?.defaultOpen ?? false);
   const [openBlock, setOpenBlock] = useState<Record<"event" | "presence" | "note", boolean>>(() => ({
-    event: isEdit && (initial?.startAt ?? null) !== null,
+    event: startWithEvent || (isEdit && (initial?.startAt ?? null) !== null),
     presence: isEdit && (initial?.requiresPresence ?? false),
     note: isEdit && (initial?.description ?? "").trim() !== "",
   }));
@@ -532,7 +538,7 @@ function ComposerBody({
                 maxLength={300}
                 onChange={(event) => patch({ location: event.target.value })}
                 placeholder="Văn phòng, quán cà phê, hoặc link họp"
-                className={cn(FIELD, "h-11 text-[14px]")}
+                className={cn(FIELD, "h-11 text-[16px] md:text-[14px]")}
               />
             </div>
             {draft.startAt !== "" || draft.location !== "" ? (
@@ -576,7 +582,7 @@ function ComposerBody({
                   maxLength={300}
                   onChange={(event) => patch({ location: event.target.value })}
                   placeholder={`Ghi địa điểm để ${firstOtherName} khỏi phải hỏi lại`}
-                  className={cn(FIELD, "h-11 text-[14px]")}
+                  className={cn(FIELD, "h-11 text-[16px] md:text-[14px]")}
                 />
               </div>
             ) : null}
@@ -607,7 +613,7 @@ function ComposerBody({
                         patch({ travelMinutes: Number.isFinite(minutes) && minutes <= 1440 ? minutes : null });
                       }}
                       placeholder="Khác"
-                      className="h-10 w-[72px] rounded-full border border-border bg-card px-3 text-center text-[13px] outline-none focus:border-muted-foreground"
+                      className="h-10 w-[72px] rounded-full border border-border bg-card px-3 text-center text-[16px] md:text-[13px] outline-none focus:border-muted-foreground"
                     />
                   </div>
                 </div>
@@ -648,7 +654,7 @@ function ComposerBody({
               onChange={(event) => patch({ description: event.target.value })}
               onKeyDown={noteKeyDown}
               placeholder="Điều cần nhớ, cần làm… Gõ “- ” để gạch đầu dòng"
-              className={cn(FIELD, "resize-y py-2.5 text-[14px] leading-6")}
+              className={cn(FIELD, "resize-y py-2.5 text-[16px] md:text-[14px] leading-6")}
             />
           </FoldRow>
         </div>

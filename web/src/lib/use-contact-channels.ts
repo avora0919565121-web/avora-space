@@ -10,8 +10,10 @@ import {
   deleteContactChannel,
   detachContactChannel,
   fetchContactChannels,
+  markAllChannelsReviewed,
   markChannelReviewed,
   markContactReviewed,
+  restoreChannelReviewFlags,
   planSharedChannelFix,
   promoteContactChannel,
   renameChannel,
@@ -219,6 +221,9 @@ export function useContactChannelActions(): {
   rename: (channelId: string, label: string) => Promise<void>;
   remove: (channelId: string) => Promise<void>;
   promote: (channelId: string) => Promise<void>;
+  /** Clears every pending flag; resolves to the ids it cleared (for `Hoàn tác`). */
+  keepAll: () => Promise<string[]>;
+  restoreFlags: (channelIds: readonly string[]) => Promise<void>;
   isWorking: boolean;
 } {
   const queryClient = useQueryClient();
@@ -266,6 +271,16 @@ export function useContactChannelActions(): {
     onSuccess: invalidate,
   });
 
+  const keepAllMutation = useMutation({
+    mutationFn: () => markAllChannelsReviewed(),
+    onSuccess: invalidate,
+  });
+
+  const restoreMutation = useMutation({
+    mutationFn: (ids: readonly string[]) => restoreChannelReviewFlags(ids),
+    onSuccess: invalidate,
+  });
+
   return {
     add: useCallback(
       (input: {
@@ -289,7 +304,11 @@ export function useContactChannelActions(): {
     ),
     remove: useCallback((channelId: string) => removeMutation.mutateAsync(channelId), [removeMutation]),
     promote: useCallback((channelId: string) => promoteMutation.mutateAsync(channelId), [promoteMutation]),
+    keepAll: useCallback(() => keepAllMutation.mutateAsync(), [keepAllMutation]),
+    restoreFlags: useCallback((ids: readonly string[]) => restoreMutation.mutateAsync(ids), [restoreMutation]),
     isWorking:
+      keepAllMutation.isPending ||
+      restoreMutation.isPending ||
       promoteMutation.isPending ||
       addMutation.isPending ||
       confirmMutation.isPending ||

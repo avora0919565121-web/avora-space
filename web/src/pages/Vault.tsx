@@ -4,6 +4,7 @@ import { Outlet, useNavigate } from "react-router-dom";
 
 import { ReturnChip } from "@/components/nav/ReturnChip";
 import { SectionTabs } from "@/components/SectionTabs";
+import { PlusMenuButton } from "@/components/PlusMenuButton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { ChangeCodeDialog } from "@/components/vault/ChangeCodeDialog";
@@ -107,18 +108,16 @@ const Vault = () => {
           // AVORA-57 · E: one `+` beside the title; none while locked or on a "Sắp có" sub-tab.
           const entry = vault.isUnlocked ? vaultAddFor(current) : null;
           if (entry === null) return null;
+          // AVORA-60 · D: the shared `+`. Tap = the sub-tab's own thing; no menu while each
+          // sub-tab has a single kind to add (the other sub-tabs are still "Sắp có").
           return (
-            <button
-              type="button"
-              onClick={() => {
+            <PlusMenuButton
+              label={`Thêm ${entry.label.toLowerCase()}`}
+              onTap={() => {
                 if (!requestVaultAdd()) navigate(`${entry.path}?${VAULT_ADD_PARAM}=1`);
               }}
-              aria-label={`Thêm ${entry.label.toLowerCase()}`}
-              className="icon-btn icon-btn-primary h-11 gap-1.5 px-4 text-[14px] font-semibold"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
-              {entry.label}
-            </button>
+              entries={[]}
+            />
           );
         }}
       />

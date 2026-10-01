@@ -129,7 +129,14 @@ const SheetContent = ({
       <SheetOverlay />
       <SheetPrimitive.Content
         ref={ref}
-        className={cn(sheetVariants({ side }), className)}
+        className={cn(
+          sheetVariants({ side }),
+          className,
+          // AVORA-59 · F: the `‹` bar below carries the notch inset itself. Callers often pass
+          // `p-0`, which twMerge lets wipe the variant's safe-area padding — that left the bar
+          // at y=0, under the status bar, on exactly the panels that needed it.
+          isSidePanel && !hasOwnHeader && "max-md:pt-0",
+        )}
         onPointerDown={(event) => {
           edgeSwipe.onPointerDown(event);
           onPointerDown?.(event);
@@ -149,11 +156,15 @@ const SheetContent = ({
           the notch (the panel already pads by safe-area-inset-top) and never scrolls away.
         */}
         {isSidePanel && !hasOwnHeader ? (
-          <div className="sticky top-0 z-10 -mb-px flex shrink-0 items-center border-b border-border bg-inherit px-2 py-1.5 md:hidden">
+          <div
+            data-sheet-back-bar=""
+            className="sticky top-0 z-20 -mb-px flex shrink-0 items-center border-b border-border bg-inherit px-2 pb-1.5 pt-[calc(env(safe-area-inset-top)+0.375rem)] md:hidden"
+          >
             <button
               type="button"
               onClick={close}
-              className="press flex min-h-11 min-w-11 items-center gap-1 rounded-md px-2 text-[14px] font-medium text-primary hover:bg-accent/40"
+              aria-label={backLabel}
+              className="press no-callout flex min-h-11 min-w-11 items-center gap-1 rounded-md px-2 text-[15px] font-medium text-primary hover:bg-accent/40"
             >
               <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
               <span className="truncate">{backLabel}</span>
