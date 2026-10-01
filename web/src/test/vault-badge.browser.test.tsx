@@ -23,6 +23,11 @@ vi.mock("@/lib/auth", () => ({
 
 vi.mock("@/lib/use-conversations", () => ({ useTotalUnread: () => 0 }));
 vi.mock("@/lib/use-tasks", () => ({ useTasks: () => ({ data: [] }) }));
+// AVORA-47 · C: the rail reads the profile only to show ☾ while focusing; not focusing here.
+vi.mock("@/lib/use-settings", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-settings")>("@/lib/use-settings");
+  return { ...actual, useProfileSettings: () => ({ data: undefined }) };
+});
 
 vi.mock("@/lib/use-finance", async () => {
   const actual = await vi.importActual<typeof import("@/lib/use-finance")>("@/lib/use-finance");

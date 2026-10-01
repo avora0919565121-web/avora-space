@@ -1220,6 +1220,28 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   Hồ sơ › `Hiện đầy đủ` hỏi lại mật khẩu tài khoản, hiện 60 giây có đếm ngược rồi tự che. Tên dự phòng là `Bạn`.
   Liên hệ không che (đó là danh bạ, cần thấy đủ để gọi).
 
+### Ghi chép dạng cây (AVORA-52 · A)
+
+- 2026-10-01 — Bỏ bố cục 3 cột (Thư mục · Danh sách · Trình soạn) và việc thu cột Kết nối khi vào Ghi chép. Máy tính: chạm
+  `Ghi chép` ở cột trái → cây mở ngay dưới dòng đó (ô tìm + lọc · thư mục ▸/▾ · ghi chép · `Chưa xếp` · `Thư mục mới` ·
+  `Ghi chép mới` · `Thùng rác`). Khung phải chỉ còn trình soạn, hoặc `Gần đây` (Đã ghim trước, 15 ghi chép mới nhất,
+  mỗi dòng ghi đường dẫn thư mục). Điện thoại: cây là màn danh sách; mở ghi chép toàn màn, `‹` về đúng cây.
+- 2026-10-01 — Tối đa 3 tầng thư mục (server chặn cả khi chuyển cả cây, `avora_note_folder_depth`). `Ghi chép đọc sách` là
+  thư mục hệ thống: không con, không đổi tên, không xoá. `⋯` thư mục: Ghi chép mới ở đây · Thư mục con (mờ khi đủ 3 tầng)
+  · Đổi tên · Chuyển (đường dẫn `A › B`) · Xoá (cả cây con; ghi chép về `Chưa xếp`). Thư mục nào đang mở được nhớ trên máy.
+- 2026-10-01 — Đang tìm: chỉ hiện thư mục có ghi chép khớp, giữ đường dẫn, tự mở. `Tìm "…" trong toàn AVORA ›` ở dưới ô tìm.
+
+### Nhịp sống Kết nối (AVORA-47 · ADR-027 · ADR-028)
+
+- 2026-10-01 — Dòng cuộc: vuốt trái `Xem sau` / `Lưu trữ`, vuốt phải `Tắt thông báo` (1 giờ · 4 giờ · 8 giờ · Hết hôm nay);
+  chuột phải cùng các mục. Cuộc đang tắt có 🔕. `Đã lưu trữ (n)` ở cuối danh sách; tin mới đưa cuộc về lại.
+- 2026-10-01 — Chế độ tập trung: giữ nút Kết nối 500 ms (điện thoại) / chuột phải ☾ (máy tính) / Cài đặt › Thông báo. Tấm
+  đáy: 2 mức × 4 thời gian. Đang bật: dải `Đang tập trung tới HH:MM · Tắt` đầu danh sách, chỉ mình thấy.
+- 2026-10-01 — Giữ nút Gửi → `Gửi khẩn`; dòng giải thích khi hết lượt (ngày mở lại). Tin khẩn có chip `Khẩn`. 1-1: dưới tin
+  cuối của mình `Đã gửi` / `✓✓ Đã nhận`; không bao giờ "Đã xem".
+- 2026-10-01 — `⋯` của cuộc: các tấm con (Nhiệm vụ của nhóm, Quyết định, Thông báo, Nhật ký trò chuyện, Thêm thành viên)
+  mở **chồng** lên `⋯`, đầu tấm `‹ {tên cuộc}` + `✕`, vuốt từ mép trái để về. Dòng thành viên gom mọi nút vào `⋯`.
+
 ## Business HUB
 
 - 2026-09-17 — Business HUB is a separate book from the opportunity one, not a generalisation of it. An

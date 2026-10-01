@@ -101,7 +101,8 @@ import { DiaryCountRow, DiaryFilesView, DiaryHeaderIcon, DiaryLinksView, DiaryLi
 import { Switch } from "@/components/ui/switch";
 import { closeNotificationsFor, offerPushSoon } from "@/lib/push";
 import { AvoraSearchButton, SearchEverywhereLine } from "@/components/search/AvoraSearch";
-import { NotesPanel } from "@/components/notes/NotesPanel";
+import { NotesPanel, type NotesRequest } from "@/components/notes/NotesPanel";
+import { NotesTree } from "@/components/notes/NotesTree";
 import { toAttachmentView } from "@/components/notes/NoteEditor";
 import { NoteExits, type BoardExit, type TaskExit } from "@/components/notes/NoteExits";
 import { useNotes } from "@/lib/use-notes";
@@ -936,9 +937,10 @@ const Messages = () => {
   useEffect(() => setIsLiveNoticeHidden(false), [isLive]);
   const journalTrashCount: number | null = useJournalTrashCount(conversationId, activeKind === "personal" && isInfoOpen);
   const isDiaryAside: boolean = activeKind === "personal" && diaryView !== "journal";
-  /** 44b · B: Ghi chép on a computer folds the Kết nối list away; `‹ Nhật ký` brings it back. */
-  const isWritingSpace: boolean = isWide && isDiaryAside && diaryView === "notes";
-  const [notesRequest, setNotesRequest] = useState<{ noteId?: string; book?: { recordId: string; title: string } } | null>(null);
+  const [notesRequest, setNotesRequest] = useState<NotesRequest | null>(null);
+  /** AVORA-52 · A: the note open in the pane, marked in the tree; and whether Thùng rác is showing. */
+  const [notesEditingId, setNotesEditingId] = useState<string | null>(null);
+  const [isNotesTrashOpen, setIsNotesTrashOpen] = useState<boolean>(false);
   const clearNotesRequest = useCallback((): void => setNotesRequest(null), []);
   const [noteTaskExit, setNoteTaskExit] = useState<TaskExit | null>(null);
   const [noteBoardExit, setNoteBoardExit] = useState<BoardExit | null>(null);
@@ -1538,8 +1540,9 @@ const Messages = () => {
   // Leaving a thread forgets what was marked there, so coming back after `Xem sau` reads it again.
   useEffect(() => {
     const leaving = conversationId;
+    const marked = markedRef.current;
     return () => {
-      if (leaving) delete markedRef.current[leaving];
+      if (leaving) delete marked[leaving];
     };
   }, [conversationId]);
 
@@ -2320,6 +2323,29 @@ const Messages = () => {
     if (decisionParam !== null && activeKind === "group") setIsDecisionsOpen(true);
   }, [decisionParam, activeKind]);
 
+  const notesTreeNode = (
+    <NotesTree
+      data={notesData}
+      activeNoteId={isDiaryAside && diaryView === "notes" ? notesEditingId : null}
+      showTrash={isNotesTrashOpen}
+      onOpenNote={(note) => {
+        setIsNotesTrashOpen(false);
+        setNotesRequest({ noteId: note.id });
+        if (!(isDiaryAside && diaryView === "notes")) openDiaryView("notes");
+      }}
+      onNewNote={(folderId) => {
+        setIsNotesTrashOpen(false);
+        setNotesRequest({ newIn: folderId });
+        if (!(isDiaryAside && diaryView === "notes")) openDiaryView("notes");
+      }}
+      onOpenTrash={() => {
+        setIsNotesTrashOpen(true);
+        setNotesRequest({ trash: true });
+        if (!(isDiaryAside && diaryView === "notes")) openDiaryView("notes");
+      }}
+    />
+  );
+
   return (
     <div className="flex h-full min-h-0 flex-1 flex-col md:flex-row">
       <section
@@ -2328,7 +2354,6 @@ const Messages = () => {
         className={cn(
           "relative flex min-h-0 w-full flex-col border-border bg-card md:w-[360px] md:shrink-0 md:border-r",
           conversationId && !isPlaceholder && !isDiaryListScreen ? "hidden md:flex" : "flex",
-          isWritingSpace && "md:hidden",
         )}
         aria-label="Danh sách cuộc trò chuyện"
       >
@@ -2495,6 +2520,7 @@ const Messages = () => {
               isWide={isWide}
               onPaste={() => void startPaste()}
               isPasting={isReadingClipboard}
+              notesTree={isWide ? notesTreeNode : undefined}
             />
           </div>
         ) : (
@@ -2744,32 +2770,21 @@ const Messages = () => {
           ) : (
             <>
               <header className="flex items-center gap-2 border-b border-border bg-card px-3 pb-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] md:gap-3 md:px-5 md:py-3.5 md:pr-[4.25rem]">
-                {isWritingSpace ? (
-                  /* 44b · B: the writing space hides the Kết nối list; this is the way back to it. */
-                  <button
-                    type="button"
-                    onClick={() => openDiaryView("journal")}
-                    className="press inline-flex h-10 shrink-0 items-center gap-1 whitespace-nowrap rounded-md pl-1 pr-2 text-[14px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-                  >
-                    <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" /> Nhật ký
-                  </button>
-                ) : (
-                  <button
-                    type="button"
-                    aria-label="Quay lại Kết nối"
-                    onClick={() => {
-                      // 49 · 1.1: out of Nhật ký lands on the conversation list, and stays there.
-                      if (activeKind === "personal") setActiveTab("direct");
-                      // AVORA-53 · 2.10: opened from elsewhere (`tu`) → back there; otherwise the list, replacing.
-                      const cameFrom = readReturn(searchParams);
-                      if (cameFrom !== null) navigate(cameFrom.path, { replace: true });
-                      else navigate("/tin-nhan", { replace: true });
-                    }}
-                    className="press flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
-                  >
-                    <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
-                  </button>
-                )}
+                <button
+                  type="button"
+                  aria-label="Quay lại Kết nối"
+                  onClick={() => {
+                    // 49 · 1.1: out of Nhật ký lands on the conversation list, and stays there.
+                    if (activeKind === "personal") setActiveTab("direct");
+                    // AVORA-53 · 2.10: opened from elsewhere (`tu`) → back there; otherwise the list, replacing.
+                    const cameFrom = readReturn(searchParams);
+                    if (cameFrom !== null) navigate(cameFrom.path, { replace: true });
+                    else navigate("/tin-nhan", { replace: true });
+                  }}
+                  className="press flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
+                >
+                  <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
+                </button>
                 {activeKind === "personal" ? (
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
                     <DiaryHeaderIcon view={diaryView} />
@@ -2958,6 +2973,11 @@ const Messages = () => {
                     onCreateTask={setNoteTaskExit}
                     onToBoard={setNoteBoardExit}
                     onOpenBook={(recordId) => navigate(withReturn(`/ke-hoach/ke-sach?sach=${encodeURIComponent(recordId)}`, hereFrom(location, "Ghi chép")))}
+                    onEditingChange={(noteId) => {
+                      setNotesEditingId(noteId);
+                      if (noteId !== null) setIsNotesTrashOpen(false);
+                    }}
+                    tree={isWide ? undefined : notesTreeNode}
                   />
                 </div>
               ) : isDiaryAside ? (

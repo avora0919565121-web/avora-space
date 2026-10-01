@@ -92,6 +92,7 @@ function fakeNotes(list: Note[]): NotesData {
     urlOf: () => null,
     refresh: () => undefined,
     addFolder: m,
+    move: m,
     rename: m,
     removeFolder: m,
     patch: m,
@@ -121,26 +122,20 @@ beforeEach(() => {
   window.localStorage.clear();
 });
 
-test("b3 · Ghi chép, three columns on a computer", async () => {
+test("52.A · the pane holds only the editor (the tree lives in the Nhật ký column)", async () => {
   await page.viewport(1180, 760);
   window.localStorage.setItem("avora.notes.place", JSON.stringify({ folderId: "f1", noteId: "n1" }));
   const screen = await render(<Notes list={notes} isWide />);
-  await expect.element(screen.getByText("Thư mục", { exact: true }).first()).toBeInTheDocument();
   await expect.element(screen.getByLabelText("Tiêu đề ghi chép")).toBeInTheDocument();
-  await page.screenshot({ path: `${OUT}/b3-ghi-chep-3-cot-1180.png` });
+  expect(screen.getByText("Thư mục", { exact: true }).elements()).toHaveLength(0);
 });
 
-test("b5 · empty folder shows no empty editor; b8 · narrow folds folders into the list", async () => {
+test("52.A · nothing open → Gần đây, no folder column", async () => {
   await page.viewport(1100, 760);
-  window.localStorage.setItem("avora.notes.place", JSON.stringify({ folderId: "f2", noteId: null }));
-  const screen = await render(
-    <div style={{ width: 860 }}>
-      <Notes list={notes} isWide />
-    </div>,
-  );
-  await expect.element(screen.getByText("Chưa có ghi chép nào ở đây.")).toBeInTheDocument();
-  await expect.element(screen.getByText(/Chọn một ghi chép, hoặc/)).toBeInTheDocument();
-  await page.screenshot({ path: `${OUT}/b5-b8-thu-muc-trong-2-cot-1100.png` });
+  const screen = await render(<Notes list={notes} isWide />);
+  await expect.element(screen.getByText("Gần đây", { exact: true })).toBeInTheDocument();
+  await expect.element(screen.getByText("Sống chậm lại giữa mùa bận rộn")).toBeInTheDocument();
+  expect(screen.getByText("Thư mục", { exact: true }).elements()).toHaveLength(0);
 });
 
 test("7 · selecting words shows Áp dụng (computer)", async () => {
@@ -169,7 +164,7 @@ test("3 · pasting in the list asks where the words go", async () => {
   await page.viewport(1180, 760);
   window.localStorage.setItem("avora.notes.place", JSON.stringify({ folderId: "f1", noteId: null }));
   const screen = await render(<Notes list={notes} isWide />);
-  await expect.element(screen.getByText("Thư mục", { exact: true }).first()).toBeInTheDocument();
+  await expect.element(screen.getByText("Gần đây", { exact: true })).toBeInTheDocument();
   const data = new DataTransfer();
   data.setData("text/plain", "Ý chính buổi họp\nChốt ngân sách tháng 10");
   document.body.dispatchEvent(new ClipboardEvent("paste", { clipboardData: data, bubbles: true, cancelable: true }));

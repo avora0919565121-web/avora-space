@@ -102,7 +102,6 @@ export function NotesTree({
 
   useEffect(() => rememberOpenFolders(open), [open]);
 
-  const attachmentsOf = (noteId: string) => attachments.filter((item) => item.noteId === noteId);
   const hasFilter = filter.voice || filter.files || filter.pinned;
   const isSearching = query.trim() !== "" || hasFilter;
 

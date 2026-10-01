@@ -12,7 +12,7 @@ import {
   Trash2,
   type LucideIcon,
 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
@@ -133,6 +133,7 @@ export function DiaryList({
   isWide,
   onPaste,
   isPasting,
+  notesTree,
 }: {
   journalId: string | null;
   active: DiaryView | null;
@@ -141,6 +142,8 @@ export function DiaryList({
   isWide: boolean;
   onPaste: () => void;
   isPasting: boolean;
+  /** AVORA-52 · A: on a computer, the Ghi chép tree unfolds right under its row. */
+  notesTree?: ReactNode;
 }) {
   return (
     <div className="px-3 pb-6">
@@ -185,6 +188,9 @@ export function DiaryList({
                   <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.8} aria-hidden="true" />
                 </Link>
               )}
+              {view.id === "notes" && notesTree !== undefined ? (
+                <div className="ml-4 border-l border-border/70 pl-1">{notesTree}</div>
+              ) : null}
             </li>
           );
         })}

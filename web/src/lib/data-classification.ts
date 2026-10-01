@@ -30,7 +30,7 @@ export const DATA_CLASSIFICATION = {
   profiles: {
     level: "personal",
     domain: "identity",
-    columns: { display_name: "personal", avatar_url: "personal", push_show_content: "internal", push_reminders: "internal" },
+    columns: { display_name: "personal", avatar_url: "personal", push_show_content: "internal", push_reminders: "internal", focus_mode: "internal", focus_until: "internal" },
   },
   user_pins: { level: "internal", domain: "identity", columns: { pin: "internal" } },
   family_relations: { level: "personal", domain: "identity" },
@@ -69,6 +69,10 @@ export const DATA_CLASSIFICATION = {
   // Đợt gộp 2 · D4: an ask closes itself after 30 days or when the two people block each other.
   message_recall_request: { level: "personal", domain: "connect", columns: { close_reason: "internal" } },
   mute_settings: { level: "internal", domain: "connect" },
+  // AVORA-47 · E: when a 1-1 message reached the other device; only the sender reads it (ADR-028).
+  message_deliveries: { level: "personal", domain: "connect" },
+  // AVORA-47 · F: which conversations I tucked away; only I see my own rows.
+  conversation_archives: { level: "personal", domain: "connect" },
   // Vá 29/09: links expire after 7 days; the expiry itself is harmless metadata.
   group_invite_links: { level: "secret", domain: "connect", columns: { token: "secret", expires_at: "internal" } },
   group_removal_requests: { level: "personal", domain: "connect" },
