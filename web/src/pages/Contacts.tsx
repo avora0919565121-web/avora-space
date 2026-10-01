@@ -3,6 +3,7 @@ import {
   Briefcase,
   Building2,
   CheckCircle2,
+  ChevronRight,
   Plus,
   Search,
   Upload,
@@ -10,7 +11,9 @@ import {
   Users,
 } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
+
+import { carryReturn } from "@/lib/return-to";
 
 import { FriendsPanel } from "@/components/contacts/FriendsPanel";
 import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
@@ -49,6 +52,15 @@ type Group = "individual" | "business" | "friends";
  */
 const Contacts = () => {
   const navigate = useNavigate();
+  // AVORA-53 · 2.4: the way back to Kết nối rides along into a contact and back out.
+  const [returnParams] = useSearchParams();
+  const withCarry = useCallback(
+    (path: string): string => {
+      const carried = carryReturn(returnParams, new URLSearchParams()).toString();
+      return carried.length > 0 ? `${path}?${carried}` : path;
+    },
+    [returnParams],
+  );
   const [query, setQuery] = useState<string>("");
   const [group, setGroup] = useState<Group>("individual");
   const [isNewOpen, setIsNewOpen] = useState<boolean>(false);
@@ -76,12 +88,13 @@ const Contacts = () => {
   );
 
   const total: number = group === "individual" ? individuals.length : businesses.length;
+  const missingDetails = useMemo(() => (contactsQuery.data ?? []).filter((contact) => contact.needsDetails), [contactsQuery.data]);
 
   const openContact = useCallback(
     (contactId: string): void => {
-      navigate(`/lien-he/${contactId}`);
+      navigate(withCarry(`/lien-he/${contactId}`));
     },
-    [navigate],
+    [navigate, withCarry],
   );
 
   return (
@@ -91,7 +104,7 @@ const Contacts = () => {
         <header className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Liên hệ</h1>
-            <p className="mt-1 text-[15px] text-muted-foreground">Danh bạ của riêng bạn</p>
+            <p className="mt-1 text-[15px] text-muted-foreground">Liên hệ của riêng bạn</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <button
@@ -113,51 +126,47 @@ const Contacts = () => {
           </div>
         </header>
 
-        {/* Đợt gộp 2 · D5: people added from a finance picker with only a name. */}
-        {(contactsQuery.data ?? []).some((contact) => contact.needsDetails) ? (
-          <section aria-label="Thiếu SĐT / email" className="mt-6 rounded-xl border border-border bg-card px-5 py-3.5">
-            <p className="text-[14.5px] font-medium text-foreground">Cần xem lại · Thiếu SĐT / email</p>
-            <ul className="mt-1.5 flex flex-wrap gap-1.5">
-              {(contactsQuery.data ?? []).filter((contact) => contact.needsDetails).map((contact) => (
-                <li key={contact.id}>
-                  <button type="button" onClick={() => openContact(contact.id)} className="press rounded-full border border-border px-3 py-1 text-[13px] hover:bg-accent/40">
-                    {contact.name}
-                  </button>
-                </li>
-              ))}
-            </ul>
+        {/* AVORA-53 · 6.13: one "Cần xem lại (n)" box, split by kind. Shown only when something waits. */}
+        {missingDetails.length > 0 || reviewCount > 0 ? (
+          <section aria-labelledby="contacts-review" className="mt-6 rounded-xl border border-border bg-card px-5 py-4">
+            <h2 id="contacts-review" className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
+              <AlertCircle className="h-[18px] w-[18px] text-accent-foreground" strokeWidth={1.8} aria-hidden="true" />
+              Cần xem lại ({missingDetails.length + reviewCount})
+            </h2>
+            {missingDetails.length > 0 ? (
+              <div className="mt-3">
+                <p className="text-[13px] font-medium text-muted-foreground">Thiếu SĐT / email ({missingDetails.length})</p>
+                <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                  {missingDetails.map((contact) => (
+                    <li key={contact.id}>
+                      <button type="button" onClick={() => openContact(contact.id)} className="press min-h-9 rounded-full border border-border px-3 py-1 text-[13px] hover:bg-accent/40">
+                        {contact.name}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+            {reviewCount > 0 ? (
+              <button
+                type="button"
+                onClick={() => navigate(withCarry(CHANNEL_REVIEW_ROUTE))}
+                className="press mt-3 flex w-full items-center gap-3 rounded-lg border border-border px-4 py-3 text-left transition-colors hover:bg-accent/35"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[13px] font-medium text-muted-foreground">Kênh liên lạc ({reviewCount})</span>
+                  <span className="block text-[14px] text-foreground">
+                    {review.count > 0 && shared.count > 0
+                      ? "Kênh chưa xác nhận, và kênh đang dùng chung nhiều liên hệ"
+                      : shared.count > 0
+                        ? "Cùng một số hoặc email đang gắn với nhiều liên hệ"
+                        : "Số điện thoại hoặc email chưa được xác nhận"}
+                  </span>
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
+              </button>
+            ) : null}
           </section>
-        ) : null}
-
-        {/* Only ever shown when there is something to do about it — a count of zero is not news. */}
-        {reviewCount > 0 ? (
-          <button
-            type="button"
-            onClick={() => navigate(CHANNEL_REVIEW_ROUTE)}
-            className="press mt-6 flex w-full items-center gap-3 rounded-xl border border-border bg-card px-5 py-3.5 text-left transition-colors hover:bg-accent/35"
-          >
-            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/60">
-              <AlertCircle
-                className="h-[18px] w-[18px] text-accent-foreground"
-                strokeWidth={1.8}
-                aria-hidden="true"
-              />
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block text-[14.5px] font-medium text-foreground">
-                {reviewCount} việc cần bạn xem lại
-              </span>
-              <span className="block text-[13px] text-muted-foreground">
-                {/* Says which kind of tangle is waiting, because the two need different
-                    thinking — and both at once is worth knowing before opening the screen. */}
-                {review.count > 0 && shared.count > 0
-                  ? "Kênh liên lạc chưa xác nhận, và kênh đang dùng chung nhiều liên hệ"
-                  : shared.count > 0
-                    ? "Cùng một số hoặc email đang gắn với nhiều liên hệ"
-                    : "Nhiều số điện thoại hoặc email chưa được xác nhận"}
-              </span>
-            </span>
-          </button>
         ) : null}
 
         <nav aria-label="Loại liên hệ" className="mt-7">

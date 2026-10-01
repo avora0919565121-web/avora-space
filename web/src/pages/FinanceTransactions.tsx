@@ -5,6 +5,7 @@ import {
   Briefcase,
   CheckCircle2,
   HandCoins,
+  MoreHorizontal,
   Paperclip,
   Pencil,
   RotateCcw,
@@ -15,10 +16,11 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { ObligationForm } from "@/components/finance/ObligationForm";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { CategoryDialog } from "@/components/finance/dialogs";
 import {
@@ -72,10 +74,13 @@ import {
 } from "@/lib/finance";
 import { createObligationReminderTask, fetchObligationReminders, receiptUrl } from "@/lib/finance-api";
 import { taskKeys } from "@/lib/tasks";
-import { withReturn } from "@/lib/return-to";
+import { hereFrom, withReturn } from "@/lib/return-to";
 import { taskLink } from "@/lib/task-scope";
 import { useContacts } from "@/lib/use-contacts";
-import { useDismissedRecurring, useFinanceActions, useLedger } from "@/lib/use-finance";
+import { useDismissedRecurring, useFinanceActions, useFinanceTrash, useLedger } from "@/lib/use-finance";
+
+/** Thùng rác Tài chính lives at the end of Tài khoản; this is the way there from Giao dịch. */
+const TRASH_LINK = "/ket-sat/tai-khoan#thung-rac";
 import { cn } from "@/lib/utils";
 
 /** One row of the ledger: direction, what it was, and what it did to the balance. */
@@ -158,7 +163,7 @@ function EntryRow({
         {/* A suggestion, never an action taken for the person: the task exists only once pressed. */}
         {reminder !== undefined && !voided ? (
           <Link
-            to={withReturn(taskLink(reminder.taskId), { path: "/ket-sat/giao-dich", label: "Giao dịch" })}
+            to={withReturn(taskLink(reminder.taskId), hereFrom(window.location, "Giao dịch"))}
             className="press hidden shrink-0 items-center gap-1 rounded-full border border-border px-2.5 py-1 text-[11.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 sm:inline-flex"
           >
             <CheckCircle2
@@ -211,24 +216,33 @@ function EntryRow({
               <Pencil className="h-4 w-4" strokeWidth={1.7} />
             </button>
           ) : null}
-          <button
-            type="button"
-            onClick={() => onVoid(entry)}
-            aria-label={voided ? "Khôi phục giao dịch" : "Đánh dấu nhầm"}
-            title={voided ? "Bỏ đánh dấu nhầm" : "Đánh dấu nhầm (vẫn hiện, gạch ngang)"}
-            className="press rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-          >
-            {voided ? <RotateCcw className="h-4 w-4" strokeWidth={1.7} /> : <Ban className="h-4 w-4" strokeWidth={1.7} />}
-          </button>
-          <button
-            type="button"
-            onClick={() => onRemove(entry)}
-            aria-label="Xoá giao dịch"
-            title="Xoá (vào Thùng rác)"
-            className="press rounded p-1.5 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" strokeWidth={1.7} />
-          </button>
+          {/* AVORA-53 · 6.9: one edit button; the two look-alike choices sit in ⋯, each saying what it does. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              aria-label="Thêm thao tác với giao dịch"
+              className="press rounded p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+            >
+              <MoreHorizontal className="h-4 w-4" strokeWidth={1.7} />
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuItem onSelect={() => onVoid(entry)} className="items-start gap-2.5 py-2.5">
+                {voided ? <RotateCcw className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.7} /> : <Ban className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.7} />}
+                <span>
+                  <span className="block text-[14px] font-medium">{voided ? "Bỏ đánh dấu nhầm" : "Đánh dấu nhầm"}</span>
+                  <span className="block text-[12px] text-muted-foreground">
+                    {voided ? "Giao dịch được tính lại vào số dư." : "Vẫn hiện trong sổ, gạch ngang, không tính vào số dư."}
+                  </span>
+                </span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onSelect={() => onRemove(entry)} className="items-start gap-2.5 py-2.5 text-destructive">
+                <Trash2 className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.7} />
+                <span>
+                  <span className="block text-[14px] font-medium">Xoá</span>
+                  <span className="block text-[12px] text-muted-foreground">Chuyển vào Thùng rác, khôi phục được.</span>
+                </span>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </li>
@@ -239,6 +253,9 @@ const FinanceTransactions = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { accounts, categories, allEntries, entries, currency, isLoading } = useLedger();
   const { voidTransaction, addTransaction, settleTransaction, binTransaction, unbinTransaction } = useFinanceActions();
+  const navigate = useNavigate();
+  const trashQuery = useFinanceTrash();
+  const trashCount: number = (trashQuery.data?.transactions.length ?? 0) + (trashQuery.data?.accounts.length ?? 0);
   const { dismissed, dismiss } = useDismissedRecurring();
   const contactsQuery = useContacts();
   const contacts = useMemo(() => contactsQuery.data ?? [], [contactsQuery.data]);
@@ -258,7 +275,7 @@ const FinanceTransactions = () => {
     mutationFn: (entry: LedgerEntry) =>
       createObligationReminderTask(
         entry.id,
-        reminderTitle(entry.description ?? entryCategoryName(entry), entry, currency),
+        reminderTitle(entry.description ?? entryCategoryName(entry)),
       ),
     onSuccess: () => {
       toast.success("Đã tạo việc nhắc trong Nhiệm vụ. Việc tự hoàn tất khi khoản này được tất toán.");
@@ -359,14 +376,16 @@ const FinanceTransactions = () => {
     async (entry: LedgerEntry): Promise<void> => {
       try {
         await binTransaction.mutateAsync(entry.id);
-        toast.success("Đã chuyển vào Thùng rác.", {
+        // AVORA-53 · 6.8: say where it went, and offer both the way back and the way there.
+        toast.success("Đã chuyển vào Thùng rác", {
           action: { label: "Hoàn tác", onClick: () => unbinTransaction.mutate(entry.id) },
+          cancel: { label: "Xem", onClick: () => navigate(TRASH_LINK) },
         });
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Không xoá được giao dịch.");
       }
     },
-    [binTransaction, unbinTransaction],
+    [binTransaction, unbinTransaction, navigate],
   );
 
   const acceptSuggestion = useCallback(
@@ -857,6 +876,15 @@ const FinanceTransactions = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {trashCount > 0 ? (
+        <div className="mt-6 flex justify-end">
+          <Link to={TRASH_LINK} className="press inline-flex min-h-11 items-center gap-1.5 text-[13.5px] font-medium text-muted-foreground hover:text-foreground">
+            <Trash2 className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+            Thùng rác ({trashCount})
+          </Link>
+        </div>
+      ) : null}
 
       <CategoryDialog
         open={categoryScope !== null}

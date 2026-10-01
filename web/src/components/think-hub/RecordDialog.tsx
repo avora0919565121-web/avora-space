@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Copy, ListPlus, MoveRight, Star, Table2 } from "lucide-react";
+import { Copy, ListPlus, MoreHorizontal, MoveRight, Star, Table2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import {
   DEPTH_LIMIT_MESSAGE,
@@ -260,13 +261,12 @@ export function RecordDialog({
     setDraft((current) => ({ ...current, [key]: value }));
   }, []);
 
-  const handleSubmit = useCallback(
-    async (event: FormEvent<HTMLFormElement>): Promise<void> => {
-      event.preventDefault();
+  /** The form as a patch, or null (with a notice) when something in it cannot be saved. */
+  const buildPatch = useCallback((): RecordPatch | null => {
       const title = draft.title.trim();
       if (title.length === 0) {
         setNotice("Hạng mục này cần một tiêu đề.");
-        return;
+        return null;
       }
 
       // Empty cells are sent as null rather than "": a blank is "nobody filled this in",
@@ -282,7 +282,7 @@ export function RecordDialog({
           const parsed = Number(raw.replace(/\s/g, "").replace(/,/g, "."));
           if (!Number.isFinite(parsed)) {
             setNotice(`Cột "${column.label}" chỉ nhận số.`);
-            return;
+            return null;
           }
           extension[column.key] = parsed;
         } else {
@@ -291,9 +291,7 @@ export function RecordDialog({
       }
 
       setNotice(null);
-      await guard(async () => {
-      try {
-        await onSave({
+      return {
           title,
           status: draft.status,
           priority: draft.priority,
@@ -306,14 +304,50 @@ export function RecordDialog({
             .filter((tag) => tag.length > 0),
           notes: draft.notes.trim().length === 0 ? null : draft.notes.trim(),
           extensionFields: extension,
-        });
+      };
+  }, [draft, columns]);
+
+  const handleSubmit = useCallback(
+    async (event: FormEvent<HTMLFormElement>): Promise<void> => {
+      event.preventDefault();
+      const patch = buildPatch();
+      if (patch === null) return;
+      await guard(async () => {
+      try {
+        await onSave(patch);
         onOpenChange(false);
       } catch (error) {
         setNotice(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
       });
     },
-    [draft, columns, onSave, onOpenChange, guard],
+    [buildPatch, onSave, onOpenChange, guard],
+  );
+
+  /**
+   * AVORA-53 · 5.3 — Di chuyển / Sao chép / Tạo nhiệm vụ save what was typed first; a save that
+   * fails keeps the person here with the reason, nothing is lost.
+   */
+  const isDirty: boolean = useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(draftOf(record, columns)),
+    [draft, record, columns],
+  );
+  const thenAct = useCallback(
+    (action: (() => void) | undefined) =>
+      action === undefined
+        ? undefined
+        : (): void => {
+            if (!isDirty || isReadOnly) {
+              action();
+              return;
+            }
+            const patch = buildPatch();
+            if (patch === null) return;
+            void onSave(patch).then(action, (error: unknown) =>
+              setNotice(error instanceof Error ? error.message : "Chưa lưu được nên chưa làm tiếp. Thử lại nhé."),
+            );
+          },
+    [buildPatch, isDirty, isReadOnly, onSave],
   );
 
   const fieldClass =
@@ -324,19 +358,68 @@ export function RecordDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       {/* 44b · H4: the title and the Lưu row stay in view; only the middle scrolls. */}
       <DialogContent className={cn(longDialogContentClass, "max-w-lg")}>
-        <LongDialogHeader>
+        <LongDialogHeader className="relative pr-24">
           <DialogTitle className="text-[19px] font-semibold tracking-tight">
-            {record === null ? "Hạng mục mới" : "Sửa Hạng mục"}
+            {record === null ? "Hạng mục mới" : isReadOnly ? "Hạng mục" : "Sửa Hạng mục"}
           </DialogTitle>
           <DialogDescription className="mt-1 text-[14px] text-muted-foreground">
             {record === null
               ? "Chỉ tiêu đề là bắt buộc. Những ô còn lại điền dần cũng được."
               : "Sửa gì lưu nấy — những ô bạn không đụng tới giữ nguyên."}
           </DialogDescription>
+          {/* AVORA-53 · 5.4: the extra actions live in ⋯ at the head; Lưu / Huỷ are the fixed footer. */}
+          {record !== null && (onToggleStar !== undefined || onMove !== undefined || onCopy !== undefined || onQuickTask !== undefined || subTables !== undefined) ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger
+                aria-label="Thêm thao tác với Hạng mục"
+                className="press absolute right-12 top-4 flex h-10 w-10 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+              >
+                <MoreHorizontal className="h-5 w-5" strokeWidth={1.8} />
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-60">
+                {onToggleStar !== undefined ? (
+                  <DropdownMenuItem onSelect={onToggleStar} className="gap-2 py-2.5">
+                    <Star className={cn("h-4 w-4", isStarred ? "fill-amber-400 text-amber-400" : "")} aria-hidden="true" />
+                    {isStarred ? "Bỏ quan trọng" : "Đánh dấu quan trọng"}
+                  </DropdownMenuItem>
+                ) : null}
+                {onMove !== undefined ? (
+                  <DropdownMenuItem onSelect={thenAct(onMove)} className="gap-2 py-2.5">
+                    <MoveRight className="h-4 w-4" aria-hidden="true" /> Di chuyển sang Bảng khác
+                  </DropdownMenuItem>
+                ) : null}
+                {onCopy !== undefined ? (
+                  <DropdownMenuItem onSelect={thenAct(onCopy)} className="gap-2 py-2.5">
+                    <Copy className="h-4 w-4" aria-hidden="true" /> Sao chép sang Bảng khác
+                  </DropdownMenuItem>
+                ) : null}
+                {onQuickTask !== undefined ? (
+                  <DropdownMenuItem onSelect={thenAct(onQuickTask)} className="gap-2 py-2.5">
+                    <ListPlus className="h-4 w-4" aria-hidden="true" /> Tạo nhiệm vụ từ Hạng mục này
+                  </DropdownMenuItem>
+                ) : null}
+                {subTables !== undefined ? (
+                  <DropdownMenuItem
+                    onSelect={() => document.getElementById("record-sub-tables")?.scrollIntoView({ behavior: "smooth", block: "center" })}
+                    className="gap-2 py-2.5"
+                  >
+                    <Table2 className="h-4 w-4" aria-hidden="true" /> Bảng con
+                  </DropdownMenuItem>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : null}
         </LongDialogHeader>
 
         <LongDialogBody className="px-6">
+        {isReadOnly ? (
+          <p role="status" className="mb-4 rounded-md bg-secondary/70 px-3 py-2 text-[13px] text-muted-foreground">
+            🔒 Bảng đang lưu trữ — chỉ xem
+          </p>
+        ) : null}
         <form id="record-form" onSubmit={handleSubmit} className="space-y-4">
+        {/* AVORA-53 · 5.7: an archived table locks the whole form, not just the Lưu button. */}
+        <fieldset disabled={isReadOnly} className="m-0 min-w-0 space-y-4 border-0 p-0">
           {record === null && tableChoices !== undefined && tableChoices.length > 1 ? (
             <div>
               <label htmlFor="record-table" className={labelClass}>
@@ -531,6 +614,7 @@ export function RecordDialog({
             </div>
           ) : null}
 
+        </fieldset>
           {notice !== null ? (
             <p role="alert" className="text-[13.5px] text-destructive">
               {notice}
@@ -567,52 +651,14 @@ export function RecordDialog({
           </div>
         ) : null}
 
-        {record !== null ? (
-          <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-border pt-4">
-            {onToggleStar !== undefined ? (
-              <button
-                type="button"
-                onClick={onToggleStar}
-                aria-pressed={isStarred}
-                className="press inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px] font-medium transition-colors hover:bg-accent/40"
-              >
-                <Star className={cn("h-4 w-4", isStarred ? "fill-amber-400 text-amber-400" : "text-muted-foreground")} aria-hidden="true" />
-                {isStarred ? "Quan trọng" : "Đánh dấu quan trọng"}
-              </button>
-            ) : null}
-            {onMove !== undefined ? (
-              <button type="button" onClick={onMove} className="press inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px] font-medium hover:bg-accent/40">
-                <MoveRight className="h-4 w-4" aria-hidden="true" /> Di chuyển sang Bảng khác
-              </button>
-            ) : null}
-            {onCopy !== undefined ? (
-              <button type="button" onClick={onCopy} className="press inline-flex min-h-10 items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px] font-medium hover:bg-accent/40">
-                <Copy className="h-4 w-4" aria-hidden="true" /> Sao chép sang Bảng khác
-              </button>
-            ) : null}
-            {record.movedFrom !== null ? (
-              <p className="w-full text-[12px] text-muted-foreground">
-                Chuyển từ Bảng {record.movedFrom.tableName} · {record.movedFrom.at.slice(8, 10)}/{record.movedFrom.at.slice(5, 7)}
-              </p>
-            ) : null}
-            {isReadOnly ? <p className="w-full text-[12px] text-muted-foreground">🔒 Bảng đã lưu trữ · Chỉ xem</p> : null}
-          </div>
-        ) : null}
-
-        {record !== null && onQuickTask !== undefined ? (
-          <div className="mt-5 border-t border-border pt-4">
-            <button
-              type="button"
-              onClick={onQuickTask}
-              className="press inline-flex min-h-10 items-center gap-2 rounded-md border border-border px-3.5 py-2 text-[13.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
-            >
-              <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-              Tạo nhiệm vụ từ Hạng mục này
-            </button>
-          </div>
+        {record !== null && record.movedFrom !== null ? (
+          <p className="mt-4 text-[12px] text-muted-foreground">
+            Chuyển từ Bảng {record.movedFrom.tableName} · {record.movedFrom.at.slice(8, 10)}/{record.movedFrom.at.slice(5, 7)}
+          </p>
         ) : null}
 
         {record !== null && subTables !== undefined ? (
+          <div id="record-sub-tables">
           <SubTableSection
             key={record.id}
             record={record}
@@ -622,15 +668,18 @@ export function RecordDialog({
             onOpenTable={onOpenTable}
             isWorking={isWorking}
           />
+          </div>
         ) : null}
         </LongDialogBody>
         <LongDialogFooter className="px-6">
           <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>
-            Để sau
+            {isReadOnly ? "Đóng" : "Huỷ"}
           </Button>
-          <Button type="submit" form="record-form" disabled={isWorking || isSubmitting || isReadOnly}>
-            {isWorking ? "Đang lưu…" : "Lưu"}
-          </Button>
+          {isReadOnly ? null : (
+            <Button type="submit" form="record-form" disabled={isWorking || isSubmitting}>
+              {isWorking ? "Đang lưu…" : "Lưu"}
+            </Button>
+          )}
         </LongDialogFooter>
       </DialogContent>
     </Dialog>

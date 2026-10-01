@@ -71,7 +71,7 @@ const SettingsPreferences = () => {
     try {
       await setDailyThoughtCategory.mutateAsync(value);
       toast.success(
-        value === "khong_chon" ? "Đã tắt Daily Thought." : "Đã lưu lựa chọn Daily Thought.",
+        value === "khong_chon" ? "Đã tắt Góc suy ngẫm." : "Đã lưu lựa chọn Góc suy ngẫm.",
       );
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không lưu được thiết lập.");
@@ -95,7 +95,7 @@ const SettingsPreferences = () => {
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-2xl animate-rise-in px-6 py-12 md:px-10">
         <div className="rounded-xl border border-border bg-card p-6">
-          <h2 className="text-[17px] font-semibold text-foreground">Tuỳ chọn chung</h2>
+          <h2 className="text-[17px] font-semibold text-foreground">Tiền tệ, múi giờ và Góc suy ngẫm</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Loại tiền dùng để cộng gộp báo cáo, múi giờ dùng cho giờ hạn của nhiệm vụ, và câu suy ngẫm
             mở đầu ngày.
@@ -164,7 +164,7 @@ const SettingsPreferences = () => {
                   className="flex items-center gap-2 text-[14px] font-medium text-foreground"
                 >
                   <Quote className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} aria-hidden="true" />
-                  Daily Thought
+                  Góc suy ngẫm
                 </label>
                 <select
                   id="dailyThought"

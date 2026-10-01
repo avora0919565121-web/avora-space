@@ -130,7 +130,7 @@ function DayList({
                 {isOpen ? (
                   <FadeIn className="space-y-2 bg-secondary/30 px-4 pb-3 pt-2">
                     <p className="text-[12px] text-muted-foreground">
-                      {entry.kind === "block" ? "Sự kiện — cần bạn có mặt" : "Hạn chót"}
+                      {entry.kind === "block" ? (entry.task.requiresPresence ? "Sự kiện — cần bạn có mặt" : "Sự kiện") : "Hạn chót"}
                       {isDone(entry) ? " · Đã xong" : ""}
                       {entry.kind === "block" && entry.task.location !== null ? ` · ${entry.task.location}` : ""}
                     </p>

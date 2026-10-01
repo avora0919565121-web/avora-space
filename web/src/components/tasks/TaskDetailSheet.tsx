@@ -1,4 +1,4 @@
-import { BookOpen, ExternalLink, Loader2, MapPin, MessagesSquare, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
+import { BookOpen, ExternalLink, Loader2, Lock, MapPin, MessagesSquare, MoreHorizontal, Pencil, Plus, Trash2 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
-import { contextLink } from "@/lib/task-context";
+import { contextLinkFromTasks } from "@/lib/task-context";
 import { departureTimes, eventDurationLabel, isLinkLocation, toLocalInput } from "@/lib/task-composer";
 import { taskContextTarget } from "@/lib/task-scope";
 import { useMyTravelPlans, travelOf } from "@/lib/use-task-composer";
@@ -46,7 +46,8 @@ import {
   taskTier,
   type TaskItem,
 } from "@/lib/tasks";
-import { useTaskFlagIndex } from "@/lib/use-task-flags";
+import { useTaskFlagActions, useTaskFlagIndex } from "@/lib/use-task-flags";
+import { DURATION_CHOICES } from "@/components/tasks/TaskComposer";
 import { useClosedSharedTasks, useTaskActions } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
@@ -62,6 +63,22 @@ function linkLabel(url: string): string {
   } catch {
     return "Mở link";
   }
+}
+
+function FlagChip({ isActive, onClick, children }: { isActive: boolean; onClick: () => void; children: ReactNode }) {
+  return (
+    <button
+      type="button"
+      aria-pressed={isActive}
+      onClick={onClick}
+      className={cn(
+        "press h-9 rounded-full border px-3 text-[12.5px] font-medium transition-colors",
+        isActive ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-accent/50",
+      )}
+    >
+      {children}
+    </button>
+  );
 }
 
 /** Label left, value right on a wide screen; stacked on a phone — the same words as the form. */
@@ -126,7 +143,8 @@ export function TaskDetailSheet({
   const { user } = useAuth();
   const navigate = useNavigate();
   const flags = useTaskFlagIndex();
-  const { togglePersonalDone, binPersonal, deleteShared } = useTaskActions();
+  const { setFlag } = useTaskFlagActions();
+  const { togglePersonalDone, binPersonal, deleteShared, restoreShared } = useTaskActions();
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [isCompleteOpen, setIsCompleteOpen] = useState<boolean>(false);
   const [isForwarding, setIsForwarding] = useState<boolean>(false);
@@ -228,14 +246,18 @@ export function TaskDetailSheet({
   };
 
   const remove = (): void => {
-    if (!window.confirm("Chuyển việc này vào Thùng rác?")) return;
-    const run =
-      task.type === "personal"
-        ? binPersonal.mutateAsync({ taskId: task.id, deleted: true })
-        : deleteShared.mutateAsync(task.id);
+    // AVORA-53 · 4.6: no confirm box — a toast with Hoàn tác, the same as on the row.
+    const isPersonal = task.type === "personal";
+    const run = isPersonal ? binPersonal.mutateAsync({ taskId: task.id, deleted: true }) : deleteShared.mutateAsync(task.id);
     void run
       .then(() => {
-        toast.success("Đã chuyển vào Thùng rác.");
+        toast.success("Đã chuyển vào Thùng rác", {
+          action: {
+            label: "Hoàn tác",
+            onClick: () =>
+              void (isPersonal ? binPersonal.mutateAsync({ taskId: task.id, deleted: false }) : restoreShared.mutateAsync(task.id)),
+          },
+        });
         close();
       })
       .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không xoá được."));
@@ -290,7 +312,7 @@ export function TaskDetailSheet({
                     type="button"
                     onClick={() => {
                       close();
-                      navigate(contextLink(target.conversationId, task.id));
+                      navigate(contextLinkFromTasks(target.conversationId, task.id, window.location));
                     }}
                     className="press text-left font-medium underline decoration-border underline-offset-2 hover:decoration-foreground"
                   >
@@ -377,11 +399,25 @@ export function TaskDetailSheet({
               <TaskPlanFields
                 task={task}
                 footer={
-                  <p className="text-[13px] text-foreground">
-                    <span className="text-muted-foreground">Đánh giá của bạn · </span>
-                    {isImportantFor(flags, task.id) ? "Quan trọng" : "Bình thường"}
-                    {duration !== null ? ` · ${duration}` : ""}
-                  </p>
+                  // AVORA-53 · 4.2: set here what the Quan trọng and Theo độ nặng views read.
+                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Đánh giá của bạn">
+                    <FlagChip isActive={isImportantFor(flags, task.id)} onClick={() => setFlag(task.id, { isImportant: !isImportantFor(flags, task.id) })}>
+                      ★ Quan trọng
+                    </FlagChip>
+                    <span className="mx-0.5 h-4 w-px bg-border" aria-hidden="true" />
+                    {DURATION_CHOICES.map((option) => {
+                      const current = durationFor(flags, task.id);
+                      return (
+                        <FlagChip
+                          key={option.minutes}
+                          isActive={current === option.minutes}
+                          onClick={() => setFlag(task.id, { durationMinutes: current === option.minutes ? null : option.minutes })}
+                        >
+                          {option.label}
+                        </FlagChip>
+                      );
+                    })}
+                  </div>
                 }
               />
             ) : (
@@ -409,6 +445,34 @@ export function TaskDetailSheet({
         <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-border bg-background px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
           <MyDayButton task={task} />
           <StartButton task={task} />
+          {/* AVORA-53 · 4.8: while the decision waits, the conversation is where it is made — so it is the main button. */}
+          {awaitsDecision && target !== null ? (
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                navigate(contextLinkFromTasks(target.conversationId, task.id, window.location));
+              }}
+              className="press flex h-11 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[13.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <MessagesSquare className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              Mở cuộc trò chuyện
+            </button>
+          ) : null}
+          {/* AVORA-51: a loan reminder carries no amount; how much is owed is read inside Két sắt. */}
+          {task.sourceTransactionId ? (
+            <button
+              type="button"
+              onClick={() => {
+                close();
+                navigate("/ket-sat/giao-dich?can_lam=den_han");
+              }}
+              className="press flex h-11 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
+            >
+              <Lock className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+              Mở trong Két sắt
+            </button>
+          ) : null}
           {canEdit ? (
             <button
               type="button"
@@ -447,7 +511,7 @@ export function TaskDetailSheet({
                   <DropdownMenuItem
                     onSelect={() => {
                       close();
-                      navigate(contextLink(target.conversationId, task.id));
+                      navigate(contextLinkFromTasks(target.conversationId, task.id, window.location));
                     }}
                   >
                     <MessagesSquare className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />

@@ -173,7 +173,7 @@ export function QuickActionBubble() {
               Trợ lý riêng trong không gian của bạn — chỉ gợi ý khi bạn hỏi, luôn để bạn xác nhận trước khi lưu. Đang
               được xây, chưa trò chuyện được ở đây.
             </DialogDescription>
-            <StatusPill className="mt-6">Sắp ra mắt</StatusPill>
+            <StatusPill className="mt-6">Sắp có</StatusPill>
           </div>
         </DialogContent>
       </Dialog>

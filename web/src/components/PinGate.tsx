@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Dices, KeyRound, Loader2, PenLine, RefreshCw, X } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -90,6 +91,7 @@ export function PinReminderBanner() {
   const today = todayIso();
   const [hiddenToday, setHiddenToday] = useState<boolean>(() => userId !== "" && isPinBannerHidden(userId, today));
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const location = useLocation();
 
   useEffect(() => {
     setHiddenToday(userId !== "" && isPinBannerHidden(userId, today));
@@ -97,6 +99,8 @@ export function PinReminderBanner() {
 
   const status = statusQuery.data;
   if (status === undefined || pinPhase(status) !== "grace") return null;
+  // AVORA-53 · 6.6: Cài đặt › Hồ sơ already holds the PIN form; one ask per screen is enough.
+  if (location.pathname.startsWith("/cai-dat")) return null;
   const daysLeft = pinDaysLeft(status.requiredAt);
 
   return (

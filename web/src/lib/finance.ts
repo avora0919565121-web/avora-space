@@ -592,10 +592,13 @@ export function canSuggestReminder(
   );
 }
 
-/** "Đến hạn: [Tên khoản] — [số tiền]" — the amount is what is still owed. */
-export function reminderTitle(name: string, entry: Pick<Transaction, "amountCents" | "settledCents">, currency: string): string {
+/**
+ * "Đến hạn: [Tên khoản]" — never the amount (AVORA-51): the task lives in Nhiệm vụ, Avora Space
+ * and notifications, outside the Két sắt lock, so how much is owed stays inside Két sắt.
+ */
+export function reminderTitle(name: string): string {
   const label = name.trim() === "" ? "Khoản đến hạn" : name.trim();
-  return `Đến hạn: ${label} — ${formatMoney(outstandingCents(entry), currency)}`.slice(0, 200);
+  return `Đến hạn: ${label}`.slice(0, 200);
 }
 
 /** Live rows only: a transaction marked as an error must not move a single total. */

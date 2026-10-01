@@ -170,8 +170,17 @@ export default {
             transform: "scale(1)",
           },
         },
+        /* AVORA-51: a wrong Két sắt code — a small shake, not an alarm. */
+        "code-shake": {
+          "0%, 100%": { transform: "translateX(0)" },
+          "20%": { transform: "translateX(-7px)" },
+          "40%": { transform: "translateX(6px)" },
+          "60%": { transform: "translateX(-4px)" },
+          "80%": { transform: "translateX(2px)" },
+        },
       },
       animation: {
+        "code-shake": "code-shake 0.42s cubic-bezier(0.36, 0.07, 0.19, 0.97) both",
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "rise-in": "rise-in 0.45s cubic-bezier(0.16, 1, 0.3, 1) both",

@@ -1,4 +1,15 @@
-import { useCallback, useState, type DragEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useState, type DragEvent, type KeyboardEvent } from "react";
+
+/** AVORA-53 · 4.7: the drag hint is read once per device, then gets out of the way. */
+const HINT_KEY = "avora.tasks.view-hint-seen";
+
+function hintSeen(): boolean {
+  try {
+    return window.localStorage.getItem(HINT_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 import { TASK_VIEW_LABELS, type TaskViewMode } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
@@ -21,6 +32,15 @@ type TaskViewTabsProps = {
 export function TaskViewTabs({ mode, order, onChange, onReorder }: TaskViewTabsProps) {
   const [draggingId, setDraggingId] = useState<TaskViewMode | null>(null);
   const [overId, setOverId] = useState<TaskViewMode | null>(null);
+  const [showHint] = useState<boolean>(() => !hintSeen());
+  useEffect(() => {
+    if (!showHint) return;
+    try {
+      window.localStorage.setItem(HINT_KEY, "1");
+    } catch {
+      // Private mode: the hint simply shows again next time.
+    }
+  }, [showHint]);
 
   const handleDrop = useCallback(
     (event: DragEvent<HTMLButtonElement>, targetId: TaskViewMode): void => {
@@ -93,10 +113,12 @@ export function TaskViewTabs({ mode, order, onChange, onReorder }: TaskViewTabsP
           </button>
         ))}
       </div>
-      <p className="mt-1.5 text-[12px] text-muted-foreground">
-        Kéo để đổi thứ tự — thẻ đầu tiên là cách xem mở sẵn khi bạn quay lại. Dùng phím: Ctrl/⌘ + ←
-        hoặc →.
-      </p>
+      {showHint ? (
+        <p className="mt-1.5 text-[12px] text-muted-foreground">
+          Kéo để đổi thứ tự — thẻ đầu tiên là cách xem mở sẵn khi bạn quay lại. Dùng phím: Ctrl/⌘ + ←
+          hoặc →.
+        </p>
+      ) : null}
     </div>
   );
 }

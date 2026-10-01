@@ -2,7 +2,7 @@ import { ArrowLeft, Check, Mail, Phone, Trash2 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
-import { readReturn } from "@/lib/return-to";
+import { carryReturn, readReturn } from "@/lib/return-to";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { SharedChannelCard } from "@/components/contacts/SharedChannelCard";
@@ -80,9 +80,11 @@ const ContactChannelReview = () => {
 
   const openContact = useCallback(
     (contactId: string): void => {
-      navigate(`/lien-he/${contactId}`);
+      // AVORA-53 · 2.4: the way back keeps travelling with the person.
+      const carried = carryReturn(searchParams, new URLSearchParams()).toString();
+      navigate(carried.length > 0 ? `/lien-he/${contactId}?${carried}` : `/lien-he/${contactId}`);
     },
-    [navigate],
+    [navigate, searchParams],
   );
 
   if (isPending || shared.isPending) {

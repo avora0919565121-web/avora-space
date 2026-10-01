@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from "@/integrations/supabase/client";
 import { clearAllDrafts } from "@/lib/chat-drafts";
 import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
+import { isSafeReturnPath } from "@/lib/return-to";
 
 export type Profile = {
   id: string;
@@ -31,10 +32,11 @@ type AuthContextValue = {
   isLoading: boolean;
   /** True while the session came from a password-recovery link and no new password is set yet. */
   isRecovering: boolean;
-  signUp: (email: string, password: string, displayName: string) => Promise<AuthResult>;
+  /** `redirectPath`: where the confirmation link should land (an invite link that is waiting). */
+  signUp: (email: string, password: string, displayName: string, redirectPath?: string) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   /** Sends the confirmation email again for an address that signed up but never confirmed. */
-  resendConfirmation: (email: string) => Promise<AuthResult>;
+  resendConfirmation: (email: string, redirectPath?: string) => Promise<AuthResult>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<AuthResult>;
@@ -49,6 +51,15 @@ type AuthContextValue = {
  * a normal sign-in never inherits it.
  */
 const RECOVERY_FLAG_KEY = "avora.password-recovery";
+
+/**
+ * AVORA-53 · 1.2 — the confirmation email lands back on the page that was waiting (an invite
+ * link), not on the bare origin. Only a safe in-app path is ever appended.
+ */
+export function confirmationRedirect(redirectPath: string | undefined, origin: string = window.location.origin): string {
+  if (redirectPath === undefined || !isSafeReturnPath(redirectPath) || redirectPath.startsWith("/dang-nhap")) return origin;
+  return `${origin}${redirectPath}`;
+}
 
 function readRecoveryFlag(): boolean {
   try {
@@ -151,13 +162,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [userId, loadProfile]);
 
   const signUp = useCallback(
-    async (email: string, password: string, displayName: string): Promise<AuthResult> => {
+    async (email: string, password: string, displayName: string, redirectPath?: string): Promise<AuthResult> => {
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: { display_name: displayName.trim() },
-          emailRedirectTo: window.location.origin,
+          emailRedirectTo: confirmationRedirect(redirectPath),
         },
       });
 
@@ -189,14 +200,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }, []);
 
-  const resendConfirmation = useCallback(async (email: string): Promise<AuthResult> => {
+  const resendConfirmation = useCallback(async (email: string, redirectPath?: string): Promise<AuthResult> => {
     const trimmed = email.trim();
     if (trimmed.length === 0) return { ok: false, message: "Vui lòng nhập email của bạn." };
 
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: trimmed,
-      options: { emailRedirectTo: window.location.origin },
+      options: { emailRedirectTo: confirmationRedirect(redirectPath) },
     });
 
     // Rate limits and network failures are real and actionable. Anything else (unknown
@@ -210,6 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = useCallback(async (): Promise<void> => {
     // AVORA-46: this device stops receiving this account's notifications.
     await disablePushHere().catch(() => undefined);
+    // AVORA-51: signing out locks Két sắt for this session at once (not 5 minutes later).
+    await supabase.rpc("vault_lock").then(() => undefined, () => undefined);
     await supabase.auth.signOut();
     // Half-typed messages stay on this device only while signed in (Đợt gộp 2 · A8).
     clearAllDrafts();
@@ -317,10 +330,10 @@ export function useAuth(): AuthContextValue {
   return context;
 }
 
-/** Display name with a graceful fallback to the email handle. */
+/** Display name, or "Bạn" — never the email (AVORA-51 · B3: an address is not a name, and it is private). */
 export function useDisplayName(): string {
-  const { profile, user } = useAuth();
+  const { profile } = useAuth();
   const fromProfile = profile?.display_name?.trim();
   if (fromProfile && fromProfile.length > 0) return fromProfile;
-  return user?.email ?? "Bạn";
+  return "Bạn";
 }

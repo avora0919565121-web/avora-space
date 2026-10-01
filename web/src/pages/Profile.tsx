@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { PinSetup, usePinStatus } from "@/components/PinGate";
+import { RevealButton, useReveal } from "@/components/RevealContact";
 import { useAuth, useDisplayName } from "@/lib/auth";
+import { maskEmail, maskPhone } from "@/lib/mask";
 import { pinDaysLeft } from "@/lib/user-pin";
 
 /** Signed-in confirmation screen: real profile data from Supabase, scoped by RLS to this user. */
@@ -15,6 +17,7 @@ const Profile = () => {
   const pinQuery = usePinStatus();
   const myPin: string | null = pinQuery.data?.pin ?? null;
   const daysLeft: number | null = pinDaysLeft(pinQuery.data?.requiredAt ?? null);
+  const reveal = useReveal();
 
   const [nameDraft, setNameDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -54,21 +57,15 @@ const Profile = () => {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-2xl animate-rise-in px-6 py-12 md:px-10">
+        {/* AVORA-53 · 6.5: the tab names the page; no second large title, and the email shows once (below). */}
         <div className="flex items-center gap-4">
           <InitialsAvatar name={displayName} size="lg" online />
-          <div className="min-w-0">
-            <h1 className="truncate text-[28px] font-semibold tracking-tight text-foreground">
-              Xin chào, {displayName}
-            </h1>
-            <p className="mt-1 truncate text-[15px] text-muted-foreground">{user?.email}</p>
-          </div>
+          <p className="min-w-0 truncate text-[20px] font-semibold tracking-tight text-foreground">{displayName}</p>
         </div>
 
         <div className="mt-8 rounded-xl border border-border bg-card p-6">
           <h2 className="text-[17px] font-semibold text-foreground">Hồ sơ của bạn</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">
-            Chỉ bạn đọc và sửa được hồ sơ này — được bảo vệ bằng Row Level Security.
-          </p>
+          <p className="mt-1 text-[13px] text-muted-foreground">Chỉ bạn đọc và sửa được hồ sơ này.</p>
 
           {profileError ? (
             <p role="alert" className="mt-4 rounded-md bg-accent/70 px-4 py-3 text-[14px] text-destructive">
@@ -117,7 +114,9 @@ const Profile = () => {
           <dl className="mt-8 grid gap-4 border-t border-border pt-6 sm:grid-cols-2">
             <div>
               <dt className="text-[13px] text-muted-foreground">Email đăng nhập</dt>
-              <dd className="mt-1 truncate text-[15px] text-foreground">{user?.email}</dd>
+              <dd className="mt-1 truncate text-[15px] text-foreground" translate="no">
+                {reveal.isRevealed ? user?.email : maskEmail(user?.email)}
+              </dd>
             </div>
             <div>
               <dt className="text-[13px] text-muted-foreground">Ngày tạo hồ sơ</dt>
@@ -133,13 +132,17 @@ const Profile = () => {
               <dt className="text-[13px] text-muted-foreground">Số điện thoại</dt>
               <dd className="mt-1 truncate text-[15px] text-foreground">
                 {user?.phone ? (
-                  user.phone
+                  <span translate="no">{reveal.isRevealed ? user.phone : maskPhone(user.phone)}</span>
                 ) : (
                   <span className="text-muted-foreground">Chưa có — bổ sung sau cũng được</span>
                 )}
               </dd>
             </div>
           </dl>
+          <div className="mt-2 flex justify-end">
+            <RevealButton isRevealed={reveal.isRevealed} secondsLeft={reveal.secondsLeft} onAsk={reveal.ask} onHide={reveal.hide} />
+          </div>
+          {reveal.dialog}
 
           {/* No PIN yet: the form sits right here, the natural place to get one early (AVORA 33). */}
           {pinQuery.data !== undefined && myPin === null ? (

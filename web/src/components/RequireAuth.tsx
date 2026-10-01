@@ -16,6 +16,8 @@ import { ToolBelt } from "@/components/nav/ToolBelt";
 import { hidesToolBelt } from "@/lib/navigation";
 import { useAuth } from "@/lib/auth";
 import { useNewDayLanding } from "@/lib/use-new-day-landing";
+import { VaultLockProvider } from "@/lib/use-vault-lock";
+import { useTrackHistory } from "@/lib/nav-history";
 
 /** Gate for every signed-in screen; renders the shared site navigation around the page. */
 export function RequireAuth() {
@@ -23,6 +25,7 @@ export function RequireAuth() {
   const location = useLocation();
   // Before any early return, so the hook order never changes between renders.
   useNewDayLanding(session !== null && !isRecovering ? session?.user.id : undefined);
+  useTrackHistory();
 
   if (isLoading) {
     return (
@@ -43,6 +46,8 @@ export function RequireAuth() {
   return (
     // AVORA 33: the PIN blocks only after its 30-day window; until then a quiet banner reminds.
     <PinGate>
+    {/* AVORA-51: the Két sắt lock is known to every screen (badge, quick transaction), not only Két sắt. */}
+    <VaultLockProvider>
     {/* One fixed frame, like a native app: bars stay put and only the page between them scrolls. */}
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-card md:h-screen md:flex-row">
       {/* AVORA-49 · 2.1a: inside a thread on a phone the thread's own header (with ‹) is the top bar. */}
@@ -67,6 +72,7 @@ export function RequireAuth() {
       <PushClickBridge />
       <ConfirmHost />
     </div>
+    </VaultLockProvider>
     </PinGate>
   );
 }

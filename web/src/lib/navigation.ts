@@ -69,7 +69,7 @@ export const TOOL_BELT_ITEMS: readonly NavEntry[] = NAV_ITEMS.filter((item) => i
  * but not built: no route, no screen, only the "Sắp ra mắt" pill.
  */
 export const APP_MAP_UPCOMING: readonly { label: string; note: string }[] = [
-  { label: "Donation", note: "Ủng hộ AVORA" },
+  { label: "Ủng hộ AVORA", note: "Góp sức để AVORA đi tiếp" },
 ];
 
 /** How long the logo must be held before the full map opens instead of going home. */
@@ -119,10 +119,11 @@ export function hidesToolBelt(pathname: string): boolean {
 /** Két sắt: the five vault domains (RFC-AVORA-TRUST-001 §16). Only Finance is built; no tab carries a badge. */
 export const VAULT_TABS: readonly NavEntry[] = [
   { to: "/ket-sat", label: "Tài chính" },
-  { to: "/ket-sat/mat-khau", label: "Mật khẩu" },
-  { to: "/ket-sat/chung-chi", label: "Chứng chỉ" },
-  { to: "/ket-sat/tai-lieu", label: "Tài liệu" },
-  { to: "/ket-sat/tai-san", label: "Tài sản" },
+  // AVORA-53 · 6.11: the four halves not built yet say so before they are opened.
+  { to: "/ket-sat/mat-khau", label: "Mật khẩu", badge: "Sắp có" },
+  { to: "/ket-sat/chung-chi", label: "Chứng chỉ", badge: "Sắp có" },
+  { to: "/ket-sat/tai-lieu", label: "Tài liệu", badge: "Sắp có" },
+  { to: "/ket-sat/tai-san", label: "Tài sản", badge: "Sắp có" },
 ];
 
 /** Cài đặt: the profile, the app's own settings, its notifications, and the unbuilt assistant. */
@@ -131,7 +132,7 @@ export const SETTINGS_TABS: readonly NavEntry[] = [
   // Not "Thiết lập": that reads as a synonym of the section name "Cài đặt". Route unchanged.
   { to: "/cai-dat/thiet-lap", label: "Tuỳ chọn chung" },
   { to: "/cai-dat/thong-bao", label: "Thông báo" },
-  { to: "/cai-dat/avora-ai", label: "Avora AI", badge: "Sắp ra mắt" },
+  { to: "/cai-dat/avora-ai", label: "Avora AI", badge: "Sắp có" },
 ];
 
 /**

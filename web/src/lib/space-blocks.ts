@@ -46,7 +46,7 @@ export type SpaceBlockCopy = {
 
 export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = {
   greeting: {
-    title: "Góc suy gẫm",
+    title: "Góc suy ngẫm",
     description: "Một câu cho ngày hôm nay, và chỗ để bạn viết lại điều nó gợi ra.",
     hint: "Chạm “Viết lời bình” để lưu vào Nhật ký — chỉ bạn đọc được.",
     empty: null,
@@ -76,7 +76,7 @@ export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = 
     empty: null,
   },
   communication: {
-    title: "Giao tiếp",
+    title: "Kết nối",
     description: "Những cuộc trò chuyện đang có tin bạn chưa đọc.",
     hint: null,
     empty: null,

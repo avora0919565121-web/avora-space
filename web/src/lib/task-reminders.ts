@@ -1,6 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
-import { reminderInstant, reminderOffsetMinutes, type ReminderPreset } from "@/lib/task-schedule";
+import { deadlineInstant, reminderInstant, reminderOffsetMinutes, type ReminderPreset } from "@/lib/task-schedule";
 
 /**
  * Phase 3B reminders.
@@ -100,6 +100,31 @@ export async function createTaskReminder(
       reminder_tz: timezone,
       offset_minutes: offset,
     })
+    .select(COLUMNS)
+    .single();
+  if (error) throw fail(error.code, error.message);
+  return toReminder(data as Row);
+}
+
+/**
+ * AVORA-53 · 4.3 — a reminder set straight from the task form: `minutesBefore` the deadline
+ * (0 = right on time). A moment already past is skipped quietly rather than refused.
+ */
+export async function createTaskReminderBefore(
+  taskId: string,
+  userId: string,
+  minutesBefore: number,
+  deadlineDate: string,
+  deadlineTime: string | null,
+  timezone: string,
+): Promise<TaskReminder | null> {
+  const due = deadlineInstant(deadlineDate, deadlineTime);
+  if (due === null) return null;
+  const at = new Date(due.getTime() - minutesBefore * 60_000);
+  if (at.getTime() < Date.now()) return null;
+  const { data, error } = await supabase
+    .from("task_reminders")
+    .insert({ task_id: taskId, user_id: userId, reminder_time: at.toISOString(), reminder_tz: timezone, offset_minutes: minutesBefore })
     .select(COLUMNS)
     .single();
   if (error) throw fail(error.code, error.message);

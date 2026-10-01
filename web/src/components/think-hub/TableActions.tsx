@@ -304,10 +304,28 @@ export function MoveRecordDialog({
   const run = async (): Promise<void> => {
     if (request === null || targetId === null) return;
     try {
-      if (mode === "move") await move.mutateAsync({ recordId: request.record.id, targetTableId: targetId });
-      else await copy.mutateAsync({ recordId: request.record.id, targetTableId: targetId });
-      toast.success(mode === "move" ? "Đã chuyển Hạng mục." : "Đã sao chép Hạng mục.");
-      onDone(targetId);
+      const recordId = request.record.id;
+      const sourceTableId = request.record.tableId;
+      const targetName = tables.find((table) => table.id === targetId)?.name ?? "Bảng khác";
+      const destination = targetId;
+      if (mode === "move") await move.mutateAsync({ recordId, targetTableId: destination });
+      else await copy.mutateAsync({ recordId, targetTableId: destination });
+      // AVORA-53 · 5.6: stay on the source table; the toast offers the way there and the way back.
+      toast.success(mode === "move" ? `Đã chuyển sang ${targetName}` : `Đã sao chép sang ${targetName}`, {
+        action: { label: "Xem", onClick: () => onDone(destination) },
+        ...(mode === "move"
+          ? {
+              cancel: {
+                label: "Hoàn tác",
+                onClick: () =>
+                  void move
+                    .mutateAsync({ recordId, targetTableId: sourceTableId })
+                    .then(() => toast.success("Đã đưa Hạng mục về chỗ cũ."))
+                    .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không hoàn tác được.")),
+              },
+            }
+          : {}),
+      });
       onOpenChange(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không thực hiện được.");

@@ -1,5 +1,5 @@
 import { Archive, Pencil, Plus, RotateCcw, Trash2 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -146,6 +146,11 @@ function AccountCard({
 const FinanceAccounts = () => {
   const navigate = useNavigate();
   const { accounts, categories, entries, currency, rates, isLoading } = useLedger();
+  // Arriving from "Thùng rác (n)" on Giao dịch: bring the bin into view once the page has drawn.
+  useEffect(() => {
+    if (isLoading || window.location.hash !== "#thung-rac") return;
+    window.setTimeout(() => document.getElementById("thung-rac")?.scrollIntoView({ behavior: "smooth", block: "start" }), 120);
+  }, [isLoading]);
   const { closeAccount, removeCategory } = useFinanceActions();
 
   const [accountDialog, setAccountDialog] = useState<{ open: boolean; editing: Account | null }>({
@@ -356,7 +361,7 @@ const FinanceAccounts = () => {
         <Panel title="Danh mục chi">{renderCategoryList(expenseCategories, "expense")}</Panel>
       </div>
 
-      <div className="mt-3">
+      <div id="thung-rac" className="mt-3 scroll-mt-4">
         <FinanceTrashPanel />
       </div>
 

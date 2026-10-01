@@ -149,7 +149,7 @@ function fail(scope: string, code: string | undefined, message: string): Error {
   const normalized = message.toLowerCase();
   if (normalized.includes("avora_profile_timezone_invalid")) return new Error("Múi giờ không hợp lệ.");
   if (normalized.includes("profiles_daily_thought_category_valid"))
-    return new Error("Lựa chọn Daily Thought không hợp lệ.");
+    return new Error("Lựa chọn Góc suy ngẫm không hợp lệ.");
   if (normalized.includes("failed to fetch"))
     return new Error("Không kết nối được máy chủ. Kiểm tra mạng và thử lại.");
   if (code === "42501" || normalized.includes("permission denied"))
@@ -203,7 +203,7 @@ export async function updateDailyThoughtCategory(
   userId: string,
   category: string,
 ): Promise<ProfileSettings> {
-  if (!isDailyThoughtCategory(category)) throw new Error("Lựa chọn Daily Thought không hợp lệ.");
+  if (!isDailyThoughtCategory(category)) throw new Error("Lựa chọn Góc suy ngẫm không hợp lệ.");
   const { data, error } = await supabase
     .from("profiles")
     .update({ daily_thought_category: category })

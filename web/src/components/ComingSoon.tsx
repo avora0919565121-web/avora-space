@@ -24,7 +24,7 @@ export function ComingSoon({
         </span>
         <h1 className="mt-6 text-[24px] font-semibold tracking-tight text-foreground">{title}</h1>
         <p className="mt-2.5 text-[15px] leading-relaxed text-muted-foreground">{description}</p>
-        <StatusPill className="mt-7">Sắp ra mắt</StatusPill>
+        <StatusPill className="mt-7">Sắp có</StatusPill>
       </div>
     </div>
   );

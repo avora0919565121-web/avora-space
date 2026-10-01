@@ -7,7 +7,7 @@ export type TablePlace = {
   label: string;
 };
 
-export const PERSONAL_PLACE: TablePlace = { conversationId: null, label: "Riêng tôi (Nhật ký)" };
+export const PERSONAL_PLACE: TablePlace = { conversationId: null, label: "Của tôi" };
 
 function placeOf(item: ConversationSummary): TablePlace {
   return {

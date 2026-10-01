@@ -11,7 +11,12 @@
  */
 
 /** Paths someone reached by tapping a link sent to them. A link is an explicit intent. */
-const LINK_ENTRY_PREFIXES: readonly string[] = ["/loi-moi/", "/loi-moi-lien-he/"];
+const LINK_ENTRY_PREFIXES: readonly string[] = ["/loi-moi/", "/loi-moi-lien-he/", "/ket-noi/"];
+
+/** The app's own front doors: opening here is "opening the app", not following a link. */
+export function isRootEntry(pathname: string, homeRoute: string): boolean {
+  return pathname === "/" || pathname === homeRoute;
+}
 
 /** True when this path was opened from an invite link, which a new day must not overrule. */
 export function isLinkEntry(pathname: string): boolean {
@@ -28,22 +33,33 @@ export function isNewDay(lastOpenedDate: string | null, today: string): boolean 
 
 export type DayOpenDecision = "stay" | "go-home" | "record-only";
 
+/** `cold`: the page just loaded (icon, notification, link). `resume`: a tab that was already open came back. */
+export type DayOpenMoment = "cold" | "resume";
+
 /**
  * What to do on this open.
  *
  * - `stay`: same day, nothing changes.
- * - `go-home`: new day, send them to Avora Space and record the day.
- * - `record-only`: new day, but they arrived through an invite link — honour the link, and still
- *   record the day so returning to the tab later does not yank them away from it.
- * A person already on Avora Space is recorded without being navigated anywhere.
+ * - `go-home`: new day on a tab left open since yesterday — send them to Avora Space and record the day.
+ * - `record-only`: new day, but they opened a specific place (a notification, `/tin-nhan/…`,
+ *   `/nhiem-vu?…&mo=`, an invite / QR link) — honour it and only record the day (AVORA-53 · 1.1).
+ *   Opening the app at its root lands on Avora Space by itself, so that is recorded too.
  */
 export function decideDayOpen(
   lastOpenedDate: string | null,
   today: string,
   pathname: string,
   homeRoute: string,
+  moment: DayOpenMoment = "resume",
 ): DayOpenDecision {
   if (!isNewDay(lastOpenedDate, today)) return "stay";
-  if (pathname === homeRoute || isLinkEntry(pathname)) return "record-only";
+  if (isRootEntry(pathname, homeRoute) || isLinkEntry(pathname)) return "record-only";
+  if (moment === "cold") return "record-only";
   return "go-home";
 }
+
+/**
+ * The path the page was loaded with, read once before the router rewrites `/` to Avora Space.
+ * A cold open is judged by this, not by wherever the router has already moved on to.
+ */
+export const ENTRY_PATH: string = typeof window === "undefined" ? "/" : window.location.pathname;

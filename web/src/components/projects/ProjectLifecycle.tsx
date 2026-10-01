@@ -269,6 +269,8 @@ export function ProjectLifecycle({
   const { isSubmitting, guard } = useSubmitGuard();
   const [isThanksOpen, setIsThanksOpen] = useState<boolean>(false);
   const [isEarlyOpen, setIsEarlyOpen] = useState<boolean>(false);
+  // AVORA-53 · 5.2: closing is one tap away from a group-wide reopen, so it asks once.
+  const [isConfirmCloseOpen, setIsConfirmCloseOpen] = useState<boolean>(false);
   // ADR-031 (Đợt gộp 2 · C9/C10): deleting and reopening a project go through a proposal every member answers.
   const [proposing, setProposing] = useState<"delete" | "reopen" | null>(null);
   const sentence = closeBlockerSentence(blockers);
@@ -301,10 +303,31 @@ export function ProjectLifecycle({
                 variant="outline"
                 className="press h-11 px-5"
                 disabled={!canClose(blockers) || isSubmitting}
-                onClick={() => void handleClose()}
+                onClick={() => setIsConfirmCloseOpen(true)}
               >
                 Đóng dự án
               </Button>
+              <Dialog open={isConfirmCloseOpen} onOpenChange={setIsConfirmCloseOpen}>
+                <DialogContent className="max-w-[420px]">
+                  <DialogTitle className="text-[18px] font-semibold tracking-tight">Đóng dự án {project.title}?</DialogTitle>
+                  <DialogDescription className="text-[14px] text-muted-foreground">Mở lại cần mọi người đồng ý.</DialogDescription>
+                  <div className="mt-3 flex justify-end gap-2">
+                    <Button variant="outline" className="press h-11 px-5" onClick={() => setIsConfirmCloseOpen(false)}>
+                      Huỷ
+                    </Button>
+                    <Button
+                      className="press h-11 px-5"
+                      disabled={isSubmitting}
+                      onClick={() => {
+                        setIsConfirmCloseOpen(false);
+                        void handleClose();
+                      }}
+                    >
+                      Đóng
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
               {!canClose(blockers) ? (
                 <Button variant="ghost" className="press h-11 px-5" onClick={() => setIsEarlyOpen(true)}>
                   Đóng sớm

@@ -1198,6 +1198,28 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   would put on display precisely what the vault exists to keep. It reuses the rail's existing badge rather
   than a new one, so the three tabs that ask for attention ask in the same voice.
 
+### Khoá Két sắt (AVORA-51 · ADR-034)
+
+- 2026-10-01 — Két sắt có khoá riêng: **mã Két sắt** 6 số (không gọi là PIN — PIN là mã định danh `A-…`). Màn khoá phủ
+  mọi sub-tab: biểu tượng khoá trên quầng sáng ấm (phòng đang đóng, không phải báo động) · `Két sắt đang khoá` · 6 chấm · bàn phím
+  số kiểu điện thoại (phím 64px) · `Quên mã?`. Máy tính gõ được bằng bàn phím, dán được mã từ email. Sai mã: rung nhẹ
+  hàng chấm + `Mã chưa đúng. Còn {n} lần thử.`; bị chờ: `Thử lại sau {mm:ss}.` tự đếm ngược.
+- 2026-10-01 — Lần đầu: `Đặt mã Két sắt` (nhập 2 lần) kèm một câu, không cảnh báo doạ. Người đã có dữ liệu trong Két sắt
+  đọc đoạn B2 một lần trước (`Tôi đã hiểu`). Đoạn B2 nằm nguyên văn ở `lib/vault-lock.ts` (`VAULT_ABOUT`), mở lại được
+  ở `⋯` › `Về khoá Két sắt`; test quét mọi chuỗi hiển thị của Két sắt để chữ "mã hoá" chỉ còn trong đoạn đó (và loại
+  tài khoản "Tiền mã hoá").
+- 2026-10-01 — Két sắt đang mở: `🔒 Khoá ngay` + `⋯` (Đổi mã Két sắt · Về khoá Két sắt) ở đầu màn. Rời Két sắt quay lại trong
+  5 phút thì không hỏi; quá 5 phút, tải lại trang hay đăng xuất thì hỏi. Khoá xong, mọi dữ liệu Két sắt trong bộ nhớ app
+  bị bỏ ngay (huy hiệu "N khoản tới hạn" tắt theo). `Tạo giao dịch nhanh` mở màn khoá ngay trong hộp.
+- 2026-10-01 — `Quên mã?` → `Gửi mã xác nhận tới vo•••n@o•••k.com` → nhập mã 6 số từ email → mã mới 2 lần → vào
+  Két sắt. Dòng `Xác nhận qua số điện thoại · Sắp có` mờ, không bấm được. Email mã và email báo động dùng cùng khung
+  song ngữ với email đặt lại mật khẩu.
+- 2026-10-01 — Việc nhắc khoản vay chỉ còn `Đến hạn: {tên khoản}`; chi tiết việc có nút `Mở trong Két sắt`. Số tiền không bao
+  giờ ra khỏi Két sắt (Nhiệm vụ, Avora Space, thông báo đều nằm ngoài khoá).
+- 2026-10-01 — Email / SĐT của **chính tài khoản** luôn che đầu-cuối (thanh bên, Hồ sơ, Đặt lại mật khẩu, Quên mã).
+  Hồ sơ › `Hiện đầy đủ` hỏi lại mật khẩu tài khoản, hiện 60 giây có đếm ngược rồi tự che. Tên dự phòng là `Bạn`.
+  Liên hệ không che (đó là danh bạ, cần thấy đủ để gọi).
+
 ## Business HUB
 
 - 2026-09-17 — Business HUB is a separate book from the opportunity one, not a generalisation of it. An
@@ -1887,6 +1909,37 @@ end: Chặn · Báo cáo · Rời nhóm. Confirmations use the app's own box, ne
 | `Chỉ mình bạn xem` | chỉ mình bạn đọc |
 | `tệp` trong câu; tên mục `File của tôi` giữ nguyên | lẫn file / tệp trong một câu |
 | `Nhật ký` | Diary |
+| `nhiệm vụ` cho nhãn, nút, thông báo (`Tạo nhiệm vụ`, `Tên nhiệm vụ`) — ngoại lệ đã chốt: `Nguồn tạo việc` | việc / task / tác vụ trong nhãn |
+| Nơi cá nhân: `Của tôi`; ngăn Bảng: `Bảng của tôi` (AVORA-52) | Riêng tôi, Riêng tôi (Nhật ký) |
+| `Liên hệ` | Danh bạ |
+| `Kết nối` | Giao tiếp |
+| `Góc suy ngẫm` | Daily Thought, suy gẫm |
+| `Đồng ý` / `Từ chối` | Nhận |
+| `Khôi phục` | Phục hồi |
+| `Sắp có` | Sắp ra mắt, Đang hoàn thiện |
+| `Ủng hộ AVORA` | Donation |
+
+**Đường đi (AVORA-53, 01/10/2026)**
+
+1. Mọi đường sang Hub khác đều mang đường về (`withReturn(…, hereFrom(location, "{tên nơi}"))`), nơi đến có
+   `ReturnChip` — kể cả Cài đặt, Liên hệ, Kệ sách. Nhiệm vụ › `Xem trong ngữ cảnh` mang theo `mo=<id>` để về là mở lại
+   đúng nhiệm vụ (`contextLinkFromTasks`).
+2. Về là về thật: `ReturnChip` lùi một bước lịch sử khi đích đúng là mục ngay trước (`lib/nav-history.ts`), không thì
+   `replace` — back không bao giờ lặp A ↔ B. `‹` trong cuộc trò chuyện có `tu` thì về `tu`.
+3. Link từ ngoài vào luôn tới đúng nơi: sáng mới chỉ tự về Avora Space khi app mở ở trang gốc hoặc tab để mở từ hôm qua
+   quay lại; mở bằng một đường cụ thể (thông báo, `/tin-nhan/…`, `/ket-noi/…`) thì ở yên. Email xác nhận đăng ký về đúng
+   trang đang chờ (lời mời). Bấm thông báo khi app đang mở: app tự chuyển trang, không tải lại.
+4. Không im lặng khi không mở được: `?bang=` sai → `Không mở được Bảng này` + dọn URL; tải lỗi → `Thử lại`.
+5. Mỗi tính năng một tên (bảng thuật ngữ trên).
+
+- 2026-10-01 — Nhiệm vụ (AVORA-53 · 4): một nút `+ Nhiệm vụ` cố định cạnh tiêu đề (từ `Hôm nay` hạn mặc định hôm
+  nay, từ `Lịch` theo ngày đang chọn). Hàng mục: `Hôm nay · Tất cả · Sắp tới · Lịch · Quá hạn`, `Lời mời (n)` khi có,
+  `Đã xong` · `Thùng rác` trong `⋯`; `Sự kiện` gộp vào Sắp tới / Lịch, `Nháp` ẩn, một Thùng rác. TaskComposer (việc của
+  mình) có dòng `Nhắc` cho mọi nhiệm vụ và `★ Quan trọng` + thời lượng; TaskDetailSheet chỉnh được hai cờ đó. Xoá ở
+  dòng hay ở chi tiết: không hỏi, toast `Đã chuyển vào Thùng rác · Hoàn tác`.
+- 2026-10-01 — Kế hoạch (AVORA-53 · 5): chạm tên Bảng để đổi tên (cũng `⋯` › `Đổi tên`); hộp Hạng mục: `Lưu` / `Huỷ`
+  là chân hộp, các thao tác khác vào `⋯` ở đầu hộp và tự lưu chữ đang sửa trước khi làm tiếp; Bảng lưu trữ khoá cả
+  form; di chuyển Hạng mục ở lại Bảng nguồn với toast `Xem · Hoàn tác`; `Đóng dự án` có hộp xác nhận.
 
 - 2026-09-30 — Khẩu hiệu màn đăng nhập / đăng ký (AVORA-50 · A, VMT chốt 18:03). Brand column top to
   bottom: logo · `Avora Space` (product name, medium) · `Clarity - Inner Space - My Space` (the large

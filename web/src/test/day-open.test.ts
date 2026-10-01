@@ -14,9 +14,20 @@ describe("new-day landing", () => {
     expect(isNewDay(null, "2026-09-24")).toBe(true);
   });
 
-  it("sends a new-day open to Avora Space from any screen", () => {
-    expect(decideDayOpen("2026-09-23", "2026-09-24", "/tin-nhan/abc", HOME)).toBe("go-home");
-    expect(decideDayOpen("2026-09-23", "2026-09-24", "/nhiem-vu", HOME)).toBe("go-home");
+  it("sends a tab left open since yesterday back to Avora Space when it resumes", () => {
+    expect(decideDayOpen("2026-09-23", "2026-09-24", "/tin-nhan/abc", HOME, "resume")).toBe("go-home");
+    expect(decideDayOpen("2026-09-23", "2026-09-24", "/nhiem-vu", HOME, "resume")).toBe("go-home");
+  });
+
+  it("AVORA-53 · 1.1: a cold open on a specific place stays there and only records the day", () => {
+    expect(decideDayOpen("2026-09-23", "2026-09-24", "/tin-nhan/abc", HOME, "cold")).toBe("record-only");
+    expect(decideDayOpen("2026-09-23", "2026-09-24", "/nhiem-vu", HOME, "cold")).toBe("record-only");
+    expect(decideDayOpen("2026-09-23", "2026-09-24", "/ke-hoach", HOME, "cold")).toBe("record-only");
+  });
+
+  it("AVORA-53 · 53.2: opening at the root records (the router already lands on Avora Space)", () => {
+    expect(decideDayOpen("2026-09-23", "2026-09-24", "/", HOME, "cold")).toBe("record-only");
+    expect(isLinkEntry("/ket-noi/A-ABCDEFGH")).toBe(true);
   });
 
   it("leaves a same-day return exactly where it was", () => {

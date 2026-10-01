@@ -12,7 +12,7 @@ import {
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { celebrate } from "@/lib/confetti";
@@ -55,8 +55,8 @@ import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import type { TaskCategory } from "@/lib/task-categories";
 import { projectLink } from "@/lib/projects";
-import { contextLink, CONTEXT_TASK_PARAM } from "@/lib/task-context";
-import { carryReturn, stripReturn, withReturn } from "@/lib/return-to";
+import { contextLink, contextLinkFromTasks, CONTEXT_TASK_PARAM } from "@/lib/task-context";
+import { carryReturn, hereFrom, stripReturn, withReturn } from "@/lib/return-to";
 import { spotlight } from "@/lib/spotlight";
 import { ReturnChip } from "@/components/nav/ReturnChip";
 import { DateField } from "@/components/calendar/DateField";
@@ -412,7 +412,16 @@ function PersonalRow({
         label="Xoá"
         icon={Trash2}
         disabled={binPersonal.isPending}
-        onClick={() => void run(binPersonal.mutateAsync({ taskId: task.id, deleted: true }))}
+        onClick={() =>
+          void run(
+            binPersonal.mutateAsync({ taskId: task.id, deleted: true }).then(() => {
+              // AVORA-53 · 4.6: never silent, never a confirm box — a toast with the way back.
+              toast.success("Đã chuyển vào Thùng rác", {
+                action: { label: "Hoàn tác", onClick: () => void binPersonal.mutateAsync({ taskId: task.id, deleted: false }) },
+              });
+            }),
+          )
+        }
       />
 
       <TaskCompleteDialog
@@ -592,7 +601,7 @@ function SharedRow({
         {target !== null ? (
           <button
             type="button"
-            onClick={() => navigate(contextLink(target.conversationId, task.id))}
+            onClick={() => navigate(contextLinkFromTasks(target.conversationId, task.id, window.location))}
             className="press flex h-12 items-center gap-1.5 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary"
           >
             <MessagesSquare className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
@@ -661,7 +670,7 @@ function BinRow({ task, userId, today }: { task: TaskItem; userId: string | unde
           disabled={restoreShared.isPending || binPersonal.isPending}
           className="press h-9 rounded-[10px] border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
         >
-          Phục hồi
+          Khôi phục
         </button>
         {canPurgeTask(task) ? (
           <button
@@ -718,16 +727,6 @@ function PersonalSection({
             <p className="px-5 pb-3 text-[14px] text-muted-foreground">Chưa có việc gì. Thêm việc bạn cần làm nhé.</p>
           )}
 
-          <div className="border-t border-border px-5 py-3">
-            <button
-              type="button"
-              onClick={() => setIsComposerOpen(true)}
-              className="press flex h-11 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[15px] font-medium text-primary-foreground transition-colors hover:bg-primary/90"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-              Nhiệm vụ
-            </button>
-          </div>
         </div>
       ) : null}
       <TaskComposer
@@ -957,12 +956,13 @@ function ProposedSection({
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
-                    <a
-                      href={`/tin-nhan/${entry.conversationId}`}
+                    {/* AVORA-53 · 2.7: an in-app link (no reload), carrying the way back. */}
+                    <Link
+                      to={withReturn(`/tin-nhan/${entry.conversationId}`, hereFrom(window.location, "Nhiệm vụ"))}
                       className="press flex h-12 items-center rounded-[8px] px-2 py-1 text-[12.5px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground sm:h-9"
                     >
                       Mở cuộc trò chuyện
-                    </a>
+                    </Link>
                     <button
                       type="button"
                       onClick={() => {
@@ -1212,7 +1212,7 @@ function TimelineView({
   if (groups.length === 0) {
     return (
       <section className="rounded-[10px] border border-border bg-card px-5 py-6">
-        <p className="text-[14px] text-muted-foreground">Không có nhiệm vụ nào khớp vời bộ lọc này.</p>
+        <p className="text-[14px] text-muted-foreground">Không có nhiệm vụ nào khớp với bộ lọc này.</p>
       </section>
     );
   }
@@ -1471,6 +1471,18 @@ export default function Tasks() {
     [searchParams, setSearchParams],
   );
   const navigate = useNavigate();
+  const { createPersonal } = useComposerActions();
+  // AVORA-53 · 4.1: one `+ Nhiệm vụ` at the head of the page, in every section and view.
+  const [isNewOpen, setIsNewOpen] = useState<boolean>(() => searchParams.get("moi") === "1");
+  // `?moi=1` (Avora Space › Bắt đầu) is a one-shot: it leaves the address once the form is open.
+  useEffect(() => {
+    if (searchParams.get("moi") !== "1") return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("moi");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+  const newTaskDeadline: string | undefined =
+    hubSection.id === "my_day" ? today : hubSection.id === "calendar" && calendarAnchor >= today ? calendarAnchor : undefined;
 
   const { personal, sharedGroups, binned } = useMemo(() => {
     const all = filterByScope(tasks ?? [], scope, projectIndex);
@@ -1640,15 +1652,13 @@ export default function Tasks() {
     (task: TaskItem): void => {
       const target = taskContextTarget(task, projectIndex);
       if (target !== null) {
-        navigate(contextLink(target.conversationId, task.id));
+        navigate(contextLinkFromTasks(target.conversationId, task.id, window.location));
         return;
       }
-      const next = carryReturn(searchParams, new URLSearchParams());
-      next.set(TASK_HUB_PARAM, "viec");
-      setSearchParams(next, { replace: true });
+      // AVORA-53 · 2.8: the detail opens right over Lịch; closing it leaves the same day and view.
       setOpenTaskId(task.id);
     },
-    [navigate, searchParams, setSearchParams, projectIndex],
+    [navigate, projectIndex],
   );
 
   const { data: conversations } = useConversations();
@@ -1671,7 +1681,23 @@ export default function Tasks() {
 
   return (
     <div className="paper flex min-h-0 flex-1 flex-col">
-      <HubTitle title="Nhiệm vụ" className="max-w-[720px] md:px-6" action={<AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />} />
+      <HubTitle
+        title="Nhiệm vụ"
+        className="max-w-[720px] md:px-6"
+        action={
+          <div className="flex items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setIsNewOpen(true)}
+              className="press flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+              Nhiệm vụ
+            </button>
+            <AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />
+          </div>
+        }
+      />
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8">
         <ReturnChip className="-mt-2 mb-1" />
@@ -1681,7 +1707,7 @@ export default function Tasks() {
 
         {hubSection.id !== "tasks" ? (
           <div className="mt-5 space-y-3 pb-10">
-            <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} />
+            <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} onOpen={setOpenTaskId} />
             {tasksFailed ? (
               <BlockLoadError name="nhiệm vụ" onRetry={() => void refetchTasks()} />
             ) : isLoading ? (
@@ -1714,7 +1740,7 @@ export default function Tasks() {
         </p>
 
         <div className="mt-5 space-y-3">
-          <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} />
+          <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} onOpen={setOpenTaskId} />
 
           {/* Arrived from a dashboard block: say what is being left out, and offer the way back.
               In Theo đối tượng the layer chips already say it. */}
@@ -1786,26 +1812,12 @@ export default function Tasks() {
               </>
             ) : null}
 
-            {/* Personal work is added here; shared work is only ever raised inside a chat. */}
-            {mode !== "relationship" ? (
-              <p className="text-[13px] text-muted-foreground">
-                Để thêm việc cá nhân, chuyển sang{" "}
-                <button
-                  type="button"
-                  onClick={() => setMode("relationship")}
-                  className="font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
-                >
-                  {TASK_VIEW_LABELS.relationship}
-                </button>
-                . Việc chung được giao ngay trong cuộc trò chuyện.
-              </p>
-            ) : null}
 
             {proposed.length > 0 ? <ProposedSection suggestions={proposed} today={today} /> : null}
 
             {reports.length > 0 ? <ReportsSection tasks={reports} today={today} onOpen={openTask} /> : null}
 
-            {binned.length > 0 ? <BinSection tasks={binned} userId={userId} today={today} /> : null}
+            {/* AVORA-53 · 4.7: one Thùng rác — the ⋯ › Thùng rác section. */}
           </div>
         )}
         </>
@@ -1818,6 +1830,16 @@ export default function Tasks() {
         saved inside it, or the other side moving the task along, is reflected immediately
         instead of freezing whatever was clicked.
       */}
+      <TaskComposer
+        open={isNewOpen}
+        onOpenChange={setIsNewOpen}
+        place="personal"
+        initial={newTaskDeadline !== undefined ? { deadline: newTaskDeadline } : undefined}
+        onCreateMine={async (values) => {
+          if (!user) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
+          await createPersonal(user.id, values, null);
+        }}
+      />
       <TaskDetailSheet
         task={openedTask}
         today={today}

@@ -57,8 +57,13 @@ const at = (day: number, hour: number): string => new Date(2026, 8, day, hour, 0
 describe("Task Hub sections", () => {
   it("has the ten sections in order, each with a description", () => {
     expect(TASK_HUB_SECTIONS.map((section) => section.label)).toEqual([
-      "Hôm nay", "Việc", "Sự kiện", "Sắp tới", "Lịch", "Quá hạn", "Lời mời", "Nháp", "Đã xong", "Thùng rác",
+      "Hôm nay", "Tất cả", "Sự kiện", "Sắp tới", "Lịch", "Quá hạn", "Lời mời", "Nháp", "Đã xong", "Thùng rác",
     ]);
+    // AVORA-53 · 4.7: five in the strip, Lời mời only when any, Đã xong / Thùng rác behind ⋯.
+    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "top").map((section) => section.label)).toEqual([
+      "Hôm nay", "Tất cả", "Sắp tới", "Lịch", "Quá hạn",
+    ]);
+    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => section.label)).toEqual(["Đã xong", "Thùng rác"]);
     for (const section of TASK_HUB_SECTIONS) expect(section.description.length).toBeGreaterThan(0);
   });
 

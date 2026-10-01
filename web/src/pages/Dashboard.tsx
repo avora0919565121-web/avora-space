@@ -1,4 +1,4 @@
-import { Bell, CalendarClock, CalendarDays, ChevronRight, Loader2, MailOpen, MessagesSquare, Table2 } from "lucide-react";
+import { Bell, BookOpen, CalendarClock, CalendarDays, ChevronRight, ListChecks, Loader2, MailOpen, MessagesSquare, Table2, UserPlus } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
@@ -221,7 +221,7 @@ export default function Dashboard() {
                     // Each number opens the Nhiệm vụ section it counts — the strip is a door, not a report.
                     <Link
                       key={key}
-                      to={pulseHref(key)}
+                      to={withReturn(pulseHref(key), SPACE_ORIGIN)}
                       aria-label={`${label}: ${pulse[key]} việc. Mở ${label} trong Nhiệm vụ`}
                       className={cn(
                         "press group flex-1 px-4 py-3 transition-colors first:rounded-l-[12px] last:rounded-r-[12px] hover:bg-accent/30",
@@ -289,7 +289,7 @@ export default function Dashboard() {
                   )}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
-                  <Link to="/nhiem-vu" className="inline-flex min-h-10 items-center text-[13px] font-medium text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">
+                  <Link to={withReturn("/nhiem-vu", SPACE_ORIGIN)} className="inline-flex min-h-10 items-center text-[13px] font-medium text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">
                     Xem tất cả nhiệm vụ
                   </Link>
                 </div>
@@ -380,7 +380,7 @@ export default function Dashboard() {
               <BlockLoadError name="tin nhắn" onRetry={() => void refetchConversations()} />
             ) : unreadThreads > 0 ? (
               <Link
-                to={singleUnreadId === null ? "/tin-nhan" : `/tin-nhan/${singleUnreadId}`}
+                to={withReturn(singleUnreadId === null ? "/tin-nhan" : `/tin-nhan/${singleUnreadId}`, SPACE_ORIGIN)}
                 aria-label={`${unreadSummaryText(unreadThreads)}. Mở Kết nối`}
                 className="press flex min-h-14 items-center gap-3 rounded-[12px] border border-border bg-card px-4 transition-colors hover:bg-accent/30"
               >
@@ -402,6 +402,34 @@ export default function Dashboard() {
     }
   };
 
+  // AVORA-53 · 6.1: a newcomer's three first steps; each hides once done, the card once all are.
+  const journalId: string | null = (conversations ?? []).find((item) => item.kind === "personal")?.conversationId ?? null;
+  const starts = conversations === undefined || tasks === undefined
+    ? []
+    : [
+        {
+          key: "journal",
+          isDone: (conversations ?? []).some((item) => item.kind === "personal" && item.lastMessageAt !== null),
+          label: "Viết dòng đầu tiên vào Nhật ký",
+          to: withReturn(journalId === null ? "/tin-nhan" : `/tin-nhan/${journalId}`, SPACE_ORIGIN),
+          icon: <BookOpen className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+        },
+        {
+          key: "task",
+          isDone: tasks.length > 0,
+          label: "Tạo nhiệm vụ đầu tiên",
+          to: withReturn("/nhiem-vu?moi=1", SPACE_ORIGIN),
+          icon: <ListChecks className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+        },
+        {
+          key: "friend",
+          isDone: (conversations ?? []).some((item) => item.kind === "direct" || item.kind === "group"),
+          label: "Kết bạn qua PIN / QR",
+          to: withReturn("/tin-nhan?ket-ban=1", SPACE_ORIGIN),
+          icon: <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+        },
+      ].filter((step) => !step.isDone);
+
   return (
     <div
       className="paper min-h-0 flex-1 overflow-y-auto"
@@ -411,6 +439,23 @@ export default function Dashboard() {
       <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
         {/* C7 · AVORA-50 B: one line when a review is due; never pushed. */}
         <ReviewPrompt review={review} variant="line" />
+        {starts.length > 0 ? (
+          <section aria-labelledby="space-start" className="mt-2 rounded-[14px] border border-primary/25 bg-card p-4 shadow-[0_8px_30px_-18px_hsl(13_73%_56%/0.45)]">
+            <h2 id="space-start" className={cn(TYPE.blockTitle)}>Bắt đầu</h2>
+            <p className={cn(TYPE.blockDescription, "mt-0.5")}>Ba bước nhỏ để Avora Space có điều để kể với bạn.</p>
+            <ul className="mt-3 space-y-2">
+              {starts.map((step) => (
+                <li key={step.key}>
+                  <Link to={step.to} className={cn(rowClass, "rounded-[12px] border border-border bg-background/60")}>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">{step.icon}</span>
+                    <span className="min-w-0 flex-1 text-[14.5px] font-medium text-foreground">{step.label}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
         {SPACE_BLOCK_ORDER.map((id) => {
           const block = renderBlock(id);
           if (block === null) return null;

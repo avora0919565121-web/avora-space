@@ -3,6 +3,7 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
+import { maskEmail } from "@/lib/mask";
 import { HOME_ROUTE } from "@/lib/navigation";
 import { readRecoveryLinkError, validateNewPassword } from "@/lib/password";
 
@@ -97,7 +98,7 @@ const ResetPassword = () => {
             <>
               <h2 className="text-[28px] font-semibold tracking-tight text-foreground">Mật khẩu mới</h2>
               <p className="mt-1.5 text-[15px] text-muted-foreground">
-                Nhập mật khẩu mới cho {session?.user.email ?? "tài khoản của bạn"}.
+                Nhập mật khẩu mới cho {session?.user.email ? maskEmail(session.user.email) : "tài khoản của bạn"}.
               </p>
 
               <form onSubmit={handleSubmit} className="mt-9 space-y-5" noValidate>

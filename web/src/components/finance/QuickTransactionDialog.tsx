@@ -3,9 +3,11 @@ import { useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { TransactionForm } from "@/components/finance/TransactionForm";
+import { VaultGate } from "@/components/vault/VaultGate";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { activeAccounts } from "@/lib/finance";
 import { useAccounts, useCategories } from "@/lib/use-finance";
+import { useVaultLock } from "@/lib/use-vault-lock";
 
 /**
  * "Tạo giao dịch nhanh" from the corner bubble (AVORA-35 / G).
@@ -17,6 +19,8 @@ import { useAccounts, useCategories } from "@/lib/use-finance";
  */
 export function QuickTransactionDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
   const navigate = useNavigate();
+  // AVORA-51: a transaction is written into Két sắt, so a locked Két sắt asks for its code first.
+  const vault = useVaultLock();
   const accountsQuery = useAccounts();
   const categoriesQuery = useCategories();
   const accounts = useMemo(() => accountsQuery.data ?? [], [accountsQuery.data]);
@@ -33,7 +37,17 @@ export function QuickTransactionDialog({ open, onOpenChange }: { open: boolean; 
             Ghi một khoản thu hoặc chi, chọn sổ ngay tại đây.
           </DialogDescription>
         </div>
-        {isLoading ? (
+        {!vault.isUnlocked ? (
+          <div className="flex max-h-[78vh] min-h-[540px] flex-col">
+            {vault.isLoading ? (
+              <div className="flex flex-1 justify-center px-5 py-12" role="status" aria-label="Đang kiểm tra khoá Két sắt">
+                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              </div>
+            ) : (
+              <VaultGate key={vault.status?.hasCode === true ? "has-code" : "no-code"} />
+            )}
+          </div>
+        ) : isLoading ? (
           <div className="flex justify-center px-5 py-12" role="status" aria-label="Đang tải sổ">
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>

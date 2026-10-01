@@ -68,8 +68,9 @@ describe("the sectioned screens", () => {
   it("opens Két sắt on the ledger, with the vault half beside it", () => {
     expect(VAULT_TABS.map((tab) => tab.label)).toEqual(["Tài chính", "Mật khẩu", "Chứng chỉ", "Tài liệu", "Tài sản"]);
     expect(VAULT_TABS[0].to).toBe("/ket-sat");
-    // Only told "sắp ra mắt" after tapping in — never on the tab itself.
-    expect(VAULT_TABS.every((tab) => !("badge" in tab) || tab.badge === undefined)).toBe(true);
+    // AVORA-53 · 6.11: the four halves not built yet say "Sắp có" before they are opened.
+    expect(VAULT_TABS.slice(1).every((tab) => tab.badge === "Sắp có")).toBe(true);
+    expect(VAULT_TABS[0].badge).toBeUndefined();
   });
 
   it("opens Cài đặt on the profile, with the three sibling tabs beside it", () => {
@@ -170,9 +171,9 @@ describe("native-style navigation (AVORA 30)", () => {
     expect(TOOL_BELT_ITEMS.some((item) => item.to === HOME_ROUTE)).toBe(false);
   });
 
-  it("names Donation at the end of the full map, with no route behind it", () => {
-    expect(APP_MAP_UPCOMING.map((entry) => entry.label)).toEqual(["Donation"]);
-    expect(NAV_ITEMS.some((item) => item.label === "Donation")).toBe(false);
+  it("names Ủng hộ AVORA at the end of the full map, with no route behind it", () => {
+    expect(APP_MAP_UPCOMING.map((entry) => entry.label)).toEqual(["Ủng hộ AVORA"]);
+    expect(NAV_ITEMS.some((item) => item.label === "Ủng hộ AVORA")).toBe(false);
   });
 
   it("tells which destination owns a path, deepest first", () => {

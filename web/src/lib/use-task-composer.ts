@@ -2,6 +2,9 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tan
 import { useCallback } from "react";
 
 import { useAuth } from "@/lib/auth";
+import { logError } from "@/lib/log";
+import { createTaskReminderBefore, taskReminderKeys } from "@/lib/task-reminders";
+import { browserTimezone } from "@/lib/task-schedule";
 import type { TaskContextSnapshot } from "@/lib/task-context";
 import { departureTimes, type Recipients } from "@/lib/task-composer";
 import {
@@ -42,6 +45,11 @@ export type ComposerValues = {
   /** Only ever set for the person who travels — never proposed to someone else. */
   travelMinutes: number | null;
   reminderOffsetMinutes: number;
+  /** AVORA-53 · 4.3: minutes before the deadline to remind (0 = on time), or null for none. Own tasks only. */
+  remindBeforeMinutes?: number | null;
+  /** AVORA-53 · 4.2: this person's own reading, written to `task_flags`. */
+  isImportant?: boolean;
+  durationMinutes?: number | null;
 };
 
 export function eventOf(values: ComposerValues): SuggestionEvent {
@@ -126,13 +134,15 @@ export function useComposerActions() {
       const event = eventOf(values);
       const presence = event.requiresPresence;
       const times = presence ? departureTimes(event.startAt, values.travelMinutes, values.reminderOffsetMinutes) : null;
-      return addPersonal.mutateAsync({
+      const created = await addPersonal.mutateAsync({
         userId,
         draft: {
           title: values.title,
           description: values.description,
           deadline: values.deadline,
           deadlineTime: values.deadlineTime ?? undefined,
+          isImportant: values.isImportant,
+          durationMinutes: values.durationMinutes ?? null,
         },
         contextSnapshot,
         schedule: {
@@ -144,8 +154,18 @@ export function useComposerActions() {
           departureReminderAt: times === null ? null : times.remindAt.toISOString(),
         },
       });
+      if (values.remindBeforeMinutes !== undefined && values.remindBeforeMinutes !== null) {
+        try {
+          await createTaskReminderBefore(created.id, userId, values.remindBeforeMinutes, values.deadline, values.deadlineTime, browserTimezone());
+          void queryClient.invalidateQueries({ queryKey: taskReminderKeys.all });
+        } catch (error) {
+          // The task exists; the reminder can be set again from it.
+          logError("task-reminders", error);
+        }
+      }
+      return created;
     },
-    [addPersonal],
+    [addPersonal, queryClient],
   );
 
   /**

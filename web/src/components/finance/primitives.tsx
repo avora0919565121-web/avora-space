@@ -125,10 +125,8 @@ export function FinanceHeader({ subtitle, action }: { subtitle: string; action?:
   return (
     <header className="border-b border-border pb-4">
       <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h2 className="text-[22px] font-semibold tracking-tight text-foreground">Tài chính</h2>
-          <p className="mt-1 text-[15px] text-muted-foreground">{subtitle}</p>
-        </div>
+        {/* AVORA-53 · 6.10: Két sắt already names the place; no second "Tài chính" title inside. */}
+        <p className="text-[15px] text-muted-foreground">{subtitle}</p>
         {action}
       </div>
 

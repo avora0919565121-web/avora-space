@@ -122,7 +122,7 @@ export function MobileTopBar() {
                     <span className="block text-[15.5px] font-medium">{entry.label}</span>
                     <span className="block text-[12px]">{entry.note}</span>
                   </span>
-                  <StatusPill className="px-3 py-1 text-[10px]">Sắp ra mắt</StatusPill>
+                  <StatusPill className="px-3 py-1 text-[10px]">Sắp có</StatusPill>
                 </li>
               ))}
             </ul>

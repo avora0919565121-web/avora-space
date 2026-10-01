@@ -1,4 +1,5 @@
 import type { ConversationKind } from "@/lib/chat-cache";
+import { hereFrom, withReturn } from "@/lib/return-to";
 
 /**
  * What was on screen when someone turned a conversation into a task.
@@ -208,6 +209,23 @@ export const CONTEXT_TASK_PARAM = "nhiem-vu";
 /** The address of a task's own context: its conversation, with the task called out. */
 export function contextLink(conversationId: string, taskId: string): string {
   return `/tin-nhan/${conversationId}?${CONTEXT_TASK_PARAM}=${encodeURIComponent(taskId)}`;
+}
+
+/**
+ * AVORA-53 · 2.1 — "Xem trong ngữ cảnh" from Nhiệm vụ carries the way back, with `mo=<id>`
+ * so coming back reopens the very task that was open.
+ */
+export function contextLinkFromTasks(
+  conversationId: string,
+  taskId: string,
+  location: { pathname: string; search: string },
+): string {
+  const here = hereFrom(location, "Nhiệm vụ");
+  const queryAt = here.path.indexOf("?");
+  const params = new URLSearchParams(queryAt === -1 ? "" : here.path.slice(queryAt + 1));
+  params.set("mo", taskId);
+  const base = queryAt === -1 ? here.path : here.path.slice(0, queryAt);
+  return withReturn(contextLink(conversationId, taskId), { path: `${base}?${params.toString()}`, label: here.label });
 }
 
 /**

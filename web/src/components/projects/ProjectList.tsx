@@ -241,7 +241,6 @@ export function ProjectList({
     <div className="px-1 pb-6">
       <div className="flex items-center gap-2 px-3 pb-1 pt-2">
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Dự án</h2>
-        <StatusPill className="px-2.5 py-0.5 text-[10px]">Đang hoàn thiện</StatusPill>
       </div>
       <section className="mt-1">
         <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Bảng của tôi" count={mineCount} />

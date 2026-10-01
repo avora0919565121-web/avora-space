@@ -505,10 +505,13 @@ export function ReminderBanner({
   due,
   titleFor,
   onDismiss,
+  onOpen,
 }: {
   due: readonly TaskReminder[];
   titleFor: (taskId: string) => string | null;
   onDismiss: (reminderId: string) => void;
+  /** AVORA-53 · 4.4: tapping the title opens the task. */
+  onOpen?: (taskId: string) => void;
 }) {
   if (due.length === 0) return null;
   return (
@@ -523,7 +526,17 @@ export function ReminderBanner({
           >
             <Bell className="mt-0.5 h-4 w-4 shrink-0 text-task-important" strokeWidth={1.8} aria-hidden="true" />
             <div className="min-w-0 flex-1">
-              <p className="text-[14px] font-medium text-foreground">Đến hẹn: {title ?? "một nhiệm vụ"}</p>
+              {onOpen !== undefined ? (
+                <button
+                  type="button"
+                  onClick={() => onOpen(reminder.taskId)}
+                  className="press text-left text-[14px] font-medium text-foreground underline decoration-border underline-offset-2 hover:decoration-foreground"
+                >
+                  Đến hẹn: {title ?? "một nhiệm vụ"}
+                </button>
+              ) : (
+                <p className="text-[14px] font-medium text-foreground">Đến hẹn: {title ?? "một nhiệm vụ"}</p>
+              )}
               <p className="mt-0.5 text-[12px] text-muted-foreground">
                 Nhắc lúc {formatReminderAt(new Date(reminder.at))}
               </p>

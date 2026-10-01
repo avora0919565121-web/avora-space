@@ -227,7 +227,7 @@ import {
   isOriginalMessageMissing,
 } from "@/lib/task-context";
 import { projectLink } from "@/lib/projects";
-import { hereFrom, withReturn } from "@/lib/return-to";
+import { hereFrom, readReturn, withReturn } from "@/lib/return-to";
 import { TaskContextStrip } from "@/components/chat/TaskContextStrip";
 import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote, TASK_DESCRIPTION_MAX_LEN, todayIso } from "@/lib/tasks";
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
@@ -2163,6 +2163,15 @@ const Messages = () => {
     if (searchParams.get("tab") === "du-an") setActiveTab("projects");
   }, [searchParams]);
 
+  /** AVORA-53 · 6.1: `?ket-ban=1` (Avora Space › Bắt đầu) opens "find a friend by PIN" once. */
+  useEffect(() => {
+    if (searchParams.get("ket-ban") !== "1") return;
+    setIsNewChatOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete("ket-ban");
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
+
   /** "Mở biên bản" from a note saved in Diary: the group opens with its Sổ quyết định on top. */
   const decisionParam: string | null = searchParams.get(DECISION_PARAM);
   useEffect(() => {
@@ -2549,7 +2558,10 @@ const Messages = () => {
                     onClick={() => {
                       // 49 · 1.1: out of Nhật ký lands on the conversation list, and stays there.
                       if (activeKind === "personal") setActiveTab("direct");
-                      navigate("/tin-nhan");
+                      // AVORA-53 · 2.10: opened from elsewhere (`tu`) → back there; otherwise the list, replacing.
+                      const cameFrom = readReturn(searchParams);
+                      if (cameFrom !== null) navigate(cameFrom.path, { replace: true });
+                      else navigate("/tin-nhan", { replace: true });
                     }}
                     className="press flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
                   >

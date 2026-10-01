@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { decideDayOpen } from "@/lib/day-open";
+import { ENTRY_PATH, decideDayOpen } from "@/lib/day-open";
 import { fetchLastOpenedDate, recordOpenedDate } from "@/lib/day-open-api";
 import { HOME_ROUTE } from "@/lib/navigation";
 import { todayIso } from "@/lib/tasks";
@@ -20,6 +20,8 @@ export function useNewDayLanding(userId: string | undefined): void {
   const pathRef = useRef<string>(location.pathname);
   const seenDayRef = useRef<string | null>(null);
   const isCheckingRef = useRef<boolean>(false);
+  // The first check after the page loads is a cold open, judged by the path the page loaded with.
+  const isColdRef = useRef<boolean>(true);
 
   pathRef.current = location.pathname;
 
@@ -34,7 +36,9 @@ export function useNewDayLanding(userId: string | undefined): void {
       try {
         const lastOpened = await fetchLastOpenedDate(userId);
         if (isCancelled) return;
-        const decision = decideDayOpen(lastOpened, today, pathRef.current, HOME_ROUTE);
+        const isCold = isColdRef.current;
+        isColdRef.current = false;
+        const decision = decideDayOpen(lastOpened, today, isCold ? ENTRY_PATH : pathRef.current, HOME_ROUTE, isCold ? "cold" : "resume");
         seenDayRef.current = today;
         if (decision === "stay") return;
         if (decision === "go-home") navigate(HOME_ROUTE, { replace: true });

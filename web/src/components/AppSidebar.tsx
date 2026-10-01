@@ -9,6 +9,7 @@ import { navIconFor } from "@/components/nav/nav-icons";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
+import { maskEmail } from "@/lib/mask";
 import { HOME_ROUTE, logoAction, NAV_ITEMS } from "@/lib/navigation";
 import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
@@ -122,7 +123,7 @@ export function AppSidebar() {
           <InitialsAvatar name={displayName} size="sm" />
           <div className="min-w-0">
             <p className="truncate text-[14px] font-semibold text-foreground">{displayName}</p>
-            <p className="truncate text-[12px] text-muted-foreground">{user?.email}</p>
+            <p className="truncate text-[12px] text-muted-foreground">{maskEmail(user?.email)}</p>
           </div>
         </div>
         <button

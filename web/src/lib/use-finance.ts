@@ -44,44 +44,53 @@ import {
   type TransactionInput,
 } from "@/lib/finance-api";
 import { useCurrencyRates, useProfileSettings } from "@/lib/use-settings";
+import { useVaultUnlocked } from "@/lib/use-vault-lock";
 
 export { financeKeys };
 
 export function useAccounts(): UseQueryResult<Account[], Error> {
   const { user } = useAuth();
+  // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
+  const isUnlocked = useVaultUnlocked();
   return useQuery<Account[], Error>({
     queryKey: financeKeys.accounts,
     queryFn: fetchAccounts,
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id) && isUnlocked,
   });
 }
 
 export function useCategories(): UseQueryResult<Category[], Error> {
   const { user } = useAuth();
+  // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
+  const isUnlocked = useVaultUnlocked();
   return useQuery<Category[], Error>({
     queryKey: financeKeys.categories,
     queryFn: fetchCategories,
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id) && isUnlocked,
     staleTime: 5 * 60 * 1000,
   });
 }
 
 export function useTransactions(): UseQueryResult<Transaction[], Error> {
   const { user } = useAuth();
+  // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
+  const isUnlocked = useVaultUnlocked();
   return useQuery<Transaction[], Error>({
     queryKey: financeKeys.transactions,
     queryFn: fetchTransactions,
-    enabled: Boolean(user?.id),
+    enabled: Boolean(user?.id) && isUnlocked,
   });
 }
 
 /** Thùng rác Tài chính (Đợt gộp 2 · D2). */
 export function useFinanceTrash(enabled: boolean = true): UseQueryResult<FinanceTrash, Error> {
   const { user } = useAuth();
+  // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
+  const isUnlocked = useVaultUnlocked();
   return useQuery<FinanceTrash, Error>({
     queryKey: financeKeys.trash,
     queryFn: fetchFinanceTrash,
-    enabled: Boolean(user?.id) && enabled,
+    enabled: Boolean(user?.id) && isUnlocked && enabled,
   });
 }
 

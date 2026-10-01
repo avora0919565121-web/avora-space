@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { announceVaultLocked } from "@/lib/vault-api";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import {
@@ -62,6 +63,7 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
   if (normalized.includes("avora_txn_due_date_required")) return "Hãy chọn ngày đến hạn.";
   if (normalized.includes("avora_txn_already_settled")) return "Khoản này đã tất toán, không cần nhắc nữa.";
   if (normalized.includes("avora_reminder_bad_title")) return "Tiêu đề việc nhắc không hợp lệ.";
+  if (normalized.includes("avora_vault_locked")) return "Két sắt đã khoá. Mở lại để tiếp tục.";
   if (normalized.includes("avora_txn_contact_required"))
     return "Hãy chọn người vay hoặc người cho vay.";
   if (normalized.includes("avora_txn_contact_not_yours")) return "Liên hệ này không thuộc về bạn.";
@@ -113,6 +115,8 @@ export function toVietnameseFinanceError(code: string | undefined, message: stri
 
 function fail(code: string | undefined, message: string): Error {
   logError("finance", { code, message });
+  // AVORA-51: the server is the lock — when it says locked, the app shows the lock screen.
+  if (message.includes("avora_vault_locked")) announceVaultLocked();
   return new Error(toVietnameseFinanceError(code, message));
 }
 

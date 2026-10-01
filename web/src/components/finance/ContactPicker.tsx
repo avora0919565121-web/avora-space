@@ -108,7 +108,7 @@ export function ContactPicker({
       </label>
       {adding ? (
         <div className="space-y-2 p-3">
-          <p className="text-[13.5px] font-medium">Thêm "{typed}" vào Danh bạ</p>
+          <p className="text-[13.5px] font-medium">Thêm "{typed}" vào Liên hệ</p>
           {duplicates.length > 0 ? (
             <div className="rounded-md bg-amber-500/10 px-3 py-2 text-[12.5px]">
               Đã có người trùng tên:
@@ -148,7 +148,7 @@ export function ContactPicker({
           {typed !== "" ? (
             <li className="border-t border-border/70">
               <button type="button" onClick={() => setAdding(true)} className="press flex w-full items-center gap-2 px-3 py-2.5 text-left text-[14px] font-medium text-primary">
-                <UserPlus className="h-4 w-4" aria-hidden="true" /> ＋ Thêm "{typed}" vào Danh bạ
+                <UserPlus className="h-4 w-4" aria-hidden="true" /> Thêm "{typed}" vào Liên hệ
               </button>
             </li>
           ) : null}

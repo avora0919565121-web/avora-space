@@ -131,7 +131,21 @@ const Bookshelf = () => {
   if (isPending || shelf === null) {
     return (
       <div className="paper flex min-h-0 flex-1 items-center justify-center">
-        {bookshelf.isError ? <p role="alert" className="text-destructive">Chưa mở được Kệ sách.</p> : <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />}
+        {bookshelf.isError ? (
+          // AVORA-53 · 3.3: never spin forever — say it failed and offer to try again.
+          <div className="text-center">
+            <p role="alert" className="text-[15px] text-muted-foreground">Không tải được Kệ sách.</p>
+            <button
+              type="button"
+              onClick={() => bookshelf.mutate()}
+              className="press mt-4 min-h-11 rounded-md border border-border bg-card px-5 text-[14px] font-medium hover:bg-secondary"
+            >
+              Thử lại
+            </button>
+          </div>
+        ) : (
+          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+        )}
       </div>
     );
   }
@@ -155,7 +169,7 @@ const Bookshelf = () => {
               <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
               <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm sách, tác giả…" aria-label="Tìm sách" className="min-w-0 flex-1 bg-transparent text-[14.5px] outline-none" />
             </label>
-            <button type="button" onClick={() => navigate(`/ke-hoach?bang=${shelf.id}`)} className="press inline-flex h-10 items-center gap-1.5 rounded-md border border-border px-3 text-[13.5px]">
+            <button type="button" onClick={() => navigate(withReturn(`/ke-hoach?bang=${shelf.id}`, hereFrom(location, "Kệ sách")))} className="press inline-flex h-10 items-center gap-1.5 rounded-md border border-border px-3 text-[13.5px]">
               <Table2 className="h-4 w-4" aria-hidden="true" /> Xem dạng bảng
             </button>
           </div>
@@ -166,6 +180,11 @@ const Bookshelf = () => {
               <p className="mt-3 text-[16px] font-medium text-foreground">Tôi học được gì, áp dụng thế nào?</p>
               <button type="button" onClick={() => setIsAdding(true)} className="press mt-4 rounded-md bg-primary px-4 py-2 text-[14px] font-semibold text-primary-foreground">+ Thêm sách</button>
             </div>
+          ) : filtered.length === 0 && query.trim() !== "" ? (
+            // AVORA-53 · 5.9: a search that finds nothing says so.
+            <p role="status" className="mt-10 text-center text-[14.5px] text-muted-foreground">
+              Không thấy sách nào khớp “{query.trim()}”.
+            </p>
           ) : (
             TIERS.map((tier) => {
               const list = filtered.filter((book) => book.status === tier.key);
@@ -329,7 +348,7 @@ const Bookshelf = () => {
                 type="button"
                 onClick={() => {
                   setOpenId(null);
-                  navigate(`/ke-hoach?bang=${shelf.id}&hang-muc=${opened.id}`);
+                  navigate(withReturn(`/ke-hoach?bang=${shelf.id}&hang-muc=${opened.id}`, hereFrom(location, "Kệ sách")));
                 }}
                 className="press self-start text-[13px] font-medium text-primary"
               >

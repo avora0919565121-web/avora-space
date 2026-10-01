@@ -187,6 +187,10 @@ function ComposerBody({
     note: isEdit && (initial?.description ?? "").trim() !== "",
   }));
   const [customTravel, setCustomTravel] = useState<string>("");
+  // AVORA-53 · 4.2 / 4.3: own-task extras. `remind` stays "auto" until touched: none without a time, 10′ with one.
+  const [remind, setRemind] = useState<number | null | "auto">("auto");
+  const [isImportant, setIsImportant] = useState<boolean>(false);
+  const [durationMinutes, setDurationMinutes] = useState<number | null>(null);
 
   const patch = (part: Partial<Draft>): void => setDraft((current) => ({ ...current, ...part }));
   const noteKeyDown = useAutoList((next) => patch({ description: next }));
@@ -203,6 +207,9 @@ function ComposerBody({
   const chosen = hasRecipients(recipients);
   const onlyMe = recipients.others.length === 0 && recipients.includesSelf;
   const travelAllowed = allowTravel ?? (!isEdit && onlyMe);
+  /** Reminders and the private reading belong to whoever does the work: only on one's own new task. */
+  const showOwnExtras = !isEdit && onlyMe;
+  const effectiveRemind: number | null = remind === "auto" ? (draft.deadlineTime === "" ? null : 10) : remind;
 
   const copy = isEdit
     ? {
@@ -260,6 +267,9 @@ function ComposerBody({
       requiresPresence: presence,
       travelMinutes: presence && travelAllowed ? draft.travelMinutes : null,
       reminderOffsetMinutes: draft.reminderOffset,
+      ...(showOwnExtras
+        ? { remindBeforeMinutes: effectiveRemind, isImportant, durationMinutes }
+        : {}),
     };
   };
 
@@ -423,6 +433,41 @@ function ComposerBody({
             <TimeField id="composer-time" value={draft.deadlineTime} onChange={(next) => patch({ deadlineTime: next })} />
           </div>
         </div>
+
+        {showOwnExtras ? (
+          <div className="space-y-3">
+            {/* AVORA-53 · 4.3: a reminder for every task, not only for an Event with presence. */}
+            <div>
+              <p className="mb-1.5 text-[12px] font-medium text-muted-foreground">Nhắc</p>
+              <div className="flex flex-wrap gap-1.5" role="group" aria-label="Nhắc">
+                {REMIND_CHOICES.map((option) => (
+                  <Chip key={option.label} isActive={effectiveRemind === option.minutes} onClick={() => setRemind(option.minutes)}>
+                    {option.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+            {/* AVORA-53 · 4.2: what the Quan trọng and Theo độ nặng views read. Only you see it. */}
+            <div>
+              <p className="mb-1.5 text-[12px] font-medium text-muted-foreground">Kế hoạch · chỉ bạn thấy</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <Chip isActive={isImportant} onClick={() => setIsImportant((current) => !current)}>
+                  ★ Quan trọng
+                </Chip>
+                <span className="mx-1 h-5 w-px bg-border" aria-hidden="true" />
+                {DURATION_CHOICES.map((option) => (
+                  <Chip
+                    key={option.minutes}
+                    isActive={durationMinutes === option.minutes}
+                    onClick={() => setDurationMinutes((current) => (current === option.minutes ? null : option.minutes))}
+                  >
+                    {option.label}
+                  </Chip>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         <div className="divide-y divide-border overflow-hidden rounded-[12px] border border-border">
           {/* Sự kiện */}
@@ -688,6 +733,25 @@ function FoldRow({
     </div>
   );
 }
+
+/** AVORA-53 · 4.3 — `Không nhắc · Đúng giờ · 10′ · 30′ · 1 giờ · 1 ngày trước`. */
+export const REMIND_CHOICES: readonly { label: string; minutes: number | null }[] = [
+  { label: "Không nhắc", minutes: null },
+  { label: "Đúng giờ", minutes: 0 },
+  { label: "10′", minutes: 10 },
+  { label: "30′", minutes: 30 },
+  { label: "1 giờ", minutes: 60 },
+  { label: "1 ngày trước", minutes: 24 * 60 },
+];
+
+/** AVORA-53 · 4.2 — `15′ · 30′ · 1 giờ · 2 giờ · Nửa ngày`. */
+export const DURATION_CHOICES: readonly { label: string; minutes: number }[] = [
+  { label: "15′", minutes: 15 },
+  { label: "30′", minutes: 30 },
+  { label: "1 giờ", minutes: 60 },
+  { label: "2 giờ", minutes: 120 },
+  { label: "Nửa ngày", minutes: 240 },
+];
 
 function Chip({ isActive, onClick, children }: { isActive: boolean; onClick: () => void; children: ReactNode }) {
   return (

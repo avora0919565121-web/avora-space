@@ -29,21 +29,26 @@ export type TaskHubSection = {
   empty: string;
   /** Shown but not built yet. */
   isComingSoon?: boolean;
+  /**
+   * AVORA-53 · 4.7 — where the section sits in the strip: `top` always shown, `when-any` only while
+   * it holds something (Lời mời), `more` behind ⋯, `hidden` reachable by link only.
+   */
+  placement: "top" | "when-any" | "more" | "hidden";
 };
 
 export const TASK_HUB_PARAM = "muc";
 
 export const TASK_HUB_SECTIONS: readonly TaskHubSection[] = [
-  { id: "my_day", slug: "hom-nay", label: "Hôm nay", description: "Việc và cuộc hẹn của riêng hôm nay — chạm một dòng để mở.", empty: "Hôm nay nhẹ nhàng, chưa có gì cần làm." },
-  { id: "tasks", slug: "viec", label: "Việc", description: "Mọi việc đang mở, đọc theo cách bạn quen.", empty: "Chưa có việc nào đang mở." },
-  { id: "events", slug: "su-kien", label: "Sự kiện", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
-  { id: "upcoming", slug: "sap-toi", label: "Sắp tới", description: "Bảy ngày tới trên một trang: khối là sự kiện, vạch là hạn chót.", empty: "Bảy ngày tới đang trống." },
-  { id: "calendar", slug: "lich", label: "Lịch", description: "Ngày, tuần, tháng, năm — chỉ để xem. Chạm một việc để về đúng chỗ nó được bàn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
-  { id: "overdue", slug: "qua-han", label: "Quá hạn", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
-  { id: "invitations", slug: "loi-moi", label: "Lời mời", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
-  { id: "drafts", slug: "nhap", label: "Nháp", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },
-  { id: "completed", slug: "hoan-thanh", label: "Đã xong", description: "Việc đã xong, mới nhất lên trước.", empty: "Chưa có việc nào hoàn thành." },
-  { id: "trash", slug: "thung-rac", label: "Thùng rác", description: "Việc bạn đã xoá — chạm để khôi phục.", empty: "Thùng rác trống." },
+  { id: "my_day", placement: "top", slug: "hom-nay", label: "Hôm nay", description: "Việc và cuộc hẹn của riêng hôm nay — chạm một dòng để mở.", empty: "Hôm nay nhẹ nhàng, chưa có gì cần làm." },
+  { id: "tasks", placement: "top", slug: "viec", label: "Tất cả", description: "Mọi nhiệm vụ đang mở, đọc theo cách bạn quen.", empty: "Chưa có việc nào đang mở." },
+  { id: "events", placement: "hidden", slug: "su-kien", label: "Sự kiện", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
+  { id: "upcoming", placement: "top", slug: "sap-toi", label: "Sắp tới", description: "Bảy ngày tới trên một trang: khối là sự kiện, vạch là hạn chót.", empty: "Bảy ngày tới đang trống." },
+  { id: "calendar", placement: "top", slug: "lich", label: "Lịch", description: "Ngày, tuần, tháng, năm — chỉ để xem. Chạm một việc để về đúng chỗ nó được bàn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
+  { id: "overdue", placement: "top", slug: "qua-han", label: "Quá hạn", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
+  { id: "invitations", placement: "when-any", slug: "loi-moi", label: "Lời mời", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
+  { id: "drafts", placement: "hidden", slug: "nhap", label: "Nháp", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },
+  { id: "completed", placement: "more", slug: "hoan-thanh", label: "Đã xong", description: "Việc đã xong, mới nhất lên trước.", empty: "Chưa có việc nào hoàn thành." },
+  { id: "trash", placement: "more", slug: "thung-rac", label: "Thùng rác", description: "Việc bạn đã xoá — chạm để khôi phục.", empty: "Thùng rác trống." },
 ];
 
 export function sectionBySlug(slug: string | null): TaskHubSection {

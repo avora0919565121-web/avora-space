@@ -251,7 +251,10 @@ export function TableView({
             {records.length === 0 ? (
               <tr>
                 <td colSpan={8 + shown.length} className="px-3 py-8 text-center text-[14.5px] text-muted-foreground">
-                  Bảng này chưa có Hạng mục nào. Bấm "Thêm Hạng mục" để ghi cái đầu tiên.
+                  {/* AVORA-53 · 5.8: the button's real name, and no invitation on a read-only table. */}
+                  {onQuickTask === undefined
+                    ? "Bảng này chưa có Hạng mục nào."
+                    : "Bảng này chưa có Hạng mục nào. Bấm “+ Hạng mục” để ghi cái đầu tiên."}
                   {/* Only while the table is empty: the term is explained once, then gets out of the way. */}
                   <span className="mt-1.5 block text-[12.5px] text-muted-foreground/80">
                     Hạng mục là một dòng trong Bảng này.

@@ -13,6 +13,7 @@ import {
   Star,
   Table2,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -71,6 +72,7 @@ import {
   subTablesOf,
   tableAncestry,
   tablesInScope,
+  thinkHubKeys,
   todayIso,
   type ColumnDef,
   type ColumnType,
@@ -119,6 +121,7 @@ const ThinkHub = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const queryClient = useQueryClient();
   // C3 ③: the URL wins, then the table last opened on this device.
   const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM) ?? readLastTable(user?.id));
   const [view, setView] = useState<ViewMode>("table");
@@ -161,6 +164,9 @@ const ThinkHub = () => {
   const [targetTableId, setTargetTableId] = useState<string>("");
   const [isEditingPurpose, setIsEditingPurpose] = useState<boolean>(false);
   const [purposeDraft, setPurposeDraft] = useState<string>("");
+  // AVORA-53 · 5.1: the table's own name, edited where it is read.
+  const [isRenamingTable, setIsRenamingTable] = useState<boolean>(false);
+  const [nameDraft, setNameDraft] = useState<string>("");
   const [quickTaskRecord, setQuickTaskRecord] = useState<ThinkRecord | null>(null);
 
   const today: string = useMemo(() => todayIso(), []);
@@ -187,6 +193,27 @@ const ThinkHub = () => {
       tables[0]
     );
   }, [tables, roots, activeId]);
+
+  /*
+   * AVORA-53 · 3.1 / 3.2 — `?bang=` is followed every time it changes (search result, ReturnChip),
+   * and a table that is gone or out of reach says so and is cleaned from the address instead of
+   * quietly opening another one.
+   */
+  const requestedTableId: string | null = searchParams.get(HUB_TABLE_PARAM);
+  useEffect(() => {
+    if (requestedTableId === null || isPending) return;
+    if (tables.some((table) => table.id === requestedTableId)) {
+      if (requestedTableId !== activeId) setActiveId(requestedTableId);
+      return;
+    }
+    if (tables.length === 0) return;
+    toast("Không mở được Bảng này", { description: "Bảng đã bị xoá hoặc bạn không còn quyền xem." });
+    const next = new URLSearchParams(searchParams);
+    next.delete(HUB_TABLE_PARAM);
+    setSearchParams(next, { replace: true });
+    if (activeId === requestedTableId) setActiveId(readLastTable(user?.id));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the requested table or the list changes
+  }, [requestedTableId, isPending, tables]);
 
   useEffect(() => {
     if (active !== null && active.id !== activeId) setActiveId(active.id);
@@ -363,7 +390,7 @@ const ThinkHub = () => {
         if (conversation === undefined) return "Cuộc trò chuyện";
         return conversation.kind === "group" ? `Nhóm ${conversationTitle(conversation)}` : `1-1 với ${conversationTitle(conversation)}`;
       }
-      return "Riêng tôi";
+      return "Của tôi";
     },
     [projectById, conversationById],
   );
@@ -517,6 +544,22 @@ const ThinkHub = () => {
     }
   }, [actions, active, purposeDraft]);
 
+  const saveTableName = async (): Promise<void> => {
+    if (active === null) return;
+    const next = nameDraft.trim();
+    if (next === "" || next === active.name) {
+      setIsRenamingTable(false);
+      return;
+    }
+    try {
+      await actions.renameTable(active.id, next);
+      setIsRenamingTable(false);
+      toast.success("Đã đổi tên Bảng.");
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Không đổi được tên Bảng.");
+    }
+  };
+
   if (isPending) {
     return (
       <div className="paper flex min-h-0 flex-1 items-center justify-center">
@@ -529,10 +572,18 @@ const ThinkHub = () => {
   if (isError) {
     return (
       <div className="paper min-h-0 flex-1 overflow-y-auto">
-        <div className="mx-auto max-w-3xl px-6 py-10 md:px-10">
-          <p role="alert" className="text-[15px] text-destructive">
+        <div className="mx-auto max-w-2xl px-6 py-16 text-center md:px-10">
+          <p role="alert" className="text-[15px] text-muted-foreground">
             {error?.message ?? "Không tải được Kế hoạch."}
           </p>
+          {/* AVORA-53 · 3.3: a failed load always offers a way to try again. */}
+          <button
+            type="button"
+            onClick={() => void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all })}
+            className="press mt-5 min-h-11 rounded-md border border-border bg-card px-5 text-[14px] font-medium hover:bg-secondary"
+          >
+            Thử lại
+          </button>
         </div>
       </div>
     );
@@ -596,11 +647,26 @@ const ThinkHub = () => {
                 spotlight("data-record-id", line.record.id);
               }}
               onNewTable={(drawer) => {
-                setGalleryConversationId(null);
+                // AVORA-53 · 5.5: "Bảng mới ở đây" starts in the drawer it was pressed in.
                 if (drawer === "project") {
-                  toast("Bảng của Dự án tạo từ Hạng mục của bảng gốc dự án.");
+                  const projectRoots = roots.filter((table) => table.projectId !== null && table.parentRecordId === null);
+                  const chosen = projectRoots.find((table) => table.id === activeRoot?.id) ?? projectRoots[0];
+                  if (chosen === undefined) {
+                    toast("Chưa có dự án nào. Tạo dự án trong Kết nối › Dự án.");
+                    return;
+                  }
+                  openTable(chosen.id);
+                  setView("table");
+                  toast("Bảng của dự án mọc từ một Hạng mục của Bảng gốc này: mở Hạng mục › ⋯ › Bảng con.");
                   return;
                 }
+                const here =
+                  drawer === "personal"
+                    ? null
+                    : activeRoot !== null && activeRoot.conversationId !== null && drawerOf(activeRoot) === drawer
+                      ? activeRoot.conversationId
+                      : (places.find((place) => place.conversationId !== null && kindOf(place.conversationId) === drawer)?.conversationId ?? null);
+                setGalleryConversationId(here);
                 setIsNewTableOpen(true);
               }}
               onOpenTrash={() => setIsTrashOpen(true)}
@@ -637,7 +703,53 @@ const ThinkHub = () => {
               </nav>
             ) : null}
 
-            <section aria-label="Mục đích của bảng" className="mt-4 rounded-lg border border-border bg-card px-4 py-3">
+            {/* AVORA-53 · 5.1: tap the name to rename it right here (also ⋯ › Đổi tên). */}
+            <div className="mt-4">
+              {isRenamingTable ? (
+                <form
+                  className="flex items-center gap-2"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    void saveTableName();
+                  }}
+                >
+                  <input
+                    value={nameDraft}
+                    autoFocus
+                    maxLength={120}
+                    aria-label="Tên Bảng"
+                    onChange={(event) => setNameDraft(event.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Escape") setIsRenamingTable(false);
+                    }}
+                    className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[18px] font-semibold text-foreground outline-none focus:border-primary"
+                  />
+                  <button type="submit" className="press h-11 rounded-md bg-primary px-4 text-[14px] font-semibold text-primary-foreground">
+                    Lưu
+                  </button>
+                  <button type="button" onClick={() => setIsRenamingTable(false)} className="press h-11 rounded-md border border-border px-3 text-[14px]">
+                    Huỷ
+                  </button>
+                </form>
+              ) : isReadOnly || active.kind === "bookshelf" || isProjectRoot ? (
+                <h2 className="text-[20px] font-semibold tracking-tight text-foreground">{active.name}</h2>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNameDraft(active.name);
+                    setIsRenamingTable(true);
+                  }}
+                  title="Chạm để đổi tên"
+                  className="press group -mx-1 inline-flex max-w-full items-center gap-2 rounded-md px-1 text-left"
+                >
+                  <h2 className="truncate text-[20px] font-semibold tracking-tight text-foreground">{active.name}</h2>
+                  <Pencil className="h-4 w-4 shrink-0 text-muted-foreground opacity-60 transition-opacity group-hover:opacity-100" strokeWidth={1.8} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+
+            <section aria-label="Mục đích của bảng" className="mt-3 rounded-lg border border-border bg-card px-4 py-3">
               <p className="text-[12px] font-medium text-muted-foreground">{scopeLabel(active)}</p>
               {isProjectRoot ? (
                 <dl className="mt-1.5 space-y-1.5 text-[13.5px]">
@@ -704,7 +816,13 @@ const ThinkHub = () => {
             {openProposal !== undefined ? (
               <button
                 type="button"
-                onClick={() => active?.conversationId != null && navigate(`/tin-nhan?c=${active.conversationId}`)}
+                onClick={() => {
+                  // AVORA-53 · 2.5: straight into the conversation that holds the proposal, with the way back.
+                  const where =
+                    active?.projectId != null ? projectById.get(active.projectId)?.conversationId : active?.conversationId;
+                  if (where == null) return;
+                  navigate(withReturn(`/tin-nhan/${where}`, hereFrom(location, "Kế hoạch")));
+                }}
                 className="press mt-3 w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-left text-[13px] text-amber-800 dark:text-amber-200"
               >
                 Đang có đề nghị {openProposal.action === "delete" ? "xoá" : openProposal.action === "archive" ? "lưu trữ" : "mở lại"} · Xem
@@ -788,6 +906,16 @@ const ThinkHub = () => {
                     </button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="min-w-[220px]">
+                    {!isReadOnly && active.kind !== "bookshelf" && !isProjectRoot ? (
+                      <DropdownMenuItem
+                        onSelect={() => {
+                          setNameDraft(active.name);
+                          setIsRenamingTable(true);
+                        }}
+                      >
+                        Đổi tên
+                      </DropdownMenuItem>
+                    ) : null}
                     {isOwner && !isReadOnly ? (
                       <DropdownMenuItem onSelect={() => setSaveTemplateTarget(active)}>Lưu làm mẫu của tôi</DropdownMenuItem>
                     ) : null}

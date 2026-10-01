@@ -60,6 +60,8 @@ export function isSharedTask(task: TaskItem): boolean {
 
 export type TaskItem = {
   id: string;
+  /** AVORA-51: set on a loan / tax reminder made from Két sắt — the amount lives only there. */
+  sourceTransactionId?: string | null;
   type: TaskType;
   creatorId: string;
   /**
@@ -1420,6 +1422,7 @@ type TaskRow = {
   longitude: number | null;
   travel_duration_minutes: number | null;
   departure_reminder_at: string | null;
+  source_transaction_id?: string | null;
 };
 
 /** Postgres hands back whatever JSON was stored; only a usable shape becomes a pattern. */
@@ -1583,7 +1586,7 @@ function eventFieldsOf(
 }
 
 const TASK_COLUMNS =
-  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, is_milestone, progress_percent, output_value, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at, estimated_duration_minutes, requires_presence, start_at, end_at, location, latitude, longitude, travel_duration_minutes, departure_reminder_at";
+  "id, type, creator_id, assignee_id, context_snapshot, conversation_id, title, description, status, confirmed_at, done_at, completed_confirmed_at, skipped_at, skipped_silently, deadline_date, deadline_time, deadline_tz, task_category_id, is_important, is_milestone, progress_percent, output_value, recurrence, recurrence_pattern, recurrence_spawned_at, deleted_by_creator, deleted_by_peer, created_at, estimated_duration_minutes, requires_presence, start_at, end_at, location, latitude, longitude, travel_duration_minutes, departure_reminder_at, source_transaction_id";
 
 function toTaskItem(row: TaskRow): TaskItem {
   return {
@@ -1615,6 +1618,7 @@ function toTaskItem(row: TaskRow): TaskItem {
     deletedByCreator: row.deleted_by_creator,
     deletedByPeer: row.deleted_by_peer,
     createdAt: row.created_at,
+    sourceTransactionId: row.source_transaction_id ?? null,
     ...eventFieldsOf(row, false),
   };
 }

@@ -2,6 +2,8 @@ import { Check, ChevronRight, MapPin, X } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
+import { PERSONAL_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
+import { celebrate } from "@/lib/confetti";
 import { localDayOf } from "@/lib/space-blocks";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { calendarProjection, invitationRows, tasksForSection, type TaskHubSection } from "@/lib/task-hub";
@@ -26,13 +28,42 @@ function Empty({ text }: { text: string }) {
   return <p className="rounded-[12px] border border-dashed border-border px-4 py-6 text-center text-[14px] text-muted-foreground">{text}</p>;
 }
 
-function TaskLine({ task, today, onOpen, trailing }: { task: TaskItem; today: string; onOpen: (task: TaskItem) => void; trailing?: string }) {
+/**
+ * AVORA-53 · 4.5 — the circle that finishes a personal task right from the list, with Hoàn tác.
+ * Shared work is closed in its conversation, so it keeps only the chevron.
+ */
+function DoneCircle({ task }: { task: TaskItem }) {
+  const { togglePersonalDone } = useTaskActions();
+  const done = task.status === "done";
+  const toggle = (): void => {
+    void togglePersonalDone
+      .mutateAsync({ taskId: task.id, done: !done })
+      .then(() => {
+        if (done) return;
+        celebrate(task.isMilestone ? "milestone" : "task");
+        toast.success("Đã xong", {
+          action: { label: "Hoàn tác", onClick: () => void togglePersonalDone.mutateAsync({ taskId: task.id, done: false }) },
+        });
+      })
+      .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Chưa lưu được."));
+  };
+  return (
+    <span className="flex h-12 w-10 shrink-0 items-center justify-center pl-2">
+      <TaskBubble state={PERSONAL_BUBBLE_STATE[task.status]} onClick={toggle} label={done ? "Mở lại nhiệm vụ" : "Đánh dấu hoàn thành"} />
+    </span>
+  );
+}
+
+function TaskLine({ task, today, onOpen, trailing, canComplete = true }: { task: TaskItem; today: string; onOpen: (task: TaskItem) => void; trailing?: string; canComplete?: boolean }) {
   const meta =
     task.startAt !== null
       ? `${dayLabel(localDayOf(task.startAt), today)} · ${task.requiresPresence ? "Có mặt lúc" : "Lúc"} ${clock(task.startAt)}${task.location !== null ? ` · ${task.location}` : ""}`
       : deadlineLabel(task.deadline, today) ?? "Không có hạn";
+  const canFinish = canComplete && task.type === "personal" && trailing === undefined;
   return (
-    <button type="button" onClick={() => onOpen(task)} className="press flex min-h-12 w-full items-center gap-3 border-t border-border px-4 py-2.5 text-left first:border-t-0 hover:bg-accent/30">
+    <div className="flex items-center border-t border-border first:border-t-0">
+    {canFinish ? <DoneCircle task={task} /> : null}
+    <button type="button" onClick={() => onOpen(task)} className={cn("press flex min-h-12 min-w-0 flex-1 items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/30", canFinish && "pl-2")}>
       {task.requiresPresence ? <MapPin className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.8} aria-hidden="true" /> : null}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14.5px] font-medium text-foreground">{task.title}</span>
@@ -40,6 +71,7 @@ function TaskLine({ task, today, onOpen, trailing }: { task: TaskItem; today: st
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
     </button>
+    </div>
   );
 }
 
@@ -91,7 +123,7 @@ function InvitationsList({ tasks, userId, today, onOpen, empty }: { tasks: reado
     respond.mutate(
       { participantId, accept },
       {
-        onSuccess: () => toast.success(accept ? "Đã nhận lời mời." : "Đã từ chối lời mời."),
+        onSuccess: () => toast.success(accept ? "Đã đồng ý lời mời." : "Đã từ chối lời mời."),
         onError: (error) => toast.error(error.message),
       },
     );
@@ -111,7 +143,7 @@ function InvitationsList({ tasks, userId, today, onOpen, empty }: { tasks: reado
           <div className="mt-2 flex gap-2">
             <button type="button" disabled={respond.isPending} onClick={() => answer(participant.id, true)} className="press flex h-11 items-center gap-1.5 rounded-[10px] bg-primary px-4 text-[13px] font-semibold text-primary-foreground disabled:opacity-50">
               <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-              Nhận
+              Đồng ý
             </button>
             <button type="button" disabled={respond.isPending} onClick={() => answer(participant.id, false)} className="press flex h-11 items-center gap-1.5 rounded-[10px] border border-border px-4 text-[13px] font-medium text-foreground disabled:opacity-50">
               <X className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
@@ -137,7 +169,7 @@ function TrashList({ tasks, userId, today, onOpen, empty }: { tasks: readonly Ta
       {list.map((task) => (
         <li key={task.id} className="flex items-center gap-2 border-t border-border pr-3 first:border-t-0">
           <div className="min-w-0 flex-1">
-            <TaskLine task={task} today={today} onOpen={onOpen} />
+            <TaskLine task={task} today={today} onOpen={onOpen} canComplete={false} />
           </div>
           <button type="button" onClick={() => restore(task)} className="press h-10 shrink-0 rounded-[8px] border border-border px-3 text-[13px] font-medium text-foreground hover:bg-secondary">
             Khôi phục

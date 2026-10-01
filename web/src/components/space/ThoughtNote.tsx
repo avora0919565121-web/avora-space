@@ -1,3 +1,4 @@
+import { withReturn } from "@/lib/return-to";
 import { BookOpen, Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -44,7 +45,7 @@ export function ThoughtNote({
       setNote("");
       setIsOpen(false);
       toast.success("Đã lưu vào Nhật ký.", {
-        action: { label: "Mở", onClick: () => navigate(`/tin-nhan/${conversationId}`) },
+        action: { label: "Mở", onClick: () => navigate(withReturn(`/tin-nhan/${conversationId}`, { path: "/tong-quan", label: "Avora Space" })) },
       });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không lưu được. Bạn thử lại nhé.");

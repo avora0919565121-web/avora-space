@@ -137,15 +137,29 @@ self.addEventListener("notificationclick", (event) => {
       const same = windows.find((client) => new URL(client.url).origin === self.location.origin);
       if (same) {
         await same.focus();
+        // AVORA-53 · 1.3: an open app moves in place (PushClickBridge) instead of reloading. Only when
+        // nothing answers within a second (signed-out screen, old build) is the tab navigated.
+        const answered = await new Promise((resolve) => {
+          try {
+            const channel = new MessageChannel();
+            const timer = setTimeout(() => resolve(false), 1000);
+            channel.port1.onmessage = () => {
+              clearTimeout(timer);
+              resolve(true);
+            };
+            same.postMessage({ type: "avora-open", url: target }, [channel.port2]);
+          } catch {
+            resolve(false);
+          }
+        });
+        if (answered) return;
         if ("navigate" in same) {
           try {
             await same.navigate(target);
-            return;
           } catch {
-            // Fall through to a message the app handles.
+            // Nothing more to try: the tab is focused, the person is one tap away.
           }
         }
-        same.postMessage({ type: "avora-open", url: target });
         return;
       }
       await self.clients.openWindow(target);

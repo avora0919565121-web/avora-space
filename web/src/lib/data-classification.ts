@@ -175,6 +175,15 @@ export const DATA_CLASSIFICATION = {
     },
   },
   categories: { level: "personal", domain: "finance" },
+
+  // AVORA-51 · Két sắt lock (ADR-034). Schema `private`: no grant to any client role, read only by
+  // SECURITY DEFINER functions. Listed here so the classification covers them even though
+  // they never appear in the generated public types.
+  vault_secrets: { level: "secret", domain: "vault", columns: { code_hash: "secret" } },
+  vault_unlocks: { level: "secret", domain: "vault", columns: { session_id: "secret" } },
+  vault_attempts: { level: "secret", domain: "vault" },
+  vault_reset_codes: { level: "secret", domain: "vault", columns: { code_hash: "secret" } },
+  password_checks: { level: "internal", domain: "identity" },
   currencies: { level: "public", domain: "system" },
   currency_rates: { level: "public", domain: "system" },
 } as const satisfies Readonly<Record<string, TableClassification>>;

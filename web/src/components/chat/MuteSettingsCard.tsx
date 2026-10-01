@@ -179,7 +179,7 @@ export function MuteSettingsCard() {
     <div className="mt-6 rounded-xl border border-border bg-card p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[17px] font-semibold text-foreground">Thông báo</h2>
+          <h2 className="text-[17px] font-semibold text-foreground">Tắt thông báo</h2>
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Tắt theo tầng, và luôn có thời hạn — thông báo tự bật lại, bạn không cần nhớ quay lại
             đây.

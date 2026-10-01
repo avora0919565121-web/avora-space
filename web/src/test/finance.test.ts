@@ -1287,9 +1287,8 @@ describe("Tạo việc nhắc is only a suggestion for an obligation still owed 
     expect(canSuggestReminder({ ...base, type: "expense" as const })).toBe(false);
   });
 
-  it("names the item and what is still owed", () => {
-    const title = reminderTitle("Vay anh Nam", { amountCents: 500_000_000, settledCents: 200_000_000 }, "VND");
-    expect(title.startsWith("Đến hạn: Vay anh Nam — ")).toBe(true);
-    expect(title).toContain("3.000.000");
+  it("names the item and never the amount (AVORA-51)", () => {
+    expect(reminderTitle("Vay anh Nam")).toBe("Đến hạn: Vay anh Nam");
+    expect(reminderTitle("  ")).toBe("Đến hạn: Khoản đến hạn");
   });
 });

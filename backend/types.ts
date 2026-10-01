@@ -7511,6 +7511,24 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      vault_change_code: {
+        Args: { p_new: string; p_old: string }
+        Returns: Json
+      }
+      vault_confirm_reset: {
+        Args: { p_email_code: string; p_new_code: string }
+        Returns: Json
+      }
+      vault_lock: { Args: never; Returns: undefined }
+      vault_request_reset: { Args: never; Returns: Json }
+      vault_set_code: { Args: { p_code: string }; Returns: Json }
+      vault_status: { Args: never; Returns: Json }
+      vault_touch: { Args: never; Returns: Json }
+      vault_unlock: { Args: { p_code: string }; Returns: Json }
+      verify_account_password: {
+        Args: { p_password: string }
+        Returns: boolean
+      }
       vote_shared_proposal: {
         Args: { p_proposal_id: string; p_reason?: string; p_vote: string }
         Returns: {
