@@ -329,6 +329,7 @@ const Auth = () => {
                 id="email"
                 name="email"
                 type="email"
+                spellCheck={false}
                 autoComplete="email"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
@@ -348,6 +349,7 @@ const Auth = () => {
                   name="otp-code"
                   type="text"
                   inputMode="numeric"
+                  spellCheck={false}
                   autoComplete="one-time-code"
                   maxLength={6}
                   value={otpCode}
@@ -393,6 +395,7 @@ const Auth = () => {
                   id="password"
                   name="password"
                   type="password"
+                  spellCheck={false}
                   autoComplete={isSignUp ? "new-password" : "current-password"}
                   value={password}
                   onChange={(event) => setPassword(event.target.value)}

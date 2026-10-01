@@ -6,6 +6,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { supabase } from "@/integrations/supabase/client";
 import { clearAllDrafts } from "@/lib/chat-drafts";
 import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
+import { getCaptchaToken } from "@/lib/turnstile";
 import { isSafeReturnPath } from "@/lib/return-to";
 
 export type Profile = {
@@ -169,12 +170,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signUp = useCallback(
     async (email: string, password: string, displayName: string, redirectPath?: string): Promise<AuthResult> => {
+      let captchaToken: string | undefined;
+      try {
+        captchaToken = await getCaptchaToken("sign_up");
+      } catch (error) {
+        return { ok: false, message: (error as Error).message };
+      }
       const { data, error } = await supabase.auth.signUp({
         email: email.trim(),
         password,
         options: {
           data: { display_name: displayName.trim() },
           emailRedirectTo: confirmationRedirect(redirectPath),
+          captchaToken,
         },
       });
 
@@ -196,7 +204,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const signIn = useCallback(async (email: string, password: string): Promise<AuthResult> => {
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+    let captchaToken: string | undefined;
+    try {
+      captchaToken = await getCaptchaToken("sign_in");
+    } catch (error) {
+      return { ok: false, message: (error as Error).message };
+    }
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password, options: { captchaToken } });
     if (error) {
       // Flagged so the screen can offer to send the confirmation email again instead of
       // leaving the person stuck on a message they cannot act on.
@@ -210,10 +224,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const trimmed = email.trim();
     if (trimmed.length === 0) return { ok: false, message: "Vui lòng nhập email của bạn." };
 
+    let captchaToken: string | undefined;
+    try {
+      captchaToken = await getCaptchaToken("resend");
+    } catch (error) {
+      return { ok: false, message: (error as Error).message };
+    }
     const { error } = await supabase.auth.resend({
       type: "signup",
       email: trimmed,
-      options: { emailRedirectTo: confirmationRedirect(redirectPath) },
+      options: { emailRedirectTo: confirmationRedirect(redirectPath), captchaToken },
     });
 
     // Rate limits and network failures are real and actionable. Anything else (unknown
@@ -231,9 +251,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
    * else keeps the screen's one generic sentence, so this cannot be used to probe accounts.
    */
   const sendEmailOtp = useCallback(async (email: string): Promise<AuthResult> => {
+    let captchaToken: string | undefined;
+    try {
+      captchaToken = await getCaptchaToken("email_code");
+    } catch (error) {
+      return { ok: false, message: (error as Error).message };
+    }
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
-      options: { shouldCreateUser: false },
+      options: { shouldCreateUser: false, captchaToken },
     });
     if (error) {
       logError("auth", { code: error.code, message: error.message });
@@ -285,8 +311,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const requestPasswordReset = useCallback(async (email: string): Promise<AuthResult> => {
+    let captchaToken: string | undefined;
+    try {
+      captchaToken = await getCaptchaToken("reset_password");
+    } catch (error) {
+      return { ok: false, message: (error as Error).message };
+    }
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
       redirectTo: `${window.location.origin}/dat-lai-mat-khau`,
+      captchaToken,
     });
 
     // Supabase answers the same way whether or not the address exists, and so do we:

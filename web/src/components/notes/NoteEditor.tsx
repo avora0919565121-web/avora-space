@@ -130,6 +130,8 @@ function AutoTextarea({
   }, [value]);
   return (
     <textarea
+      lang="vi"
+      spellCheck
       ref={(node) => {
         local.current = node;
         innerRef(node);

@@ -1,5 +1,5 @@
-import { useCallback, useState } from "react";
-import { Download, FileText, Forward, Lock, Mic, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
+import { ChevronLeft, ChevronRight, Download, FileText, Forward, Lock, Mic, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -227,6 +227,174 @@ function FileAttachment({ attachment }: AttachmentProps) {
           <Lock className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
         </span>
       )}
+    </div>
+  );
+}
+
+/**
+ * AVORA-57 · B — every image of a forwarded conversation, as one grid in send order. A tap opens
+ * that very image; the viewer steps to the next / previous one by swipe, arrow key or button.
+ */
+export function ForwardImageGrid({
+  images,
+  urlOf,
+}: {
+  images: readonly MessageAttachment[];
+  urlOf: (storagePath: string) => string | null;
+}) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+  if (images.length === 0) return null;
+  const columns = images.length === 1 ? 1 : images.length === 2 || images.length === 4 ? 2 : 3;
+  return (
+    <>
+      <div
+        className="mt-2 grid gap-1 overflow-hidden rounded-[10px]"
+        style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, maxWidth: IMAGE_MAX_WIDTH_PX }}
+      >
+        {images.map((image, index) => {
+          const url = urlOf(image.storagePath);
+          return (
+            <button
+              key={image.id}
+              type="button"
+              data-forward-image-index={index}
+              onClick={(event) => {
+                event.stopPropagation();
+                setOpenIndex(index);
+              }}
+              aria-label={`Xem ảnh ${index + 1} / ${images.length}`}
+              className="press relative block aspect-square overflow-hidden bg-secondary/40"
+            >
+              {url === null ? null : (
+                <img src={url} alt={image.fileName} draggable={false} loading="lazy" className="pointer-events-none h-full w-full object-cover" />
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {openIndex !== null ? (
+        <ImageViewer images={images} urlOf={urlOf} index={openIndex} onIndex={setOpenIndex} onClose={() => setOpenIndex(null)} />
+      ) : null}
+    </>
+  );
+}
+
+function ImageViewer({
+  images,
+  urlOf,
+  index,
+  onIndex,
+  onClose,
+}: {
+  images: readonly MessageAttachment[];
+  urlOf: (storagePath: string) => string | null;
+  index: number;
+  onIndex: (index: number) => void;
+  onClose: () => void;
+}) {
+  const image = images[index];
+  const url = urlOf(image.storagePath);
+  const canSave = canExportAttachment(image.permission);
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const go = useCallback(
+    (step: number): void => {
+      const next = index + step;
+      if (next >= 0 && next < images.length) onIndex(next);
+    },
+    [index, images.length, onIndex],
+  );
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent): void => {
+      if (event.key === "ArrowRight") go(1);
+      else if (event.key === "ArrowLeft") go(-1);
+      else if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [go, onClose]);
+
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>): void => {
+    startRef.current = { x: event.clientX, y: event.clientY };
+  };
+  const onPointerUp = (event: PointerEvent<HTMLDivElement>): void => {
+    const start = startRef.current;
+    startRef.current = null;
+    if (start === null) return;
+    const dx = event.clientX - start.x;
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(event.clientY - start.y)) go(dx < 0 ? 1 : -1);
+  };
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`Ảnh ${index + 1} / ${images.length}`}
+      data-viewer-index={index}
+      className="fixed inset-0 z-50 flex touch-pan-y items-center justify-center bg-background/95 p-4"
+      onClick={onClose}
+      onPointerDown={onPointerDown}
+      onPointerUp={onPointerUp}
+    >
+      {url !== null ? (
+        <img
+          src={url}
+          alt={image.fileName}
+          draggable={false}
+          style={knownRatio(image) !== null ? fullViewerSize(knownRatio(image) ?? 1) : undefined}
+          className="h-auto max-h-full max-w-full rounded-[12px] object-contain"
+          onClick={(event) => event.stopPropagation()}
+        />
+      ) : (
+        <p className="text-[13px] text-muted-foreground">Đang tải ảnh…</p>
+      )}
+      <span className="tabular absolute left-4 top-4 rounded-full bg-card/90 px-3 py-1 text-[12.5px] text-foreground">
+        {index + 1} / {images.length}
+      </span>
+      <div className="absolute right-4 top-4 flex items-center gap-2">
+        {canSave ? (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              void download(image);
+            }}
+            aria-label="Tải ảnh về"
+            className="icon-btn h-11 w-11 text-foreground"
+          >
+            <Download className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          </button>
+        ) : null}
+        <button type="button" onClick={onClose} aria-label="Đóng" className="icon-btn h-11 w-11 text-foreground">
+          <X className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      </div>
+      {index > 0 ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            go(-1);
+          }}
+          aria-label="Ảnh trước"
+          className="icon-btn absolute left-3 top-1/2 h-11 w-11 -translate-y-1/2 text-foreground"
+        >
+          <ChevronLeft className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      ) : null}
+      {index < images.length - 1 ? (
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            go(1);
+          }}
+          aria-label="Ảnh sau"
+          className="icon-btn absolute right-3 top-1/2 h-11 w-11 -translate-y-1/2 text-foreground"
+        >
+          <ChevronRight className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      ) : null}
     </div>
   );
 }

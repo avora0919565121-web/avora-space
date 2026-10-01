@@ -400,6 +400,8 @@ function ComposerBody({
             Tên việc
           </label>
           <input
+            lang="vi"
+            spellCheck
             id="composer-title"
             value={draft.title}
             maxLength={200}
@@ -595,6 +597,7 @@ function ComposerBody({
                     ))}
                     <input
                       inputMode="numeric"
+                      spellCheck={false}
                       aria-label="Số phút khác"
                       value={customTravel}
                       onChange={(event) => {
@@ -636,6 +639,8 @@ function ComposerBody({
             onToggle={() => toggleBlock("note")}
           >
             <textarea
+              lang="vi"
+              spellCheck
               id="composer-note"
               value={draft.description}
               rows={4}

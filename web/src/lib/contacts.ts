@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { cleanContactName, storedEmailOrNull, storedPhoneOrNull } from "@/lib/contact-clean";
 
 /**
  * A contact is either a person or a company, and says which from birth.
@@ -217,9 +218,9 @@ function toContact(row: ContactRow): Contact {
  */
 export async function createContactQuick(input: { name: string; phone?: string; email?: string }): Promise<Contact> {
   const { data, error } = await supabase.rpc("create_contact_quick", {
-    p_name: input.name.trim(),
-    p_phone: input.phone?.trim() || undefined,
-    p_email: input.email?.trim() || undefined,
+    p_name: cleanContactName(input.name),
+    p_phone: storedPhoneOrNull(input.phone) ?? undefined,
+    p_email: storedEmailOrNull(input.email) ?? undefined,
   });
   if (error) {
     logError("contacts", { code: error.code, message: error.message });
@@ -568,9 +569,9 @@ export function pendingInvite(
 export async function createIndividual(draft: IndividualDraft): Promise<Contact> {
   const { data, error } = await supabase.rpc("create_contact", {
     p_contact_type: "individual",
-    p_name: draft.name.trim(),
-    p_phone: given(draft.phone) ?? undefined,
-    p_email: given(draft.email) ?? undefined,
+    p_name: cleanContactName(draft.name),
+    p_phone: storedPhoneOrNull(draft.phone) ?? undefined,
+    p_email: storedEmailOrNull(draft.email) ?? undefined,
     p_note: given(draft.note) ?? undefined,
     p_date_of_birth: given(draft.dateOfBirth) ?? undefined,
     p_relationship_tag: given(draft.relationshipTag) ?? undefined,
@@ -582,15 +583,15 @@ export async function createIndividual(draft: IndividualDraft): Promise<Contact>
 export async function createBusiness(draft: BusinessDraft): Promise<Contact> {
   const { data, error } = await supabase.rpc("create_contact", {
     p_contact_type: "business",
-    p_name: draft.name.trim(),
-    p_phone: given(draft.phone) ?? undefined,
-    p_email: given(draft.email) ?? undefined,
+    p_name: cleanContactName(draft.name),
+    p_phone: storedPhoneOrNull(draft.phone) ?? undefined,
+    p_email: storedEmailOrNull(draft.email) ?? undefined,
     p_note: given(draft.note) ?? undefined,
     p_tax_code: given(draft.taxCode) ?? undefined,
     p_business_address: given(draft.businessAddress) ?? undefined,
-    p_representative_name: given(draft.representativeName) ?? undefined,
-    p_representative_phone: given(draft.representativePhone) ?? undefined,
-    p_representative_email: given(draft.representativeEmail) ?? undefined,
+    p_representative_name: given(cleanContactName(draft.representativeName ?? "")) ?? undefined,
+    p_representative_phone: storedPhoneOrNull(draft.representativePhone) ?? undefined,
+    p_representative_email: storedEmailOrNull(draft.representativeEmail) ?? undefined,
     p_industry: given(draft.industry) ?? undefined,
   });
   if (error) throw fail(error.code, error.message);
@@ -604,9 +605,9 @@ export async function createBusiness(draft: BusinessDraft): Promise<Contact> {
 export async function updateIndividual(contactId: string, draft: IndividualDraft): Promise<Contact> {
   const { data, error } = await supabase.rpc("update_contact", {
     p_contact_id: contactId,
-    p_name: draft.name.trim(),
-    p_phone: given(draft.phone) ?? undefined,
-    p_email: given(draft.email) ?? undefined,
+    p_name: cleanContactName(draft.name),
+    p_phone: storedPhoneOrNull(draft.phone) ?? undefined,
+    p_email: storedEmailOrNull(draft.email) ?? undefined,
     p_note: given(draft.note) ?? undefined,
     p_date_of_birth: given(draft.dateOfBirth) ?? undefined,
     p_relationship_tag: given(draft.relationshipTag) ?? undefined,
@@ -619,15 +620,15 @@ export async function updateIndividual(contactId: string, draft: IndividualDraft
 export async function updateBusiness(contactId: string, draft: BusinessDraft): Promise<Contact> {
   const { data, error } = await supabase.rpc("update_contact", {
     p_contact_id: contactId,
-    p_name: draft.name.trim(),
-    p_phone: given(draft.phone) ?? undefined,
-    p_email: given(draft.email) ?? undefined,
+    p_name: cleanContactName(draft.name),
+    p_phone: storedPhoneOrNull(draft.phone) ?? undefined,
+    p_email: storedEmailOrNull(draft.email) ?? undefined,
     p_note: given(draft.note) ?? undefined,
     p_tax_code: given(draft.taxCode) ?? undefined,
     p_business_address: given(draft.businessAddress) ?? undefined,
-    p_representative_name: given(draft.representativeName) ?? undefined,
-    p_representative_phone: given(draft.representativePhone) ?? undefined,
-    p_representative_email: given(draft.representativeEmail) ?? undefined,
+    p_representative_name: given(cleanContactName(draft.representativeName ?? "")) ?? undefined,
+    p_representative_phone: storedPhoneOrNull(draft.representativePhone) ?? undefined,
+    p_representative_email: storedEmailOrNull(draft.representativeEmail) ?? undefined,
     p_industry: given(draft.industry) ?? undefined,
   });
   if (error) throw fail(error.code, error.message);

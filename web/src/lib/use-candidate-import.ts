@@ -298,7 +298,8 @@ async function fileChannels(
         // Only a vCard suggests one; every other route sends null and the channel stays
         // unnamed, which is the honest state of not knowing what to call it.
         label: channel.label,
-        needsReview,
+        // AVORA-57 · J: only the channels of the ambiguous kind are flagged.
+        needsReview: needsReview && channel.needsReview === true,
       });
       if (saved !== null) stored += 1;
     } catch (error) {

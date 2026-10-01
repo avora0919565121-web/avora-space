@@ -6,6 +6,25 @@ import {
   isDailyThoughtCategory,
   type DailyThoughtCategory,
 } from "@/lib/daily-thoughts";
+import {
+  DEFAULT_BUTTON_STYLE,
+  DEFAULT_CELEBRATION_STYLE,
+  isButtonStyle,
+  isCelebrationStyle,
+  type ButtonStyle,
+  type CelebrationStyle,
+} from "@/lib/look-prefs";
+
+export {
+  BUTTON_STYLES,
+  CELEBRATION_STYLES,
+  DEFAULT_BUTTON_STYLE,
+  DEFAULT_CELEBRATION_STYLE,
+  isButtonStyle,
+  isCelebrationStyle,
+  type ButtonStyle,
+  type CelebrationStyle,
+} from "@/lib/look-prefs";
 
 /**
  * Per-person preferences that other modules read: which currency to report in, which zone a
@@ -44,11 +63,15 @@ export type ProfileSettings = {
   focusMode: "quiet" | "disconnect" | null;
   /** Null with a mode set = "Tới khi tôi tắt". */
   focusUntil: string | null;
+  /** AVORA-56 · E (ADR-036): the completion effect. Default `inspiring`. */
+  celebrationStyle: CelebrationStyle;
+  /** AVORA-57 · F (ADR-037): one shape for every icon and primary button. Default `round`. */
+  buttonStyle: ButtonStyle;
 };
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
 const PROFILE_SETTINGS_COLUMNS =
-  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders, focus_mode, focus_until";
+  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders, focus_mode, focus_until, celebration_style, button_style";
 
 type ProfileSettingsRow = {
   base_currency: string | null;
@@ -65,6 +88,8 @@ type ProfileSettingsRow = {
   push_reminders?: boolean | null;
   focus_mode?: string | null;
   focus_until?: string | null;
+  celebration_style?: string | null;
+  button_style?: string | null;
 };
 
 /**
@@ -94,7 +119,22 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     pushReminders: row?.push_reminders ?? true,
     focusMode: row?.focus_mode === "quiet" || row?.focus_mode === "disconnect" ? row.focus_mode : null,
     focusUntil: row?.focus_until ?? null,
+    celebrationStyle: isCelebrationStyle(row?.celebration_style) ? row.celebration_style : DEFAULT_CELEBRATION_STYLE,
+    buttonStyle: isButtonStyle(row?.button_style) ? row.button_style : DEFAULT_BUTTON_STYLE,
   };
+}
+
+/** Hiệu ứng khi hoàn thành / Kiểu nút (AVORA-56 · E, AVORA-57 · F). */
+export async function updateLookPrefs(
+  userId: string,
+  patch: Partial<Pick<ProfileSettings, "celebrationStyle" | "buttonStyle">>,
+): Promise<ProfileSettings> {
+  const row: { celebration_style?: string; button_style?: string } = {};
+  if (patch.celebrationStyle !== undefined) row.celebration_style = patch.celebrationStyle;
+  if (patch.buttonStyle !== undefined) row.button_style = patch.buttonStyle;
+  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(PROFILE_SETTINGS_COLUMNS).single();
+  if (error) throw fail("settings", error.code, error.message);
+  return toProfileSettings(data);
 }
 
 /** Turns Chế độ tập trung on (mode + end, null end = until turned off) or off (mode null). */

@@ -119,11 +119,13 @@ function SubTableSection({
         <div className="mt-2 space-y-3 rounded-lg border border-dashed border-border p-3.5">
           <label className="block">
             <span className="text-[13px] font-medium text-muted-foreground">Tên bảng con</span>
-            <input value={name} maxLength={80} onChange={(event) => setName(event.target.value)} className={inputClass} />
+            <input lang="vi" spellCheck value={name} maxLength={80} onChange={(event) => setName(event.target.value)} className={inputClass} />
           </label>
           <label className="block">
             <span className="text-[13px] font-medium text-muted-foreground">Mục đích</span>
             <input
+              lang="vi"
+              spellCheck
               value={purpose}
               maxLength={2000}
               onChange={(event) => setPurpose(event.target.value)}
@@ -560,6 +562,8 @@ export function RecordDialog({
               Ghi chú
             </label>
             <textarea
+              lang="vi"
+              spellCheck
               id="record-notes"
               value={draft.notes}
               onChange={(event) => setField("notes", event.target.value)}

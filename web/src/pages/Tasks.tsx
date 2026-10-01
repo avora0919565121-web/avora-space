@@ -435,7 +435,7 @@ function PersonalRow({
             togglePersonalDone
               .mutateAsync({ taskId: task.id, done: true, output })
               // Once, right after the completion is confirmed — never on load.
-              .then(() => celebrate(task.isMilestone ? "milestone" : "task")),
+              .then(() => celebrate(task.isMilestone ? "milestone" : "task", { taskId: task.id })),
           );
         }}
       />
@@ -1685,16 +1685,17 @@ export default function Tasks() {
         title="Nhiệm vụ"
         className="max-w-[720px] md:px-6"
         action={
+          // AVORA-57 · E: Tìm kiếm first, the main `+` outermost on the right.
           <div className="flex items-center gap-1.5">
+            <AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />
             <button
               type="button"
               onClick={() => setIsNewOpen(true)}
-              className="press flex h-10 items-center gap-1.5 rounded-full bg-primary px-3.5 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="icon-btn icon-btn-primary h-11 gap-1.5 px-4 text-[14px] font-semibold"
             >
               <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
               Nhiệm vụ
             </button>
-            <AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />
           </div>
         }
       />

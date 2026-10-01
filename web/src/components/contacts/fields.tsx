@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import { nameCaseSuggestion } from "@/lib/contact-clean";
+
 /** A required field is marked once, visibly and for screen readers alike. */
 export function FieldLabel({
   children,
@@ -41,6 +43,7 @@ export function TextField({
   list,
   autoFocus = false,
   maxLength = 200,
+  suggestCase = false,
 }: {
   id: string;
   label: string;
@@ -53,7 +56,12 @@ export function TextField({
   list?: string;
   autoFocus?: boolean;
   maxLength?: number;
+  /** AVORA-56 · B: offer `Viết thành "Nguyễn Văn A"?` for an all-lower / all-upper name. */
+  suggestCase?: boolean;
 }) {
+  const suggestion = suggestCase ? nameCaseSuggestion(value) : null;
+  // AVORA-56 · C: no red underline under an email or a phone number.
+  const isMachineValue = type === "email" || type === "tel";
   return (
     <div>
       <FieldLabel htmlFor={id} required={required}>
@@ -68,9 +76,21 @@ export function TextField({
         inputMode={inputMode}
         maxLength={maxLength}
         placeholder={placeholder}
+        spellCheck={isMachineValue ? false : undefined}
+        autoCapitalize={isMachineValue ? "off" : undefined}
+        autoCorrect={isMachineValue ? "off" : undefined}
         onChange={(event) => onChange(event.target.value)}
         className={`mt-1.5 ${contactInputClass}`}
       />
+      {suggestion !== null ? (
+        <button
+          type="button"
+          onClick={() => onChange(suggestion)}
+          className="press mt-1.5 inline-flex min-h-8 items-center rounded-full bg-primary/[0.08] px-3 text-[12.5px] font-medium text-primary hover:bg-primary/15"
+        >
+          Viết thành “{suggestion}”?
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -93,6 +113,8 @@ export function NoteField({
         rows={2}
         value={value}
         maxLength={500}
+        lang="vi"
+        spellCheck
         placeholder="Điều bạn muốn nhớ về người này"
         onChange={(event) => onChange(event.target.value)}
         className="mt-1.5 w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"

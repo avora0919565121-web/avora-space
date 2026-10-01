@@ -328,7 +328,7 @@ function ChatTaskRow({
         return;
       }
       setIsCompleteOpen(false);
-      celebrate(task.isMilestone ? "milestone" : "task");
+      celebrate(task.isMilestone ? "milestone" : "task", { taskId: task.id });
     },
     [markSharedDone, task.id, task.isMilestone],
   );
@@ -336,6 +336,7 @@ function ChatTaskRow({
   return (
     <li
       id={`task-${task.id}`}
+      data-task-id={task.id}
       className={cn(
         "rounded-[10px] border px-3 py-2.5 transition-colors",
         isHighlighted ? "border-primary bg-primary/5" : "border-border bg-card",
@@ -458,7 +459,7 @@ function ChatTaskRow({
                   reviewSharedDone.mutateAsync(task.id).then(() => {
                     // Closing the work is the moment itself: the person who pressed the
                     // button gets the completion moment here and now, once.
-                    celebrate(task.isMilestone ? "milestone" : "task");
+                    celebrate(task.isMilestone ? "milestone" : "task", { taskId: task.id });
                     // A milestone closing is a moment for the room, not just the two parties:
                     // this rides the realtime broadcast to whoever is looking right now, and
                     // the database keeps it for whoever is not (see task_celebrations).

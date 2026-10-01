@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { StatusPill } from "@/components/StatusPill";
@@ -13,14 +14,26 @@ import { cn } from "@/lib/utils";
  * finance sub-routes (`/ket-sat/giao-dich`, …) live under the Tài chính tab, so
  * an exact-match rule would leave the strip with nothing highlighted there.
  */
-export function SectionTabs({ section, tabs }: { section: string; tabs: readonly NavEntry[] }) {
+export function SectionTabs({
+  section,
+  tabs,
+  action,
+}: {
+  section: string;
+  tabs: readonly NavEntry[];
+  /** AVORA-57 · E: the area's main `+`, outermost on the right of the title. */
+  action?: (current: string) => ReactNode;
+}) {
   const location = useLocation();
   const current: string = activeSectionTab(location.pathname, tabs);
 
   return (
     <header className="shrink-0 border-b border-border bg-card px-4 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6">
       {/* The Hub's own large title, held above the page while its halves scroll beneath. */}
-      <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
+        {action?.(current) ?? null}
+      </div>
       <nav aria-label={`Mục ${section}`} className="-mx-2 mt-2 overflow-x-auto px-2">
         <ul className="flex items-center gap-1 whitespace-nowrap">
           {tabs.map((tab) => {

@@ -113,6 +113,7 @@ const ResetPassword = () => {
                     id="newPassword"
                     name="newPassword"
                     type="password"
+                    spellCheck={false}
                     autoComplete="new-password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
@@ -129,6 +130,7 @@ const ResetPassword = () => {
                     id="confirmPassword"
                     name="confirmPassword"
                     type="password"
+                    spellCheck={false}
                     autoComplete="new-password"
                     value={confirmation}
                     onChange={(event) => setConfirmation(event.target.value)}

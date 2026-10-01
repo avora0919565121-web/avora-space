@@ -1,6 +1,6 @@
-import { Info, KeyRound, Loader2, Lock, MoreHorizontal } from "lucide-react";
+import { Info, KeyRound, Loader2, Lock, MoreHorizontal, Plus } from "lucide-react";
 import { useState } from "react";
-import { Outlet } from "react-router-dom";
+import { Outlet, useNavigate } from "react-router-dom";
 
 import { ReturnChip } from "@/components/nav/ReturnChip";
 import { SectionTabs } from "@/components/SectionTabs";
@@ -11,6 +11,7 @@ import { VaultAboutText } from "@/components/vault/VaultAbout";
 import { VaultGate } from "@/components/vault/VaultGate";
 import { VAULT_TABS } from "@/lib/navigation";
 import { useVaultLock } from "@/lib/use-vault-lock";
+import { requestVaultAdd, VAULT_ADD_PARAM, vaultAddFor } from "@/lib/vault-add";
 
 /** `🔒 Khoá ngay` and `⋯` (Đổi mã Két sắt · Về khoá Két sắt), at the head of an open Két sắt. */
 function VaultBar() {
@@ -64,6 +65,7 @@ function VaultBar() {
  */
 const Vault = () => {
   const vault = useVaultLock();
+  const navigate = useNavigate();
 
   let body;
   if (vault.isLoading) {
@@ -98,7 +100,28 @@ const Vault = () => {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <SectionTabs section="Két sắt" tabs={VAULT_TABS} />
+      <SectionTabs
+        section="Két sắt"
+        tabs={VAULT_TABS}
+        action={(current) => {
+          // AVORA-57 · E: one `+` beside the title; none while locked or on a "Sắp có" sub-tab.
+          const entry = vault.isUnlocked ? vaultAddFor(current) : null;
+          if (entry === null) return null;
+          return (
+            <button
+              type="button"
+              onClick={() => {
+                if (!requestVaultAdd()) navigate(`${entry.path}?${VAULT_ADD_PARAM}=1`);
+              }}
+              aria-label={`Thêm ${entry.label.toLowerCase()}`}
+              className="icon-btn icon-btn-primary h-11 gap-1.5 px-4 text-[14px] font-semibold"
+            >
+              <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+              {entry.label}
+            </button>
+          );
+        }}
+      />
       <ReturnChip className="mx-auto w-full max-w-5xl px-6 md:px-10" />
       {body}
     </div>

@@ -74,6 +74,32 @@
     --sidebar-border: 38 28% 86%;
     --sidebar-ring: 13 73% 56%;
   }
+
+  /* AVORA-57 · F (ADR-037): one shape for every icon and primary button, picked in
+     Cài đặt › Tuỳ chọn chung › Kiểu nút. Variables, not descendant selectors, so a preview
+     tile can carry its own value inside a page that has another. */
+  :root,
+  [data-button-style="round"] {
+    --btn-radius: 9999px;
+    --btn-border: hsl(var(--border));
+    --btn-bg: hsl(var(--card));
+    --btn-primary-bg: hsl(var(--primary));
+    --btn-primary-fg: hsl(var(--primary-foreground));
+  }
+  [data-button-style="rounded"] {
+    --btn-radius: 10px;
+    --btn-border: hsl(var(--border));
+    --btn-bg: hsl(var(--card));
+    --btn-primary-bg: hsl(var(--primary));
+    --btn-primary-fg: hsl(var(--primary-foreground));
+  }
+  [data-button-style="icon"] {
+    --btn-radius: 10px;
+    --btn-border: transparent;
+    --btn-bg: transparent;
+    --btn-primary-bg: transparent;
+    --btn-primary-fg: hsl(var(--primary));
+  }
 }
 
 @layer base {
@@ -122,6 +148,38 @@
 
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+
+  /* The icon button every header, the composer and the floating calendar share (57 · F). */
+  .icon-btn {
+    display: inline-flex;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--btn-radius);
+    border: 1px solid var(--btn-border);
+    background-color: var(--btn-bg);
+    transition:
+      background-color 150ms ease-out,
+      transform 150ms ease-out;
+  }
+  .icon-btn:hover {
+    background-color: hsl(var(--accent) / 0.5);
+  }
+  .icon-btn:active {
+    transform: scale(0.96);
+  }
+  .icon-btn-primary {
+    border-color: transparent;
+    background-color: var(--btn-primary-bg);
+    color: var(--btn-primary-fg);
+  }
+  .icon-btn-primary:hover {
+    background-color: var(--btn-primary-bg);
+    filter: brightness(0.95);
+  }
+  .icon-btn-preview {
+    pointer-events: none;
   }
 
   /* Faint paper grain over the canvas — depth without shadows. */

@@ -42,6 +42,7 @@ export function IndividualFields({
         autoFocus
         value={draft.name}
         placeholder="Nguyễn Văn A"
+        suggestCase
         onChange={(name) => onChange({ ...draft, name })}
       />
 

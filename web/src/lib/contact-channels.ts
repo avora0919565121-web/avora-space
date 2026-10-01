@@ -1,6 +1,7 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { toVietnameseContactError, type Contact, type ContactType } from "@/lib/contacts";
+import { cleanContactEmail, toStoredPhone } from "@/lib/contact-clean";
 
 /**
  * The second, third and fourth way to reach someone.
@@ -593,7 +594,8 @@ export async function addContactChannel(input: {
   const { data, error } = await supabase.rpc("add_contact_channel", {
     p_contact_id: input.contactId,
     p_kind: input.kind,
-    p_value: input.value.trim(),
+    // AVORA-56 · B: tidied once here, for every route that files a channel.
+    p_value: input.kind === "email" ? cleanContactEmail(input.value) : toStoredPhone(input.value),
     p_source: input.source ?? "manual",
     p_label: input.label ?? undefined,
     p_needs_review: input.needsReview ?? false,
@@ -669,5 +671,11 @@ export async function detachContactChannel(input: {
     p_value: input.value.trim(),
   });
 
+  if (error) throw fail(error.code, error.message);
+}
+
+/** AVORA-57 · J — `Số chính`: this channel becomes the contact's own phone / email (one RPC, atomic). */
+export async function promoteContactChannel(channelId: string): Promise<void> {
+  const { error } = await supabase.rpc("promote_contact_channel", { p_channel_id: channelId });
   if (error) throw fail(error.code, error.message);
 }

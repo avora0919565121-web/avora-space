@@ -358,9 +358,10 @@ describe("splitting the channels between the contact row and the channel table",
         emails: ["a@e.com", "b@e.com"],
       }),
     );
+    // AVORA-57 · J: two unlabelled values of a kind are a real choice, so both are flagged.
     expect(extraChannelsOf(entry)).toEqual([
-      { kind: "phone", value: "0987000111", label: null },
-      { kind: "email", value: "b@e.com", label: null },
+      { kind: "phone", value: "0987000111", label: null, needsReview: true },
+      { kind: "email", value: "b@e.com", label: null, needsReview: true },
     ]);
   });
 
@@ -523,9 +524,10 @@ describe("merging into someone already there", () => {
     const entry = cleanCandidate(
       candidate({ name: "Chị Hoa", phones: ["0912345678", "0987000111"], emails: ["a@e.com"] }),
     );
+    // AVORA-57 · J: only the ambiguous kind (two phones) is flagged; the single email is not.
     expect(mergeChannelsOf(entry)).toEqual([
-      { kind: "phone", value: "0912345678", label: null },
-      { kind: "phone", value: "0987000111", label: null },
+      { kind: "phone", value: "0912345678", label: null, needsReview: true },
+      { kind: "phone", value: "0987000111", label: null, needsReview: true },
       { kind: "email", value: "a@e.com", label: null },
     ]);
   });

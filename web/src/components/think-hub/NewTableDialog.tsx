@@ -89,6 +89,8 @@ export function NewTableDialog({
               Tên bảng
             </label>
             <input
+              lang="vi"
+              spellCheck
               id="think-table-name"
               value={name}
               onChange={(event) => setName(event.target.value)}

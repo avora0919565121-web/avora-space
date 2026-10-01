@@ -481,6 +481,32 @@ export type Database = {
           },
         ]
       }
+      conversation_pins: {
+        Row: {
+          conversation_id: string
+          pinned_at: string
+          user_id: string
+        }
+        Insert: {
+          conversation_id: string
+          pinned_at?: string
+          user_id: string
+        }
+        Update: {
+          conversation_id?: string
+          pinned_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_pins_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_read_marks: {
         Row: {
           conversation_id: string
@@ -1643,6 +1669,8 @@ export type Database = {
           allow_group_connection: boolean
           avatar_url: string | null
           base_currency: string
+          button_style: string
+          celebration_style: string
           created_at: string
           daily_thought_category: string
           display_name: string | null
@@ -1666,6 +1694,8 @@ export type Database = {
           allow_group_connection?: boolean
           avatar_url?: string | null
           base_currency?: string
+          button_style?: string
+          celebration_style?: string
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
@@ -1689,6 +1719,8 @@ export type Database = {
           allow_group_connection?: boolean
           avatar_url?: string | null
           base_currency?: string
+          button_style?: string
+          celebration_style?: string
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
@@ -5546,6 +5578,18 @@ export type Database = {
           task_id: string
         }[]
       }
+      list_my_connection_requests: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          display_name: string
+          expires_at: string
+          message: string
+          pin: string
+          started_at: string
+          via_group_name: string
+        }[]
+      }
       list_my_connections: {
         Args: never
         Returns: {
@@ -5553,6 +5597,13 @@ export type Database = {
           display_name: string
           pin: string
           user_id: string
+        }[]
+      }
+      list_my_conversation_pins: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          pinned_at: string
         }[]
       }
       list_my_conversations: {
@@ -5905,6 +5956,10 @@ export type Database = {
       preview_think_hub_table_delete: {
         Args: { p_table_id: string }
         Returns: Json
+      }
+      promote_contact_channel: {
+        Args: { p_channel_id: string }
+        Returns: undefined
       }
       propose_shared_action: {
         Args: {
@@ -6936,6 +6991,10 @@ export type Database = {
         Args: { p_conversation_id: string; p_until: string }
         Returns: string
       }
+      set_conversation_pinned: {
+        Args: { p_conversation_id: string; p_pinned: boolean }
+        Returns: string
+      }
       set_group_admin: {
         Args: {
           make_admin: boolean
@@ -7225,7 +7284,7 @@ export type Database = {
         }
       }
       start_group_connection: {
-        Args: { p_group_id: string; p_user_id: string }
+        Args: { p_group_id: string; p_message: string; p_user_id: string }
         Returns: string
       }
       start_meeting_note: {
@@ -7255,7 +7314,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
-      start_pin_connection: { Args: { p_pin: string }; Returns: string }
+      start_pin_connection: {
+        Args: { p_message: string; p_pin: string }
+        Returns: string
+      }
       suggested_meeting_attendees: {
         Args: { p_conversation_id: string }
         Returns: string[]

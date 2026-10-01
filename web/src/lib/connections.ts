@@ -2,6 +2,7 @@ import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { CONTACT_UNAVAILABLE_MESSAGE } from "@/lib/blocks";
 import { matchesSearch } from "@/lib/normalize-search";
+import { INVITE_LENGTH_MESSAGE, INVITE_NO_LINKS_MESSAGE } from "@/lib/invite-message";
 
 /**
  * Bạn bè (AVORA-38 / ADR-029).
@@ -21,7 +22,29 @@ export type Connection = {
 export const connectionKeys = {
   all: ["connections"] as const,
   list: ["connections", "list"] as const,
+  requests: ["connections", "requests"] as const,
 };
+
+/**
+ * A request waiting on the viewer (AVORA-56 · A). Who is asking is shown under the same rule as
+ * the thread: the PIN on the PIN path, the name on the Nhóm path. Never mutual friends.
+ */
+export type ConnectionRequest = {
+  conversationId: string;
+  displayName: string | null;
+  pin: string | null;
+  viaGroupName: string | null;
+  message: string | null;
+  startedAt: string;
+  expiresAt: string;
+};
+
+/** What a request card calls the person asking. */
+export function requestTitle(request: ConnectionRequest): string {
+  return request.displayName ?? request.pin ?? "Người dùng AVORA";
+}
+
+export const CONNECTED_MESSAGE = "Hai bạn đã kết nối.";
 
 /** Path encoded in the QR code. The PIN is an identifier, not a secret (ADR-019). */
 export const CONNECT_PATH = "/ket-noi";
@@ -77,6 +100,9 @@ export function toVietnameseConnectionError(message: string): string {
     return "Hôm nay bạn đã mở nhiều khung kết bạn qua nhóm. Thử lại vào ngày mai nhé.";
   if (normalized.includes("avora_contact_unavailable")) return CONTACT_UNAVAILABLE_MESSAGE;
   if (normalized.includes("avora_verification_closed")) return "Khung kết bạn này đã đóng.";
+  if (normalized.includes("avora_verification_no_links")) return INVITE_NO_LINKS_MESSAGE;
+  if (normalized.includes("avora_invite_message_length")) return INVITE_LENGTH_MESSAGE;
+  if (normalized.includes("avora_verification_quota")) return "Bạn đã gửi đủ 5 tin trong khung chờ kết bạn.";
   if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (normalized.includes("failed to fetch")) return "Cần kết nối mạng để kết bạn.";
   return "Chưa làm được. Vui lòng thử lại.";
@@ -102,8 +128,11 @@ export async function fetchMyConnections(): Promise<Connection[]> {
  * Opens the verification frame for a PIN (or the ordinary 1-1 when already bạn) and returns
  * the conversation id. Every miss — unknown PIN, owner without PIN — reads as "không tìm thấy".
  */
-export async function startPinConnection(pin: string): Promise<string> {
-  const { data, error } = await supabase.rpc("start_pin_connection", { p_pin: normalizePinInput(pin) });
+export async function startPinConnection(pin: string, message: string): Promise<string> {
+  const { data, error } = await supabase.rpc("start_pin_connection", {
+    p_pin: normalizePinInput(pin),
+    p_message: message,
+  });
   if (error) throw fail(error.code, error.message);
   if (!data) throw new Error(PIN_NOT_FOUND_MESSAGE);
   return data;
@@ -113,10 +142,29 @@ export async function startPinConnection(pin: string): Promise<string> {
  * AVORA-55 · 3.4 — opens the "Từ nhóm" frame with a group member (ADR-029: a shared Nhóm alone
  * does not make two people bạn). Already bạn → the ordinary 1-1; a live frame → that frame.
  */
-export async function startGroupConnection(groupId: string, userId: string): Promise<string> {
-  const { data, error } = await supabase.rpc("start_group_connection", { p_group_id: groupId, p_user_id: userId });
+export async function startGroupConnection(groupId: string, userId: string, message: string): Promise<string> {
+  const { data, error } = await supabase.rpc("start_group_connection", {
+    p_group_id: groupId,
+    p_user_id: userId,
+    p_message: message,
+  });
   if (error) throw fail(error.code, error.message);
   return data as string;
+}
+
+/** Requests waiting on the viewer, newest first. */
+export async function fetchConnectionRequests(): Promise<ConnectionRequest[]> {
+  const { data, error } = await supabase.rpc("list_my_connection_requests");
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => ({
+    conversationId: row.conversation_id,
+    displayName: row.display_name,
+    pin: row.pin,
+    viaGroupName: row.via_group_name,
+    message: row.message,
+    startedAt: row.started_at,
+    expiresAt: row.expires_at,
+  }));
 }
 
 export async function confirmVerification(conversationId: string): Promise<"connected" | "waiting"> {

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
 import { LegacyRedirect } from "@/components/LegacyRedirect";
+import { LookSync } from "@/components/LookSync";
 import { MilestoneBurstLayer } from "@/components/MilestoneBurstLayer";
 import { RequireAuth } from "@/components/RequireAuth";
 import { Toaster } from "@/components/ui/sonner";
@@ -31,6 +32,7 @@ import ProjectDetail from "./pages/ProjectDetail";
 import ResetPassword from "./pages/ResetPassword";
 import Settings from "./pages/Settings";
 import SettingsAssistant from "./pages/SettingsAssistant";
+import SettingsGuide from "./pages/SettingsGuide";
 import SettingsNotifications from "./pages/SettingsNotifications";
 import SettingsPreferences from "./pages/SettingsPreferences";
 import Tasks from "./pages/Tasks";
@@ -49,6 +51,7 @@ const App = () => (
         <TooltipProvider>
           <Toaster />
           <MilestoneBurstLayer />
+          <LookSync />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
             <Routes>
               <Route path="/" element={<Navigate to={HOME_ROUTE} replace />} />
@@ -83,6 +86,7 @@ const App = () => (
                   <Route path="thiet-lap" element={<SettingsPreferences />} />
                   <Route path="thong-bao" element={<SettingsNotifications />} />
                   <Route path="avora-ai" element={<SettingsAssistant />} />
+                  <Route path="huong-dan" element={<SettingsGuide />} />
                 </Route>
 
                 <Route path="/lien-he" element={<Contacts />} />

@@ -3,7 +3,8 @@ import { Hourglass, KeyRound, Users } from "lucide-react";
 import { memo, useState } from "react";
 
 import { chatKeys, type ConversationVerification } from "@/lib/chat";
-import { confirmVerification, connectionKeys, declineVerification } from "@/lib/connections";
+import { celebrate } from "@/lib/confetti";
+import { confirmVerification, CONNECTED_MESSAGE, connectionKeys, declineVerification } from "@/lib/connections";
 
 type VerificationPanelProps = {
   conversationId: string;
@@ -32,7 +33,8 @@ export const VerificationPanel = memo(function VerificationPanel({ conversationI
   const confirmMutation = useMutation({
     mutationFn: () => confirmVerification(conversationId),
     onSuccess: (result) => {
-      setNotice(result === "connected" ? "Hai bạn đã kết bạn." : "Đã đồng ý. Chờ người kia đồng ý nhé.");
+      setNotice(result === "connected" ? CONNECTED_MESSAGE : "Đã đồng ý. Chờ người kia đồng ý nhé.");
+      if (result === "connected") celebrate("connection");
       refresh();
     },
     onError: (error: Error) => setNotice(error.message),
@@ -82,7 +84,7 @@ export const VerificationPanel = memo(function VerificationPanel({ conversationI
           onClick={() => confirmMutation.mutate()}
           className="press h-10 rounded-[10px] bg-primary px-4 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-60"
         >
-          {verification.confirmedByMe ? "Đã đồng ý" : "Đồng ý kết bạn"}
+          {verification.confirmedByMe ? (isOpener ? "Đã gửi lời mời" : "Đã đồng ý") : "Đồng ý kết bạn"}
         </button>
       </div>
       {notice ? (

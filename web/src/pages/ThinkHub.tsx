@@ -23,6 +23,7 @@ import { KanbanView } from "@/components/think-hub/KanbanView";
 import { MindmapView } from "@/components/think-hub/MindmapView";
 import { QuickTaskDialog } from "@/components/think-hub/QuickTaskDialog";
 import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTableDialog";
+import { PlanPlusButton } from "@/components/think-hub/PlanPlusButton";
 import { RecordDialog } from "@/components/think-hub/RecordDialog";
 import { RenameColumnDialog } from "@/components/think-hub/RenameColumnDialog";
 import { TableView } from "@/components/think-hub/TableView";
@@ -605,22 +606,20 @@ const ThinkHub = () => {
               type="button"
               onClick={() => navigate(withReturn("/ke-hoach/ke-sach", hereFrom(location, "Kế hoạch")))}
               aria-label="Kệ sách"
-              className="press inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2.5 text-[14.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
+              className="icon-btn h-11 gap-1.5 px-3 text-[14.5px] font-medium text-foreground"
             >
               <Library className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
               <span className="hidden md:inline">Kệ sách</span>
             </button>
-            <button
-              type="button"
-              onClick={() => {
+            {/* AVORA-57 · E: one `+` — tap adds a Hạng mục, hold (or ▾) offers Hạng mục / Bảng. */}
+            <PlanPlusButton
+              canAddRecord={active !== null && !isReadOnly}
+              onNewRecord={openNewRecord}
+              onNewTable={() => {
                 setGalleryConversationId(null);
                 setIsNewTableOpen(true);
               }}
-              className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2.5 text-[14.5px] md:px-5 md:text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
-            >
-              <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
-              Bảng mới
-            </button>
+            />
           </div>
         }
       />

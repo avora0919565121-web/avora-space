@@ -218,7 +218,7 @@ export function TaskDetailSheet({
       .mutateAsync({ taskId: task.id, done: true, output })
       .then(() => {
         toast.success("Đã đánh dấu hoàn thành.");
-        celebrate(task.isMilestone ? "milestone" : "task");
+        celebrate(task.isMilestone ? "milestone" : "task", { taskId: task.id });
       })
       .catch((error: unknown) => {
         toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra. Thử lại nhé.");

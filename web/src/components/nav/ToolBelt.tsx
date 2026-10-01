@@ -37,7 +37,7 @@ export function ToolBelt() {
   return (
     <nav
       aria-label="Các Hub"
-      className="relative z-30 shrink-0 border-t border-border bg-card/95 pb-[max(env(safe-area-inset-bottom),10px)] backdrop-blur-md md:hidden"
+      className="relative z-30 shrink-0 border-t border-border bg-card/95 pb-[max(env(safe-area-inset-bottom),10px)] backdrop-blur-md md:hidden short:hidden"
     >
       <ul className="grid grid-cols-5">
         {TOOL_BELT_ITEMS.map((item) => {

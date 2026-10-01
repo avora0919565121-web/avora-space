@@ -14,6 +14,7 @@ import {
   type SharedChannelChoice,
   type SharedChannelGroup,
 } from "@/lib/contact-channels";
+import { formatPhoneForDisplay } from "@/lib/contact-clean";
 import { type Contact } from "@/lib/contacts";
 import {
   useContactChannelActions,
@@ -45,7 +46,7 @@ const ContactChannelReview = () => {
   const back = { to: returnTo?.path ?? "/lien-he", label: returnTo?.label ?? "Liên hệ" };
   const { groups, isPending, isError, error } = useContactsNeedingReview();
   const shared = useSharedChannels();
-  const { confirm, confirmContact, remove, isWorking } = useContactChannelActions();
+  const { confirm, remove, promote, isWorking } = useContactChannelActions();
   const { apply, isWorking: isFixing } = useSharedChannelFix();
   const [notice, setNotice] = useState<string | null>(null);
 
@@ -166,8 +167,10 @@ const ContactChannelReview = () => {
                 channels={group.channels}
                 isWorking={isWorking}
                 onOpen={() => openContact(group.contact.id)}
-                onConfirmAll={() => void act(() => confirmContact(group.contact.id))}
-                onConfirm={(channelId) => void act(() => confirm(channelId))}
+                onKeepAll={(ids) => void act(async () => {
+                  for (const id of ids) await confirm(id);
+                })}
+                onPromote={(channelId) => void act(() => promote(channelId))}
                 onRemove={(channelId) => void act(() => remove(channelId))}
               />
             ))}
@@ -201,92 +204,113 @@ const ContactChannelReview = () => {
   );
 };
 
+/** `Hùng có 2 số điện thoại. Số nào đang dùng?` — the question a review card asks (AVORA-57 · J). */
+export function reviewQuestion(name: string, kind: ChannelKind, count: number): string {
+  const who = name.trim() === "" ? "Liên hệ này" : name.trim();
+  return kind === "phone"
+    ? `${who} có ${count} số điện thoại. Số nào đang dùng?`
+    : `${who} có ${count} email. Email nào đang dùng?`;
+}
+
+/**
+ * One contact, one question per ambiguous kind (AVORA-57 · J). The contact's own value is shown
+ * as `Số chính` / `Email chính`; each flagged value can become the main one or be removed, and
+ * `Giữ cả hai` (or `Giữ tất cả`) answers "both are used".
+ */
 function ReviewCard({
   contact,
   channels,
   isWorking,
   onOpen,
-  onConfirmAll,
-  onConfirm,
+  onKeepAll,
+  onPromote,
   onRemove,
 }: {
   contact: Contact;
   channels: readonly ContactChannel[];
   isWorking: boolean;
   onOpen: () => void;
-  onConfirmAll: () => void;
-  onConfirm: (channelId: string) => void;
+  onKeepAll: (channelIds: string[]) => void;
+  onPromote: (channelId: string) => void;
   onRemove: (channelId: string) => void;
 }) {
+  const kinds: ChannelKind[] = (["phone", "email"] as const).filter((kind) => channels.some((channel) => channel.kind === kind));
   return (
     <li className="overflow-hidden rounded-xl border border-border bg-card">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3.5">
-        <button
-          type="button"
-          onClick={onOpen}
-          className="press flex min-w-0 items-center gap-3 text-left"
-        >
-          <InitialsAvatar name={contact.name} size="sm" />
-          <span className="min-w-0">
-            <span className="block truncate text-[15px] font-semibold text-foreground">
-              {contact.name}
-            </span>
-            <span className="block truncate text-[12.5px] text-muted-foreground">
-              Đang dùng: {contact.phone ?? contact.email ?? "chưa có kênh chính"}
-            </span>
-          </span>
-        </button>
+      <button
+        type="button"
+        onClick={onOpen}
+        className="press flex w-full min-w-0 items-center gap-3 border-b border-border px-5 py-3.5 text-left"
+      >
+        <InitialsAvatar name={contact.name} size="sm" />
+        <span className="block min-w-0 truncate text-[15px] font-semibold text-foreground">{contact.name}</span>
+      </button>
 
-        <Button
-          variant="outline"
-          className="press h-9 gap-1.5 px-3.5 text-[13px]"
-          disabled={isWorking}
-          onClick={onConfirmAll}
-        >
-          <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-          Giữ tất cả
-        </Button>
-      </div>
-
-      <ul>
-        {channels.map((channel) => (
-          <li
-            key={channel.id}
-            className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3 last:border-b-0"
-          >
-            <ChannelIcon kind={channel.kind} />
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14.5px] text-foreground">{channel.value}</span>
-              <span className="block truncate text-[12px] text-muted-foreground">
-                {channel.label !== null ? `${channel.label} · ` : ""}
-                {channelSourceLabel(channel.source)}
-              </span>
-            </span>
-
-            <span className="flex shrink-0 items-center gap-1.5">
+      {kinds.map((kind) => {
+        const flagged = channels.filter((channel) => channel.kind === kind);
+        const primary = (kind === "phone" ? contact.phone : contact.email)?.trim() ?? "";
+        const total = flagged.length + (primary === "" ? 0 : 1);
+        const show = (value: string): string => (kind === "phone" ? formatPhoneForDisplay(value) : value);
+        return (
+          <div key={kind} className="border-b border-border last:border-b-0">
+            <div className="flex flex-wrap items-center justify-between gap-2 px-5 pb-1 pt-3.5">
+              <p className="text-[14px] font-medium text-foreground">{reviewQuestion(contact.name, kind, total)}</p>
               <Button
-                variant="ghost"
-                aria-label={`Giữ ${channel.value}`}
-                className="press h-9 gap-1.5 px-3 text-[13px]"
+                variant="outline"
+                className="press h-9 gap-1.5 px-3.5 text-[13px]"
                 disabled={isWorking}
-                onClick={() => onConfirm(channel.id)}
+                onClick={() => onKeepAll(flagged.map((channel) => channel.id))}
               >
                 <Check className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-                Giữ
+                {total === 2 ? "Giữ cả hai" : "Giữ tất cả"}
               </Button>
-              <Button
-                variant="ghost"
-                aria-label={`Bỏ ${channel.value}`}
-                className="press h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
-                disabled={isWorking}
-                onClick={() => onRemove(channel.id)}
-              >
-                <Trash2 className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
-              </Button>
-            </span>
-          </li>
-        ))}
-      </ul>
+            </div>
+            <ul>
+              {primary !== "" ? (
+                <li className="flex items-center gap-3 px-5 py-2.5">
+                  <ChannelIcon kind={kind} />
+                  <span className="min-w-0 flex-1">
+                    <span className="tabular block truncate text-[14.5px] text-foreground">{show(primary)}</span>
+                    <span className="block text-[12px] font-medium text-primary">{kind === "phone" ? "Số chính" : "Email chính"}</span>
+                  </span>
+                </li>
+              ) : null}
+              {flagged.map((channel) => (
+                <li key={channel.id} className="flex flex-wrap items-center gap-3 px-5 py-2.5">
+                  <ChannelIcon kind={channel.kind} />
+                  <span className="min-w-0 flex-1">
+                    <span className="tabular block truncate text-[14.5px] text-foreground">{show(channel.value)}</span>
+                    <span className="block truncate text-[12px] text-muted-foreground">
+                      {channel.label !== null ? `${channel.label} · ` : ""}
+                      {channelSourceLabel(channel.source)}
+                    </span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1.5">
+                    <Button
+                      variant="ghost"
+                      aria-label={`Đặt ${channel.value} làm ${kind === "phone" ? "số chính" : "email chính"}`}
+                      className="press h-9 px-3 text-[13px]"
+                      disabled={isWorking}
+                      onClick={() => onPromote(channel.id)}
+                    >
+                      {kind === "phone" ? "Số chính" : "Email chính"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      aria-label={`Xoá ${channel.value}`}
+                      className="press h-9 w-9 p-0 text-muted-foreground hover:text-foreground"
+                      disabled={isWorking}
+                      onClick={() => onRemove(channel.id)}
+                    >
+                      <Trash2 className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+                    </Button>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        );
+      })}
     </li>
   );
 }

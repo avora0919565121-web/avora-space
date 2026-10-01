@@ -206,7 +206,7 @@ export function MessageComposer({
     <>
       {attachmentSlot}
       <form
-        className="mx-auto flex max-w-2xl items-end gap-2 md:gap-3"
+        className="mx-auto flex max-w-2xl items-end gap-2 md:gap-3 [&>*]:self-end"
         onSubmit={handleSubmit}
         onKeyDown={blockEnterSubmit}
       >
@@ -245,6 +245,8 @@ export function MessageComposer({
         ) : null}
 
         <textarea
+          lang="vi"
+          spellCheck
           ref={fieldRef}
           rows={1}
           value={value}
@@ -275,7 +277,7 @@ export function MessageComposer({
             disabled={isSending}
             aria-label="Ghi âm tin nhắn thoại"
             title="Ghi âm"
-            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-border bg-card text-foreground transition-colors hover:bg-secondary disabled:opacity-45"
+            className="icon-btn h-11 w-11 text-foreground disabled:opacity-45"
           >
             <Mic className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
@@ -285,7 +287,7 @@ export function MessageComposer({
             disabled={!canSend}
             aria-label="Gửi"
             title="Gửi"
-            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
+            className="icon-btn icon-btn-primary h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
           </button>
@@ -329,7 +331,7 @@ export function MessageComposer({
                   // Keyboard users: Enter/Space submit as usual; the menu never steals them.
                   if (event.key === "Enter" || event.key === " ") event.stopPropagation();
                 }}
-                className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
+                className="icon-btn icon-btn-primary h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
               </button>

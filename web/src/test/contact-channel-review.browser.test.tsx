@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   confirmed: [] as string[],
   confirmedContacts: [] as string[],
   removed: [] as string[],
+  promoted: [] as string[],
   actionError: null as string | null,
   navigated: [] as string[],
   /** Every (contact, value) the screen asked to give up, in order. */
@@ -45,6 +46,10 @@ vi.mock("@/lib/contact-channels", async () => {
     markContactReviewed: async (contactId: string) => {
       if (state.actionError !== null) throw new Error(state.actionError);
       state.confirmedContacts.push(contactId);
+    },
+    promoteContactChannel: async (channelId: string) => {
+      if (state.actionError !== null) throw new Error(state.actionError);
+      state.promoted.push(channelId);
     },
     deleteContactChannel: async (channelId: string) => {
       if (state.actionError !== null) throw new Error(state.actionError);
@@ -138,6 +143,7 @@ beforeEach(() => {
   state.confirmed = [];
   state.confirmedContacts = [];
   state.removed = [];
+  state.promoted = [];
   state.actionError = null;
   state.navigated = [];
   state.detached = [];
@@ -167,17 +173,19 @@ test("an empty list reads as finished, not as missing", async () => {
   await expect.element(screen.getByRole("button", { name: "Về danh bạ" })).toBeInTheDocument();
 });
 
-test("a flagged channel shows whose it is and where it came from", async () => {
+test("a flagged channel shows whose it is, where it came from, and asks one clear question", async () => {
   state.contacts = [person({ id: "c1", name: "Hoà", phone: "0912345678" })];
   state.channels = [channel({ id: "ch1", contactId: "c1", value: "0900 111 222" })];
 
   const screen = await open();
 
-  await expect.element(screen.getByText("Hoà")).toBeInTheDocument();
-  await expect.element(screen.getByText("0900 111 222")).toBeInTheDocument();
+  await expect.element(screen.getByText("Hoà", { exact: true })).toBeInTheDocument();
+  // AVORA-57 · J: the question names the person and the kind.
+  await expect.element(screen.getByText("Hoà có 2 số điện thoại. Số nào đang dùng?")).toBeInTheDocument();
+  // Numbers read grouped (AVORA-56 · B), the contact's own one marked as the main one.
+  await expect.element(screen.getByText("+84 90 011 1222")).toBeInTheDocument();
+  await expect.element(screen.getByText("+84 91 234 5678")).toBeInTheDocument();
   await expect.element(screen.getByText(/Nhập từ tệp/)).toBeInTheDocument();
-  // The primary channel is named, so it is clear which number the app is actually using.
-  await expect.element(screen.getByText(/Đang dùng: 0912345678/)).toBeInTheDocument();
 });
 
 test("only the contacts with something unconfirmed are listed", async () => {
@@ -192,16 +200,16 @@ test("only the contacts with something unconfirmed are listed", async () => {
 
   const screen = await open();
 
-  await expect.element(screen.getByText("Hoà")).toBeInTheDocument();
+  await expect.element(screen.getByText("Hoà", { exact: true })).toBeInTheDocument();
   expect(screen.container.textContent).not.toContain("Lan");
   await expect.element(screen.getByText(/^1 liên hệ có nhiều số/)).toBeInTheDocument();
 });
 
 /**
- * Each row's button is named by its own number rather than a bare "Giữ": three identical
- * buttons in a column are ambiguous to anyone not looking at which row they sit in.
+ * `Số chính` on a row is named by its own number: three identical buttons in a column are
+ * ambiguous to anyone not looking at which row they sit in.
  */
-test("keeping one channel confirms just that one", async () => {
+test("Số chính makes just that number the main one", async () => {
   state.contacts = [person({ id: "c1", name: "Hoà", phone: "0912345678" })];
   state.channels = [
     channel({ id: "ch1", contactId: "c1", value: "0900111222" }),
@@ -209,14 +217,14 @@ test("keeping one channel confirms just that one", async () => {
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Giữ 0900111222" }));
+  await userEvent.click(screen.getByRole("button", { name: "Đặt 0900111222 làm số chính" }));
 
-  expect(state.confirmed).toEqual(["ch1"]);
-  expect(state.confirmedContacts).toEqual([]);
+  expect(state.promoted).toEqual(["ch1"]);
+  expect(state.confirmed).toEqual([]);
   expect(state.removed).toEqual([]);
 });
 
-test("keeping all of them is one act, not one per channel", async () => {
+test("keeping all of them confirms every number of that kind", async () => {
   state.contacts = [person({ id: "c1", name: "Hoà", phone: "0912345678" })];
   state.channels = [
     channel({ id: "ch1", contactId: "c1", value: "0900111222" }),
@@ -226,17 +234,16 @@ test("keeping all of them is one act, not one per channel", async () => {
   const screen = await open();
   await userEvent.click(screen.getByRole("button", { name: "Giữ tất cả" }));
 
-  expect(state.confirmedContacts).toEqual(["c1"]);
-  expect(state.confirmed).toEqual([]);
+  await expect.poll(() => state.confirmed).toEqual(["ch1", "ch2"]);
 });
 
-/** Dropping a number is named by the number itself, so the wrong one cannot be removed blindly. */
-test("a channel can be dropped by name", async () => {
+/** Removing a number is named by the number itself, so the wrong one cannot be removed blindly. */
+test("a channel can be removed by name", async () => {
   state.contacts = [person({ id: "c1", name: "Hoà", phone: "0912345678" })];
   state.channels = [channel({ id: "ch1", contactId: "c1", value: "0900111222" })];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Bỏ 0900111222" }));
+  await userEvent.click(screen.getByRole("button", { name: "Xoá 0900111222" }));
 
   expect(state.removed).toEqual(["ch1"]);
 });
@@ -247,7 +254,8 @@ test("a refusal from the server is said in the reader's own language", async () 
   state.actionError = "Bạn không có quyền với liên hệ này.";
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Giữ tất cả" }));
+  // Two numbers in all (the contact's own + one): the answer reads "Giữ cả hai".
+  await userEvent.click(screen.getByRole("button", { name: "Giữ cả hai" }));
 
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Bạn không có quyền");
 });

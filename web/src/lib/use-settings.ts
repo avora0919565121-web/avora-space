@@ -20,6 +20,7 @@ import {
   updatePushPrefs,
   updateTypingSignal,
   updateFocus,
+  updateLookPrefs,
   type ProfileSettings,
 } from "@/lib/settings";
 
@@ -132,7 +133,24 @@ export function useSettingsActions() {
     },
   });
 
+  // Optimistic: the effect preview and the button shape change the instant they are picked.
+  const setLookPrefs = useMutation({
+    mutationFn: (patch: Parameters<typeof updateLookPrefs>[1]) => updateLookPrefs(userId, patch),
+    onMutate: (patch) => {
+      const previous = queryClient.getQueryData<ProfileSettings>(settingsKeys.profile);
+      if (previous !== undefined) queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, { ...previous, ...patch });
+      return { previous };
+    },
+    onError: (_error, _patch, context) => {
+      if (context?.previous !== undefined) queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, context.previous);
+    },
+    onSuccess: (settings) => {
+      queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, settings);
+    },
+  });
+
   return {
+    setLookPrefs,
     setFocus,
     setPushPrefs,
     setReviewPrefs,

@@ -72,18 +72,20 @@ describe("the sectioned screens", () => {
     expect(VAULT_TABS.every((tab) => tab.badge === undefined)).toBe(true);
   });
 
-  it("opens Cài đặt on the profile, with the three sibling tabs beside it", () => {
+  it("opens Cài đặt on the profile, with Hướng dẫn last in the row (AVORA-57 · A)", () => {
     expect(SETTINGS_TABS.map((tab) => tab.label)).toEqual([
       "Hồ sơ",
       "Tuỳ chọn chung",
       "Thông báo",
       "Avora AI",
+      "Hướng dẫn",
     ]);
     expect(SETTINGS_TABS.map((tab) => tab.to)).toEqual([
       "/cai-dat",
       "/cai-dat/thiet-lap",
       "/cai-dat/thong-bao",
       "/cai-dat/avora-ai",
+      "/cai-dat/huong-dan",
     ]);
   });
 

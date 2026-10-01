@@ -86,7 +86,7 @@ export function AvoraSearchButton({ here, className }: { here: SearchHere; class
       aria-label="Tìm trong toàn AVORA"
       title="Tìm trong toàn AVORA"
       onClick={() => openAvoraSearch({ query: "", here })}
-      className={cn("press rounded-md border border-border p-2.5 text-foreground transition-colors hover:bg-accent/50", className)}
+      className={cn("icon-btn h-11 w-11 text-foreground", className)}
     >
       <Search className="h-[18px] w-[18px]" strokeWidth={1.6} />
     </button>

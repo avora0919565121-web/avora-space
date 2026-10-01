@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { handOffCall } from "@/lib/call-handoff";
 import { CALL_APPS, contactPhones, type CallApp } from "@/lib/calls";
 import type { ContactChannel } from "@/lib/contact-channels";
+import { formatPhoneForDisplay } from "@/lib/contact-clean";
 import type { Contact } from "@/lib/contacts";
 
 const APP_ICONS: Readonly<Record<CallApp, LucideIcon>> = {
@@ -38,7 +39,7 @@ export function ContactCallSection({
         {phones.map((entry) => (
           <li key={entry.phone} className="border-b border-border px-5 py-3.5 last:border-b-0">
             <p className="text-[14.5px] text-foreground">
-              <span className="tabular">{entry.phone}</span>
+              <span className="tabular">{formatPhoneForDisplay(entry.phone)}</span>
               <span className="ml-2 text-[12px] text-muted-foreground">{entry.label}</span>
             </p>
             <div className="mt-2.5 flex flex-wrap gap-2">

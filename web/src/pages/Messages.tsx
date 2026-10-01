@@ -48,11 +48,13 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
-import { ConversationRowActions } from "@/components/chat/ConversationRowActions";
+import { ConversationMuteSheet, ConversationRowActions } from "@/components/chat/ConversationRowActions";
+import { useConversationPins, withPinnedFirst } from "@/lib/conversation-pins";
+import { mutedUntilFor, setConversationMute, muteKeys, type MuteDurationOption } from "@/lib/mute";
 import { ConversationDiarySheet } from "@/components/chat/ConversationDiarySheet";
 import { INFO_OPEN_PARAM } from "@/components/chat/ConversationNotifySheet";
 import { FocusModeSheet } from "@/components/chat/FocusModeSheet";
-import { isArchivedNow, shortUntil, useRhythm } from "@/lib/use-rhythm";
+import { isArchivedNow, rhythmKeys, shortUntil, useRhythm } from "@/lib/use-rhythm";
 import { ComingSoon } from "@/components/ComingSoon";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { ResizeHandle } from "@/components/ResizeHandle";
@@ -112,6 +114,8 @@ import { ReportDialog, type ReportTarget } from "@/components/chat/ReportDialog"
 import { BLOCKED_SEND_NOTICE } from "@/lib/blocks";
 import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
 import { VerificationPanel } from "@/components/chat/VerificationPanel";
+import { MessageDetailsDialog } from "@/components/chat/MessageDetailsDialog";
+import { ConnectionRequestsRow } from "@/components/contacts/ConnectionRequests";
 import { REPORT_SENT_TOAST, submitReport, type ReportReason } from "@/lib/reports";
 import { useBlocks } from "@/lib/use-blocks";
 import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
@@ -148,7 +152,9 @@ import { pasteSourceTasks } from "@/lib/paste-intake";
 import { usePasteTask } from "@/hooks/use-paste-task";
 import {
   attachmentKeys,
+  canExportAttachment,
   fetchThreadAttachments,
+  signedUrlFor,
   sendMessageWithAttachments,
   stageAttachment,
   uploadStagedAttachment,
@@ -171,6 +177,7 @@ import {
   deleteSummaryText,
   restoreJournalMessages,
   forwardedFromLabel,
+  forwardMessages,
   toggleSelected,
 } from "@/lib/forwarding";
 import { useAuth } from "@/lib/auth";
@@ -206,6 +213,7 @@ import {
   lastOutgoingId,
   ORIGIN_GROUP_PARAM,
   markConversationRead,
+  archiveConversation,
   markUnreadFrom,
   fetchDeliveries,
   fetchUrgentStatus,
@@ -390,6 +398,8 @@ const Messages = () => {
   /** Which bubble is currently open for correction, and the text being corrected. */
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editDraft, setEditDraft] = useState<string>("");
+  /** AVORA-57 · C: the message whose Chi tiết is open. */
+  const [detailsMessage, setDetailsMessage] = useState<ChatMessage | null>(null);
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   /** A result just jumped to, lit briefly so the eye can find it among its neighbours. */
   const [flashedMessageId, setFlashedMessageId] = useState<string | null>(null);
@@ -431,12 +441,41 @@ const Messages = () => {
     () => tabConversations.filter((item) => isArchivedNow(item, rhythm.archives.get(item.conversationId))),
     [tabConversations, rhythm.archives],
   );
+  /** AVORA-57 · D: pinned conversations (max 5, mine only) sit at the top. */
+  const { pins: conversationPins, togglePin: toggleConversationPin } = useConversationPins();
   const visibleConversations: ConversationSummary[] = useMemo(() => {
     const source = isArchiveOpen
       ? archivedInTab
       : tabConversations.filter((item) => !isArchivedNow(item, rhythm.archives.get(item.conversationId)));
-    return source.filter((item) => matchesConversationQuery(item, query));
-  }, [tabConversations, archivedInTab, isArchiveOpen, rhythm.archives, query]);
+    return withPinnedFirst(source.filter((item) => matchesConversationQuery(item, query)), conversationPins);
+  }, [tabConversations, archivedInTab, isArchiveOpen, rhythm.archives, query, conversationPins]);
+
+  /** AVORA-57 · D: `Chọn nhiều` over conversation rows. */
+  const [pickedRows, setPickedRows] = useState<string[]>([]);
+  const [isPickingRows, setIsPickingRows] = useState<boolean>(false);
+  const [isBulkMuteOpen, setIsBulkMuteOpen] = useState<boolean>(false);
+  const [isBulkWorking, setIsBulkWorking] = useState<boolean>(false);
+  const stopPickingRows = useCallback((): void => {
+    setIsPickingRows(false);
+    setPickedRows([]);
+  }, []);
+  const runBulk = useCallback(
+    async (label: string, run: (id: string) => Promise<unknown>): Promise<void> => {
+      const ids = [...pickedRows];
+      if (ids.length === 0) return;
+      setIsBulkWorking(true);
+      const results = await Promise.allSettled(ids.map((id) => run(id)));
+      setIsBulkWorking(false);
+      const failed = results.filter((result) => result.status === "rejected").length;
+      if (failed > 0) toast.error(`${label}: ${failed}/${ids.length} cuộc chưa làm được.`);
+      else toast.success(`${label} · ${ids.length} cuộc trò chuyện`);
+      stopPickingRows();
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+      void queryClient.invalidateQueries({ queryKey: rhythmKeys.archives });
+      void queryClient.invalidateQueries({ queryKey: muteKeys.all });
+    },
+    [pickedRows, stopPickingRows, queryClient],
+  );
 
   const activeSummary: ConversationSummary | undefined = useMemo(
     () => conversations.find((item) => item.conversationId === conversationId),
@@ -1955,6 +1994,55 @@ const Messages = () => {
         return;
       }
 
+      // AVORA-57 · C — Sao chép · Lưu ảnh · Lưu vào Nhật ký · Chi tiết.
+      if (action === "copy") {
+        const text = messageBodyText(message);
+        void navigator.clipboard
+          ?.writeText(text)
+          .then(() => toast.success("Đã sao chép.", { duration: 1500 }))
+          .catch(() => toast.error("Không sao chép được."));
+        return;
+      }
+      if (action === "save-image") {
+        const images = attachmentsOf(message.id).filter((item) => item.kind === "image" && canExportAttachment(item.permission));
+        void (async () => {
+          for (const image of images) {
+            const url = await signedUrlFor(image.storagePath);
+            if (url === null) {
+              toast.error("Không tải được ảnh. Thử lại nhé.");
+              return;
+            }
+            const anchor = document.createElement("a");
+            anchor.href = url;
+            anchor.download = image.fileName;
+            anchor.rel = "noopener";
+            document.body.appendChild(anchor);
+            anchor.click();
+            anchor.remove();
+          }
+        })();
+        return;
+      }
+      if (action === "save-journal") {
+        // The same path as a forward: each file travels at its own permission, view-only stays.
+        void ensureJournalConversation()
+          .then((journalId) => forwardMessages([message.id], journalId))
+          .then((result) => {
+            toast.success(
+              result.filesBlocked > 0
+                ? `Đã lưu vào Nhật ký · ${result.filesBlocked} tệp chỉ được xem nên không chép.`
+                : "Đã lưu vào Nhật ký.",
+            );
+            void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+          })
+          .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không lưu được."));
+        return;
+      }
+      if (action === "details") {
+        setDetailsMessage(message);
+        return;
+      }
+
       if (action === "pin") {
         // An officer in a group is asked which audience they mean. Everyone else has only one
         // possible answer, so asking would be a question with a single button.
@@ -2033,6 +2121,8 @@ const Messages = () => {
       askRecall,
       senderNameOf,
       readLater,
+      attachmentsOf,
+      queryClient,
     ],
   );
 
@@ -2384,7 +2474,7 @@ const Messages = () => {
                 to={withReturn("/lien-he", hereFrom(location, "Kết nối"))}
                 aria-label="Liên hệ"
                 title="Liên hệ"
-                className="press rounded-md border border-border p-2.5 text-foreground transition-colors hover:bg-accent/50"
+                className="icon-btn h-11 w-11 text-foreground"
               >
                 <UserRound className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
               </Link>
@@ -2395,7 +2485,7 @@ const Messages = () => {
                     type="button"
                     aria-label="Tạo mới"
                     title="Tạo mới"
-                    className="press rounded-md border border-border bg-primary p-2.5 text-primary-foreground transition-colors hover:bg-primary/90"
+                    className="icon-btn icon-btn-primary h-11 w-11"
                   >
                     <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
                   </button>
@@ -2542,6 +2632,59 @@ const Messages = () => {
               </button>
             </div>
           ) : null}
+          {/* AVORA-56 · A: a quiet line, no sound and no red. */}
+          {!isArchiveOpen ? <ConnectionRequestsRow /> : null}
+          {/* AVORA-57 · D: what can be done to several conversations at once. No delete, on purpose. */}
+          {isPickingRows ? (
+            <div className="sticky top-0 z-10 mx-1 mb-2 rounded-xl border border-primary/30 bg-card/95 p-2 shadow-sm backdrop-blur">
+              <div className="flex items-center justify-between px-1.5 pb-1.5">
+                <span className="text-[13px] font-medium text-foreground">Đã chọn {pickedRows.length}</span>
+                <button
+                  type="button"
+                  onClick={stopPickingRows}
+                  className="press min-h-9 rounded-md px-2 text-[13px] font-medium text-muted-foreground hover:text-foreground"
+                >
+                  Xong
+                </button>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5">
+                <button
+                  type="button"
+                  disabled={pickedRows.length === 0 || isBulkWorking}
+                  onClick={() => void runBulk("Đã đánh dấu đã đọc", (id) => markConversationRead(id))}
+                  className="press min-h-11 rounded-lg bg-secondary px-2 text-[12.5px] font-medium text-foreground disabled:opacity-45"
+                >
+                  Đánh dấu đã đọc
+                </button>
+                <button
+                  type="button"
+                  disabled={pickedRows.length === 0 || isBulkWorking}
+                  onClick={() => void runBulk("Đã lưu trữ", (id) => archiveConversation(userId ?? "", id))}
+                  className="press min-h-11 rounded-lg bg-secondary px-2 text-[12.5px] font-medium text-foreground disabled:opacity-45"
+                >
+                  Lưu trữ
+                </button>
+                <button
+                  type="button"
+                  disabled={pickedRows.length === 0 || isBulkWorking}
+                  onClick={() => setIsBulkMuteOpen(true)}
+                  className="press min-h-11 rounded-lg bg-secondary px-2 text-[12.5px] font-medium text-foreground disabled:opacity-45"
+                >
+                  Tắt thông báo
+                </button>
+              </div>
+            </div>
+          ) : null}
+          <ConversationMuteSheet
+            open={isBulkMuteOpen}
+            onOpenChange={setIsBulkMuteOpen}
+            title={`${pickedRows.length} cuộc trò chuyện`}
+            choices={rhythm.muteChoices}
+            onPick={(option: MuteDurationOption) => {
+              const until = mutedUntilFor(option);
+              void runBulk("Đã tắt thông báo", (id) => setConversationMute(id, until));
+            }}
+          />
           {isArchiveOpen ? (
             <button
               type="button"
@@ -2704,6 +2847,21 @@ const Messages = () => {
                         onUnarchive={() => rhythm.unarchive(item.conversationId)}
                         onMute={(option) => void rhythm.muteConversation(item.conversationId, option)}
                         onUnmute={() => void rhythm.unmuteConversation(item.conversationId)}
+                        isPinned={conversationPins.has(item.conversationId)}
+                        onTogglePin={() => toggleConversationPin(item.conversationId)}
+                        onSelectMany={() => {
+                          setIsPickingRows(true);
+                          setPickedRows((current) => (current.includes(item.conversationId) ? current : [...current, item.conversationId]));
+                        }}
+                        isSelecting={isPickingRows}
+                        isSelected={pickedRows.includes(item.conversationId)}
+                        onToggleSelected={() =>
+                          setPickedRows((current) =>
+                            current.includes(item.conversationId)
+                              ? current.filter((id) => id !== item.conversationId)
+                              : [...current, item.conversationId],
+                          )
+                        }
                       >
                         {rowLink}
                       </ConversationRowActions>
@@ -3290,6 +3448,8 @@ const Messages = () => {
                                   {isBeingEdited ? (
                                     <div className="w-full max-w-[80%] space-y-1.5">
                                       <textarea
+                                        lang="vi"
+                                        spellCheck
                                         value={editDraft}
                                         onChange={(event) => setEditDraft(event.target.value)}
                                         rows={2}
@@ -3349,6 +3509,9 @@ const Messages = () => {
                                       canForward={canForwardThis}
                                       canReport={activeKind !== "personal" && !outgoing && message.systemKind == null}
                                       canReadLater={activeKind !== "personal" && !outgoing}
+                                      canCopy={message.systemKind == null}
+                                      canSaveImage={attachmentsOf(message.id).some((item) => item.kind === "image" && canExportAttachment(item.permission))}
+                                      canSaveToJournal={activeKind !== "personal" && message.systemKind == null && message.forwardBundle == null}
                                       onAction={(action) => handleMessageAction(message, action)}
                                       onQuickReact={canReact ? (emoji) => toggleReaction(message.id, emoji) : undefined}
                                       reactionPicker={
@@ -3385,18 +3548,25 @@ const Messages = () => {
                                           {forwardedNote}
                                         </span>
                                       ) : null}
-                                      <MessageAttachments
-                                        attachments={attachmentsOf(message.id)}
-                                        urlOf={attachmentUrlOf}
-                                        outgoing={outgoing}
-                                      />
+                                      {message.forwardBundle != null ? null : (
+                                        <MessageAttachments
+                                          attachments={attachmentsOf(message.id)}
+                                          urlOf={attachmentUrlOf}
+                                          outgoing={outgoing}
+                                        />
+                                      )}
                                       {/*
                                         A caption-less photo draws no bubble at all — an empty
                                         coloured rectangle under the image would be a bubble
                                         pretending there were words.
                                       */}
                                       {message.forwardBundle != null ? (
-                                        <ForwardBundleCard bundle={message.forwardBundle} outgoing={outgoing} />
+                                        <ForwardBundleCard
+                                          bundle={message.forwardBundle}
+                                          outgoing={outgoing}
+                                          images={attachmentsOf(message.id)}
+                                          urlOf={attachmentUrlOf}
+                                        />
                                       ) : message.content.trim() === "" ? null : (
                                       <div
                                         className={cn(
@@ -3927,6 +4097,13 @@ const Messages = () => {
         onOpenChange={setIsBlockConfirmOpen}
         onConfirm={confirmBlock}
         isWorking={isBlockWorking}
+      />
+      <MessageDetailsDialog
+        message={detailsMessage}
+        isOwn={detailsMessage !== null && detailsMessage.senderId === userId}
+        onOpenChange={(next) => {
+          if (!next) setDetailsMessage(null);
+        }}
       />
       <ReportDialog
         target={reportTarget}

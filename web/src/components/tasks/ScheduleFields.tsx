@@ -138,6 +138,7 @@ export function DurationField({
             min={1}
             max={100000}
             inputMode="numeric"
+            spellCheck={false}
             value={value === null ? "" : value}
             placeholder="phút"
             onChange={(event) => onChange(parseDurationInput(event.target.value))}

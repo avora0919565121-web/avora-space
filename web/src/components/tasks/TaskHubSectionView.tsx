@@ -44,7 +44,7 @@ function DoneCircle({ task }: { task: TaskItem }) {
       .mutateAsync({ taskId: task.id, done: !done })
       .then(() => {
         if (done) return;
-        celebrate(task.isMilestone ? "milestone" : "task");
+        celebrate(task.isMilestone ? "milestone" : "task", { taskId: task.id });
         toast.success("Đã xong", {
           action: { label: "Hoàn tác", onClick: () => void togglePersonalDone.mutateAsync({ taskId: task.id, done: false }) },
         });
@@ -175,7 +175,7 @@ function TrashList({ tasks, userId, today, onOpen, empty }: { tasks: readonly Ta
   return (
     <ul className="overflow-hidden rounded-[12px] border border-border bg-card">
       {list.map((task) => (
-        <li key={task.id} className="flex items-center gap-2 border-t border-border pr-3 first:border-t-0">
+        <li key={task.id} data-task-id={task.id} className="flex items-center gap-2 border-t border-border pr-3 first:border-t-0">
           <div className="min-w-0 flex-1">
             <TaskLine task={task} today={today} onOpen={onOpen} canComplete={false} />
           </div>

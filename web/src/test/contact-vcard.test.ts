@@ -335,8 +335,9 @@ describe("what the card suggests, and only suggests", () => {
       card("VERSION:3.0", "FN:Không nhãn", "TEL:0912345678", "TEL:0987000111"),
     );
 
+    // AVORA-57 · J: two unlabelled numbers are a real choice, so the extra one is flagged.
     expect(extraChannelsOf(result.candidates[0])).toEqual([
-      { kind: "phone", value: "0987000111", label: null },
+      { kind: "phone", value: "0987000111", label: null, needsReview: true },
     ]);
   });
 });

@@ -27,6 +27,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AddMembersSheet } from "@/components/chat/AddMembersSheet";
+import { InviteMessageDialog } from "@/components/contacts/InviteMessageDialog";
 import { startGroupConnection } from "@/lib/connections";
 import { useConnections } from "@/lib/use-connections";
 import { ConversationNotifySheet } from "@/components/chat/ConversationNotifySheet";
@@ -378,14 +379,17 @@ export function GroupInfoSheet({
   // "Nhắn riêng"; everyone else gets "Kết bạn để nhắn riêng", which opens the "Từ nhóm {tên}"
   // frame through the same rules as the PIN path.
   const { isConnected } = useConnections();
+  // AVORA-56 · A: the request needs its message first; the dialog shows any refusal in place.
+  const [requestTarget, setRequestTarget] = useState<GroupMember | null>(null);
   const friendRequestMutation = useMutation({
-    mutationFn: (targetUserId: string) => startGroupConnection(conversationId, targetUserId),
+    mutationFn: ({ targetUserId, message }: { targetUserId: string; message: string }) =>
+      startGroupConnection(conversationId, targetUserId, message),
     onSuccess: (pendingConversationId: string) => {
+      setRequestTarget(null);
       onOpenChange(false);
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
       onOpenConversation(pendingConversationId, conversationId);
     },
-    onError: (error: Error) => toast.error(error.message),
   });
 
   const rotateInviteMutation = useMutation({
@@ -942,7 +946,7 @@ export function GroupInfoSheet({
                                     </DropdownMenuItem>
                                   ) : null}
                                   {actions.includes("directMessage") && !isConnected(member.userId) ? (
-                                    <DropdownMenuItem onSelect={() => friendRequestMutation.mutate(member.userId)} className="min-h-10 gap-2">
+                                    <DropdownMenuItem onSelect={() => setRequestTarget(member)} className="min-h-10 gap-2">
                                       <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Kết bạn để nhắn riêng
                                     </DropdownMenuItem>
                                   ) : null}
@@ -1128,6 +1132,16 @@ export function GroupInfoSheet({
         }}
       />
     </Sheet>
+
+      <InviteMessageDialog
+        open={requestTarget !== null}
+        onOpenChange={(next) => (next ? undefined : setRequestTarget(null))}
+        recipientLabel={requestTarget !== null ? memberName(requestTarget) : ""}
+        onSend={async (message) => {
+          if (requestTarget === null) return;
+          await friendRequestMutation.mutateAsync({ targetUserId: requestTarget.userId, message });
+        }}
+      />
 
       <Dialog open={isRenaming} onOpenChange={(next) => (next ? undefined : setIsRenaming(false))}>
         <DialogContent className="border-border bg-card sm:max-w-md">

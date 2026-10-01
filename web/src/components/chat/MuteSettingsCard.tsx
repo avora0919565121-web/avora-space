@@ -133,6 +133,7 @@ function MuteRow({ scope }: { scope: MuteScope }) {
                 min={1}
                 max={MAX_CUSTOM_MUTE_HOURS}
                 inputMode="numeric"
+                spellCheck={false}
                 value={customHours}
                 placeholder="số giờ"
                 onChange={(event) => setCustomHours(event.target.value)}

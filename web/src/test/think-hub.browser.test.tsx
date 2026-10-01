@@ -1,6 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { beforeEach, expect, test, vi } from "vitest";
-import { userEvent } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { MemoryRouter } from "react-router-dom";
 import { render } from "vitest-browser-react";
 
@@ -278,9 +278,13 @@ test("an empty table still shows the columns it is offering", async () => {
 
 test("a table is created by name and becomes the one on screen", async () => {
   state.tables = [businessTable({ id: "t-1", name: "Bảng tổng hợp" })];
+  // The ▾ beside `+` is the computer's way in (a phone holds `+`).
+  await page.viewport(1280, 800);
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Bảng mới" }));
+  // AVORA-57 · E: one `+`; Bảng mới sits in its menu (▾ on a computer, hold on a phone).
+  await userEvent.click(screen.getByRole("button", { name: "Chọn loại mới" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Bảng mới" }));
   await expect.element(screen.getByRole("dialog")).toBeInTheDocument();
   await userEvent.click(screen.getByRole("button", { name: /Bảng trống/ }));
   await userEvent.fill(screen.getByRole("textbox", { name: "Tên Bảng" }), "Công trình");
@@ -381,7 +385,7 @@ test("a record is written with only a title", async () => {
   state.tables = [businessTable({ id: "t-1", name: "Bảng tổng hợp" })];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Kho Long Biên");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -401,7 +405,7 @@ test("a cell left blank is saved as nothing at all", async () => {
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Chưa định giá");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -418,7 +422,7 @@ test("a number column refuses a word, and says which column it means", async () 
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Khách sạn ABC");
   await userEvent.fill(screen.getByRole("textbox", { name: "Giá trị" }), "nhiều lắm");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
@@ -442,7 +446,7 @@ test("a full table says so instead of opening the form", async () => {
     .element(screen.getByText(/Bảng đã đầy 1\.000 Hạng mục, hãy dọn bớt trước khi thêm\./))
     .toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
 
   expect(state.createdRecords).toEqual([]);
   expect(screen.container.textContent).not.toContain("Hạng mục mới");
@@ -458,7 +462,7 @@ test("a table one record short of the ceiling still accepts one", async () => {
   const screen = await open();
   expect(screen.container.textContent).not.toContain("Bảng đã đầy");
 
-  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Mục cuối cùng");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 

@@ -190,7 +190,16 @@ describe("B1 · the bundle as stored", () => {
 
   it("toasts one conversation and says files stayed", () => {
     expect(forwardSummaryText({ forwarded: 5, filesCarried: 0, filesBlocked: 0, asBundle: true, filesLeftBehind: 1 }, "Nhóm A")).toBe(
-      "Đã chuyển 5 tin thành một đoạn hội thoại tới Nhóm A · Ảnh và tệp không đi kèm",
+      "Đã chuyển 5 tin thành một đoạn hội thoại tới Nhóm A · 1 tệp không đi kèm",
     );
+  });
+
+  it("AVORA-57 · B: names the images carried and the ones left behind", () => {
+    expect(
+      forwardSummaryText(
+        { forwarded: 4, filesCarried: 2, filesBlocked: 1, asBundle: true, filesLeftBehind: 1, imagesCarried: 2, imagesBlocked: 1 },
+        "Minh",
+      ),
+    ).toBe("Đã chuyển 4 tin thành một đoạn hội thoại tới Minh · kèm 2 ảnh · 1 ảnh không chuyển được");
   });
 });

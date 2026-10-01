@@ -44,6 +44,7 @@ import {
   type ChannelKind,
   type ContactChannel,
 } from "@/lib/contact-channels";
+import { formatPhoneForDisplay } from "@/lib/contact-clean";
 import { peerLabel } from "@/lib/initials";
 import { useContactChannels } from "@/lib/use-contact-channels";
 import { useContactActions, useContacts } from "@/lib/use-contacts";
@@ -296,7 +297,7 @@ const ContactDetail = () => {
             <dl>
               {isPerson ? (
                 <>
-                  <DetailRow label="Điện thoại" value={contact.phone} />
+                  <DetailRow label="Điện thoại" value={contact.phone === null ? null : formatPhoneForDisplay(contact.phone)} />
                   <DetailRow label="Email" value={contact.email} />
                   <DetailRow label="Ngày sinh" value={formatDate(contact.dateOfBirth)} />
                   <DetailRow label="Quan hệ" value={contact.relationshipTag} />
@@ -307,10 +308,10 @@ const ContactDetail = () => {
                   <DetailRow label="Mã số thuế" value={contact.taxCode} />
                   <DetailRow label="Ngành nghề" value={contact.industry} />
                   <DetailRow label="Địa chỉ" value={contact.businessAddress} />
-                  <DetailRow label="Điện thoại công ty" value={contact.phone} />
+                  <DetailRow label="Điện thoại công ty" value={contact.phone === null ? null : formatPhoneForDisplay(contact.phone)} />
                   <DetailRow label="Email công ty" value={contact.email} />
                   <DetailRow label="Người đại diện" value={contact.representativeName} />
-                  <DetailRow label="Điện thoại người đại diện" value={contact.representativePhone} />
+                  <DetailRow label="Điện thoại người đại diện" value={contact.representativePhone === null ? null : formatPhoneForDisplay(contact.representativePhone)} />
                   <DetailRow label="Email người đại diện" value={contact.representativeEmail} />
                 </>
               )}

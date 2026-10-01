@@ -73,6 +73,8 @@ export const DATA_CLASSIFICATION = {
   message_deliveries: { level: "personal", domain: "connect" },
   // AVORA-47 · F: which conversations I tucked away; only I see my own rows.
   conversation_archives: { level: "personal", domain: "connect" },
+  // AVORA-57 · D: which conversations I pinned (max 5); only I can read my own rows.
+  conversation_pins: { level: "personal", domain: "connect" },
   // Vá 29/09: links expire after 7 days; the expiry itself is harmless metadata.
   group_invite_links: { level: "secret", domain: "connect", columns: { token: "secret", expires_at: "internal" } },
   group_removal_requests: { level: "personal", domain: "connect" },

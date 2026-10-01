@@ -84,6 +84,7 @@ export function useReveal(): {
         <form onSubmit={(event) => void submit(event)} className="mt-2 space-y-3">
           <input
             type="password"
+            spellCheck={false}
             autoComplete="current-password"
             autoFocus
             value={password}

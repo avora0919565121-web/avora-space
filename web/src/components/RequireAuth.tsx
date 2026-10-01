@@ -15,6 +15,7 @@ import { PushOfferCard } from "@/components/PushOfferCard";
 import { PushClickBridge } from "@/components/PushClickBridge";
 import { MobileTopBar } from "@/components/nav/MobileTopBar";
 import { ToolBelt } from "@/components/nav/ToolBelt";
+import { LandscapeRail } from "@/components/nav/LandscapeRail";
 import { hidesToolBelt } from "@/lib/navigation";
 import { useAuth } from "@/lib/auth";
 import { useNewDayLanding } from "@/lib/use-new-day-landing";
@@ -51,10 +52,12 @@ export function RequireAuth() {
     {/* AVORA-51: the Két sắt lock is known to every screen (badge, quick transaction), not only Két sắt. */}
     <VaultLockProvider>
     {/* One fixed frame, like a native app: bars stay put and only the page between them scrolls. */}
-    <div className="flex h-[100dvh] flex-col overflow-hidden bg-card md:h-screen md:flex-row">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-card md:h-screen md:flex-row short:h-[100dvh] short:flex-row">
       {/* AVORA-49 · 2.1a: inside a thread on a phone the thread's own header (with ‹) is the top bar. */}
       {inThread ? <div className="hidden md:contents"><MobileTopBar /></div> : <MobileTopBar />}
       <AppSidebar />
+      {/* AVORA-57 · I: a phone on its side gets a narrow icon strip instead of the full column. */}
+      <LandscapeRail />
       {/* min-w-0: a wide table scrolls inside its own frame instead of pushing the page wider. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
         {/* AVORA-54 · A: on a borrowed machine the reminder rides on top until closed. */}

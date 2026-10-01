@@ -1,4 +1,4 @@
-import { Archive, ArchiveRestore, BellOff, BellRing, Clock3 } from "lucide-react";
+import { Archive, ArchiveRestore, BellOff, BellRing, Check, CheckSquare, Clock3, MoreHorizontal, Pin, PinOff } from "lucide-react";
 import { useCallback, useRef, useState, type PointerEvent, type ReactNode } from "react";
 
 import {
@@ -12,7 +12,16 @@ import {
   ContextMenuSubTrigger,
   ContextMenuTrigger,
 } from "@/components/ui/context-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { useLongPress } from "@/hooks/use-long-press";
 import type { MuteDurationOption } from "@/lib/mute";
 import { cn } from "@/lib/utils";
 
@@ -68,8 +77,12 @@ export function ConversationMuteSheet({
  * Swipe and right-click on one conversation row (AVORA-47 · G).
  *
  * Phone: left reveals `Xem sau` · `Lưu trữ`; right opens `Tắt thông báo`. A mostly vertical move
- * stays a scroll. Computer: right-click shows the same three. Nothing here touches the swipe-to-
- * reply inside a thread, and nothing opens a single message's menu.
+ * stays a scroll. Nothing here touches the swipe-to-reply inside a thread.
+ *
+ * AVORA-57 · D: holding the row (phone), right-click or `⋯` (computer) open one and the same menu:
+ * `Xem sau` · `Ghim` / `Bỏ ghim` · `Tắt thông báo` · `Lưu trữ` · `Chọn nhiều`. No "Xoá hội thoại":
+ * one pair is one conversation, and hiding it is what Lưu trữ is for. While picking several,
+ * a tap ticks the row instead of opening it.
  */
 export function ConversationRowActions({
   title,
@@ -82,6 +95,12 @@ export function ConversationRowActions({
   onUnarchive,
   onMute,
   onUnmute,
+  isPinned = false,
+  onTogglePin,
+  onSelectMany,
+  isSelecting = false,
+  isSelected = false,
+  onToggleSelected,
   children,
 }: {
   title: string;
@@ -95,9 +114,27 @@ export function ConversationRowActions({
   onUnarchive: () => void;
   onMute: (option: MuteDurationOption) => void;
   onUnmute: () => void;
+  isPinned?: boolean;
+  onTogglePin?: () => void;
+  /** Starts picking several conversations, with this one ticked. */
+  onSelectMany?: () => void;
+  isSelecting?: boolean;
+  isSelected?: boolean;
+  onToggleSelected?: () => void;
   children: ReactNode;
 }) {
   const [offset, setOffset] = useState<number>(0);
+  const [isSheetOpen, setIsSheetOpen] = useState<boolean>(false);
+  const { onClick: _ignoredTap, ...hold } = useLongPress({
+    onHold: () => {
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(10);
+      setIsSheetOpen(true);
+    },
+    pointerTypes: ["touch"],
+    contextMenu: "after-hold",
+    isEnabled: () => !isSelecting && tray === null,
+  });
+  void _ignoredTap;
   const [tray, setTray] = useState<"left" | null>(null);
   const [isMuteOpen, setIsMuteOpen] = useState<boolean>(false);
   const startRef = useRef<{ x: number; y: number; decided: "swipe" | "scroll" | null; base: number } | null>(null);
@@ -109,11 +146,13 @@ export function ConversationRowActions({
   }, []);
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>): void => {
-    if (event.pointerType !== "touch") return;
+    hold.onPointerDown(event);
+    if (event.pointerType !== "touch" || isSelecting) return;
     swipedRef.current = false;
     startRef.current = { x: event.clientX, y: event.clientY, decided: null, base: tray === "left" ? -TRAY_PX : 0 };
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>): void => {
+    hold.onPointerMove(event);
     const start = startRef.current;
     if (start === null) return;
     const dx = event.clientX - start.x;
@@ -126,6 +165,7 @@ export function ConversationRowActions({
     setOffset(Math.max(-TRAY_PX - 16, Math.min(ROW_SWIPE_PX + 16, start.base + dx)));
   };
   const onPointerEnd = (): void => {
+    hold.onPointerUp();
     const start = startRef.current;
     startRef.current = null;
     if (start === null || start.decided !== "swipe") return;
@@ -143,6 +183,21 @@ export function ConversationRowActions({
     }
     closeTray();
   };
+
+  type RowEntry = { id: string; label: string; icon: typeof Clock3; run: () => void; disabled?: boolean };
+  const rowMenuEntries: (RowEntry | "sep")[] = [
+    { id: "later", label: "Xem sau", icon: Clock3, run: onReadLater, disabled: !canReadLater },
+    ...(onTogglePin !== undefined
+      ? [{ id: "pin", label: isPinned ? "Bỏ ghim" : "Ghim", icon: isPinned ? PinOff : Pin, run: onTogglePin }]
+      : []),
+    mutedUntilLabel !== null
+      ? { id: "unmute", label: "Bật lại thông báo", icon: BellRing, run: onUnmute }
+      : { id: "mute", label: "Tắt thông báo", icon: BellOff, run: () => setIsMuteOpen(true) },
+    isArchived
+      ? { id: "unarchive", label: "Bỏ lưu trữ", icon: ArchiveRestore, run: onUnarchive }
+      : { id: "archive", label: "Lưu trữ", icon: Archive, run: onArchive },
+    ...(onSelectMany !== undefined ? ["sep" as const, { id: "select", label: "Chọn nhiều", icon: CheckSquare, run: onSelectMany }] : []),
+  ];
 
   return (
     <>
@@ -192,7 +247,14 @@ export function ConversationRowActions({
               onPointerMove={onPointerMove}
               onPointerUp={onPointerEnd}
               onPointerCancel={onPointerEnd}
+              onContextMenu={hold.onContextMenu}
               onClickCapture={(event) => {
+                if (isSelecting) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  onToggleSelected?.();
+                  return;
+                }
                 // A swipe or an open tray is not a tap on the row.
                 if (swipedRef.current || tray !== null) {
                   event.preventDefault();
@@ -202,9 +264,52 @@ export function ConversationRowActions({
                 }
               }}
               style={offset !== 0 ? { transform: `translateX(${offset}px)` } : undefined}
-              className={cn("relative bg-background touch-pan-y", startRef.current === null && "transition-transform duration-200")}
+              className={cn(
+                "group/row relative flex items-center bg-background touch-pan-y",
+                startRef.current === null && "transition-transform duration-200",
+              )}
             >
-              {children}
+              {isSelecting ? (
+                <span
+                  aria-hidden="true"
+                  className={cn(
+                    "ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
+                    isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card",
+                  )}
+                >
+                  {isSelected ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}
+                </span>
+              ) : null}
+              <div className="min-w-0 flex-1">{children}</div>
+              {isPinned && !isSelecting ? (
+                <Pin className="pointer-events-none absolute right-2 top-2 h-3 w-3 rotate-45 text-muted-foreground" strokeWidth={2} aria-label="Đã ghim" />
+              ) : null}
+              {!isSelecting ? (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button
+                      type="button"
+                      aria-label={`Tuỳ chọn cho ${title}`}
+                      className="icon-btn absolute right-2 top-1/2 hidden h-9 w-9 -translate-y-1/2 text-muted-foreground opacity-0 hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 group-hover/row:opacity-100 md:inline-flex"
+                    >
+                      <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel className="truncate text-[12px] font-normal text-muted-foreground">{title}</DropdownMenuLabel>
+                    {rowMenuEntries.map((entry) =>
+                      entry === "sep" ? (
+                        <DropdownMenuSeparator key="sep" />
+                      ) : (
+                        <DropdownMenuItem key={entry.id} disabled={entry.disabled} onSelect={entry.run} className="min-h-10 gap-2">
+                          <entry.icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                          {entry.label}
+                        </DropdownMenuItem>
+                      ),
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              ) : null}
             </div>
           </div>
         </ContextMenuTrigger>
@@ -213,6 +318,12 @@ export function ConversationRowActions({
           <ContextMenuItem disabled={!canReadLater} onSelect={onReadLater} className="min-h-10 gap-2">
             <Clock3 className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Xem sau
           </ContextMenuItem>
+          {onTogglePin !== undefined ? (
+            <ContextMenuItem onSelect={onTogglePin} className="min-h-10 gap-2">
+              {isPinned ? <PinOff className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> : <Pin className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />}
+              {isPinned ? "Bỏ ghim" : "Ghim"}
+            </ContextMenuItem>
+          ) : null}
           <ContextMenuItem onSelect={isArchived ? onUnarchive : onArchive} className="min-h-10 gap-2">
             {isArchived ? (
               <ArchiveRestore className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
@@ -244,9 +355,45 @@ export function ConversationRowActions({
               </ContextMenuSubContent>
             </ContextMenuSub>
           )}
+          {onSelectMany !== undefined ? (
+            <>
+              <ContextMenuSeparator />
+              <ContextMenuItem onSelect={onSelectMany} className="min-h-10 gap-2">
+                <CheckSquare className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Chọn nhiều
+              </ContextMenuItem>
+            </>
+          ) : null}
         </ContextMenuContent>
       </ContextMenu>
       <ConversationMuteSheet open={isMuteOpen} onOpenChange={setIsMuteOpen} title={title} choices={muteChoices} onPick={onMute} />
+      {/* Phone: the held row's menu, as a sheet of large rows. */}
+      <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
+        <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-2xl px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-4">
+          <SheetTitle className="truncate px-2 text-[16px]">{title}</SheetTitle>
+          <SheetDescription className="sr-only">Tuỳ chọn cho cuộc trò chuyện này</SheetDescription>
+          <div className="mt-2">
+            {rowMenuEntries.map((entry) =>
+              entry === "sep" ? (
+                <div key="sep" className="my-1 h-px bg-border" />
+              ) : (
+                <button
+                  key={entry.id}
+                  type="button"
+                  disabled={entry.disabled}
+                  onClick={() => {
+                    setIsSheetOpen(false);
+                    entry.run();
+                  }}
+                  className="press flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-foreground hover:bg-accent/40 disabled:opacity-40"
+                >
+                  <entry.icon className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                  {entry.label}
+                </button>
+              ),
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

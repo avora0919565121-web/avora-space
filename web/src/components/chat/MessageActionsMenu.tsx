@@ -1,16 +1,21 @@
 import {
   CheckSquare,
   Clock3,
+  Copy,
   Flag,
   Forward,
   Hand,
+  ImageDown,
+  Info,
   ListPlus,
   MoreHorizontal,
+  NotebookPen,
   Pencil,
   Pin,
   PinOff,
   Reply,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 import { useCallback, useRef, useState, type PointerEvent } from "react";
 
@@ -22,6 +27,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useLongPress } from "@/hooks/use-long-press";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { canEditMessage, canRecallMessage, canReplyToMessage, type ChatMessage } from "@/lib/chat";
 import { QUICK_REACTIONS } from "@/lib/reactions";
 import { cn } from "@/lib/utils";
@@ -89,25 +95,32 @@ export type MessageAction =
   | "select"
   | "pin"
   | "unpin"
-  | "report";
+  | "report"
+  | "copy"
+  | "save-image"
+  | "save-journal"
+  | "details";
+
+type MenuEntry = {
+  action: MessageAction;
+  label: string;
+  icon: LucideIcon;
+  group: "act" | "arrange" | "withdraw";
+  danger?: boolean;
+  disabled?: boolean;
+};
 
 /**
  * Everything you can do to one message, in one place.
  *
- * Creating a task used to be its own icon on every bubble, which worked while it was the only
- * action. Adding reply, edit and recall beside it would have put four icons on every line of a
- * conversation — so they collapse into a single "…" that stays quiet until wanted.
- *
  * Three groups (Đợt gộp 2 · A1), what people reach for most first:
- * 1. Làm với tin này — Trả lời · Chuyển tiếp · Tạo nhiệm vụ
- * 2. Sắp xếp — Chọn nhiều tin · Ghim / Bỏ ghim · Sửa
- * 3. Rút lại / báo — Thu hồi or Đề nghị thu hồi · Báo cáo tin nhắn
- * A group with nothing in it takes its separator with it.
+ * 1. Làm với tin này — Trả lời · Chuyển tiếp · Sao chép · Lưu ảnh · Lưu vào Nhật ký · Tạo nhiệm vụ
+ * 2. Sắp xếp — Xem sau · Chọn nhiều tin · Ghim / Bỏ ghim · Sửa · Chi tiết
+ * 3. Rút lại / báo — Thu hồi or Đề nghị thu hồi · Báo cáo tin nhắn (always last, warning colour)
  *
- * What appears inside depends on who sent the message and how long ago. Edit and recall are
- * simply absent past the 24-hour window rather than shown and refused: an action that is
- * offered and then rejected teaches people not to trust the menu. The server enforces the
- * same window regardless, so this is an honest reflection of the rule, not the rule itself.
+ * AVORA-57 · C: on a phone the same entries show as a 4-column icon grid; a computer keeps the
+ * list. Edit and recall are absent past their window rather than shown and refused. There is
+ * no "Đã xem" anywhere (ADR-028).
  */
 export function MessageActionsMenu({
   message,
@@ -120,6 +133,9 @@ export function MessageActionsMenu({
   canForward = false,
   canReport = false,
   canReadLater = false,
+  canCopy = false,
+  canSaveImage = false,
+  canSaveToJournal = false,
   onAction,
   onQuickReact,
   open,
@@ -144,6 +160,12 @@ export function MessageActionsMenu({
   canReport?: boolean;
   /** AVORA-47 · A: someone else's line in a shared thread can be set aside as `Xem sau`. */
   canReadLater?: boolean;
+  /** AVORA-57 · C: a message with words (never in the Avora AI window). */
+  canCopy?: boolean;
+  /** AVORA-57 · C: only when an image on it may be downloaded (`export`). */
+  canSaveImage?: boolean;
+  /** AVORA-57 · C: words / images / files into the viewer's own Nhật ký, by file permission. */
+  canSaveToJournal?: boolean;
   onAction: (action: MessageAction) => void;
   /** AVORA-49 · 2.4: six quick reactions on top of the menu — the one way in on a phone. */
   onQuickReact?: (emoji: string) => void;
@@ -151,27 +173,60 @@ export function MessageActionsMenu({
   onOpenChange?: (open: boolean) => void;
   className?: string;
 }) {
+  const isPhone = useIsMobile();
+  const live = message.pending !== true && message.deletedAt == null;
   const showReply = canReplyToMessage(message);
   const showEdit = canEditMessage(message, viewerId);
   const showRecall = canRecallMessage(message, viewerId);
-  const showTask = canRaiseTask && message.pending !== true && message.deletedAt == null;
-  const showPin = canPin && message.pending !== true && message.deletedAt == null;
+  const showTask = canRaiseTask && live;
+  const showPin = canPin && live;
   // Asking has no time limit of its own: a message that still says something can still be
   // objected to, long after its author's own 24-hour window to take it back has closed.
-  const showRequestRecall =
-    canRequestRecall && message.pending !== true && message.deletedAt == null;
-  const showForward = canForward && message.pending !== true && message.deletedAt == null;
+  const showRequestRecall = canRequestRecall && live;
+  const showForward = canForward && live;
   const showReport =
     canReport && message.pending !== true && viewerId !== undefined && message.senderId !== viewerId;
-
   const showLater =
     canReadLater && message.pending !== true && viewerId !== undefined && message.senderId !== viewerId && message.systemKind == null;
-  const hasAct = showReply || showForward || showTask;
-  const hasArrange = showForward || showPin || showEdit || showLater;
-  const hasWithdraw = showRecall || showRequestRecall || showReport;
+  const showCopy = canCopy && live && message.content.trim() !== "";
+  const showSaveImage = canSaveImage && live;
+  const showSaveJournal = canSaveToJournal && live;
+  const showDetails = message.pending !== true;
 
-  const canQuickReact = onQuickReact !== undefined && message.pending !== true && message.deletedAt == null;
-  if (!hasAct && !hasArrange && !hasWithdraw && !canQuickReact) return null;
+  const entries: MenuEntry[] = [];
+  if (showReply) entries.push({ action: "reply", label: "Trả lời", icon: Reply, group: "act" });
+  if (showForward) entries.push({ action: "forward", label: "Chuyển tiếp", icon: Forward, group: "act" });
+  if (showCopy) entries.push({ action: "copy", label: "Sao chép", icon: Copy, group: "act" });
+  if (showSaveImage) entries.push({ action: "save-image", label: "Lưu ảnh", icon: ImageDown, group: "act" });
+  if (showSaveJournal) entries.push({ action: "save-journal", label: "Lưu vào Nhật ký", icon: NotebookPen, group: "act" });
+  if (showTask) entries.push({ action: "task", label: "Tạo nhiệm vụ", icon: ListPlus, group: "act" });
+  // Right under the "do" actions: only the reader's own read mark moves back.
+  if (showLater) entries.push({ action: "later", label: "Xem sau", icon: Clock3, group: "arrange" });
+  // Selecting starts from the message the menu was opened on, so the first tick is made.
+  if (showForward) entries.push({ action: "select", label: "Chọn nhiều tin", icon: CheckSquare, group: "arrange" });
+  if (showPin)
+    entries.push({ action: isPinned ? "unpin" : "pin", label: isPinned ? "Bỏ ghim" : "Ghim", icon: isPinned ? PinOff : Pin, group: "arrange" });
+  if (showEdit) entries.push({ action: "edit", label: "Sửa", icon: Pencil, group: "arrange" });
+  if (showDetails) entries.push({ action: "details", label: "Chi tiết", icon: Info, group: "arrange" });
+  if (showRecall) entries.push({ action: "recall", label: "Thu hồi", icon: Trash2, group: "withdraw", danger: true });
+  // Asking, not doing: the sender decides. Shown as already-asked rather than hidden.
+  if (showRequestRecall)
+    entries.push({
+      action: "request-recall",
+      label: hasRequestedRecall ? "Đã đề nghị thu hồi" : "Đề nghị thu hồi",
+      icon: Hand,
+      group: "withdraw",
+      danger: true,
+      disabled: hasRequestedRecall,
+    });
+  if (showReport) entries.push({ action: "report", label: "Báo cáo tin nhắn", icon: Flag, group: "withdraw", danger: true });
+
+  const canQuickReact = onQuickReact !== undefined && live;
+  if (entries.length === 0 && !canQuickReact) return null;
+
+  const groups = (["act", "arrange", "withdraw"] as const)
+    .map((group) => entries.filter((entry) => entry.group === group))
+    .filter((list) => list.length > 0);
 
   return (
     <DropdownMenu open={open} onOpenChange={onOpenChange}>
@@ -181,14 +236,18 @@ export function MessageActionsMenu({
           aria-label={`Tuỳ chọn tin nhắn: ${message.content.slice(0, 60)}`}
           title="Tuỳ chọn"
           className={cn(
-            "press flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-border bg-card text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 group-hover:opacity-100 motion-reduce:transition-none",
+            "icon-btn h-9 w-9 text-muted-foreground opacity-0 transition-all hover:text-foreground focus-visible:opacity-100 data-[state=open]:opacity-100 group-hover:opacity-100 motion-reduce:transition-none",
             className,
           )}
         >
           <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className={canQuickReact ? "w-[272px]" : "w-48"}>
+      <DropdownMenuContent
+        align="end"
+        collisionPadding={8}
+        className={isPhone ? "w-[min(340px,calc(100vw-16px))] p-2" : canQuickReact ? "w-[272px]" : "w-52"}
+      >
         {canQuickReact ? (
           <>
             <div role="group" aria-label="Thả cảm xúc" className="flex items-center justify-between px-1 py-1">
@@ -203,85 +262,51 @@ export function MessageActionsMenu({
                 </DropdownMenuItem>
               ))}
             </div>
-            {hasAct || hasArrange || hasWithdraw ? <DropdownMenuSeparator /> : null}
+            {entries.length > 0 ? <DropdownMenuSeparator /> : null}
           </>
         ) : null}
-        {showReply ? (
-          <DropdownMenuItem onSelect={() => onAction("reply")}>
-            <Reply className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Trả lời
-          </DropdownMenuItem>
-        ) : null}
-        {showForward ? (
-          <DropdownMenuItem onSelect={() => onAction("forward")}>
-            <Forward className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Chuyển tiếp
-          </DropdownMenuItem>
-        ) : null}
-        {showTask ? (
-          <DropdownMenuItem onSelect={() => onAction("task")}>
-            <ListPlus className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Tạo nhiệm vụ
-          </DropdownMenuItem>
-        ) : null}
-        {hasAct && (hasArrange || hasWithdraw) ? <DropdownMenuSeparator /> : null}
-        {/* Right under the three "do" actions: only the reader's own read mark moves back. */}
-        {showLater ? (
-          <DropdownMenuItem onSelect={() => onAction("later")}>
-            <Clock3 className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Xem sau
-          </DropdownMenuItem>
-        ) : null}
-        {/* Selecting starts from the message the menu was opened on, so the first tick is made. */}
-        {showForward ? (
-          <DropdownMenuItem onSelect={() => onAction("select")}>
-            <CheckSquare className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Chọn nhiều tin
-          </DropdownMenuItem>
-        ) : null}
-        {showPin ? (
-          <DropdownMenuItem onSelect={() => onAction(isPinned ? "unpin" : "pin")}>
-            {isPinned ? (
-              <PinOff className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            ) : (
-              <Pin className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            )}
-            {isPinned ? "Bỏ ghim" : "Ghim"}
-          </DropdownMenuItem>
-        ) : null}
-        {showEdit ? (
-          <DropdownMenuItem onSelect={() => onAction("edit")}>
-            <Pencil className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Sửa
-          </DropdownMenuItem>
-        ) : null}
-        {hasArrange && hasWithdraw ? <DropdownMenuSeparator /> : null}
-        {showRecall ? (
-          <DropdownMenuItem onSelect={() => onAction("recall")} className="text-destructive">
-            <Trash2 className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Thu hồi
-          </DropdownMenuItem>
-        ) : null}
-        {/*
-          Asking, not doing. The words belong to whoever wrote them, so this sends a note and
-          stops — the sender decides. Shown as already-asked rather than hidden, so pressing it
-          twice reports the truth instead of looking like it failed.
-        */}
-        {showRequestRecall ? (
-          <DropdownMenuItem
-            onSelect={() => onAction("request-recall")}
-            disabled={hasRequestedRecall}
-          >
-            <Hand className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            {hasRequestedRecall ? "Đã đề nghị thu hồi" : "Đề nghị thu hồi"}
-          </DropdownMenuItem>
-        ) : null}
-        {showReport ? (
-          <DropdownMenuItem onSelect={() => onAction("report")}>
-            <Flag className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            Báo cáo tin nhắn
-          </DropdownMenuItem>
-        ) : null}
+        {isPhone ? (
+          <div className="grid grid-cols-4 gap-1" data-testid="message-menu-grid">
+            {entries.map((entry) => (
+              <DropdownMenuItem
+                key={entry.action}
+                disabled={entry.disabled}
+                onSelect={() => onAction(entry.action)}
+                className={cn(
+                  "flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-2 text-center text-[11.5px] leading-tight",
+                  entry.danger ? "text-destructive focus:text-destructive" : "text-foreground",
+                )}
+              >
+                <span
+                  className={cn(
+                    "flex h-9 w-9 items-center justify-center rounded-full",
+                    entry.danger ? "bg-destructive/10" : "bg-secondary",
+                  )}
+                >
+                  <entry.icon className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
+                </span>
+                <span className="line-clamp-2">{entry.label}</span>
+              </DropdownMenuItem>
+            ))}
+          </div>
+        ) : (
+          groups.map((list, index) => (
+            <div key={list[0].group}>
+              {index > 0 ? <DropdownMenuSeparator /> : null}
+              {list.map((entry) => (
+                <DropdownMenuItem
+                  key={entry.action}
+                  disabled={entry.disabled}
+                  onSelect={() => onAction(entry.action)}
+                  className={entry.danger ? "text-destructive focus:text-destructive" : undefined}
+                >
+                  <entry.icon className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                  {entry.label}
+                </DropdownMenuItem>
+              ))}
+            </div>
+          ))
+        )}
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -309,6 +334,9 @@ export function MessageActionsAffordance({
   canForward = false,
   canReport = false,
   canReadLater = false,
+  canCopy = false,
+  canSaveImage = false,
+  canSaveToJournal = false,
   outgoing,
   onAction,
   onQuickReact,
@@ -330,6 +358,9 @@ export function MessageActionsAffordance({
   canForward?: boolean;
   canReport?: boolean;
   canReadLater?: boolean;
+  canCopy?: boolean;
+  canSaveImage?: boolean;
+  canSaveToJournal?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
   onQuickReact?: (emoji: string) => void;
@@ -401,6 +432,9 @@ export function MessageActionsAffordance({
         canForward={canForward}
         canReport={canReport}
         canReadLater={canReadLater}
+        canCopy={canCopy}
+        canSaveImage={canSaveImage}
+        canSaveToJournal={canSaveToJournal}
         onAction={onAction}
         onQuickReact={onQuickReact}
         open={isOpen}

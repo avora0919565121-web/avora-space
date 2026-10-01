@@ -5,6 +5,7 @@ import { useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { ConnectQrDialog } from "@/components/contacts/ConnectQrDialog";
+import { InviteMessageDialog } from "@/components/contacts/InviteMessageDialog";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { createDirectConversation } from "@/lib/chat";
@@ -12,6 +13,7 @@ import {
   fetchAllowGroupConnection,
   looksLikePin,
   matchesConnection,
+  normalizePinInput,
   NO_PIN_LABEL,
   setAllowGroupConnection,
   type Connection,
@@ -33,6 +35,8 @@ export function FriendsPanel({ query }: { query: string }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [isQrOpen, setIsQrOpen] = useState<boolean>(false);
   const [confirmRemove, setConfirmRemove] = useState<Connection | null>(null);
+  /** The PIN waiting for its request message (AVORA-56 · A). */
+  const [pendingPin, setPendingPin] = useState<string | null>(null);
 
   const visible = useMemo(() => connections.filter((item) => matchesConnection(item, query)), [connections, query]);
 
@@ -47,17 +51,20 @@ export function FriendsPanel({ query }: { query: string }) {
     onError: (error: Error) => setNotice(error.message),
   });
 
-  const openByPin = useCallback(
-    async (value: string): Promise<void> => {
-      setNotice(null);
-      try {
-        const conversationId = await connectByPin(value);
-        navigate(`/tin-nhan/${conversationId}`);
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Chưa làm được. Thử lại nhé.");
-      }
+  const openByPin = useCallback((value: string): void => {
+    setNotice(null);
+    setPendingPin(normalizePinInput(value));
+  }, []);
+
+  const sendRequest = useCallback(
+    async (message: string): Promise<void> => {
+      if (pendingPin === null) return;
+      const conversationId = await connectByPin(pendingPin, message);
+      setPendingPin(null);
+      setPin("");
+      navigate(`/tin-nhan/${conversationId}`);
     },
-    [connectByPin, navigate],
+    [pendingPin, connectByPin, navigate],
   );
 
   const handleSubmit = useCallback(
@@ -67,7 +74,7 @@ export function FriendsPanel({ query }: { query: string }) {
         setNotice("PIN có dạng A-XXXXXXXX.");
         return;
       }
-      void openByPin(pin);
+      openByPin(pin);
     },
     [pin, openByPin],
   );
@@ -100,6 +107,8 @@ export function FriendsPanel({ query }: { query: string }) {
               setNotice(null);
             }}
             autoCapitalize="characters"
+            autoComplete="off"
+            spellCheck={false}
             placeholder="Kết bạn qua PIN: A-XXXXXXXX"
             className="h-11 w-full rounded-md border border-border bg-card pl-10 pr-3 font-mono text-[14.5px] uppercase text-foreground outline-none transition-colors placeholder:font-sans placeholder:normal-case placeholder:text-muted-foreground/70 focus:border-primary/60"
           />
@@ -208,8 +217,14 @@ export function FriendsPanel({ query }: { query: string }) {
         onOpenChange={setIsQrOpen}
         onScanned={(scanned) => {
           setIsQrOpen(false);
-          void openByPin(scanned);
+          openByPin(scanned);
         }}
+      />
+      <InviteMessageDialog
+        open={pendingPin !== null}
+        onOpenChange={(next) => (next ? undefined : setPendingPin(null))}
+        recipientLabel={pendingPin ?? ""}
+        onSend={sendRequest}
       />
     </div>
   );

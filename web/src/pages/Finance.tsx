@@ -1,6 +1,5 @@
-import { Plus } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
   AccountBalanceChart,
@@ -40,6 +39,7 @@ import {
 import { convertCents } from "@/lib/currency";
 import { monthlyComparison, spendingTrend } from "@/lib/finance-reports";
 import { useLedger } from "@/lib/use-finance";
+import { onVaultAdd, VAULT_ADD_PARAM } from "@/lib/vault-add";
 
 /**
  * The finance dashboard: four numbers that answer "how am I doing", then the charts that
@@ -53,6 +53,16 @@ const Finance = () => {
     useLedger();
 
   const [isAdding, setIsAdding] = useState<boolean>(false);
+  // AVORA-57 · E: `+ Giao dịch` lives beside the Két sắt title now, not in this page's body.
+  const [searchParams, setSearchParams] = useSearchParams();
+  useEffect(() => onVaultAdd(() => setIsAdding(true)), []);
+  useEffect(() => {
+    if (searchParams.get(VAULT_ADD_PARAM) !== "1") return;
+    setIsAdding(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete(VAULT_ADD_PARAM);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams]);
   const [categoryScope, setCategoryScope] = useState<CategoryScope | null>(null);
 
   const today = todayIso();
@@ -150,19 +160,6 @@ const Finance = () => {
             : open.length === 0
               ? "Bắt đầu bằng một tài khoản, rồi ghi khoản thu chi đầu tiên."
               : "Thu chi cá nhân và kinh doanh hộ gia đình, trong một cuốn sổ."
-        }
-        action={
-          // No account yet: the only action is "Tạo tài khoản" below, not a locked button beside it.
-          open.length === 0 ? undefined : (
-            <button
-              type="button"
-              onClick={() => setIsAdding(true)}
-              className="press inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
-            >
-              <Plus className="h-4 w-4" strokeWidth={2.2} />
-              Thêm giao dịch
-            </button>
-          )
         }
       />
 

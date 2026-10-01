@@ -243,6 +243,8 @@ export type PendingChannel = {
   value: string;
   /** What the source suggested calling it, or null when it said nothing. */
   label: string | null;
+  /** AVORA-57 · J: true only when this channel's kind is really ambiguous for the contact. */
+  needsReview?: boolean;
 };
 
 /** What the source suggested calling this value, if anything. */
@@ -265,26 +267,58 @@ export function suggestedLabelOf(
  * nothing at all to the channel table.
  */
 export function extraChannelsOf(candidate: ImportedContactCandidate): PendingChannel[] {
+  const ambiguous = ambiguousKindsOf(candidate);
   const extras: PendingChannel[] = [];
   for (const value of candidate.phones.slice(1)) {
-    extras.push({ kind: "phone", value, label: suggestedLabelOf(candidate, "phone", value) });
+    extras.push({ kind: "phone", value, label: suggestedLabelOf(candidate, "phone", value), ...(ambiguous.has("phone") ? { needsReview: true } : {}) });
   }
   for (const value of candidate.emails.slice(1)) {
-    extras.push({ kind: "email", value, label: suggestedLabelOf(candidate, "email", value) });
+    extras.push({ kind: "email", value, label: suggestedLabelOf(candidate, "email", value), ...(ambiguous.has("email") ? { needsReview: true } : {}) });
   }
   return extras;
 }
 
 /**
+ * AVORA-57 · J — whether the values of one kind cannot be told apart.
+ *
+ * Two or more values (after de-duplication) where at least two have no label, or two share the
+ * same label. The first value is the contact's own field and is stored without a label, so it
+ * counts as unlabelled. Mirrors `private.channel_kind_is_ambiguous` in the database.
+ */
+export function kindIsAmbiguous(values: readonly { value: string; label: string | null }[], kind: ChannelKind): boolean {
+  const seen = new Map<string, string | null>();
+  for (const entry of values) {
+    const normalized = normalizeChannelValue(kind, entry.value);
+    if (normalized === "" || seen.has(normalized)) continue;
+    const label = (entry.label ?? "").trim();
+    seen.set(normalized, label === "" ? null : label.toLocaleLowerCase("vi"));
+  }
+  if (seen.size < 2) return false;
+  const labels = [...seen.values()];
+  const unlabelled = labels.filter((label) => label === null).length;
+  const named = labels.filter((label): label is string => label !== null);
+  return unlabelled >= 2 || new Set(named).size < named.length;
+}
+
+/** The kinds of this candidate that are really a choice ("2 số → chỉ hỏi số; email để yên"). */
+export function ambiguousKindsOf(candidate: ImportedContactCandidate): Set<ChannelKind> {
+  const kinds = new Set<ChannelKind>();
+  const withLabels = (kind: ChannelKind, values: readonly string[]) =>
+    values.map((value, index) => ({ value, label: index === 0 ? null : suggestedLabelOf(candidate, kind, value) }));
+  if (kindIsAmbiguous(withLabels("phone", candidate.phones), "phone")) kinds.add("phone");
+  if (kindIsAmbiguous(withLabels("email", candidate.emails), "email")) kinds.add("email");
+  return kinds;
+}
+
+/**
  * Whether a person has to look at this contact's channels afterwards.
  *
- * Two numbers of the same kind is exactly the situation an import cannot resolve: both are
- * plausible, and only the person who knows them can say which one is answered. The flag is set
- * on every channel of such a contact rather than on the runners-up alone, so the review screen
- * shows the whole set being chosen between instead of a single value stripped of its context.
+ * AVORA-57 · J: only when a kind is really ambiguous (see `kindIsAmbiguous`), and then only the
+ * channels of that kind are flagged — one number plus one email never is, and two numbers named
+ * Cơ quan / Cá nhân are already told apart by their labels.
  */
 export function candidateNeedsReview(candidate: ImportedContactCandidate): boolean {
-  return candidate.phones.length >= 2 || candidate.emails.length >= 2;
+  return ambiguousKindsOf(candidate).size > 0;
 }
 
 // ------------------------------------------------------------------ drafts
@@ -393,12 +427,13 @@ export function mergeCandidateIntoBusiness(
  * — so the honest move is to hand it everything and let the one place that can compare decide.
  */
 export function mergeChannelsOf(candidate: ImportedContactCandidate): PendingChannel[] {
+  const ambiguous = ambiguousKindsOf(candidate);
   const all: PendingChannel[] = [];
   for (const value of candidate.phones) {
-    all.push({ kind: "phone", value, label: suggestedLabelOf(candidate, "phone", value) });
+    all.push({ kind: "phone", value, label: suggestedLabelOf(candidate, "phone", value), ...(ambiguous.has("phone") ? { needsReview: true } : {}) });
   }
   for (const value of candidate.emails) {
-    all.push({ kind: "email", value, label: suggestedLabelOf(candidate, "email", value) });
+    all.push({ kind: "email", value, label: suggestedLabelOf(candidate, "email", value), ...(ambiguous.has("email") ? { needsReview: true } : {}) });
   }
   return all;
 }

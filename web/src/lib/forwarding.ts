@@ -14,8 +14,12 @@ export type ForwardResult = {
   filesBlocked: number;
   /** True when two or more messages went as one conversation bundle (Đợt gộp 2 · B1). */
   asBundle?: boolean;
-  /** Bundle only: files that stayed behind (a bundle carries words only). */
+  /** Bundle only: files that stayed behind (view-only images, and every non-image file). */
   filesLeftBehind?: number;
+  /** Bundle only (AVORA-57 · B): images that travelled in the bundle's grid. */
+  imagesCarried?: number;
+  /** Bundle only: images whose sender allowed viewing only. */
+  imagesBlocked?: number;
 };
 
 function fail(code: string | undefined, message: string): Error {
@@ -63,13 +67,20 @@ export async function forwardMessages(
       p_target_conversation_id: targetConversationId,
     });
     if (error) throw fail(error.code, error.message);
-    const row = (data ?? {}) as { forwarded?: number; files_left_behind?: number };
+    const row = (data ?? {}) as {
+      forwarded?: number;
+      files_left_behind?: number;
+      images_carried?: number;
+      images_blocked?: number;
+    };
     return {
       forwarded: row.forwarded ?? 0,
-      filesCarried: 0,
-      filesBlocked: 0,
+      filesCarried: row.images_carried ?? 0,
+      filesBlocked: row.images_blocked ?? 0,
       asBundle: true,
       filesLeftBehind: row.files_left_behind ?? 0,
+      imagesCarried: row.images_carried ?? 0,
+      imagesBlocked: row.images_blocked ?? 0,
     };
   }
   const { data, error } = await supabase.rpc("forward_messages", {
@@ -118,7 +129,14 @@ export function forwardSummaryText(result: ForwardResult, targetName: string): s
   if (result.forwarded === 0) return "Không có tin nào được chuyển tiếp.";
   if (result.asBundle === true) {
     const head = `Đã chuyển ${result.forwarded} tin thành một đoạn hội thoại tới ${targetName}`;
-    return (result.filesLeftBehind ?? 0) > 0 ? `${head} · Ảnh và tệp không đi kèm` : head;
+    const parts: string[] = [];
+    const carried = result.imagesCarried ?? 0;
+    const blocked = result.imagesBlocked ?? 0;
+    const otherFiles = Math.max(0, (result.filesLeftBehind ?? 0) - blocked);
+    if (carried > 0) parts.push(`kèm ${carried} ảnh`);
+    if (blocked > 0) parts.push(`${blocked} ảnh không chuyển được`);
+    if (otherFiles > 0) parts.push(`${otherFiles} tệp không đi kèm`);
+    return parts.length > 0 ? `${head} · ${parts.join(" · ")}` : head;
   }
 
   const head =

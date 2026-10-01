@@ -2,6 +2,7 @@ import { Clock, Coins, Loader2, PencilLine, Quote } from "lucide-react";
 import { toast } from "sonner";
 
 import { BlockedPeopleCard } from "@/components/BlockedPeopleCard";
+import { LookPrefsCard } from "@/components/LookPrefsCard";
 import { currenciesByRegion, REGION_LABELS, formatRate } from "@/lib/currency";
 import {
   DAILY_THOUGHT_OPTIONS,
@@ -266,6 +267,8 @@ const SettingsPreferences = () => {
             </div>
           </div>
         </section>
+
+        <LookPrefsCard />
 
         <BlockedPeopleCard />
       </div>

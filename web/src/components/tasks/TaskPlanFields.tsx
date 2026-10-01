@@ -141,6 +141,7 @@ function ProgressField({
           min={0}
           max={100}
           inputMode="numeric"
+          spellCheck={false}
           value={draft}
           placeholder="—"
           disabled={disabled}

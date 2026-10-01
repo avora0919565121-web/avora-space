@@ -4,10 +4,11 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { ConnectQrDialog } from "@/components/contacts/ConnectQrDialog";
+import { InviteMessageDialog } from "@/components/contacts/InviteMessageDialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { chatKeys, createDirectConversation } from "@/lib/chat";
-import { looksLikePin, matchesConnection, NO_PIN_LABEL } from "@/lib/connections";
+import { looksLikePin, matchesConnection, normalizePinInput, NO_PIN_LABEL } from "@/lib/connections";
 import { useConnections } from "@/lib/use-connections";
 
 type NewChatDialogProps = {
@@ -30,6 +31,8 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
   const [notice, setNotice] = useState<string | null>(null);
   const [isOpening, setIsOpening] = useState<boolean>(false);
   const [isQrOpen, setIsQrOpen] = useState<boolean>(false);
+  /** The PIN waiting for its request message (AVORA-56 · A). */
+  const [pendingPin, setPendingPin] = useState<string | null>(null);
 
   useEffect(() => {
     if (open) return;
@@ -66,16 +69,19 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
     [finish],
   );
 
-  const openWithPin = useCallback(
-    async (pin: string): Promise<void> => {
-      setNotice(null);
-      try {
-        finish(await connectByPin(pin));
-      } catch (error) {
-        setNotice(error instanceof Error ? error.message : "Chưa mở được. Thử lại nhé.");
-      }
+  const openWithPin = useCallback((pin: string): void => {
+    setNotice(null);
+    setPendingPin(normalizePinInput(pin));
+  }, []);
+
+  const sendRequest = useCallback(
+    async (message: string): Promise<void> => {
+      if (pendingPin === null) return;
+      const conversationId = await connectByPin(pendingPin, message);
+      setPendingPin(null);
+      finish(conversationId);
     },
-    [connectByPin, finish],
+    [pendingPin, connectByPin, finish],
   );
 
   const handleSubmit = useCallback(
@@ -86,7 +92,7 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
         return;
       }
       if (looksLikePin(query)) {
-        void openWithPin(query);
+        openWithPin(query);
         return;
       }
       setNotice("Người chưa là bạn chỉ tìm được bằng PIN, dạng A-XXXXXXXX.");
@@ -129,6 +135,8 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
                 value={query}
                 autoFocus
                 autoCapitalize="characters"
+                autoComplete="off"
+                spellCheck={false}
                 onChange={(event) => {
                   setQuery(event.target.value);
                   setNotice(null);
@@ -148,7 +156,7 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
               <button
                 type="button"
                 disabled={isWorking}
-                onClick={() => void openWithPin(query)}
+                onClick={() => openWithPin(query)}
                 className="press flex w-full items-center gap-3 bg-primary/[0.06] px-6 py-4 text-left transition-colors hover:bg-primary/10"
               >
                 <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-primary">
@@ -208,8 +216,14 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
         onOpenChange={setIsQrOpen}
         onScanned={(pin) => {
           setIsQrOpen(false);
-          void openWithPin(pin);
+          openWithPin(pin);
         }}
+      />
+      <InviteMessageDialog
+        open={pendingPin !== null}
+        onOpenChange={(next) => (next ? undefined : setPendingPin(null))}
+        recipientLabel={pendingPin ?? ""}
+        onSend={sendRequest}
       />
     </>
   );

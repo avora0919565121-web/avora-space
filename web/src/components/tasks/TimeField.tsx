@@ -163,6 +163,7 @@ export function TimeField({ id, value, onChange, ariaLabel, after = null }: Time
               <input
                 autoFocus
                 inputMode="numeric"
+                spellCheck={false}
                 pattern="[0-9]*"
                 maxLength={2}
                 value={customMinute}

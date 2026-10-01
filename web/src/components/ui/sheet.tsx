@@ -1,8 +1,9 @@
 import * as SheetPrimitive from "@radix-ui/react-dialog";
 import { cva, type VariantProps } from "class-variance-authority";
-import { X } from "lucide-react";
+import { ChevronLeft, X } from "lucide-react";
 import * as React from "react";
 
+import { useEdgeSwipeBack } from "@/components/chat/StackedSheetHeader";
 import { cn } from "@/lib/utils";
 
 const Sheet = SheetPrimitive.Root;
@@ -44,21 +45,138 @@ const sheetVariants = cva(
   },
 );
 
-interface SheetContentProps
-  extends React.ComponentPropsWithRef<typeof SheetPrimitive.Content>, VariantProps<typeof sheetVariants> {}
+/** Panels that draw their own `‹` (StackedSheetHeader) hide the default close with this class. */
+const OWN_HEADER_MARK = "[&>button.absolute]:hidden";
 
-const SheetContent = ({ ref, side = "right", className, children, ...props }: SheetContentProps) => (
-  <SheetPortal>
-    <SheetOverlay />
-    <SheetPrimitive.Content ref={ref} className={cn(sheetVariants({ side }), className)} {...props}>
-      {children}
-      <SheetPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none">
-        <X className="h-4 w-4" />
-        <span className="sr-only">Close</span>
-      </SheetPrimitive.Close>
-    </SheetPrimitive.Content>
-  </SheetPortal>
-);
+/** Open full-height panels, top last: the browser's Back closes only the top one. */
+const backStack: string[] = [];
+
+function isPhoneWidth(): boolean {
+  return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 767px)").matches;
+}
+
+/**
+ * AVORA-57 · H — on a phone, the browser's Back (and the system back gesture) closes the panel
+ * instead of leaving the app. One history entry is added while the panel is open; it is taken
+ * back on close only if it is still the current entry (a navigation from inside the panel is
+ * never undone).
+ */
+function useBackCloses(isActive: boolean, close: () => void): void {
+  const closeRef = React.useRef(close);
+  closeRef.current = close;
+
+  React.useEffect(() => {
+    if (!isActive || typeof window === "undefined") return;
+    const token = `sheet-${Math.random().toString(36).slice(2)}`;
+    backStack.push(token);
+    const base = (window.history.state ?? {}) as Record<string, unknown>;
+    window.history.pushState({ ...base, avoraSheet: token }, "");
+    let closedByBack = false;
+
+    const onPop = (event: PopStateEvent): void => {
+      const isTop = backStack[backStack.length - 1] === token;
+      const state = (event.state ?? {}) as Record<string, unknown>;
+      if (!isTop || state.avoraSheet === token) return;
+      closedByBack = true;
+      closeRef.current();
+    };
+    window.addEventListener("popstate", onPop);
+
+    return () => {
+      window.removeEventListener("popstate", onPop);
+      const at = backStack.lastIndexOf(token);
+      if (at !== -1) backStack.splice(at, 1);
+      const current = (window.history.state ?? {}) as Record<string, unknown>;
+      if (!closedByBack && current.avoraSheet === token) window.history.back();
+    };
+  }, [isActive]);
+}
+
+/** Renders nothing; binds the browser's Back to this open panel. */
+function SheetBackBinding({ close }: { close: () => void }) {
+  useBackCloses(true, close);
+  return null;
+}
+
+interface SheetContentProps
+  extends React.ComponentPropsWithRef<typeof SheetPrimitive.Content>, VariantProps<typeof sheetVariants> {
+  /** Phone header for a side panel: what `‹` says. Default `Quay lại`. */
+  backLabel?: string;
+}
+
+const SheetContent = ({
+  ref,
+  side = "right",
+  className,
+  children,
+  backLabel = "Quay lại",
+  onPointerDown,
+  onPointerUp,
+  onPointerCancel,
+  ...props
+}: SheetContentProps) => {
+  const closeRef = React.useRef<HTMLButtonElement | null>(null);
+  const isSidePanel = side === "left" || side === "right";
+  const hasOwnHeader = typeof className === "string" && className.includes(OWN_HEADER_MARK);
+  const [isPhone] = React.useState<boolean>(isPhoneWidth);
+  const close = React.useCallback((): void => closeRef.current?.click(), []);
+
+  // Panels with their own header already spread their own edge swipe (it goes one level back).
+  const edgeSwipe = useEdgeSwipeBack(isSidePanel && !hasOwnHeader ? close : undefined);
+
+  return (
+    <SheetPortal>
+      <SheetOverlay />
+      <SheetPrimitive.Content
+        ref={ref}
+        className={cn(sheetVariants({ side }), className)}
+        onPointerDown={(event) => {
+          edgeSwipe.onPointerDown(event);
+          onPointerDown?.(event);
+        }}
+        onPointerUp={(event) => {
+          edgeSwipe.onPointerUp(event);
+          onPointerUp?.(event);
+        }}
+        onPointerCancel={(event) => {
+          edgeSwipe.onPointerCancel();
+          onPointerCancel?.(event);
+        }}
+        {...props}
+      >
+        {/*
+          AVORA-57 · H — phone: a fixed bar with a ≥44px `‹` instead of the 16px X. It sits under
+          the notch (the panel already pads by safe-area-inset-top) and never scrolls away.
+        */}
+        {isSidePanel && !hasOwnHeader ? (
+          <div className="sticky top-0 z-10 -mb-px flex shrink-0 items-center border-b border-border bg-inherit px-2 py-1.5 md:hidden">
+            <button
+              type="button"
+              onClick={close}
+              className="press flex min-h-11 min-w-11 items-center gap-1 rounded-md px-2 text-[14px] font-medium text-primary hover:bg-accent/40"
+            >
+              <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
+              <span className="truncate">{backLabel}</span>
+            </button>
+          </div>
+        ) : null}
+        {/* Mounted only while the panel is open (Radix renders Content children only then). */}
+        {isSidePanel && isPhone ? <SheetBackBinding close={close} /> : null}
+        {children}
+        <SheetPrimitive.Close
+          ref={closeRef}
+          className={cn(
+            "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none",
+            isSidePanel && !hasOwnHeader && "max-md:invisible",
+          )}
+        >
+          <X className="h-4 w-4" />
+          <span className="sr-only">Đóng</span>
+        </SheetPrimitive.Close>
+      </SheetPrimitive.Content>
+    </SheetPortal>
+  );
+};
 SheetContent.displayName = SheetPrimitive.Content.displayName;
 
 const SheetHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

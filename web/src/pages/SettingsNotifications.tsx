@@ -28,8 +28,6 @@ const SettingsNotifications = () => {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-2xl animate-rise-in space-y-6 px-6 py-12 md:px-10">
-        {/* AVORA-53 · 6.7: the mute layers first — the sound card below says it follows them. */}
-        <MuteSettingsCard />
         {/* AVORA-47 · C: the easy-to-find way in; holding Kết nối opens the same sheet. */}
         <section aria-labelledby="focus-heading" className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-start gap-3">
@@ -53,6 +51,8 @@ const SettingsNotifications = () => {
             </button>
           </div>
         </section>
+        {/* AVORA-57 · A: Chế độ tập trung first, then the "Tắt trong…" layers, then sounds. */}
+        <MuteSettingsCard />
         <section aria-labelledby="sound-heading" className="rounded-xl border border-border bg-card p-5">
           <h2 id="sound-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
             Âm báo khi đang mở AVORA

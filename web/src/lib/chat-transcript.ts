@@ -12,6 +12,8 @@ export type TranscriptItem = {
   text: string;
   files: number;
   images?: number;
+  /** Bundle only: images carried into the bundle's grid (not left behind). */
+  carriedImages?: number;
   at?: string;
 };
 
@@ -32,6 +34,8 @@ export function fileLabel(files: number, images: number = 0): string {
 export function lineText(item: TranscriptItem): string {
   const words = item.text.trim();
   if (words !== "") return words;
+  const carried = item.carriedImages ?? 0;
+  if (carried > 0 && item.files <= 0) return carried === 1 ? "[Ảnh · xem bên dưới]" : `[${carried} ảnh · xem bên dưới]`;
   return fileLabel(item.files, item.images ?? 0);
 }
 
@@ -98,6 +102,8 @@ export function parseForwardBundle(raw: unknown): ForwardBundle | null {
       name: typeof item.name === "string" && item.name.trim() !== "" ? item.name : "Thành viên AVORA",
       text: typeof item.text === "string" ? item.text : "",
       files: typeof item.files === "number" ? item.files : 0,
+      // AVORA-57 · B: images that travelled with this line now sit in the bundle's grid.
+      carriedImages: typeof item.images === "number" ? item.images : 0,
       at: typeof item.at === "string" ? item.at : undefined,
     });
   }

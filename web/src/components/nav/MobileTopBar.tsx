@@ -39,7 +39,7 @@ export function MobileTopBar() {
 
   return (
     <>
-      <header className="paper relative z-30 shrink-0 border-b border-border pt-[env(safe-area-inset-top)] md:hidden">
+      <header className="paper relative z-30 shrink-0 border-b border-border pt-[env(safe-area-inset-top)] md:hidden short:hidden">
         <div className="flex h-[60px] items-center pl-2 pr-16">
           <button
             type="button"

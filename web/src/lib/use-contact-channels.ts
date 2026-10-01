@@ -13,6 +13,7 @@ import {
   markChannelReviewed,
   markContactReviewed,
   planSharedChannelFix,
+  promoteContactChannel,
   renameChannel,
   sharedChannelGroups,
   type ChannelKind,
@@ -217,6 +218,7 @@ export function useContactChannelActions(): {
   confirmContact: (contactId: string) => Promise<void>;
   rename: (channelId: string, label: string) => Promise<void>;
   remove: (channelId: string) => Promise<void>;
+  promote: (channelId: string) => Promise<void>;
   isWorking: boolean;
 } {
   const queryClient = useQueryClient();
@@ -259,6 +261,11 @@ export function useContactChannelActions(): {
     onSuccess: invalidate,
   });
 
+  const promoteMutation = useMutation({
+    mutationFn: (channelId: string) => promoteContactChannel(channelId),
+    onSuccess: invalidate,
+  });
+
   return {
     add: useCallback(
       (input: {
@@ -281,7 +288,9 @@ export function useContactChannelActions(): {
       [renameMutation],
     ),
     remove: useCallback((channelId: string) => removeMutation.mutateAsync(channelId), [removeMutation]),
+    promote: useCallback((channelId: string) => promoteMutation.mutateAsync(channelId), [promoteMutation]),
     isWorking:
+      promoteMutation.isPending ||
       addMutation.isPending ||
       confirmMutation.isPending ||
       confirmContactMutation.isPending ||

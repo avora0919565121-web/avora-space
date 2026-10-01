@@ -17,6 +17,8 @@ export default {
       screens: {
         // A real mouse/trackpad. Touch screens miss this, so hover-only reveals can stay visible there.
         hoverable: { raw: "(hover: hover) and (pointer: fine)" },
+        // AVORA-57 · I: a phone on its side — judged by height, not width.
+        short: { raw: "(max-height: 500px) and (orientation: landscape)" },
       },
       colors: {
         border: "hsl(var(--border))",

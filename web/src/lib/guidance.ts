@@ -13,6 +13,7 @@ export const GUIDANCE_KEYS = [
   "task_duration_field",
   "family_flag_tag",
   "task_output_value",
+  "plan_plus_hold",
 ] as const;
 
 export type GuidanceKey = (typeof GUIDANCE_KEYS)[number];
@@ -26,6 +27,7 @@ export type GuidanceKey = (typeof GUIDANCE_KEYS)[number];
  * list.
  */
 export const GUIDANCE_TEXT: Record<GuidanceKey, string> = {
+  plan_plus_hold: "Giữ nút + để tạo bảng mới.",
   task_important_flag:
     "Quan trọng không phải vì gấp hay tốn nhiều công sức — ví dụ: gọi điện hỏi thăm mẹ chỉ mất vài phút, không có hạn nào, nhưng vẫn đáng đánh dấu quan trọng.",
   task_duration_field:
