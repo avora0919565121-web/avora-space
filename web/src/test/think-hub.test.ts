@@ -524,7 +524,7 @@ describe("scope, sub-tables and column ids", () => {
     expect(layers.personal.map((t) => t.id)).toEqual(["p"]);
     expect(layers.direct.map((t) => t.id)).toEqual(["d"]);
     expect(layers.group.map((t) => t.id)).toEqual(["g"]);
-    expect(TABLE_LAYERS.map((layer) => layer.label)).toEqual(["Cá nhân", "1-1", "Nhóm"]);
+    expect(TABLE_LAYERS.map((layer) => layer.label)).toEqual(["Bảng của tôi", "Bảng 1-1", "Bảng nhóm"]);
   });
 
   it("gives an old column its key as id, so renaming never loses its values", () => {

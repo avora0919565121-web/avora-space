@@ -35,6 +35,7 @@ import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { useRecordTaskLinks, useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
+import { StackedSheetHeader, useEdgeSwipeBack } from "@/components/chat/StackedSheetHeader";
 
 type GroupTaskListSheetProps = {
   open: boolean;
@@ -48,6 +49,8 @@ type GroupTaskListSheetProps = {
   onFocusTask: (taskId: string) => void;
   /** A suggestion still waiting: close the sheet and unfold the suggestion panel onto it. */
   onFocusSuggestion: (suggestionId: string) => void;
+  /** Opened from `⋯` (AVORA-52 · C): drawn over it with `‹ {tên cuộc}` and `✕`. */
+  stacked?: { backLabel: string; onBack: () => void; onCloseAll: () => void };
 };
 
 type KindFilter = "all" | ProjectTaskKind;
@@ -77,7 +80,9 @@ export function GroupTaskListSheet({
   projectId = null,
   onFocusTask,
   onFocusSuggestion,
+  stacked,
 }: GroupTaskListSheetProps) {
+  const edgeSwipe = useEdgeSwipeBack(stacked?.onBack);
   const { user } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -210,7 +215,14 @@ export function GroupTaskListSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md">
+      <SheetContent
+        side="right"
+        {...edgeSwipe}
+        className={cn("flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md", stacked !== undefined && "[&>button.absolute]:hidden")}
+      >
+        {stacked !== undefined ? (
+          <StackedSheetHeader backLabel={stacked.backLabel} onBack={stacked.onBack} onCloseAll={stacked.onCloseAll} />
+        ) : null}
         <div className="border-b border-border px-5 py-5">
           <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">
             {isProject ? "Nhiệm vụ dự án" : "Danh sách nhiệm vụ nhóm"}

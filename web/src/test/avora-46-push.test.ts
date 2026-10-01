@@ -12,16 +12,36 @@ import SERVER_MATRIX from "./fixtures-push-mute-server.json";
  * live database for every combination of the five layers × surface × family × mention) must equal
  * shouldBlockNotification on the same data.
  */
-describe("mute rule: client = server (384 cases)", () => {
-  const rows = SERVER_MATRIX as [MuteScope[], "direct" | "group" | "project", boolean, boolean, boolean][];
+describe("mute rule: client = server (4608 cases, AVORA-47 · 47.20)", () => {
+  // [muted layers, focus, surface, family, mention, urgent, server blocks] — captured from
+  // private.mute_decide over 6 layers (incl. one conversation) × focus × surface × family × mention × urgent.
+  const rows = SERVER_MATRIX as [
+    MuteScope[],
+    "none" | "quiet" | "disconnect",
+    "direct" | "group" | "project",
+    boolean,
+    boolean,
+    boolean,
+    boolean,
+  ][];
   it("covers every combination", () => {
-    expect(rows).toHaveLength(32 * 3 * 2 * 2);
+    expect(rows).toHaveLength(64 * 3 * 3 * 2 * 2 * 2);
   });
   it("gives the same answer as the server for each", () => {
     const until = new Date(Date.now() + 3_600_000).toISOString();
-    const mismatches = rows.filter(([muted, surface, isFromFamily, mentionsRecipient, serverBlocks]) => {
-      const index = new Map<MuteScope, string>(muted.map((scope) => [scope, until] as const));
-      return shouldBlockNotification(index, { surface, isFromFamily, mentionsRecipient }).blocked !== serverBlocks;
+    const mismatches = rows.filter(([muted, focus, surface, isFromFamily, mentionsRecipient, isUrgent, serverBlocks]) => {
+      const index = new Map<MuteScope, string>(
+        muted.filter((scope) => scope !== "conversation").map((scope) => [scope, until] as const),
+      );
+      const decision = shouldBlockNotification(index, {
+        surface,
+        isFromFamily,
+        mentionsRecipient,
+        isUrgent,
+        conversationMuted: muted.includes("conversation"),
+        focus: focus === "none" ? null : focus,
+      });
+      return decision.blocked !== serverBlocks;
     });
     expect(mismatches).toEqual([]);
   });

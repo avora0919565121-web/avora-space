@@ -384,6 +384,32 @@ export type Database = {
           },
         ]
       }
+      conversation_archives: {
+        Row: {
+          archived_at: string
+          conversation_id: string
+          user_id: string
+        }
+        Insert: {
+          archived_at?: string
+          conversation_id: string
+          user_id: string
+        }
+        Update: {
+          archived_at?: string
+          conversation_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversation_archives_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       conversation_groups: {
         Row: {
           conversation_id: string
@@ -1196,6 +1222,32 @@ export type Database = {
           },
         ]
       }
+      message_deliveries: {
+        Row: {
+          delivered_at: string
+          message_id: string
+          user_id: string
+        }
+        Insert: {
+          delivered_at?: string
+          message_id: string
+          user_id: string
+        }
+        Update: {
+          delivered_at?: string
+          message_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_deliveries_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_pins: {
         Row: {
           conversation_id: string
@@ -1313,6 +1365,7 @@ export type Database = {
           edited_at: string | null
           forward_bundle: Json | null
           id: string
+          is_urgent: boolean
           key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
@@ -1334,6 +1387,7 @@ export type Database = {
           edited_at?: string | null
           forward_bundle?: Json | null
           id?: string
+          is_urgent?: boolean
           key_version?: number | null
           mentioned_user_ids?: string[]
           origin_content_id?: string | null
@@ -1355,6 +1409,7 @@ export type Database = {
           edited_at?: string | null
           forward_bundle?: Json | null
           id?: string
+          is_urgent?: boolean
           key_version?: number | null
           mentioned_user_ids?: string[]
           origin_content_id?: string | null
@@ -1399,24 +1454,35 @@ export type Database = {
       }
       mute_settings: {
         Row: {
+          conversation_id: string | null
           created_at: string
           muted_until: string
           scope: string
           user_id: string
         }
         Insert: {
+          conversation_id?: string | null
           created_at?: string
           muted_until: string
           scope: string
           user_id: string
         }
         Update: {
+          conversation_id?: string | null
           created_at?: string
           muted_until?: string
           scope?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "mute_settings_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       note_attachments: {
         Row: {
@@ -1475,6 +1541,7 @@ export type Database = {
           is_system: boolean
           name: string
           owner_user_id: string
+          parent_id: string | null
           position: number
           system_key: string | null
         }
@@ -1484,6 +1551,7 @@ export type Database = {
           is_system?: boolean
           name: string
           owner_user_id?: string
+          parent_id?: string | null
           position?: number
           system_key?: string | null
         }
@@ -1493,10 +1561,19 @@ export type Database = {
           is_system?: boolean
           name?: string
           owner_user_id?: string
+          parent_id?: string | null
           position?: number
           system_key?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "note_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "note_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       notes: {
         Row: {
@@ -1569,6 +1646,8 @@ export type Database = {
           created_at: string
           daily_thought_category: string
           display_name: string | null
+          focus_mode: string | null
+          focus_until: string | null
           hide_typing_signal: boolean
           id: string
           last_opened_date: string | null
@@ -1590,6 +1669,8 @@ export type Database = {
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
+          focus_mode?: string | null
+          focus_until?: string | null
           hide_typing_signal?: boolean
           id: string
           last_opened_date?: string | null
@@ -1611,6 +1692,8 @@ export type Database = {
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
+          focus_mode?: string | null
+          focus_until?: string | null
           hide_typing_signal?: boolean
           id?: string
           last_opened_date?: string | null
@@ -3548,6 +3631,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      add_group_members: {
+        Args: { p_conversation_id: string; p_user_ids: string[] }
+        Returns: number
+      }
       add_project_success_criterion: {
         Args: {
           p_description: string
@@ -5069,6 +5156,7 @@ export type Database = {
           edited_at: string | null
           forward_bundle: Json | null
           id: string
+          is_urgent: boolean
           key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
@@ -5236,6 +5324,7 @@ export type Database = {
           is_system: boolean
           name: string
           owner_user_id: string
+          parent_id: string | null
           position: number
           system_key: string | null
         }
@@ -5586,6 +5675,10 @@ export type Database = {
         Args: { p_conversation_id: string }
         Returns: string
       }
+      mark_messages_delivered: {
+        Args: { p_message_ids: string[] }
+        Returns: number
+      }
       mark_shared_task_done: {
         Args: { p_task_id: string }
         Returns: {
@@ -5698,6 +5791,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      mark_unread_from: { Args: { p_message_id: string }; Returns: string }
       message_edit_window: { Args: never; Returns: string }
       message_pin_limit: { Args: never; Returns: number }
       move_think_hub_record: {
@@ -5875,6 +5969,7 @@ export type Database = {
           edited_at: string | null
           forward_bundle: Json | null
           id: string
+          is_urgent: boolean
           key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
@@ -6816,6 +6911,7 @@ export type Database = {
           edited_at: string | null
           forward_bundle: Json | null
           id: string
+          is_urgent: boolean
           key_version: number | null
           mentioned_user_ids: string[]
           origin_content_id: string | null
@@ -6835,6 +6931,10 @@ export type Database = {
         }
       }
       send_scheduled_message_now: { Args: { p_id: string }; Returns: string }
+      set_conversation_mute: {
+        Args: { p_conversation_id: string; p_until: string }
+        Returns: string
+      }
       set_group_admin: {
         Args: {
           make_admin: boolean
@@ -7511,6 +7611,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      urgent_status: { Args: { p_conversation_id: string }; Returns: Json }
       vault_change_code: {
         Args: { p_new: string; p_old: string }
         Returns: Json

@@ -187,10 +187,11 @@ export async function deleteUserTemplate(id: string): Promise<void> {
 export type Drawer = "personal" | "direct" | "group" | "project";
 
 export const DRAWERS: readonly { id: Drawer; label: string }[] = [
-  { id: "personal", label: "Của tôi" },
-  { id: "direct", label: "1-1" },
-  { id: "group", label: "Nhóm" },
-  { id: "project", label: "Dự án" },
+  // AVORA-52 · E: one way to name the four shelves everywhere in AVORA.
+  { id: "personal", label: "Bảng của tôi" },
+  { id: "direct", label: "Bảng 1-1" },
+  { id: "group", label: "Bảng nhóm" },
+  { id: "project", label: "Bảng dự án" },
 ];
 
 export function drawerLabel(drawer: Drawer): string {

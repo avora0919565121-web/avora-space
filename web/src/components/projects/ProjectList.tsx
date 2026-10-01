@@ -155,10 +155,9 @@ function TableNode({
 /**
  * The Dự án tab.
  *
- * Two sections. "Bảng của tôi" is the person's thinking, read in the three Connect Hub layers
- * (Cá nhân / 1-1 / Nhóm) as a folded tree that opens in place. "Nhóm" lists real projects,
- * which only ever live in a group (ADR-002). The old "Cá nhân" and "1-1" project sections are
- * gone: they could only ever be empty.
+ * AVORA-52 · E, Kết nối first: "Trò chuyện dự án" lists each project's chat (projects only ever
+ * live in a group, ADR-002), then "Danh sách Bảng" holds the four shelves named as everywhere
+ * else in AVORA: Bảng của tôi · Bảng 1-1 · Bảng nhóm · Bảng dự án.
  */
 export function ProjectList({
   projects,
@@ -197,6 +196,12 @@ export function ProjectList({
     [allTables, user?.id, conversationById],
   );
   const mineCount = layers.personal.length + layers.direct.length + layers.group.length;
+  /** Bảng dự án: the root tables of projects the viewer can see (RLS already narrowed them). */
+  const projectTables = useMemo(
+    () => allTables.filter((table) => table.projectId !== null && table.parentRecordId === null),
+    [allTables],
+  );
+  const projectTitleById = useMemo(() => new Map(projects.map((project) => [project.id, project.title] as const)), [projects]);
   const [peeking, setPeeking] = useState<ThinkTable | null>(null);
   const peekConversation =
     peeking?.conversationId == null ? undefined : conversationById.get(peeking.conversationId);
@@ -243,71 +248,11 @@ export function ProjectList({
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Dự án</h2>
       </div>
       <section className="mt-1">
-        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Bảng của tôi" count={mineCount} />
-        {tablesOpen ? (
-          tablesQuery.isError ? (
-            // AVORA-49 · 1.8: a failed load says so; it never passes for an empty list.
-            <p className="flex items-center gap-2 px-9 pb-3 text-[12.5px] text-muted-foreground">
-              Không tải được
-              <button type="button" onClick={() => void tablesQuery.refetch()} className="press rounded-md border border-border px-2 py-0.5 font-medium text-foreground hover:bg-accent/40">
-                Thử lại
-              </button>
-            </p>
-          ) : mineCount === 0 ? (
-            <p className={cn(TYPE.blockDescription, "px-9 pb-3 text-[12.5px]")}>
-              Chưa có bảng nào. Mở Kế hoạch để dựng bảng đầu tiên.
-            </p>
-          ) : (
-            // The same three layers Connect Hub is read in everywhere: Cá nhân, 1-1, Nhóm.
-            <div className="space-y-1 pb-1">
-              {TABLE_LAYERS.map((layer) => {
-                const list = layers[layer.id];
-                return (
-                  <div key={layer.id} role="group" aria-label={`Bảng ${layer.label}`}>
-                    <p className="flex items-center gap-2 px-9 pb-0.5 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                      {layer.label}
-                      <span className="tabular font-medium normal-case tracking-normal text-muted-foreground/80">{list.length}</span>
-                    </p>
-                    {list.length === 0 ? (
-                      <p className={cn(TYPE.meta, "px-9 pb-1.5")}>{layer.empty}</p>
-                    ) : (
-                      <ul>
-                        {list.map((table) => {
-                          const conversation = table.conversationId === null ? undefined : conversationById.get(table.conversationId);
-                          return (
-                            <TableNode
-                              key={table.id}
-                              table={table}
-                              tables={allTables}
-                              records={records}
-                              subtitle={
-                                conversation === undefined
-                                  ? "Chỉ mình bạn"
-                                  : conversation.kind === "group"
-                                    ? conversationTitle(conversation)
-                                    : `1-1 với ${conversationTitle(conversation)}`
-                              }
-                              level={1}
-                              onPeek={setPeeking}
-                            />
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )
-        ) : null}
-      </section>
-
-      <section className="mt-1">
         <BranchHeader
           open={groupsOpen}
           onToggle={() => toggle("groups")}
-          emoji="👨‍👩‍👧‍👦"
-          label="Nhóm"
+          emoji="💬"
+          label="Trò chuyện dự án"
           count={groupProjects.length}
         />
         {groupsOpen ? (
@@ -341,10 +286,19 @@ export function ProjectList({
                           ) : null}
                         </span>
                         <span className="block truncate text-[12.5px] text-muted-foreground">
-                          {conversation ? conversationTitle(conversation) : "Nhóm"}
+                          {conversation?.lastMessageContent ?? (conversation ? conversationTitle(conversation) : "Nhóm")}
                         </span>
                       </span>
-                      <FolderKanban className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
+                      {conversation !== undefined && conversation.unreadCount > 0 ? (
+                        <span
+                          aria-label={`${conversation.unreadCount} tin nhắn chưa đọc`}
+                          className="tabular inline-flex h-5 min-w-[20px] shrink-0 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold leading-none text-primary-foreground"
+                        >
+                          {conversation.unreadCount > 99 ? "99+" : conversation.unreadCount}
+                        </span>
+                      ) : (
+                        <FolderKanban className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
+                      )}
                     </Link>
                   </li>
                 );
@@ -353,6 +307,90 @@ export function ProjectList({
           )
         ) : null}
       </section>
+
+      <section className="mt-1">
+        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Danh sách Bảng" count={mineCount + projectTables.length} />
+        {tablesOpen ? (
+          tablesQuery.isError ? (
+            // AVORA-49 · 1.8: a failed load says so; it never passes for an empty list.
+            <p className="flex items-center gap-2 px-9 pb-3 text-[12.5px] text-muted-foreground">
+              Không tải được
+              <button type="button" onClick={() => void tablesQuery.refetch()} className="press rounded-md border border-border px-2 py-0.5 font-medium text-foreground hover:bg-accent/40">
+                Thử lại
+              </button>
+            </p>
+          ) : mineCount + projectTables.length === 0 ? (
+            <p className={cn(TYPE.blockDescription, "px-9 pb-3 text-[12.5px]")}>
+              Chưa có bảng nào. Mở Kế hoạch để dựng bảng đầu tiên.
+            </p>
+          ) : (
+            // AVORA-52 · E: the four shelves, named the same way as in Kế hoạch.
+            <div className="space-y-1 pb-1">
+              {TABLE_LAYERS.map((layer) => {
+                const list = layers[layer.id];
+                return (
+                  <div key={layer.id} role="group" aria-label={layer.label}>
+                    <p className="flex items-center gap-2 px-9 pb-0.5 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                      {layer.label}
+                      <span className="tabular font-medium normal-case tracking-normal text-muted-foreground/80">{list.length}</span>
+                    </p>
+                    {list.length === 0 ? (
+                      <p className={cn(TYPE.meta, "px-9 pb-1.5")}>{layer.empty}</p>
+                    ) : (
+                      <ul>
+                        {list.map((table) => {
+                          const conversation = table.conversationId === null ? undefined : conversationById.get(table.conversationId);
+                          return (
+                            <TableNode
+                              key={table.id}
+                              table={table}
+                              tables={allTables}
+                              records={records}
+                              subtitle={
+                                conversation === undefined
+                                  ? "Chỉ mình bạn"
+                                  : conversation.kind === "group"
+                                    ? conversationTitle(conversation)
+                                    : `1-1 với ${conversationTitle(conversation)}`
+                              }
+                              level={1}
+                              onPeek={setPeeking}
+                            />
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                );
+              })}
+              <div role="group" aria-label="Bảng dự án">
+                <p className="flex items-center gap-2 px-9 pb-0.5 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
+                  Bảng dự án
+                  <span className="tabular font-medium normal-case tracking-normal text-muted-foreground/80">{projectTables.length}</span>
+                </p>
+                {projectTables.length === 0 ? (
+                  <p className={cn(TYPE.meta, "px-9 pb-1.5")}>Chưa có bảng nào trong dự án.</p>
+                ) : (
+                  <ul>
+                    {projectTables.map((table) => (
+                      <TableNode
+                        key={table.id}
+                        table={table}
+                        tables={allTables}
+                        records={records}
+                        subtitle={projectTitleById.get(table.projectId ?? "") ?? "Dự án"}
+                        level={1}
+                        onPeek={setPeeking}
+                      />
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+          )
+        ) : null}
+      </section>
+
       {deleted.length > 0 ? (
         <section className="mt-1">
           <BranchHeader open={trashOpen} onToggle={() => toggle("trash")} emoji="🗑️" label="Dự án đã xoá" count={deleted.length} />

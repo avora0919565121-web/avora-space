@@ -108,16 +108,22 @@ export function useThreadReactions(
       queryClient.setQueryData<MessageReaction[]>(queryKey, next);
       return { previous };
     },
-    onError: (error: Error, _variables, context) => {
+    onError: (error: Error, variables, context) => {
       logError("reactions", error);
-      toast.error("Không lưu được cảm xúc, thử lại nhé.");
+      // AVORA-47 · H: take the chip back off, then offer the same press again.
       const previous = (context as { previous?: MessageReaction[] } | undefined)?.previous;
       if (previous !== undefined) queryClient.setQueryData<MessageReaction[]>(queryKey, previous);
+      toast.error("Chưa lưu được cảm xúc", {
+        action: { label: "Thử lại", onClick: () => retryRef.current?.(variables) },
+      });
     },
     onSettled: () => {
       void queryClient.invalidateQueries({ queryKey: reactionKeys.all });
     },
   });
+
+  const retryRef = useRef<((variables: { messageId: string; emoji: string; remove: boolean }) => void) | null>(null);
+  retryRef.current = (variables) => mutation.mutate(variables);
 
   /** Pressing your own reaction again takes it back; pressing a new one adds it. */
   const toggle = useCallback(

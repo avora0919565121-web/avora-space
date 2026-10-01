@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 // The pure module, not "@/lib/chat": the composer needs no Supabase client to decide
 // whether a draft can leave, which also keeps it renderable in isolation under test.
 import { canSendDraft } from "@/lib/chat-cache";
@@ -57,6 +58,11 @@ export type MessageComposerProps = {
    * when omitted: a fine pointer with hover means a keyboard; a phone keeps Enter as a new line.
    */
   enterToSend?: boolean;
+  /**
+   * AVORA-47 · D: holding (or right-clicking) the send button offers `Gửi khẩn`. `blockedNote`
+   * explains why it is greyed out today; the server checks the same rule on send.
+   */
+  urgent?: { blockedNote: string | null; onSendUrgent: (content: string) => void };
 };
 
 const KEYBOARD_QUERY = "(hover: hover) and (pointer: fine)";
@@ -97,7 +103,11 @@ export function MessageComposer({
   attachmentSlot,
   onStartRecording,
   enterToSend,
+  urgent,
 }: MessageComposerProps) {
+  const [isUrgentMenuOpen, setIsUrgentMenuOpen] = useState<boolean>(false);
+  const holdTimerRef = useRef<number | null>(null);
+  const heldRef = useRef<boolean>(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
   const hasKeyboard = useHasKeyboard();
   const sendsOnEnter = enterToSend ?? hasKeyboard;
@@ -306,7 +316,7 @@ export function MessageComposer({
           >
             <Mic className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
-        ) : (
+        ) : urgent === undefined ? (
           <button
             type="submit"
             disabled={!canSend}
@@ -316,6 +326,68 @@ export function MessageComposer({
           >
             <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
           </button>
+        ) : (
+          <DropdownMenu open={isUrgentMenuOpen} onOpenChange={setIsUrgentMenuOpen} modal={false}>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="submit"
+                disabled={!canSend}
+                aria-label="Gửi · giữ để gửi khẩn"
+                title={sendsOnEnter ? "Gửi (Enter) · chuột phải để gửi khẩn" : "Gửi · giữ để gửi khẩn"}
+                // The trigger opens only on hold / right-click; a tap still submits the form.
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  heldRef.current = false;
+                  holdTimerRef.current = window.setTimeout(() => {
+                    heldRef.current = true;
+                    if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(12);
+                    setIsUrgentMenuOpen(true);
+                  }, 500);
+                }}
+                onPointerUp={() => {
+                  if (holdTimerRef.current !== null) window.clearTimeout(holdTimerRef.current);
+                  holdTimerRef.current = null;
+                }}
+                onPointerLeave={() => {
+                  if (holdTimerRef.current !== null) window.clearTimeout(holdTimerRef.current);
+                  holdTimerRef.current = null;
+                }}
+                onClick={(event) => {
+                  if (heldRef.current) {
+                    event.preventDefault();
+                    heldRef.current = false;
+                  }
+                }}
+                onContextMenu={(event) => {
+                  event.preventDefault();
+                  if (canSend) setIsUrgentMenuOpen(true);
+                }}
+                onKeyDown={(event) => {
+                  // Keyboard users: Enter/Space submit as usual; the menu never steals them.
+                  if (event.key === "Enter" || event.key === " ") event.stopPropagation();
+                }}
+                className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-64">
+              <DropdownMenuItem
+                disabled={urgent.blockedNote !== null || !canSend}
+                onSelect={() => {
+                  if (!canSendDraft(value, isSending, attachmentCount)) return;
+                  urgent.onSendUrgent(value.trim());
+                }}
+                className="min-h-11 gap-2 font-medium text-destructive"
+              >
+                <span className="rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold">Khẩn</span>
+                Gửi khẩn
+              </DropdownMenuItem>
+              <DropdownMenuLabel className="text-[11.5px] font-normal leading-snug text-muted-foreground">
+                {urgent.blockedNote ?? "Vẫn báo cả khi người nhận đang tập trung hoặc tắt cuộc này. Mỗi cuộc 1 lần/ngày."}
+              </DropdownMenuLabel>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </form>
     </>

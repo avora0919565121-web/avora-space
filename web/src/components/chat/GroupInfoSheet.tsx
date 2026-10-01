@@ -3,6 +3,9 @@ import {
   Ban,
   Bell,
   ChevronRight,
+  MoreHorizontal,
+  NotebookText,
+  UserPlus,
   Copy,
   Crown,
   GitBranchPlus,
@@ -21,8 +24,11 @@ import {
   X,
 } from "lucide-react";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
-import { Link } from "react-router-dom";
 import { toast } from "sonner";
+
+import { AddMembersSheet } from "@/components/chat/AddMembersSheet";
+import { ConversationNotifySheet } from "@/components/chat/ConversationNotifySheet";
+import { shortUntil, useRhythm } from "@/lib/use-rhythm";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { FamilyFlagCard } from "@/components/chat/FamilyFlagCard";
@@ -130,20 +136,33 @@ type GroupInfoSheetProps = {
   moreSections?: ReactNode;
   /** Nhật ký uses the same frame (44b · C): its own name, and only the rows it has. */
   kind?: "personal" | "direct" | "group";
+  /** ③ Nhật ký trò chuyện (AVORA-52 · B): opens over `⋯`; the page owns it (it needs the thread). */
+  onOpenDiary?: () => void;
 };
 
-/** ② Thông báo (AVORA-49 · 4.1): a place kept for per-thread settings (AVORA-47); today it opens Cài đặt › Thông báo. */
-function NotifyRow() {
+/** One `⋯` row that opens a panel over it (AVORA-52 · C). */
+function PanelRow({
+  icon,
+  label,
+  note,
+  onClick,
+}: {
+  icon: ReactNode;
+  label: string;
+  note?: string | null;
+  onClick: () => void;
+}) {
   return (
-    <Link
-      to="/cai-dat/thong-bao"
-      className="press mx-3 mb-3 flex min-h-11 items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/40"
+    <button
+      type="button"
+      onClick={onClick}
+      className="press mx-3 mb-1 flex min-h-11 w-[calc(100%-1.5rem)] items-center gap-2.5 rounded-md px-3 py-2 text-left transition-colors hover:bg-accent/40"
     >
-      <Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-      <span className="min-w-0 flex-1 text-[14px] text-foreground">Thông báo</span>
-      <span className="text-[12.5px] text-muted-foreground">Cài đặt</span>
+      {icon}
+      <span className="min-w-0 flex-1 text-[14px] text-foreground">{label}</span>
+      {note ? <span className="truncate text-[12.5px] text-muted-foreground">{note}</span> : null}
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-    </Link>
+    </button>
   );
 }
 
@@ -168,10 +187,18 @@ export function GroupInfoSheet({
   onLeft,
   moreSections = null,
   kind,
+  onOpenDiary,
 }: GroupInfoSheetProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId: string | undefined = user?.id;
+  const rhythm = useRhythm();
+  const mutedUntil = rhythm.conversationMutes.get(conversationId) ?? null;
+  /** AVORA-52 · C: which panel is open over `⋯` (it stays open underneath). */
+  const [panel, setPanel] = useState<"notify" | "add-members" | null>(null);
+  useEffect(() => {
+    if (!open) setPanel(null);
+  }, [open]);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [search, setSearch] = useState("");
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
@@ -600,7 +627,23 @@ export function GroupInfoSheet({
               </div>
 
               <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
-                <div className="-mx-3"><NotifyRow /></div>
+                <div className="-mx-3">
+                  {/* ② Thông báo ③ Nhật ký trò chuyện — both open over `⋯` (AVORA-52 · C). */}
+                  <PanelRow
+                    icon={<Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
+                    label="Thông báo"
+                    note={mutedUntil !== null ? `Đã tắt tới ${shortUntil(mutedUntil)}` : null}
+                    onClick={() => setPanel("notify")}
+                  />
+                  {onOpenDiary !== undefined ? (
+                    <PanelRow
+                      icon={<NotebookText className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
+                      label="Nhật ký trò chuyện"
+                      onClick={onOpenDiary}
+                    />
+                  ) : null}
+                  <div className="mb-3" />
+                </div>
                 {canSeeRemovalRequests(myRole as GroupRole) && (requestsQuery.data ?? []).length > 0 ? (
                   <section className="mb-5 px-3" aria-label="Đề nghị xoá đang chờ duyệt">
                     <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
@@ -779,6 +822,15 @@ export function GroupInfoSheet({
                   <h3 className="px-3 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                     Thành viên <span className="tabular font-medium normal-case">({members.length})</span>
                   </h3>
+                  {myRole === "owner" || myRole === "admin" ? (
+                    <button
+                      type="button"
+                      onClick={() => setPanel("add-members")}
+                      className="press mx-3 mt-2 flex min-h-11 w-[calc(100%-1.5rem)] items-center gap-2 rounded-md border border-dashed border-border px-3 text-[14px] font-medium text-primary hover:bg-primary/5"
+                    >
+                      <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Thêm thành viên
+                    </button>
+                  ) : null}
                   {showSearch ? (
                     <div className="relative mx-3 mt-2">
                       <Search
@@ -841,93 +893,78 @@ export function GroupInfoSheet({
                                   {memberName(member)}
                                   {isSelf ? <span className="text-muted-foreground"> (bạn)</span> : null}
                                 </span>
-                                <span
-                                  className={cn(
-                                    "shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none",
-                                    roleBadgeClasses[member.role],
-                                  )}
-                                >
-                                  {roleLabel(member.role)}
-                                </span>
+                                {member.role !== "member" ? (
+                                  <span
+                                    className={cn(
+                                      "shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none",
+                                      roleBadgeClasses[member.role],
+                                    )}
+                                  >
+                                    {member.role === "owner" ? "Chủ nhóm" : "Quản trị"}
+                                  </span>
+                                ) : null}
                               </p>
                             </div>
-                            <div className="flex shrink-0 items-center gap-1.5">
-                              {actions.includes("requestRemove") ? (
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  onClick={() => setConfirmAction({ member, kind: "requestRemove" })}
-                                  className="press rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-45"
-                                >
-                                  Đề nghị xoá
-                                </button>
-                              ) : null}
-                              {actions.includes("remove") ? (
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  aria-label={`Xoá ${memberName(member)} khỏi nhóm`}
-                                  onClick={() => setConfirmAction({ member, kind: "remove" })}
-                                  className="press inline-flex items-center gap-1 rounded-md border border-destructive/30 px-2.5 py-1.5 text-[12.5px] font-medium text-destructive transition-colors hover:bg-destructive/10 disabled:opacity-45"
-                                >
-                                  <Trash2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                  Xoá
-                                </button>
-                              ) : null}
-                              {actions.includes("makeAdmin") ? (
-                                <button
-                                  type="button"
-                                  disabled={isBusy || !adminSeatFree}
-                                  title={
-                                    adminSeatFree || !currentAdmin
-                                      ? undefined
-                                      : adminSeatTakenMessage(memberName(currentAdmin))
-                                  }
-                                  aria-label={`Bổ nhiệm ${memberName(member)} làm quản trị viên`}
-                                  onClick={() => setConfirmAction({ member, kind: "makeAdmin" })}
-                                  className="press inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-45"
-                                >
-                                  <ShieldCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                  Làm quản trị
-                                </button>
-                              ) : null}
-                              {actions.includes("revokeAdmin") ? (
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  aria-label={`Thu hồi quyền quản trị của ${memberName(member)}`}
-                                  onClick={() => setConfirmAction({ member, kind: "revokeAdmin" })}
-                                  className="press inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:opacity-45"
-                                >
-                                  <ShieldMinus className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                  Thu hồi quyền
-                                </button>
-                              ) : null}
-                              {actions.includes("transferOwnership") ? (
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  aria-label={`Chuyển quyền chủ nhóm cho ${memberName(member)}`}
-                                  onClick={() => setConfirmAction({ member, kind: "transferOwnership" })}
-                                  className="press inline-flex items-center gap-1 rounded-md border border-primary/40 px-2.5 py-1.5 text-[12.5px] font-medium text-primary transition-colors hover:bg-primary/10 disabled:opacity-45"
-                                >
-                                  <Crown className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                  Chuyển quyền
-                                </button>
-                              ) : null}
-                              {actions.includes("directMessage") ? (
-                                <button
-                                  type="button"
-                                  disabled={isBusy}
-                                  aria-label={`Nhắn riêng với ${memberName(member)}`}
-                                  onClick={() => dmMutation.mutate(member.userId)}
-                                  className="press inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-45"
-                                >
-                                  <MessageCircle className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                  Nhắn riêng
-                                </button>
-                              ) : null}
-                            </div>
+                            {/* AVORA-52 · D: one ⋯ per member — no row of buttons to overflow at 360px. */}
+                            {actions.length > 0 ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    aria-label={`Tuỳ chọn cho ${memberName(member)}`}
+                                    className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:opacity-45"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                  {actions.includes("directMessage") ? (
+                                    <DropdownMenuItem onSelect={() => dmMutation.mutate(member.userId)} className="min-h-10 gap-2">
+                                      <MessageCircle className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Nhắn riêng
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("makeAdmin") ? (
+                                    <DropdownMenuItem
+                                      disabled={!adminSeatFree}
+                                      onSelect={() => setConfirmAction({ member, kind: "makeAdmin" })}
+                                      className="min-h-10 gap-2"
+                                    >
+                                      <ShieldCheck className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                                      <span className="min-w-0">
+                                        <span className="block">Làm quản trị</span>
+                                        {!adminSeatFree && currentAdmin ? (
+                                          <span className="block text-[11.5px] text-muted-foreground">{adminSeatTakenMessage(memberName(currentAdmin))}</span>
+                                        ) : null}
+                                      </span>
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("revokeAdmin") ? (
+                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "revokeAdmin" })} className="min-h-10 gap-2">
+                                      <ShieldMinus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Bỏ quản trị
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("transferOwnership") ? (
+                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "transferOwnership" })} className="min-h-10 gap-2">
+                                      <Crown className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Chuyển quyền chủ nhóm
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("requestRemove") ? (
+                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "requestRemove" })} className="min-h-10 gap-2">
+                                      <ShieldQuestion className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Đề nghị xoá
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("remove") ? (
+                                    <DropdownMenuItem
+                                      onSelect={() => setConfirmAction({ member, kind: "remove" })}
+                                      className="min-h-10 gap-2 text-destructive focus:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Xoá khỏi nhóm
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : null}
                           </li>
                         );
                       })}
@@ -1005,7 +1042,20 @@ export function GroupInfoSheet({
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
-                <NotifyRow />
+                <PanelRow
+                  icon={<Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
+                  label="Thông báo"
+                  note={mutedUntil !== null ? `Đã tắt tới ${shortUntil(mutedUntil)}` : null}
+                  onClick={() => setPanel("notify")}
+                />
+                {onOpenDiary !== undefined ? (
+                  <PanelRow
+                    icon={<NotebookText className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
+                    label="Nhật ký trò chuyện"
+                    onClick={onOpenDiary}
+                  />
+                ) : null}
+                <div className="mb-3" />
                 {/* Only in a 1-1: family is a relationship between two people, not a room. */}
                 {peerId ? <FamilyFlagCard peerId={peerId} peerName={peerName ?? "người này"} /> : null}
                 {moreSections !== null ? <div className="mt-2 border-t border-border pt-4">{moreSections}</div> : null}
@@ -1013,6 +1063,36 @@ export function GroupInfoSheet({
             </div>
           )}
         </SheetContent>
+        {kind !== "personal" ? (
+          <ConversationNotifySheet
+            open={open && panel === "notify"}
+            conversationId={conversationId}
+            title={isGroup ? (groupName ?? "Nhóm") : (peerName ?? "cuộc này")}
+            stacked={{
+              backLabel: isGroup ? (groupName ?? "Nhóm") : (peerName ?? "Quay lại"),
+              onBack: () => setPanel(null),
+              onCloseAll: () => {
+                setPanel(null);
+                onOpenChange(false);
+              },
+            }}
+          />
+        ) : null}
+        {isGroup ? (
+          <AddMembersSheet
+            open={open && panel === "add-members"}
+            conversationId={conversationId}
+            memberIds={members.map((member) => member.userId)}
+            stacked={{
+              backLabel: groupName ?? "Nhóm",
+              onBack: () => setPanel(null),
+              onCloseAll: () => {
+                setPanel(null);
+                onOpenChange(false);
+              },
+            }}
+          />
+        ) : null}
         <SubGroupDialog
         open={isSubGroupOpen}
         onOpenChange={setIsSubGroupOpen}

@@ -2,7 +2,12 @@ import { logError } from "@/lib/log";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   ArrowDown,
+  Archive,
+  BellOff,
+  ChevronRight,
+  Moon,
   Check,
+  CheckCheck,
   Clock3,
   CalendarClock,
   ClipboardPaste,
@@ -43,6 +48,11 @@ import { Link, useLocation, useNavigate, useParams, useSearchParams } from "reac
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { ConversationRowActions } from "@/components/chat/ConversationRowActions";
+import { ConversationDiarySheet } from "@/components/chat/ConversationDiarySheet";
+import { INFO_OPEN_PARAM } from "@/components/chat/ConversationNotifySheet";
+import { FocusModeSheet } from "@/components/chat/FocusModeSheet";
+import { isArchivedNow, shortUntil, useRhythm } from "@/lib/use-rhythm";
 import { ComingSoon } from "@/components/ComingSoon";
 import { NewChatDialog } from "@/components/NewChatDialog";
 import { ResizeHandle } from "@/components/ResizeHandle";
@@ -195,6 +205,9 @@ import {
   lastOutgoingId,
   ORIGIN_GROUP_PARAM,
   markConversationRead,
+  markUnreadFrom,
+  fetchDeliveries,
+  fetchUrgentStatus,
   matchesConversationQuery,
   messageBodyText,
   MESSAGE_TABS,
@@ -228,6 +241,7 @@ import {
 } from "@/lib/task-context";
 import { projectLink } from "@/lib/projects";
 import { hereFrom, readReturn, withReturn } from "@/lib/return-to";
+import { taskLink } from "@/lib/task-scope";
 import { TaskContextStrip } from "@/components/chat/TaskContextStrip";
 import { placeSilentSkipNotices, silentSkipNotices, silentSkipNote, TASK_DESCRIPTION_MAX_LEN, todayIso } from "@/lib/tasks";
 import { silentlySkippedInConversation } from "@/lib/task-suggestions";
@@ -308,6 +322,8 @@ const Messages = () => {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<boolean>(false);
   const [isGroupTasksOpen, setIsGroupTasksOpen] = useState<boolean>(false);
   const [isDecisionsOpen, setIsDecisionsOpen] = useState<boolean>(false);
+  /** AVORA-52 · B: Nhật ký trò chuyện, opened over `⋯`. */
+  const [isConversationDiaryOpen, setIsConversationDiaryOpen] = useState<boolean>(false);
   const [isScheduleCallOpen, setIsScheduleCallOpen] = useState<boolean>(false);
   /** AVORA-49 · 2.1: which chip of the thread's chip row is open (nothing opens on its own). */
   const [openChip, setOpenChip] = useState<ThreadChipId | null>(null);
@@ -407,10 +423,19 @@ const Messages = () => {
 
   /** Any draft changing re-reads the list rows' "✎ Nháp" lines (A8). */
   const draftsVersion: number = useDraftsVersion();
-  const visibleConversations: ConversationSummary[] = useMemo(
-    () => tabConversations.filter((item) => matchesConversationQuery(item, query)),
-    [tabConversations, query],
+  const rhythm = useRhythm();
+  const [isArchiveOpen, setIsArchiveOpen] = useState<boolean>(false);
+  /** AVORA-47 · F: archived threads leave the list until a newer message brings them back. */
+  const archivedInTab: ConversationSummary[] = useMemo(
+    () => tabConversations.filter((item) => isArchivedNow(item, rhythm.archives.get(item.conversationId))),
+    [tabConversations, rhythm.archives],
   );
+  const visibleConversations: ConversationSummary[] = useMemo(() => {
+    const source = isArchiveOpen
+      ? archivedInTab
+      : tabConversations.filter((item) => !isArchivedNow(item, rhythm.archives.get(item.conversationId)));
+    return source.filter((item) => matchesConversationQuery(item, query));
+  }, [tabConversations, archivedInTab, isArchiveOpen, rhythm.archives, query]);
 
   const activeSummary: ConversationSummary | undefined = useMemo(
     () => conversations.find((item) => item.conversationId === conversationId),
@@ -486,6 +511,21 @@ const Messages = () => {
 
   const activeKind: ConversationKind = activeSummary?.kind ?? "direct";
   const threadTitle: string = activeSummary ? conversationTitle(activeSummary) : peerName;
+  /**
+   * AVORA-52 · C: a panel opened from `⋯` sits over it. `‹ {tên cuộc}` closes only the panel (⋯ is
+   * still there, at its scroll); `✕` closes both and leaves the conversation on screen.
+   */
+  const stackedFromInfo = (closePanel: () => void) =>
+    isInfoOpen
+      ? {
+          backLabel: threadTitle,
+          onBack: closePanel,
+          onCloseAll: () => {
+            closePanel();
+            setIsInfoOpen(false);
+          },
+        }
+      : undefined;
   const threadSubtitle: string = activeSummary
     ? conversationSubtitle(activeSummary)
     : "Người dùng AVORA";
@@ -591,6 +631,19 @@ const Messages = () => {
     () => (userId ? lastOutgoingId(messages, userId) : null),
     [messages, userId],
   );
+
+  // Đã nhận (AVORA-47 · E, ADR-028): only in a 1-1, only for my newest line. Never "Đã xem".
+  const lastOwnIsSent = lastOwnMessageId !== null && !lastOwnMessageId.startsWith("pending-") && !lastOwnMessageId.startsWith("failed-");
+  const deliveryQuery = useQuery<Map<string, string>, Error>({
+    queryKey: ["chat", "delivery", lastOwnMessageId ?? ""],
+    queryFn: () => fetchDeliveries(lastOwnMessageId ? [lastOwnMessageId] : []),
+    enabled: lastOwnIsSent && activeSummary?.kind === "direct",
+    // Until the other device says it arrived, look again now and then; afterwards it never changes.
+    refetchInterval: (query) => ((query.state.data?.size ?? 0) > 0 ? false : 15_000),
+    staleTime: 10_000,
+  });
+  const deliveredAt: string | null =
+    lastOwnMessageId !== null ? (deliveryQuery.data?.get(lastOwnMessageId) ?? null) : null;
 
   const newestMessage: ChatMessage | null = messages.length > 0 ? messages[messages.length - 1] : null;
 
@@ -1482,6 +1535,13 @@ const Messages = () => {
   }, [conversationId, isTabVisible, setReadingConversation]);
 
   const markedRef = useRef<Record<string, string>>({});
+  // Leaving a thread forgets what was marked there, so coming back after `Xem sau` reads it again.
+  useEffect(() => {
+    const leaving = conversationId;
+    return () => {
+      if (leaving) delete markedRef.current[leaving];
+    };
+  }, [conversationId]);
 
   const { mutate: markRead } = useMutation({
     mutationFn: (id: string) => markConversationRead(id),
@@ -1494,6 +1554,32 @@ const Messages = () => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
     },
   });
+
+  /**
+   * Xem sau (AVORA-47 · A): my read mark goes back to just before this line. The thread shows
+   * unread again and opens on the `Tin chưa đọc` divider; the sender is never told.
+   */
+  const readLater = useCallback(
+    async (threadId: string, messageId: string): Promise<void> => {
+      try {
+        await markUnreadFrom(messageId);
+        void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+        toast("Đã để xem sau", {
+          action: {
+            label: "Hoàn tác",
+            onClick: () => {
+              void markConversationRead(threadId)
+                .then(() => queryClient.invalidateQueries({ queryKey: chatKeys.conversations }))
+                .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không hoàn tác được."));
+            },
+          },
+        });
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Chưa để xem sau được.");
+      }
+    },
+    [queryClient],
+  );
 
   /**
    * Newest stored message from the peer — the only kind that can ever be unread.
@@ -1531,6 +1617,8 @@ const Messages = () => {
     replyToMessageId: string | null;
     files: StagedAttachment[];
     retryOf: string | null;
+    /** AVORA-47 · D: words only; the server enforces the daily limit and the 7-day lock. */
+    isUrgent?: boolean;
   };
 
   const sendMutation = useMutation({
@@ -1550,7 +1638,10 @@ const Messages = () => {
           payload.replyToMessageId,
           mentioned,
           originGroupId,
+          null,
+          payload.isUrgent === true,
         );
+        if (payload.isUrgent === true) void queryClient.invalidateQueries({ queryKey: ["chat", "urgent", payload.conversationId] });
         return;
       }
 
@@ -1596,6 +1687,7 @@ const Messages = () => {
         replyToMessageId: payload.replyToMessageId,
         // Keeps a caption-less photo from rendering as an empty bubble while it uploads.
         attachmentCount: payload.files.length,
+        isUrgent: payload.isUrgent === true,
         pending: true,
       };
       queryClient.setQueryData<ChatMessage[]>(key, [...(previous ?? []), optimistic]);
@@ -1700,6 +1792,41 @@ const Messages = () => {
     [sendMutation, clearTyping, staged, conversationId, replyTarget, setDraft],
   );
 
+  // Cờ Khẩn (AVORA-47 · D): whether today's one urgent line is still open here.
+  const urgentQuery = useQuery({
+    queryKey: ["chat", "urgent", conversationId ?? ""],
+    queryFn: () => fetchUrgentStatus(conversationId ?? ""),
+    enabled: Boolean(conversationId) && activeSummary !== undefined && activeSummary.kind !== "personal",
+    staleTime: 60_000,
+  });
+  const urgentBlockedNote: string | null =
+    urgentQuery.data?.lockedUntil != null
+      ? `Gửi khẩn mở lại vào ${new Date(urgentQuery.data.lockedUntil).toLocaleDateString("vi-VN", { day: "2-digit", month: "2-digit" })}`
+      : urgentQuery.data?.usedToday === true
+        ? "Hôm nay bạn đã gửi khẩn trong cuộc này"
+        : staged.length > 0
+          ? "Gửi khẩn chỉ gửi được chữ"
+          : null;
+
+  const handleSendUrgent = useCallback(
+    (content: string): void => {
+      if (content.length === 0 || staged.length > 0 || sendMutation.isPending || !conversationId) return;
+      if (activeConversationRef.current !== conversationId) return;
+      setDraft("");
+      setReplyTarget(null);
+      clearTyping();
+      sendMutation.mutate({
+        conversationId,
+        content,
+        replyToMessageId: replyTarget?.id ?? null,
+        files: [],
+        retryOf: null,
+        isUrgent: true,
+      });
+    },
+    [sendMutation, clearTyping, staged.length, conversationId, replyTarget, setDraft],
+  );
+
   /** Tapping a failed bubble sends the very same message again, from where it sits. */
   const retryFailedSend = useCallback(
     (localId: string): void => {
@@ -1792,6 +1919,11 @@ const Messages = () => {
     (message: ChatMessage, action: MessageAction): void => {
       if (action === "reply") {
         setReplyTarget(message);
+        return;
+      }
+      // AVORA-47 · A: Xem sau moves only my own read mark back to just before this line.
+      if (action === "later") {
+        void readLater(message.conversationId, message.id);
         return;
       }
       /*
@@ -1897,6 +2029,7 @@ const Messages = () => {
       pinOf,
       askRecall,
       senderNameOf,
+      readLater,
     ],
   );
 
@@ -2158,6 +2291,15 @@ const Messages = () => {
     window.setTimeout(() => jumpToMessage(jumpParam), 120);
   }, [jumpParam, conversationId, messagesQuery.isPending, activeKind, jumpToMessage]);
 
+  /** AVORA-52 · 11: Back from Cài đặt › Thông báo lands here with `⋯` open again, once. */
+  useEffect(() => {
+    if (searchParams.get(INFO_OPEN_PARAM) !== "1" || conversationId === undefined) return;
+    setIsInfoOpen(true);
+    const next = new URLSearchParams(searchParams);
+    next.delete(INFO_OPEN_PARAM);
+    setSearchParams(next, { replace: true });
+  }, [searchParams, setSearchParams, conversationId]);
+
   /** Arriving back from a project detail screen lands on the tab that listed it. */
   useEffect(() => {
     if (searchParams.get("tab") === "du-an") setActiveTab("projects");
@@ -2197,14 +2339,15 @@ const Messages = () => {
         />
         <div className="px-6 pb-4 pt-7">
           <div className="flex items-center justify-between gap-3">
-            <h1 className="text-[28px] font-semibold tracking-tight text-foreground md:text-[30px]">Kết nối</h1>
+            <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground md:text-[30px]">Kết nối</h1>
             {!isLive ? (
               <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground" role="status">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                 Đang kết nối lại
               </span>
             ) : null}
-            <div className="flex items-center gap-2">
+            {/* AVORA-52 · F: the title never wraps; when the column is narrow these give way instead. */}
+            <div className="flex min-w-0 shrink items-center gap-1.5 [&>*]:shrink-0 sm:gap-2">
               {/* 1.5: 1-1 and Nhóm search from their own box (with "trong toàn AVORA"); 🔍 stays where there is none. */}
               {activeTab === "direct" || activeTab === "group" ? null : (
                 <AvoraSearchButton
@@ -2259,7 +2402,7 @@ const Messages = () => {
             </div>
           </div>
 
-          <div role="tablist" aria-label="Hướng trò chuyện" className="no-scrollbar mt-5 flex items-center overflow-x-auto border-b border-border">
+          <div role="tablist" aria-label="Hướng trò chuyện" className="no-scrollbar mt-5 flex items-center overflow-x-auto border-b border-border [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] [scroll-padding-inline:12px]">
             {MESSAGE_TABS.map((tab) => {
               const isActive = tab.id === activeTab;
               const tabUnread = unreadForTab(conversations, tab.id);
@@ -2273,13 +2416,9 @@ const Messages = () => {
                   className={cn(
                     "press relative flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-2 pb-2.5 pt-1 text-[13.5px] transition-colors",
                     isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
-                    isPlaceholderTab(tab.id) && !isActive && "text-muted-foreground/60",
                   )}
                 >
                   {tab.label}
-                  {isPlaceholderTab(tab.id) ? (
-                    <span className="rounded-full border border-border px-1.5 py-px text-[9.5px] font-medium leading-tight text-muted-foreground">Sắp có</span>
-                  ) : null}
                   {tabUnread > 0 ? (
                     <span
                       aria-label={`${tabUnread} tin nhắn chưa đọc`}
@@ -2360,6 +2499,32 @@ const Messages = () => {
           </div>
         ) : (
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+          {/* AVORA-47 · C: only I see this line; nobody else learns I am focusing. */}
+          {rhythm.focus !== null ? (
+            <div className="mx-1 mb-2 flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-[13px] text-foreground">
+              <Moon className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={1.8} aria-hidden="true" />
+              <span className="min-w-0 flex-1">
+                {rhythm.focus === "disconnect" ? "Đang ngắt kết nối" : "Đang tập trung"}
+                {rhythm.focusUntil !== null ? ` tới ${shortUntil(rhythm.focusUntil)}` : ""}
+              </span>
+              <button
+                type="button"
+                onClick={rhythm.stopFocus}
+                className="press shrink-0 rounded-md px-2 py-1 text-[12.5px] font-semibold text-primary hover:bg-primary/10"
+              >
+                {rhythm.focus === "disconnect" ? "Kết nối lại" : "Tắt"}
+              </button>
+            </div>
+          ) : null}
+          {isArchiveOpen ? (
+            <button
+              type="button"
+              onClick={() => setIsArchiveOpen(false)}
+              className="press mb-1 flex min-h-11 w-full items-center gap-1.5 rounded-lg px-3 text-left text-[13.5px] font-medium text-foreground hover:bg-accent/30"
+            >
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Đã lưu trữ ({archivedInTab.length})
+            </button>
+          ) : null}
           {conversationsQuery.isPending ? (
             <ul className="space-y-1 px-3 pt-1" aria-hidden="true">
               {[0, 1, 2, 3].map((row) => (
@@ -2427,8 +2592,8 @@ const Messages = () => {
                   : item.lastMessageContent === null
                     ? "Chưa có tin nhắn nào"
                     : `${item.lastMessageSenderId === userId ? "Bạn: " : ""}${item.lastMessageContent}`;
-                return (
-                  <li key={item.conversationId}>
+                const mutedUntil = rhythm.conversationMutes.get(item.conversationId) ?? null;
+                const rowLink = (
                     <Link
                       to={`/tin-nhan/${item.conversationId}`}
                       aria-current={isActive ? "page" : undefined}
@@ -2464,6 +2629,9 @@ const Messages = () => {
                               isUnread ? "font-medium text-foreground" : "text-muted-foreground",
                             )}
                           >
+                            {mutedUntil !== null ? (
+                              <BellOff className="mr-1 inline h-3 w-3 align-[-1px] text-muted-foreground" strokeWidth={1.8} aria-label="Đã tắt thông báo" />
+                            ) : null}
                             {formatInboxTime(item.lastMessageAt)}
                           </span>
                         </span>
@@ -2493,9 +2661,43 @@ const Messages = () => {
                         </span>
                       </span>
                     </Link>
+                );
+                return (
+                  <li key={item.conversationId}>
+                    {item.kind === "personal" ? (
+                      rowLink
+                    ) : (
+                      <ConversationRowActions
+                        title={conversationTitle(item)}
+                        isArchived={isArchiveOpen}
+                        mutedUntilLabel={mutedUntil !== null ? `Đã tắt tới ${shortUntil(mutedUntil)}` : null}
+                        canReadLater={item.lastMessageAt !== null}
+                        muteChoices={rhythm.muteChoices}
+                        onReadLater={() => void rhythm.readLaterConversation(item.conversationId)}
+                        onArchive={() => rhythm.archive(item.conversationId)}
+                        onUnarchive={() => rhythm.unarchive(item.conversationId)}
+                        onMute={(option) => void rhythm.muteConversation(item.conversationId, option)}
+                        onUnmute={() => void rhythm.unmuteConversation(item.conversationId)}
+                      >
+                        {rowLink}
+                      </ConversationRowActions>
+                    )}
                   </li>
                 );
               })}
+              {!isArchiveOpen && archivedInTab.length > 0 && query.trim() === "" ? (
+                <li className="mt-1 border-t border-border/70 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsArchiveOpen(true)}
+                    className="press flex min-h-11 w-full items-center gap-2 rounded-lg px-3 text-left text-[13.5px] text-muted-foreground hover:bg-accent/30"
+                  >
+                    <Archive className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+                    <span className="flex-1">Đã lưu trữ ({archivedInTab.length})</span>
+                    <ChevronRight className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </li>
+              ) : null}
               </ul>
           )}
         </div>
@@ -3126,6 +3328,7 @@ const Messages = () => {
                                       hasRequestedRecall={hasAskedRecall(message.id)}
                                       canForward={canForwardThis}
                                       canReport={activeKind !== "personal" && !outgoing && message.systemKind == null}
+                                      canReadLater={activeKind !== "personal" && !outgoing}
                                       onAction={(action) => handleMessageAction(message, action)}
                                       onQuickReact={canReact ? (emoji) => toggleReaction(message.id, emoji) : undefined}
                                       reactionPicker={
@@ -3147,8 +3350,18 @@ const Messages = () => {
                                         else. Without this, someone else's words read as the
                                         forwarder's own — which is how a quote becomes a claim.
                                       */}
+                                      {message.isUrgent === true ? (
+                                        <span
+                                          className={cn(
+                                            "mb-1 inline-flex items-center rounded-full bg-destructive/10 px-2 py-0.5 text-[11px] font-semibold text-destructive",
+                                            outgoing && "float-right",
+                                          )}
+                                        >
+                                          Khẩn
+                                        </span>
+                                      ) : null}
                                       {forwardedNote !== null ? (
-                                        <span className="mb-1 block px-1 text-[11.5px] italic text-muted-foreground">
+                                        <span className="mb-1 block clear-both px-1 text-[11.5px] italic text-muted-foreground">
                                           {forwardedNote}
                                         </span>
                                       ) : null}
@@ -3372,10 +3585,20 @@ const Messages = () => {
                                       </span>
                                     ) : null}
                                     {showsReceipt ? (
-                                      <span className="flex items-center gap-1">
-                                        <Check className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                                        {sendReceiptLabel(message)}
-                                      </span>
+                                      activeKind === "direct" && deliveredAt !== null && message.pending !== true ? (
+                                        <span
+                                          className="flex items-center gap-1"
+                                          title={`Đã nhận lúc ${new Date(deliveredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`}
+                                        >
+                                          <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+                                          Đã nhận
+                                        </span>
+                                      ) : (
+                                        <span className="flex items-center gap-1">
+                                          <Check className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+                                          {sendReceiptLabel(message)}
+                                        </span>
+                                      )
                                     ) : null}
                                   </span>
                                 </div>
@@ -3515,6 +3738,11 @@ const Messages = () => {
                   ariaLabel={activeKind === "personal" ? "Ghi vào nhật ký" : `Nhắn tin cho ${threadTitle}`}
                   mentionCandidates={mentionable}
                   attachmentCount={staged.length}
+                  urgent={
+                    activeKind === "personal" || activeVerification !== null
+                      ? undefined
+                      : { blockedNote: urgentBlockedNote, onSendUrgent: handleSendUrgent }
+                  }
                   attachmentSlot={
                     <StagedAttachmentBar
                       items={staged}
@@ -3783,7 +4011,11 @@ const Messages = () => {
             next.set(CONTEXT_TASK_PARAM, taskId);
             setSearchParams(next, { replace: true });
           }}
-          onFocusSuggestion={(suggestionId) => setFocusedSuggestionId(suggestionId)}
+          onFocusSuggestion={(suggestionId) => {
+            setIsInfoOpen(false);
+            setFocusedSuggestionId(suggestionId);
+          }}
+          stacked={stackedFromInfo(() => setIsGroupTasksOpen(false))}
         />
       ) : null}
 
@@ -3803,6 +4035,35 @@ const Messages = () => {
           conversationId={conversationId}
           groupName={threadTitle}
           members={groupMembersQuery.data ?? []}
+          stacked={stackedFromInfo(() => setIsDecisionsOpen(false))}
+        />
+      ) : null}
+
+      {conversationId && activeKind !== "personal" ? (
+        <ConversationDiarySheet
+          open={isConversationDiaryOpen && isInfoOpen}
+          conversationId={conversationId}
+          title={threadTitle}
+          stacked={{
+            backLabel: threadTitle,
+            onBack: () => setIsConversationDiaryOpen(false),
+            onCloseAll: () => {
+              setIsConversationDiaryOpen(false);
+              setIsInfoOpen(false);
+            },
+          }}
+          urlOf={attachmentUrlOf}
+          nameOf={(id) => senderNames.get(id) ?? (id === userId ? "Bạn" : threadTitle)}
+          onJumpToMessage={(messageId) => {
+            setIsConversationDiaryOpen(false);
+            setIsInfoOpen(false);
+            window.setTimeout(() => jumpToMessage(messageId), 120);
+          }}
+          onOpenTask={(task) => {
+            setIsConversationDiaryOpen(false);
+            setIsInfoOpen(false);
+            navigate(withReturn(taskLink(task.id), hereFrom(location, threadTitle)));
+          }}
         />
       ) : null}
 
@@ -3824,6 +4085,7 @@ const Messages = () => {
           onOpenConversation={openConversation}
           onLeft={() => navigate("/tin-nhan")}
           kind={activeKind === "personal" ? "personal" : activeKind === "group" ? "group" : "direct"}
+          onOpenDiary={activeKind === "personal" ? undefined : () => setIsConversationDiaryOpen(true)}
           moreSections={
             activeKind === "personal" ? (
               <ConversationMoreSections
@@ -3853,30 +4115,14 @@ const Messages = () => {
                   setIsInfoOpen(false);
                   setProjectTarget(activeSummary);
                 }}
-                onOpenDecisions={() => {
-                  setIsInfoOpen(false);
-                  setIsDecisionsOpen(true);
-                }}
-                onOpenTasks={
-                  activeKind === "group"
-                    ? () => {
-                        setIsInfoOpen(false);
-                        setIsGroupTasksOpen(true);
-                      }
-                    : undefined
-                }
+                // AVORA-52 · C: these open over `⋯`, which stays open underneath at its scroll.
+                onOpenDecisions={() => setIsDecisionsOpen(true)}
+                onOpenTasks={activeKind === "group" ? () => setIsGroupTasksOpen(true) : undefined}
                 onSearch={() => {
                   setIsInfoOpen(false);
                   setIsSearchOpen(true);
                 }}
-                onScheduleCall={
-                  activeKind === "group" && !isProjectChatClosed
-                    ? () => {
-                        setIsInfoOpen(false);
-                        setIsScheduleCallOpen(true);
-                      }
-                    : undefined
-                }
+                onScheduleCall={activeKind === "group" && !isProjectChatClosed ? () => setIsScheduleCallOpen(true) : undefined}
                 onNavigate={() => setIsInfoOpen(false)}
                 safety={
                   directPeerId !== null

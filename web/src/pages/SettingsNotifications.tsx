@@ -1,6 +1,9 @@
+import { Moon } from "lucide-react";
 import { toast } from "sonner";
 
+import { openFocusSheet } from "@/components/chat/FocusHost";
 import { MuteSettingsCard } from "@/components/chat/MuteSettingsCard";
+import { shortUntil, useRhythm } from "@/lib/use-rhythm";
 import { PushSettingsCard } from "@/components/PushSettingsCard";
 import { Switch } from "@/components/ui/switch";
 import { useProfileSettings, useSettingsActions } from "@/lib/use-settings";
@@ -13,6 +16,7 @@ import { useProfileSettings, useSettingsActions } from "@/lib/use-settings";
 const SettingsNotifications = () => {
   const { data: settings } = useProfileSettings();
   const { setSoundPref } = useSettingsActions();
+  const rhythm = useRhythm();
 
   const toggle = (which: "messages" | "reminders", on: boolean): void => {
     setSoundPref.mutate(
@@ -26,6 +30,29 @@ const SettingsNotifications = () => {
       <div className="mx-auto max-w-2xl animate-rise-in space-y-6 px-6 py-12 md:px-10">
         {/* AVORA-53 · 6.7: the mute layers first — the sound card below says it follows them. */}
         <MuteSettingsCard />
+        {/* AVORA-47 · C: the easy-to-find way in; holding Kết nối opens the same sheet. */}
+        <section aria-labelledby="focus-heading" className="rounded-xl border border-border bg-card p-5">
+          <div className="flex items-start gap-3">
+            <Moon className="mt-0.5 h-5 w-5 shrink-0 text-primary" strokeWidth={1.7} aria-hidden="true" />
+            <div className="min-w-0 flex-1">
+              <h2 id="focus-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
+                Chế độ tập trung
+              </h2>
+              <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
+                {rhythm.focus === null
+                  ? "Yên lặng hoặc Ngắt kết nối. Gia đình và tin Khẩn vẫn báo; nhắc việc luôn kêu. Mở nhanh: giữ tab Kết nối."
+                  : `${rhythm.focus === "disconnect" ? "Đang ngắt kết nối" : "Đang tập trung"}${rhythm.focusUntil !== null ? ` tới ${shortUntil(rhythm.focusUntil)}` : " tới khi bạn tắt"}.`}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={rhythm.focus === null ? openFocusSheet : rhythm.stopFocus}
+              className="press shrink-0 rounded-md border border-border px-3 py-2 text-[13.5px] font-medium text-foreground hover:bg-accent/40"
+            >
+              {rhythm.focus === null ? "Bật" : "Tắt"}
+            </button>
+          </div>
+        </section>
         <section aria-labelledby="sound-heading" className="rounded-xl border border-border bg-card p-5">
           <h2 id="sound-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
             Âm báo khi đang mở AVORA

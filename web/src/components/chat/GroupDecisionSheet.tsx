@@ -85,6 +85,7 @@ import {
 } from "@/lib/meeting-notes";
 import { formatFileSize } from "@/lib/attachments";
 import { cn } from "@/lib/utils";
+import { StackedSheetHeader, useEdgeSwipeBack } from "@/components/chat/StackedSheetHeader";
 
 type GroupDecisionSheetProps = {
   open: boolean;
@@ -92,6 +93,8 @@ type GroupDecisionSheetProps = {
   conversationId: string;
   groupName: string;
   members: readonly GroupMember[];
+  /** Opened from `⋯` (AVORA-52 · C): drawn over it with `‹ {tên cuộc}` and `✕`. */
+  stacked?: { backLabel: string; onBack: () => void; onCloseAll: () => void };
 };
 
 const KIND_LABEL: Record<DecisionKind, string> = {
@@ -128,7 +131,9 @@ export function GroupDecisionSheet({
   conversationId,
   groupName,
   members,
+  stacked,
 }: GroupDecisionSheetProps) {
+  const edgeSwipe = useEdgeSwipeBack(stacked?.onBack);
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId: string | undefined = user?.id;
@@ -1068,7 +1073,14 @@ export function GroupDecisionSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md">
+      <SheetContent
+        side="right"
+        {...edgeSwipe}
+        className={cn("flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md", stacked !== undefined && "[&>button.absolute]:hidden")}
+      >
+        {stacked !== undefined ? (
+          <StackedSheetHeader backLabel={stacked.backLabel} onBack={stacked.onBack} onCloseAll={stacked.onCloseAll} />
+        ) : null}
         <div className="shrink-0 border-b border-border px-5 py-5">
           <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">
             Sổ quyết định

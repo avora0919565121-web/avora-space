@@ -536,9 +536,9 @@ export function myTables(
 export type TableLayer = "personal" | "direct" | "group";
 
 export const TABLE_LAYERS: readonly { id: TableLayer; label: string; empty: string }[] = [
-  { id: "personal", label: "Cá nhân", empty: "Chưa có bảng riêng nào." },
-  { id: "direct", label: "1-1", empty: "Chưa có bảng chung với ai." },
-  { id: "group", label: "Nhóm", empty: "Chưa có bảng nào trong nhóm." },
+  { id: "personal", label: "Bảng của tôi", empty: "Chưa có bảng riêng nào." },
+  { id: "direct", label: "Bảng 1-1", empty: "Chưa có bảng chung với ai." },
+  { id: "group", label: "Bảng nhóm", empty: "Chưa có bảng nào trong nhóm." },
 ];
 
 /**

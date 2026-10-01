@@ -9,6 +9,7 @@ import {
   fetchFolders,
   fetchNoteAttachments,
   fetchNotes,
+  moveFolder,
   noteKeys,
   patchNote,
   renameFolder,
@@ -47,9 +48,15 @@ export function useNotes({ enabled = true }: { enabled?: boolean } = {}) {
   }, [queryClient]);
 
   const addFolder = useMutation({
-    mutationFn: (name: string) => createFolder(name, (folders.data ?? []).filter((folder) => !folder.isSystem).length),
+    mutationFn: (input: { name: string; parentId?: string | null }) =>
+      createFolder(
+        input.name,
+        (folders.data ?? []).filter((folder) => !folder.isSystem && folder.parentId === (input.parentId ?? null)).length,
+        input.parentId ?? null,
+      ),
     onSuccess: refresh,
   });
+  const move = useMutation({ mutationFn: (input: { id: string; parentId: string | null }) => moveFolder(input.id, input.parentId), onSuccess: refresh });
   const rename = useMutation({ mutationFn: (input: { id: string; name: string }) => renameFolder(input.id, input.name), onSuccess: refresh });
   const removeFolder = useMutation({
     mutationFn: (input: { id: string; trashNotes: boolean }) => deleteFolder(input.id, input.trashNotes),
@@ -77,6 +84,7 @@ export function useNotes({ enabled = true }: { enabled?: boolean } = {}) {
     refresh,
     addFolder,
     rename,
+    move,
     removeFolder,
     patch,
     removeAttachment,

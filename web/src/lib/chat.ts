@@ -101,6 +101,12 @@ export function toVietnameseChatError(code: string | undefined, message: string)
   if (normalized.includes("avora_group_min_three"))
     return "Nhóm cần ít nhất 3 người, tính cả bạn. Nói chuyện với 1 người thì dùng chat 1-1.";
   if (normalized.includes("avora_group_full")) return "Nhóm đã đủ 300 người.";
+  if (normalized.includes("avora_urgent_daily_limit")) return "Hôm nay bạn đã gửi khẩn trong cuộc này.";
+  if (normalized.includes("avora_urgent_locked")) return "Gửi khẩn đang tạm khoá vì đã dùng 3 lần trong 7 ngày.";
+  if (normalized.includes("avora_urgent_not_here")) return "Nhật ký không có gửi khẩn.";
+  if (normalized.includes("avora_group_add_forbidden")) return "Chỉ chủ nhóm và quản trị viên thêm được thành viên.";
+  if (normalized.includes("avora_group_add_not_friend")) return "Chỉ thêm được bạn bè của bạn.";
+  if (normalized.includes("avora_mute_too_long")) return "Tắt thông báo một cuộc lâu nhất tới hết hôm nay.";
   if (code === "42501" || normalized.includes("permission denied"))
     return "Máy chủ chưa cho phép thao tác này. Vui lòng báo lại cho chúng tôi.";
   if (normalized.includes("row-level security")) return "Bạn không có quyền trong cuộc trò chuyện này.";
@@ -175,9 +181,122 @@ export async function markConversationRead(conversationId: string): Promise<stri
   return data ?? null;
 }
 
+/**
+ * Xem sau (AVORA-47 · A): moves only the caller's own read mark back to just before this
+ * message, so it and everything after it count as unread again. The sender learns nothing.
+ * Returns the new mark.
+ */
+export async function markUnreadFrom(messageId: string): Promise<string | null> {
+  const { data, error } = await supabase.rpc("mark_unread_from", { p_message_id: messageId });
+  if (error) throw fail(error.code, error.message);
+  return data ?? null;
+}
+
+/** The newest message of a thread, for `Xem sau` on a whole conversation (= on its newest line). */
+export async function fetchNewestMessageId(conversationId: string): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id")
+    .eq("conversation_id", conversationId)
+    .is("system_kind", null)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw fail(error.code, error.message);
+  return data?.id ?? null;
+}
+
+export type DiaryLine = { id: string; senderId: string; content: string; createdAt: string };
+
+/**
+ * Nhật ký trò chuyện (AVORA-52 · B): the lines of one 1-1 / group the viewer may still read,
+ * newest first. Recalled (`deleted_at`) and system lines are left out; RLS decides who reads.
+ */
+export async function fetchConversationDiary(conversationId: string): Promise<DiaryLine[]> {
+  const { data, error } = await supabase
+    .from("messages")
+    .select("id, sender_id, content, created_at")
+    .eq("conversation_id", conversationId)
+    .is("deleted_at", null)
+    .is("system_kind", null)
+    .is("trashed_at", null)
+    .order("created_at", { ascending: false })
+    .limit(1000);
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []).map((row) => ({ id: row.id, senderId: row.sender_id, content: row.content, createdAt: row.created_at }));
+}
+
+/** Puts the caller's read mark back where it was (the Hoàn tác of Xem sau). */
+export async function restoreReadMark(conversationId: string): Promise<void> {
+  await markConversationRead(conversationId);
+}
+
+/**
+ * Đã nhận (AVORA-47 · E, ADR-028): the recipient's device says these 1-1 messages arrived.
+ * The server ignores group lines, one's own lines and anything across a block.
+ */
+export async function markMessagesDelivered(messageIds: readonly string[]): Promise<void> {
+  if (messageIds.length === 0) return;
+  const { error } = await supabase.rpc("mark_messages_delivered", { p_message_ids: [...messageIds].slice(0, 200) });
+  // Never loud: a receipt that fails to write only leaves the sender on "Đã gửi".
+  if (error) logError("chat-delivery", { code: error.code, message: error.message });
+}
+
+/** When each of my messages arrived on the other device. RLS returns only rows for my own lines. */
+export async function fetchDeliveries(messageIds: readonly string[]): Promise<Map<string, string>> {
+  const map = new Map<string, string>();
+  if (messageIds.length === 0) return map;
+  const { data, error } = await supabase
+    .from("message_deliveries")
+    .select("message_id, delivered_at")
+    .in("message_id", [...messageIds]);
+  if (error) throw fail(error.code, error.message);
+  for (const row of data ?? []) map.set(row.message_id, row.delivered_at);
+  return map;
+}
+
+export type UrgentStatus = { usedToday: boolean; lockedUntil: string | null };
+
+/** Whether `Gửi khẩn` is open in this conversation right now (the server decides at send too). */
+export async function fetchUrgentStatus(conversationId: string): Promise<UrgentStatus> {
+  const { data, error } = await supabase.rpc("urgent_status", { p_conversation_id: conversationId });
+  if (error) throw fail(error.code, error.message);
+  const value = (data ?? {}) as { used_today?: boolean; locked_until?: string | null };
+  return { usedToday: value.used_today === true, lockedUntil: value.locked_until ?? null };
+}
+
+/** The conversations I archived (AVORA-47 · F). Only my own rows exist for me. */
+export async function fetchArchives(): Promise<Map<string, string>> {
+  const { data, error } = await supabase.from("conversation_archives").select("conversation_id, archived_at");
+  if (error) throw fail(error.code, error.message);
+  return new Map((data ?? []).map((row) => [row.conversation_id, row.archived_at] as const));
+}
+
+export async function archiveConversation(userId: string, conversationId: string): Promise<void> {
+  const { error } = await supabase
+    .from("conversation_archives")
+    .upsert({ user_id: userId, conversation_id: conversationId, archived_at: new Date().toISOString() }, { onConflict: "user_id,conversation_id" });
+  if (error) throw fail(error.code, error.message);
+}
+
+export async function unarchiveConversation(conversationId: string): Promise<void> {
+  const { error } = await supabase.from("conversation_archives").delete().eq("conversation_id", conversationId);
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Owner / admin adds friends to a group (AVORA-47 · I). Returns how many joined. */
+export async function addGroupMembers(conversationId: string, userIds: readonly string[]): Promise<number> {
+  const { data, error } = await supabase.rpc("add_group_members", {
+    p_conversation_id: conversationId,
+    p_user_ids: [...userIds],
+  });
+  if (error) throw fail(error.code, error.message);
+  return data ?? 0;
+}
+
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent";
 
 /** How many messages one page holds (Đợt gộp 2 · A7). */
 export const MESSAGE_PAGE_SIZE = 50;
@@ -198,6 +317,7 @@ type MessageRowShape = {
   origin_sender_id: string | null;
   system_kind: string | null;
   forward_bundle?: unknown;
+  is_urgent?: boolean | null;
 };
 
 function toChatMessageRow(row: MessageRowShape): ChatMessage {
@@ -217,6 +337,7 @@ function toChatMessageRow(row: MessageRowShape): ChatMessage {
     originSenderId: row.origin_sender_id,
     systemKind: row.system_kind ?? null,
     forwardBundle: parseForwardBundle(row.forward_bundle),
+    isUrgent: row.is_urgent === true,
   };
 }
 
@@ -429,6 +550,8 @@ export async function sendMessage(
    * refuses it on any other kind of conversation.
    */
   replyToDailyThoughtId: string | null = null,
+  /** Cờ Khẩn (AVORA-47 · D). The server enforces 1 / conversation / day and the 7-day lock. */
+  isUrgent: boolean = false,
 ): Promise<ChatMessage> {
   const trimmed = content.trim();
   const { data, error } = await supabase
@@ -441,28 +564,14 @@ export async function sendMessage(
       mentioned_user_ids: [...mentionedUserIds],
       origin_group_id: originGroupId,
       reply_to_daily_thought_id: replyToDailyThoughtId,
+      ...(isUrgent ? { is_urgent: true } : {}),
     })
     .select(MESSAGE_COLUMNS)
     .single();
 
   if (error) throw fail(error.code, error.message);
 
-  return {
-    id: data.id,
-    conversationId: data.conversation_id,
-    senderId: data.sender_id,
-    content: data.content,
-    createdAt: data.created_at,
-    editedAt: data.edited_at,
-    deletedAt: data.deleted_at,
-    replyToMessageId: data.reply_to_message_id,
-    mentionedUserIds: data.mentioned_user_ids ?? [],
-    originGroupId: data.origin_group_id,
-    attachmentCount: data.attachment_count ?? 0,
-    originContentId: data.origin_content_id,
-    originSenderId: data.origin_sender_id,
-    systemKind: data.system_kind ?? null,
-  };
+  return toChatMessageRow(data);
 }
 
 /** Exact-email lookup. AVORA has no browsable member list by design. */

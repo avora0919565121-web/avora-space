@@ -246,6 +246,8 @@ export function tagMatches(tag: string, query: string): boolean {
 
 export type NoteFolder = {
   id: string;
+  /** AVORA-52 · A: the folder above, or null at the top. At most three levels (server-checked). */
+  parentId: string | null;
   name: string;
   isSystem: boolean;
   systemKey: string | null;
@@ -366,6 +368,104 @@ export function arrangeFolders(folders: readonly NoteFolder[], notes: readonly N
     if (a.folder.position !== b.folder.position) return a.folder.position - b.folder.position;
     return (b.lastEditedAt ?? "").localeCompare(a.lastEditedAt ?? "");
   });
+}
+
+// ------------------------------------------------------------------ the tree (AVORA-52 · A)
+
+/** Same limit as Bảng con / Nhóm con; the server enforces it too. */
+export const MAX_FOLDER_DEPTH = 3;
+
+/** 1 for a top folder, 2 for its child, 3 below that. */
+export function folderDepth(folders: readonly NoteFolder[], id: string): number {
+  const byId = new Map(folders.map((folder) => [folder.id, folder] as const));
+  let depth = 0;
+  let cursor: string | null = id;
+  const seen = new Set<string>();
+  while (cursor !== null && !seen.has(cursor)) {
+    seen.add(cursor);
+    depth += 1;
+    cursor = byId.get(cursor)?.parentId ?? null;
+  }
+  return depth;
+}
+
+/** How many levels hang from this folder, itself included (1 = no children). */
+export function folderHeight(folders: readonly NoteFolder[], id: string): number {
+  const children = folders.filter((folder) => folder.parentId === id);
+  if (children.length === 0) return 1;
+  return 1 + Math.max(...children.map((child) => folderHeight(folders, child.id)));
+}
+
+/** The folder and everything under it. */
+export function folderSubtreeIds(folders: readonly NoteFolder[], id: string): Set<string> {
+  const ids = new Set<string>([id]);
+  let grew = true;
+  while (grew) {
+    grew = false;
+    for (const folder of folders) {
+      if (folder.parentId !== null && ids.has(folder.parentId) && !ids.has(folder.id)) {
+        ids.add(folder.id);
+        grew = true;
+      }
+    }
+  }
+  return ids;
+}
+
+/** Where a folder may be moved: never into itself or below, never past three levels, never a system folder. */
+export function moveTargets(folders: readonly NoteFolder[], id: string): NoteFolder[] {
+  const inside = folderSubtreeIds(folders, id);
+  const height = folderHeight(folders, id);
+  return folders.filter(
+    (folder) => !folder.isSystem && !inside.has(folder.id) && folderDepth(folders, folder.id) + height <= MAX_FOLDER_DEPTH,
+  );
+}
+
+/** Whether a sub-folder can be made here. */
+export function canAddSubFolder(folders: readonly NoteFolder[], folder: NoteFolder): boolean {
+  return !folder.isSystem && folderDepth(folders, folder.id) < MAX_FOLDER_DEPTH;
+}
+
+/** The path of names from the top, for a search hit or a move target. */
+export function folderPath(folders: readonly NoteFolder[], id: string): string[] {
+  const byId = new Map(folders.map((folder) => [folder.id, folder] as const));
+  const names: string[] = [];
+  let cursor: string | null = id;
+  const seen = new Set<string>();
+  while (cursor !== null && !seen.has(cursor)) {
+    seen.add(cursor);
+    const folder = byId.get(cursor);
+    if (folder === undefined) break;
+    names.unshift(folder.name);
+    cursor = folder.parentId;
+  }
+  return names;
+}
+
+/** Live notes in a folder and every folder below it. */
+export function countInSubtree(folders: readonly NoteFolder[], notes: readonly Note[], id: string): number {
+  const ids = folderSubtreeIds(folders, id);
+  return notes.filter((note) => note.deletedAt === null && note.folderId !== null && ids.has(note.folderId)).length;
+}
+
+const OPEN_FOLDERS_KEY = "avora.notes.openFolders";
+
+export function readOpenFolders(): Set<string> {
+  try {
+    const raw = window.localStorage.getItem(OPEN_FOLDERS_KEY);
+    const parsed: unknown = raw === null ? [] : JSON.parse(raw);
+    return new Set(Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : []);
+  } catch {
+    return new Set<string>();
+  }
+}
+
+export function rememberOpenFolders(ids: ReadonlySet<string>): void {
+  try {
+    window.localStorage.setItem(OPEN_FOLDERS_KEY, JSON.stringify([...ids]));
+  } catch {
+    // Remembering is a courtesy.
+  }
 }
 
 // ------------------------------------------------------------------ remembered on this device
@@ -534,6 +634,9 @@ function fail(code: string | undefined, message: string): Error {
   if (normalized.includes("avora_note_folder_missing")) return new Error("Thư mục này không còn nữa.");
   if (normalized.includes("avora_note_book_missing")) return new Error("Cuốn sách này không còn trong Kệ sách.");
   if (normalized.includes("avora_note_not_yours")) return new Error("Ghi chép này không còn nữa.");
+  if (normalized.includes("avora_note_folder_depth")) return new Error("Thư mục con tối đa 3 tầng.");
+  if (normalized.includes("avora_note_folder_cycle")) return new Error("Không chuyển được thư mục vào bên trong chính nó.");
+  if (normalized.includes("avora_note_folder_parent")) return new Error("Thư mục đích không còn nữa.");
   if (normalized.includes("note_folders_name_len")) return new Error("Tên thư mục cần từ 1 đến 80 ký tự.");
   if (normalized.includes("notes_blocks_size")) return new Error("Ghi chép quá dài — hãy tách thành hai ghi chép.");
   if (normalized.includes("notes_tags_count")) return new Error("Mỗi ghi chép có tối đa 30 thẻ.");
@@ -548,7 +651,7 @@ export function isOfflineError(error: unknown): boolean {
   return error instanceof Error && error.message.startsWith("Chưa lưu");
 }
 
-type FolderRow = { id: string; name: string; is_system: boolean; system_key: string | null; position: number; created_at: string };
+type FolderRow = { id: string; parent_id: string | null; name: string; is_system: boolean; system_key: string | null; position: number; created_at: string };
 type NoteRow = {
   id: string; folder_id: string | null; title: string; blocks: unknown; tags: string[] | null; pinned_at: string | null;
   book_record_id: string | null; book_title: string | null; deleted_at: string | null; created_at: string; updated_at: string;
@@ -559,7 +662,7 @@ type AttachmentRow = {
 };
 
 function toFolder(row: FolderRow): NoteFolder {
-  return { id: row.id, name: row.name, isSystem: row.is_system, systemKey: row.system_key, position: row.position, createdAt: row.created_at };
+  return { id: row.id, parentId: row.parent_id ?? null, name: row.name, isSystem: row.is_system, systemKey: row.system_key, position: row.position, createdAt: row.created_at };
 }
 
 export function toNote(row: NoteRow): Note {
@@ -583,7 +686,7 @@ const NOTE_COLUMNS = "id, folder_id, title, blocks, tags, pinned_at, book_record
 export async function fetchFolders(): Promise<NoteFolder[]> {
   const { error: ensureError } = await supabase.rpc("ensure_reading_folder");
   if (ensureError) throw fail(ensureError.code, ensureError.message);
-  const { data, error } = await supabase.from("note_folders").select("id, name, is_system, system_key, position, created_at").order("position");
+  const { data, error } = await supabase.from("note_folders").select("id, parent_id, name, is_system, system_key, position, created_at").order("position");
   if (error) throw fail(error.code, error.message);
   return (data ?? []).map((row) => toFolder(row as FolderRow));
 }
@@ -603,11 +706,11 @@ export async function fetchNoteAttachments(): Promise<NoteAttachment[]> {
   return (data ?? []).map((row) => toAttachment(row as AttachmentRow));
 }
 
-export async function createFolder(name: string, position: number): Promise<NoteFolder> {
+export async function createFolder(name: string, position: number, parentId: string | null = null): Promise<NoteFolder> {
   const { data, error } = await supabase
     .from("note_folders")
-    .insert({ name: name.trim(), position })
-    .select("id, name, is_system, system_key, position, created_at")
+    .insert({ name: name.trim(), position, parent_id: parentId })
+    .select("id, parent_id, name, is_system, system_key, position, created_at")
     .single();
   if (error) throw fail(error.code, error.message);
   return toFolder(data as FolderRow);
@@ -615,6 +718,12 @@ export async function createFolder(name: string, position: number): Promise<Note
 
 export async function renameFolder(id: string, name: string): Promise<void> {
   const { error } = await supabase.from("note_folders").update({ name: name.trim() }).eq("id", id);
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Moves a folder under another (or to the top). The server refuses cycles and a fourth level. */
+export async function moveFolder(id: string, parentId: string | null): Promise<void> {
+  const { error } = await supabase.from("note_folders").update({ parent_id: parentId }).eq("id", id);
   if (error) throw fail(error.code, error.message);
 }
 

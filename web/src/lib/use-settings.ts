@@ -19,6 +19,7 @@ import {
   updateReviewPrefs,
   updatePushPrefs,
   updateTypingSignal,
+  updateFocus,
   type ProfileSettings,
 } from "@/lib/settings";
 
@@ -123,7 +124,16 @@ export function useSettingsActions() {
     },
   });
 
+  const setFocus = useMutation({
+    mutationFn: ({ mode, until }: { mode: "quiet" | "disconnect" | null; until: Date | null }) =>
+      updateFocus(userId, mode, until),
+    onSuccess: (settings) => {
+      queryClient.setQueryData<ProfileSettings>(settingsKeys.profile, settings);
+    },
+  });
+
   return {
+    setFocus,
     setPushPrefs,
     setReviewPrefs,
     setBaseCurrency,

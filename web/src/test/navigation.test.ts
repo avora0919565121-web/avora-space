@@ -68,9 +68,8 @@ describe("the sectioned screens", () => {
   it("opens Két sắt on the ledger, with the vault half beside it", () => {
     expect(VAULT_TABS.map((tab) => tab.label)).toEqual(["Tài chính", "Mật khẩu", "Chứng chỉ", "Tài liệu", "Tài sản"]);
     expect(VAULT_TABS[0].to).toBe("/ket-sat");
-    // AVORA-53 · 6.11: the four halves not built yet say "Sắp có" before they are opened.
-    expect(VAULT_TABS.slice(1).every((tab) => tab.badge === "Sắp có")).toBe(true);
-    expect(VAULT_TABS[0].badge).toBeUndefined();
+    // No tab announces "Sắp có": the unbuilt halves say so only once opened.
+    expect(VAULT_TABS.every((tab) => tab.badge === undefined)).toBe(true);
   });
 
   it("opens Cài đặt on the profile, with the three sibling tabs beside it", () => {

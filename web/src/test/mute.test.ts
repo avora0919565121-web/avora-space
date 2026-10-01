@@ -405,7 +405,8 @@ describe("there is no mute for Tasks", () => {
    */
   it("offers no task scope among the layers", () => {
     const scopes = Object.keys(MUTE_SCOPE_LABELS);
-    expect(scopes).toEqual(["avora", "messages", "direct", "group", "project"]);
+    // AVORA-47 · B adds one conversation as a layer; still no task layer.
+    expect(scopes).toEqual(["avora", "messages", "direct", "group", "project", "conversation"]);
     expect(scopes).not.toContain("task");
   });
 

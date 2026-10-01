@@ -4,6 +4,9 @@ import { useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { openFocusSheet } from "@/components/chat/FocusHost";
+import { activeFocus } from "@/lib/mute";
+import { useProfileSettings } from "@/lib/use-settings";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { navIconFor } from "@/components/nav/nav-icons";
 import { useAuth, useDisplayName } from "@/lib/auth";
@@ -31,6 +34,8 @@ export function AppSidebar() {
   const navColumn = useColumnWidth(NAV_COLUMN);
   const asideRef = useRef<HTMLElement | null>(null);
   const badges = useNavBadges();
+  const { data: profile } = useProfileSettings();
+  const isFocused = activeFocus(profile?.focusMode, profile?.focusUntil) !== null;
 
   const handleSignOut = async (): Promise<void> => {
     await signOut();
@@ -81,6 +86,16 @@ export function AppSidebar() {
             <li key={item.to}>
               <NavLink
                 to={item.to}
+                // AVORA-47 · C: right-click or double-click Kết nối opens Chế độ tập trung.
+                onContextMenu={
+                  item.to === "/tin-nhan"
+                    ? (event) => {
+                        event.preventDefault();
+                        openFocusSheet();
+                      }
+                    : undefined
+                }
+                onDoubleClick={item.to === "/tin-nhan" ? () => openFocusSheet() : undefined}
                 className={({ isActive }) =>
                   cn(
                     "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium transition-colors",
@@ -101,6 +116,11 @@ export function AppSidebar() {
                     />
                     <Icon className="h-[18px] w-[18px]" strokeWidth={1.6} />
                     <span>{item.label}</span>
+                    {item.to === "/tin-nhan" && isFocused ? (
+                      <span aria-label="Đang tập trung" title="Đang tập trung" className="text-[12px] leading-none text-primary">
+                        ☾
+                      </span>
+                    ) : null}
                     {badge !== undefined && badge.count > 0 ? (
                       <span
                         aria-label={badge.label}

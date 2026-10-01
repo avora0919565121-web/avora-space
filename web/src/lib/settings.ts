@@ -40,11 +40,15 @@ export type ProfileSettings = {
   pushShowContent: boolean;
   /** AVORA-46: reminders arrive as push. Default on. */
   pushReminders: boolean;
+  /** AVORA-47 · C (ADR-027): Chế độ tập trung. Only the person themselves can read these. */
+  focusMode: "quiet" | "disconnect" | null;
+  /** Null with a mode set = "Tới khi tôi tắt". */
+  focusUntil: string | null;
 };
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
 const PROFILE_SETTINGS_COLUMNS =
-  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders";
+  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders, focus_mode, focus_until";
 
 type ProfileSettingsRow = {
   base_currency: string | null;
@@ -59,6 +63,8 @@ type ProfileSettingsRow = {
   review_weekly_enabled?: boolean | null;
   push_show_content?: boolean | null;
   push_reminders?: boolean | null;
+  focus_mode?: string | null;
+  focus_until?: string | null;
 };
 
 /**
@@ -86,7 +92,25 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     reviewWeeklyEnabled: row?.review_weekly_enabled ?? true,
     pushShowContent: row?.push_show_content ?? false,
     pushReminders: row?.push_reminders ?? true,
+    focusMode: row?.focus_mode === "quiet" || row?.focus_mode === "disconnect" ? row.focus_mode : null,
+    focusUntil: row?.focus_until ?? null,
   };
+}
+
+/** Turns Chế độ tập trung on (mode + end, null end = until turned off) or off (mode null). */
+export async function updateFocus(
+  userId: string,
+  mode: "quiet" | "disconnect" | null,
+  until: Date | null,
+): Promise<ProfileSettings> {
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({ focus_mode: mode, focus_until: mode === null ? null : (until?.toISOString() ?? null) })
+    .eq("id", userId)
+    .select(PROFILE_SETTINGS_COLUMNS)
+    .single();
+  if (error) throw fail("settings", error.code, error.message);
+  return toProfileSettings(data);
 }
 
 /** Ngày nghỉ và hai thói quen Nhìn lại (C7). */

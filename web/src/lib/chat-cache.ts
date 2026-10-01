@@ -222,6 +222,8 @@ export type ChatMessage = {
   systemKind?: string | null;
   /** Two or more messages forwarded as one conversation, words only (Đợt gộp 2 · B1). */
   forwardBundle?: ForwardBundle | null;
+  /** Cờ Khẩn (AVORA-47 · D): drawn with a small `Khẩn` label; passes focus and conversation mutes. */
+  isUrgent?: boolean;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
   /**

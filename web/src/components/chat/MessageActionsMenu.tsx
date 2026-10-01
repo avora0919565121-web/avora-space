@@ -1,5 +1,6 @@
 import {
   CheckSquare,
+  Clock3,
   Flag,
   Forward,
   Hand,
@@ -79,6 +80,7 @@ const TOUCH_ONLY: readonly string[] = ["touch"];
 /** Everything that can be done to a single message. */
 export type MessageAction =
   | "reply"
+  | "later"
   | "task"
   | "edit"
   | "recall"
@@ -117,6 +119,7 @@ export function MessageActionsMenu({
   hasRequestedRecall = false,
   canForward = false,
   canReport = false,
+  canReadLater = false,
   onAction,
   onQuickReact,
   open,
@@ -139,6 +142,8 @@ export function MessageActionsMenu({
   hasRequestedRecall?: boolean;
   /** True on someone else's message in a 1-1 or group (AVORA-37 / B). Never on your own. */
   canReport?: boolean;
+  /** AVORA-47 · A: someone else's line in a shared thread can be set aside as `Xem sau`. */
+  canReadLater?: boolean;
   onAction: (action: MessageAction) => void;
   /** AVORA-49 · 2.4: six quick reactions on top of the menu — the one way in on a phone. */
   onQuickReact?: (emoji: string) => void;
@@ -159,8 +164,10 @@ export function MessageActionsMenu({
   const showReport =
     canReport && message.pending !== true && viewerId !== undefined && message.senderId !== viewerId;
 
+  const showLater =
+    canReadLater && message.pending !== true && viewerId !== undefined && message.senderId !== viewerId && message.systemKind == null;
   const hasAct = showReply || showForward || showTask;
-  const hasArrange = showForward || showPin || showEdit;
+  const hasArrange = showForward || showPin || showEdit || showLater;
   const hasWithdraw = showRecall || showRequestRecall || showReport;
 
   const canQuickReact = onQuickReact !== undefined && message.pending !== true && message.deletedAt == null;
@@ -218,6 +225,13 @@ export function MessageActionsMenu({
           </DropdownMenuItem>
         ) : null}
         {hasAct && (hasArrange || hasWithdraw) ? <DropdownMenuSeparator /> : null}
+        {/* Right under the three "do" actions: only the reader's own read mark moves back. */}
+        {showLater ? (
+          <DropdownMenuItem onSelect={() => onAction("later")}>
+            <Clock3 className="mr-2 h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+            Xem sau
+          </DropdownMenuItem>
+        ) : null}
         {/* Selecting starts from the message the menu was opened on, so the first tick is made. */}
         {showForward ? (
           <DropdownMenuItem onSelect={() => onAction("select")}>
@@ -294,6 +308,7 @@ export function MessageActionsAffordance({
   hasRequestedRecall = false,
   canForward = false,
   canReport = false,
+  canReadLater = false,
   outgoing,
   onAction,
   onQuickReact,
@@ -314,6 +329,7 @@ export function MessageActionsAffordance({
   hasRequestedRecall?: boolean;
   canForward?: boolean;
   canReport?: boolean;
+  canReadLater?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
   onQuickReact?: (emoji: string) => void;
@@ -384,6 +400,7 @@ export function MessageActionsAffordance({
         hasRequestedRecall={hasRequestedRecall}
         canForward={canForward}
         canReport={canReport}
+        canReadLater={canReadLater}
         onAction={onAction}
         onQuickReact={onQuickReact}
         open={isOpen}

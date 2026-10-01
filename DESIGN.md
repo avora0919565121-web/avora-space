@@ -1919,6 +1919,13 @@ end: Chặn · Báo cáo · Rời nhóm. Confirmations use the app's own box, ne
 | `Sắp có` | Sắp ra mắt, Đang hoàn thiện |
 | `Ủng hộ AVORA` | Donation |
 
+**Không gắn nhãn Sắp có trên tab/điều hướng (VMT chốt, 01/10/2026)**
+
+Một tab chưa làm trông như mọi tab khác: không nhãn, không mờ chữ. Bấm vào mới thấy màn `Sắp có` bên trong
+(`ComingSoon`). Áp cho 4 tab Két sắt (Mật khẩu, Chứng chỉ, Tài liệu, Tài sản), Cài đặt › Avora AI, Kết nối › Email và
+mọi tab sau này. Huỷ AVORA-49 · 1.7 và AVORA-53 · 6.11. (Một dòng chức năng bên trong một màn — ví dụ `Xác nhận qua
+số điện thoại · Sắp có` — không phải tab, giữ nguyên.)
+
 **Đường đi (AVORA-53, 01/10/2026)**
 
 1. Mọi đường sang Hub khác đều mang đường về (`withReturn(…, hereFrom(location, "{tên nơi}"))`), nơi đến có

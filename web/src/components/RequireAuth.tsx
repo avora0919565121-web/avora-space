@@ -7,6 +7,7 @@ import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { InAppAlerts } from "@/components/InAppAlerts";
 import { ConfirmHost } from "@/components/ConfirmHost";
+import { FocusHost } from "@/components/chat/FocusHost";
 import { RecordingBar } from "@/components/RecordingBar";
 import { AvoraSearchHost } from "@/components/search/AvoraSearch";
 import { PushOfferCard } from "@/components/PushOfferCard";
@@ -71,6 +72,7 @@ export function RequireAuth() {
       <PushOfferCard />
       <PushClickBridge />
       <ConfirmHost />
+      <FocusHost />
     </div>
     </VaultLockProvider>
     </PinGate>

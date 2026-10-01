@@ -45,9 +45,9 @@ function Frame({ children }: { children: ReactNode }) {
 
 const now = new Date().toISOString();
 const folders: NoteFolder[] = [
-  { id: "f1", name: "Bài giảng Chúa nhật", isSystem: false, systemKey: null, position: 0, createdAt: now },
-  { id: "f2", name: "Họp dự án", isSystem: false, systemKey: null, position: 1, createdAt: now },
-  { id: "f3", name: "Ghi chép đọc sách", isSystem: true, systemKey: "reading", position: 99, createdAt: now },
+  { id: "f1", parentId: null, name: "Bài giảng Chúa nhật", isSystem: false, systemKey: null, position: 0, createdAt: now },
+  { id: "f2", parentId: null, name: "Họp dự án", isSystem: false, systemKey: null, position: 1, createdAt: now },
+  { id: "f3", parentId: null, name: "Ghi chép đọc sách", isSystem: true, systemKey: "reading", position: 99, createdAt: now },
 ];
 const block = (id: string, text: string, level: 0 | 1 | 2 | null = null) => ({ id, text, level });
 const notes: Note[] = [

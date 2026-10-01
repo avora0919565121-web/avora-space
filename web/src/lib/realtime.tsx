@@ -20,12 +20,16 @@ import {
   applyMessageUpdate,
   chatKeys,
   clearUnread,
+  markMessagesDelivered,
   mergeIncomingMessage,
   toIsoTimestamp,
   type ChatMessage,
   type ConversationSummary,
 } from "@/lib/chat";
+import { familyKeys, type FamilyRelation } from "@/lib/family";
 import { groupKeys, type GroupMember } from "@/lib/groups";
+import { activeFocus } from "@/lib/mute";
+import { settingsKeys, type ProfileSettings } from "@/lib/settings";
 import { peerLabel } from "@/lib/initials";
 import { messageTaskKeys } from "@/lib/message-tasks";
 import {
@@ -44,6 +48,12 @@ type SuggestionRow = Database["public"]["Tables"]["task_suggestions"]["Row"];
 type RemovalRequestRow = Database["public"]["Tables"]["group_removal_requests"]["Row"];
 
 export type RealtimeStatus = "connecting" | "live" | "offline";
+
+/** True while the viewer chose `Ngắt kết nối` and it has not run out. */
+export function isDisconnected(queryClient: QueryClient): boolean {
+  const profile = queryClient.getQueryData<ProfileSettings>(settingsKeys.profile);
+  return activeFocus(profile?.focusMode, profile?.focusUntil) === "disconnect";
+}
 
 type ChatRealtimeValue = {
   status: RealtimeStatus;
@@ -187,10 +197,23 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       const row = payload.new;
       const incoming: ChatMessage = toChatMessage(row);
 
+      // Chế độ tập trung · Ngắt kết nối (AVORA-47 · C): new lines are not taken in, so they are not
+      // "Đã nhận" either — except from Gia đình and anything Khẩn. `Kết nối lại` re-reads all.
+      if (incoming.senderId !== userId && isDisconnected(queryClient)) {
+        const family = queryClient.getQueryData<FamilyRelation[]>(familyKeys.list) ?? [];
+        const passes = row.is_urgent === true || family.some((entry) => entry.relatedUserId === incoming.senderId);
+        if (!passes) return;
+      }
+
       const threadKey = chatKeys.messages(incoming.conversationId);
       const thread = queryClient.getQueryData<ChatMessage[]>(threadKey);
       if (thread) {
         queryClient.setQueryData<ChatMessage[]>(threadKey, mergeIncomingMessage(thread, incoming));
+      }
+
+      // Đã nhận (AVORA-47 · E): this device has the line now. The server keeps it to 1-1s.
+      if (incoming.senderId !== userId && incoming.systemKind == null) {
+        void markMessagesDelivered([incoming.id]);
       }
 
       // The message row arrives on its own stream; the files hanging off it do not. Without

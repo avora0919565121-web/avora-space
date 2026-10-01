@@ -9,10 +9,15 @@ import { supabase } from "@/integrations/supabase/client";
  * asked while the other side still believes the request landed. Tasks are quietened by
  * finishing them.
  */
-export type MuteScope = "avora" | "messages" | "direct" | "group" | "project";
+export type MuteScope = "avora" | "messages" | "direct" | "group" | "project" | "conversation";
+
+/** Chế độ tập trung (ADR-027): `quiet` keeps loading but never sounds; `disconnect` stops loading too. */
+export type FocusMode = "quiet" | "disconnect";
 
 export type MuteSetting = {
   scope: MuteScope;
+  /** Only for `conversation`: the one thread this mute covers (AVORA-47 · B). */
+  conversationId?: string | null;
   /** When silence ends. Always a moment, never "forever" — see DURATION rules below. */
   mutedUntil: string;
 };
@@ -28,6 +33,7 @@ export const MUTE_SCOPE_LABELS: Record<MuteScope, string> = {
   direct: "Chat 1-1",
   group: "Chat nhóm",
   project: "Project",
+  conversation: "cuộc này",
 };
 
 /** What each layer covers, said plainly under its switch. */
@@ -37,6 +43,7 @@ export const MUTE_SCOPE_NOTES: Record<MuteScope, string> = {
   direct: "Chỉ các cuộc trò chuyện 1-1",
   group: "Chỉ các nhóm — người nhắc tên bạn vẫn qua được",
   project: "Chỉ các Project",
+  conversation: "Chỉ một cuộc trò chuyện — người nhắc tên bạn trong nhóm vẫn qua được",
 };
 
 /**
@@ -120,9 +127,41 @@ export type MuteIndex = ReadonlyMap<MuteScope, string>;
 export function toMuteIndex(settings: readonly MuteSetting[], now: Date = new Date()): MuteIndex {
   const index = new Map<MuteScope, string>();
   for (const setting of settings) {
+    // Conversation mutes are many per person; they live in their own lookup.
+    if (setting.scope === "conversation") continue;
     if (isMuteActive(setting, now)) index.set(setting.scope, setting.mutedUntil);
   }
   return index;
+}
+
+/** conversationId → muted until, for the mutes still in force. */
+export function toConversationMutes(
+  settings: readonly MuteSetting[],
+  now: Date = new Date(),
+): ReadonlyMap<string, string> {
+  const map = new Map<string, string>();
+  for (const setting of settings) {
+    if (setting.scope !== "conversation" || !setting.conversationId) continue;
+    if (isMuteActive(setting, now)) map.set(setting.conversationId, setting.mutedUntil);
+  }
+  return map;
+}
+
+/** The four answers of a conversation mute (AVORA-47 · B). Never "until I turn it back on". */
+export const CONVERSATION_MUTE_DURATIONS: readonly MuteDurationOption[] = [
+  ...QUICK_MUTE_DURATIONS,
+  { id: "today", label: "Hết hôm nay", hours: null },
+];
+
+/** Whether focus mode is on right now. `until` null = until turned off. */
+export function activeFocus(
+  mode: FocusMode | null | undefined,
+  until: string | null | undefined,
+  now: Date = new Date(),
+): FocusMode | null {
+  if (mode !== "quiet" && mode !== "disconnect") return null;
+  if (until && new Date(until).getTime() <= now.getTime()) return null;
+  return mode;
 }
 
 export function isScopeMuted(index: MuteIndex, scope: MuteScope, now: Date = new Date()): boolean {
@@ -154,15 +193,21 @@ export type NotificationEvent = {
   isFromFamily: boolean;
   /** True when the recipient was named in the message. Only meaningful in a group. */
   mentionsRecipient: boolean;
+  /** Cờ Khẩn: passes focus and every mute below Tắt toàn AVORA. */
+  isUrgent?: boolean;
+  /** This very conversation is muted by the recipient. */
+  conversationMuted?: boolean;
+  /** The recipient's focus mode, already resolved against its end. */
+  focus?: FocusMode | null;
 };
 
 /** Why an event was let through, or stopped. Returned so the reason can be shown and tested. */
 export type MuteDecision = {
   blocked: boolean;
   /** The layer that decided, or null when nothing was muted. */
-  decidedBy: MuteScope | null;
+  decidedBy: MuteScope | "focus" | null;
   /** Which exception saved it, when one did. */
-  exception: "family" | "mention" | null;
+  exception: "family" | "mention" | "urgent" | null;
 };
 
 /**
@@ -179,6 +224,10 @@ export type MuteDecision = {
  *
  * Family is checked before mentions on purpose: it is the broader exception, and in a group
  * where both apply the reason a message got through is the relationship, not the "@".
+ *
+ * AVORA-47 adds Chế độ tập trung (between AVORA and Tin nhắn) and Cờ Khẩn (passes like family),
+ * plus a per-conversation mute that behaves like a tab mute. The server's twin is
+ * private.mute_decide(); the test compares both over every combination.
  */
 export function shouldBlockNotification(
   index: MuteIndex,
@@ -190,25 +239,36 @@ export function shouldBlockNotification(
     return { blocked: true, decidedBy: "avora", exception: null };
   }
 
-  // 2. All messages. Family is the one relationship that survives it.
-  if (isScopeMuted(index, "messages", now)) {
-    if (event.isFromFamily) return { blocked: false, decidedBy: "messages", exception: "family" };
-    return { blocked: true, decidedBy: "messages", exception: null };
-  }
-
-  // 3. The tab this event belongs to.
   const tabScope: MuteScope = event.surface;
-  if (isScopeMuted(index, tabScope, now)) {
-    if (event.isFromFamily) return { blocked: false, decidedBy: tabScope, exception: "family" };
-    // Being named is an exception only where a room can be busy around you.
-    if (tabScope === "group" && event.mentionsRecipient) {
-      return { blocked: false, decidedBy: tabScope, exception: "mention" };
-    }
-    return { blocked: true, decidedBy: tabScope, exception: null };
+  const conversationMuted = event.conversationMuted === true;
+  const focus = event.focus ?? null;
+  const deciding: MuteScope | "focus" | null =
+    focus !== null
+      ? "focus"
+      : isScopeMuted(index, "messages", now)
+        ? "messages"
+        : conversationMuted
+          ? "conversation"
+          : isScopeMuted(index, tabScope, now)
+            ? tabScope
+            : null;
+
+  if (deciding === null) return { blocked: false, decidedBy: null, exception: null };
+
+  // 2. Family and Khẩn pass focus and every mute below AVORA.
+  if (event.isFromFamily) return { blocked: false, decidedBy: deciding, exception: "family" };
+  if (event.isUrgent === true) return { blocked: false, decidedBy: deciding, exception: "urgent" };
+
+  // 3. Focus and Tin nhắn hold without a mention exception.
+  if (deciding === "focus" || deciding === "messages") {
+    return { blocked: true, decidedBy: deciding, exception: null };
   }
 
-  // 4. Nothing is muted.
-  return { blocked: false, decidedBy: null, exception: null };
+  // 4. A muted conversation or tab: being named passes, but only where a room can be busy.
+  if (event.surface === "group" && event.mentionsRecipient) {
+    return { blocked: false, decidedBy: deciding, exception: "mention" };
+  }
+  return { blocked: true, decidedBy: deciding, exception: null };
 }
 
 /** Plain-language reason, for a "why did this come through?" line. */
@@ -216,9 +276,11 @@ export function describeMuteDecision(decision: MuteDecision): string {
   if (!decision.blocked) {
     if (decision.exception === "family") return "Vẫn thông báo vì người gửi là Gia đình.";
     if (decision.exception === "mention") return "Vẫn thông báo vì bạn được nhắc tên.";
+    if (decision.exception === "urgent") return "Vẫn thông báo vì tin được gửi khẩn.";
     return "Không có tầng nào đang tắt thông báo.";
   }
   if (decision.decidedBy === "avora") return "Đã tắt toàn bộ AVORA — không có ngoại lệ nào.";
+  if (decision.decidedBy === "focus") return "Đang ở Chế độ tập trung.";
   if (decision.decidedBy === "messages") return "Đã tắt thông báo tin nhắn.";
   return `Đã tắt thông báo ${MUTE_SCOPE_LABELS[decision.decidedBy ?? "group"]}.`;
 }
@@ -237,9 +299,9 @@ function fail(code: string | undefined, message: string): Error {
   return new Error("Không lưu được thiết lập thông báo. Vui lòng thử lại.");
 }
 
-type MuteRow = { scope: string; muted_until: string };
+type MuteRow = { scope: string; muted_until: string; conversation_id: string | null };
 
-const MUTE_SCOPES: readonly MuteScope[] = ["avora", "messages", "direct", "group", "project"];
+const MUTE_SCOPES: readonly MuteScope[] = ["avora", "messages", "direct", "group", "project", "conversation"];
 
 function isMuteScope(value: string): value is MuteScope {
   return (MUTE_SCOPES as readonly string[]).includes(value);
@@ -247,12 +309,35 @@ function isMuteScope(value: string): value is MuteScope {
 
 /** The viewer's own mutes. RLS returns nobody else's, so silence stays private. */
 export async function fetchMuteSettings(): Promise<MuteSetting[]> {
-  const { data, error } = await supabase.from("mute_settings").select("scope, muted_until");
+  const { data, error } = await supabase.from("mute_settings").select("scope, muted_until, conversation_id");
   if (error) throw fail(error.code, error.message);
   return (data ?? [])
     .map((row) => row as MuteRow)
     .filter((row) => isMuteScope(row.scope))
-    .map((row) => ({ scope: row.scope as MuteScope, mutedUntil: row.muted_until }));
+    .map((row) => ({
+      scope: row.scope as MuteScope,
+      mutedUntil: row.muted_until,
+      conversationId: row.conversation_id,
+    }));
+}
+
+/** Silences one conversation until a moment (≤ end of today; the server refuses longer). */
+export async function setConversationMute(conversationId: string, mutedUntil: Date): Promise<void> {
+  const { error } = await supabase.rpc("set_conversation_mute", {
+    p_conversation_id: conversationId,
+    p_until: mutedUntil.toISOString(),
+  });
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Turns one conversation's notifications back on. */
+export async function clearConversationMute(conversationId: string): Promise<void> {
+  const { error } = await supabase
+    .from("mute_settings")
+    .delete()
+    .eq("scope", "conversation")
+    .eq("conversation_id", conversationId);
+  if (error) throw fail(error.code, error.message);
 }
 
 /** Silences one layer until a moment. Re-muting the same layer replaces the old end. */
@@ -265,13 +350,14 @@ export async function setMute(
     .from("mute_settings")
     .upsert(
       { user_id: userId, scope, muted_until: mutedUntil.toISOString() },
-      { onConflict: "user_id,scope" },
+      // The unique key now spans the conversation too (NULLS NOT DISTINCT for the layer mutes).
+      { onConflict: "user_id,scope,conversation_id" },
     );
   if (error) throw fail(error.code, error.message);
 }
 
 /** Turns a layer back on early. Always available: a time limit needs a way back. */
 export async function clearMute(scope: MuteScope): Promise<void> {
-  const { error } = await supabase.from("mute_settings").delete().eq("scope", scope);
+  const { error } = await supabase.from("mute_settings").delete().eq("scope", scope).is("conversation_id", null);
   if (error) throw fail(error.code, error.message);
 }

@@ -1,6 +1,10 @@
+import { useRef } from "react";
 import { NavLink } from "react-router-dom";
 
+import { openFocusSheet } from "@/components/chat/FocusHost";
 import { navIconFor } from "@/components/nav/nav-icons";
+import { activeFocus } from "@/lib/mute";
+import { useProfileSettings } from "@/lib/use-settings";
 import { formatUnreadBadge } from "@/lib/chat";
 import { TOOL_BELT_ITEMS } from "@/lib/navigation";
 import { useNavBadges } from "@/lib/use-nav-badges";
@@ -13,6 +17,22 @@ import { cn } from "@/lib/utils";
  */
 export function ToolBelt() {
   const badges = useNavBadges();
+  const { data: profile } = useProfileSettings();
+  const isFocused = activeFocus(profile?.focusMode, profile?.focusUntil) !== null;
+  // Hold Kết nối (AVORA-47 · C): opens Chế độ tập trung instead of navigating.
+  const holdRef = useRef<{ timer: number | null; fired: boolean }>({ timer: null, fired: false });
+  const startHold = (): void => {
+    holdRef.current.fired = false;
+    holdRef.current.timer = window.setTimeout(() => {
+      holdRef.current.fired = true;
+      if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(12);
+      openFocusSheet();
+    }, 500);
+  };
+  const endHold = (): void => {
+    if (holdRef.current.timer !== null) window.clearTimeout(holdRef.current.timer);
+    holdRef.current.timer = null;
+  };
 
   return (
     <nav
@@ -23,10 +43,26 @@ export function ToolBelt() {
         {TOOL_BELT_ITEMS.map((item) => {
           const Icon = navIconFor(item.to);
           const badge = badges[item.to];
+          const isConnect = item.to === "/tin-nhan";
           return (
             <li key={item.to} className="min-w-0">
               <NavLink
                 to={item.to}
+                {...(isConnect
+                  ? {
+                      onPointerDown: startHold,
+                      onPointerUp: endHold,
+                      onPointerLeave: endHold,
+                      onPointerCancel: endHold,
+                      onContextMenu: (event: React.MouseEvent) => event.preventDefault(),
+                      onClick: (event: React.MouseEvent) => {
+                        if (holdRef.current.fired) {
+                          event.preventDefault();
+                          holdRef.current.fired = false;
+                        }
+                      },
+                    }
+                  : {})}
                 className={({ isActive }) =>
                   cn(
                     "press relative flex h-[52px] min-h-12 flex-col items-center justify-center gap-1 transition-colors",
@@ -45,6 +81,11 @@ export function ToolBelt() {
                     />
                     <span className="relative">
                       <Icon className="h-[22px] w-[22px]" strokeWidth={isActive ? 2 : 1.6} aria-hidden="true" />
+                      {isConnect && isFocused ? (
+                        <span aria-label="Đang tập trung" className="absolute -left-2 -top-1 text-[10px] leading-none">
+                          ☾
+                        </span>
+                      ) : null}
                       {badge !== undefined && badge.count > 0 ? (
                         <span
                           aria-label={badge.label}
