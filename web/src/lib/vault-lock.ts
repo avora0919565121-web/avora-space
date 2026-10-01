@@ -117,7 +117,7 @@ export const VAULT_ABOUT = {
   title: "Khoá Két sắt là khoá cửa, chưa phải két mã hoá.",
   lines: [
     "Mã này ngăn người cầm máy của bạn (hoặc một máy khác đang đăng nhập tài khoản của bạn) mở Két sắt.",
-    "Nếu ai đó chiếm được cả tài khoản lẫn email của bạn, họ có thể đặt lại mã này.",
+    "Nếu ai đó chiếm được hộp thư email của bạn, họ có thể vào tài khoản và đặt lại mã này.",
     "AVORA đang xây phần mã hoá thật cho Két sắt. Khi có, chúng tôi sẽ báo và cách đặt lại mã sẽ thay đổi.",
   ],
 } as const;

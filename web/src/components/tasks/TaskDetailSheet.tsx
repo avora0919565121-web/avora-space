@@ -420,7 +420,10 @@ export function TaskDetailSheet({
                   </div>
                 }
               />
-            ) : (
+            ) : showPrivate ? (
+              // AVORA-55 · 3.1 (ADR-030 / ADR-033): Nhắc · Quan trọng · thời lượng belong to the
+              // person doing the work. The suggester — who only reads the task — sees neither,
+              // and can set neither (server keeps task_reminders to the owner).
               <div className="rounded-[10px] border border-border bg-card px-3 py-2.5 text-[13px]">
                 <p className="text-[12px] font-medium text-muted-foreground">Kế hoạch</p>
                 <p className="mt-1 text-foreground">
@@ -429,7 +432,7 @@ export function TaskDetailSheet({
                   {duration !== null ? ` · ${duration}` : ""}
                 </p>
               </div>
-            )}
+            ) : null}
           </div>
 
           {!canEdit && blocked !== null ? <p className="mt-3 text-[12px] leading-5 text-muted-foreground">{blocked}</p> : null}

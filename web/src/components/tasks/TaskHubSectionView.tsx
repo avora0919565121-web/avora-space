@@ -6,22 +6,26 @@ import { PERSONAL_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { celebrate } from "@/lib/confetti";
 import { localDayOf } from "@/lib/space-blocks";
 import { useTaskFlagIndex } from "@/lib/use-task-flags";
-import { calendarProjection, invitationRows, tasksForSection, type TaskHubSection } from "@/lib/task-hub";
+import {
+  calendarProjection,
+  dayLabelOf,
+  invitationRows,
+  myDayCardNote,
+  tasksForSection,
+  type MyDayCardNote,
+  type TaskHubSection,
+} from "@/lib/task-hub";
 import { deadlineLabel, type TaskItem } from "@/lib/tasks";
 import { useRespondInvitation, useTaskParticipants } from "@/lib/use-task-collab";
 import { useTaskActions } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
-
-const WEEKDAYS: readonly string[] = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
 
 function clock(iso: string): string {
   return new Date(iso).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
 }
 
 function dayLabel(day: string, today: string): string {
-  const date = new Date(`${day}T00:00:00`);
-  const prefix = day === today ? "Hôm nay" : WEEKDAYS[date.getDay()];
-  return `${prefix} · ${date.getDate()}/${date.getMonth() + 1}`;
+  return dayLabelOf(day, today);
 }
 
 function Empty({ text }: { text: string }) {
@@ -54,7 +58,7 @@ function DoneCircle({ task }: { task: TaskItem }) {
   );
 }
 
-function TaskLine({ task, today, onOpen, trailing, canComplete = true }: { task: TaskItem; today: string; onOpen: (task: TaskItem) => void; trailing?: string; canComplete?: boolean }) {
+function TaskLine({ task, today, onOpen, trailing, canComplete = true, dayNote }: { task: TaskItem; today: string; onOpen: (task: TaskItem) => void; trailing?: string; canComplete?: boolean; dayNote?: MyDayCardNote | null }) {
   const meta =
     task.startAt !== null
       ? `${dayLabel(localDayOf(task.startAt), today)} · ${task.requiresPresence ? "Có mặt lúc" : "Lúc"} ${clock(task.startAt)}${task.location !== null ? ` · ${task.location}` : ""}`
@@ -67,7 +71,11 @@ function TaskLine({ task, today, onOpen, trailing, canComplete = true }: { task:
       {task.requiresPresence ? <MapPin className="h-4 w-4 shrink-0 text-primary" strokeWidth={1.8} aria-hidden="true" /> : null}
       <span className="min-w-0 flex-1">
         <span className="block truncate text-[14.5px] font-medium text-foreground">{task.title}</span>
-        <span className="block text-[12px] text-muted-foreground">{trailing ?? meta}</span>
+        {/* AVORA-55 · 4: inside Hôm nay the line says why the task is here and when its own
+            time really is — an Event's hour, a deadline already carrying it, an overdue day. */}
+        <span className={cn("block text-[12px]", dayNote?.tone === "overdue" ? "font-medium text-task-overdue" : "text-muted-foreground")}>
+          {dayNote?.text ?? trailing ?? meta}
+        </span>
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
     </button>
@@ -193,7 +201,13 @@ export function TaskHubSectionView({ section, tasks, userId, today, onOpen }: { 
   return (
     <div className="overflow-hidden rounded-[12px] border border-border bg-card">
       {list.map((task) => (
-        <TaskLine key={task.id} task={task} today={today} onOpen={onOpen} />
+        <TaskLine
+          key={task.id}
+          task={task}
+          today={today}
+          onOpen={onOpen}
+          dayNote={section.id === "my_day" ? myDayCardNote(task, today) : null}
+        />
       ))}
     </div>
   );

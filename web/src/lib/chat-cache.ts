@@ -248,7 +248,7 @@ export type FailedSend = {
   createdAt: string;
   replyToMessageId: string | null;
   attachmentCount: number;
-  /** A retry is on its way: the bubble reads "Đang gửi…" again, in the same place. */
+  /** A retry is on its way: the bubble reads "Chờ gửi…" again, in the same place (AVORA-55 · 3.5). */
   isRetrying?: boolean;
 };
 
@@ -583,11 +583,11 @@ export function unreadSummaryText(conversationCount: number): string {
 }
 
 /**
- * The sender's receipt (ADR-028): only whether the message left, never whether it was read.
- * "Đã nhận" needs a delivery signal from the recipient's device and comes after launch.
+ * The sender's receipt (ADR-028): `Chờ gửi` → `Đã gửi` → `Đã nhận` — only whether the message
+ * left, never whether it was read. "Chờ gửi" since AVORA-55 · 3.5 (was "Đang gửi").
  */
-export function sendReceiptLabel(message: Pick<ChatMessage, "pending">): "Đang gửi" | "Đã gửi" {
-  return message.pending === true ? "Đang gửi" : "Đã gửi";
+export function sendReceiptLabel(message: Pick<ChatMessage, "pending">): "Chờ gửi" | "Đã gửi" {
+  return message.pending === true ? "Chờ gửi" : "Đã gửi";
 }
 
 /** Id of the viewer's newest own message — the only one that carries a delivery receipt. */

@@ -7,15 +7,7 @@ import { MessageComposer } from "@/components/chat/MessageComposer";
 const LABEL = "Nhắn tin cho Minh";
 
 /** Mirrors how Messages.tsx drives the composer: it owns the draft and clears it on send. */
-function Harness({
-  onSend,
-  isSending = false,
-  enterToSend = false,
-}: {
-  onSend: (content: string) => void;
-  isSending?: boolean;
-  enterToSend?: boolean;
-}) {
+function Harness({ onSend, isSending = false }: { onSend: (content: string) => void; isSending?: boolean }) {
   const [value, setValue] = useState<string>("");
   return (
     <MessageComposer
@@ -28,7 +20,6 @@ function Harness({
       placeholder="Nhắn tin cho Minh…"
       ariaLabel={LABEL}
       isSending={isSending}
-      enterToSend={enterToSend}
     />
   );
 }
@@ -144,29 +135,44 @@ test("the box grows with the message instead of hiding earlier lines", async () 
   expect(manyLines).toBeGreaterThan(oneLine);
 });
 
-// AVORA-49 · 2.5: a real keyboard sends on Enter, keeps Shift+Enter for a new line.
-test("with a keyboard, Enter sends and Shift+Enter writes a line", async () => {
+// AVORA-55 · 1 (cancels AVORA-49 · 2.5): no keystroke ever sends — Enter (with or without
+// modifiers) always just writes a line into the draft.
+test("gõ chữ + Enter: ô soạn có 2 dòng, không gửi", async () => {
   const sent: string[] = [];
-  const screen = await render(<Harness enterToSend onSend={(content) => sent.push(content)} />);
+  const screen = await render(<Harness onSend={(content) => sent.push(content)} />);
 
   await userEvent.click(screen.getByRole("textbox", { name: LABEL }));
-  await userEvent.keyboard("trên{Shift>}{Enter}{/Shift}dưới");
+  await userEvent.keyboard("dòng một{Enter}dòng hai");
+
   expect(sent).toEqual([]);
-  await userEvent.keyboard("{Enter}");
-  expect(sent).toEqual(["trên\ndưới"]);
-  expect(fieldOf(screen.container).value).toBe("");
+  expect(fieldOf(screen.container).value).toBe("dòng một\ndòng hai");
 });
 
-test("with a keyboard, Enter while an IME is still composing sends nothing", async () => {
+test("Ctrl+Enter does not send — the message waits for the Gửi button", async () => {
   const sent: string[] = [];
-  const screen = await render(<Harness enterToSend onSend={(content) => sent.push(content)} />);
-  const field = screen.getByRole("textbox", { name: LABEL });
-  await userEvent.click(field);
-  await userEvent.keyboard("vie");
-  const node = fieldOf(screen.container);
-  node.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true, isComposing: true }));
+  const screen = await render(<Harness onSend={(content) => sent.push(content)} />);
+
+  await userEvent.click(screen.getByRole("textbox", { name: LABEL }));
+  await userEvent.keyboard("tin nhắn{Control>}{Enter}{/Control}");
+
   expect(sent).toEqual([]);
-  expect(node.value).toBe("vie");
+  // Chromium swallows the modified Enter outright — not even a line is written.
+  expect(fieldOf(screen.container).value).toBe("tin nhắn");
+
+  // The button itself still sends.
+  await userEvent.click(screen.getByRole("button", { name: "Gửi" }));
+  expect(sent).toEqual(["tin nhắn"]);
+});
+
+test("Cmd+Enter does not send either", async () => {
+  const sent: string[] = [];
+  const screen = await render(<Harness onSend={(content) => sent.push(content)} />);
+
+  await userEvent.click(screen.getByRole("textbox", { name: LABEL }));
+  await userEvent.keyboard("tin nhắn{Meta>}{Enter}{/Meta}");
+
+  expect(sent).toEqual([]);
+  expect(fieldOf(screen.container).value).toBe("tin nhắn");
 });
 
 test("an empty box offers the microphone in place of Gửi", async () => {

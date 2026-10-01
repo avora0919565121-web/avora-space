@@ -1,3 +1,5 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { vi } from "vitest";
@@ -22,9 +24,14 @@ vi.mock("@/lib/use-task-flags", () => ({
   useTaskFlagIndex: () => new Map(),
 }));
 
-vi.mock("@/lib/use-tasks", () => ({
-  useTasks: () => ({ data: state.tasks }),
+vi.mock("@/lib/use-tasks", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-tasks")>("@/lib/use-tasks");
+  return {
+    ...actual,
+    useTasks: () => ({ data: state.tasks }),
   useTaskActions: () => ({
+    addPersonal: { mutateAsync: async () => ({ id: "t-new" }), isPending: false },
+    editDetails: { mutateAsync: async () => {}, isPending: false },
     confirmShared: { mutateAsync: async () => {}, isPending: false },
     markSharedDone: { mutateAsync: async () => {}, isPending: false },
     reviewSharedDone: { mutateAsync: async () => {}, isPending: false },
@@ -32,7 +39,8 @@ vi.mock("@/lib/use-tasks", () => ({
     deleteShared: { mutateAsync: async () => {}, isPending: false },
     skipShared: { mutateAsync: async () => {}, isPending: false },
   }),
-}));
+  };
+});
 
 function task(overrides: Partial<TaskItem> & { id: string; title: string }): TaskItem {
   return {
@@ -87,16 +95,21 @@ function member(userId: string, displayName: string): GroupMember {
 const MEMBERS: GroupMember[] = [member(BOSS, "Sếp Minh"), member(ME, "Chính tôi"), member(HOA, "Hoà")];
 
 function panel(scope: "mine" | "all") {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <div style={{ width: 375 }}>
-      <ChatTaskPanel
-        conversationId="conv-group"
-        peerName="Nhóm dự án"
-        members={MEMBERS}
-        highlightTaskId={null}
-        scope={scope}
-        onSendMessage={async () => {}}
-      />
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <ChatTaskPanel
+            conversationId="conv-group"
+            peerName="Nhóm dự án"
+            members={MEMBERS}
+            highlightTaskId={null}
+            scope={scope}
+            onSendMessage={async () => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
     </div>,
   );
 }

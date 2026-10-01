@@ -20,7 +20,53 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
 vi.mock("@/lib/use-conversations", () => ({ useConversations: () => ({ data: [] }) }));
-vi.mock("@/lib/use-projects", () => ({ useProjects: () => ({ data: [] }) }));
+vi.mock("@/lib/use-settings", () => ({
+  useProfileSettings: () => ({ data: undefined, isLoading: false }),
+  useCurrencyRates: () => ({ data: {}, isLoading: false }),
+}));
+vi.mock("@/lib/use-tasks", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-tasks")>("@/lib/use-tasks");
+  return {
+    ...actual,
+    useTasks: () => ({ data: [] }),
+    useTasksInRange: () => ({ data: [], isLoading: false, isError: false, refetch: async () => {} }),
+  };
+});
+vi.mock("@/lib/use-notes", () => ({
+  useNotes: () => ({
+    folders: { data: [] },
+    notes: { data: [] },
+    attachments: { data: [] },
+  }),
+}));
+vi.mock("@/lib/use-think-hub-shelf", () => ({
+  useTemplates: () => ({
+    data: [{ id: "blank", name: "Bảng trống", guidingQuestion: null, titleLabel: "Tiêu đề", columns: [], statuses: ["moi", "dang_lam", "done"], source: "builtin" }],
+  }),
+  useStars: () => ({ data: new Set() }),
+  useProposals: () => ({ data: [] }),
+  useSharedTrash: () => ({ data: [] }),
+  useShelfActions: () => ({
+    star: { mutateAsync: async () => {} },
+    fromTemplate: {
+      mutateAsync: async ({ name }: { name: string }) => {
+        state.createdTables.push(name);
+        state.nextId += 1;
+        const row = businessTable({ id: `t-new-${state.nextId}`, name, position: state.tables.length });
+        state.tables = [...state.tables, row];
+        // The real action invalidates the hub queries; reach the test's client through the window.
+        const qc = (window as unknown as { __thinkHubQc?: { invalidateQueries: () => void } }).__thinkHubQc;
+        qc?.invalidateQueries();
+        return row;
+      },
+      isPending: false,
+    },
+  }),
+}));
+vi.mock("@/lib/use-projects", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-projects")>("@/lib/use-projects");
+  return { ...actual, useProjects: () => ({ data: [] }) };
+});
 
 // The reads and writes are the boundary; everything above them is the reasoning this file is
 // about — what a first visit shows, what the two views do with the same records, and what
@@ -46,6 +92,7 @@ vi.mock("@/lib/think-hub", async () => {
     ...actual,
     fetchThinkTables: async () => state.tables,
     fetchThinkRecords: async () => state.records,
+    fetchRecordTaskLinks: async () => [],
     ensureDefaultTable: async () => {
       state.ensured += 1;
       const row = table({ id: "t-default", name: "Bảng tổng hợp" });
@@ -175,6 +222,7 @@ function businessTable(
 
 async function open() {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  (window as unknown as { __thinkHubQc?: QueryClient }).__thinkHubQc = client;
   return await render(
     <div style={{ width: 1100 }}>
       <QueryClientProvider client={client}>
@@ -206,13 +254,15 @@ beforeEach(() => {
 test("the first visit lands in a table nobody had to create", async () => {
   const screen = await open();
 
-  // Scoped to the table strip: the overview lists the same names, and a bare name lookup
+  // Scoped to the Kệ: the open table shows the same name in its title, and a bare name lookup
   // would match both places at once.
-  const strip = screen.getByRole("navigation", { name: "Các bảng" });
+  const ke = screen.getByRole("region", { name: "Kệ" });
   await expect
-    .element(strip.getByRole("button", { name: /Bảng tổng hợp/ }))
+    .element(ke.getByRole("button", { name: /Bảng tổng hợp/ }))
     .toBeInTheDocument();
-  expect(state.ensured).toBe(1);
+  // The ensure can run twice (ensure → invalidate → refetch re-enters); the invariant is that
+  // the default table was ensured without the person creating anything.
+  expect(state.ensured).toBeGreaterThanOrEqual(1);
 });
 
 /** The seven default columns ARE the offer — they show before there is a single record. */
@@ -230,13 +280,15 @@ test("a table is created by name and becomes the one on screen", async () => {
   state.tables = [businessTable({ id: "t-1", name: "Bảng tổng hợp" })];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Tạo bảng mới" }));
-  await userEvent.fill(screen.getByLabelText("Tên bảng"), "Công trình");
-  await userEvent.click(screen.getByRole("button", { name: "Tạo bảng" }));
+  await userEvent.click(screen.getByRole("button", { name: "Bảng mới" }));
+  await expect.element(screen.getByRole("dialog")).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: /Bảng trống/ }));
+  await userEvent.fill(screen.getByRole("textbox", { name: "Tên Bảng" }), "Công trình");
+  await userEvent.click(screen.getByRole("button", { name: "Dùng mẫu này" }));
 
   expect(state.createdTables).toEqual(["Công trình"]);
-  const strip = screen.getByRole("navigation", { name: "Các bảng" });
-  await expect.element(strip.getByRole("button", { name: /Công trình/ })).toBeInTheDocument();
+  // "Becomes the one on screen": the created table opens as the active view (the Kệ lists it too).
+  await expect.element(screen.getByRole("heading", { name: "Công trình" })).toBeInTheDocument();
 });
 
 /**
@@ -329,7 +381,7 @@ test("a record is written with only a title", async () => {
   state.tables = [businessTable({ id: "t-1", name: "Bảng tổng hợp" })];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Kho Long Biên");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -349,7 +401,7 @@ test("a cell left blank is saved as nothing at all", async () => {
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Chưa định giá");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -366,9 +418,9 @@ test("a number column refuses a word, and says which column it means", async () 
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Khách sạn ABC");
-  await userEvent.fill(screen.getByLabelText("Giá trị"), "nhiều lắm");
+  await userEvent.fill(screen.getByRole("textbox", { name: "Giá trị" }), "nhiều lắm");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
   await expect.element(screen.getByText('Cột "Giá trị" chỉ nhận số.')).toBeInTheDocument();
@@ -387,10 +439,10 @@ test("a full table says so instead of opening the form", async () => {
 
   const screen = await open();
   await expect
-    .element(screen.getByText(/Bảng đã đầy 1\.000 mục, hãy dọn bớt trước khi thêm\./))
+    .element(screen.getByText(/Bảng đã đầy 1\.000 Hạng mục, hãy dọn bớt trước khi thêm\./))
     .toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
 
   expect(state.createdRecords).toEqual([]);
   expect(screen.container.textContent).not.toContain("Hạng mục mới");
@@ -406,7 +458,7 @@ test("a table one record short of the ceiling still accepts one", async () => {
   const screen = await open();
   expect(screen.container.textContent).not.toContain("Bảng đã đầy");
 
-  await userEvent.click(screen.getByRole("button", { name: "Thêm Hạng mục" }));
+  await userEvent.click(screen.getByRole("button", { name: "Hạng mục" }));
   await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Mục cuối cùng");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
 
@@ -429,33 +481,5 @@ test("opening a record edits that record rather than writing a new one", async (
   expect(state.patched[0].patch.title).toBe("Khách sạn ABC - giai đoạn 2");
 });
 
-/**
- * The overview counts across every table, not just the one being read — that is the whole
- * reason it exists above the table strip.
- */
-test("the overview counts what is due across all the tables at once", async () => {
-  const today = new Date();
-  const iso = (offset: number): string => {
-    const date = new Date(today);
-    date.setDate(date.getDate() + offset);
-    return date.toISOString().slice(0, 10);
-  };
-
-  state.tables = [
-    businessTable({ id: "t-1", name: "Bảng tổng hợp", position: 0 }),
-    businessTable({ id: "t-2", name: "Công trình", position: 1 }),
-  ];
-  state.records = [
-    record({ id: "r-1", tableId: "t-1", nextActionDate: iso(-3) }),
-    record({ id: "r-2", tableId: "t-2", nextActionDate: iso(0) }),
-    record({ id: "r-3", tableId: "t-2", nextActionDate: iso(2) }),
-  ];
-
-  const screen = await open();
-
-  const space = screen.getByRole("region", { name: "Tổng quan kế hoạch" });
-  await expect.element(space).toBeInTheDocument();
-  await expect
-    .element(screen.getByText(/3 mục cần theo dõi, trong đó 1 mục đã quá hạn\./))
-    .toBeInTheDocument();
-});
+// The "Tổng quan kế hoạch" overview region left the page with the 52 · E shelf redesign; the
+// sentence it carried is covered by the attentionSentence unit tests in think-hub.test.ts.

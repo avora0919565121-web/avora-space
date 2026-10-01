@@ -15,10 +15,14 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
-vi.mock("@/lib/use-think-hub", () => ({
-  useThinkTables: () => ({ data: state.tables, isPending: false }),
-  useThinkRecords: () => ({ data: state.records, isPending: false }),
-}));
+vi.mock("@/lib/use-think-hub", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-think-hub")>("@/lib/use-think-hub");
+  return {
+    ...actual,
+    useThinkTables: () => ({ data: state.tables, isPending: false }),
+    useThinkRecords: () => ({ data: state.records, isPending: false }),
+  };
+});
 
 const { ProjectList } = await import("@/components/projects/ProjectList");
 
@@ -134,20 +138,20 @@ describe("the Dự án tab: my tables, then group projects", () => {
     expect(document.body.textContent).not.toContain("Chưa có dự án nào với một người");
   });
 
-  test("lists my personal and 1-1 tables, but not a group's or a project's", async () => {
+  test("lists every table in its own drawer — mine, 1-1, the group's, the project's — but not another person's", async () => {
     state.tables = [
       table({ id: "t-mine", name: "Sổ riêng" }),
       table({ id: "t-direct", name: "Bảng với Ngọc", conversationId: "c-direct" }),
       table({ id: "t-group", name: "Bảng của nhóm", conversationId: "c-group" }),
-      table({ id: "t-project", name: "Bảng dự án", projectId: "p1" }),
+      table({ id: "t-project", name: "Bảng của dự án", projectId: "p1" }),
       table({ id: "t-other", name: "Bảng người khác", ownerUserId: "u-other" }),
     ];
     const screen = await renderList([]);
     await expect.element(screen.getByText("Sổ riêng")).toBeInTheDocument();
     await expect.element(screen.getByText("Bảng với Ngọc")).toBeInTheDocument();
     await expect.element(screen.getByText("1-1 với Ngọc")).toBeInTheDocument();
-    expect(document.body.textContent).not.toContain("Bảng của nhóm");
-    expect(document.body.textContent).not.toContain("Bảng dự án");
+    await expect.element(screen.getByText("Bảng của nhóm")).toBeInTheDocument();
+    await expect.element(screen.getByText("Bảng của dự án")).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Bảng người khác");
   });
 
@@ -156,17 +160,17 @@ describe("the Dự án tab: my tables, then group projects", () => {
     state.records = [record({ id: "r1", tableId: "t-mine", title: "Gọi nhà cung cấp" })];
     const screen = await renderList([]);
     expect(document.body.textContent).not.toContain("Gọi nhà cung cấp");
-    await userEvent.click(screen.getByRole("button", { name: /Sổ riêng/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Sổ riêng Chỉ mình bạn" }));
     await expect.element(screen.getByText("Gọi nhà cung cấp")).toBeInTheDocument();
   });
 
-  test("lists only projects living in a group, each pointing at its page", async () => {
+  test("lists only projects living in a group, each pointing at its conversation (52 · E)", async () => {
     const screen = await renderList([
       project({ id: "p-42", conversationId: "c-group", title: "Ra mắt bản thử" }),
       project({ id: "p-old", conversationId: "c-journal", title: "Dự án cũ trong Nhật ký" }),
     ]);
     const link = screen.getByRole("link", { name: /Ra mắt bản thử/ });
-    await expect.element(link).toHaveAttribute("href", "/du-an/p-42");
+    await expect.element(link).toHaveAttribute("href", "/tin-nhan/c-group");
     expect(document.body.textContent).not.toContain("Dự án cũ trong Nhật ký");
   });
 

@@ -1,17 +1,20 @@
-import { Check, Loader2, LogOut } from "lucide-react";
+import { Check, Loader2, LogOut, MonitorX } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { askConfirm } from "@/components/ConfirmHost";
 import { PinSetup, usePinStatus } from "@/components/PinGate";
 import { RevealButton, useReveal } from "@/components/RevealContact";
+import { supabase } from "@/integrations/supabase/client";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { maskEmail, maskPhone } from "@/lib/mask";
 import { pinDaysLeft } from "@/lib/user-pin";
 
 /** Signed-in confirmation screen: real profile data from Supabase, scoped by RLS to this user. */
 const Profile = () => {
-  const { user, profile, profileError, updateDisplayName, signOut } = useAuth();
+  const { user, profile, profileError, updateDisplayName, signOut, signOutOthers } = useAuth();
   const displayName = useDisplayName();
   const navigate = useNavigate();
   const pinQuery = usePinStatus();
@@ -23,6 +26,7 @@ const Profile = () => {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saved, setSaved] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [isSigningOutOthers, setIsSigningOutOthers] = useState<boolean>(false);
 
   useEffect(() => {
     setNameDraft(profile?.display_name ?? "");
@@ -48,6 +52,35 @@ const Profile = () => {
     navigate("/dang-nhap", { replace: true });
   };
 
+  /**
+   * AVORA-54 · C — ends every other session of this account. The notice (a `security` push and
+   * the alarm email) rides on the server RPC; a failed notice is not worth blocking the answer.
+   */
+  const handleSignOutOthers = async (): Promise<void> => {
+    const ok = await askConfirm({
+      title: "Đăng xuất mọi thiết bị khác?",
+      body: "Các thiết bị khác sẽ phải đăng nhập lại ở lần thao tác kế tiếp, và Két sắt trên chúng tự khoá.",
+      confirmLabel: "Đăng xuất",
+      danger: true,
+    });
+    if (!ok || isSigningOutOthers) return;
+    setIsSigningOutOthers(true);
+    try {
+      const result = await signOutOthers();
+      if (!result.ok) {
+        toast.error(result.message ?? "Không đăng xuất được. Thử lại nhé.");
+        return;
+      }
+      await supabase.rpc("security_signout_notice").then(
+        () => undefined,
+        () => undefined,
+      );
+      toast.success("Đã đăng xuất mọi thiết bị khác.");
+    } finally {
+      setIsSigningOutOthers(false);
+    }
+  };
+
   const joinedAt = profile?.created_at
     ? new Intl.DateTimeFormat("vi-VN", { day: "2-digit", month: "2-digit", year: "numeric" }).format(
         new Date(profile.created_at),
@@ -65,7 +98,8 @@ const Profile = () => {
 
         <div className="mt-8 rounded-xl border border-border bg-card p-6">
           <h2 className="text-[17px] font-semibold text-foreground">Hồ sơ của bạn</h2>
-          <p className="mt-1 text-[13px] text-muted-foreground">Chỉ bạn đọc và sửa được hồ sơ này.</p>
+          {/* AVORA-55 · 3.2 (ADR-020 / ADR-034): never promise more than is true — others still see name and photo. */}
+          <p className="mt-1 text-[13px] text-muted-foreground">Chỉ bạn sửa được hồ sơ này.</p>
 
           {profileError ? (
             <p role="alert" className="mt-4 rounded-md bg-accent/70 px-4 py-3 text-[14px] text-destructive">
@@ -159,6 +193,24 @@ const Profile = () => {
             </section>
           ) : null}
         </div>
+
+        {/* AVORA-54 · C: sign out everywhere else, right where the account lives. */}
+        <section aria-labelledby="security-heading" className="mt-6 rounded-xl border border-border bg-card p-6">
+          <h2 id="security-heading" className="text-[17px] font-semibold text-foreground">Bảo mật</h2>
+          <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
+            Máy khác đang giữ phiên của bạn? Đăng xuất chúng từ xa. Máy đó sẽ bị đưa về màn đăng nhập ở lần
+            thao tác kế tiếp, và Két sắt trên đó tự khoá.
+          </p>
+          <button
+            type="button"
+            onClick={() => void handleSignOutOthers()}
+            disabled={isSigningOutOthers}
+            className="press mt-4 flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-4 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-60"
+          >
+            {isSigningOutOthers ? <Loader2 className="h-4 w-4 animate-spin" /> : <MonitorX className="h-[18px] w-[18px]" strokeWidth={1.6} />}
+            Đăng xuất mọi thiết bị khác
+          </button>
+        </section>
 
         <button
           type="button"

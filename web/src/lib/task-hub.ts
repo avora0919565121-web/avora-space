@@ -99,6 +99,72 @@ export function tasksForSection(
   }
 }
 
+// ------------------------------------------------------------------ Hôm nay (AVORA-55 · 4)
+
+export type MyDayOption = "none" | "today-auto" | "overdue" | "early" | "plain";
+
+/**
+ * AVORA-55 · 4 — what "Hôm nay" can offer one task today, read from the task's own time.
+ *
+ * `none` = a presence Event: it belongs to Hôm nay only on its own day, so no label button.
+ * `today-auto` = already carried into Hôm nay by today's deadline (or today's start), so the
+ * label would say nothing new. `overdue` / `early` / `plain` = this person may add the day's own
+ * mark by hand; the mark only counts today and never moves the deadline. A task with a start but
+ * no presence requirement reads by its start day like a deadline.
+ */
+export function myDayOption(task: TaskItem, today: string): MyDayOption {
+  if (task.requiresPresence && task.startAt !== null) return "none";
+  const day = task.deadline ?? (task.startAt !== null ? localDayOf(task.startAt) : null);
+  if (day === null) return "plain";
+  if (day === today) return "today-auto";
+  return day < today ? "overdue" : "early";
+}
+
+const WEEKDAY_SHORT: readonly string[] = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+
+/** `Hôm nay · 12/11` or `T4 · 12/11` — the day half the Hôm nay lines use. */
+export function dayLabelOf(day: string, today: string): string {
+  const date = new Date(`${day}T00:00:00`);
+  const prefix = day === today ? "Hôm nay" : WEEKDAY_SHORT[date.getDay()] ?? "";
+  return `${prefix} · ${Number(day.split("-")[2])}/${Number(day.split("-")[1])}`;
+}
+
+/** `12/11` — the plain date the Hôm nay hints show. */
+export function shortDay(day: string): string {
+  const [, month, dayOfMonth] = day.split("-");
+  return `${Number(dayOfMonth)}/${Number(month)}`;
+}
+
+/** `Sự kiện lúc 08:30 · Hôm nay · 12/11` — the line an Event shows instead of the label button. */
+export function myDayEventLine(task: TaskItem, today: string): string {
+  if (task.startAt === null) return "Sự kiện";
+  const time = new Date(task.startAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  return `Sự kiện lúc ${time} · ${dayLabelOf(localDayOf(task.startAt), today)}`;
+}
+
+export type MyDayCardNote = { text: string; tone?: "overdue" };
+
+/**
+ * The small line a task carries inside the Hôm nay list — why it is here, and when its own
+ * time really is (AVORA-55 · 4). Null = nothing to add to the ordinary meta line.
+ */
+export function myDayCardNote(task: TaskItem, today: string): MyDayCardNote | null {
+  const option = myDayOption(task, today);
+  const day = task.deadline ?? (task.startAt !== null ? localDayOf(task.startAt) : null);
+  switch (option) {
+    case "none":
+      return { text: myDayEventLine(task, today) };
+    case "today-auto":
+      return { text: "Đã ở Hôm nay vì hạn hôm nay" };
+    case "overdue":
+      return day !== null ? { text: `Quá hạn từ ${shortDay(day)}`, tone: "overdue" } : null;
+    case "early":
+      return day !== null ? { text: `Hạn ${shortDay(day)}` } : null;
+    default:
+      return null;
+  }
+}
+
 // ------------------------------------------------------------------ calendar projection
 
 /**

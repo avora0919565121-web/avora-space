@@ -18,6 +18,9 @@ const state = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
 
+// AVORA-51: Két sắt is closed outside its provider — these tests look at an open ledger.
+vi.mock("@/lib/use-vault-lock", () => ({ useVaultUnlocked: () => true }));
+
 const WALLET_ID = "acc-1";
 
 vi.mock("@/lib/finance-api", async () => {
@@ -222,7 +225,8 @@ describe("net worth counts what is owed each way", () => {
       obligation({ id: "lent", type: "cho_vay", amountCents: 100_000, dueDate: dayFromToday(20) }),
     ]);
     // 500000 opening - 100000 lent out = 400000 in the account, plus 100000 still to come back.
-    await expect.element(screen.getByText("Đã cộng $1,000.00 cho vay chưa thu về")).toBeInTheDocument();
+    await expect.element(screen.getByText(/Đã cộng cho vay/)).toBeInTheDocument();
+    await expect.element(screen.getByText("$1,000.00")).toBeInTheDocument();
   });
 
   it("subtracts money borrowed, which is sitting in the account but is not yours", async () => {

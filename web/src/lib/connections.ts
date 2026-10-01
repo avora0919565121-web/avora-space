@@ -109,6 +109,16 @@ export async function startPinConnection(pin: string): Promise<string> {
   return data;
 }
 
+/**
+ * AVORA-55 · 3.4 — opens the "Từ nhóm" frame with a group member (ADR-029: a shared Nhóm alone
+ * does not make two people bạn). Already bạn → the ordinary 1-1; a live frame → that frame.
+ */
+export async function startGroupConnection(groupId: string, userId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("start_group_connection", { p_group_id: groupId, p_user_id: userId });
+  if (error) throw fail(error.code, error.message);
+  return data as string;
+}
+
 export async function confirmVerification(conversationId: string): Promise<"connected" | "waiting"> {
   const { data, error } = await supabase.rpc("confirm_verification", { p_conversation_id: conversationId });
   if (error) throw fail(error.code, error.message);

@@ -2,15 +2,8 @@ import { BellRing, Share, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 
-import {
-  currentPushSupport,
-  currentSubscription,
-  enablePush,
-  PUSH_OFFER_EVENT,
-  readAskState,
-  rememberAskLater,
-  shouldOfferPush,
-} from "@/lib/push";
+import { currentPushSupport, currentSubscription, enablePush, PUSH_OFFER_EVENT, readAskState, rememberAskLater, shouldOfferPush } from "@/lib/push";
+import { isGuestMachine } from "@/lib/guest-machine";
 
 /**
  * "Bật thông báo để không lỡ tin và nhắc việc?" — shown after the first message sent or the first
@@ -23,6 +16,9 @@ export function PushOfferCard() {
 
   useEffect(() => {
     const onOffer = (): void => {
+      // AVORA-54 · A: a guest-machine session is never asked to take notifications and never
+      // registers this device — nothing about AVORA may stay on a borrowed machine.
+      if (isGuestMachine()) return;
       void currentSubscription().then((sub) => {
         const permission = typeof Notification === "undefined" ? "unsupported" : Notification.permission;
         if (shouldOfferPush({ support, permission, subscribed: sub !== null, laterAt: readAskState().laterAt })) setVisible(true);

@@ -416,8 +416,8 @@ describe("message tabs", () => {
 });
 
 describe("send receipts (ADR-028: no Đã xem)", () => {
-  it("shows only Đang gửi while in flight and Đã gửi once stored", () => {
-    expect(sendReceiptLabel(message({ pending: true }))).toBe("Đang gửi");
+  it("shows only Chờ gửi while in flight and Đã gửi once stored (AVORA-55 · 3.5)", () => {
+    expect(sendReceiptLabel(message({ pending: true }))).toBe("Chờ gửi");
     expect(sendReceiptLabel(message({ pending: false }))).toBe("Đã gửi");
     expect(sendReceiptLabel(message({}))).toBe("Đã gửi");
   });

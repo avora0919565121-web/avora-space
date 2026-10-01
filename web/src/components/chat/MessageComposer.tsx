@@ -1,7 +1,6 @@
 import { ArrowUp, Mic } from "lucide-react";
 import {
   useCallback,
-  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -53,41 +52,16 @@ export type MessageComposerProps = {
    * Omitted where recording is not possible.
    */
   onStartRecording?: () => void;
-  /**
-   * AVORA-49 · 2.5: a real keyboard sends on Enter (Shift+Enter = new line). Decided by the device
-   * when omitted: a fine pointer with hover means a keyboard; a phone keeps Enter as a new line.
-   */
-  enterToSend?: boolean;
-  /**
-   * AVORA-47 · D: holding (or right-clicking) the send button offers `Gửi khẩn`. `blockedNote`
-   * explains why it is greyed out today; the server checks the same rule on send.
-   */
   urgent?: { blockedNote: string | null; onSendUrgent: (content: string) => void };
 };
-
-const KEYBOARD_QUERY = "(hover: hover) and (pointer: fine)";
-
-/** True on a computer with a real keyboard and mouse. */
-function useHasKeyboard(): boolean {
-  const [matches, setMatches] = useState<boolean>(() =>
-    typeof window !== "undefined" && typeof window.matchMedia === "function" ? window.matchMedia(KEYBOARD_QUERY).matches : false,
-  );
-  useEffect(() => {
-    if (typeof window === "undefined" || typeof window.matchMedia !== "function") return;
-    const list = window.matchMedia(KEYBOARD_QUERY);
-    const update = (): void => setMatches(list.matches);
-    list.addEventListener("change", update);
-    return () => list.removeEventListener("change", update);
-  }, []);
-  return matches;
-}
 
 /**
  * The one composer behind every thread — 1-1, group and Nhật ký all render this.
  *
- * On a computer Enter sends and Shift+Enter opens a new line (AVORA-49 · 2.5); on a phone Enter
- * is a new line and the round send button sends. While an IME is still composing a Vietnamese
- * letter (Telex / VNI), Enter finishes the letter and never sends.
+ * AVORA-55 · 1 (cancels AVORA-49 · 2.5): a message leaves only through the Gửi button, on every
+ * device. Enter — plain, Shift, Ctrl or Cmd — always writes a new line; no keyboard shortcut
+ * sends. While an IME is still composing a Vietnamese letter (Telex / VNI), Enter finishes the
+ * letter.
  */
 export function MessageComposer({
   value,
@@ -102,15 +76,12 @@ export function MessageComposer({
   trailingAction,
   attachmentSlot,
   onStartRecording,
-  enterToSend,
   urgent,
 }: MessageComposerProps) {
   const [isUrgentMenuOpen, setIsUrgentMenuOpen] = useState<boolean>(false);
   const holdTimerRef = useRef<number | null>(null);
   const heldRef = useRef<boolean>(false);
   const fieldRef = useRef<HTMLTextAreaElement>(null);
-  const hasKeyboard = useHasKeyboard();
-  const sendsOnEnter = enterToSend ?? hasKeyboard;
   const showMic = onStartRecording !== undefined && value.trim() === "" && attachmentCount === 0;
   const canSend: boolean = canSendDraft(value, isSending, attachmentCount);
 
@@ -199,20 +170,12 @@ export function MessageComposer({
   /**
    * While the picker is open the arrow keys and Enter belong to it, not to the text.
    *
-   * Enter is the one that matters: it is already neutral for sending, so using it to accept a
-   * highlighted name costs nothing and is what every other mention picker does.
+   * Outside the picker there is nothing to handle: a textarea puts every Enter — plain, Shift,
+   * Ctrl or Cmd — into the draft by itself, and no keystroke sends (AVORA-55 · 1).
    */
   const handleFieldKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-      if (mentionRange === null || suggestions.length === 0) {
-        // keyCode 229 = an IME is mid-letter; isComposing covers the browsers that report it.
-        const isComposing = event.nativeEvent.isComposing || event.keyCode === 229;
-        if (sendsOnEnter && event.key === "Enter" && !event.shiftKey && !event.altKey && !isComposing) {
-          event.preventDefault();
-          submit();
-        }
-        return;
-      }
+      if (mentionRange === null || suggestions.length === 0) return;
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -236,7 +199,7 @@ export function MessageComposer({
         setMentionRange(null);
       }
     },
-    [mentionRange, suggestions, highlighted, choose, sendsOnEnter, submit],
+    [mentionRange, suggestions, highlighted, choose],
   );
 
   return (
@@ -300,7 +263,7 @@ export function MessageComposer({
           maxLength={4000}
           placeholder={placeholder}
           aria-label={ariaLabel}
-          enterKeyHint={sendsOnEnter ? "send" : "enter"}
+          enterKeyHint="enter"
           className="min-h-11 w-full resize-none rounded-[22px] border border-border bg-card px-4 py-[11px] text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
         />
       </div>
@@ -321,7 +284,7 @@ export function MessageComposer({
             type="submit"
             disabled={!canSend}
             aria-label="Gửi"
-            title={sendsOnEnter ? "Gửi (Enter)" : "Gửi"}
+            title="Gửi"
             className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-colors hover:bg-primary/92 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
@@ -333,7 +296,7 @@ export function MessageComposer({
                 type="submit"
                 disabled={!canSend}
                 aria-label="Gửi · giữ để gửi khẩn"
-                title={sendsOnEnter ? "Gửi (Enter) · chuột phải để gửi khẩn" : "Gửi · giữ để gửi khẩn"}
+                title="Gửi · giữ để gửi khẩn"
                 // The trigger opens only on hold / right-click; a tap still submits the form.
                 onPointerDown={(event) => {
                   event.preventDefault();

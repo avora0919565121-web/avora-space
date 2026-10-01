@@ -37,6 +37,12 @@ type AuthContextValue = {
   signIn: (email: string, password: string) => Promise<AuthResult>;
   /** Sends the confirmation email again for an address that signed up but never confirmed. */
   resendConfirmation: (email: string, redirectPath?: string) => Promise<AuthResult>;
+  /** AVORA-54 · B — sends a one-time 6-digit code to the email, never creating an account. */
+  sendEmailOtp: (email: string) => Promise<AuthResult>;
+  /** AVORA-54 · B — checks the 6-digit code and signs in. */
+  verifyEmailOtp: (email: string, token: string) => Promise<AuthResult>;
+  /** AVORA-54 · C — signs every other device out; this tab keeps its session. */
+  signOutOthers: () => Promise<AuthResult>;
   signOut: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<AuthResult>;
@@ -218,6 +224,53 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   }, []);
 
+  /**
+   * AVORA-54 · B — the email-code path. `shouldCreateUser: false` keeps this from being a way to
+   * make an account: only an existing address receives a code. Supabase answers the same whether
+   * or not the address exists, and rate limiting is the only error worth surfacing — everything
+   * else keeps the screen's one generic sentence, so this cannot be used to probe accounts.
+   */
+  const sendEmailOtp = useCallback(async (email: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { shouldCreateUser: false },
+    });
+    if (error) {
+      logError("auth", { code: error.code, message: error.message });
+      const m = error.message.toLowerCase();
+      if (m.includes("rate") || m.includes("too many") || m.includes("request_timeout")) {
+        return { ok: false, message: "Bạn vừa xin mã rồi. Thử lại sau ít phút nhé." };
+      }
+      if (m.includes("failed to fetch") || m.includes("network")) {
+        return { ok: false, message: "Không kết nối được máy chủ. Kiểm tra mạng và thử lại." };
+      }
+      // Unknown address, signups disabled, anything else: the same calm answer.
+    }
+    return { ok: true };
+  }, []);
+
+  const verifyEmailOtp = useCallback(async (email: string, token: string): Promise<AuthResult> => {
+    const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: token.trim(), type: "email" });
+    if (error) {
+      logError("auth", { code: error.code, message: error.message });
+      return { ok: false, message: "Mã chưa đúng hoặc đã hết hạn." };
+    }
+    return { ok: true };
+  }, []);
+
+  /**
+   * AVORA-54 · C — ends every other session of this account; this tab stays signed in. The
+   * devices that lose their session see it at their next action, and Két sắt locks with it.
+   */
+  const signOutOthers = useCallback(async (): Promise<AuthResult> => {
+    const { error } = await supabase.auth.signOut({ scope: "others" });
+    if (error) {
+      logError("auth", error);
+      return { ok: false, message: "Không đăng xuất được các thiết bị khác. Thử lại nhé." };
+    }
+    return { ok: true };
+  }, []);
+
   const signOut = useCallback(async (): Promise<void> => {
     // AVORA-46: this device stops receiving this account's notifications.
     await disablePushHere().catch(() => undefined);
@@ -298,6 +351,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signIn,
       resendConfirmation,
+      sendEmailOtp,
+      verifyEmailOtp,
+      signOutOthers,
       signOut,
       refreshProfile,
       updateDisplayName,
@@ -313,6 +369,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       signUp,
       signIn,
       resendConfirmation,
+      sendEmailOtp,
+      verifyEmailOtp,
+      signOutOthers,
       signOut,
       refreshProfile,
       updateDisplayName,

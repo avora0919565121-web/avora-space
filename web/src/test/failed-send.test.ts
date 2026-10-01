@@ -42,7 +42,7 @@ describe("failed sends", () => {
     expect(withFailedSends(thread, [], "c1")).toBe(thread);
   });
 
-  it("reads 'Đang gửi…' again while a retry is in flight, in the same place", () => {
+  it("reads 'Chờ gửi…' again while a retry is in flight, in the same place (AVORA-55 · 3.5)", () => {
     const retrying = failedSendToMessage({ ...failed, isRetrying: true });
     expect(retrying.failed).toBe(false);
     expect(retrying.pending).toBe(true);

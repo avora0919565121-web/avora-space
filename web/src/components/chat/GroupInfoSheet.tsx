@@ -27,6 +27,8 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AddMembersSheet } from "@/components/chat/AddMembersSheet";
+import { startGroupConnection } from "@/lib/connections";
+import { useConnections } from "@/lib/use-connections";
 import { ConversationNotifySheet } from "@/components/chat/ConversationNotifySheet";
 import { shortUntil, useRhythm } from "@/lib/use-rhythm";
 
@@ -372,6 +374,20 @@ export function GroupInfoSheet({
     onError: (error: Error) => toast.error(error.message),
   });
 
+  // AVORA-55 · 3.4 (ADR-029): a shared Nhóm alone does not make two people bạn. Friends get
+  // "Nhắn riêng"; everyone else gets "Kết bạn để nhắn riêng", which opens the "Từ nhóm {tên}"
+  // frame through the same rules as the PIN path.
+  const { isConnected } = useConnections();
+  const friendRequestMutation = useMutation({
+    mutationFn: (targetUserId: string) => startGroupConnection(conversationId, targetUserId),
+    onSuccess: (pendingConversationId: string) => {
+      onOpenChange(false);
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+      onOpenConversation(pendingConversationId, conversationId);
+    },
+    onError: (error: Error) => toast.error(error.message),
+  });
+
   const rotateInviteMutation = useMutation({
     mutationFn: () => rotateGroupInvite(conversationId),
     onSuccess: () => {
@@ -397,6 +413,7 @@ export function GroupInfoSheet({
     requestMutation.isPending ||
     resolveMutation.isPending ||
     dmMutation.isPending ||
+    friendRequestMutation.isPending ||
     leaveMutation.isPending ||
     transferMutation.isPending ||
     renameMutation.isPending ||
@@ -919,9 +936,14 @@ export function GroupInfoSheet({
                                   </button>
                                 </DropdownMenuTrigger>
                                 <DropdownMenuContent align="end" className="w-56">
-                                  {actions.includes("directMessage") ? (
+                                  {actions.includes("directMessage") && isConnected(member.userId) ? (
                                     <DropdownMenuItem onSelect={() => dmMutation.mutate(member.userId)} className="min-h-10 gap-2">
                                       <MessageCircle className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Nhắn riêng
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("directMessage") && !isConnected(member.userId) ? (
+                                    <DropdownMenuItem onSelect={() => friendRequestMutation.mutate(member.userId)} className="min-h-10 gap-2">
+                                      <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Kết bạn để nhắn riêng
                                     </DropdownMenuItem>
                                   ) : null}
                                   {actions.includes("makeAdmin") ? (

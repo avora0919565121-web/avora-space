@@ -34,6 +34,14 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   brand column (wordmark, "Nhắn tin riêng tư, tức thì!" — thay 30/09 bằng "Avora Space / Clarity - Inner Space - My Space", © line), right white column with the form. One screen
   covers three states via `?mode=dang-ky` and `?mode=quen-mat-khau`. In Quên mật khẩu only the email field shows,
   with "Gửi liên kết đặt lại" and "Quay lại đăng nhập"; the terms line and "hoặc" divider are hidden there.
+  AVORA-54 (01/10): dưới ô Mật khẩu có ô tích `Đây là máy của người khác` (mặc định không tích) — phiên chỉ sống
+  trong tab, không nhớ email, và hiện dòng *Nếu trình duyệt hỏi lưu mật khẩu, chọn "Không bao giờ".* Không chống lưu
+  mật khẩu bằng mẹo nào (đổi tên ô, giả ô chữ, readonly) — hỏng trình quản lý mật khẩu và trình đọc màn hình. Dưới
+  nút Đăng nhập có `Đăng nhập bằng mã gửi qua email` (`?mode=ma-email`): mã 6 số qua email, 10 phút, gửi lại sau 60
+  giây, không tạo tài khoản mới, câu báo chung cho email lạ; trên đường mã, ô "máy của người khác" được tích sẵn.
+  Trong app, máy lạ có dải nhỏ trên cùng `Bạn đang dùng máy của người khác · Đăng xuất khi xong` (đóng được, chỉ tab
+  này); không hỏi bật thông báo đẩy trên phiên này. Hồ sơ › Bảo mật thêm `Đăng xuất mọi thiết bị khác` (hộp xác nhận
+  → toast + email báo động + đẩy `security` tới các máy còn lại).
 - **Đặt lại mật khẩu** (`/dat-lai-mat-khau`, no site nav) — where the emailed link lands, same split layout with
   "Đặt lại mật khẩu." as the brand headline. Three states: checking the link, the two-field form (new password +
   confirmation), or a plain "Liên kết không dùng được" panel with a button to request a fresh email. On success it
@@ -45,7 +53,7 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - **Cuộc trò chuyện** (`/tin-nhan/:id`, detail of Tin nhắn) — same list column with the active row on soft wash;
   right region becomes the thread: white header (avatar, name, email), one date separator per day, bubbles,
   pinned composer with terracotta Gửi. Real data. Outgoing bubbles appear instantly at 70% opacity with
-  "Đang gửi…" until the server confirms. A thread you cannot access shows "Không mở được cuộc trò chuyện".
+  "Chờ gửi…" until the server confirms. A thread you cannot access shows "Không mở được cuộc trò chuyện".
   Incoming messages appear on their own within a second, with the same 60ms staggered bubble entrance; the inbox
   row jumps to the top at the same moment. Opening the thread clears its unread badge; the sender then sees
   Đã xem under their newest message without reloading.
@@ -1233,6 +1241,10 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 
 ### Nhịp sống Kết nối (AVORA-47 · ADR-027 · ADR-028)
 
+- 2026-10-01 — Tin chỉ gửi bằng nút Gửi. Enter luôn xuống dòng, ở mọi thiết bị, kể cả Ctrl/Cmd+Enter — không có phím
+  tắt gửi (AVORA-55 · 1, huỷ AVORA-49 · 2.5). Áp cho mọi ô soạn tin: 1-1, Nhóm, Dự án, Nhật ký, khung chờ kết bạn,
+  sửa tin, trả lời. Ô tìm kiếm và ô một dòng trong form không thuộc luật này.
+
 - 2026-10-01 — Dòng cuộc: vuốt trái `Xem sau` / `Lưu trữ`, vuốt phải `Tắt thông báo` (1 giờ · 4 giờ · 8 giờ · Hết hôm nay);
   chuột phải cùng các mục. Cuộc đang tắt có 🔕. `Đã lưu trữ (n)` ở cuối danh sách; tin mới đưa cuộc về lại.
 - 2026-10-01 — Chế độ tập trung: giữ nút Kết nối 500 ms (điện thoại) / chuột phải ☾ (máy tính) / Cài đặt › Thông báo. Tấm
@@ -1673,8 +1685,9 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   Avora AI. The paste flow is one hook (`hooks/use-paste-task`) shared with Kết nối; the clipboard is read in the
   same selection. The quick transaction reuses `TransactionForm` and the shared finance queries; with no account it
   invites creating one instead of opening an empty form. Reaction cache is keyed by conversation only.
-- 2026-09-28 — No "Đã xem" (AVORA-37 / C, ADR-028). The sender's receipt is only `Đang gửi` → `Đã gửi` (single
-  check) on their newest message. The peer's read watermark is no longer returned by `list_my_conversations` and
+- 2026-09-28 — No "Đã xem" (AVORA-37 / C, ADR-028). The sender's receipt is only `Chờ gửi` → `Đã gửi` (single
+  check) on their newest message — the chain reads `Chờ gửi` → `Đã gửi` → `Đã nhận` (renamed from
+  "Đang gửi" in AVORA-55 · 3.5). The peer's read watermark is no longer returned by `list_my_conversations` and
   realtime ignores other people's read updates; the viewer's own `last_read_at` still drives unread counts and badges.
   `Đã nhận` needs a delivery signal from the recipient's device and comes after launch. Still open at the data layer:
   `conversation_participants` lets members read each other's `last_read_at` (see SECURITY-AUDIT-2026-09-28).
@@ -1795,6 +1808,9 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   links say how long they stay open (7 days).
 
 ## Out of scope
+
+"Leaked password protection" của Supabase (kiểm mật khẩuAgainst bloom.mutable security database) chỉ có trên gói trả
+phí — chưa làm (AVORA-55 · 5, VMT 01/10 16:41).
 
 Dark mode, in-app voice or video calls (calls are handed to the phone, Zalo, WhatsApp or a posted room
 link), AI features, heavy project management (the lightweight Nhiệm vụ module ships, now with clocks,

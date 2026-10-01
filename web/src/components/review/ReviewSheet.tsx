@@ -300,17 +300,30 @@ export function ReviewSheet({
 /**
  * The prompt itself: a card at the top of Kế hoạch (`variant="card"`) or one line on Avora Space
  * (`variant="line"`). Shows only when a review is due; `Để sau` folds it for the rest of the day.
+ *
+ * AVORA-55 · 3.3 (ADR-013): on Avora Space the line only leads — tapping `Nhìn lại` opens the
+ * review inside Kế hoạch (where Dời ngày · Bỏ · ★ live), carrying a way back to Space.
+ * `initialOpen` lets Kế hoạch receive that jump (`?nhin-lai=week|day`) already open.
  */
-export function ReviewPrompt({ review, variant }: { review: ReviewState; variant: "card" | "line" }) {
+export function ReviewPrompt({ review, variant, initialOpen = null }: { review: ReviewState; variant: "card" | "line"; initialOpen?: ReviewKind | null }) {
   const { user } = useAuth();
-  const [openKind, setOpenKind] = useState<ReviewKind | null>(null);
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [openKind, setOpenKind] = useState<ReviewKind | null>(initialOpen);
   const due = review.due;
 
   const later = (kind: ReviewKind): void => {
     dismissReview(user?.id, kind, review.today);
     review.refresh();
   };
-  const openReview = (kind: ReviewKind): void => setOpenKind(kind);
+  const openReview = (kind: ReviewKind): void => {
+    if (variant === "line") {
+      const here = hereFrom(location, "Avora Space");
+      navigate(withReturn(`/ke-hoach?nhin-lai=${kind}`, { path: here.path, label: "Avora Space" }));
+      return;
+    }
+    setOpenKind(kind);
+  };
 
   const sheet =
     openKind !== null ? (

@@ -1,26 +1,40 @@
 import { Loader2 } from "lucide-react";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
 import { AUTH_TAGLINE, BRAND_MOTTO, BRAND_PRODUCT } from "@/lib/brand";
+import { dismissGuestNotice, isGuestMachine, setGuestMachine } from "@/lib/guest-machine";
 import { returnPathFrom } from "@/lib/navigation";
 
-type Mode = "signin" | "signup" | "forgot";
+type Mode = "signin" | "signup" | "forgot" | "otp";
 
 function readMode(value: string | null): Mode {
   if (value === "dang-ky") return "signup";
   if (value === "quen-mat-khau") return "forgot";
+  if (value === "ma-email") return "otp";
   return "signin";
 }
 
-/** Sign in / sign up / request a reset link — all wired to real Supabase Auth. */
+function cleanCode(value: string): string {
+  return value.replace(/\D/g, "").slice(0, 6);
+}
+
+/**
+ * Sign in / sign up / request a reset link / sign in with an emailed code — all wired to real
+ * Supabase Auth.
+ *
+ * AVORA-54 · A — `Đây là máy của người khác`: the session is then kept in this tab only
+ * (sessionStorage), and the screen tells the person what to answer if the browser offers to save
+ * the password. AVORA-54 · B — the email-code path never creates an account and answers the same
+ * whether or not the address has one.
+ */
 const Auth = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
   const returnTo: string = returnPathFrom(location.state);
-  const { signIn, signUp, resendConfirmation, requestPasswordReset, session, isLoading, isRecovering } =
+  const { signIn, signUp, resendConfirmation, requestPasswordReset, sendEmailOtp, verifyEmailOtp, session, isLoading, isRecovering } =
     useAuth();
 
   const mode: Mode = readMode(searchParams.get("mode"));
@@ -33,22 +47,51 @@ const Auth = () => {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [canResendConfirmation, setCanResendConfirmation] = useState<boolean>(false);
 
+  // AVORA-54 · A — default unchecked. On the email-code path it is checked on arrival (B).
+  const [guestMachine, setGuestMachineChecked] = useState<boolean>(() => isGuestMachine());
+  // AVORA-54 · B — the code flow: typing the email, then the 6-digit code.
+  const [otpPhase, setOtpPhase] = useState<"email" | "code">("email");
+  const [otpCode, setOtpCode] = useState<string>("");
+  const [resendLeft, setResendLeft] = useState<number>(0);
+  const verifiedCodeRef = useRef<string>("");
+  const codeFieldRef = useRef<HTMLInputElement | null>(null);
+
   useEffect(() => {
     setError(null);
     setNotice(null);
     setCanResendConfirmation(false);
+    setOtpPhase("email");
+    setOtpCode("");
+    setResendLeft(0);
+    verifiedCodeRef.current = "";
   }, [mode]);
+
+  useEffect(() => {
+    if (resendLeft <= 0) return;
+    const timer = window.setInterval(() => setResendLeft((current) => Math.max(0, current - 1)), 1000);
+    return () => window.clearInterval(timer);
+  }, [resendLeft]);
 
   // A recovery session must finish setting its new password before it can browse the app.
   if (!isLoading && session && isRecovering) return <Navigate to="/dat-lai-mat-khau" replace />;
   if (!isLoading && session) return <Navigate to={returnTo} replace />;
 
-  // The return path rides along when switching between sign in / sign up / forgot.
+  // The return path rides along when switching between sign in / sign up / forgot / code.
   const switchMode = (next: Mode): void => {
     const options = { replace: true, state: location.state as unknown };
     if (next === "signup") setSearchParams({ mode: "dang-ky" }, options);
     else if (next === "forgot") setSearchParams({ mode: "quen-mat-khau" }, options);
-    else setSearchParams({}, options);
+    else if (next === "otp") {
+      // AVORA-54 · B: the machine checkbox arrives checked on this path; the person can uncheck it.
+      setGuestMachineChecked(true);
+      setSearchParams({ mode: "ma-email" }, options);
+    } else setSearchParams({}, options);
+  };
+
+  const toggleGuestMachine = (checked: boolean): void => {
+    setGuestMachineChecked(checked);
+    // Unchecking on this screen immediately restores the ordinary behaviour.
+    if (!checked) setGuestMachine(false);
   };
 
   const handleResendConfirmation = async (): Promise<void> => {
@@ -66,11 +109,66 @@ const Auth = () => {
     setNotice("Đã gửi lại email xác nhận. Kiểm tra hộp thư, kể cả mục spam.");
   };
 
+  const sendCode = async (): Promise<void> => {
+    if (email.trim().length === 0) {
+      setError("Vui lòng nhập email của bạn.");
+      return;
+    }
+    setError(null);
+    setNotice(null);
+    setIsSubmitting(true);
+    const result = await sendEmailOtp(email);
+    setIsSubmitting(false);
+    if (!result.ok) {
+      setError(result.message ?? null);
+      return;
+    }
+    // Deliberately the same answer whether or not the address has an account.
+    setNotice(
+      resendLeft > 0
+        ? "Nếu email này có tài khoản AVORA, mã đã được gửi. Mã dùng một lần, hết hạn sau 10 phút."
+        : "Nếu email này có tài khoản AVORA, mã đã được gửi. Mã dùng một lần, hết hạn sau 10 phút.",
+    );
+    setOtpPhase("code");
+    setOtpCode("");
+    verifiedCodeRef.current = "";
+    setResendLeft(60);
+    window.setTimeout(() => codeFieldRef.current?.focus(), 50);
+  };
+
+  const verifyCode = async (code: string): Promise<void> => {
+    if (code.length !== 6 || verifiedCodeRef.current === code) return;
+    verifiedCodeRef.current = code;
+    setError(null);
+    setNotice(null);
+    setIsSubmitting(true);
+    // The flag decides where the session is kept, so it must be set before the sign-in lands.
+    setGuestMachine(guestMachine);
+    if (guestMachine) dismissGuestNotice(); // the banner shows once inside, not for the tab's whole life
+    const result = await verifyEmailOtp(email, code);
+    setIsSubmitting(false);
+    if (!result.ok) {
+      setError(result.message ?? null);
+      verifiedCodeRef.current = "";
+      return;
+    }
+    navigate(returnTo, { replace: true });
+  };
+
   const handleSubmit = async (event: FormEvent<HTMLFormElement>): Promise<void> => {
     event.preventDefault();
     setError(null);
     setNotice(null);
     setCanResendConfirmation(false);
+
+    if (mode === "otp") {
+      if (otpPhase === "email") {
+        await sendCode();
+        return;
+      }
+      await verifyCode(otpCode);
+      return;
+    }
 
     if (mode === "forgot") {
       if (email.trim().length === 0) {
@@ -102,6 +200,9 @@ const Auth = () => {
     }
 
     setIsSubmitting(true);
+    // AVORA-54 · A — the flag routes the new session into sessionStorage when checked.
+    setGuestMachine(guestMachine);
+    if (guestMachine) dismissGuestNotice();
     const result =
       mode === "signup" ? await signUp(email, password, displayName, returnTo) : await signIn(email, password);
     setIsSubmitting(false);
@@ -125,8 +226,18 @@ const Auth = () => {
 
   const isSignUp = mode === "signup";
   const isForgot = mode === "forgot";
+  const isOtp = mode === "otp";
   const title: string = isForgot ? "Quên mật khẩu" : isSignUp ? "Đăng ký" : "Đăng nhập";
-  const submitLabel: string = isForgot ? "Gửi liên kết đặt lại" : isSignUp ? "Tạo tài khoản" : "Đăng nhập";
+  const submitLabel: string = isForgot
+    ? "Gửi liên kết đặt lại"
+    : isSignUp
+      ? "Tạo tài khoản"
+      : isOtp
+        ? otpPhase === "email"
+          ? "Gửi mã"
+          : "Đăng nhập"
+        : "Đăng nhập";
+  const showGuestCheckbox = mode === "signin" || isOtp;
 
   return (
     <div className="flex min-h-screen flex-col md:flex-row">
@@ -171,6 +282,12 @@ const Auth = () => {
           {isForgot ? (
             <p className="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">
               Nhập email của bạn, chúng tôi sẽ gửi liên kết để đặt mật khẩu mới.
+            </p>
+          ) : isOtp ? (
+            <p className="mt-1.5 text-[15px] leading-relaxed text-muted-foreground">
+              {otpPhase === "email"
+                ? "Nhập email của bạn — chúng tôi gửi một mã 6 số để đăng nhập, không cần mật khẩu."
+                : `Nhập 6 số vừa gửi tới email của bạn.`}
             </p>
           ) : (
             <p className="mt-1.5 text-[15px] text-muted-foreground">
@@ -220,7 +337,41 @@ const Auth = () => {
               />
             </div>
 
-            {isForgot ? null : (
+            {isOtp && otpPhase === "code" ? (
+              <div className="space-y-2">
+                <label htmlFor="otp-code" className="block text-[14px] font-medium text-foreground">
+                  Mã 6 số
+                </label>
+                <input
+                  id="otp-code"
+                  ref={codeFieldRef}
+                  name="otp-code"
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={(event) => {
+                    const next = cleanCode(event.target.value);
+                    setOtpCode(next);
+                    if (next.length === 6 && !isSubmitting) void verifyCode(next);
+                  }}
+                  placeholder="••••••"
+                  className="tabular h-12 w-full rounded-md border border-border bg-card px-4 text-center text-[22px] font-semibold tracking-[0.35em] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/70"
+                />
+                <p className="text-[13px] text-muted-foreground">Mã dùng một lần, hết hạn sau 10 phút.</p>
+                <button
+                  type="button"
+                  onClick={() => void sendCode()}
+                  disabled={isSubmitting || resendLeft > 0}
+                  className="rounded-sm text-[13px] font-medium text-primary underline-offset-4 transition-colors hover:underline disabled:opacity-50"
+                >
+                  {resendLeft > 0 ? `Gửi lại mã sau ${resendLeft}s` : "Gửi lại mã"}
+                </button>
+              </div>
+            ) : null}
+
+            {isForgot || (isOtp && otpPhase === "code") ? null : (
               <div className="space-y-2">
                 <div className="flex items-baseline justify-between">
                   <label htmlFor="password" className="block text-[14px] font-medium text-foreground">
@@ -251,6 +402,26 @@ const Auth = () => {
               </div>
             )}
 
+            {showGuestCheckbox ? (
+              <div className="space-y-1.5">
+                <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-[14px] text-foreground">
+                  <input
+                    type="checkbox"
+                    checked={guestMachine}
+                    onChange={(event) => toggleGuestMachine(event.target.checked)}
+                    className="h-[18px] w-[18px] shrink-0 accent-primary"
+                  />
+                  Đây là máy của người khác
+                </label>
+                {guestMachine ? (
+                  <p className="pl-[28px] text-[13px] leading-relaxed text-muted-foreground">
+                    Phiên chỉ còn trong tab này — đóng tab là hết. Nếu trình duyệt hỏi lưu mật khẩu, chọn
+                    &ldquo;Không bao giờ&rdquo;.
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+
             {error ? (
               <div role="alert" className="rounded-md bg-accent/70 px-4 py-3 text-[14px] text-destructive">
                 {error}
@@ -274,7 +445,7 @@ const Auth = () => {
 
             <button
               type="submit"
-              disabled={isSubmitting}
+              disabled={isSubmitting || (isOtp && otpPhase === "code" && otpCode.length < 6)}
               className="press flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-60"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
@@ -290,11 +461,29 @@ const Auth = () => {
                 Quay lại đăng nhập
               </button>
             ) : null}
+            {isOtp ? (
+              <button
+                type="button"
+                onClick={() => switchMode("signin")}
+                className="block w-full rounded-sm text-center text-[14px] font-medium text-primary underline-offset-4 transition-colors hover:underline"
+              >
+                Đăng nhập bằng mật khẩu
+              </button>
+            ) : null}
+            {mode === "signin" ? (
+              <button
+                type="button"
+                onClick={() => switchMode("otp")}
+                className="block w-full rounded-sm text-center text-[14px] font-medium text-primary underline-offset-4 transition-colors hover:underline"
+              >
+                Đăng nhập bằng mã gửi qua email
+              </button>
+            ) : null}
           </form>
 
           {isForgot ? null : (
             <>
-              {/* AVORA-53 · 6.15: no "hoặc" while there is no other way to sign in. */}
+              {/* AVORA-54 · B: the email-code choice sits where the "hoặc" divider used to be. */}
               <p className="mt-6 text-center text-[13px] leading-relaxed text-muted-foreground">
                 Bằng việc tiếp tục, bạn đồng ý với Điều khoản của AVORA
               </p>

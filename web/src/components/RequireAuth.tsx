@@ -2,6 +2,7 @@ import { Loader2 } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
+import { GuestMachineBanner } from "@/components/GuestMachineBanner";
 import { PinGate, PinReminderBanner } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
@@ -56,6 +57,8 @@ export function RequireAuth() {
       <AppSidebar />
       {/* min-w-0: a wide table scrolls inside its own frame instead of pushing the page wider. */}
       <main className="flex min-h-0 min-w-0 flex-1 flex-col">
+        {/* AVORA-54 · A: on a borrowed machine the reminder rides on top until closed. */}
+        <GuestMachineBanner />
         <RecordingBar />
         <PinReminderBanner />
         {/* A fault in one screen stays in that screen; bars and bubble live outside (A6). */}

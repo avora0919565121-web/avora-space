@@ -1,6 +1,7 @@
-// AVORA-51 · vault-mail — sends the two Két sắt emails through the Resend API:
+// AVORA-51 · vault-mail — sends the Két sắt / security emails through the Resend API:
 //   · reset_code: the 6-digit code that lets the owner set a new Két sắt code (10 minutes, one use).
-//   · alarm: "the Két sắt code was just reset / changed" — sent on every reset or change.
+//   · alarm (reset | change): "the Két sắt code was just reset / changed" — sent on every reset or change.
+//   · alarm (signout): AVORA-54 · C — "the account was just signed out on every other device".
 // Called only by private.vault_send_mail() (pg_net), guarded by the same header secret as send-push.
 // The code is never logged.
 
@@ -10,7 +11,7 @@ const FROM = "AVORA <no-reply@avorachat.com>";
 
 type Body =
   | { kind: "reset_code"; email: string; code: string }
-  | { kind: "alarm"; action: "reset" | "change"; email: string; when: string };
+  | { kind: "alarm"; action: "reset" | "change" | "signout"; email: string; when: string };
 
 const FONT = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
@@ -51,7 +52,22 @@ function compose(body: Body): { subject: string; html: string; text: string } {
       text: `Mã đặt lại Két sắt AVORA: ${body.code}\nDùng một lần, hết hạn sau 10 phút.\nKhông phải bạn? Đổi mật khẩu tài khoản ngay.`,
     };
   }
-  const verb = body.action === "reset" ? "đặt lại" : "đổi";
+  const verb = body.action === "reset" ? "đặt lại" : body.action === "change" ? "đổi" : null;
+  if (verb === null) {
+    // AVORA-54 · C — signed out on every other device.
+    const when = escapeHtml(body.when);
+    const vi = p("Chào bạn,") +
+      p(`Tài khoản của bạn vừa được <strong>đăng xuất trên mọi thiết bị khác</strong> lúc ${when}.`) +
+      p("Không phải bạn? Đổi mật khẩu tài khoản AVORA ngay.", "font-size:14px;");
+    const en = p("Hi,") +
+      p(`Your AVORA account was just <strong>signed out on every other device</strong> at ${when}.`) +
+      p("Wasn't you? Change your AVORA account password now.", "font-size:14px;");
+    return {
+      subject: "AVORA: vừa đăng xuất mọi thiết bị khác",
+      html: frame(vi, en, `Email này được gửi tới ${email} mỗi khi tài khoản được đăng xuất từ xa.`),
+      text: `Tài khoản AVORA vừa được đăng xuất trên mọi thiết bị khác lúc ${body.when}. Không phải bạn? Đổi mật khẩu ngay.`,
+    };
+  }
   const verbEn = body.action === "reset" ? "reset" : "changed";
   const when = escapeHtml(body.when);
   const vi = p("Chào bạn,") + p(`Mã Két sắt vừa được <strong>${verb}</strong> lúc ${when}.`) +
@@ -70,7 +86,11 @@ function isBody(value: unknown): value is Body {
   const v = value as Record<string, unknown>;
   if (typeof v.email !== "string" || !v.email.includes("@")) return false;
   if (v.kind === "reset_code") return typeof v.code === "string" && /^[0-9]{6}$/.test(v.code);
-  if (v.kind === "alarm") return (v.action === "reset" || v.action === "change") && typeof v.when === "string";
+  if (v.kind === "alarm") {
+    return (
+      (v.action === "reset" || v.action === "change" || v.action === "signout") && typeof v.when === "string"
+    );
+  }
   return false;
 }
 

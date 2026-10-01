@@ -16,6 +16,7 @@ import {
   type TaskItem,
 } from "@/lib/tasks";
 import { useMyDay, useTaskFlagIndex, useTaskStart } from "@/lib/use-task-flags";
+import { myDayEventLine, myDayOption } from "@/lib/task-hub";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
 
@@ -319,8 +320,13 @@ export function StartButton({ task }: { task: TaskItem }) {
 }
 
 /**
- * "Thêm vào Hôm nay" — this person's own list for today, kept apart from the deadline. It only
+ * "Hôm nay" — this person's own list for today, kept apart from the deadline. The mark only
  * counts on the day it was added; tomorrow the task drops off by itself.
+ *
+ * AVORA-55 · 4: the offer reads the task's own time first. A presence Event belongs to Hôm nay
+ * on its day alone (a quiet line instead of a button), and a task already carried there by
+ * today's deadline — or today's start — needs no label either. Overdue work becomes "Làm hôm
+ * nay", future work "Làm sớm hôm nay"; a deadline is never moved by any of this.
  */
 export function MyDayButton({ task }: { task: TaskItem }) {
   const flags = useTaskFlagIndex();
@@ -329,6 +335,22 @@ export function MyDayButton({ task }: { task: TaskItem }) {
   const onToday = isOnMyDay(flags, task.id, today);
 
   if (!isOpenTask(task)) return null;
+
+  const option = myDayOption(task, today);
+  if (option === "none") {
+    return <span className="text-[12.5px] leading-snug text-muted-foreground">{myDayEventLine(task, today)}</span>;
+  }
+  if (option === "today-auto") {
+    return <span className="text-[12.5px] leading-snug text-muted-foreground">Đã ở Hôm nay vì hạn hôm nay</span>;
+  }
+
+  const label: string = onToday
+    ? "Bỏ khỏi Hôm nay"
+    : option === "overdue"
+      ? "Làm hôm nay"
+      : option === "early"
+        ? "Làm sớm hôm nay"
+        : "Thêm vào Hôm nay";
 
   return (
     <button
@@ -343,7 +365,7 @@ export function MyDayButton({ task }: { task: TaskItem }) {
       )}
     >
       <Sun className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-      {onToday ? "Đã có trong Hôm nay" : "Thêm vào Hôm nay"}
+      {label}
     </button>
   );
 }

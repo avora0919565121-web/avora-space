@@ -632,7 +632,12 @@ const ThinkHub = () => {
           <>
             <ReturnChip className="-mt-2 mb-2" />
             {/* C7 · AVORA-50 B: Nhìn lại tuần (card) / hôm nay (one line), only when due. */}
-            <ReviewPrompt review={review} variant="card" />
+            {/* AVORA-55 · 3.3: a jump from Avora Space (`?nhin-lai=`) lands with the review open. */}
+            <ReviewPrompt
+              review={review}
+              variant="card"
+              initialOpen={searchParams.get("nhin-lai") === "week" ? "week" : searchParams.get("nhin-lai") === "day" ? "day" : null}
+            />
             <HubShelf
               tiles={tiles}
               shelf={shelf}

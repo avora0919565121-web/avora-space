@@ -1,3 +1,5 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { vi } from "vitest";
@@ -21,6 +23,24 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
+
+// The deadline calendar reads the week's tasks; keep that read inert so the grid renders at once.
+vi.mock("@/lib/use-tasks", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-tasks")>("@/lib/use-tasks");
+  return {
+    ...actual,
+    useTasksInRange: () => ({ data: [], isLoading: false, isError: false, refetch: async () => {} }),
+  };
+});
+
+// "Cả nhóm / Chọn người" offer exactly the people the server would accept — here, the fixture.
+vi.mock("@/lib/use-task-composer", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-task-composer")>("@/lib/use-task-composer");
+  return {
+    ...actual,
+    useTaskRecipientIds: () => ({ data: ["u-hoa", "u-dung", "u-dat", "u-me"], isLoading: false, isError: false }),
+  };
+});
 
 /**
  * The dialog talks to suggestions now, not tasks. A `useTaskActions` mock left here would
@@ -73,7 +93,10 @@ const MESSAGE = {
 };
 
 function renderDialog() {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
+    <QueryClientProvider client={client}>
+    <MemoryRouter>
     <TaskFromChatDialog
       open
       onOpenChange={() => {}}
@@ -85,23 +108,57 @@ function renderDialog() {
       members={MEMBERS}
       contextMessage={MESSAGE}
       contextSenderName="Nguyễn Thị Hoà"
-    />,
+    />
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
-/** Fills the three required fields, then picks the named people. */
+function dayFromToday(offset: number): string {
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth(), now.getDate() + offset);
+  const month = String(target.getMonth() + 1).padStart(2, "0");
+  const day = String(target.getDate()).padStart(2, "0");
+  return `${target.getFullYear()}-${month}-${day}`;
+}
+
+const DUE = dayFromToday(7);
+
+/** Picks the deadline through the DateField's calendar — the way the field is really used. */
+async function pickDue(screen: Awaited<ReturnType<typeof renderDialog>>): Promise<void> {
+  await userEvent.click(screen.getByLabelText(/Hạn hoàn thành/));
+  for (let step = 0; step < 4; step += 1) {
+    const dayButton = document.querySelector<HTMLButtonElement>(`[data-day="${DUE}"]`);
+    if (dayButton !== null) {
+      await userEvent.click(dayButton);
+      return;
+    }
+    await userEvent.click(screen.getByRole("button", { name: "Tới trước" }));
+  }
+  throw new Error(`pickDue: ${DUE} never appeared in the calendar`);
+}
+
+/** Chooses "Chọn người", ticks the named people in the list, folds it back with Xong. */
+async function pickPeople(screen: Awaited<ReturnType<typeof renderDialog>>, names: RegExp[]): Promise<void> {
+  await userEvent.click(screen.getByRole("radio", { name: "Chọn người" }));
+  for (const name of names) {
+    await userEvent.click(screen.getByRole("option", { name }));
+  }
+  await userEvent.click(screen.getByRole("button", { name: "Xong" }));
+}
+
+/** Fills the composer — title, Ghi chú, deadline — then picks the named people. */
 async function fillAndAssign(
   screen: Awaited<ReturnType<typeof renderDialog>>,
   names: RegExp[],
 ): Promise<void> {
-  await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Lập kế hoạch tuần");
-  await userEvent.fill(screen.getByLabelText("Mô tả cụ thể"), "Mỗi người một phần, gửi trước thứ sáu");
-  await userEvent.fill(screen.getByLabelText("Hạn hoàn thành"), "2099-09-20");
-
-  for (const name of names) {
-    await userEvent.click(screen.getByRole("combobox"));
-    await userEvent.click(screen.getByRole("option", { name }));
-  }
+  await userEvent.fill(screen.getByLabelText("Tên việc"), "Lập kế hoạch tuần");
+  await userEvent.click(screen.getByRole("button", { name: "Ghi chú" }));
+  const note = document.querySelector<HTMLTextAreaElement>("#composer-note");
+  if (note === null) throw new Error("composer note textarea not found");
+  await userEvent.fill(note, "Mỗi người một phần, gửi trước thứ sáu");
+  await pickDue(screen);
+  await pickPeople(screen, names);
 }
 
 beforeEach(() => {
@@ -131,7 +188,7 @@ test("each of the three carries the same wording, deadline and quoted message", 
   const quoted = new Set(state.calls.map((call) => call.target.contextSnapshot.originalMessageId));
 
   expect(titles).toEqual(new Set(["Lập kế hoạch tuần"]));
-  expect(deadlines).toEqual(new Set(["2099-09-20"]));
+  expect(deadlines).toEqual(new Set([DUE]));
   expect(quoted).toEqual(new Set(["m-42"]));
 });
 
@@ -162,11 +219,11 @@ test("one person still means exactly one suggestion", async () => {
 
 test("nothing is raised until somebody is chosen", async () => {
   const screen = await renderDialog();
-  await userEvent.fill(screen.getByLabelText("Tiêu đề"), "Việc gì đó");
-  await userEvent.fill(screen.getByLabelText("Mô tả cụ thể"), "Mô tả");
-  await userEvent.fill(screen.getByLabelText("Hạn hoàn thành"), "2099-09-20");
+  await userEvent.fill(screen.getByLabelText("Tên việc"), "Việc gì đó");
 
-  await expect.element(screen.getByRole("button", { name: "Gửi gợi ý" })).toBeDisabled();
+  // Chưa chọn người nhận: không có nút gửi, chỉ có lời nhắc chọn (ADR-030).
+  expect(screen.container.querySelector('button[type="submit"]')).toBeNull();
+  await expect.element(screen.getByText("Chọn người nhận để bắt đầu.")).toBeVisible();
   expect(state.calls).toEqual([]);
 });
 
@@ -184,12 +241,14 @@ test("a failure halfway is reported honestly rather than claiming all of them la
 
 test("the message being answered is quoted on the suggestion", async () => {
   const screen = await renderDialog();
+  await expect.element(screen.getByText("Từ tin nhắn của Nguyễn Thị Hoà")).toBeVisible();
+  await userEvent.click(screen.getByRole("button", { name: /Từ tin nhắn của/ }));
   await expect.element(screen.getByText("Tuần này mình cần bản kế hoạch nhé")).toBeVisible();
-  await expect.element(screen.getByText("Gắn với tin nhắn của Nguyễn Thị Hoà")).toBeVisible();
 });
 
 test("the wording names it a suggestion, because the other person still decides", async () => {
   const screen = await renderDialog();
+  await pickPeople(screen, [/Hoà/]);
 
   // "Giao việc" told the receiver a decision had already been made about their time.
   await expect.element(screen.getByText("Gợi ý nhiệm vụ")).toBeVisible();
@@ -205,20 +264,17 @@ test("the wording names it a suggestion, because the other person still decides"
 test("naming yourself in a group stops calling the work a suggestion", async () => {
   const screen = await renderDialog();
 
-  await userEvent.click(screen.getByRole("combobox"));
-  await userEvent.click(screen.getByRole("option", { name: /Chính tôi/ }));
+  await userEvent.click(screen.getByRole("radio", { name: "Cho tôi" }));
 
-  await expect.element(screen.getByRole("button", { name: "Nhận việc này" })).toBeVisible();
-  // The dialog is portalled to the body, so the copy is looked up there rather than in the
-  // render container, which holds only the mount point.
-  await expect.element(screen.getByText(/vào việc ngay/)).toBeVisible();
+  await expect.element(screen.getByRole("button", { name: "Tạo nhiệm vụ" })).toBeVisible();
+  await expect.element(screen.getByText("Việc của bạn trong nhóm — cả nhóm thấy.")).toBeVisible();
 });
 
 test("taking it on yourself still raises exactly one row, through the same path", async () => {
   const screen = await renderDialog();
-  await fillAndAssign(screen, [/Chính tôi/]);
+  await fillAndAssign(screen, [/Tôi/]);
 
-  await userEvent.click(screen.getByRole("button", { name: "Nhận việc này" }));
+  await userEvent.click(screen.getByRole("button", { name: "Tạo nhiệm vụ" }));
 
   await vi.waitFor(() => expect(state.calls).toHaveLength(1));
   expect(state.calls[0].target.assigneeId).toBe("u-me");
@@ -226,24 +282,27 @@ test("taking it on yourself still raises exactly one row, through the same path"
   // the conversation rather than making a detached personal task.
   expect(state.calls[0].target.messageId).toBe("m-42");
   await vi.waitFor(() => expect(state.toasts).toHaveLength(1));
-  expect(state.toasts[0]).toContain("Đã thêm nhiệm vụ của bạn");
+  expect(state.toasts[0]).toContain("Đã tạo nhiệm vụ của bạn");
 });
 
 test("mixing yourself with other people says both things happened", async () => {
   const screen = await renderDialog();
-  await fillAndAssign(screen, [/Chính tôi/, /Hòa|Hoà/]);
+  await fillAndAssign(screen, [/Tôi/, /Hòa|Hoà/]);
 
   // Several people are involved, so it is a send again rather than a plain self-assignment.
-  await userEvent.click(screen.getByRole("button", { name: "Gửi gợi ý" }));
+  await userEvent.click(screen.getByRole("button", { name: "Tạo và gửi gợi ý" }));
 
   await vi.waitFor(() => expect(state.calls).toHaveLength(2));
   await vi.waitFor(() => expect(state.toasts).toHaveLength(1));
-  expect(state.toasts[0]).toContain("Đã nhận việc của bạn");
-  expect(state.toasts[0]).toContain("1 người khác");
+  expect(state.toasts[0]).toContain("Đã tạo nhiệm vụ của bạn");
+  expect(state.toasts[0]).toContain("gợi ý cho 1 người");
 });
 
 test("a 1-1 never offers you to yourself", async () => {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   const screen = await render(
+    <QueryClientProvider client={client}>
+    <MemoryRouter>
     <TaskFromChatDialog
       open
       onOpenChange={() => {}}
@@ -255,10 +314,18 @@ test("a 1-1 never offers you to yourself", async () => {
       members={MEMBERS}
       contextMessage={MESSAGE}
       contextSenderName="Nguyễn Thị Hoà"
-    />,
+    />
+    </MemoryRouter>
+    </QueryClientProvider>,
   );
 
-  // There is no picker at all in a 1-1: the other person is the only one there is to ask.
+  // A 1-1 offers Cho tôi · Cho {peer} · Cả hai — never a free member picker, never yourself
+  // as somebody to ask.
   expect(screen.container.querySelector('[role="combobox"]')).toBeNull();
+  await expect.element(screen.getByRole("radio", { name: "Cho tôi" })).toBeVisible();
+  await expect.element(screen.getByRole("radio", { name: "Cho Nguyễn Thị Hoà" })).toBeVisible();
+  await expect.element(screen.getByRole("radio", { name: "Cả hai" })).toBeVisible();
+
+  await userEvent.click(screen.getByRole("radio", { name: "Cho Nguyễn Thị Hoà" }));
   await expect.element(screen.getByRole("button", { name: "Gửi gợi ý" })).toBeVisible();
 });

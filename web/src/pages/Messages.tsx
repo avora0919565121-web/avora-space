@@ -1612,7 +1612,7 @@ const Messages = () => {
   /**
    * One send, described completely up front — words, quote, files — so a failed one can be sent
    * again exactly as it was, whatever the composer holds by then. `retryOf` names the failed
-   * bubble being retried; it keeps its place and simply reads "Đang gửi…" again.
+   * bubble being retried; it keeps its place and simply reads "Chờ gửi…" again (AVORA-55 · 3.5).
    */
   type SendPayload = {
     conversationId: string;
@@ -3580,7 +3580,7 @@ const Messages = () => {
                                         </button>
                                       </>
                                     ) : message.pending ? (
-                                      "Đang gửi…"
+                                      "Chờ gửi…"
                                     ) : (
                                       formatClock(message.createdAt)
                                     )}

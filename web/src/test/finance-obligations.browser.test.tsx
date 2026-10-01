@@ -1,9 +1,11 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { MemoryRouter } from "react-router-dom";
 import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { vi } from "vitest";
 
 import type { Account } from "@/lib/finance";
+import { todayIso } from "@/lib/tasks";
 import type { Contact } from "@/lib/contacts";
 import type { ObligationInput } from "@/lib/finance-api";
 
@@ -18,6 +20,16 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
+
+// The calendar inside DateField reads the week's tasks; keep that read inert so the day grid
+// renders at once (the form itself is what these tests look at).
+vi.mock("@/lib/use-tasks", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/use-tasks")>("@/lib/use-tasks");
+  return {
+    ...actual,
+    useTasksInRange: () => ({ data: [], isLoading: false, isError: false, refetch: async () => {} }),
+  };
+});
 
 vi.mock("@/lib/use-finance", () => ({
   useFinanceActions: () => ({
@@ -83,11 +95,41 @@ function mount(type: "vay" | "cho_vay" | "thue_ca_nhan" | "thue_kinh_doanh", con
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={client}>
-      <div style={{ width: 520, padding: 16 }}>
-        <ObligationForm type={type} accounts={[WALLET]} contacts={contacts} />
-      </div>
+      <MemoryRouter>
+        <div style={{ width: 520, padding: 16 }}>
+          <ObligationForm type={type} accounts={[WALLET]} contacts={contacts} />
+        </div>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
+}
+
+
+type Screen = Awaited<ReturnType<typeof mount>>;
+
+/**
+ * Picks a day through the DateField button → Lịch panel (AVORA-39 · A1) — no typed dates:
+ * the field is a button that opens a calendar, so the test walks the calendar like a person.
+ */
+async function pickDate(screen: Screen, label: RegExp, iso: string): Promise<void> {
+  await userEvent.click(screen.getByLabelText(label));
+  const forward = iso >= todayIso();
+  for (let step = 0; step < 36; step += 1) {
+    const dayButton = document.querySelector<HTMLButtonElement>(`[data-day="${iso}"]`);
+    if (dayButton !== null) {
+      await userEvent.click(dayButton);
+      await userEvent.keyboard("{Escape}");
+      return;
+    }
+    await userEvent.click(screen.getByRole("button", { name: forward ? "Tới trước" : "Lùi lại" }));
+  }
+  throw new Error(`pickDate: ${iso} never appeared in the calendar`);
+}
+
+/** Opens the people picker (Đợt gộp 2 · D5) and picks one person from the list. */
+async function pickContact(screen: Screen, label: RegExp, name: string): Promise<void> {
+  await userEvent.click(screen.getByLabelText(label));
+  await userEvent.click(screen.getByRole("button", { name }));
 }
 
 describe("recording money that was promised rather than moved", () => {
@@ -117,7 +159,7 @@ describe("recording money that was promised rather than moved", () => {
   it("will not write a borrowing until a person has been chosen", async () => {
     const screen = await mount("vay");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "300");
-    await userEvent.fill(screen.getByLabelText(/Ngày đến hạn/), "2026-12-31");
+    await pickDate(screen, /Ngày đến hạn/, "2026-12-31");
 
     const submit = screen.getByRole("button", { name: /Ghi khoản vay/ });
     await expect.element(submit).toBeDisabled();
@@ -127,8 +169,8 @@ describe("recording money that was promised rather than moved", () => {
   it("writes the borrowing once the person, amount and date are all there", async () => {
     const screen = await mount("vay");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "300");
-    await userEvent.selectOptions(screen.getByLabelText(/Vay từ ai/), "c-ba");
-    await userEvent.fill(screen.getByLabelText(/Ngày đến hạn/), "2026-12-31");
+    await pickContact(screen, /Vay từ ai/, "Anh Ba");
+    await pickDate(screen, /Ngày đến hạn/, "2026-12-31");
     await userEvent.click(screen.getByRole("button", { name: /Ghi khoản vay/ }));
 
     expect(state.written).toEqual([
@@ -145,7 +187,7 @@ describe("recording money that was promised rather than moved", () => {
   it("sends no person on a tax bill even though the form shares the same code", async () => {
     const screen = await mount("thue_ca_nhan");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "120.50");
-    await userEvent.fill(screen.getByLabelText(/Ngày đến hạn/), "2026-10-31");
+    await pickDate(screen, /Ngày đến hạn/, "2026-10-31");
     await userEvent.click(screen.getByRole("button", { name: /Ghi khoản thuế cá nhân/ }));
 
     expect(state.written).toEqual([
@@ -156,9 +198,9 @@ describe("recording money that was promised rather than moved", () => {
   it("carries the tax period through when one is given", async () => {
     const screen = await mount("thue_kinh_doanh");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "500");
-    await userEvent.fill(screen.getByLabelText(/Ngày đến hạn/), "2026-10-31");
-    await userEvent.fill(screen.getByLabelText("Từ ngày"), "2026-07-01");
-    await userEvent.fill(screen.getByLabelText("Đến ngày"), "2026-09-30");
+    await pickDate(screen, /Ngày đến hạn/, "2026-10-31");
+    await pickDate(screen, /Kỳ thuế từ ngày/, "2026-07-01");
+    await pickDate(screen, /Kỳ thuế đến ngày/, "2026-09-30");
     await userEvent.click(screen.getByRole("button", { name: /Ghi khoản thuế kinh doanh/ }));
 
     expect(state.written).toEqual([
@@ -175,18 +217,17 @@ describe("recording money that was promised rather than moved", () => {
   it("refuses an amount that is not a number rather than sending it on", async () => {
     const screen = await mount("cho_vay");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "ba trăm");
-    await userEvent.selectOptions(screen.getByLabelText(/Cho ai vay/), "c-ba");
-    await userEvent.fill(screen.getByLabelText(/Ngày đến hạn/), "2026-12-31");
+    await pickContact(screen, /Cho ai vay/, "Anh Ba");
+    await pickDate(screen, /Ngày đến hạn/, "2026-12-31");
 
     await expect.element(screen.getByRole("button", { name: /Ghi khoản cho vay/ })).toBeDisabled();
     expect(state.written).toHaveLength(0);
   });
 
-  it("points at Liên hệ when there is nobody to borrow from yet", async () => {
+  it("opens an honest empty list when there is nobody to borrow from yet", async () => {
     const screen = await mount("vay", []);
-    await expect
-      .element(screen.getByText(/Chưa có liên hệ nào/))
-      .toBeInTheDocument();
+    await userEvent.click(screen.getByLabelText(/Vay từ ai/));
+    await expect.element(screen.getByText("Không thấy ai.")).toBeInTheDocument();
   });
 });
 
