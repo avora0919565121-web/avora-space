@@ -1809,8 +1809,11 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 
 ## Out of scope
 
-"Leaked password protection" của Supabase (kiểm mật khẩuAgainst bloom.mutable security database) chỉ có trên gói trả
-phí — chưa làm (AVORA-55 · 5, VMT 01/10 16:41).
+"Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói
+trả phí — chưa làm (AVORA-55 · 5, VMT 01/10 16:41). Advisor sau AVORA-55 · 5 (migration `20261001121000`): hết 10
+cảnh báo `function_search_path_mutable`; `currency_rate_at` không còn gọi được từ app (chỉ trigger giao dịch dùng);
+186 cảnh báo `authenticated_security_definer_function_executable` là chủ ý — đó là các RPC của app, mỗi hàm tự kiểm
+`auth.uid()`; 6 bảng `private.*` bật RLS không policy là chủ ý (chỉ hàm SECURITY DEFINER chạm tới).
 
 Dark mode, in-app voice or video calls (calls are handed to the phone, Zalo, WhatsApp or a posted room
 link), AI features, heavy project management (the lightweight Nhiệm vụ module ships, now with clocks,

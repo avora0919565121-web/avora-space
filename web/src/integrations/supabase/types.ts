@@ -6891,6 +6891,7 @@ export type Database = {
           title: string
         }[]
       }
+      security_signout_notice: { Args: never; Returns: undefined }
       seed_finance_categories: { Args: { p_user_id: string }; Returns: number }
       send_message_with_attachments: {
         Args: {
