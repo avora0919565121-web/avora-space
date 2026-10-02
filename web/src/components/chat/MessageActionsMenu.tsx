@@ -30,6 +30,7 @@ import { useLongPress } from "@/hooks/use-long-press";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { canEditMessage, canRecallMessage, canReplyToMessage, type ChatMessage } from "@/lib/chat";
 import { QUICK_REACTIONS } from "@/lib/reactions";
+import { messageActionGroup, orderMessageActions, type MessageMenuAction, type MessageMenuGroup } from "@/lib/menu-order";
 import { cn } from "@/lib/utils";
 
 /** How far a finger must travel right before a swipe means "answer this" (Đợt gộp 2 · A10). */
@@ -99,13 +100,14 @@ export type MessageAction =
   | "copy"
   | "save-image"
   | "save-journal"
-  | "details";
+  | "details"
+  | "delete";
 
 type MenuEntry = {
   action: MessageAction;
   label: string;
   icon: LucideIcon;
-  group: "act" | "arrange" | "withdraw";
+  group: MessageMenuGroup;
   danger?: boolean;
   disabled?: boolean;
 };
@@ -113,12 +115,11 @@ type MenuEntry = {
 /**
  * Everything you can do to one message, in one place.
  *
- * Three groups (Đợt gộp 2 · A1), what people reach for most first:
- * 1. Làm với tin này — Trả lời · Chuyển tiếp · Sao chép · Lưu ảnh · Lưu vào Nhật ký · Tạo nhiệm vụ
- * 2. Sắp xếp — Xem sau · Chọn nhiều tin · Ghim / Bỏ ghim · Sửa · Chi tiết
- * 3. Rút lại / báo — Thu hồi or Đề nghị thu hồi · Báo cáo tin nhắn (always last, warning colour)
+ * Five groups, one order everywhere (AVORA-71 · B, `MESSAGE_MENU_ORDER`):
+ * ① Trả lời · Chuyển tiếp · Sao chép ② Tạo nhiệm vụ · Lưu vào Nhật ký · Lưu ảnh · Xem sau
+ * ③ Ghim / Bỏ ghim · Chọn nhiều tin ④ Sửa · Chi tiết ⑤ Thu hồi / Đề nghị thu hồi · Xoá · Báo cáo (red, last)
  *
- * AVORA-57 · C: on a phone the same entries show as a 4-column icon grid; a computer keeps the
+ * On a phone the same entries show as a 4-column icon grid — first row Trả lời · Chuyển tiếp · Sao chép · Tạo nhiệm vụ; a computer keeps the
  * list. Edit and recall are absent past their window rather than shown and refused. There is
  * no "Đã xem" anywhere (ADR-028).
  */
@@ -136,6 +137,7 @@ export function MessageActionsMenu({
   canCopy = false,
   canSaveImage = false,
   canSaveToJournal = false,
+  canDelete = false,
   onAction,
   onQuickReact,
   open,
@@ -144,7 +146,7 @@ export function MessageActionsMenu({
 }: {
   message: ChatMessage;
   viewerId: string | undefined;
-  /** False in a journal, where there is nobody to give a task to. */
+  /** True wherever a task can be raised — a journal included (it becomes the writer's own task). */
   canRaiseTask: boolean;
   /** False for a withdrawn or still-sending message: there is nothing to carry yet. */
   canForward?: boolean;
@@ -166,6 +168,8 @@ export function MessageActionsMenu({
   canSaveImage?: boolean;
   /** AVORA-57 · C: words / images / files into the viewer's own Nhật ký, by file permission. */
   canSaveToJournal?: boolean;
+  /** AVORA-70 · C / 71 · B: only in Nhật ký của tôi — a soft delete into its Thùng rác. */
+  canDelete?: boolean;
   onAction: (action: MessageAction) => void;
   /** AVORA-49 · 2.4: six quick reactions on top of the menu — the one way in on a phone. */
   onQuickReact?: (emoji: string) => void;
@@ -193,38 +197,39 @@ export function MessageActionsMenu({
   const showSaveJournal = canSaveToJournal && live;
   const showDetails = message.pending !== true;
 
-  const entries: MenuEntry[] = [];
-  if (showReply) entries.push({ action: "reply", label: "Trả lời", icon: Reply, group: "act" });
-  if (showForward) entries.push({ action: "forward", label: "Chuyển tiếp", icon: Forward, group: "act" });
-  if (showCopy) entries.push({ action: "copy", label: "Sao chép", icon: Copy, group: "act" });
-  if (showSaveImage) entries.push({ action: "save-image", label: "Lưu ảnh", icon: ImageDown, group: "act" });
-  if (showSaveJournal) entries.push({ action: "save-journal", label: "Lưu vào Nhật ký", icon: NotebookPen, group: "act" });
-  if (showTask) entries.push({ action: "task", label: "Tạo nhiệm vụ", icon: ListPlus, group: "act" });
-  // Right under the "do" actions: only the reader's own read mark moves back.
-  if (showLater) entries.push({ action: "later", label: "Xem sau", icon: Clock3, group: "arrange" });
-  // Selecting starts from the message the menu was opened on, so the first tick is made.
-  if (showForward) entries.push({ action: "select", label: "Chọn nhiều tin", icon: CheckSquare, group: "arrange" });
-  if (showPin)
-    entries.push({ action: isPinned ? "unpin" : "pin", label: isPinned ? "Bỏ ghim" : "Ghim", icon: isPinned ? PinOff : Pin, group: "arrange" });
-  if (showEdit) entries.push({ action: "edit", label: "Sửa", icon: Pencil, group: "arrange" });
-  if (showDetails) entries.push({ action: "details", label: "Chi tiết", icon: Info, group: "arrange" });
-  if (showRecall) entries.push({ action: "recall", label: "Thu hồi", icon: Trash2, group: "withdraw", danger: true });
-  // Asking, not doing: the sender decides. Shown as already-asked rather than hidden.
-  if (showRequestRecall)
-    entries.push({
-      action: "request-recall",
-      label: hasRequestedRecall ? "Đã đề nghị thu hồi" : "Đề nghị thu hồi",
-      icon: Hand,
-      group: "withdraw",
-      danger: true,
-      disabled: hasRequestedRecall,
-    });
-  if (showReport) entries.push({ action: "report", label: "Báo cáo tin nhắn", icon: Flag, group: "withdraw", danger: true });
+  // AVORA-71 · B: which actions apply is decided here; their ORDER comes from one constant.
+  const meta: Record<MessageMenuAction, { label: string; icon: LucideIcon; danger?: boolean; disabled?: boolean } | null> = {
+    reply: showReply ? { label: "Trả lời", icon: Reply } : null,
+    forward: showForward ? { label: "Chuyển tiếp", icon: Forward } : null,
+    copy: showCopy ? { label: "Sao chép", icon: Copy } : null,
+    task: showTask ? { label: "Tạo nhiệm vụ", icon: ListPlus } : null,
+    "save-journal": showSaveJournal ? { label: "Lưu vào Nhật ký", icon: NotebookPen } : null,
+    "save-image": showSaveImage ? { label: "Lưu ảnh", icon: ImageDown } : null,
+    later: showLater ? { label: "Xem sau", icon: Clock3 } : null,
+    pin: showPin && !isPinned ? { label: "Ghim", icon: Pin } : null,
+    unpin: showPin && isPinned ? { label: "Bỏ ghim", icon: PinOff } : null,
+    // Selecting starts from the message the menu was opened on, so the first tick is made.
+    select: showForward ? { label: "Chọn nhiều tin", icon: CheckSquare } : null,
+    edit: showEdit ? { label: "Sửa", icon: Pencil } : null,
+    details: showDetails ? { label: "Chi tiết", icon: Info } : null,
+    recall: showRecall ? { label: "Thu hồi", icon: Trash2, danger: true } : null,
+    // Asking, not doing: the sender decides. Shown as already-asked rather than hidden.
+    "request-recall": showRequestRecall
+      ? { label: hasRequestedRecall ? "Đã đề nghị thu hồi" : "Đề nghị thu hồi", icon: Hand, danger: true, disabled: hasRequestedRecall }
+      : null,
+    delete: canDelete && message.pending !== true ? { label: "Xoá", icon: Trash2, danger: true } : null,
+    report: showReport ? { label: "Báo cáo tin nhắn", icon: Flag, danger: true } : null,
+  };
+  const shown = new Set((Object.keys(meta) as MessageMenuAction[]).filter((action) => meta[action] !== null));
+  const entries: MenuEntry[] = orderMessageActions(shown).map((action) => {
+    const entry = meta[action] as NonNullable<(typeof meta)[MessageMenuAction]>;
+    return { action, label: entry.label, icon: entry.icon, group: messageActionGroup(action), danger: entry.danger, disabled: entry.disabled };
+  });
 
   const canQuickReact = onQuickReact !== undefined && live;
   if (entries.length === 0 && !canQuickReact) return null;
 
-  const groups = (["act", "arrange", "withdraw"] as const)
+  const groups = (["answer", "keep", "arrange", "own", "restrict"] as const)
     .map((group) => entries.filter((entry) => entry.group === group))
     .filter((list) => list.length > 0);
 
@@ -337,6 +342,7 @@ export function MessageActionsAffordance({
   canCopy = false,
   canSaveImage = false,
   canSaveToJournal = false,
+  canDelete = false,
   outgoing,
   onAction,
   onQuickReact,
@@ -361,6 +367,7 @@ export function MessageActionsAffordance({
   canCopy?: boolean;
   canSaveImage?: boolean;
   canSaveToJournal?: boolean;
+  canDelete?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
   onQuickReact?: (emoji: string) => void;
@@ -436,6 +443,7 @@ export function MessageActionsAffordance({
         canCopy={canCopy}
         canSaveImage={canSaveImage}
         canSaveToJournal={canSaveToJournal}
+        canDelete={canDelete}
         onAction={onAction}
         onQuickReact={onQuickReact}
         open={isOpen}

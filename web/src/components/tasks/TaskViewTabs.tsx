@@ -13,6 +13,9 @@ function hintSeen(): boolean {
 }
 
 import { TASK_VIEW_LABELS, type TaskViewMode } from "@/lib/tasks";
+
+/** A fine pointer that can hover and no coarse one: a computer with a mouse (and so a keyboard). */
+export const KEYBOARD_POINTER_QUERY = "(hover: hover) and (pointer: fine) and (not (any-pointer: coarse))";
 import { cn } from "@/lib/utils";
 
 type TaskViewTabsProps = {
@@ -34,7 +37,9 @@ export function TaskViewTabs({ mode, order, onChange, onReorder }: TaskViewTabsP
   const [draggingId, setDraggingId] = useState<TaskViewMode | null>(null);
   const [overId, setOverId] = useState<TaskViewMode | null>(null);
   const [showHint] = useState<boolean>(() => !hintSeen());
-  const hasKeyboard = useMediaQuery("(hover: hover) and (pointer: fine) and (min-width: 768px)");
+  // AVORA-65 · B: decided by the kind of device (a mouse and a keyboard), not by screen width —
+  // a phone on its side is wide but still has neither.
+  const hasKeyboard = useMediaQuery(KEYBOARD_POINTER_QUERY);
   useEffect(() => {
     if (!showHint) return;
     try {

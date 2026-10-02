@@ -62,6 +62,8 @@ import { ToolBelt } from "@/components/nav/ToolBelt";
 import { NotesTree } from "@/components/notes/NotesTree";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { BoardUpdateCard } from "@/components/think-hub/BoardChanges";
+import { GroupAvatarButton, GroupCardHost } from "@/components/GroupCard";
+import { PersonAvatarButton, PersonCardHost } from "@/components/PersonCard";
 import { Toaster } from "@/components/ui/sonner";
 import type { Note, NoteFolder } from "@/lib/notes";
 import { todayIso } from "@/lib/tasks";
@@ -247,6 +249,19 @@ async function settle(ms = 500): Promise<void> {
 async function viewport(width: number, height: number): Promise<void> {
   await page.viewport(width, height);
   await expect.poll(() => window.innerHeight).toBe(height);
+}
+
+/** A phone: no hovering fine pointer (the keys hint and hover captions stay away). */
+function asTouchDevice(): () => void {
+  const original = window.matchMedia.bind(window);
+  window.matchMedia = ((query: string) => {
+    if (!query.includes("pointer") && !query.includes("hover")) return original(query);
+    const matches = query.includes("coarse") && !query.includes("not");
+    return { matches, media: query, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false } as MediaQueryList;
+  }) as typeof window.matchMedia;
+  return () => {
+    window.matchMedia = original;
+  };
 }
 
 function rightClick(element: HTMLElement): void {
@@ -608,7 +623,8 @@ test("62.2 / 62.5b · thẻ báo trong chat, và dòng nhỏ khi tạo Bảng ch
 // ------------------------------------------------------------------ 61.9 phone, upright
 test("61.9 · điện thoại: mặc định Thẻ, tối đa 3 cột, ⚙ Cột trên thẻ", async () => {
   const screen = await openBoard(390, 844, { changes: false });
-  await expect.element(screen.getByRole("group", { name: "Cách xem trên điện thoại" }).getByRole("button", { name: "Thẻ", exact: true })).toHaveAttribute("aria-pressed", "true");
+  // AVORA-65 · C: one row on a phone — `Thẻ · Bảng · Theo trạng thái · Cây`.
+  await expect.element(screen.getByRole("group", { name: "Kiểu xem" }).getByRole("button", { name: "Thẻ", exact: true })).toHaveAttribute("aria-pressed", "true");
   expect(document.querySelector('[data-phone-board="cards"]')).not.toBeNull();
   await expect.element(screen.getByRole("button", { name: /Cột trên thẻ/ })).toBeInTheDocument();
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(390);
@@ -617,12 +633,14 @@ test("61.9 · điện thoại: mặc định Thẻ, tối đa 3 cột, ⚙ Cột
 
 test("61.9 · điện thoại, dạng Bảng: tiêu đề hàng riêng; trượt một hàng → mọi hàng + tên cột trượt theo; tiêu đề dính đúng", async () => {
   const screen = await openBoard(390, 844, { changes: false });
-  await userEvent.click(screen.getByRole("group", { name: "Cách xem trên điện thoại" }).getByRole("button", { name: "Bảng", exact: true }));
+  await userEvent.click(screen.getByRole("group", { name: "Kiểu xem" }).getByRole("button", { name: "Bảng", exact: true }));
   await settle(400);
   const board = document.querySelector('[data-phone-board="table"]') as HTMLElement;
   expect(board).not.toBeNull();
   const title = board.querySelector("[data-record-title]") as HTMLElement;
-  expect(title.getBoundingClientRect().width).toBeGreaterThan(260);
+  // The title LINE spans the screen; since 65 · H it also carries ★ and Tạo nhiệm vụ at its end.
+  expect((title.parentElement as HTMLElement).getBoundingClientRect().width).toBeGreaterThan(340);
+  expect(title.getBoundingClientRect().width).toBeGreaterThan(180);
   expect(title.getBoundingClientRect().height).toBeGreaterThan(30);
   await page.screenshot({ path: `${OUT}/61-9-bang-1-dau-390.png` });
 
@@ -676,6 +694,8 @@ test("61.11 · Nhiệm vụ trên điện thoại: bong bóng chat nhỏ ở gó
     { ...base, id: "t3", type: "personal", creator_id: "me", assignee_id: null, conversation_id: null, title: "Đặt lịch khám răng" },
   ];
   await viewport(390, 844);
+  // AVORA-65 · B: the keys hint follows the device; the test browser has a mouse, so act as a phone.
+  const restore = asTouchDevice();
   const screen = await render(<Hubs at="/nhiem-vu?muc=viec&xem=tat-ca" />);
   await expect.element(screen.getByText("Gửi báo giá mái tôn").first()).toBeInTheDocument();
   await settle(800);
@@ -684,6 +704,7 @@ test("61.11 · Nhiệm vụ trên điện thoại: bong bóng chat nhỏ ở gó
   const icon = document.querySelector('[data-task-context="chat"]') as HTMLElement | null;
   expect(icon?.getAttribute("aria-label")).toMatch(/trong cuộc trò chuyện/);
   await page.screenshot({ path: `${OUT}/61-11-nhiem-vu-gon-390.png` });
+  restore();
 });
 
 // ------------------------------------------------------------------ 61.12 phone on its side, both ways
@@ -756,3 +777,503 @@ for (const [width, height, label] of [[390, 844, "390"], [1280, 800, "1280"]] as
     await page.screenshot({ path: `${OUT}/63-sua-ten-${label}.png`});
   });
 }
+
+// ================================================================== AVORA-65 / 70 / 71 / 69
+const OUT2 = OUT;
+
+// ------------------------------------------------------------------ 65 · B
+test("65.2 · điện thoại nằm ngang ở Nhiệm vụ: không còn chữ Ctrl/⌘", async () => {
+  await viewport(844, 390);
+  const restore = asTouchDevice();
+  const screen = await render(<Hubs at="/nhiem-vu?muc=viec&xem=tat-ca" />);
+  await settle(1000);
+  expect(document.body.textContent ?? "").not.toContain("Ctrl/⌘");
+  await expect.element(screen.getByText(/Kéo để đổi thứ tự/).first()).toBeInTheDocument();
+  await page.screenshot({ path: `${OUT2}/65-2-nhiem-vu-nam-ngang-844.png` });
+  restore();
+});
+
+// ------------------------------------------------------------------ 65 · C
+test("65.3 · Kế hoạch trên điện thoại: một hàng Thẻ · Bảng · Theo trạng thái · Cây; chữ không bị cắt nửa", async () => {
+  const screen = await openBoard(390, 844, { changes: false });
+  const row = screen.getByRole("group", { name: "Kiểu xem" });
+  const labels = [...(row.element() as HTMLElement).querySelectorAll("button")].map((button) => button.textContent?.trim());
+  expect(labels).toEqual(["Thẻ", "Bảng", "Theo trạng thái", "Cây"]);
+  expect(document.querySelector('[aria-label="Cách xem trên điện thoại"]')).toBeNull();
+  await page.screenshot({ path: `${OUT2}/65-3-mot-hang-cach-xem-390.png` });
+  await userEvent.click(row.getByRole("button", { name: "Bảng", exact: true }));
+  await settle(400);
+  const cells = document.querySelector('[data-sync-scroll="cells"]') as HTMLElement;
+  expect(getComputedStyle(cells).maskImage || getComputedStyle(cells).webkitMaskImage).toContain("gradient");
+  await page.screenshot({ path: `${OUT2}/65-3-bang-mep-mo-390.png` });
+});
+
+test("65.3b · máy tính giữ ba cách xem (không có Thẻ)", async () => {
+  const screen = await openBoard(1280, 800, { changes: false });
+  const labels = [...(screen.getByRole("group", { name: "Kiểu xem" }).element() as HTMLElement).querySelectorAll("button")].map((button) => button.textContent?.trim());
+  expect(labels).toEqual(["Bảng", "Theo trạng thái", "Cây"]);
+});
+
+// ------------------------------------------------------------------ 65 · F
+for (const [width, height, label] of [[1280, 800, "1280x800"], [1280, 720, "1280x720"], [1280, 600, "1280x600"], [390, 844, "390"]] as const) {
+  test(`65F · Hạng mục mới → Ngày cần làm tiếp · ${label}: đủ lịch tháng, thân lịch > 200px`, async () => {
+    const screen = await openBoard(width, height, { changes: false });
+    const addButtons = screen.getByRole("button", { name: /Hạng mục$/ });
+    await userEvent.click(addButtons.first());
+    await userEvent.click(screen.getByRole("button", { name: /Ngày cần làm tiếp/ }));
+    await settle(500);
+    const panel = [...document.querySelectorAll('[role="dialog"]')].find((node) => node.querySelector("[data-day]") !== null) as HTMLElement | undefined;
+    expect(panel).toBeDefined();
+    const body = (panel as HTMLElement).querySelector(".overflow-y-auto") as HTMLElement;
+    expect(body.getBoundingClientRect().height).toBeGreaterThan(200);
+    expect((panel as HTMLElement).querySelectorAll("[data-day]").length).toBeGreaterThanOrEqual(28);
+    const rect = (panel as HTMLElement).getBoundingClientRect();
+    expect(rect.bottom).toBeLessThanOrEqual(height);
+    expect(rect.top).toBeGreaterThanOrEqual(0);
+    await page.screenshot({ path: `${OUT2}/65F-lich-ngay-can-lam-tiep-${label}.png` });
+  });
+}
+
+// ------------------------------------------------------------------ 65 · G
+for (const [width, height, label] of [[1280, 800, "1280"], [390, 844, "390"]] as const) {
+  test(`65G · gợi ý Giữ nút + hiện đúng một lần, ghi đã đọc ngay, không đè ô nào · ${label}`, async () => {
+    seed();
+    db.tables.dismissed_guidance = [{ guidance_key: "task_plus_hold" }];
+    await viewport(width, height);
+    await render(<Hubs at="/ke-hoach" />);
+    await settle(1200);
+    const hint = document.querySelector('[data-plus-hint="plan_plus_hold"]') as HTMLElement | null;
+    expect(hint).not.toBeNull();
+    expect(getComputedStyle(hint as HTMLElement).pointerEvents).toBe("none");
+    expect(hint?.textContent).not.toContain("Đã hiểu");
+    await page.screenshot({ path: `${OUT2}/65G-goi-y-giu-cong-${label}.png` });
+    await settle(6300);
+    expect(document.querySelector("[data-plus-hint]")).toBeNull();
+  });
+}
+
+// ------------------------------------------------------------------ 65 · H
+test("65H · bảng con mở tại chỗ = cùng lưới: cột Tiêu đề, bộ cột riêng, Tạo nhiệm vụ, ★ (1280)", async () => {
+  const screen = await openBoard(1280, 800, { changes: false });
+  await userEvent.click(screen.getByRole("button", { name: /Mở bảng con của "Dự án Hoiana/ }).first());
+  await settle(500);
+  const sub = document.querySelector('[data-subtable="b1-sub"]') as HTMLElement;
+  expect(sub).not.toBeNull();
+  const heads = [...sub.querySelectorAll("th")].map((th) => th.textContent ?? "");
+  expect(heads.some((text) => text.includes("Tiêu đề"))).toBe(true);
+  expect(heads.some((text) => text.includes("Số lượng"))).toBe(true);
+  expect(heads.some((text) => text.includes("Khu vực"))).toBe(false);
+  // 65H.5: every row action of level 1 is on level 2 too.
+  const actions = (scope: Element | Document, id: string): string[] =>
+    [...(scope.querySelector(`[data-record-id="${id}"]`) as HTMLElement).querySelectorAll("[data-quick-task], [data-record-star], [data-subtable-toggle]")]
+      .map((node) => (node.hasAttribute("data-quick-task") ? "task" : node.hasAttribute("data-record-star") ? "star" : "sub"));
+  expect(actions(sub, "s1")).toEqual(expect.arrayContaining(["star", "task"]));
+  expect(actions(document, "r2")).toEqual(expect.arrayContaining(["star", "task"]));
+  // 65H.4: no header is cut mid-word.
+  for (const th of document.querySelectorAll('[data-board-grid="1"] th')) {
+    const label = th.querySelector("span.truncate, span") as HTMLElement | null;
+    if (label !== null) expect(label.scrollWidth).toBeLessThanOrEqual(label.clientWidth + 1);
+  }
+  await page.screenshot({ path: `${OUT2}/65H-bang-con-cung-luoi-1280.png` });
+});
+
+test("65H · điện thoại: bảng con mở tại chỗ có ★ và Tạo nhiệm vụ trên thẻ con (390)", async () => {
+  const screen = await openBoard(390, 844, { changes: false });
+  await userEvent.click(screen.getByRole("button", { name: /Mở bảng con của "Dự án Hoiana/ }).first());
+  await settle(400);
+  const sub = document.querySelector('[data-subtable="b1-sub"]') as HTMLElement;
+  expect(sub.querySelector("[data-quick-task]")).not.toBeNull();
+  expect(sub.querySelector("[data-record-star]")).not.toBeNull();
+  await page.screenshot({ path: `${OUT2}/65H-bang-con-dien-thoai-390.png` });
+});
+
+// ------------------------------------------------------------------ 65 · E
+test("65.5 · Bảng chung: ô Liên hệ của người khác hiện tên + của ai, không số", async () => {
+  seed();
+  db.tables.think_hub_record = RECORDS.map((row) =>
+    row.id === "r4" ? { ...row, extension_fields: { ...(row.extension_fields as object), c_kh: "k-not-mine" }, contact_labels: { c_kh: { name: "Anh Hùng", by: "lan", by_name: "Lan" } } } : row,
+  );
+  await viewport(1280, 800);
+  const screen = await render(<Hubs at="/ke-hoach?bang=b1" />);
+  await expect.element(screen.getByText("Anh Hùng · của Lan").first()).toBeInTheDocument();
+  expect(document.body.textContent ?? "").not.toContain("0909");
+  await page.screenshot({ path: `${OUT2}/65-5-o-lien-he-bang-chung-1280.png` });
+});
+
+// ------------------------------------------------------------------ 70 · Nhật ký dạng dòng
+const minutesAgo = (minutes: number): string => new Date(Date.now() - minutes * 60_000).toISOString();
+function journalMessage(id: string, content: string, at: string, part: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id, conversation_id: "j1", sender_id: "me", content, created_at: at, edited_at: null, deleted_at: null, reply_to_message_id: null,
+    mentioned_user_ids: [], origin_group_id: null, attachment_count: 0, origin_content_id: null, origin_sender_id: null, system_kind: null,
+    forward_bundle: null, is_urgent: false, ...part,
+  };
+}
+function seedJournal(extraDayLines = 0): void {
+  seed();
+  const day = (offset: number, hour: number, minute = 0): string => {
+    const date = new Date();
+    date.setDate(date.getDate() - offset);
+    date.setHours(hour, minute, 0, 0);
+    return date.toISOString();
+  };
+  db.tables.messages = [
+    journalMessage("e1", "Tệp hồ sơ hoàn công đã gửi bên A", day(2, 21, 30), { attachment_count: 1 }),
+    journalMessage("e2", "Nhắc mình: hỏi giá đèn Anam trước thứ Sáu", day(2, 9, 10)),
+    journalMessage("e3", "Tin chuyển tiếp từ Lan: lịch khảo sát Cam Ranh tuần sau", day(1, 11, 7), { origin_content_id: "x", origin_sender_id: "lan" }),
+    journalMessage("e4", "Báo giá đèn Anam https://anam.vn/bao-gia", day(1, 14, 5)),
+    journalMessage("e5", "Lời bình: yêu thương là kiên nhẫn, là tử tế, không ghen tương, không khoe khoang.\nDòng hai của lời bình.\nDòng ba.", day(1, 17, 23)),
+    ...Array.from({ length: extraDayLines }, (_value, index) => journalMessage(`d${index}`, `Ghi nhanh số ${index + 1} trong ngày`, day(0, 7 + Math.floor(index / 3), (index % 3) * 15))),
+    journalMessage("e6", "Viết cho mình: hôm nay xong phần móng", minutesAgo(5)),
+  ].sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+  db.tables.message_attachments = [
+    { id: "a1", message_id: "e1", conversation_id: "j1", attached_by: "me", kind: "file", storage_path: "j1/hoan-cong.pdf", file_name: "hồ sơ hoàn công.pdf", mime_type: "application/pdf", byte_size: 1_250_000, width: null, height: null, duration_seconds: null, permission: "export", origin_message_id: null, created_at: day(2, 21, 30) },
+  ];
+  db.rpcs.list_my_conversations = [
+    { conversation_id: "j1", conversation_type: "personal", group_name: null, member_count: 1, peer_id: null, peer_display_name: "", peer_email: null, last_message_content: "Viết cho mình", last_message_at: now, last_message_sender_id: "me", unread_count: 0, sort_at: now, is_connected: null, peer_pin: null, verification_status: null },
+    ...(db.rpcs.list_my_conversations as unknown[]),
+  ];
+}
+/** Opens Nhật ký and turns on `Hiện tất cả` (44's rule is kept: files / links show with it on). */
+async function openJournal(width: number, height: number, at = "/tin-nhan/j1?xem=nhat-ky") {
+  await viewport(width, height);
+  const screen = await render(<JournalHubs at={at} />);
+  await expect.element(screen.getByText("Viết cho mình: hôm nay xong phần móng").first()).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("switch", { name: "Hiện tất cả" }));
+  await settle(400);
+  return screen;
+}
+
+function JournalHubs({ at }: { at: string }) {
+  return (
+    <Frame at={at}>
+      <AppFrame>
+        <Routes>
+          <Route path="/tin-nhan" element={<Messages />} />
+          <Route path="/tin-nhan/:conversationId" element={<Messages />} />
+        </Routes>
+      </AppFrame>
+    </Frame>
+  );
+}
+
+for (const [width, height, label] of [[1280, 800, "1280"], [390, 844, "390"]] as const) {
+  test(`70.1 · Nhật ký của tôi: mỗi mục một dòng cao bằng nhau, gom ngày, mới ở dưới · ${label}`, async () => {
+    seedJournal();
+    await openJournal(width, height);
+    const rows = [...document.querySelectorAll("[data-line] > div")] as HTMLElement[];
+    expect(rows.length).toBeGreaterThanOrEqual(6);
+    const heights = new Set(rows.map((row) => Math.round(row.getBoundingClientRect().height)));
+    expect(heights.size).toBe(1);
+    const days = [...document.querySelectorAll("[data-day-row]")] as HTMLElement[];
+    expect(days.length).toBe(3);
+    expect(days[0].getBoundingClientRect().height).toBeLessThan(rows[0].getBoundingClientRect().height);
+    // Edge to edge: a line spans the whole thread column.
+    const list = document.querySelector("[data-day-lines]") as HTMLElement;
+    expect(Math.round(rows[0].getBoundingClientRect().width)).toBe(Math.round(list.getBoundingClientRect().width));
+    // Oldest first, newest last (right above the composer).
+    const ids = [...document.querySelectorAll("[data-line]")].map((node) => node.getAttribute("data-line"));
+    expect(ids[ids.length - 1]).toBe("e6");
+    expect(document.querySelector(".rounded-bubble")).toBeNull();
+    await page.screenshot({ path: `${OUT2}/70-1-nhat-ky-dang-dong-${label}.png` });
+  });
+}
+
+test("70.1b · cuộn qua một ngày 20 mục: hàng ngày dính trên cùng rồi nhường ngày kế (390)", async () => {
+  seedJournal(20);
+  await openJournal(390, 844);
+  const scroller = (document.querySelector("[data-day-lines]") as HTMLElement).closest(".overflow-y-auto") as HTMLElement;
+  const top = scroller.getBoundingClientRect().top;
+  const sections = [...document.querySelectorAll("section[data-day]")] as HTMLElement[];
+  const todaySection = sections[sections.length - 1];
+  const yesterday = sections[sections.length - 2];
+  // Halfway through today's 20 lines: today's row stands at the top.
+  scroller.scrollTop += todaySection.getBoundingClientRect().top - top + 500;
+  await settle(300);
+  const stuck = todaySection.querySelector("[data-day-row]") as HTMLElement;
+  expect(Math.abs(stuck.getBoundingClientRect().top - top)).toBeLessThan(3);
+  await page.screenshot({ path: `${OUT2}/70-1b-ngay-dinh-1-390.png` });
+  // Back into yesterday: yesterday's row holds the top until its last line passes.
+  scroller.scrollTop += yesterday.getBoundingClientRect().top - top + 60;
+  await settle(300);
+  const held = yesterday.querySelector("[data-day-row]") as HTMLElement;
+  expect(Math.abs(held.getBoundingClientRect().top - top)).toBeLessThan(3);
+  await page.screenshot({ path: `${OUT2}/70-1b-ngay-dinh-2-390.png` });
+});
+
+test("70.2 · thu một ngày rồi tải lại: vẫn thu", async () => {
+  seedJournal();
+  const first = await openJournal(1280, 800);
+  await expect.element(first.getByText("Báo giá đèn Anam https://anam.vn/bao-gia").first()).toBeInTheDocument();
+  const dayButton = (document.querySelectorAll("[data-day-row] button[aria-expanded]")[1]) as HTMLElement;
+  dayButton.click();
+  await settle(200);
+  expect(document.querySelector('[data-line="e4"]')).toBeNull();
+  await first.unmount();
+  await openJournal(1280, 800);
+  expect(document.querySelector('[data-line="e4"]')).toBeNull();
+  expect(document.querySelector('[data-line="e6"]')).not.toBeNull();
+});
+
+test("70.3 · điện thoại: bấm dòng dài → sổ xuống có ⤢ Xem toàn màn → toàn màn, ‹ về đúng dòng", async () => {
+  seedJournal();
+  const screen = await openJournal(390, 844);
+  await userEvent.click(screen.getByText(/Lời bình: yêu thương là kiên nhẫn/).first());
+  await settle(300);
+  expect(document.querySelector('[data-line-detail="e5"]')).not.toBeNull();
+  const detail = document.querySelector('[data-line-detail="e5"]') as HTMLElement;
+  for (const label of ["Tạo nhiệm vụ", "Chuyển tiếp", "Ghim", "Sao chép", "Sửa", "Xoá"]) expect(detail.textContent).toContain(label);
+  await page.screenshot({ path: `${OUT2}/70-3-so-xuong-390.png` });
+  // The PDF entry is "long" by nature.
+  await userEvent.click(screen.getByText("Tệp hồ sơ hoàn công đã gửi bên A").first());
+  await userEvent.click(screen.getByRole("button", { name: /Xem toàn màn/ }));
+  await settle(300);
+  await expect.element(screen.getByRole("dialog", { name: "Tệp hồ sơ hoàn công đã gửi bên A" })).toBeInTheDocument();
+  await page.screenshot({ path: `${OUT2}/70-3-toan-man-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Quay lại", exact: true }));
+  await settle(200);
+  expect(document.querySelector('[role="dialog"][aria-modal="true"]')).toBeNull();
+});
+
+test("70.7 · Chọn → tích 1 ngày + 2 dòng → Dọn dẹp (N)", async () => {
+  seedJournal();
+  db.rpcs.delete_journal_messages = 5;
+  const screen = await openJournal(390, 844);
+  await userEvent.click(screen.getByRole("button", { name: "Chọn", exact: true }));
+  await userEvent.click(screen.getByRole("checkbox", { name: /Chọn cả ngày/ }).nth(1));
+  await userEvent.click(screen.getByRole("checkbox", { name: "Chọn: Nhắc mình: hỏi giá đèn Anam trước thứ Sáu" }));
+  await userEvent.click(screen.getByRole("checkbox", { name: "Chọn: Viết cho mình: hôm nay xong phần móng" }));
+  await expect.element(screen.getByRole("button", { name: "Dọn dẹp (5)" })).toBeInTheDocument();
+  await page.screenshot({ path: `${OUT2}/70-7-chon-don-dep-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Dọn dẹp (5)" }));
+  await expect.element(screen.getByText("Đã dọn 5 mục")).toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Hoàn tác" })).toBeInTheDocument();
+  await page.screenshot({ path: `${OUT2}/70-7-da-don-hoan-tac-390.png` });
+});
+
+for (const [view, label] of [["file", "file"], ["lien-ket", "lien-ket"], ["nguon", "nguon"]] as const) {
+  test(`70.5 · ${label}: cùng khung dòng, gom ngày (390)`, async () => {
+    seedJournal();
+    db.tables.tasks = [];
+    await viewport(390, 844);
+    await render(<JournalHubs at={`/tin-nhan/j1?xem=${view}`} />);
+    await settle(1200);
+    if (view !== "nguon") {
+      expect(document.querySelectorAll("[data-day-row]").length).toBeGreaterThanOrEqual(1);
+      expect(document.querySelectorAll("[data-line]").length).toBeGreaterThanOrEqual(1);
+    }
+    await page.screenshot({ path: `${OUT2}/70-5-${label}-390.png` });
+  });
+}
+
+test("70.6 · chat 1-1 không đổi: vẫn bong bóng", async () => {
+  seed();
+  db.tables.messages = [journalMessage("m1", "Anh gửi giúp em báo giá nhé", minutesAgo(20), { conversation_id: "c-lan", sender_id: "lan" })];
+  await viewport(390, 844);
+  const screen = await render(<JournalHubs at="/tin-nhan/c-lan" />);
+  await expect.element(screen.getByText("Anh gửi giúp em báo giá nhé").first()).toBeInTheDocument();
+  expect(document.querySelector(".rounded-bubble")).not.toBeNull();
+  expect(document.querySelector("[data-day-lines]")).toBeNull();
+  await page.screenshot({ path: `${OUT2}/70-6-chat-1-1-khong-doi-390.png` });
+});
+
+// ------------------------------------------------------------------ 71
+for (const [width, height, label] of [[390, 844, "390"], [1280, 800, "1280"]] as const) {
+  test(`71.1 · Nhật ký: Ghi chép đứng đầu · ${label}`, async () => {
+    await viewport(width, height);
+    await render(<Diary />);
+    await settle(300);
+    const order = [...document.querySelectorAll("a, button")].map((node) => node.textContent?.trim() ?? "").filter((text) => /^(Ghi chép|Nhật ký của tôi|File của tôi|Liên kết|Nguồn tạo việc)/.test(text));
+    expect(order[0]?.startsWith("Ghi chép")).toBe(true);
+    await page.screenshot({ path: `${OUT2}/71-1-thu-tu-nhat-ky-${label}.png` });
+  });
+}
+
+function groupChatSeed(): void {
+  seed();
+  db.tables.messages = [
+    journalMessage("g-1", "Mai 7h họp ở công trình nhé cả nhà", minutesAgo(30), { conversation_id: "g1", sender_id: "lan" }),
+    journalMessage("g-2", "Ok, em mang bản vẽ", minutesAgo(25), { conversation_id: "g1", sender_id: "me" }),
+  ];
+  db.rpcs.list_group_members = [
+    { user_id: "me", display_name: "Thiện", role: "owner", joined_at: now },
+    ...Array.from({ length: 29 }, (_value, index) => ({ user_id: index === 0 ? "lan" : index === 1 ? "minh" : `u${index}`, display_name: index === 0 ? "Lan Nguyễn" : index === 1 ? "Minh Trần" : `Thành viên ${index + 1}`, role: index === 2 ? "admin" : "member", joined_at: now })),
+  ];
+  db.tables.conversation_groups = [{ name: "Dự án chiếu sáng", owner_id: "me", conversation_id: "g1", parent_conversation_id: null }];
+}
+
+for (const [width, height, label] of [[1280, 800, "1280"], [390, 844, "390"]] as const) {
+  test(`71.2 / 71.3 · menu tin: cùng một thứ tự; điện thoại 4 ô đầu Trả lời · Chuyển tiếp · Sao chép · Tạo nhiệm vụ · ${label}`, async () => {
+    groupChatSeed();
+    await viewport(width, height);
+    const screen = await render(<JournalHubs at="/tin-nhan/g1" />);
+    await expect.element(screen.getByText("Mai 7h họp ở công trình nhé cả nhà").first()).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: /Tuỳ chọn tin nhắn: Mai 7h họp/ }));
+    await settle(300);
+    const items = [...document.querySelectorAll('[role="menuitem"]')].map((node) => node.textContent?.trim() ?? "").filter((text) => text !== "" && !/^\p{Extended_Pictographic}/u.test(text));
+    const words = items.filter((text) => /^(Trả lời|Chuyển tiếp|Sao chép|Tạo nhiệm vụ|Lưu vào Nhật ký|Xem sau|Ghim|Chọn nhiều tin|Chi tiết|Đề nghị thu hồi|Báo cáo tin nhắn)$/.test(text));
+    expect(words.slice(0, 4)).toEqual(["Trả lời", "Chuyển tiếp", "Sao chép", "Tạo nhiệm vụ"]);
+    expect(words[words.length - 1]).toBe("Báo cáo tin nhắn");
+    await page.screenshot({ path: `${OUT2}/71-2-menu-tin-${label}.png` });
+  });
+}
+
+for (const [width, height, label] of [[390, 844, "390"], [844, 390, "844"]] as const) {
+  test(`71.4 / 71.7 · ⋯ Nhóm 30 người: Nhiệm vụ / Bảng thấy ngay, Thành viên thu gọn, Hạn chế cuối · ${label}`, async () => {
+    groupChatSeed();
+    await viewport(width, height);
+    const screen = await render(<JournalHubs at="/tin-nhan/g1" />);
+    await expect.element(screen.getByText("Mai 7h họp ở công trình nhé cả nhà").first()).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Thêm", exact: true }));
+    await settle(600);
+    expect(document.querySelector("[data-quick-row]")).not.toBeNull();
+    const members = document.querySelector('[data-fold="members"]') as HTMLElement;
+    expect(members.querySelector('[aria-label="Danh sách thành viên"]')).toBeNull();
+    const boards = screen.getByRole("region", { name: "Bảng" }).element() as HTMLElement;
+    expect(boards.compareDocumentPosition(members) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await page.screenshot({ path: `${OUT2}/71-4-ba-cham-nhom-${label}.png` });
+    if (label === "390") {
+      await userEvent.click(members.querySelector("button") as HTMLElement);
+      await settle(300);
+      await expect.element(screen.getByRole("searchbox", { name: "Tìm thành viên" })).toBeInTheDocument();
+      await expect.element(screen.getByRole("button", { name: /Xem thêm/ })).toBeInTheDocument();
+      await page.screenshot({ path: `${OUT2}/71-7-thanh-vien-mo-tai-cho-390.png` });
+    }
+  });
+}
+
+test("71.8 · ⋯ › Lịch → đóng: về lại ⋯", async () => {
+  groupChatSeed();
+  await viewport(390, 844);
+  const screen = await render(<JournalHubs at="/tin-nhan/g1" />);
+  await expect.element(screen.getByText("Mai 7h họp ở công trình nhé cả nhà").first()).toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "Thêm", exact: true }));
+  await settle(400);
+  await userEvent.click((document.querySelector("[data-quick-row]") as HTMLElement).querySelectorAll("button")[1] as HTMLElement);
+  await settle(400);
+  await page.screenshot({ path: `${OUT2}/71-8-lich-tren-ba-cham-1-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Đóng lịch" }));
+  await settle(400);
+  expect(document.querySelector("[data-quick-row]")).not.toBeNull();
+  await page.screenshot({ path: `${OUT2}/71-8-dong-ve-ba-cham-2-390.png` });
+});
+
+// ------------------------------------------------------------------ 71 · D / E — cards
+function CardsFrame({ children }: { children: ReactNode }) {
+  return (
+    <Frame>
+      {children}
+      <PersonCardHost />
+      <GroupCardHost />
+    </Frame>
+  );
+}
+
+for (const [width, height, label] of [[390, 844, "390"], [1280, 800, "1280"]] as const) {
+  test(`71.6 · chạm ảnh Nhóm → thẻ Nhóm; chạm thành viên → thẻ người · ${label}`, async () => {
+    groupChatSeed();
+    await viewport(width, height);
+    const screen = await render(
+      <CardsFrame>
+        <div className="p-6">
+          <GroupAvatarButton group={{ conversationId: "g1", name: "Dự án chiếu sáng", memberCount: 30 }} />
+        </div>
+      </CardsFrame>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "Xem thẻ nhóm Dự án chiếu sáng" }));
+    await expect.element(screen.getByText("30 thành viên")).toBeInTheDocument();
+    for (const tile of ["Nhắn", "Lịch", "Thông báo"]) await expect.element(screen.getByRole("button", { name: tile, exact: true })).toBeInTheDocument();
+    await expect.element(screen.getByRole("button", { name: "+22" })).toBeInTheDocument();
+    const card = document.querySelector("[data-group-card]") as HTMLElement;
+    expect(card.textContent ?? "").not.toMatch(/@|\+84|PIN/);
+    await settle(300);
+    await page.screenshot({ path: `${OUT2}/71-6-the-nhom-${label}.png` });
+  });
+}
+
+test("71.9 · thẻ người theo quan hệ: bạn có Liên hệ / bạn chưa lưu / chưa kết bạn (390)", async () => {
+  groupChatSeed();
+  db.tables.contact = [
+    { id: "k-lan", owner_user_id: "me", contact_type: "individual", name: "Chị Lan kế toán", phone: "+84901234567", email: "lan@congty.vn", note: "Gọi sau 14h", linked_user_id: "lan", needs_details: false, created_at: now, updated_at: now },
+  ];
+  db.tables.user_aliases = [{ target_user_id: "u5", alias: "Anh thợ điện" }];
+  await viewport(390, 844);
+  const screen = await render(
+    <CardsFrame>
+      <div className="flex gap-3 p-6">
+        <PersonAvatarButton person={{ userId: "lan", name: "Lan Nguyễn", groupId: "g1" }} />
+        <PersonAvatarButton person={{ userId: "minh", name: "Minh Trần", groupId: "g1" }} />
+        <PersonAvatarButton person={{ userId: "u5", name: "Thành viên 6", groupId: "g1" }} />
+      </div>
+    </CardsFrame>,
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Xem thẻ của Lan Nguyễn" }));
+  await expect.element(screen.getByText("Chị Lan kế toán")).toBeInTheDocument();
+  await expect.element(screen.getByText("lan@congty.vn")).toBeInTheDocument();
+  await expect.element(screen.getByText("PIN A-LAN12345")).toBeInTheDocument();
+  await page.screenshot({ path: `${OUT2}/71-9-ban-co-lien-he-390.png` });
+  await userEvent.keyboard("{Escape}");
+  await settle(300);
+  await userEvent.click(screen.getByRole("button", { name: "Xem thẻ của Minh Trần" }));
+  await expect.element(screen.getByText("PIN A-MINH0001")).toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Thêm vào Liên hệ" })).toBeInTheDocument();
+  expect((document.querySelector("[data-person-card]") as HTMLElement).textContent ?? "").not.toContain("@");
+  await page.screenshot({ path: `${OUT2}/71-9-ban-chua-luu-390.png` });
+  await userEvent.keyboard("{Escape}");
+  await settle(300);
+  await userEvent.click(screen.getByRole("button", { name: "Xem thẻ của Thành viên 6" }));
+  // 71.10: my alias big, their own name small; no PIN, no number, no email.
+  await expect.element(screen.getByText("Anh thợ điện")).toBeInTheDocument();
+  await expect.element(screen.getByText("PIN chỉ hiện giữa bạn bè")).toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Sửa tên gợi nhớ" })).toBeInTheDocument();
+  const stranger = (document.querySelector("[data-person-card]") as HTMLElement).textContent ?? "";
+  expect(stranger).toContain("Thành viên 6");
+  expect(stranger).not.toMatch(/@|\+84|A-/);
+  await page.screenshot({ path: `${OUT2}/71-10-chua-ket-ban-ten-goi-nho-390.png` });
+});
+
+// ------------------------------------------------------------------ 69 · Di chuyển Bảng
+for (const [width, height, label] of [[1280, 800, "1280"], [390, 844, "390"]] as const) {
+  test(`69 · ⋯ › Di chuyển Bảng…: chọn nơi, quyền, xem trước; không có Sao chép sang · ${label}`, async () => {
+    seed();
+    db.tables.think_hub_table = [tableRow({ conversation_id: null }), SUB_TABLE];
+    await viewport(width, height);
+    const screen = await render(<Hubs at="/ke-hoach?bang=b1" />);
+    await expect.element(screen.getByRole("heading", { name: "Dự án chiếu sáng" })).toBeInTheDocument();
+    await settle(800);
+    await userEvent.click(screen.getByRole("button", { name: "Thao tác với Bảng Dự án chiếu sáng" }));
+    expect(screen.getByRole("menuitem", { name: /Sao chép sang/ }).elements()).toHaveLength(0);
+    await userEvent.click(screen.getByRole("menuitem", { name: /Di chuyển Bảng/ }));
+    await userEvent.click(screen.getByRole("radio", { name: /Dự án chiếu sáng/ }).first());
+    await expect.element(screen.getByRole("radio", { name: /Cùng sửa/ })).toHaveAttribute("aria-checked", "true");
+    const preview = document.querySelector("[data-move-preview]") as HTMLElement;
+    expect(preview.textContent).toContain("1 bảng con");
+    expect(preview.textContent).toContain("Tất cả đi theo Bảng");
+    await settle(300);
+    await page.screenshot({ path: `${OUT2}/69-di-chuyen-bang-${label}.png` });
+  });
+}
+
+test("69 · Bảng chung: dòng Đang ở {nơi} · Chỉ xem dưới tên Bảng", async () => {
+  seed();
+  db.tables.think_hub_table = [tableRow({ share_mode: "view" }), SUB_TABLE];
+  await viewport(1280, 800);
+  const screen = await render(<Hubs at="/ke-hoach?bang=b1" />);
+  await expect.element(screen.getByText(/Đang ở Dự án chiếu sáng · Chỉ xem/)).toBeInTheDocument();
+  await page.screenshot({ path: `${OUT2}/69-dang-o-chi-xem-1280.png` });
+});
+
+test("69 · thẻ chia sẻ Bảng trong chat", async () => {
+  await viewport(390, 844);
+  const screen = await render(
+    <Frame>
+      <div className="flex min-h-[100dvh] flex-col gap-4 bg-background px-3 py-6">
+        <p className="w-fit rounded-bubble bg-secondary px-4 py-2.5 text-[14px]">Mai 7h họp nhé</p>
+        <BoardUpdateCard content={'Thiện chia sẻ Bảng "Dự án chiếu sáng" · 6 Hạng mục'} onView={() => undefined} viewLabel="Mở" />
+        <p className="mx-auto max-w-md px-4 text-center text-[12.5px] text-muted-foreground">Bảng "Báo giá cũ" đã chuyển sang nhóm "Kho"</p>
+      </div>
+    </Frame>,
+  );
+  await expect.element(screen.getByRole("button", { name: "Mở" })).toBeInTheDocument();
+  await page.screenshot({ path: `${OUT2}/69-the-chia-se-trong-chat-390.png` });
+});

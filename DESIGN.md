@@ -1894,6 +1894,39 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - Lựa chọn mới `Danh ngôn luân phiên chủ đề` (`danh_ngon_luan_phien`) — **mặc định cho người chưa chọn** (CHECK + DEFAULT cột `profiles.daily_thought_category` đã cập nhật); `Danh ngôn theo chủ đề` = cách cũ, ai đang dùng giữ nguyên câu như trước; `Ẩn`.
 - Luân phiên: đi vòng 12 chủ đề, mỗi ngày một chủ đề khác hôm trước, lấy câu kế tiếp chưa đọc; chủ đề hết câu thì vòng sau bỏ qua. Cố định cả ngày, không ngẫu nhiên, không lặp câu trong năm, năm sau mở đầu bằng câu khác (năm xoay cả chủ đề mở đầu lẫn điểm bắt đầu trong từng chủ đề). Không đổi câu nào, không hiện tên chủ đề.
 
+## AVORA-65 · Sửa nhỏ sau 61–64 (02/10/2026)
+
+- **B.** Câu `Dùng phím: Ctrl/⌘ + ← hoặc →` theo **loại máy** (`(hover: hover) and (pointer: fine) and (not (any-pointer: coarse))`), không theo bề rộng — điện thoại nằm ngang không còn thấy.
+- **C.** Kế hoạch trên điện thoại đứng: **một** hàng `Thẻ · Bảng · Theo trạng thái · Cây` (máy tính giữ ba cách, không có `Thẻ`); `⚙ Cột trên thẻ` nằm riêng bên phải khi ở dạng Thẻ. Hàng ô trượt ngang có **mép mờ** 14px hai đầu — cột đang khuất không bao giờ để lộ nửa chữ.
+- **D.** Sửa tên › `Lấy tên đúng từ file gốc`: chọn lại file danh bạ cũ (.vcf/.csv/.xlsx), đọc bằng bộ giải mã của 63, **so theo số điện thoại**. Chỉ đề xuất cho tên đang ở nhóm `Chữ bị vỡ` / `Thiếu dấu`, khi file có đúng **một** tên đúng dấu cho số đó (thiếu dấu: phải cùng chữ khi bỏ dấu — điền dấu, không đổi người). Không thêm liên hệ, không đụng số/email. Tích sẵn, `Áp dụng (N)` · `Hoàn tác`.
+- **E.** Ô `Liên hệ` trong Bảng chung: server ghi `think_hub_record.contact_labels` = tên lấy từ **danh bạ của người chọn** lúc chọn + người chọn (client không ghi được). Người khác thấy `Anh Hùng · của Lan`; số, email và mọi chi tiết khác chỉ người chọn thấy. Dòng nhắc khi chọn: `Mọi người trong bảng sẽ thấy tên này.`
+- **F.** Lớp nổi (`FloatingPanel`) có **chiều cao rõ ràng** `min({height}px, 100dvh − 32px)` ở mọi chế độ máy tính (neo dưới/trên/giữa) thay cho `h-fit`; thân bên trong cuộn khi thiếu chỗ, không bao giờ cụt. Áp cho DateField, DateRangeField, TimeField.
+- **G.** Gợi ý `Giữ nút +` hiện **đúng một lần**: ghi `dismissed_guidance` ngay lúc hiện; tự ẩn sau 6 giây hoặc khi chạm bất cứ đâu; dạng chú thích nhỏ có mũi tên dưới nút, không chặn chạm. Xem lại ở Cài đặt › Hướng dẫn › `Gợi ý một lần`.
+- **H.** **Mọi tầng Bảng giống nhau.** Bảng con mở tại chỗ là đúng component lưới của bảng cha (`TableView` gọi lại, `depth`): cột Tiêu đề ghim, **bộ cột của chính bảng con**, ★, `Tạo nhiệm vụ`, `▸` tầng kế, ⋯ đầu cột, `+ Thêm cột` (thêm vào bảng con), sắp xếp/lọc, đánh dấu thay đổi, dạng Thẻ. Khác duy nhất: thụt + nền đậm dần theo tầng, dòng đường dẫn `Anam Cam Ranh › Bảng con`. Nguồn việc: `Từ Hạng mục X · Bảng con của Y · Bảng Z`. Mọi cột có độ rộng thật (bảng `table-fixed`), tên cột không cắt nửa chữ; chip `N việc` nằm trong ô Tiêu đề, dưới tên.
+
+## AVORA-70 · Nhật ký = sổ dòng gọn, không bong bóng (02/10/2026)
+
+- **Luật:** `Nhật ký của tôi` chỉ có một người, nên không có bong bóng hai bên. Mỗi mục **một dòng** (biểu tượng loại · dòng đầu `…` · giờ sát phải), **cao bằng một dòng hội thoại** (68px) cho mọi loại, gạch liền mép tới mép. Hàng ngày thấp hơn (44px), nền cam đất nhạt, `⌄ Thứ Năm, 25/09/2026 · 3 mục`, bấm để thu (nhớ theo máy), **dính đầu khung** tới khi mục cuối của ngày trôi qua. Cũ ở trên, mới sát ô nhập.
+- Bấm dòng → sổ xuống tại chỗ (chỉ một dòng mở): nội dung đầy đủ, tệp/ảnh, hàng thao tác `Tạo nhiệm vụ · Chuyển tiếp · Ghim · Sao chép · Sửa · Chọn nhiều · Xoá`. Dài (>10 dòng) hoặc có ảnh/PDF → `⤢ Xem toàn màn`, `‹` về đúng dòng. Nhấn giữ → menu tin chung.
+- `File của tôi` / `Liên kết` / `Nguồn tạo việc` cùng khung (`DayLineList`). Ghi chép giữ cây thư mục.
+- **Dọn dẹp:** `Xoá` trong hàng thao tác; điện thoại vuốt trái → `Xoá`; `Chọn` → ô tích từng dòng, tích hàng ngày = cả ngày → `Dọn dẹp (N)` (xoá mềm, toast `Đã dọn N mục · Hoàn tác`, chỉ hỏi khi N ≥ 50). Việc đã tạo vẫn còn.
+- Chat 1-1 / Nhóm không đổi.
+
+## AVORA-71 · Thứ tự nhất quán (02/10/2026)
+
+- **Luật 1 — Thứ tự menu: một nguồn; thường dùng trước, hạn chế cuối, chữ đỏ.** `lib/menu-order.ts`: `MESSAGE_MENU_ORDER` (① Trả lời · Chuyển tiếp · Sao chép ② Tạo nhiệm vụ · Lưu vào Nhật ký · Lưu ảnh · Xem sau ③ Ghim · Chọn nhiều tin ④ Sửa · Chi tiết ⑤ Thu hồi / Đề nghị thu hồi · Xoá (chỉ Nhật ký) · Báo cáo), `CONVERSATION_MENU_ORDER` cho `⋯`. Mục không áp dụng thì ẩn, mục khác giữ chỗ tương đối; không tự sắp theo thói quen. Điện thoại: 4 ô đầu luôn `Trả lời · Chuyển tiếp · Sao chép · Tạo nhiệm vụ`. `Tạo nhiệm vụ` có trong Nhật ký.
+- **Luật 2 — Liệt kê thì thu gọn sẵn, mở rộng tại chỗ.** Thành viên (hàng 5 ảnh nhỏ), Liên kết mời… là một dòng `tên (số) · tóm tắt · ⌄`; mở ngay trong tấm, >10 dòng có ô tìm, 20 dòng đầu + `Xem thêm`; nhớ theo máy.
+- **Luật 3 — Mở từ một tấm thì đóng về tấm đó.** Lịch, Thông báo, Nhật ký trò chuyện, Nhiệm vụ, Sổ quyết định, Thùng rác, Chặn, Báo cáo mở chồng lên `⋯`; đóng → về `⋯`. Chỉ đóng hẳn khi sang nơi khác (`Nhắn`, mở Bảng toàn trang, `Tới tin gốc`).
+- Subtab Nhật ký: `Ghi chép · Nhật ký của tôi · File · Liên kết · Nguồn tạo việc`; máy mới mở Ghi chép.
+- `⋯`: đầu tên → hàng nút nhanh `Tìm · Lịch · Thông báo · (Gọi | Thành viên)` → cần xử lý → ① Nhiệm vụ · Bảng · Nhật ký trò chuyện → ② (Nhóm) Thành viên · Liên kết mời · Dự án · Sổ quyết định → ③ Lên lịch cuộc gọi · Thùng rác → ④ Hạn chế đỏ.
+- Thẻ Nhóm (chạm ảnh Nhóm ở danh sách / đầu chat): ảnh lớn, tên, `N thành viên`; `Nhắn · Lịch · Nhiệm vụ · {số việc của tôi} · Thông báo`; 8 ảnh (quản trị trước) + `+N`; `Tất cả tuỳ chọn ⋯`. Không email/số/PIN của ai.
+- Thẻ người theo quan hệ + tên gợi nhớ: ADR-044.
+
+## AVORA-69 · Di chuyển Bảng (02/10/2026) — xem ADR-043
+
+- ⋯ cạnh tên Bảng › `Di chuyển Bảng…` → chọn nơi (Bảng của tôi + tìm không dấu + 1-1 · Nhóm · Dự án, gần đây trước) → `Cùng sửa` / `Chỉ xem` → xem trước `Bảng có N Hạng mục, M bảng con, K việc đã tạo. Tất cả đi theo Bảng.` → `Di chuyển` (thành đề nghị nếu người khác đã góp). Dưới tên Bảng: `Đang ở {nơi} · Cùng sửa`.
+- **Luật chung mọi Bảng — nhắc là của người đặt:** `Nhắc tôi xem lại` và nhắc của việc tạo từ Hạng mục chỉ dành cho người đặt. Muốn nhắc người khác: `Tạo nhiệm vụ` → chọn người → gợi ý nhiệm vụ (Đồng ý / Từ chối). Không có "gợi ý Hạng mục" hay nhắc hộ trên Hạng mục.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

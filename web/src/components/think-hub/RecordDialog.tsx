@@ -66,6 +66,8 @@ type RecordDialogProps = {
   isReadOnly?: boolean;
   /** AVORA-61 · D: the board's owner, who may remove anyone's file from a Tệp cell. */
   boardOwnerId?: string;
+  /** AVORA-65 · E: a shared board — a Liên hệ cell then says the name will be seen by everyone. */
+  isSharedBoard?: boolean;
 };
 
 /**
@@ -248,6 +250,7 @@ export function RecordDialog({
   onCopy,
   isReadOnly = false,
   boardOwnerId,
+  isSharedBoard = false,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
@@ -587,6 +590,7 @@ export function RecordDialog({
                     setDraft((current) => ({ ...current, extension: { ...current.extension, [column.key]: next } }))
                   }
                   file={record === null || boardOwnerId === undefined ? null : { tableId: record.tableId, recordId: record.id, boardOwnerId }}
+                  isSharedBoard={isSharedBoard}
                 />
               ))}
             </div>

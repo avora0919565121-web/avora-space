@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, ExternalLink, Eye, LayoutList, ListPlus, Paperclip, Plus, Settings2, Table2 } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Eye, ListPlus, Paperclip, Plus, Settings2, Star } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -73,6 +73,13 @@ export type TableViewProps = {
   dots?: ChangeMarks | null;
   /** Restore a Hạng mục shown as `đã xoá` while marking (absent = no right to). */
   onRestoreRecord?: (recordId: string) => void;
+  /** ★ — each person's own (AVORA-65 · H: every level of board has it). */
+  stars?: ReadonlySet<string>;
+  onToggleStar?: (record: ThinkRecord) => void;
+  /** 1 = the board itself; 2, 3 = sub-tables opened in place (indent + a lighter wash). */
+  depth?: number;
+  /** Who put a contact into a shared cell, when it was not me (AVORA-65 · E). */
+  myName?: string;
 };
 
 export type PhoneMode = "cards" | "table";
@@ -80,6 +87,18 @@ export type PhoneMode = "cards" | "table";
 const DEFAULT_COLUMN_WIDTH = 160;
 const OPEN_SUBTABLES_KEY = "avora.subtables-open";
 const PHONE_MODE_KEY = "avora.board-phone-mode";
+
+/** The phone layout this person last chose for a board (`Thẻ` until they pick `Bảng`). */
+export function readPhoneMode(tableId: string): PhoneMode {
+  return readStore<Record<string, PhoneMode>>("local", PHONE_MODE_KEY, {})[tableId] ?? "cards";
+}
+
+export function writePhoneMode(tableId: string, mode: PhoneMode): void {
+  writeStore("local", PHONE_MODE_KEY, { ...readStore<Record<string, PhoneMode>>("local", PHONE_MODE_KEY, {}), [tableId]: mode });
+}
+
+/** A row that slides sideways fades at its edges, so a column passing out of view never shows half a letter. */
+const EDGE_FADE = "[mask-image:linear-gradient(to_right,transparent,black_14px,black_calc(100%-14px),transparent)]";
 const CARD_COLUMNS_KEY = "avora.board-card-columns";
 
 function readStore<T>(storage: "local" | "session", key: string, fallback: T): T {
@@ -251,6 +270,9 @@ export function TableView({
   marks = null,
   dots = null,
   onRestoreRecord,
+  stars,
+  onToggleStar,
+  depth = 1,
 }: TableViewProps) {
   const markClass = (record: ThinkRecord, column: GridColumn | null): string | undefined => {
     if (marks === null) return undefined;
@@ -285,12 +307,8 @@ export function TableView({
   const [filter, setFilter] = useState<ColumnFilter>(null);
   const [openSubs, toggleSub] = useOpenSubTables();
   const isPhone = useMediaQuery("(max-width: 767px)");
-  const [ownMode, setOwnMode] = useState<PhoneMode>(() => readStore<Record<string, PhoneMode>>("local", PHONE_MODE_KEY, {})[tableId] ?? "cards");
-  const mode: PhoneMode = forcedMode ?? ownMode;
-  const changeMode = (next: PhoneMode): void => {
-    setOwnMode(next);
-    writeStore("local", PHONE_MODE_KEY, { ...readStore<Record<string, PhoneMode>>("local", PHONE_MODE_KEY, {}), [tableId]: next });
-  };
+  // AVORA-65 · C: the page draws the one `Thẻ · Bảng · Theo trạng thái · Cây` row and passes the choice down.
+  const mode: PhoneMode = forcedMode ?? readPhoneMode(tableId);
   const shown = visibleColumns(columns);
   const hidden = columns.filter((column) => column.hidden === true);
 
@@ -299,6 +317,17 @@ export function TableView({
   const fileCounts = useMemo(() => fileCountsByCell(files.data ?? []), [files.data]);
   const contacts = useContacts();
   const contactName = useMemo(() => new Map((contacts.data ?? []).map((contact) => [contact.id, contact.name] as const)), [contacts.data]);
+  // The scroll box of the computer grid: a sub-table opened in place is exactly as wide as what is visible.
+  const scrollBoxRef = useRef<HTMLDivElement | null>(null);
+  const [visibleWidth, setVisibleWidth] = useState<number>(0);
+  useEffect(() => {
+    const element = scrollBoxRef.current;
+    if (element === null || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setVisibleWidth(element.clientWidth));
+    observer.observe(element);
+    setVisibleWidth(element.clientWidth);
+    return () => observer.disconnect();
+  }, [isPhone]);
 
   const handlePreview = useCallback((columnId: string, width: number | null): void => {
     setPreview((current) => {
@@ -323,7 +352,7 @@ export function TableView({
         id: "status",
         fieldKey: "status",
         label: "Trạng thái",
-        width: 130,
+        width: 150,
         def: null,
         render: (record) => (
           <span className="inline-flex rounded-full bg-accent/60 px-2.5 py-1 text-[12.5px] font-medium text-accent-foreground">{statusLabel(record.status)}</span>
@@ -335,7 +364,7 @@ export function TableView({
         id: "priority",
         fieldKey: "priority",
         label: "Độ ưu tiên",
-        width: 120,
+        width: 150,
         def: null,
         render: (record) => priorityLabel(record.priority),
         // Cao first when ascending: what matters most reads first.
@@ -346,7 +375,7 @@ export function TableView({
         id: "category",
         fieldKey: "category",
         label: "Phân loại",
-        width: 130,
+        width: 140,
         def: null,
         render: (record) => <span className="text-muted-foreground">{record.category ?? ""}</span>,
         sortKey: (record) => (record.category === null ? "\uffff" : plain(record.category)),
@@ -356,7 +385,7 @@ export function TableView({
         id: "next",
         fieldKey: "next_action_date",
         label: "Ngày cần làm tiếp",
-        width: 130,
+        width: 200,
         def: null,
         render: (record) => (
           <span className={cn("tabular whitespace-nowrap", record.nextActionDate !== null && record.nextActionDate < today ? "font-medium text-destructive" : "text-muted-foreground")}>
@@ -405,7 +434,7 @@ export function TableView({
         def,
         sortKey: (record: ThinkRecord) =>
           def.type === "contact"
-            ? plain(contactName.get(String(record.extensionFields[def.key] ?? "")) ?? "\uffff")
+            ? plain(contactName.get(String(record.extensionFields[def.key] ?? "")) ?? record.contactLabels?.[def.key]?.name ?? "\uffff")
             : cellSortKey(record, def, count(record)),
         isFilled: (record: ThinkRecord) => (def.type === "file" ? count(record) > 0 : cellValue(record, def).trim() !== ""),
       };
@@ -463,7 +492,10 @@ export function TableView({
           render: (record: ThinkRecord) => {
             const id = String(record.extensionFields[def.key] ?? "");
             if (id === "") return null;
-            const name = contactName.get(id) ?? "Liên hệ khác";
+            // AVORA-65 · E: my own contact → my name for it, tap opens it. Someone else's → the
+            // name they brought in + `của {người chọn}`; never their number or email.
+            const shared = record.contactLabels?.[def.key];
+            const name = contactName.get(id) ?? (shared !== undefined ? `${shared.name} · của ${shared.byName}` : "Liên hệ khác");
             return onOpenContact !== undefined && contactName.has(id) ? (
               <button
                 type="button"
@@ -596,9 +628,14 @@ export function TableView({
       </button>
     );
   };
+  // AVORA-65 · H: the only difference between levels is an indent and a wash that deepens with depth.
   const subPanel = (record: ThinkRecord, childMode: PhoneMode): ReactNode =>
     openSubs.has(record.id) && renderSubTable !== undefined ? (
-      <div data-subtable-of={record.id} className="border-l-2 border-primary/30 bg-secondary/40 py-2 pl-3 pr-1">
+      <div
+        data-subtable-of={record.id}
+        data-depth={depth + 1}
+        className={cn("border-l-2 border-primary/30 py-2 pl-3 pr-1", depth + 1 >= 3 ? "bg-secondary/70" : "bg-secondary/40")}
+      >
         {subsOf(record).map((sub) => (
           <div key={sub.id}>{renderSubTable(sub, childMode)}</div>
         ))}
@@ -608,11 +645,50 @@ export function TableView({
   const taskBadge = (record: ThinkRecord): ReactNode => {
     const taskCount = taskCountByRecord?.get(record.id) ?? 0;
     return taskCount > 0 ? (
-      <span className="tabular shrink-0 rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground" title={`${taskCount} nhiệm vụ`}>
+      <span className="tabular shrink-0 whitespace-nowrap rounded-full bg-secondary px-1.5 py-0.5 text-[11px] font-medium text-muted-foreground" title={`${taskCount} nhiệm vụ`}>
         {taskCount} việc
       </span>
     ) : null;
   };
+  const starButton = (record: ThinkRecord): ReactNode => {
+    if (onToggleStar === undefined) return null;
+    const isOn = stars?.has(record.id) === true;
+    return (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onToggleStar(record);
+        }}
+        aria-pressed={isOn}
+        aria-label={isOn ? `Bỏ quan trọng: ${record.title}` : `Đánh dấu quan trọng: ${record.title}`}
+        data-record-star={record.id}
+        className={cn(
+          "press -my-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-md transition-opacity",
+          isOn ? "text-amber-500" : "text-muted-foreground opacity-60 hoverable:opacity-0 hoverable:group-hover/row:opacity-100",
+        )}
+      >
+        <Star className={cn("h-4 w-4", isOn && "fill-amber-400")} aria-hidden="true" />
+      </button>
+    );
+  };
+  const quickTaskButton = (record: ThinkRecord, withLabel: boolean): ReactNode =>
+    onQuickTask === undefined ? null : (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+          onQuickTask(record);
+        }}
+        aria-label={`Tạo nhiệm vụ từ "${record.title}"`}
+        title="Tạo nhiệm vụ"
+        data-quick-task={record.id}
+        className="press inline-flex min-h-9 shrink-0 items-center gap-1 rounded-md px-2 py-1.5 text-[12.5px] font-medium text-muted-foreground opacity-70 transition-colors hover:bg-accent/50 hover:text-foreground group-hover/row:opacity-100"
+      >
+        <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+        {withLabel ? <span className="hidden lg:inline">Tạo nhiệm vụ</span> : null}
+      </button>
+    );
 
   // ---------------------------------------------------------------- phone, upright
   if (isPhone) {
@@ -623,7 +699,7 @@ export function TableView({
         grid={grid}
         titleColumn={titleColumn}
         mode={mode}
-        onMode={forcedMode === undefined && !isNested ? changeMode : undefined}
+        canPickCardColumns={!isNested}
         sort={sort}
         filter={filter}
         menuActions={menuActions}
@@ -632,6 +708,8 @@ export function TableView({
         subToggle={subToggle}
         subPanel={(record) => subPanel(record, mode)}
         taskBadge={taskBadge}
+        starButton={starButton}
+        quickTaskButton={quickTaskButton}
         defaultCardColumns={defaultCardColumns}
         header={
           <>
@@ -653,15 +731,18 @@ export function TableView({
   const headClass = "whitespace-nowrap px-3 py-2.5 text-left text-[12.5px] font-semibold uppercase tracking-wide text-muted-foreground";
   const cellClass = "px-3 py-3 text-[14.5px] text-foreground align-top";
   const span = 2 + grid.length;
+  // Every column has a real width (system ones too), so the table never squeezes a name into half a word.
+  const titleWidth = isNested ? 240 : 280;
+  const tableWidth = titleWidth + grid.reduce((sum, column) => sum + column.width, 0) + 140;
   return (
     <>
       {hiddenRow}
       {sortNote}
-      <div className={cn("overflow-x-auto rounded-xl border border-border bg-card", isNested ? "mt-1" : "mt-5")}>
-        <table className={cn("w-full border-collapse", isNested ? "min-w-[720px]" : "min-w-[860px]")}>
+      <div ref={scrollBoxRef} data-board-grid={depth} className={cn("overflow-x-auto rounded-xl border border-border bg-card", isNested ? "mt-1" : "mt-5")}>
+        <table className="w-full table-fixed border-collapse" style={{ minWidth: tableWidth }}>
           <thead className="border-b border-border">
             <tr>
-              <th scope="col" className={cn(headClass, "group sticky left-0 z-10 min-w-[220px] bg-card")}>
+              <th scope="col" style={{ width: titleWidth }} className={cn(headClass, "group sticky left-0 z-10 bg-card")}>
                 <ColumnMenu column={null} columnId="title" label="Tiêu đề" isSystem sort={sort} filter={filter} actions={menuActions}>
                   Tiêu đề
                 </ColumnMenu>
@@ -673,12 +754,12 @@ export function TableView({
                   sort={sort}
                   filter={filter}
                   actions={menuActions}
-                  width={column.def === null ? undefined : preview[column.id] ?? column.def.width}
+                  width={column.width}
                   onPreview={handlePreview}
                   onResize={columnActions?.onWidth === undefined ? undefined : handleResize}
                 />
               ))}
-              <th scope="col" className="px-2 py-2.5 text-right">
+              <th scope="col" style={{ width: 140 }} className="px-2 py-2.5 text-right">
                 {onAddColumn !== undefined ? (
                   <button
                     type="button"
@@ -711,11 +792,15 @@ export function TableView({
                   className={cn("group/row cursor-pointer border-b border-border/70 transition-colors last:border-b-0 hover:bg-accent/25", rowMark(record))}
                 >
                   <td className={cn(cellClass, "sticky left-0 z-[1] bg-card font-medium group-hover/row:bg-[hsl(var(--card))]", markClass(record, null))}>
-                    <span className="flex items-start gap-2">
+                    <span className="flex items-start gap-1.5">
                       {dot(record)}
                       {subToggle(record, false)}
-                      <span className="min-w-0 pt-0.5">{record.title}</span>
-                      {taskBadge(record)}
+                      <span className="min-w-0 flex-1 break-words pt-0.5" data-record-title="">
+                        {record.title}
+                        {/* The `N việc` chip lives inside the title cell, under the name — never over the next column. */}
+                        {taskBadge(record) !== null ? <span className="mt-1 flex">{taskBadge(record)}</span> : null}
+                      </span>
+                      {starButton(record)}
                     </span>
                   </td>
                   {grid.map((column) => (
@@ -727,28 +812,14 @@ export function TableView({
                       {column.render(record)}
                     </td>
                   ))}
-                  <td className="px-2 py-2 text-right align-top">
-                    {onQuickTask !== undefined ? (
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          onQuickTask(record);
-                        }}
-                        aria-label={`Tạo nhiệm vụ từ "${record.title}"`}
-                        title="Tạo nhiệm vụ"
-                        className="press inline-flex min-h-9 items-center gap-1 rounded-md px-2 py-1.5 text-[12.5px] font-medium text-muted-foreground opacity-70 transition-colors hover:bg-accent/50 hover:text-foreground group-hover/row:opacity-100"
-                      >
-                        <ListPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                        <span className="hidden lg:inline">Tạo nhiệm vụ</span>
-                      </button>
-                    ) : null}
-                  </td>
+                  <td className="px-2 py-2 text-right align-top">{quickTaskButton(record, true)}</td>
                 </tr>
                 {openSubs.has(record.id) && subsOf(record).length > 0 ? (
                   <tr className="border-b border-border/70">
                     <td colSpan={span} className="p-0">
-                      <div className="sticky left-0 max-w-[100vw]">{subPanel(record, "table")}</div>
+                      <div className="sticky left-0" style={visibleWidth > 0 ? { width: visibleWidth } : undefined}>
+                        {subPanel(record, "table")}
+                      </div>
                     </td>
                   </tr>
                 ) : null}
@@ -781,7 +852,7 @@ function PhoneBoard({
   grid,
   titleColumn,
   mode,
-  onMode,
+  canPickCardColumns,
   sort,
   filter,
   menuActions,
@@ -790,6 +861,8 @@ function PhoneBoard({
   subToggle,
   subPanel,
   taskBadge,
+  starButton,
+  quickTaskButton,
   defaultCardColumns,
   header,
   isNested,
@@ -808,7 +881,7 @@ function PhoneBoard({
   grid: readonly GridColumn[];
   titleColumn: GridColumn;
   mode: PhoneMode;
-  onMode?: (mode: PhoneMode) => void;
+  canPickCardColumns: boolean;
   sort: ColumnSort;
   filter: ColumnFilter;
   menuActions: ColumnMenuActions;
@@ -817,6 +890,8 @@ function PhoneBoard({
   subToggle: (record: ThinkRecord, compact: boolean) => ReactNode;
   subPanel: (record: ThinkRecord) => ReactNode;
   taskBadge: (record: ThinkRecord) => ReactNode;
+  starButton: (record: ThinkRecord) => ReactNode;
+  quickTaskButton: (record: ThinkRecord, withLabel: boolean) => ReactNode;
   defaultCardColumns: readonly string[];
   header: ReactNode;
   isNested: boolean;
@@ -869,34 +944,14 @@ function PhoneBoard({
     setNameRowHeight(element.getBoundingClientRect().height);
   }, [mode]);
 
+  // AVORA-65 · C: the layout row lives on the page; here only `⚙ Cột trên thẻ`, right-aligned.
   const switcher =
-    onMode !== undefined ? (
-      <div className="mt-4 flex items-center gap-2">
-        <div role="group" aria-label="Cách xem trên điện thoại" className="inline-flex rounded-md border border-border p-0.5">
-          {(
-            [
-              ["cards", "Thẻ", LayoutList],
-              ["table", "Bảng", Table2],
-            ] as const
-          ).map(([value, label, Icon]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={mode === value}
-              onClick={() => onMode(value)}
-              className={cn(
-                "press inline-flex min-h-9 items-center gap-1.5 rounded px-3 text-[14px] font-medium",
-                mode === value ? "bg-accent/70 text-foreground" : "text-muted-foreground",
-              )}
-            >
-              <Icon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> {label}
-            </button>
-          ))}
-        </div>
+    canPickCardColumns && mode === "cards" ? (
+      <div className="mt-2 flex items-center justify-end">
         {mode === "cards" ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button type="button" className="press ml-auto inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-[13px] text-muted-foreground">
+              <button type="button" className="press inline-flex min-h-9 items-center gap-1.5 rounded-md border border-border px-2.5 text-[13px] text-muted-foreground">
                 <Settings2 className="h-4 w-4" aria-hidden="true" /> Cột trên thẻ
               </button>
             </DropdownMenuTrigger>
@@ -940,10 +995,12 @@ function PhoneBoard({
                 }}
                 className={cn("press block rounded-xl border border-border bg-card px-4 py-3 text-left", rowMark(record), markClass(record, null))}
               >
-                <span className="flex items-start gap-2">
+                <span className="group/row flex items-start gap-2">
                   {dot(record)}
                   <span className="min-w-0 flex-1 text-[15px] font-semibold leading-snug text-foreground">{record.title}</span>
                   {taskBadge(record)}
+                  {starButton(record)}
+                  {quickTaskButton(record, false)}
                 </span>
                 {picked.length > 0 ? (
                   <dl className="mt-2 space-y-1.5">
@@ -978,14 +1035,14 @@ function PhoneBoard({
       <div className={cn("rounded-xl border border-border bg-card", isNested ? "mt-1" : "mt-3")}>
         {/* The names row: sticky at the top of the screen's scroll, slides with the cells. */}
         <div ref={nameRowRef} className="sticky top-0 z-20 rounded-t-xl border-b border-border bg-card">
-          <div ref={register} onScroll={onRowScroll} data-sync-scroll="names" className="no-scrollbar overflow-x-auto">
+          <div ref={register} onScroll={onRowScroll} data-sync-scroll="names" className={cn("no-scrollbar overflow-x-auto", EDGE_FADE)}>
             <div className="flex" style={{ width: totalWidth }}>
               {grid.map((column) => (
                 <div
                   key={column.id}
                   role="columnheader"
                   style={{ width: column.width }}
-                  className="group shrink-0 px-3 py-2.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground"
+                  className="group shrink-0 whitespace-nowrap px-3 py-2.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground"
                 >
                   <ColumnMenu column={column.def} columnId={column.id} label={column.label} isSystem={column.def === null} sort={sort} filter={filter} actions={menuActions}>
                     <span className="inline-flex items-center gap-1">
@@ -1019,7 +1076,7 @@ function PhoneBoard({
             {/* The title: its own full-width line, wraps, never slides; sticks under the names row while its cells pass. */}
             <div
               style={{ top: nameRowHeight }}
-              className="sticky z-10 flex items-start gap-2 bg-card/95 px-3 pb-1 pt-2.5 backdrop-blur-sm"
+              className="group/row sticky z-10 flex items-start gap-2 bg-card/95 px-3 pb-1 pt-2.5 backdrop-blur-sm"
             >
               {dot(record)}
               {subToggle(record, true)}
@@ -1027,8 +1084,10 @@ function PhoneBoard({
                 {record.title}
               </button>
               {taskBadge(record)}
+              {starButton(record)}
+              {quickTaskButton(record, false)}
             </div>
-            <div ref={register} onScroll={onRowScroll} data-sync-scroll="cells" className="no-scrollbar overflow-x-auto pb-2">
+            <div ref={register} onScroll={onRowScroll} data-sync-scroll="cells" className={cn("no-scrollbar overflow-x-auto pb-2", EDGE_FADE)}>
               <div className="flex" style={{ width: totalWidth }}>
                 {grid.map((column) => (
                   <div

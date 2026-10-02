@@ -9,8 +9,9 @@ import type { ChatMessage } from "@/lib/chat-cache";
 export type DiaryView = "journal" | "notes" | "files" | "links" | "sources";
 
 export const DIARY_VIEWS: readonly { id: DiaryView; label: string; short: string }[] = [
-  { id: "journal", label: "Nhật ký của tôi", short: "Nhật ký" },
+  // AVORA-71 · A: Ghi chép first — used most, and shaped differently (a tree of folders).
   { id: "notes", label: "Ghi chép", short: "Ghi chép" },
+  { id: "journal", label: "Nhật ký của tôi", short: "Nhật ký" },
   { id: "files", label: "File của tôi", short: "File" },
   { id: "links", label: "Liên kết", short: "Liên kết" },
   { id: "sources", label: "Nguồn tạo việc", short: "Nguồn tạo việc" },
@@ -43,13 +44,13 @@ export function diaryViewFromSlug(slug: string | null): DiaryView | null {
 const LAST_VIEW_KEY = "avora.diary.lastView";
 const SEEN_KEY_PREFIX = "avora.diary.seen.";
 
-/** The view used last on this device; the first visit opens Nhật ký của tôi. */
+/** The view used last on this device; the first visit opens Ghi chép (AVORA-71 · A). */
 export function readLastDiaryView(): DiaryView {
   try {
     const stored = window.localStorage.getItem(LAST_VIEW_KEY);
-    return diaryViewFromSlug(stored) ?? "journal";
+    return diaryViewFromSlug(stored) ?? "notes";
   } catch {
-    return "journal";
+    return "notes";
   }
 }
 

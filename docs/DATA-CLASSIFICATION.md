@@ -60,6 +60,9 @@ khi hai bên lệch nhau, file code là đúng.
 - `think_hub_record_stars` — personal (sao chỉ của người đánh)
 - `think_hub_cell_files` — personal, thành viên Bảng đọc; chỉ người tải lên hoặc chủ Bảng xoá; `file_name` = sensitive; tệp ở bucket riêng tư `board-files` (AVORA-61 · D)
 - `think_hub_change_log` — personal, chỉ thành viên Bảng chung đọc, giữ 90 ngày; `before/after` = sensitive (AVORA-62)
+- `think_hub_record_reminders` — personal, chỉ người đặt nhắc đọc (AVORA-69)
+- `user_aliases` — personal, chỉ chủ đọc/ghi, không vào realtime; `alias` = sensitive (AVORA-71 · E)
+- `think_hub_record.contact_labels` — tên liên hệ người chọn đưa vào Bảng chung (chỉ tên + người chọn, không số/email; server ghi) (AVORA-65 · E)
 - `think_hub_announcements`, `think_hub_nudges` — personal (thẻ báo nhóm; dòng nhắc riêng chỉ người nhận đọc); `think_hub_table_seen` — internal (lần cuối mỗi người mở Bảng)
 - `think_hub_delete_cascade` — internal (sổ ghi việc đi theo khi xoá Bảng, để khôi phục)
 

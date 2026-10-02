@@ -3,10 +3,13 @@ import {
   Ban,
   Bell,
   CalendarDays,
+  ChevronDown,
   ChevronRight,
   MoreHorizontal,
   NotebookText,
   UserPlus,
+  Users,
+  Phone,
   Copy,
   Crown,
   GitBranchPlus,
@@ -24,7 +27,7 @@ import {
   Trash2,
   X,
 } from "lucide-react";
-import { useEffect, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { AddMembersSheet } from "@/components/chat/AddMembersSheet";
@@ -57,6 +60,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { myNameFor } from "@/lib/user-aliases";
+import { useUserAliases } from "@/lib/use-user-aliases";
+import { useContacts } from "@/lib/use-contacts";
 import { useAuth } from "@/lib/auth";
 import { chatKeys } from "@/lib/chat";
 import {
@@ -138,13 +144,18 @@ type GroupInfoSheetProps = {
   /** Called after the viewer leaves the group, once the thread is no longer theirs to read. */
   onLeft: () => void;
   /** Nhiệm vụ · Bảng · Dự án · Sổ quyết định · Tìm · Lên lịch (and a 1-1's Chặn / Báo cáo at the end). */
-  moreSections?: ReactNode;
+  /** ①–④ of `⋯`. A function receives the group's ② section to place in order. */
+  moreSections?: ReactNode | ((roomSlot: ReactNode) => ReactNode);
   /** Nhật ký uses the same frame (44b · C): its own name, and only the rows it has. */
   kind?: "personal" | "direct" | "group";
   /** ③ Nhật ký trò chuyện (AVORA-52 · B): opens over `⋯`; the page owns it (it needs the thread). */
   onOpenDiary?: () => void;
-  /** AVORA-60 · B: `Lịch` — the first row of `⋯`, opens the week of this conversation. */
+  /** AVORA-60 · B: `Lịch` — opens the week of this conversation, over `⋯`. */
   onOpenCalendar?: () => void;
+  /** AVORA-71 · C quick row: `Tìm` in this conversation. */
+  onSearch?: () => void;
+  /** AVORA-71 · C quick row (1-1): `Gọi`, when my Liên hệ has their number. */
+  onCall?: () => void;
 };
 
 /** One `⋯` row that opens a panel over it (AVORA-52 · C). */
@@ -173,6 +184,48 @@ function PanelRow({
   );
 }
 
+const MEMBERS_PAGE = 20;
+const FOLD_KEY = "avora.info.open-folds";
+
+/**
+ * AVORA-71 · C: anything that lists things starts folded — name, count, a short summary, ⌄ —
+ * and opens in place (never a new page). Which ones are open is remembered on this device.
+ */
+function FoldRow({ id, title, count, summary, children }: { id: string; title: string; count?: number; summary?: ReactNode; children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState<boolean>(() => {
+    try {
+      return (JSON.parse(window.localStorage.getItem(FOLD_KEY) ?? "[]") as string[]).includes(id);
+    } catch {
+      return false;
+    }
+  });
+  const toggle = (): void => {
+    setIsOpen((current) => {
+      const next = !current;
+      try {
+        const saved = new Set(JSON.parse(window.localStorage.getItem(FOLD_KEY) ?? "[]") as string[]);
+        if (next) saved.add(id);
+        else saved.delete(id);
+        window.localStorage.setItem(FOLD_KEY, JSON.stringify([...saved]));
+      } catch {
+        // Remembering is a courtesy.
+      }
+      return next;
+    });
+  };
+  return (
+    <div className="rounded-lg border border-border" data-fold={id}>
+      <button type="button" onClick={toggle} aria-expanded={isOpen} className="press flex min-h-12 w-full items-center gap-2.5 px-3 text-left">
+        <span className="text-[14px] font-medium text-foreground">{title}</span>
+        {count !== undefined ? <span className="tabular text-[12.5px] text-muted-foreground">({count})</span> : null}
+        <span className="ml-auto flex min-w-0 items-center">{summary}</span>
+        <ChevronDown className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform", isOpen && "rotate-180")} aria-hidden="true" />
+      </button>
+      {isOpen ? <div className="border-t border-border pb-2 pt-2">{children}</div> : null}
+    </div>
+  );
+}
+
 const roleBadgeClasses: Record<GroupRole, string> = {
   owner: "border-primary/40 bg-primary/10 text-primary",
   admin: "border-border bg-accent/60 text-foreground",
@@ -196,11 +249,19 @@ export function GroupInfoSheet({
   kind,
   onOpenDiary,
   onOpenCalendar,
+  onSearch,
+  onCall,
 }: GroupInfoSheetProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const userId: string | undefined = user?.id;
   const rhythm = useRhythm();
+  const { aliases: myAliases } = useUserAliases();
+  const { data: myContacts } = useContacts();
+  const contactNameByUser = useMemo(
+    () => new Map((myContacts ?? []).filter((contact) => contact.linkedUserId !== null).map((contact) => [contact.linkedUserId as string, contact.name] as const)),
+    [myContacts],
+  );
   const mutedUntil = rhythm.conversationMutes.get(conversationId) ?? null;
   /** AVORA-52 · C: which panel is open over `⋯` (it stays open underneath). */
   const [panel, setPanel] = useState<"notify" | "add-members" | null>(null);
@@ -209,6 +270,7 @@ export function GroupInfoSheet({
   }, [open]);
   const [confirmAction, setConfirmAction] = useState<ConfirmAction | null>(null);
   const [search, setSearch] = useState("");
+  const [showAllMembers, setShowAllMembers] = useState<boolean>(false);
   const [isRenaming, setIsRenaming] = useState<boolean>(false);
   const [nameDraft, setNameDraft] = useState<string>("");
 
@@ -443,7 +505,9 @@ export function GroupInfoSheet({
     renameMutation.mutate(nameDraft);
   };
 
-  const memberName = (member: GroupMember): string => peerLabel(member.displayName);
+  // AVORA-71 · E: my name for them (Liên hệ, then alias), their own name otherwise.
+  const memberName = (member: GroupMember): string =>
+    myNameFor({ contactName: contactNameByUser.get(member.userId), alias: myAliases.get(member.userId), shownName: peerLabel(member.displayName) });
 
   /** Copies the invite link; the fallback for browsers without the share sheet. */
   const copyInviteLink = async (): Promise<void> => {
@@ -601,149 +665,230 @@ export function GroupInfoSheet({
       ),
   );
 
-  return (
-    <>
-      <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="right" className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md">
-          {kind === "personal" ? (
-            <div className="flex min-h-0 flex-1 flex-col">
-              <div className="border-b border-border px-6 pb-5 pt-7">
-                <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">Nhật ký của tôi</SheetTitle>
-                <SheetDescription className="mt-1 text-[13px] text-muted-foreground">Chỉ mình bạn xem</SheetDescription>
-              </div>
-              <div className="min-h-0 flex-1 overflow-y-auto pt-4">{moreSections}</div>
-            </div>
-          ) : metaQuery.isPending ? (
-            <p className="p-6 text-[14px] text-muted-foreground">Đang tải…</p>
-          ) : metaQuery.isError ? (
-            <div className="p-6">
-              <p className="text-[14px] text-muted-foreground">{(metaQuery.error as Error).message}</p>
-              <button
-                type="button"
-                onClick={() => void metaQuery.refetch()}
-                className="press mt-3 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
-              >
-                Thử lại
-              </button>
-            </div>
-          ) : isGroup ? (
-            <div className="flex min-h-0 flex-1 flex-col">
-              {/* ① Đầu: ảnh + tên + Sửa (AVORA-49 · 4.1). */}
-              <div className="flex items-center gap-3 border-b border-border px-6 pb-5 pt-7">
-                <InitialsAvatar name={groupName ?? "Nhóm"} />
-                <div className="min-w-0 flex-1">
-                  <SheetTitle className="truncate text-[20px] font-semibold tracking-tight text-foreground">
-                    {groupName ?? "Nhóm"}
-                  </SheetTitle>
-                  <SheetDescription className="mt-1 text-[13px] text-muted-foreground">
-                    {membersQuery.isPending ? "Đang tải thành viên…" : `${members.length} thành viên`}
-                  </SheetDescription>
-                </div>
-                {myRole ? (
-                  <button
-                    type="button"
-                    disabled={!canRename || isBusy}
-                    title={canRename ? "Đổi tên nhóm" : `${RENAME_BLOCKED_MESSAGE}.`}
-                    onClick={openRename}
-                    className="press inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" /> Sửa
-                  </button>
-                ) : null}
-              </div>
+  /** AVORA-71 · C: four tiles under the name — the things reached for first. */
+  const quickRow = (place: "group" | "direct"): ReactNode => {
+    const tiles: { id: string; label: string; icon: ReactNode; note?: string | null; onClick?: () => void; disabled?: boolean }[] = [
+      { id: "search", label: "Tìm", icon: <Search className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />, onClick: onSearch, disabled: onSearch === undefined },
+      { id: "calendar", label: "Lịch", icon: <CalendarDays className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />, onClick: onOpenCalendar, disabled: onOpenCalendar === undefined },
+      {
+        id: "notify",
+        label: "Thông báo",
+        icon: <Bell className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />,
+        note: mutedUntil !== null ? "Đã tắt" : null,
+        onClick: () => setPanel("notify"),
+      },
+      place === "group"
+        ? {
+            id: "members",
+            label: "Thành viên",
+            icon: <Users className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />,
+            onClick: () => document.querySelector<HTMLElement>("[data-fold='members'] > button")?.click(),
+          }
+        : { id: "call", label: "Gọi", icon: <Phone className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />, onClick: onCall, disabled: onCall === undefined },
+    ];
+    return (
+      <div className="mx-3 mb-4 grid grid-cols-4 gap-2" role="group" aria-label="Thao tác nhanh" data-quick-row="">
+        {tiles.map((tile) => (
+          <button
+            key={tile.id}
+            type="button"
+            onClick={tile.onClick}
+            disabled={tile.disabled === true}
+            className="press flex min-h-[64px] flex-col items-center justify-center gap-1 rounded-[12px] border border-border bg-background px-1 text-[12px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-40"
+          >
+            {tile.icon}
+            <span className="truncate">{tile.label}</span>
+            {tile.note ? <span className="text-[10.5px] text-muted-foreground">{tile.note}</span> : null}
+          </button>
+        ))}
+      </div>
+    );
+  };
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
-                <div className="-mx-3">
-                  {/* ② Thông báo ③ Nhật ký trò chuyện — both open over `⋯` (AVORA-52 · C). */}
-                  {onOpenCalendar !== undefined ? (
-                    <PanelRow
-                      icon={<CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
-                      label="Lịch"
-                      onClick={onOpenCalendar}
-                    />
+  /** AVORA-71 · C ②: Thành viên and Liên kết mời, each folded to one line until opened in place. */
+  const roomSlot: ReactNode = isGroup ? (
+    <div className="space-y-2 px-3">
+      <FoldRow
+        id="members"
+        title="Thành viên"
+        count={members.length}
+        summary={
+          <span className="flex -space-x-1.5" aria-hidden="true">
+            {sortedMembers.slice(0, 5).map((member) => (
+              <InitialsAvatar key={member.userId} name={memberName(member)} size="sm" className="ring-2 ring-card" />
+            ))}
+          </span>
+        }
+      >
+                <section aria-label="Danh sách thành viên">
+                  
+                  {myRole === "owner" || myRole === "admin" ? (
+                    <button
+                      type="button"
+                      onClick={() => setPanel("add-members")}
+                      className="press mx-3 mt-2 flex min-h-11 w-[calc(100%-1.5rem)] items-center gap-2 rounded-md border border-dashed border-border px-3 text-[14px] font-medium text-primary hover:bg-primary/5"
+                    >
+                      <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Thêm thành viên
+                    </button>
                   ) : null}
-                  <PanelRow
-                    icon={<Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
-                    label="Thông báo"
-                    note={mutedUntil !== null ? `Đã tắt tới ${shortUntil(mutedUntil)}` : null}
-                    onClick={() => setPanel("notify")}
-                  />
-                  {onOpenDiary !== undefined ? (
-                    <PanelRow
-                      icon={<NotebookText className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
-                      label="Nhật ký trò chuyện"
-                      onClick={onOpenDiary}
-                    />
+                  {showSearch ? (
+                    <div className="relative mx-3 mt-2">
+                      <Search
+                        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+                        strokeWidth={1.8}
+                        aria-hidden="true"
+                      />
+                      <input
+                        type="search"
+                        value={search}
+                        onChange={(event) => setSearch(event.target.value)}
+                        placeholder="Tìm theo tên"
+                        aria-label="Tìm thành viên"
+                        className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-9 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60 [&::-webkit-search-cancel-button]:hidden"
+                      />
+                      {search ? (
+                        <button
+                          type="button"
+                          onClick={() => setSearch("")}
+                          aria-label="Xoá từ khoá tìm kiếm"
+                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
+                        >
+                          <X className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
-                  <div className="mb-3" />
-                </div>
-                {canSeeRemovalRequests(myRole as GroupRole) && (requestsQuery.data ?? []).length > 0 ? (
-                  <section className="mb-5 px-3" aria-label="Đề nghị xoá đang chờ duyệt">
-                    <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                      <ShieldQuestion className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                      Đề nghị xoá đang chờ duyệt
-                    </h3>
-                    <ul className="mt-2 space-y-2">
-                      {visibleRequests.map((request) => {
-                        const target = members.find((member) => member.userId === request.targetUserId);
-                        const requester = members.find((member) => member.userId === request.requestedBy);
-                        const canResolve = Boolean(myRole) && canResolveRemovalRequests(myRole as GroupRole);
+                  {membersQuery.isError ? (
+                    <p className="px-3 py-6 text-[14px] text-muted-foreground">
+                      {(membersQuery.error as Error).message}
+                    </p>
+                  ) : membersQuery.isPending ? (
+                    <ul className="mt-2 space-y-1 px-3" aria-hidden="true">
+                      {[0, 1, 2].map((row) => (
+                        <li key={row} className="flex items-center gap-3 py-3">
+                          <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-secondary" />
+                          <span className="min-w-0 flex-1 space-y-2">
+                            <span className="block h-3.5 w-1/3 animate-pulse rounded bg-secondary" />
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <ul className="mt-1">
+                      {visibleMembers.slice(0, showAllMembers ? undefined : MEMBERS_PAGE).map((member) => {
+                        const isSelf = member.userId === userId;
+                        const actions =
+                          Boolean(userId) && Boolean(myRole)
+                            ? memberActionsFor(myRole as GroupRole, member.role, isSelf)
+                            : [];
                         return (
                           <li
-                            key={request.id}
-                            className="rounded-lg border border-border bg-background/60 px-3 py-3"
+                            key={member.userId}
+                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/30"
                           >
-                            <p className="text-[14px] text-foreground">
-                              <span className="font-semibold">
-                                {target ? memberName(target) : "Thành viên"}
-                              </span>{" "}
-                              <span className="text-muted-foreground">
-                                — đề nghị bởi {requester ? memberName(requester) : "quản trị viên"}
-                              </span>
-                            </p>
-                            <div className="mt-2.5 flex items-center gap-2">
-                              {canResolve ? (
-                                <>
-                                  <button
-                                    type="button"
-                                    disabled={isBusy}
-                                    onClick={() =>
-                                      resolveMutation.mutate({ requestId: request.id, approve: true })
-                                    }
-                                    className="press rounded-md bg-primary px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-45"
-                                  >
-                                    Duyệt
-                                  </button>
-                                  <button
-                                    type="button"
-                                    disabled={isBusy}
-                                    onClick={() =>
-                                      resolveMutation.mutate({ requestId: request.id, approve: false })
-                                    }
-                                    className="press rounded-md border border-border px-3.5 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-45"
-                                  >
-                                    Từ chối
-                                  </button>
-                                </>
-                              ) : (
-                                <span className="text-[12px] italic text-muted-foreground">
-                                  Đang chờ chủ nhóm duyệt.
+                            <PersonAvatarButton person={{ userId: member.userId, name: memberName(member), groupId: conversationId }} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <p className="flex min-w-0 items-center gap-2">
+                                <span className="truncate text-[15px] font-medium text-foreground">
+                                  {memberName(member)}
+                                  {isSelf ? <span className="text-muted-foreground"> (bạn)</span> : null}
                                 </span>
-                              )}
+                                {member.role !== "member" ? (
+                                  <span
+                                    className={cn(
+                                      "shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none",
+                                      roleBadgeClasses[member.role],
+                                    )}
+                                  >
+                                    {member.role === "owner" ? "Chủ nhóm" : "Quản trị"}
+                                  </span>
+                                ) : null}
+                              </p>
                             </div>
+                            {/* AVORA-52 · D: one ⋯ per member — no row of buttons to overflow at 360px. */}
+                            {actions.length > 0 ? (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    aria-label={`Tuỳ chọn cho ${memberName(member)}`}
+                                    className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:opacity-45"
+                                  >
+                                    <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                                  </button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-56">
+                                  {actions.includes("directMessage") && isConnected(member.userId) ? (
+                                    <DropdownMenuItem onSelect={() => dmMutation.mutate(member.userId)} className="min-h-10 gap-2">
+                                      <MessageCircle className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Nhắn riêng
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("directMessage") && !isConnected(member.userId) ? (
+                                    <DropdownMenuItem onSelect={() => setRequestTarget(member)} className="min-h-10 gap-2">
+                                      <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Kết bạn để nhắn riêng
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("makeAdmin") ? (
+                                    <DropdownMenuItem
+                                      disabled={!adminSeatFree}
+                                      onSelect={() => setConfirmAction({ member, kind: "makeAdmin" })}
+                                      className="min-h-10 gap-2"
+                                    >
+                                      <ShieldCheck className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                                      <span className="min-w-0">
+                                        <span className="block">Làm quản trị</span>
+                                        {!adminSeatFree && currentAdmin ? (
+                                          <span className="block text-[11.5px] text-muted-foreground">{adminSeatTakenMessage(memberName(currentAdmin))}</span>
+                                        ) : null}
+                                      </span>
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("revokeAdmin") ? (
+                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "revokeAdmin" })} className="min-h-10 gap-2">
+                                      <ShieldMinus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Bỏ quản trị
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("transferOwnership") ? (
+                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "transferOwnership" })} className="min-h-10 gap-2">
+                                      <Crown className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Chuyển quyền chủ nhóm
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("requestRemove") ? (
+                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "requestRemove" })} className="min-h-10 gap-2">
+                                      <ShieldQuestion className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Đề nghị xoá
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                  {actions.includes("remove") ? (
+                                    <DropdownMenuItem
+                                      onSelect={() => setConfirmAction({ member, kind: "remove" })}
+                                      className="min-h-10 gap-2 text-destructive focus:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Xoá khỏi nhóm
+                                    </DropdownMenuItem>
+                                  ) : null}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            ) : null}
                           </li>
                         );
                       })}
-                      {visibleRequests.length === 0 ? (
-                        <li className="rounded-lg border border-border bg-background/60 px-3 py-3 text-[13px] italic text-muted-foreground">
-                          Không có đề nghị nào khớp từ khoá hiện tại.
-                        </li>
-                      ) : null}
                     </ul>
-                  </section>
-                ) : null}
-
-                <section className="mb-5 px-3" aria-label="Liên kết mời tham gia nhóm">
+                  )}
+                  {visibleMembers.length > MEMBERS_PAGE && !showAllMembers ? (
+                    <button type="button" onClick={() => setShowAllMembers(true)} className="press mx-3 mt-1 min-h-10 rounded-md px-2 text-[13px] font-medium text-primary">
+                      Xem thêm {visibleMembers.length - MEMBERS_PAGE} người
+                    </button>
+                  ) : null}
+                  {!membersQuery.isPending && !membersQuery.isError && visibleMembers.length === 0 ? (
+                    <p className="px-3 py-6 text-[14px] text-muted-foreground">
+                      Không có thành viên nào khớp “{search.trim()}”.
+                    </p>
+                  ) : null}
+                </section>
+      </FoldRow>
+      <FoldRow id="invite" title="Liên kết mời" summary={<span className="text-[12.5px] text-muted-foreground">hết hạn sau 7 ngày</span>}>
+                <section className="mb-2" aria-label="Liên kết mời tham gia nhóm">
                   <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
                     <Link2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
                     Mời vào nhóm
@@ -851,171 +996,136 @@ export function GroupInfoSheet({
                   )}
                 </section>
 
-                <section aria-label="Danh sách thành viên">
-                  <h3 className="px-3 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    Thành viên <span className="tabular font-medium normal-case">({members.length})</span>
-                  </h3>
-                  {myRole === "owner" || myRole === "admin" ? (
-                    <button
-                      type="button"
-                      onClick={() => setPanel("add-members")}
-                      className="press mx-3 mt-2 flex min-h-11 w-[calc(100%-1.5rem)] items-center gap-2 rounded-md border border-dashed border-border px-3 text-[14px] font-medium text-primary hover:bg-primary/5"
-                    >
-                      <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Thêm thành viên
-                    </button>
-                  ) : null}
-                  {showSearch ? (
-                    <div className="relative mx-3 mt-2">
-                      <Search
-                        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-                        strokeWidth={1.8}
-                        aria-hidden="true"
-                      />
-                      <input
-                        type="search"
-                        value={search}
-                        onChange={(event) => setSearch(event.target.value)}
-                        placeholder="Tìm theo tên"
-                        aria-label="Tìm thành viên"
-                        className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-9 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60 [&::-webkit-search-cancel-button]:hidden"
-                      />
-                      {search ? (
-                        <button
-                          type="button"
-                          onClick={() => setSearch("")}
-                          aria-label="Xoá từ khoá tìm kiếm"
-                          className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground"
-                        >
-                          <X className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
-                        </button>
-                      ) : null}
-                    </div>
-                  ) : null}
-                  {membersQuery.isError ? (
-                    <p className="px-3 py-6 text-[14px] text-muted-foreground">
-                      {(membersQuery.error as Error).message}
-                    </p>
-                  ) : membersQuery.isPending ? (
-                    <ul className="mt-2 space-y-1 px-3" aria-hidden="true">
-                      {[0, 1, 2].map((row) => (
-                        <li key={row} className="flex items-center gap-3 py-3">
-                          <span className="h-10 w-10 shrink-0 animate-pulse rounded-full bg-secondary" />
-                          <span className="min-w-0 flex-1 space-y-2">
-                            <span className="block h-3.5 w-1/3 animate-pulse rounded bg-secondary" />
-                          </span>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <ul className="mt-1">
-                      {visibleMembers.map((member) => {
-                        const isSelf = member.userId === userId;
-                        const actions =
-                          Boolean(userId) && Boolean(myRole)
-                            ? memberActionsFor(myRole as GroupRole, member.role, isSelf)
-                            : [];
+
+      </FoldRow>
+    </div>
+  ) : null;
+
+  return (
+    <>
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="right" className="flex w-full flex-col gap-0 border-border bg-card p-0 sm:max-w-md">
+          {kind === "personal" ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              <div className="border-b border-border px-6 pb-5 pt-7">
+                <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">Nhật ký của tôi</SheetTitle>
+                <SheetDescription className="mt-1 text-[13px] text-muted-foreground">Chỉ mình bạn xem</SheetDescription>
+              </div>
+              <div className="min-h-0 flex-1 overflow-y-auto pt-4">{typeof moreSections === "function" ? moreSections(null) : moreSections}</div>
+            </div>
+          ) : metaQuery.isPending ? (
+            <p className="p-6 text-[14px] text-muted-foreground">Đang tải…</p>
+          ) : metaQuery.isError ? (
+            <div className="p-6">
+              <p className="text-[14px] text-muted-foreground">{(metaQuery.error as Error).message}</p>
+              <button
+                type="button"
+                onClick={() => void metaQuery.refetch()}
+                className="press mt-3 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
+              >
+                Thử lại
+              </button>
+            </div>
+          ) : isGroup ? (
+            <div className="flex min-h-0 flex-1 flex-col">
+              {/* ① Đầu: ảnh + tên + Sửa (AVORA-49 · 4.1). */}
+              <div className="flex items-center gap-3 border-b border-border px-6 pb-5 pt-7">
+                <InitialsAvatar name={groupName ?? "Nhóm"} />
+                <div className="min-w-0 flex-1">
+                  <SheetTitle className="truncate text-[20px] font-semibold tracking-tight text-foreground">
+                    {groupName ?? "Nhóm"}
+                  </SheetTitle>
+                  <SheetDescription className="mt-1 text-[13px] text-muted-foreground">
+                    {membersQuery.isPending ? "Đang tải thành viên…" : `${members.length} thành viên`}
+                  </SheetDescription>
+                </div>
+                {myRole ? (
+                  <button
+                    type="button"
+                    disabled={!canRename || isBusy}
+                    title={canRename ? "Đổi tên nhóm" : `${RENAME_BLOCKED_MESSAGE}.`}
+                    onClick={openRename}
+                    className="press inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-border px-3 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:cursor-not-allowed disabled:opacity-50"
+                  >
+                    <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" /> Sửa
+                  </button>
+                ) : null}
+              </div>
+
+              <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
+                <div className="-mx-3">
+                  {/* AVORA-71 · C: the quick row — Tìm · Lịch · Thông báo · Thành viên. */}
+                  {quickRow("group")}
+                </div>
+                {canSeeRemovalRequests(myRole as GroupRole) && (requestsQuery.data ?? []).length > 0 ? (
+                  <section className="mb-5 px-3" aria-label="Đề nghị xoá đang chờ duyệt">
+                    <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <ShieldQuestion className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+                      Đề nghị xoá đang chờ duyệt
+                    </h3>
+                    <ul className="mt-2 space-y-2">
+                      {visibleRequests.map((request) => {
+                        const target = members.find((member) => member.userId === request.targetUserId);
+                        const requester = members.find((member) => member.userId === request.requestedBy);
+                        const canResolve = Boolean(myRole) && canResolveRemovalRequests(myRole as GroupRole);
                         return (
                           <li
-                            key={member.userId}
-                            className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent/30"
+                            key={request.id}
+                            className="rounded-lg border border-border bg-background/60 px-3 py-3"
                           >
-                            <PersonAvatarButton person={{ userId: member.userId, name: memberName(member), groupId: conversationId }} size="sm" />
-                            <div className="min-w-0 flex-1">
-                              <p className="flex min-w-0 items-center gap-2">
-                                <span className="truncate text-[15px] font-medium text-foreground">
-                                  {memberName(member)}
-                                  {isSelf ? <span className="text-muted-foreground"> (bạn)</span> : null}
-                                </span>
-                                {member.role !== "member" ? (
-                                  <span
-                                    className={cn(
-                                      "shrink-0 rounded-full border px-2 py-0.5 text-[10.5px] font-medium leading-none",
-                                      roleBadgeClasses[member.role],
-                                    )}
-                                  >
-                                    {member.role === "owner" ? "Chủ nhóm" : "Quản trị"}
-                                  </span>
-                                ) : null}
-                              </p>
-                            </div>
-                            {/* AVORA-52 · D: one ⋯ per member — no row of buttons to overflow at 360px. */}
-                            {actions.length > 0 ? (
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
+                            <p className="text-[14px] text-foreground">
+                              <span className="font-semibold">
+                                {target ? memberName(target) : "Thành viên"}
+                              </span>{" "}
+                              <span className="text-muted-foreground">
+                                — đề nghị bởi {requester ? memberName(requester) : "quản trị viên"}
+                              </span>
+                            </p>
+                            <div className="mt-2.5 flex items-center gap-2">
+                              {canResolve ? (
+                                <>
                                   <button
                                     type="button"
                                     disabled={isBusy}
-                                    aria-label={`Tuỳ chọn cho ${memberName(member)}`}
-                                    className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:opacity-45"
+                                    onClick={() =>
+                                      resolveMutation.mutate({ requestId: request.id, approve: true })
+                                    }
+                                    className="press rounded-md bg-primary px-3.5 py-1.5 text-[13px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-45"
                                   >
-                                    <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+                                    Duyệt
                                   </button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-56">
-                                  {actions.includes("directMessage") && isConnected(member.userId) ? (
-                                    <DropdownMenuItem onSelect={() => dmMutation.mutate(member.userId)} className="min-h-10 gap-2">
-                                      <MessageCircle className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Nhắn riêng
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {actions.includes("directMessage") && !isConnected(member.userId) ? (
-                                    <DropdownMenuItem onSelect={() => setRequestTarget(member)} className="min-h-10 gap-2">
-                                      <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Kết bạn để nhắn riêng
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {actions.includes("makeAdmin") ? (
-                                    <DropdownMenuItem
-                                      disabled={!adminSeatFree}
-                                      onSelect={() => setConfirmAction({ member, kind: "makeAdmin" })}
-                                      className="min-h-10 gap-2"
-                                    >
-                                      <ShieldCheck className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                                      <span className="min-w-0">
-                                        <span className="block">Làm quản trị</span>
-                                        {!adminSeatFree && currentAdmin ? (
-                                          <span className="block text-[11.5px] text-muted-foreground">{adminSeatTakenMessage(memberName(currentAdmin))}</span>
-                                        ) : null}
-                                      </span>
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {actions.includes("revokeAdmin") ? (
-                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "revokeAdmin" })} className="min-h-10 gap-2">
-                                      <ShieldMinus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Bỏ quản trị
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {actions.includes("transferOwnership") ? (
-                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "transferOwnership" })} className="min-h-10 gap-2">
-                                      <Crown className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Chuyển quyền chủ nhóm
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {actions.includes("requestRemove") ? (
-                                    <DropdownMenuItem onSelect={() => setConfirmAction({ member, kind: "requestRemove" })} className="min-h-10 gap-2">
-                                      <ShieldQuestion className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Đề nghị xoá
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                  {actions.includes("remove") ? (
-                                    <DropdownMenuItem
-                                      onSelect={() => setConfirmAction({ member, kind: "remove" })}
-                                      className="min-h-10 gap-2 text-destructive focus:text-destructive"
-                                    >
-                                      <Trash2 className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> Xoá khỏi nhóm
-                                    </DropdownMenuItem>
-                                  ) : null}
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            ) : null}
+                                  <button
+                                    type="button"
+                                    disabled={isBusy}
+                                    onClick={() =>
+                                      resolveMutation.mutate({ requestId: request.id, approve: false })
+                                    }
+                                    className="press rounded-md border border-border px-3.5 py-1.5 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-45"
+                                  >
+                                    Từ chối
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="text-[12px] italic text-muted-foreground">
+                                  Đang chờ chủ nhóm duyệt.
+                                </span>
+                              )}
+                            </div>
                           </li>
                         );
                       })}
+                      {visibleRequests.length === 0 ? (
+                        <li className="rounded-lg border border-border bg-background/60 px-3 py-3 text-[13px] italic text-muted-foreground">
+                          Không có đề nghị nào khớp từ khoá hiện tại.
+                        </li>
+                      ) : null}
                     </ul>
-                  )}
-                  {!membersQuery.isPending && !membersQuery.isError && visibleMembers.length === 0 ? (
-                    <p className="px-3 py-6 text-[14px] text-muted-foreground">
-                      Không có thành viên nào khớp “{search.trim()}”.
-                    </p>
-                  ) : null}
-                </section>
-                {/* ④ Nhiệm vụ · Bảng · Dự án · Sổ quyết định  ⑤ Tìm · Lên lịch cuộc gọi */}
-                {moreSections !== null ? <div className="-mx-3 mt-5 border-t border-border pt-4">{moreSections}</div> : null}
+                  </section>
+                ) : null}
+
+
+                {/* ① Làm việc · ② Nhóm (folded) · ③ Khác · ④ Hạn chế — one order (AVORA-71 · C). */}
+                <div className="-mx-3 mt-1">{typeof moreSections === "function" ? moreSections(roomSlot) : <>{moreSections}{roomSlot}</>}</div>
 
               {myRole ? (
                 <div className="-mx-3 mt-2 border-t border-border px-6 py-4">
@@ -1080,30 +1190,10 @@ export function GroupInfoSheet({
                 </div>
               </div>
               <div className="min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
-                {onOpenCalendar !== undefined ? (
-                  <PanelRow
-                    icon={<CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
-                    label="Lịch"
-                    onClick={onOpenCalendar}
-                  />
-                ) : null}
-                <PanelRow
-                  icon={<Bell className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
-                  label="Thông báo"
-                  note={mutedUntil !== null ? `Đã tắt tới ${shortUntil(mutedUntil)}` : null}
-                  onClick={() => setPanel("notify")}
-                />
-                {onOpenDiary !== undefined ? (
-                  <PanelRow
-                    icon={<NotebookText className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}
-                    label="Nhật ký trò chuyện"
-                    onClick={onOpenDiary}
-                  />
-                ) : null}
-                <div className="mb-3" />
+                {quickRow("direct")}
                 {/* Only in a 1-1: family is a relationship between two people, not a room. */}
                 {peerId ? <FamilyFlagCard peerId={peerId} peerName={peerName ?? "người này"} /> : null}
-                {moreSections !== null ? <div className="mt-2 border-t border-border pt-4">{moreSections}</div> : null}
+                {moreSections !== null ? <div className="mt-2 border-t border-border pt-4">{typeof moreSections === "function" ? moreSections(null) : moreSections}</div> : null}
               </div>
             </div>
           )}

@@ -98,7 +98,10 @@ export function FloatingPanel({
             sideOffset={4}
             collisionPadding={FLOATING_EDGE_PX}
             onOpenAutoFocus={onOpenAutoFocus}
-            style={{ width: `min(${width}px, calc(100vw - ${FLOATING_EDGE_PX * 2}px))` }}
+            style={{
+              width: `min(${width}px, calc(100vw - ${FLOATING_EDGE_PX * 2}px))`,
+              height: `min(${height}px, var(--radix-popover-content-available-height, ${height}px))`,
+            }}
             className={cn(panelClass, "z-50 max-h-[var(--radix-popover-content-available-height)] data-[state=open]:animate-in data-[state=open]:fade-in-0")}
           >
             {children}
@@ -117,12 +120,19 @@ export function FloatingPanel({
           <DialogPrimitive.Content
             aria-describedby={undefined}
             onOpenAutoFocus={onOpenAutoFocus}
-            style={isDesktop ? { width: `min(${width}px, calc(100vw - ${FLOATING_EDGE_PX * 2}px))` } : undefined}
+            // AVORA-65 · F: an explicit height, never `h-fit` — the body inside grows to fill the
+            // panel (flex-1 min-h-0), and a fit-content parent gave it zero, cutting the calendar
+            // down to its title. Short of room it scrolls inside instead.
+            style={
+              isDesktop
+                ? { width: `min(${width}px, calc(100vw - ${FLOATING_EDGE_PX * 2}px))`, height: `min(${height}px, calc(100dvh - ${FLOATING_EDGE_PX * 2}px))` }
+                : undefined
+            }
             className={cn(
               panelClass,
               "fixed z-50 data-[state=open]:animate-in data-[state=open]:fade-in-0",
               isDesktop
-                ? "inset-0 m-auto h-fit max-h-[calc(100dvh-32px)]"
+                ? "inset-0 m-auto max-h-[calc(100dvh-32px)]"
                 : phone === "top"
                   ? "inset-x-2 top-[calc(env(safe-area-inset-top)+8px)] mx-auto max-h-[85dvh] max-w-[480px]"
                   : "inset-x-0 bottom-0 max-h-[85dvh] rounded-b-none pb-[env(safe-area-inset-bottom)]",

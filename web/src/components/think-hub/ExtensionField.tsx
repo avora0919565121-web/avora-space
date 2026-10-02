@@ -125,7 +125,9 @@ export function ExtensionField({
   onChange,
   disabled,
   file,
+  isSharedBoard = false,
 }: {
+  isSharedBoard?: boolean;
   column: ColumnDef;
   value: string;
   onChange: (next: string) => void;
@@ -208,6 +210,11 @@ export function ExtensionField({
             <option value={value}>Liên hệ không còn trong danh bạ của bạn</option>
           ) : null}
         </select>
+        {column.type === "contact" && isSharedBoard ? (
+          <p data-contact-shared-note="" className="mt-1.5 text-[12.5px] text-muted-foreground">
+            Mọi người trong bảng sẽ thấy tên này. Số điện thoại, email chỉ bạn thấy.
+          </p>
+        ) : null}
       </div>
     );
   }

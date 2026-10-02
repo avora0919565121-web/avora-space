@@ -1,10 +1,10 @@
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Copy, Flag, ListTodo, MessageCircle, Phone, Settings2, UserPlus, UserRound, X } from "lucide-react";
+import { Ban, Copy, Flag, ListTodo, Mail, MessageCircle, Phone, Settings2, Tag, UserPlus, UserRound, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { askConfirm } from "@/components/ConfirmHost";
+import { askConfirm, askText } from "@/components/ConfirmHost";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { InviteMessageDialog } from "@/components/contacts/InviteMessageDialog";
 import { ReportDialog, type ReportTarget } from "@/components/chat/ReportDialog";
@@ -26,6 +26,8 @@ import { useBlocks } from "@/lib/use-blocks";
 import { useConnections } from "@/lib/use-connections";
 import { useContacts } from "@/lib/use-contacts";
 import { useTasks } from "@/lib/use-tasks";
+import { ALIAS_MAX } from "@/lib/user-aliases";
+import { useUserAliases } from "@/lib/use-user-aliases";
 import { cn } from "@/lib/utils";
 
 type Request = { ref: PersonRef; anchor: DOMRect | null };
@@ -141,10 +143,28 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
   const { block, isBlocked } = useBlocks();
   const isSelf = user?.id === personRef.userId;
   const { data: ownPin } = useQuery({ queryKey: ["person-card", "own-pin"], queryFn: fetchMyPin, enabled: isSelf, staleTime: 5 * 60_000 });
+  const { aliases, save: saveAlias } = useUserAliases();
   const view = useMemo(
-    () => personCardView(personRef, user?.id, byId, contacts ?? [], ownPin ?? null),
-    [personRef, user?.id, byId, contacts, ownPin],
+    () => personCardView(personRef, user?.id, byId, contacts ?? [], ownPin ?? null, aliases),
+    [personRef, user?.id, byId, contacts, ownPin, aliases],
   );
+  /** AVORA-71 · E: a name only I see. Someone already in my Liên hệ is renamed there instead. */
+  const editAlias = async (): Promise<void> => {
+    const next = await askText({
+      title: view.alias === null ? "Đặt tên gợi nhớ" : "Sửa tên gợi nhớ",
+      body: `Chỉ mình bạn thấy tên này. ${view.realName} không biết. Để trống để bỏ.`,
+      initial: view.alias ?? "",
+      confirmLabel: "Lưu",
+      maxLength: ALIAS_MAX,
+    });
+    if (next === null) return;
+    try {
+      await saveAlias(view.userId, next);
+      toast.success(next.trim() === "" ? "Đã bỏ tên gợi nhớ" : "Đã lưu tên gợi nhớ");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không lưu được.");
+    }
+  };
   const [isPhotoOpen, setIsPhotoOpen] = useState<boolean>(false);
   const [isInviteOpen, setIsInviteOpen] = useState<boolean>(false);
   const [isSharedOpen, setIsSharedOpen] = useState<boolean>(false);
@@ -182,7 +202,7 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
 
   const addContact = async (): Promise<void> => {
     try {
-      const made = await createContactQuick({ name: view.name });
+      const made = await createContactQuick({ name: view.realName });
       toast.success("Đã thêm vào Liên hệ");
       go(`/lien-he/${made.id}`);
     } catch (error) {
@@ -219,7 +239,8 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
           {initialsOf(view.name)}
         </button>
         <div className="min-w-0 flex-1">
-          <p className="break-words text-[19px] font-semibold leading-tight text-foreground">{view.name}</p>
+          <p className="break-words text-[19px] font-semibold leading-tight text-foreground" data-person-name="">{view.name}</p>
+          {view.name !== view.realName ? <p className="mt-0.5 truncate text-[12.5px] text-muted-foreground" data-person-real-name="">{view.realName}</p> : null}
           <p className="tabular mt-1 text-[13.5px] text-muted-foreground">{view.pin !== null ? `PIN ${view.pin}` : view.isSelf ? "Chưa có PIN" : "PIN chỉ hiện giữa bạn bè"}</p>
           {view.isFriend ? <p className="mt-0.5 text-[12.5px] font-medium text-primary">Bạn bè</p> : null}
         </div>
@@ -244,6 +265,17 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
         </div>
       ) : null}
 
+      {view.email !== null ? (
+        <div className="mt-2 flex items-center gap-2 rounded-[12px] border border-border px-3 py-2" data-person-email="">
+          <Mail className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+          <a href={`mailto:${view.email}`} className="min-w-0 flex-1 truncate text-[14.5px] text-foreground">
+            {view.email}
+          </a>
+          <span className="shrink-0 text-[11.5px] text-muted-foreground">bạn đã lưu</span>
+        </div>
+      ) : null}
+      {view.note !== null ? <p className="mt-2 line-clamp-3 rounded-[12px] bg-secondary/50 px-3 py-2 text-[13px] text-muted-foreground">{view.note}</p> : null}
+
       <div className="mt-4 flex gap-2">
         {view.isSelf ? (
           <ActionTile icon={<Settings2 className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />} label="Sửa hồ sơ" onClick={() => go("/cai-dat")} />
@@ -267,11 +299,17 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
               label={shared.length > 0 ? `Việc chung · ${shared.length}` : "Việc chung"}
               onClick={() => setIsSharedOpen((current) => !current)}
             />
-            <ActionTile
-              icon={<UserRound className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />}
-              label={view.contactId !== null ? "Mở Liên hệ" : "Thêm vào Liên hệ"}
-              onClick={() => (view.contactId !== null ? go(`/lien-he/${view.contactId}`) : void addContact())}
-            />
+            {view.contactId !== null ? (
+              <ActionTile
+                icon={<UserRound className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />}
+                label="Sửa tên trong Liên hệ"
+                onClick={() => go(`/lien-he/${view.contactId}`)}
+              />
+            ) : view.isFriend ? (
+              <ActionTile icon={<UserRound className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />} label="Thêm vào Liên hệ" onClick={() => void addContact()} />
+            ) : (
+              <ActionTile icon={<Tag className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />} label={view.alias === null ? "Đặt tên gợi nhớ" : "Sửa tên gợi nhớ"} onClick={() => void editAlias()} />
+            )}
           </>
         )}
       </div>

@@ -1,6 +1,7 @@
 import {
   ChevronRight,
   KanbanSquare,
+  LayoutList,
   Library,
   Loader2,
   Lock,
@@ -21,10 +22,11 @@ import { toast } from "sonner";
 import { AddColumnDialog } from "@/components/think-hub/AddColumnDialog";
 import { KanbanView } from "@/components/think-hub/KanbanView";
 import { MindmapView } from "@/components/think-hub/MindmapView";
-import { QuickTaskDialog } from "@/components/think-hub/QuickTaskDialog";
+import { QuickTaskDialog, recordSourceLabel } from "@/components/think-hub/QuickTaskDialog";
 import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTableDialog";
 import { askConfirm, askText } from "@/components/ConfirmHost";
 import { BoardMenu, type BoardMenuItem } from "@/components/think-hub/BoardMenu";
+import { boardMoveCounts, MoveBoardDialog } from "@/components/think-hub/MoveBoardDialog";
 import {
   AnnounceButton,
   AnnounceDialog,
@@ -43,7 +45,8 @@ import { ColumnTrashDialog } from "@/components/think-hub/ColumnTrashDialog";
 import { PlanPlusButton } from "@/components/think-hub/PlanPlusButton";
 import { RecordDialog } from "@/components/think-hub/RecordDialog";
 import { RenameColumnDialog } from "@/components/think-hub/RenameColumnDialog";
-import { TableView, type PhoneMode } from "@/components/think-hub/TableView";
+import { readPhoneMode, TableView, writePhoneMode, type PhoneMode } from "@/components/think-hub/TableView";
+import { useMediaQuery } from "@/hooks/use-media-query";
 import { HubShelf } from "@/components/think-hub/HubShelf";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
 import { useReview } from "@/lib/use-review";
@@ -147,6 +150,9 @@ const ThinkHub = () => {
   const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM) ?? readLastTable(user?.id));
   const [view, setView] = useState<ViewMode>("table");
   const viewChosenRef = useRef<string | null>(null);
+  // AVORA-65 · C: on a phone held upright, one row — `Thẻ · Bảng · Theo trạng thái · Cây`.
+  const isPhoneUpright = useMediaQuery("(max-width: 767px)");
+  const [phoneMode, setPhoneMode] = useState<PhoneMode>("cards");
   const isFullscreen: boolean = searchParams.get("toan-man") === "1";
   const shelfActions = useShelfActions();
   const starsQuery = useStars();
@@ -179,7 +185,11 @@ const ThinkHub = () => {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
   const [isAddColumnOpen, setIsAddColumnOpen] = useState<boolean>(false);
+  // Which board `+ Thêm cột` adds to: the open one, or a sub-table opened in place (AVORA-65 · H).
+  const [addColumnTableId, setAddColumnTableId] = useState<string | null>(null);
   const [renaming, setRenaming] = useState<ColumnDef | null>(null);
+  // The board whose column is being renamed — a sub-table's column renames on the sub-table.
+  const [renamingTableId, setRenamingTableId] = useState<string | null>(null);
   const [isColumnTrashOpen, setIsColumnTrashOpen] = useState<boolean>(false);
   const [isRecordOpen, setIsRecordOpen] = useState<boolean>(false);
   const [editing, setEditing] = useState<ThinkRecord | null>(null);
@@ -190,6 +200,7 @@ const ThinkHub = () => {
   const [isRenamingTable, setIsRenamingTable] = useState<boolean>(false);
   const [nameDraft, setNameDraft] = useState<string>("");
   const [quickTaskRecord, setQuickTaskRecord] = useState<ThinkRecord | null>(null);
+  const [isMoveOpen, setIsMoveOpen] = useState<boolean>(false);
 
   const today: string = useMemo(() => todayIso(), []);
   const roots: ThinkTable[] = useMemo(() => rootTables(tables), [tables]);
@@ -247,6 +258,7 @@ const ThinkHub = () => {
     if (active === null || viewChosenRef.current === active.id) return;
     viewChosenRef.current = active.id;
     setView(active.defaultView === "kanban" ? "kanban" : active.defaultView === "tree" ? "mindmap" : "table");
+    setPhoneMode(readPhoneMode(active.id));
   }, [active]);
 
   const kindOf = useCallback(
@@ -518,20 +530,23 @@ const ThinkHub = () => {
 
   const handleAddColumn = useCallback(
     async (input: { label: string; type: ColumnType; options?: readonly string[] }): Promise<void> => {
-      if (active === null) return;
-      await actions.addColumn({ tableId: active.id, ...input });
+      const tableId = addColumnTableId ?? active?.id;
+      if (tableId === undefined) return;
+      await actions.addColumn({ tableId, ...input });
+      setAddColumnTableId(null);
       toast.success(`Đã thêm cột "${input.label}".`);
     },
-    [actions, active],
+    [actions, active, addColumnTableId],
   );
 
   const handleRenameColumn = useCallback(
     async (column: ColumnDef, label: string): Promise<void> => {
-      if (active === null) return;
-      await actions.renameColumn({ tableId: active.id, columnId: column.id, label });
+      const tableId = renamingTableId ?? active?.id;
+      if (tableId === undefined) return;
+      await actions.renameColumn({ tableId, columnId: column.id, label });
       toast.success("Đã đổi tên cột.");
     },
-    [actions, active],
+    [actions, active, renamingTableId],
   );
 
   const handleResizeColumn = useCallback(
@@ -668,7 +683,10 @@ const ThinkHub = () => {
     }
     return {
       lockedReason: null,
-      onRename: setRenaming,
+      onRename: (column) => {
+        setRenamingTableId(table.id);
+        setRenaming(column);
+      },
       safeTypes: (column) => safeTypeChanges(column, tableRecords.map((record) => record.extensionFields[column.key] ?? null)),
       onChangeType: (column, type) =>
         void actions.changeColumnType({ tableId: table.id, columnId: column.id, type }).then(
@@ -715,9 +733,13 @@ const ThinkHub = () => {
 
   /** AVORA-61 · H: a sub-table, opened right under its Hạng mục — read, edit, add, then fold away. */
   const renderSubTable = (sub: ThinkTable, mode: PhoneMode): ReactNode => (
-    <div className="py-1">
+    <div className="py-1" data-subtable={sub.id}>
       <div className="flex items-center gap-2 px-1 pb-1">
-        <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-foreground">{sub.name}</span>
+        <span className="min-w-0 flex-1 truncate text-[13px] text-foreground">
+          {/* The path line: `Anam Cam Ranh ›` — which Hạng mục this level grew from. */}
+          <span className="text-muted-foreground">{records.find((record) => record.id === sub.parentRecordId)?.title ?? ""} › </span>
+          <span className="font-semibold">{sub.name}</span>
+        </span>
         <span className="tabular text-[12px] text-muted-foreground">{recordCountOf(records, sub.id)} Hạng mục</span>
         {!isReadOnly ? (
           <button
@@ -736,19 +758,30 @@ const ThinkHub = () => {
           Mở
         </button>
       </div>
+      {/* AVORA-65 · H: the very same grid as the board above — its own columns, ★, Tạo nhiệm vụ, ▸ to the next level, ⋯ on every column. */}
       <TableView
         tableId={sub.id}
-        records={recordsOf(records, sub.id)}
+        records={onlyStarred ? recordsOf(records, sub.id).filter((record) => stars.has(record.id)) : recordsOf(records, sub.id)}
         columns={sub.columns}
         onOpenRecord={openRecord}
+        onAddColumn={sub.ownerUserId === user?.id && !isReadOnly ? () => {
+          setAddColumnTableId(sub.id);
+          setIsAddColumnOpen(true);
+        } : undefined}
         columnActions={columnActionsFor(sub)}
         onToggleCheckbox={isReadOnly ? undefined : handleToggleCheckbox}
         onOpenContact={(contactId) => navigate(withReturn(`/lien-he/${contactId}`, hereFrom(location, "Kế hoạch")))}
+        onQuickTask={isReadOnly ? undefined : setQuickTaskRecord}
         taskCountByRecord={taskCountByRecord}
         today={today}
         subTablesFor={(recordId) => subTablesOf(tables, recordId)}
         renderSubTable={renderSubTable}
         forcedMode={mode}
+        stars={stars}
+        onToggleStar={(record) => shelfActions.star.mutate(record.id)}
+        marks={markingMarks}
+        dots={isShared ? boardChanges.since : null}
+        depth={sub.depth}
         isNested
       />
     </div>
@@ -849,6 +882,21 @@ const ThinkHub = () => {
       },
     ];
     if (isOwner && !isReadOnly) items.push({ id: "template", label: "Lưu làm mẫu của tôi", onSelect: () => setSaveTemplateTarget(active) });
+    // AVORA-69: the one way a board changes place — no "Sao chép sang".
+    items.push({
+      id: "move",
+      label: "Di chuyển Bảng…",
+      blockedReason: isFixed
+        ? fixedReason
+        : active.parentRecordId !== null
+          ? "Bảng con đi theo bảng cha."
+          : !isOwner
+            ? "Chỉ chủ Bảng di chuyển được."
+            : isReadOnly
+              ? "Bảng đang chỉ xem."
+              : null,
+      onSelect: () => setIsMoveOpen(true),
+    });
     if (isShared) {
       items.push({ id: "history", label: "Lịch sử thay đổi", onSelect: () => setIsHistoryOpen(true) });
       items.push({
@@ -1087,6 +1135,16 @@ const ThinkHub = () => {
               )}
             </div>
 
+            {/* AVORA-69: where this board lives now, and how it is shared. */}
+            {active.conversationId !== null && active.parentRecordId === null ? (
+              <p data-board-place="" className="mt-1 text-[12.5px] text-muted-foreground">
+                Đang ở {(() => {
+                  const here = conversationById.get(active.conversationId);
+                  return here === undefined ? "cuộc trò chuyện" : conversationTitle(here);
+                })()} · {active.shareMode === "view" ? "Chỉ xem" : "Cùng sửa"}
+              </p>
+            ) : null}
+
             <section aria-label="Mục đích của bảng" className="mt-3 rounded-lg border border-border bg-card px-4 py-3">
               <p className="text-[12px] font-medium text-muted-foreground">{scopeLabel(active)}</p>
               {isProjectRoot ? (
@@ -1189,43 +1247,46 @@ const ThinkHub = () => {
             <NudgeLines onOpen={(nudge) => openTable(nudge.tableId)} />
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-              <div role="group" aria-label="Kiểu xem" className="inline-flex rounded-md border border-border p-0.5">
-                <button
-                  type="button"
-                  onClick={() => setView("table")}
-                  aria-pressed={view === "table"}
-                  className={cn(
-                    "press inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[14px] font-medium transition-colors",
-                    view === "table" ? "bg-accent/70 text-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Table2 className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
-                  Bảng
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("kanban")}
-                  aria-pressed={view === "kanban"}
-                  className={cn(
-                    "press inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[14px] font-medium transition-colors",
-                    view === "kanban" ? "bg-accent/70 text-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <KanbanSquare className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
-                  Theo trạng thái
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setView("mindmap")}
-                  aria-pressed={view === "mindmap"}
-                  className={cn(
-                    "press inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[14px] font-medium transition-colors",
-                    view === "mindmap" ? "bg-accent/70 text-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  <Network className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
-                  Cây
-                </button>
+              {/* AVORA-65 · C: one row. A phone held upright adds `Thẻ` in front; the computer keeps three. */}
+              <div role="group" aria-label="Kiểu xem" className="inline-flex max-w-full overflow-x-auto rounded-md border border-border p-0.5">
+                {(
+                  [
+                    ...(isPhoneUpright ? ([["cards", "Thẻ", LayoutList]] as const) : []),
+                    ["table", "Bảng", Table2],
+                    ["kanban", "Theo trạng thái", KanbanSquare],
+                    ["mindmap", "Cây", Network],
+                  ] as const
+                ).map(([value, label, Icon]) => {
+                  const isOn =
+                    value === "cards"
+                      ? view === "table" && phoneMode === "cards"
+                      : value === "table"
+                        ? view === "table" && (!isPhoneUpright || phoneMode === "table")
+                        : view === value;
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={isOn}
+                      onClick={() => {
+                        if (value === "cards" || (value === "table" && isPhoneUpright)) {
+                          setView("table");
+                          setPhoneMode(value);
+                          if (active !== null) writePhoneMode(active.id, value);
+                          return;
+                        }
+                        setView(value);
+                      }}
+                      className={cn(
+                        "press inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-2.5 py-1.5 text-[14px] font-medium transition-colors sm:px-3",
+                        isOn ? "bg-accent/70 text-foreground" : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      <Icon className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
 
               <div className="flex flex-wrap items-center gap-1.5">
@@ -1285,7 +1346,10 @@ const ThinkHub = () => {
                 records={visibleRecords}
                 columns={active.columns}
                 onOpenRecord={openRecord}
-                onAddColumn={isOwner && !isReadOnly ? () => setIsAddColumnOpen(true) : undefined}
+                onAddColumn={isOwner && !isReadOnly ? () => {
+                  setAddColumnTableId(null);
+                  setIsAddColumnOpen(true);
+                } : undefined}
                 columnActions={columnActionsFor(active)}
                 onResizeColumn={isOwner && !isReadOnly ? handleResizeColumn : undefined}
                 onShowColumn={isOwner && !isReadOnly ? (column) => handleToggleColumnHidden(column, false) : undefined}
@@ -1296,6 +1360,10 @@ const ThinkHub = () => {
                 today={today}
                 subTablesFor={(recordId) => subTablesOf(tables, recordId)}
                 renderSubTable={renderSubTable}
+                forcedMode={phoneMode}
+                stars={stars}
+                onToggleStar={(record) => shelfActions.star.mutate(record.id)}
+                depth={1}
                 defaultCardColumns={active.mobileColumns}
                 marks={markingMarks}
                 dots={isShared ? boardChanges.since : null}
@@ -1439,10 +1507,32 @@ const ThinkHub = () => {
 
       <AddColumnDialog
         open={isAddColumnOpen}
-        onOpenChange={setIsAddColumnOpen}
+        onOpenChange={(open) => {
+          setIsAddColumnOpen(open);
+          if (!open) setAddColumnTableId(null);
+        }}
         onAdd={handleAddColumn}
         isWorking={actions.isWorking}
       />
+
+      {active !== null && isMoveOpen ? (
+        <MoveBoardDialog
+          open={isMoveOpen}
+          onOpenChange={setIsMoveOpen}
+          table={active}
+          conversations={conversationsQuery.data ?? []}
+          counts={boardMoveCounts(tables, records, taskCountByRecord, active.id)}
+          onMoved={(status) =>
+            toast.success(
+              status === "proposed"
+                ? "Đã gửi đề nghị di chuyển vào cuộc trò chuyện — chờ mọi người đồng ý."
+                : status === "mode_changed"
+                  ? "Đã đổi quyền của Bảng."
+                  : "Đã di chuyển Bảng.",
+            )
+          }
+        />
+      ) : null}
 
       <QuickTaskDialog
         record={quickTaskRecord}
@@ -1465,6 +1555,16 @@ const ThinkHub = () => {
           const conversation = conversationId == null ? undefined : conversationById.get(conversationId);
           return conversation === undefined ? (owning.projectId !== null ? projectById.get(owning.projectId)?.title ?? "" : "") : conversationTitle(conversation);
         })()}
+        sourceLabel={
+          quickTaskRecord === null
+            ? undefined
+            : recordSourceLabel(
+                quickTaskRecord.title,
+                tableAncestry(tables, records, quickTaskRecord.tableId)
+                  .reverse()
+                  .map((step) => ({ name: step.table.name, viaTitle: step.viaRecord?.title ?? null })),
+              )
+        }
         onOpenChange={(open) => {
           if (!open) setQuickTaskRecord(null);
         }}
@@ -1530,6 +1630,10 @@ const ThinkHub = () => {
         }
         isReadOnly={isReadOnly && editing !== null}
         boardOwnerId={(editing === null ? targetTable : editingTable)?.ownerUserId}
+        isSharedBoard={(() => {
+          const board = editing === null ? targetTable : editingTable;
+          return board != null && (board.conversationId !== null || board.projectId !== null);
+        })()}
       />
     </div>
   );

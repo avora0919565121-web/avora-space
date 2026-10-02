@@ -25,7 +25,7 @@ export type BoardAnnouncement = {
   conversationId: string;
   messageId: string | null;
   actorId: string;
-  kind: "update" | "digest" | "created";
+  kind: "update" | "digest" | "created" | "shared";
   changeIds: string[];
   note: string | null;
   updatedAt: string;

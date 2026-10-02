@@ -245,7 +245,7 @@ describe("A3 — Nhật ký của bạn and File của bạn", () => {
   });
 
   it("offers exactly the five views (AVORA-44), with Bảng kept outside them", () => {
-    expect(DIARY_VIEWS.map((view) => view.label)).toEqual(["Nhật ký của tôi", "Ghi chép", "File của tôi", "Liên kết", "Nguồn tạo việc"]);
+    expect(DIARY_VIEWS.map((view) => view.label)).toEqual(["Ghi chép", "Nhật ký của tôi", "File của tôi", "Liên kết", "Nguồn tạo việc"]);
   });
 });
 

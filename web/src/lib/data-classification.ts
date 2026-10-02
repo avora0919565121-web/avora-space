@@ -153,6 +153,10 @@ export const DATA_CLASSIFICATION = {
   think_hub_announcements: { level: "personal", domain: "personal" },
   think_hub_table_seen: { level: "internal", domain: "personal" },
   think_hub_nudges: { level: "personal", domain: "personal" },
+  // AVORA-69: `Nhắc tôi xem lại` — each person's own, only they read it.
+  think_hub_record_reminders: { level: "personal", domain: "personal" },
+  // AVORA-71 · E: a name I give someone — only I read it, they never know.
+  user_aliases: { level: "personal", domain: "personal", columns: { alias: "sensitive" } },
   // Which tasks a table deletion binned — server-only bookkeeping, no client access.
   think_hub_delete_cascade: { level: "internal", domain: "personal" },
   // AVORA-44 · B: Ghi chép — owner-only, what the person writes to read again.

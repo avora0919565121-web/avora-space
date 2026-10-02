@@ -77,3 +77,12 @@ export async function dismissGuidance(userId: string, key: GuidanceKey): Promise
 export function shouldShowGuidance(dismissed: readonly GuidanceKey[], key: GuidanceKey): boolean {
   return !dismissed.includes(key);
 }
+
+/** The one-time hints that can be read again from Cài đặt › Hướng dẫn (AVORA-65 · G). */
+export const REPLAYABLE_GUIDANCE: readonly GuidanceKey[] = ["plan_plus_hold", "task_plus_hold"];
+
+/** Brings a read hint back: it shows once more the next time its place is opened. */
+export async function restoreGuidance(userId: string, key: GuidanceKey): Promise<void> {
+  const { error } = await supabase.from("dismissed_guidance").delete().eq("user_id", userId).eq("guidance_key", key);
+  if (error) throw fail(error.code, error.message);
+}

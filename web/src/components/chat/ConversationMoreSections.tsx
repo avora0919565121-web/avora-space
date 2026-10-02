@@ -35,10 +35,10 @@ function OpenRow({ icon, label, count, onClick }: { icon: ReactNode; label: stri
 const iconClass = "h-4 w-4 shrink-0 text-muted-foreground";
 
 /**
- * The "⋯" panel of a thread — one frame for 1-1, Nhóm and Nhật ký (AVORA-49 · 4.1, 44b · C), in
- * the order people think: ④ Nhiệm vụ · Bảng · Dự án · Sổ quyết định, ⑤ Tìm · Lên lịch cuộc gọi,
- * ⑥ (1-1) Chặn · Báo cáo in red at the very end. A group's roster and Rời nhóm are drawn around
- * this by the sheet. `onNavigate` closes the panel when a row leaves the thread.
+ * The "⋯" panel of a thread — one frame for Nhật ký · 1-1 · Nhóm · Dự án, in the one order of
+ * `CONVERSATION_MENU_ORDER` (AVORA-71 · C): ① Nhiệm vụ · Bảng · Nhật ký trò chuyện, ② (Nhóm)
+ * Thành viên · Liên kết mời · Dự án · Sổ quyết định, ③ Tìm · Lên lịch cuộc gọi · Thùng rác,
+ * ④ Hạn chế in red at the very end. `onNavigate` closes the panel when a row leaves the thread.
  */
 export function ConversationMoreSections({
   conversationId,
@@ -56,7 +56,13 @@ export function ConversationMoreSections({
   trash,
   onNavigate,
   safety,
+  roomSlot = null,
+  diaryRow = null,
 }: {
+  /** AVORA-71 · C ②: a group's Thành viên + Liên kết mời, drawn after ① Làm việc (folded by default). */
+  roomSlot?: ReactNode;
+  /** ① Nhật ký trò chuyện, right after Bảng. */
+  diaryRow?: ReactNode;
   /** Null for Nhật ký: its tables belong to no conversation. */
   conversationId: string | null;
   /** The name of this conversation, as the way back from Kế hoạch shows it. */
@@ -129,6 +135,10 @@ export function ConversationMoreSections({
           </li>
         </ul>
       </section>
+
+      {diaryRow !== null ? <section aria-label="Nhật ký trò chuyện" className="px-3">{diaryRow}</section> : null}
+
+      {roomSlot !== null ? <div data-room-slot="">{roomSlot}</div> : null}
 
       {kind === "group" && showProjects ? (
         <section aria-label="Dự án của nhóm" className="px-3">

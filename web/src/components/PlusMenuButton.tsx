@@ -19,6 +19,9 @@ export type PlusMenuEntry = {
   disabled?: boolean;
 };
 
+/** How long the one-time `Giữ nút +` hint stays before it fades on its own (AVORA-65 · G). */
+export const HINT_SECONDS = 6;
+
 /** The hover caption of a `+` with a menu (AVORA-61 · A). */
 export function plusCaption(tapAction: string): string {
   return `Bấm: ${tapAction} · Giữ: thêm lựa chọn`;
@@ -65,11 +68,33 @@ export function PlusMenuButton({
   }, []);
   const { shouldShow, dismiss } = useGuidance();
   const hasMenu = entries.length > 0;
-  const showHint = hasMenu && hintKey !== undefined && shouldShow(hintKey);
+  /*
+   * AVORA-65 · G: the hint shows exactly once. The moment it first appears it is recorded as
+   * read (`dismissed_guidance`), so a reload or another device never brings it back; on screen it
+   * fades after 6 s, or as soon as the + is pressed / held or anything else is tapped.
+   */
+  const [hintOnScreen, setHintOnScreen] = useState<GuidanceKey | null>(null);
+  const wantsHint = hasMenu && hintKey !== undefined && shouldShow(hintKey);
+  useEffect(() => {
+    if (!wantsHint || hintKey === undefined) return;
+    setHintOnScreen(hintKey);
+    dismiss(hintKey);
+  }, [wantsHint, hintKey, dismiss]);
+  useEffect(() => {
+    if (hintOnScreen === null) return;
+    const timer = window.setTimeout(() => setHintOnScreen(null), HINT_SECONDS * 1000);
+    const away = (): void => setHintOnScreen(null);
+    document.addEventListener("pointerdown", away, { capture: true });
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("pointerdown", away, { capture: true });
+    };
+  }, [hintOnScreen]);
+  const showHint = hintOnScreen !== null;
 
   const openMenu = (): void => {
     setIsMenuOpen(true);
-    if (showHint && hintKey !== undefined) dismiss(hintKey);
+    setHintOnScreen(null);
   };
 
   const { onClick, onContextMenu: _ignored, ...hold } = useLongPress({
@@ -162,16 +187,16 @@ export function PlusMenuButton({
           {caption}
         </span>
       ) : null}
-      {showHint && hintKey !== undefined ? (
-        <div
+      {/* A small caption with an arrow at the +: no card, no backdrop, nothing it covers can be tapped through it. */}
+      {hintOnScreen !== null ? (
+        <span
           role="note"
-          className="absolute right-0 top-full z-20 mt-2 flex w-max max-w-[240px] items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-[12.5px] text-foreground shadow-md"
+          data-plus-hint={hintOnScreen}
+          className="pointer-events-none absolute right-0 top-full z-20 mt-2 w-max max-w-[200px] rounded-md bg-foreground/85 px-2 py-1 text-[11.5px] font-medium leading-snug text-background shadow-sm animate-in fade-in-0"
         >
-          <span>{GUIDANCE_TEXT[hintKey]}</span>
-          <button type="button" onClick={() => dismiss(hintKey)} className="press shrink-0 rounded px-1.5 text-[12px] font-semibold text-primary">
-            Đã hiểu
-          </button>
-        </div>
+          <span aria-hidden="true" className="absolute -top-1 right-4 h-2 w-2 rotate-45 bg-foreground/85" />
+          {GUIDANCE_TEXT[hintOnScreen]}
+        </span>
       ) : null}
     </div>
   );

@@ -425,7 +425,7 @@ export function NudgeLines({ onOpen }: { onOpen: (nudge: BoardNudge) => void }) 
 }
 
 /** The card a Báo nhóm leaves in the chat (AVORA-62 · C): orange stripe, board icon, one button. */
-export function BoardUpdateCard({ content, onView }: { content: string; onView?: () => void }) {
+export function BoardUpdateCard({ content, onView, viewLabel = "Xem thay đổi" }: { content: string; onView?: () => void; viewLabel?: string }) {
   const [head, ...rest] = content.split(" · ");
   return (
     <div data-board-update-card="" className="mx-auto w-full max-w-md rounded-xl border border-border border-l-[3px] border-l-primary bg-card px-3.5 py-3 shadow-[0_1px_0_hsl(var(--border))]">
@@ -436,7 +436,7 @@ export function BoardUpdateCard({ content, onView }: { content: string; onView?:
       {rest.length > 0 ? <p className="mt-1 pl-6 text-[13px] text-muted-foreground">{rest.join(" · ")}</p> : null}
       {onView !== undefined ? (
         <button type="button" onClick={onView} className="press ml-6 mt-2 inline-flex min-h-9 items-center rounded-md border border-border px-3 text-[13px] font-semibold text-foreground hover:bg-secondary">
-          Xem thay đổi
+          {viewLabel}
         </button>
       ) : null}
     </div>

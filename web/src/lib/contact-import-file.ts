@@ -1,4 +1,6 @@
-import { decodeContactFile } from "@/lib/contact-name-repair";
+import { applyColumnMapping, autoMapColumns } from "@/lib/contact-import-mapping";
+import { decodeContactFile, type FileNameEntry } from "@/lib/contact-name-repair";
+import { parseVcards } from "@/lib/contact-vcard";
 import { logError } from "@/lib/log";
 import { readSheet } from "read-excel-file/browser";
 
@@ -94,4 +96,26 @@ export async function readImportFile(file: File): Promise<string[][]> {
     throw new ImportFileError("File này không có dòng nào.");
   }
   return table;
+}
+
+/**
+ * AVORA-65 · D: the names and numbers in an original phone book / spreadsheet, read with the
+ * same decoders as an import (63 · A), and nothing else — no contact is written from this.
+ */
+export async function readNameEntriesFromFile(file: File): Promise<FileNameEntry[]> {
+  if (isVcardName(file.name)) {
+    const result = parseVcards(decodeContactFile(new Uint8Array(await file.arrayBuffer())).text);
+    return result.candidates.map((candidate) => ({ name: candidate.name, phones: candidate.phones }));
+  }
+  const table = await readImportFile(file);
+  const mapping = autoMapColumns(table[0] ?? []);
+  if (mapping.ten === undefined || (mapping.dien_thoai === undefined && mapping.dien_thoai_2 === undefined)) {
+    throw new ImportFileError("File cần có cột tên và cột số điện thoại để so tên.");
+  }
+  const rows = applyColumnMapping(table, mapping, "individual");
+  const at = (column: string): number => rows[0].indexOf(column);
+  return rows.slice(1).map((cells) => ({
+    name: cells[at("ten")] ?? "",
+    phones: [cells[at("dien_thoai")] ?? "", cells[at("dien_thoai_2")] ?? ""],
+  }));
 }

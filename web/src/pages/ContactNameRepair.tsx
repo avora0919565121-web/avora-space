@@ -1,10 +1,12 @@
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, Check, FileUp, Loader2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { readReturn } from "@/lib/return-to";
-import { suspectSyllables, type NameIssue, type NameIssueKind } from "@/lib/contact-name-repair";
+import { IMPORT_ACCEPT, ImportFileError, readNameEntriesFromFile } from "@/lib/contact-import-file";
+import { proposeNamesFromFile, suspectSyllables, type NameIssue, type NameIssueKind } from "@/lib/contact-name-repair";
+import { useContacts } from "@/lib/use-contacts";
 import { useContactNameIssues, useRenameContacts } from "@/lib/use-contact-name-repair";
 import { cn } from "@/lib/utils";
 
@@ -24,7 +26,38 @@ const ContactNameRepair = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const back = readReturn(searchParams);
-  const { issues, counts, isPending } = useContactNameIssues();
+  const { issues: found, counts, isPending } = useContactNameIssues();
+  const contacts = useContacts();
+  // AVORA-65 · D: proposals read from the original file, matched by phone number.
+  const [fromFile, setFromFile] = useState<NameIssue[] | null>(null);
+  const [fileNote, setFileNote] = useState<string | null>(null);
+  const [isReadingFile, setIsReadingFile] = useState<boolean>(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+  const issues = useMemo(() => {
+    if (fromFile === null) return found;
+    const replaced = new Map(fromFile.map((issue) => [issue.contactId, issue] as const));
+    return found.map((issue) => replaced.get(issue.contactId) ?? issue);
+  }, [found, fromFile]);
+  const readOriginal = async (file: File): Promise<void> => {
+    setIsReadingFile(true);
+    setFileNote(null);
+    try {
+      const entries = await readNameEntriesFromFile(file);
+      const proposals = proposeNamesFromFile(contacts.data ?? [], found, entries);
+      setFromFile(proposals);
+      setTicked((current) => new Set([...current, ...proposals.map((issue) => issue.contactId)]));
+      setFileNote(
+        proposals.length === 0
+          ? `Đã đọc ${entries.length} dòng trong file, không có tên đúng dấu nào khớp số với tên cần sửa.`
+          : `Đã đọc ${entries.length} dòng trong file: ${proposals.length} tên đúng dấu khớp theo số điện thoại, đã chọn sẵn.`,
+      );
+    } catch (error) {
+      setFileNote(error instanceof ImportFileError ? error.message : "Không đọc được file này. Hãy thử .vcf, .csv hoặc .xlsx.");
+    } finally {
+      setIsReadingFile(false);
+      if (fileRef.current !== null) fileRef.current.value = "";
+    }
+  };
   const rename = useRenameContacts();
   const [ticked, setTicked] = useState<Set<string>>(new Set());
   const [edits, setEdits] = useState<Record<string, string>>({});
@@ -82,6 +115,36 @@ const ContactNameRepair = () => {
         <p className="mt-1 text-[14px] text-muted-foreground">
           Tên chỉ đổi khi bạn bấm Áp dụng. Mọi kiểm tra chạy ngay trên máy, không gửi tên đi đâu.
         </p>
+        {counts.broken + counts.accents > 0 ? (
+          <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3" data-from-file="">
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="min-w-0 flex-1 text-[13.5px] text-muted-foreground">
+                File danh bạ gốc (hoặc bản xuất từ điện thoại) thường vẫn còn tên đúng. AVORA so theo số điện thoại, chỉ đề xuất cho tên bị vỡ / thiếu dấu, không thêm liên hệ mới, không đổi số hay email.
+              </p>
+              <button
+                type="button"
+                disabled={isReadingFile}
+                onClick={() => fileRef.current?.click()}
+                className="press inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-lg border border-border px-3 text-[14px] font-medium"
+              >
+                {isReadingFile ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <FileUp className="h-4 w-4" aria-hidden="true" />}
+                Lấy tên đúng từ file gốc
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept={IMPORT_ACCEPT}
+                className="sr-only"
+                aria-label="Chọn file danh bạ gốc"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file !== undefined) void readOriginal(file);
+                }}
+              />
+            </div>
+            {fileNote !== null ? <p role="status" className="mt-2 text-[13px] font-medium text-foreground">{fileNote}</p> : null}
+          </div>
+        ) : null}
 
         {isPending ? (
           <div className="flex justify-center py-16" role="status" aria-label="Đang tải">
@@ -208,6 +271,7 @@ function IssueRow({
           </span>
           {issue.source === "avora" ? <span className="ml-2 text-[11.5px]">· tên trên AVORA</span> : null}
           {issue.source === "phone" ? <span className="ml-2 text-[11.5px]">· cùng số ở liên hệ khác</span> : null}
+          {issue.source === "file" ? <span className="ml-2 text-[11.5px] text-primary">· từ file gốc, cùng số</span> : null}
         </p>
         {needsHand && issue.kind === "broken" ? <p className="text-[12px] text-destructive">Không khôi phục được, sửa tay</p> : null}
         <input

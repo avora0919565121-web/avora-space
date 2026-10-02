@@ -588,7 +588,8 @@ test("60.4 · chạm ảnh đại diện trong nhóm → thẻ người: tên, P
   await userEvent.click(screen.getByRole("button", { name: "Xem thẻ của Lan Nguyễn" }));
   const card = screen.getByText("PIN A-LAN12345");
   await expect.element(card).toBeInTheDocument();
-  for (const label of ["Nhắn riêng", "Gọi", "Việc chung · 4", "Mở Liên hệ", "Chặn", "Báo cáo"]) {
+  // AVORA-71 · E: someone in my Liên hệ is renamed there — `Sửa tên trong Liên hệ`.
+  for (const label of ["Nhắn riêng", "Gọi", "Việc chung · 4", "Sửa tên trong Liên hệ", "Chặn", "Báo cáo"]) {
     await expect.element(screen.getByRole(label === "Gọi" ? "link" : "button", { name: label, exact: true })).toBeInTheDocument();
   }
   expect(document.querySelector("[data-person-card]")?.textContent ?? "").not.toContain("@");

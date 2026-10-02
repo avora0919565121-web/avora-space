@@ -217,6 +217,8 @@ export type ThinkTable = {
   kind: "bookshelf" | null;
   /** C9: "Từng thuộc nhóm …" on a copy taken out of a dissolved group. */
   orphanOrigin: string | null;
+  /** AVORA-69: a shared board is `Cùng sửa` (edit) or `Chỉ xem` (view: the owner changes it). */
+  shareMode?: "edit" | "view";
 };
 
 /** One status a table offers; `done` ones count as finished for the ★ tile. */
@@ -240,6 +242,8 @@ export type ThinkRecord = {
   tags: readonly string[];
   notes: string | null;
   extensionFields: Readonly<Record<string, ExtensionValue>>;
+  /** Names in Liên hệ cells as the picker brought them in — written by the server only. */
+  contactLabels?: Readonly<Record<string, ContactLabel>>;
   /** Legacy column, unused: a record's project comes from its table. */
   projectId: string | null;
   createdAt: string;
@@ -320,6 +324,7 @@ type TableRow = {
   archived_at?: string | null;
   kind?: string | null;
   orphan_origin?: string | null;
+  share_mode?: string | null;
 };
 
 type RecordRow = {
@@ -335,12 +340,29 @@ type RecordRow = {
   tags: string[] | null;
   notes: string | null;
   extension_fields: unknown;
+  contact_labels?: unknown;
   project_id: string | null;
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
   moved_from?: unknown;
 };
+
+/** AVORA-65 · E: the name a picker brought into a shared Liên hệ cell, and who picked it. */
+export type ContactLabel = { name: string; by: string; byName: string };
+
+function parseContactLabels(raw: unknown): Readonly<Record<string, ContactLabel>> {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) return {};
+  const out: Record<string, ContactLabel> = {};
+  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (value === null || typeof value !== "object") continue;
+    const entry = value as { name?: unknown; by?: unknown; by_name?: unknown };
+    if (typeof entry.name === "string" && typeof entry.by === "string") {
+      out[key] = { name: entry.name, by: entry.by, byName: typeof entry.by_name === "string" ? entry.by_name : "" };
+    }
+  }
+  return out;
+}
 
 /** Reads `[{key,label,done?}]`, skipping anything unreadable; null when nothing usable is left. */
 export function parseStatusOptions(raw: unknown): StatusOption[] | null {
@@ -461,6 +483,7 @@ function toTable(row: TableRow): ThinkTable {
     archivedAt: row.archived_at ?? null,
     kind: row.kind === "bookshelf" ? "bookshelf" : null,
     orphanOrigin: row.orphan_origin ?? null,
+    shareMode: row.share_mode === "view" ? "view" : "edit",
   };
 }
 
@@ -480,6 +503,7 @@ function toRecord(row: RecordRow): ThinkRecord {
     tags: row.tags ?? [],
     notes: row.notes,
     extensionFields: parseExtensionFields(row.extension_fields),
+    contactLabels: parseContactLabels(row.contact_labels),
     projectId: row.project_id,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -999,7 +1023,13 @@ export async function fetchThinkRecords(): Promise<ThinkRecord[]> {
     .order("created_at", { ascending: false });
 
   if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toRecord(row as RecordRow));
+  // AVORA-69: `Nhắc tôi xem lại` is each person's own (RLS returns only mine).
+  const reminders = await supabase.from("think_hub_record_reminders" as never).select("record_id, remind_at");
+  const mine = new Map(((reminders.data ?? []) as { record_id: string; remind_at: string }[]).map((row) => [row.record_id, row.remind_at] as const));
+  return (data ?? []).map((row) => {
+    const record = toRecord(row as RecordRow);
+    return { ...record, remindAt: mine.get(record.id) ?? null };
+  });
 }
 
 // ------------------------------------------------------------------ writing
@@ -1332,4 +1362,33 @@ export async function restoreThinkRecord(recordId: string): Promise<ThinkRecord>
   });
   if (error) throw fail(error.code, error.message);
   return toRecord(data as unknown as RecordRow);
+}
+
+
+// ------------------------------------------------------------------ AVORA-69: Di chuyển Bảng
+
+export type MoveBoardResult = { status: "moved" | "proposed" | "mode_changed"; proposalId?: string };
+
+/** Moves (or shares) a board with everything under it. Becomes a proposal once others have contributed. */
+export async function moveThinkTable(input: { tableId: string; conversationId: string | null; mode: "edit" | "view" }): Promise<MoveBoardResult> {
+  const { data, error } = await supabase.rpc("move_think_hub_table" as never, {
+    p_table_id: input.tableId,
+    p_conversation_id: input.conversationId,
+    p_mode: input.mode,
+  } as never);
+  if (error) throw moveFail(error.code, error.message);
+  const row = (data ?? {}) as { status?: string; proposal_id?: string };
+  return { status: row.status === "proposed" ? "proposed" : row.status === "mode_changed" ? "mode_changed" : "moved", proposalId: row.proposal_id };
+}
+
+function moveFail(code: string | undefined, message: string): Error {
+  if (message.includes("avora_not_connected")) return new Error("Chỉ chia sẻ được vào cuộc 1-1 với bạn bè.");
+  if (message.includes("avora_board_move_owner_only")) return new Error("Chỉ chủ Bảng di chuyển được Bảng.");
+  if (message.includes("avora_board_move_locked")) return new Error("Kệ sách và bảng gốc của Dự án không di chuyển được.");
+  if (message.includes("avora_board_move_sub_table")) return new Error("Bảng con đi theo bảng cha — hãy di chuyển bảng cha.");
+  if (message.includes("avora_proposal_already_open")) return new Error("Bảng này đang có một đề nghị chờ mọi người trả lời.");
+  if (message.includes("avora_board_move_same")) return new Error("Bảng đã ở đó rồi.");
+  if (message.includes("avora_not_a_participant")) return new Error("Bạn không còn ở trong cuộc trò chuyện đó.");
+  if (message.includes("avora_contact_unavailable")) return new Error("Không chia sẻ được với người này.");
+  return fail(code, message);
 }

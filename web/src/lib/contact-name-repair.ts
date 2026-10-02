@@ -199,8 +199,8 @@ export type NameIssue = {
   suggestion: string | null;
   /** Ticked when the screen opens (groups 1–2 only, and only with a suggestion). */
   preselected: boolean;
-  /** Where an accent suggestion came from. */
-  source?: "avora" | "phone";
+  /** Where a suggestion came from. */
+  source?: "avora" | "phone" | "file";
   /** For "typo": the words that look wrong. */
   suspects?: readonly string[];
 };
@@ -345,4 +345,64 @@ export function decodeQuotedPrintableIn(raw: string, charset: string | undefined
   const wanted = (charset ?? "utf-8").toLowerCase().replace(/^cp/, "windows-");
   const encoding = (SUPPORTED as readonly string[]).includes(wanted) ? wanted : "utf-8";
   return decodeWith(bytes, encoding) ?? raw;
+}
+
+// ------------------------------------------------------------------ AVORA-65 · D: names from the original file
+
+/** One person as an original phone-book / spreadsheet file has them: a name and its numbers. */
+export type FileNameEntry = { name: string; phones: readonly string[] };
+
+/** Digits of a Vietnamese number in one shape (`+84…` → `0…`), for matching two lists. */
+export function phoneKey(raw: string | null | undefined): string {
+  const digits = (raw ?? "").replace(/[^\d+]/g, "").replace(/^(\+?84)/, "0").replace(/\D/g, "");
+  return digits.length >= 8 ? digits : "";
+}
+
+/** A name from a file that is safe to offer: accented, readable, no `?`, every syllable Vietnamese-shaped. */
+function isTrustworthyName(name: string): boolean {
+  const clean = cleanContactName(name);
+  return clean !== "" && hasVietnameseMarks(clean) && !looksBroken(clean) && !clean.includes("?") && suspectSyllables(clean).length === 0;
+}
+
+/**
+ * Proposals from the original file (65 · D), matched by phone number only.
+ *
+ * Only contacts already in `Chữ bị vỡ` or `Thiếu dấu` are looked at, and only when the file has
+ * exactly one correctly accented name for that number. For `Thiếu dấu` the file's name must be the
+ * same letters once accents are removed (it fills the accents in, it does not rename a person).
+ * Never adds a contact, never touches a number or an email.
+ */
+export function proposeNamesFromFile(
+  contacts: readonly { id: string; name: string; phone: string | null }[],
+  issues: readonly NameIssue[],
+  entries: readonly FileNameEntry[],
+): NameIssue[] {
+  const namesByPhone = new Map<string, Set<string>>();
+  for (const entry of entries) {
+    if (!isTrustworthyName(entry.name)) continue;
+    const name = cleanContactName(entry.name);
+    for (const phone of entry.phones) {
+      const key = phoneKey(phone);
+      if (key === "") continue;
+      namesByPhone.set(key, new Set([...(namesByPhone.get(key) ?? []), name]));
+    }
+  }
+  const byId = new Map(contacts.map((contact) => [contact.id, contact] as const));
+  const out: NameIssue[] = [];
+  for (const issue of issues) {
+    if (issue.kind !== "broken" && issue.kind !== "accents") continue;
+    const contact = byId.get(issue.contactId);
+    const key = phoneKey(contact?.phone);
+    if (contact === undefined || key === "") continue;
+    const names = namesByPhone.get(key);
+    if (names === undefined || names.size !== 1) continue;
+    const [name] = [...names];
+    if (name === cleanContactName(issue.current)) continue;
+    if (issue.kind === "accents") {
+      const fold = (text: string): string => stripAccents(cleanContactName(text)).toLowerCase().replace(/\s+/g, " ");
+      if (fold(name) !== fold(issue.current)) continue;
+    }
+    out.push({ contactId: issue.contactId, kind: issue.kind, current: issue.current, suggestion: name, preselected: true, source: "file" });
+  }
+  return out;
 }

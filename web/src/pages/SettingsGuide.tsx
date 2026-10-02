@@ -1,7 +1,11 @@
 import { ArrowUpRight, BookOpen, Briefcase, LayoutGrid, ListTodo, MessageSquareText, Settings, Vault, type LucideIcon } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
+import { toast } from "sonner";
 
+import { useAuth } from "@/lib/auth";
 import { GUIDE_CARDS } from "@/lib/guide-content";
+import { GUIDANCE_TEXT, guidanceKeys, REPLAYABLE_GUIDANCE, restoreGuidance } from "@/lib/guidance";
 
 const ICONS: Readonly<Record<string, LucideIcon>> = {
   space: LayoutGrid,
@@ -11,6 +15,44 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
   vault: Vault,
   settings: Settings,
 };
+
+/** AVORA-65 · G: the one-time hints beside the `+`, each one can be shown once more from here. */
+function ReplayHints() {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  return (
+    <section aria-labelledby="guide-hints" className="rounded-xl border border-border bg-card p-5">
+      <h2 id="guide-hints" className="text-[17px] font-semibold tracking-tight text-foreground">
+        Gợi ý một lần
+      </h2>
+      <p className="mt-1 text-[13.5px] text-muted-foreground">Mỗi gợi ý chỉ hiện một lần. Muốn xem lại thì bấm để nó hiện thêm một lần nữa.</p>
+      <ul className="mt-3 space-y-2">
+        {REPLAYABLE_GUIDANCE.map((key) => (
+          <li key={key} className="flex items-center gap-3 text-[14.5px]">
+            <span className="min-w-0 flex-1">{GUIDANCE_TEXT[key]}</span>
+            <button
+              type="button"
+              data-replay-hint={key}
+              onClick={() => {
+                if (user?.id === undefined) return;
+                void restoreGuidance(user.id, key).then(
+                  () => {
+                    void queryClient.invalidateQueries({ queryKey: guidanceKeys.all });
+                    toast.success("Gợi ý sẽ hiện lại một lần.");
+                  },
+                  (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."),
+                );
+              }}
+              className="press shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium"
+            >
+              Xem lại
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 /** Cài đặt › Hướng dẫn (AVORA-57 · A): one card per area, words from `lib/guide-content.ts`. */
 const SettingsGuide = () => (
@@ -50,6 +92,7 @@ const SettingsGuide = () => (
           </section>
         );
       })}
+      <ReplayHints />
     </div>
   </div>
 );

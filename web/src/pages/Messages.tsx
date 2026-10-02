@@ -22,6 +22,7 @@ import {
   MoreHorizontal,
   CalendarDays,
   NotebookPen,
+  NotebookText,
   Plus,
   QrCode,
   Search,
@@ -44,7 +45,7 @@ function PlaceholderComingSoon({ id }: { id: MessageTab }) {
     />
   );
 }
-import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -103,6 +104,9 @@ import {
   splitMentions,
 } from "@/lib/mentions";
 import { TaskFromChatDialog } from "@/components/chat/TaskFromChatDialog";
+import { CleanupBar } from "@/components/chat/DayLineList";
+import { GroupAvatarButton, OPEN_PANEL_PARAM } from "@/components/GroupCard";
+import { JournalLines } from "@/components/chat/JournalLines";
 import { DiaryCountRow, DiaryFilesView, DiaryHeaderIcon, DiaryLinksView, DiaryList, DiarySourcesView } from "@/components/chat/DiaryViews";
 import { Switch } from "@/components/ui/switch";
 import { closeNotificationsFor, offerPushSoon } from "@/lib/push";
@@ -273,6 +277,10 @@ import { useProjects } from "@/lib/use-projects";
 import { useTasks } from "@/lib/use-tasks";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { typingText, useThreadPresence } from "@/lib/use-thread-presence";
+import { CLEANUP_CONFIRM_AT } from "@/lib/journal-lines";
+import { myNameFor } from "@/lib/user-aliases";
+import { useUserAliases } from "@/lib/use-user-aliases";
+import { useContacts } from "@/lib/use-contacts";
 import { cn } from "@/lib/utils";
 import { transcriptText } from "@/lib/chat-transcript";
 import { draftPreview, readDraft, useDraftsVersion, writeDraft } from "@/lib/chat-drafts";
@@ -563,6 +571,21 @@ const Messages = () => {
    * AVORA-52 · C: a panel opened from `⋯` sits over it. `‹ {tên cuộc}` closes only the panel (⋯ is
    * still there, at its scroll); `✕` closes both and leaves the conversation on screen.
    */
+  // AVORA-71 · D: the group card's tiles arrive as `?mo=thong-tin | lich | nhiem-vu`, handled once.
+  const openPanelParam = searchParams.get(OPEN_PANEL_PARAM);
+  useEffect(() => {
+    if (openPanelParam === null || conversationId === undefined) return;
+    if (openPanelParam === "thong-tin") setIsInfoOpen(true);
+    else if (openPanelParam === "lich") setIsThreadCalendarOpen(true);
+    else if (openPanelParam === "nhiem-vu") {
+      setIsInfoOpen(true);
+      setIsGroupTasksOpen(true);
+    }
+    const next = new URLSearchParams(searchParams);
+    next.delete(OPEN_PANEL_PARAM);
+    setSearchParams(next, { replace: true });
+  }, [openPanelParam, conversationId, searchParams, setSearchParams]);
+
   const stackedFromInfo = (closePanel: () => void) =>
     isInfoOpen
       ? {
@@ -656,13 +679,17 @@ const Messages = () => {
     enabled: Boolean(conversationId) && activeKind === "group",
   });
 
+  // AVORA-71 · E: "my name" for each sender — my Liên hệ name, else my alias, else theirs.
+  const { aliases: myAliases } = useUserAliases();
+  const contactsForNames = useContacts();
   const senderNames: Map<string, string> = useMemo(() => {
     const names = new Map<string, string>();
+    const contactName = new Map((contactsForNames.data ?? []).filter((contact) => contact.linkedUserId !== null).map((contact) => [contact.linkedUserId as string, contact.name] as const));
     for (const member of groupMembersQuery.data ?? []) {
-      names.set(member.userId, peerLabel(member.displayName));
+      names.set(member.userId, myNameFor({ contactName: contactName.get(member.userId), alias: myAliases.get(member.userId), shownName: peerLabel(member.displayName) }));
     }
     return names;
-  }, [groupMembersQuery.data]);
+  }, [groupMembersQuery.data, myAliases, contactsForNames.data]);
 
   /**
    * Sends that failed, kept on screen where they were written until they go through or are
@@ -1116,6 +1143,8 @@ const Messages = () => {
       .filter((item) => titleOf.has(item.noteId))
       .map((item) => ({ id: item.id, noteId: item.noteId, noteTitle: titleOf.get(item.noteId) as string, attachment: toAttachmentView(item), createdAt: item.createdAt }));
   }, [notesData.liveNotes, notesData.attachments.data]);
+  // A plain boolean (not a narrowing of activeKind), so the other branch keeps its full type.
+  const isJournalThread: boolean = activeKind === "personal";
   /** The written timeline: only entries whose place is Nhật ký, unless "Hiện tất cả" is on. */
   const timelineMessages: ChatMessage[] = useMemo(() => {
     if (activeKind !== "personal") return messages;
@@ -2050,6 +2079,12 @@ const Messages = () => {
         setDetailsMessage(message);
         return;
       }
+      // AVORA-70 · C / 71 · B: only in Nhật ký của tôi — a soft delete, undone from the toast or the bin.
+      if (action === "delete") {
+        if (activeKind !== "personal") return;
+        deleteJournalMutation.mutate([message.id]);
+        return;
+      }
 
       if (action === "pin") {
         // An officer in a group is asked which audience they mean. Everyone else has only one
@@ -2168,10 +2203,14 @@ const Messages = () => {
     openTaskDialogFor(picked[0] ?? null);
   }, [messages, selectedIds, senderNameOf, openTaskDialogFor]);
 
+  // AVORA-70 · C: `Dọn dẹp` says so in its own words; a single delete keeps the bin wording.
+  const isCleanupRef = useRef<boolean>(false);
   const deleteJournalMutation = useMutation({
     mutationFn: (ids: readonly string[]) => deleteJournalMessages(ids).then((count) => ({ count, ids })),
     onSuccess: ({ count, ids }: { count: number; ids: readonly string[] }) => {
-      toast.success(deleteSummaryText(count), {
+      const wasCleanup = isCleanupRef.current;
+      isCleanupRef.current = false;
+      toast.success(wasCleanup ? `Đã dọn ${count} mục` : deleteSummaryText(count), {
         action: {
           label: "Hoàn tác",
           onClick: () => {
@@ -2787,6 +2826,8 @@ const Messages = () => {
                         </span>
                       ) : item.kind === "direct" && item.peerId !== null ? (
                         <PersonAvatarButton person={{ userId: item.peerId, name: conversationTitle(item), pin: item.peerPin ?? null }} />
+                      ) : item.kind === "group" ? (
+                        <GroupAvatarButton group={{ conversationId: item.conversationId, name: conversationTitle(item), memberCount: item.memberCount ?? null }} />
                       ) : (
                         <InitialsAvatar name={conversationTitle(item)} />
                       )}
@@ -2963,6 +3004,8 @@ const Messages = () => {
                   <span className="relative shrink-0">
                     {activeKind === "direct" && directPeerId !== null ? (
                       <PersonAvatarButton person={{ userId: directPeerId, name: threadTitle, pin: activeSummary?.peerPin ?? null }} size="sm" />
+                    ) : activeKind === "group" && conversationId !== undefined ? (
+                      <GroupAvatarButton group={{ conversationId, name: threadTitle, memberCount: activeSummary?.memberCount ?? null }} size="sm" />
                     ) : (
                       <InitialsAvatar name={threadTitle} size="sm" />
                     )}
@@ -3228,7 +3271,7 @@ const Messages = () => {
               <div
                 ref={threadScrollRef}
                 onScroll={handleThreadScroll}
-                className="h-full overflow-y-auto px-5 py-6 md:px-10"
+                className={cn("h-full overflow-y-auto", activeKind === "personal" ? "px-0 pb-6 pt-0" : "px-5 py-6 md:px-10")}
               >
                 {messagesQuery.isPending ? (
                   <p className="text-center text-[13px] text-muted-foreground">Đang tải tin nhắn…</p>
@@ -3252,12 +3295,23 @@ const Messages = () => {
                         : `Chưa có tin nhắn nào. Gửi lời chào đầu tiên tới ${threadTitle}.`}
                   </p>
                 ) : (
-                  <div className="mx-auto flex max-w-2xl flex-col gap-6">
+                  <div className={cn("flex flex-col", activeKind === "personal" ? "gap-0" : "mx-auto max-w-2xl gap-6")}>
                     {activeKind === "personal" ? (
-                      <label className="flex items-center justify-end gap-2 text-[12.5px] text-muted-foreground">
-                        <span>Hiện tất cả (cả tệp, link, việc)</span>
-                        <Switch checked={showAllTimeline} onCheckedChange={setShowAllTimeline} aria-label="Hiện tất cả" />
-                      </label>
+                      <div className="flex items-center gap-2 border-b border-border px-3 py-2 text-[12.5px] text-muted-foreground">
+                        {/* AVORA-70 · C: `Chọn` → a tick on every line; tick a day row for the whole day. */}
+                        <button
+                          type="button"
+                          data-journal-select=""
+                          onClick={() => (isSelecting ? cancelSelection() : setIsSelecting(true))}
+                          className="press inline-flex min-h-9 items-center rounded-md border border-border px-2.5 text-[13px] font-medium text-foreground"
+                        >
+                          {isSelecting ? "Xong" : "Chọn"}
+                        </button>
+                        <label className="ml-auto flex items-center gap-2">
+                          <span>Hiện tất cả (cả tệp, link, việc)</span>
+                          <Switch checked={showAllTimeline} onCheckedChange={setShowAllTimeline} aria-label="Hiện tất cả" />
+                        </label>
+                      </div>
                     ) : null}
                     {/* Paged thread (A7): the top says whether more is coming or this is the start. */}
                     {conversationId !== undefined && reachedStart[conversationId] === true ? (
@@ -3265,7 +3319,33 @@ const Messages = () => {
                     ) : isLoadingOlder ? (
                       <p className="text-center text-[12px] text-muted-foreground" role="status">Đang tải tin cũ hơn…</p>
                     ) : null}
-                    {dayGroups.map((group) => (
+                    {isJournalThread ? (
+                      // AVORA-70 · A: the journal is a notebook of one-line entries, not bubbles.
+                      <JournalLines
+                        messages={timelineMessages}
+                        attachmentsOf={attachmentsOf}
+                        urlOf={attachmentUrlOf}
+                        taskMessageIds={taskMessageIds}
+                        viewerId={userId}
+                        flashId={flashedMessageId ?? quotedMessageId}
+                        isPinned={(id) => pinOf(id, "personal") !== null}
+                        isSelecting={isSelecting}
+                        selected={new Set(selectedIds)}
+                        onSelect={(ids, on) =>
+                          setSelectedIds((current) => (on ? [...new Set([...current, ...ids])] : current.filter((id) => !ids.includes(id))))
+                        }
+                        onAction={handleMessageAction}
+                        editingId={editingMessageId}
+                        editDraft={editDraft}
+                        onEditDraft={setEditDraft}
+                        onSaveEdit={(message) => editMutation.mutate({ messageId: message.id, content: editDraft })}
+                        onCancelEdit={() => {
+                          setEditingMessageId(null);
+                          setEditDraft("");
+                        }}
+                        isSavingEdit={editMutation.isPending}
+                      />
+                    ) : dayGroups.map((group) => (
                       <div key={group.key}>
                         <p className="mb-6 text-center text-[12px] font-medium text-muted-foreground/80">{group.label}</p>
                         <ul className="flex flex-col gap-3">
@@ -3284,6 +3364,23 @@ const Messages = () => {
                               );
                             }
                             // AVORA-62 · C / E0: a board update card, or the quiet "tạo Bảng" line.
+                            // AVORA-69: a board shared here — a card with `Mở` (counts as unread, never pushed).
+                            if (message.systemKind === "board_shared") {
+                              const sharedTableId = boardAnnouncementByMessage.get(message.id)?.tableId;
+                              return (
+                                <li key={message.id} id={`message-${message.id}`} className="px-2" data-board-shared="">
+                                  <BoardUpdateCard
+                                    content={message.content}
+                                    onView={
+                                      sharedTableId === undefined
+                                        ? undefined
+                                        : () => navigate(withReturn(`/ke-hoach?bang=${sharedTableId}`, hereFrom(location, threadTitle)))
+                                    }
+                                    viewLabel="Mở"
+                                  />
+                                </li>
+                              );
+                            }
                             if (message.systemKind === "board_update" || message.systemKind === "board_created") {
                               const tableId = boardAnnouncementByMessage.get(message.id)?.tableId;
                               const announcementId = boardAnnouncementByMessage.get(message.id)?.id;
@@ -3579,6 +3676,7 @@ const Messages = () => {
                                       canCopy={message.systemKind == null}
                                       canSaveImage={attachmentsOf(message.id).some((item) => item.kind === "image" && canExportAttachment(item.permission))}
                                       canSaveToJournal={activeKind !== "personal" && message.systemKind == null && message.forwardBundle == null}
+                                      canDelete={activeKind === "personal" && message.systemKind == null}
                                       onAction={(action) => handleMessageAction(message, action)}
                                       onQuickReact={canReact ? (emoji) => toggleReaction(message.id, emoji) : undefined}
                                       reactionPicker={
@@ -3884,9 +3982,27 @@ const Messages = () => {
                 wins.
               */}
               {isSelecting ? (
+activeKind === "personal" ? (
+                <CleanupBar
+                  count={selectedIds.length}
+                  isWorking={deleteJournalMutation.isPending}
+                  onCancel={cancelSelection}
+                  onCleanup={() => {
+                    isCleanupRef.current = true;
+                    // Undone from the toast, so only a big tidy-up asks first.
+                    if (selectedIds.length < CLEANUP_CONFIRM_AT) {
+                      deleteJournalMutation.mutate(selectedIds);
+                      return;
+                    }
+                    void askConfirm({ title: `Dọn ${selectedIds.length} mục vào Thùng rác?`, body: "Khôi phục được trong 30 ngày.", confirmLabel: "Dọn dẹp", danger: true }).then((ok) => {
+                      if (ok) deleteJournalMutation.mutate(selectedIds);
+                    });
+                  }}
+                />
+              ) : (
                 <SelectionBar
                   count={selectedIds.length}
-                  canDelete={activeKind === "personal"}
+                  canDelete={isJournalThread}
                   onForward={() => setIsForwardOpen(true)}
                   onCreateTask={
                     activeVerification === null && !isNoLongerConnected ? openTaskFromSelection : undefined
@@ -3895,6 +4011,7 @@ const Messages = () => {
                   onCancel={cancelSelection}
                   isWorking={deleteJournalMutation.isPending}
                 />
+              )
               ) : null}
 
               {/* A quiet way back to the live end: only offered while the reader has left it. */}
@@ -4364,11 +4481,15 @@ const Messages = () => {
           onLeft={() => navigate("/tin-nhan")}
           kind={activeKind === "personal" ? "personal" : activeKind === "group" ? "group" : "direct"}
           onOpenDiary={activeKind === "personal" ? undefined : () => setIsConversationDiaryOpen(true)}
+          onSearch={() => {
+            setIsInfoOpen(false);
+            setIsSearchOpen(true);
+          }}
           onOpenCalendar={
             activeKind === "personal"
               ? undefined
               : () => {
-                  setIsInfoOpen(false);
+                  // AVORA-71 · F: opens OVER `⋯`; closing it comes back to `⋯` at its scroll.
                   setIsThreadCalendarOpen(true);
                 }
           }
@@ -4380,15 +4501,25 @@ const Messages = () => {
                 kind="personal"
                 trash={{
                   count: journalTrashCount,
-                  onOpen: () => {
-                    setIsInfoOpen(false);
-                    setIsJournalTrashOpen(true);
-                  },
+                  onOpen: () => setIsJournalTrashOpen(true),
                 }}
                 onNavigate={() => setIsInfoOpen(false)}
               />
             ) : activeSummary !== undefined && (activeKind === "direct" || activeKind === "group") ? (
+              (roomSlot: ReactNode) => (
               <ConversationMoreSections
+                roomSlot={roomSlot}
+                diaryRow={
+                  <button
+                    type="button"
+                    onClick={() => setIsConversationDiaryOpen(true)}
+                    className="press flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/40"
+                  >
+                    <NotebookText className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 text-[14px] text-foreground">Nhật ký trò chuyện</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                }
                 conversationId={conversationId}
                 placeLabel={threadTitle}
                 kind={activeKind}
@@ -4415,13 +4546,9 @@ const Messages = () => {
                     ? {
                         peerName: threadTitle,
                         isBlocked: hasBlockedPeer,
-                        onBlock: () => {
-                          setIsInfoOpen(false);
-                          setIsBlockConfirmOpen(true);
-                        },
+                        onBlock: () => setIsBlockConfirmOpen(true),
                         onUnblock: handleUnblock,
                         onReport: () => {
-                          setIsInfoOpen(false);
                           setReportTarget({
                             userId: directPeerId,
                             name: threadTitle,
@@ -4434,6 +4561,7 @@ const Messages = () => {
                     : undefined
                 }
               />
+              )
             ) : null
           }
         />

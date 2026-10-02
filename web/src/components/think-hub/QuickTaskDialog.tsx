@@ -14,6 +14,19 @@ import { useConversations } from "@/lib/use-conversations";
 import { useComposerActions, useTaskRecipientIds, type ComposerValues } from "@/lib/use-task-composer";
 
 /**
+ * Where a task made from a Hạng mục came from, root board last:
+ * `Từ Hạng mục X · Bảng con của Y · Bảng Z`. `chain` runs from the Hạng mục's own board up to
+ * the root; `viaTitle` is the Hạng mục a sub-table grew from.
+ */
+export function recordSourceLabel(recordTitle: string, chain: readonly { name: string; viaTitle: string | null }[]): string {
+  const parts = [`Từ Hạng mục ${recordTitle}`];
+  for (const step of chain) {
+    parts.push(step.viaTitle !== null ? `Bảng con của ${step.viaTitle}` : `Bảng ${step.name}`);
+  }
+  return parts.join(" · ");
+}
+
+/**
  * Tạo nhiệm vụ from one Hạng mục — the one task form (ADR-030), Nguồn "Từ Hạng mục … · Bảng …".
  *
  * Where it goes follows the Bảng:
@@ -29,6 +42,7 @@ export function QuickTaskDialog({
   project,
   conversationKind,
   conversationName,
+  sourceLabel,
   onOpenChange,
 }: {
   record: ThinkRecord | null;
@@ -37,6 +51,8 @@ export function QuickTaskDialog({
   project: Project | undefined;
   conversationKind: "direct" | "group" | null;
   conversationName: string;
+  /** AVORA-65 · H: `Từ Hạng mục X · Bảng con của Y · Bảng Z` when the Hạng mục sits in a sub-table. */
+  sourceLabel?: string;
   onOpenChange: (open: boolean) => void;
 }) {
   const { user } = useAuth();
@@ -127,7 +143,7 @@ export function QuickTaskDialog({
       open
       onOpenChange={onOpenChange}
       place={place}
-      source={{ label: `Từ Hạng mục ${record.title} · Bảng ${table.name}` }}
+      source={{ label: sourceLabel ?? recordSourceLabel(record.title, [{ name: table.name, viaTitle: null }]) }}
       peerId={peerId}
       peerName={conversationName}
       members={reachable}
