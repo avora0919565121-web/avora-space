@@ -1927,6 +1927,19 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - ⋯ cạnh tên Bảng › `Di chuyển Bảng…` → chọn nơi (Bảng của tôi + tìm không dấu + 1-1 · Nhóm · Dự án, gần đây trước) → `Cùng sửa` / `Chỉ xem` → xem trước `Bảng có N Hạng mục, M bảng con, K việc đã tạo. Tất cả đi theo Bảng.` → `Di chuyển` (thành đề nghị nếu người khác đã góp). Dưới tên Bảng: `Đang ở {nơi} · Cùng sửa`.
 - **Luật chung mọi Bảng — nhắc là của người đặt:** `Nhắc tôi xem lại` và nhắc của việc tạo từ Hạng mục chỉ dành cho người đặt. Muốn nhắc người khác: `Tạo nhiệm vụ` → chọn người → gợi ý nhiệm vụ (Đồng ý / Từ chối). Không có "gợi ý Hạng mục" hay nhắc hộ trên Hạng mục.
 
+## 02/10 · Đợt sau Bước dừng: 67 → 68 → 66 → 72 → 73
+
+- **S7 · `/thu-argon`** (đăng nhập mới mở): đo Argon2id 64 MB/3 và 32 MB/4 × 3 lần, ghi `private.argon_bench` (loại máy, trình duyệt, Màn hình chính?, thời gian, lỗi — không gắn tài khoản, ≤ 20 dòng/phút).
+- **70 (tiếp):** bỏ công tắc `Hiện tất cả` — Nhật ký luôn hiện mọi mục; bỏ `⋯` tròn trên điện thoại (máy tính: chỉ khi rê chuột); tìm trong cuộc → mở dòng và tô vàng chữ khớp.
+- **71 (tiếp):** `⋯` có `Tin đã ghim (N)`, `Dự án của nhóm` thu gọn sẵn (nhớ theo máy), `Đề nghị xoá nhóm` đỏ ở cuối (ADR-031; chỉ khi nhóm chưa có dự án), bỏ dòng `Tìm trong cuộc này`. Tên gợi nhớ / tên Liên hệ khớp trong ô chọn người và ô tìm thành viên.
+- **69 (tiếp):** ⋯ cạnh tên Bảng chung có `Đổi sang Chỉ xem / Cùng sửa` (chỉ chủ).
+- **Thiết bị (67):** Hồ sơ › Bảo mật: dải `Đang khoá thiết bị` · Ưu tiên 1 · Ưu tiên 2 · `Máy khác (n)` thu gọn · `Đăng xuất mọi thiết bị khác` · `Khoá thiết bị` · `Cho phép mở Két sắt trên máy khác`. Hỏi đặt bậc một lần mỗi máy (thẻ dưới cùng; iPhone Safari trong tab có mẹo thêm vào Màn hình chính). Màn chặn toàn màn (lost / revoked / locked) xoá bộ đệm, đóng mọi kênh realtime. Trang `/xac-nhan-thiet-bi` không cần đăng nhập.
+- **Két sắt mã hoá (68):** lần đầu 4 bước có chấm tiến độ (Giới thiệu `Với bạn / Kỹ thuật` → Mật khẩu Két sắt + thanh đo + `Gợi ý một cụm dễ nhớ` → 24 từ + `Lưu PDF · In · Chép` → hỏi 3 từ). Máy mới: `Mở Két sắt trên máy này` (mật khẩu hoặc `Dùng Bộ khôi phục`). Ba ngăn dùng một màn: ô tìm (giải mã trên máy), `Theo nhóm / Dòng đời` (Chứng chỉ), chấm cam `Còn N ngày`, Thùng rác 30 ngày (xoá vĩnh viễn phải gõ tên). `+` → sheet `Chụp ảnh · Chọn ảnh / PDF · Gõ tay`; máy tính kéo-thả. `Quên mã?` của tài khoản đã mã hoá: 3 lựa chọn, không email.
+- **Chính sách (66):** chip bộ chính sách trên cùng; máy tính mục lục trái, điện thoại hàng chip trượt; nhãn chữ nhỏ cuối dòng (`✓ Đã thực hiện` đậm · `Sắp có` xám); khối `Dùng khi bạn sẵn sàng` nền nhạt.
+- **Bảng Avora mặc định (72):** nhóm thu gọn đầu Kế hoạch (`Kết nối · Nhiệm vụ · Két sắt`, khu trống ẩn). Bảng `Danh bạ | Danh sách cơ hội` dùng đúng lưới Kế hoạch; cột đồng bộ có 🔗; chip `Đang mở · Đối tác · Không thành · Tất cả` + `Tổng … ₫`; `+` = `Cơ hội mới`. Liên hệ có dòng `Danh sách cơ hội · N đang mở ›` (luôn hiện).
+- **File theo loại (73):** ① đầu · ② một hàng chip (`Tất cả · Ảnh · Chụp từ máy · Video · Ghi âm · Âm thanh · Tài liệu · PDF · Sách · Khác`, chỉ chip có tệp, có số, một chip, nhớ theo máy) + 🔍 tên tệp · ③ danh sách theo ngày. Cùng ba vùng trên điện thoại và máy tính; máy tính không thêm cột hay khung. Nút 📷 trong ô soạn (điện thoại) ghi `capture_source = camera`.
+- **CSP:** khi thêm Content-Security-Policy phải cho `wasm-unsafe-eval` (Argon2id chạy WASM).
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { DeviceSecuritySection } from "@/components/DeviceSecurity";
 import { askConfirm } from "@/components/ConfirmHost";
 import { PinSetup, usePinStatus } from "@/components/PinGate";
 import { RevealButton, useReveal } from "@/components/RevealContact";
@@ -197,19 +198,24 @@ const Profile = () => {
         {/* AVORA-54 · C: sign out everywhere else, right where the account lives. */}
         <section aria-labelledby="security-heading" className="mt-6 rounded-xl border border-border bg-card p-6">
           <h2 id="security-heading" className="text-[17px] font-semibold text-foreground">Bảo mật</h2>
-          <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
-            Máy khác đang giữ phiên của bạn? Đăng xuất chúng từ xa. Máy đó sẽ bị đưa về màn đăng nhập ở lần
-            thao tác kế tiếp, và Két sắt trên đó tự khoá.
-          </p>
-          <button
-            type="button"
-            onClick={() => void handleSignOutOthers()}
-            disabled={isSigningOutOthers}
-            className="press mt-4 flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-4 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-60"
-          >
-            {isSigningOutOthers ? <Loader2 className="h-4 w-4 animate-spin" /> : <MonitorX className="h-[18px] w-[18px]" strokeWidth={1.6} />}
-            Đăng xuất mọi thiết bị khác
-          </button>
+          {/* AVORA-67 · 3.1: lock strip · Thiết bị · Đăng xuất mọi thiết bị khác · Khoá thiết bị · Két sắt. */}
+          <DeviceSecuritySection
+            signOutOthers={
+              <button
+                type="button"
+                onClick={() => void handleSignOutOthers()}
+                disabled={isSigningOutOthers}
+                className="press flex min-h-11 items-center gap-2 rounded-md border border-border bg-card px-4 text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-60"
+              >
+                {isSigningOutOthers ? <Loader2 className="h-4 w-4 animate-spin" /> : <MonitorX className="h-[18px] w-[18px]" strokeWidth={1.6} />}
+                Đăng xuất mọi thiết bị khác
+              </button>
+            }
+          />
+          {/* AVORA-66: every privacy promise lives in one place. */}
+          <a href="/cai-dat/chinh-sach#bao-mat" className="press mt-5 flex min-h-11 items-center justify-between rounded-md px-1 text-[14px] font-medium text-primary" data-policy-link="">
+            Chính sách bảo mật <span aria-hidden="true">›</span>
+          </a>
         </section>
 
         <button

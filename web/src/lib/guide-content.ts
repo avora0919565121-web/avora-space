@@ -77,6 +77,7 @@ export const GUIDE_CARDS: readonly GuideCard[] = [
       "Tuỳ chọn chung: loại tiền, múi giờ, Nhìn lại, hiệu ứng khi hoàn thành và kiểu nút.",
       "Thông báo: Chế độ tập trung, tắt thông báo có hạn và âm báo.",
       "Danh sách người đã chặn cũng nằm trong Tuỳ chọn chung.",
+      "Riêng tư: AVORA giữ gì và ai thấy gì — đọc ở Cài đặt › Chính sách.",
     ],
   },
 ];

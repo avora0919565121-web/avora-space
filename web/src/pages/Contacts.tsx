@@ -128,6 +128,12 @@ const Contacts = () => {
           </div>
         </header>
 
+        {/* AVORA-72 · A: always shown, `· 0` included — the board exists for everyone. */}
+        <a href="/ke-hoach?danh-sach-co-hoi=1" className="press mt-6 flex min-h-12 items-center gap-2 rounded-xl border border-border bg-card px-4 text-[15px] font-medium text-foreground hover:bg-accent/40" data-opportunity-entry="">
+          <span className="min-w-0 flex-1">Danh sách cơ hội · <span className="tabular-nums">{openOpportunities.size}</span> đang mở</span>
+          <span aria-hidden="true" className="text-muted-foreground">›</span>
+        </a>
+
         {/* AVORA-58 · 2: Cần xem lại is optional — no count, no badge, only this one quiet line
             for the channel review. The "missing details" chips stay because each is one tap. */}
         {missingDetails.length > 0 ? (

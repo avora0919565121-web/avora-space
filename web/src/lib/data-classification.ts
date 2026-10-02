@@ -157,6 +157,13 @@ export const DATA_CLASSIFICATION = {
   think_hub_record_reminders: { level: "personal", domain: "personal" },
   // AVORA-71 · E: a name I give someone — only I read it, they never know.
   user_aliases: { level: "personal", domain: "personal", columns: { alias: "sensitive" } },
+  // AVORA-67: the owner's devices (rank, label, last seen); the public key never goes back to a client.
+  account_devices: { level: "personal", domain: "identity", columns: { device_public_key: "internal", session_id: "secret" } },
+  account_device_lock: { level: "personal", domain: "identity" },
+  // AVORA-68: ciphertext and wrapped keys only — readable by nobody without the owner's keys.
+  vault_keyring: { level: "secret", domain: "vault" },
+  vault_items: { level: "secret", domain: "vault", columns: { reminder_title: "sensitive", remind_on: "personal" } },
+  vault_files: { level: "secret", domain: "vault" },
   // Which tasks a table deletion binned — server-only bookkeeping, no client access.
   think_hub_delete_cascade: { level: "internal", domain: "personal" },
   // AVORA-44 · B: Ghi chép — owner-only, what the person writes to read again.

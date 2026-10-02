@@ -649,7 +649,9 @@ export function GroupInfoSheet({
     requestMutation.mutate(action.member.userId);
   };
   const sortedMembers = sortGroupMembers(members);
-  const visibleMembers = filterGroupMembers(sortedMembers, search);
+  // AVORA-71 · E: search finds a member by my name for them as well as their own.
+  const myNamesByUser = new Map<string, string>([...myAliases, ...contactNameByUser]);
+  const visibleMembers = filterGroupMembers(sortedMembers, search, myNamesByUser);
   // The pending-removal list follows the same filter so an admin can pull up one person and see
   // both what they may do and what is already being asked about them.
   const visibleRequests = (requestsQuery.data ?? []).filter(
@@ -662,6 +664,7 @@ export function GroupInfoSheet({
           joinedAt: "",
         },
         search,
+        myNamesByUser,
       ),
   );
 

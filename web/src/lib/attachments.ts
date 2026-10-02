@@ -51,6 +51,8 @@ export type MessageAttachment = {
   /** Set when this pointer was made by forwarding, so the bubble can say where it came from. */
   originMessageId: string | null;
   createdAt: string;
+  /** AVORA-73 · C: `camera` = AVORA's Chụp ảnh / Quay button; `library` = picked or dropped; null = older file. */
+  captureSource?: "camera" | "library" | null;
 };
 
 /** What the send RPC is handed — one entry per already-uploaded file. */
@@ -64,6 +66,7 @@ export type AttachmentInput = {
   height: number | null;
   duration_seconds: number | null;
   permission: AttachmentPermission;
+  capture_source?: "camera" | "library" | null;
 };
 
 /** A file chosen but not yet sent: still cancellable, still editable in the composer. */
@@ -79,6 +82,8 @@ export type StagedAttachment = {
   height: number | null;
   durationSeconds: number | null;
   permission: AttachmentPermission;
+  /** AVORA-73: where a photo / video came from (only those two kinds carry it). */
+  captureSource?: "camera" | "library" | null;
   /** Object URL for the thumbnail or the playback control; revoked when the staging clears. */
   previewUrl: string | null;
 };
@@ -283,7 +288,7 @@ export async function compressImage(file: File): Promise<Blob> {
  */
 export async function stageAttachment(
   file: File,
-  options: { isRecording?: boolean; durationSeconds?: number | null } = {},
+  options: { isRecording?: boolean; durationSeconds?: number | null; captureSource?: "camera" | "library" } = {},
 ): Promise<StagedAttachment> {
   const rejection = attachmentRejectionReason(file);
   if (rejection !== null) throw new Error(rejection);
@@ -312,6 +317,7 @@ export async function stageAttachment(
     height: size.height,
     durationSeconds: options.durationSeconds ?? null,
     permission: "export",
+    captureSource: kind === "image" || file.type.startsWith("video/") ? (options.captureSource ?? "library") : null,
     previewUrl: kind === "file" ? null : URL.createObjectURL(blob),
   };
 }
@@ -339,6 +345,7 @@ export async function uploadStagedAttachment(
     height: staged.height,
     duration_seconds: staged.durationSeconds,
     permission: staged.permission,
+    capture_source: staged.captureSource ?? null,
   };
 }
 
@@ -358,6 +365,7 @@ type AttachmentRow = {
   permission: string;
   origin_message_id: string | null;
   created_at: string;
+  capture_source?: string | null;
 };
 
 export function toMessageAttachment(row: AttachmentRow): MessageAttachment {
@@ -377,11 +385,12 @@ export function toMessageAttachment(row: AttachmentRow): MessageAttachment {
     permission: row.permission as AttachmentPermission,
     originMessageId: row.origin_message_id,
     createdAt: row.created_at,
+    captureSource: row.capture_source === "camera" || row.capture_source === "library" ? row.capture_source : null,
   };
 }
 
 const ATTACHMENT_COLUMNS =
-  "id, message_id, conversation_id, attached_by, kind, storage_path, file_name, mime_type, byte_size, width, height, duration_seconds, permission, origin_message_id, created_at";
+  "id, message_id, conversation_id, attached_by, kind, storage_path, file_name, mime_type, byte_size, width, height, duration_seconds, permission, origin_message_id, created_at, capture_source";
 
 /** Every file in one thread. RLS returns nothing for a conversation you are not in. */
 export async function fetchThreadAttachments(conversationId: string): Promise<MessageAttachment[]> {

@@ -65,12 +65,24 @@ khi hai bên lệch nhau, file code là đúng.
 - `think_hub_record.contact_labels` — tên liên hệ người chọn đưa vào Bảng chung (chỉ tên + người chọn, không số/email; server ghi) (AVORA-65 · E)
 - `think_hub_announcements`, `think_hub_nudges` — personal (thẻ báo nhóm; dòng nhắc riêng chỉ người nhận đọc); `think_hub_table_seen` — internal (lần cuối mỗi người mở Bảng)
 - `think_hub_delete_cascade` — internal (sổ ghi việc đi theo khi xoá Bảng, để khôi phục)
+- `think_hub_table.sync_source / hidden_in_list / sync_hidden`, `think_hub_record.opportunity_id` — internal (bảng đồng bộ AVORA-72)
+
+**identity — thiết bị (AVORA-67)**
+- `account_devices` — **confidential/personal**, chỉ chủ đọc, không ai ghi trực tiếp; `device_public_key` không trả về client
+- `account_device_lock` — personal, chỉ chủ đọc
+- `private.device_action_tokens` — **secret** (băm SHA-256, dùng 1 lần); `private.device_challenges`, `private.blocked_sessions`, `private.retired_pins` — internal, không client nào đọc
+
+**vault — mã hoá (AVORA-68)**
+- `vault_keyring`, `vault_items`, `vault_files`, bucket `vault-files` — **secret** (chỉ ciphertext + bản bọc); `vault_items.reminder_title` = sensitive (chỉ khi chủ bật), `remind_on` = personal
+- `private.vault_device_shares`, `private.vault_proofs` — **secret**, không client nào đọc
+- `private.argon_bench` — internal, ẩn danh (không gắn tài khoản)
+- `message_attachments.capture_source` — internal (AVORA-73)
 
 **finance**
 - `accounts` — sensitive; `balance`, `opening_balance`, `other_person_name` = sensitive; `removed_at` = internal (Thùng rác)
 - `account_balance_history` — sensitive
 - `transactions` — sensitive; `amount`, `amount_in_base_currency`, `amount_settled`, `description`, `receipt_url` = sensitive; `removed_at`, `removed_with_account` = internal
-- `crm_opportunity` — sensitive; `estimated_value` = sensitive
+- `crm_opportunity` — sensitive; `estimated_value`, `next_action_note` = sensitive; `removed_at`, `last_contact_at` = internal; `contact_snapshot` (tên khi liên hệ đã xoá) = sensitive
 - `categories` — personal
 
 **system**

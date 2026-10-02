@@ -3,8 +3,11 @@ import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import type { GroupMember } from "@/lib/groups";
-import { assignSummary, memberLabel, searchAssignees } from "@/lib/member-search";
+import { assignSummary, memberLabel as baseMemberLabel, searchAssignees } from "@/lib/member-search";
+import { myNameFor } from "@/lib/user-aliases";
 import { cn } from "@/lib/utils";
+
+const EMPTY_NAMES: ReadonlyMap<string, string> = new Map();
 
 type AssigneePickerProps = {
   id: string;
@@ -20,6 +23,8 @@ type AssigneePickerProps = {
    * the room is the one being asked.
    */
   allowSelf?: boolean;
+  /** AVORA-71 · E: my name for each person (Liên hệ, then alias), keyed by user id. */
+  myNames?: ReadonlyMap<string, string>;
 };
 
 /**
@@ -37,16 +42,19 @@ export function AssigneePicker({
   onChange,
   selfId,
   allowSelf = false,
+  myNames = EMPTY_NAMES,
 }: AssigneePickerProps) {
   const [query, setQuery] = useState<string>("");
   const [highlight, setHighlight] = useState<number>(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const memberLabel = (member: GroupMember): string =>
+    myNameFor({ contactName: null, alias: myNames.get(member.userId), shownName: baseMemberLabel(member) });
 
   const selectedIds = useMemo(() => selected.map((member) => member.userId), [selected]);
 
   const matches = useMemo(
-    () => searchAssignees(members, query, { excludeUserIds: selectedIds, selfId, allowSelf }),
-    [members, query, selectedIds, selfId, allowSelf],
+    () => searchAssignees(members, query, { excludeUserIds: selectedIds, selfId, allowSelf, myNames }),
+    [members, query, selectedIds, selfId, allowSelf, myNames],
   );
 
   const add = (member: GroupMember): void => {

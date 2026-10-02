@@ -2,6 +2,7 @@ import { ArrowLeft, Loader2, Lock, LockKeyhole, Mail, Smartphone } from "lucide-
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { CodePad } from "@/components/vault/CodePad";
+import { VaultForgotEncrypted } from "@/components/vault/VaultForgot";
 import { VaultAboutText } from "@/components/vault/VaultAbout";
 import { useAuth } from "@/lib/auth";
 import { maskEmail } from "@/lib/mask";
@@ -242,6 +243,11 @@ export function VaultGate() {
     );
   }
 
+  // AVORA-68 · 68.8: an encrypted account never resets through email — the passphrase / kit do.
+  if (step.kind === "forgot" && status?.hasKeyring === true) {
+    return <VaultForgotEncrypted onBack={() => go({ kind: "unlock" })} />;
+  }
+
   if (step.kind === "forgot") {
     return (
       <Shell icon={<Mail className="h-6 w-6" strokeWidth={1.6} />} title="Quên mã Két sắt" onBack={() => go({ kind: "unlock" })}>
@@ -315,7 +321,7 @@ export function VaultGate() {
 
   return (
     <Shell icon={<Lock className="h-6 w-6" strokeWidth={1.6} />} title="Két sắt đang khoá">
-      {line("Nhập mã Két sắt để mở.")}
+      {line(status?.deviceAllowed === false ? "Két sắt chỉ mở trên điện thoại và máy tính chính của bạn. Đặt máy này làm máy chính ở Cài đặt › Hồ sơ › Bảo mật." : "Nhập mã Két sắt để mở.")}
       <CodePad
         label="Mã Két sắt"
         value={code}

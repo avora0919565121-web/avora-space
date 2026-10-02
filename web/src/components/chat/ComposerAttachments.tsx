@@ -1,4 +1,4 @@
-import { FileText, Mic, Paperclip, Square, X } from "lucide-react";
+import { Camera, FileText, Mic, Paperclip, Square, X } from "lucide-react";
 
 import {
   formatDuration,
@@ -120,6 +120,8 @@ export function StagedAttachmentBar({
 
 export type AttachActionsProps = {
   onPickFiles: () => void;
+  /** AVORA-73 · C: AVORA's own camera — what it takes is marked `Chụp từ máy`. */
+  onTakePhoto?: () => void;
   isRecording: boolean;
   elapsedSeconds: number;
   canRecord: boolean;
@@ -138,6 +140,7 @@ export type AttachActionsProps = {
  */
 export function AttachActions({
   onPickFiles,
+  onTakePhoto,
   isRecording,
   elapsedSeconds,
   canRecord,
@@ -185,6 +188,19 @@ export function AttachActions({
       >
         <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
       </button>
+      {onTakePhoto !== undefined ? (
+        <button
+          type="button"
+          onClick={onTakePhoto}
+          disabled={disabled}
+          aria-label="Chụp ảnh hoặc quay"
+          title="Chụp ảnh hoặc quay"
+          data-take-photo=""
+          className="press flex h-12 w-11 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground disabled:opacity-45 md:hidden"
+        >
+          <Camera className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
+        </button>
+      ) : null}
       {canRecord ? (
         <button
           type="button"

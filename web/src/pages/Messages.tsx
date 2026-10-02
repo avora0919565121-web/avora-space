@@ -117,6 +117,7 @@ import { toAttachmentView } from "@/components/notes/NoteEditor";
 import { NoteExits, type BoardExit, type TaskExit } from "@/components/notes/NoteExits";
 import { useNotes } from "@/lib/use-notes";
 import { ConversationMoreSections } from "@/components/chat/ConversationMoreSections";
+import { ProposeDialog } from "@/components/think-hub/TableActions";
 import { BlockConfirmDialog } from "@/components/chat/BlockConfirmDialog";
 import { ReportDialog, type ReportTarget } from "@/components/chat/ReportDialog";
 import { BLOCKED_SEND_NOTICE } from "@/lib/blocks";
@@ -347,6 +348,8 @@ const Messages = () => {
   const [isTaskDialogOpen, setIsTaskDialogOpen] = useState<boolean>(false);
   const [isGroupTasksOpen, setIsGroupTasksOpen] = useState<boolean>(false);
   const [isDecisionsOpen, setIsDecisionsOpen] = useState<boolean>(false);
+  /** AVORA-71 · C ④: `Đề nghị xoá nhóm` from `⋯` (ADR-031). */
+  const [isProposeDeleteGroupOpen, setIsProposeDeleteGroupOpen] = useState<boolean>(false);
   /** AVORA-52 · B: Nhật ký trò chuyện, opened over `⋯`. */
   const [isConversationDiaryOpen, setIsConversationDiaryOpen] = useState<boolean>(false);
   const [isScheduleCallOpen, setIsScheduleCallOpen] = useState<boolean>(false);
@@ -409,6 +412,8 @@ const Messages = () => {
    */
   const [refusedSendConversationId, setRefusedSendConversationId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  /** AVORA-73 · C: AVORA's own camera input — what it takes is marked `camera`. */
+  const cameraInputRef = useRef<HTMLInputElement | null>(null);
   /** The message the next send will answer, shown as a quote above the composer. */
   const [replyTarget, setReplyTarget] = useState<ChatMessage | null>(null);
   /** Which bubble is currently open for correction, and the text being corrected. */
@@ -419,6 +424,8 @@ const Messages = () => {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   /** A result just jumped to, lit briefly so the eye can find it among its neighbours. */
   const [flashedMessageId, setFlashedMessageId] = useState<string | null>(null);
+  /** AVORA-70: the words a search landed with, lit inside the opened Nhật ký line. */
+  const [searchHit, setSearchHit] = useState<{ id: string; query: string } | null>(null);
   const [searchParams, setSearchParams] = useSearchParams();
   /** A suggestion the reader asked to see, from the dot on the message it came out of. */
   const [focusedSuggestionId, setFocusedSuggestionId] = useState<string | null>(null);
@@ -1064,7 +1071,6 @@ const Messages = () => {
     }
     return ids;
   }, [pasteTasks, journalConversationId]);
-  const [showAllTimeline, setShowAllTimeline] = useState<boolean>(false);
   const notesData = useNotes({ enabled: activeTab === "journal" || activeKind === "personal" });
   // The Diary list shows its counts before the journal is opened, so the journal's files are read
   // on their own (same cache key as the open thread, no signed links needed just to count).
@@ -1145,14 +1151,16 @@ const Messages = () => {
   }, [notesData.liveNotes, notesData.attachments.data]);
   // A plain boolean (not a narrowing of activeKind), so the other branch keeps its full type.
   const isJournalThread: boolean = activeKind === "personal";
-  /** The written timeline: only entries whose place is Nhật ký, unless "Hiện tất cả" is on. */
+  /**
+   * AVORA-70 (VMT 02/10): every entry is one compact line with a kind icon, so the journal
+   * always shows everything — words, files, links, forwards. The 44 "Hiện tất cả" switch is gone.
+   */
   const timelineMessages: ChatMessage[] = useMemo(() => {
     if (activeKind !== "personal") return messages;
-    const keep = new Set<string>(quotedMessageId === null ? [] : [quotedMessageId]);
-    return journalTimeline(messages, attachmentsOf, keep, taskMessageIds, showAllTimeline);
-  }, [activeKind, messages, attachmentsOf, quotedMessageId, taskMessageIds, showAllTimeline]);
+    return journalTimeline(messages, attachmentsOf, new Set<string>(), taskMessageIds, true);
+  }, [activeKind, messages, attachmentsOf, taskMessageIds]);
   const journalTimelineCount: number | null = activeKind === "personal"
-    ? journalTimeline(messages, attachmentsOf, new Set<string>(), taskMessageIds, false).filter((message) => message.systemKind == null).length
+    ? messages.filter((message) => message.systemKind == null && message.deletedAt == null).length
     : null;
   const diaryCounts = useMemo(
     () => ({
@@ -1226,7 +1234,7 @@ const Messages = () => {
    * and say why the third did not, rather than refusing all three.
    */
   const stageFiles = useCallback(
-    async (files: readonly File[]): Promise<void> => {
+    async (files: readonly File[], captureSource: "camera" | "library" = "library"): Promise<void> => {
       if (files.length === 0) return;
       const room = MAX_ATTACHMENTS_PER_MESSAGE - staged.length;
       if (room <= 0) {
@@ -1239,7 +1247,7 @@ const Messages = () => {
 
       for (const file of files.slice(0, room)) {
         try {
-          const item = await stageAttachment(file);
+          const item = await stageAttachment(file, { captureSource });
           setStaged((current) => [...current, item]);
         } catch (error: unknown) {
           toast.error(error instanceof Error ? error.message : "Không đính kèm được tệp này.");
@@ -2233,10 +2241,9 @@ const Messages = () => {
     onError: (error: Error) => toast.error(error.message),
   });
 
-  /** "Mở mục gốc": back to the timeline, showing everything so the entry is surely there. */
+  /** "Mở mục gốc": back to the timeline (which always shows every entry since AVORA-70). */
   const openJournalEntry = useCallback(
     (messageId: string): void => {
-      setShowAllTimeline(true);
       openDiaryView("journal");
       window.setTimeout(() => jumpToMessage(messageId), 160);
     },
@@ -2427,9 +2434,8 @@ const Messages = () => {
     const key = `${conversationId}:${jumpParam}`;
     if (jumpedRef.current === key) return;
     jumpedRef.current = key;
-    if (activeKind === "personal") setShowAllTimeline(true);
     window.setTimeout(() => jumpToMessage(jumpParam), 120);
-  }, [jumpParam, conversationId, messagesQuery.isPending, activeKind, jumpToMessage]);
+  }, [jumpParam, conversationId, messagesQuery.isPending, jumpToMessage]);
 
   /** AVORA-52 · 11: Back from Cài đặt › Thông báo lands here with `⋯` open again, once. */
   useEffect(() => {
@@ -3089,8 +3095,14 @@ const Messages = () => {
                 <ThreadSearch
                   conversationId={conversationId}
                   senderNameOf={senderNameOf}
-                  onJumpTo={jumpToMessage}
-                  onClose={() => setIsSearchOpen(false)}
+                  onJumpTo={(messageId, query) => {
+                    setSearchHit({ id: messageId, query });
+                    jumpToMessage(messageId);
+                  }}
+                  onClose={() => {
+                    setIsSearchOpen(false);
+                    setSearchHit(null);
+                  }}
                 />
               ) : null}
 
@@ -3307,10 +3319,6 @@ const Messages = () => {
                         >
                           {isSelecting ? "Xong" : "Chọn"}
                         </button>
-                        <label className="ml-auto flex items-center gap-2">
-                          <span>Hiện tất cả (cả tệp, link, việc)</span>
-                          <Switch checked={showAllTimeline} onCheckedChange={setShowAllTimeline} aria-label="Hiện tất cả" />
-                        </label>
                       </div>
                     ) : null}
                     {/* Paged thread (A7): the top says whether more is coming or this is the start. */}
@@ -3328,6 +3336,7 @@ const Messages = () => {
                         taskMessageIds={taskMessageIds}
                         viewerId={userId}
                         flashId={flashedMessageId ?? quotedMessageId}
+                        searchHit={searchHit}
                         isPinned={(id) => pinOf(id, "personal") !== null}
                         isSelecting={isSelecting}
                         selected={new Set(selectedIds)}
@@ -4143,10 +4152,23 @@ activeKind === "personal" ? (
                           void stageFiles(chosen);
                         }}
                       />
+                      <input
+                        ref={cameraInputRef}
+                        type="file"
+                        accept="image/*,video/*"
+                        capture="environment"
+                        hidden
+                        onChange={(event) => {
+                          const chosen = Array.from(event.target.files ?? []);
+                          event.target.value = "";
+                          void stageFiles(chosen, "camera");
+                        }}
+                      />
                       {/* Only while recording: the timer and stop/cancel need to stay in reach. */}
                       {recorder.isRecording ? (
                         <AttachActions
                           onPickFiles={() => fileInputRef.current?.click()}
+                          onTakePhoto={() => cameraInputRef.current?.click()}
                           isRecording={recorder.isRecording}
                           elapsedSeconds={recorder.elapsedSeconds}
                           canRecord={!recorder.isUnsupported}
@@ -4535,10 +4557,19 @@ activeKind === "personal" ? (
                 // AVORA-52 · C: these open over `⋯`, which stays open underneath at its scroll.
                 onOpenDecisions={() => setIsDecisionsOpen(true)}
                 onOpenTasks={activeKind === "group" ? () => setIsGroupTasksOpen(true) : undefined}
-                onSearch={() => {
-                  setIsInfoOpen(false);
-                  setIsSearchOpen(true);
+                pinned={{
+                  count: orderedPinList.length,
+                  onOpen: () => {
+                    // Pins live on the thread's chip row: close `⋯` and open that list in place.
+                    setIsInfoOpen(false);
+                    setOpenChip("pins");
+                  },
                 }}
+                onProposeDeleteGroup={
+                  activeKind === "group" && projectHere === undefined && threadProjects.length === 0
+                    ? () => setIsProposeDeleteGroupOpen(true)
+                    : undefined
+                }
                 onScheduleCall={activeKind === "group" && !isProjectChatClosed ? () => setIsScheduleCallOpen(true) : undefined}
                 onNavigate={() => setIsInfoOpen(false)}
                 safety={
@@ -4566,6 +4597,10 @@ activeKind === "personal" ? (
           }
         />
       ) : null}
+      <ProposeDialog
+        target={isProposeDeleteGroupOpen && conversationId ? { action: "delete", targetType: "group", targetId: conversationId, name: threadTitle } : null}
+        onOpenChange={(next) => !next && setIsProposeDeleteGroupOpen(false)}
+      />
     </div>
   );
 };

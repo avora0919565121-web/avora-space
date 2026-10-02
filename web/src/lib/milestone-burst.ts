@@ -45,8 +45,9 @@ let channelPromise: Promise<RealtimeChannel> | null = null;
 function burstChannel(): Promise<RealtimeChannel> {
   if (channelPromise === null) {
     channelPromise = new Promise((resolve) => {
+      // S2: private — only signed-in, allowed sessions may join (realtime.messages policy).
       const channel = supabase.channel("avora-milestone", {
-        config: { broadcast: { self: false } },
+        config: { private: true, broadcast: { self: false } },
       });
       channel.on("broadcast", { event: "milestone_done" }, (message) => {
         const payload = (message as { payload?: MilestoneBurstEvent }).payload;

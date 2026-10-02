@@ -7,6 +7,7 @@ import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import type { MessageAttachment } from "@/lib/attachments";
 import { messageBodyText, type ChatMessage } from "@/lib/chat-cache";
 import { isLongEntry, journalEntryKind, journalFirstLine, type JournalEntryKind } from "@/lib/journal-lines";
+import { highlightParts } from "@/lib/search";
 import { cn } from "@/lib/utils";
 
 const KIND_ICON: Readonly<Record<JournalEntryKind, LucideIcon | null>> = {
@@ -33,6 +34,7 @@ export function JournalLines({
   taskMessageIds,
   viewerId,
   flashId,
+  searchHit = null,
   isPinned,
   isSelecting,
   selected,
@@ -51,6 +53,8 @@ export function JournalLines({
   taskMessageIds: ReadonlySet<string>;
   viewerId: string | undefined;
   flashId: string | null;
+  /** The search that landed on a line: its matching words are lit when the line opens. */
+  searchHit?: { id: string; query: string } | null;
   isPinned: (messageId: string) => boolean;
   isSelecting: boolean;
   selected: ReadonlySet<string>;
@@ -133,7 +137,19 @@ export function JournalLines({
             </div>
           </div>
         ) : message.content.trim() !== "" ? (
-          <p className={cn("whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground", !full && "line-clamp-[10]")}>{message.content}</p>
+          <p className={cn("whitespace-pre-wrap break-words text-[15px] leading-relaxed text-foreground", !full && "line-clamp-[10]")}>
+            {searchHit !== null && searchHit.id === message.id
+              ? highlightParts(message.content, searchHit.query).map((part, index) =>
+                  part.match ? (
+                    <mark key={index} data-search-mark="" className="rounded-[3px] bg-[hsl(42_95%_72%)] px-0.5 text-foreground dark:bg-[hsl(42_70%_38%)]">
+                      {part.text}
+                    </mark>
+                  ) : (
+                    <span key={index}>{part.text}</span>
+                  ),
+                )
+              : message.content}
+          </p>
         ) : null}
         {!full ? (
           <div className="flex flex-wrap gap-1" role="group" aria-label="Thao tác với mục này">
@@ -190,7 +206,7 @@ export function JournalLines({
             onAction={(action) => onAction(message, action)}
             open={open}
             onOpenChange={onOpenChange}
-            className="opacity-100 md:opacity-0"
+            className="hidden md:inline-flex md:opacity-0"
           />
         );
       }}

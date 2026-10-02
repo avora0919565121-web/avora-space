@@ -1171,6 +1171,7 @@ export type Database = {
           algorithm_version: string | null
           attached_by: string
           byte_size: number
+          capture_source: string | null
           conversation_id: string
           created_at: string
           duration_seconds: number | null
@@ -1190,6 +1191,7 @@ export type Database = {
           algorithm_version?: string | null
           attached_by: string
           byte_size: number
+          capture_source?: string | null
           conversation_id: string
           created_at?: string
           duration_seconds?: number | null
@@ -8191,6 +8193,17 @@ export type Database = {
       verify_account_password: {
         Args: { p_password: string }
         Returns: boolean
+      }
+      record_argon_bench: {
+        Args: {
+          p_device_kind: string
+          p_browser: string
+          p_standalone: boolean
+          p_profile: string
+          p_runs_ms: number[]
+          p_error: string | null
+        }
+        Returns: undefined
       }
       vote_shared_proposal: {
         Args: { p_proposal_id: string; p_reason?: string; p_vote: string }

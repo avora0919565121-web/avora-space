@@ -115,10 +115,11 @@ describe("AVORA-57 · D — pinned conversations", () => {
 });
 
 describe("AVORA-57 · E — Két sắt `+`", () => {
-  it("57.6: the label follows the sub-tab; Sắp có sub-tabs have none", () => {
+  it("57.6: the label follows the sub-tab; Sắp có sub-tabs have none (68: the paper compartments have one)", () => {
     expect(vaultAddFor("/ket-sat")?.label).toBe("Giao dịch");
     expect(vaultAddFor("/ket-sat/mat-khau")).toBeNull();
-    expect(vaultAddFor("/ket-sat/tai-san")).toBeNull();
+    expect(vaultAddFor("/ket-sat/tai-san")?.label).toBe("Tài sản");
+    expect(vaultAddFor("/ket-sat/chung-chi")?.label).toBe("Chứng chỉ");
     expect(VAULT_ADD_ENTRIES.map((entry) => entry.label)).toEqual(["Giao dịch", "Mật khẩu", "Chứng chỉ", "Tài liệu", "Tài sản"]);
   });
 });

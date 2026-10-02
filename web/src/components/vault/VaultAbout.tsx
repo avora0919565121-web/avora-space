@@ -16,6 +16,10 @@ export const VaultAboutText = memo(function VaultAboutText({ className }: { clas
           {line}
         </p>
       ))}
+      {/* AVORA-66: the full promise lives in the policy. */}
+      <a href="/cai-dat/chinh-sach#ket-sat" className="inline-flex min-h-10 items-center text-[13.5px] font-medium text-primary" data-policy-link="">
+        Xem chính sách ›
+      </a>
     </div>
   );
 });

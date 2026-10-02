@@ -19,9 +19,10 @@ import {
   vaultKeys,
 } from "@/lib/vault-api";
 import { VAULT_TOUCH_MS, leftTooLong, type VaultAttempt, type VaultStatus } from "@/lib/vault-lock";
+import { clearVaultKeys, openWithDeviceShare } from "@/lib/vault-keys";
 
 /** Everything the Két sắt keeps in the query cache — dropped the moment it locks. */
-const VAULT_QUERY_ROOTS: readonly (readonly string[])[] = [financeKeys.all, ["obligation-reminders"]];
+const VAULT_QUERY_ROOTS: readonly (readonly string[])[] = [financeKeys.all, ["obligation-reminders"], ["vault-items"], ["vault-keyring"]];
 
 export function isVaultPath(pathname: string): boolean {
   return pathname === "/ket-sat" || pathname.startsWith("/ket-sat/");
@@ -77,6 +78,8 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
   useEffect(() => {
     if (isUnlocked) return;
     for (const key of VAULT_QUERY_ROOTS) queryClient.removeQueries({ queryKey: key });
+    // AVORA-68: the master key and every section key leave memory with the lock.
+    clearVaultKeys();
   }, [isUnlocked, queryClient]);
 
   // The finance layer heard "locked" from the server: believe it.
@@ -133,7 +136,15 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
     [opened, putStatus],
   );
 
-  const unlock = useCallback(async (code: string) => afterAttempt(await unlockVault(code)), [afterAttempt]);
+  const unlock = useCallback(
+    async (code: string) => {
+      const attempt = afterAttempt(await unlockVault(code));
+      // AVORA-68 · 2.3: a right code on a device that holds a share opens the master key too.
+      if (attempt.ok === true && userId !== undefined) await openWithDeviceShare(userId);
+      return attempt;
+    },
+    [afterAttempt, userId],
+  );
   const setCode = useCallback(
     async (code: string): Promise<void> => {
       await setVaultCode(code);

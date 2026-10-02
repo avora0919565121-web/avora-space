@@ -9,9 +9,26 @@ const cronSecret = Deno.env.get("PUSH_CRON_SECRET") ?? "";
 const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM = "AVORA <no-reply@avorachat.com>";
 
+type DeviceAction = "new" | "rank_code" | "rank_taken" | "lost_report" | "lost_result" | "lock_on" | "lock_attempt" | "lock_escape";
+
 type Body =
   | { kind: "reset_code"; email: string; code: string }
-  | { kind: "alarm"; action: "reset" | "change" | "signout"; email: string; when: string };
+  | { kind: "alarm"; action: "reset" | "change" | "signout"; email: string; when: string }
+  | {
+      // AVORA-67: device emails. Only labels, times and one-use links — never a PIN or a full name.
+      kind: "device";
+      action: DeviceAction;
+      email: string;
+      when: string;
+      label?: string;
+      old_label?: string;
+      reporter?: string;
+      code?: string;
+      rank?: number;
+      days?: number;
+      result?: string;
+      link?: string;
+    };
 
 const FONT = "-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 
@@ -37,7 +54,85 @@ const p = (text: string, extra = ""): string => `<p style="margin:0 0 14px 0;fon
 const codeBox = (code: string): string =>
   `<p style="margin:6px 0 18px 0;font-size:30px;line-height:38px;font-weight:700;letter-spacing:0.3em;color:#1C1A17;">${escapeHtml(code)}</p>`;
 
+const button = (href: string, label: string): string =>
+  `<p style="margin:8px 0 18px 0;"><a href="${escapeHtml(href)}" style="display:inline-block;background-color:#E0603C;color:#FFFFFF;text-decoration:none;font-weight:600;font-size:15px;padding:12px 20px;border-radius:10px;">${escapeHtml(label)}</a></p>`;
+
+function composeDevice(body: Extract<Body, { kind: "device" }>): { subject: string; html: string; text: string } {
+  const email = escapeHtml(body.email);
+  const when = escapeHtml(body.when);
+  const label = escapeHtml(body.label ?? "Thiết bị");
+  const rank = escapeHtml(String(body.rank ?? ""));
+  const footer = `Email này được gửi tới ${email} về thiết bị của tài khoản AVORA.`;
+  const link = body.link !== undefined && /^https:\/\//.test(body.link) ? body.link : null;
+  const open = link === null ? "" : button(link, "Mở trang xác nhận");
+  const scanNote = p("Mở trang không làm gì cả — bạn phải bấm nút trên trang. Liên kết dùng một lần.", "font-size:13px;color:#6B655B;");
+  const enLink = link === null ? "" : button(link, "Open the confirmation page");
+  let subject = "AVORA: thiết bị";
+  let vi = "";
+  let en = "";
+  switch (body.action) {
+    case "new":
+      subject = `AVORA: có máy mới đăng nhập (${body.label ?? ""})`;
+      vi = p("Chào bạn,") + p(`Có máy mới vừa đăng nhập tài khoản của bạn: <strong>${label}</strong> lúc ${when}.`) +
+        p("Không phải bạn? Mở AVORA trên máy chính › Cài đặt › Hồ sơ › Bảo mật để ngắt máy đó, rồi đổi mật khẩu.", "font-size:14px;");
+      en = p("Hi,") + p(`A new device just signed in to your account: <strong>${label}</strong> at ${when}.`) +
+        p("Wasn't you? Remove it from Settings › Profile › Security on your main device, then change your password.", "font-size:14px;");
+      break;
+    case "rank_code":
+      subject = `${body.code ?? ""} là mã đặt Ưu tiên ${body.rank ?? ""} AVORA`;
+      vi = p("Chào bạn,") + p(`Mã để đặt <strong>${label}</strong> làm <strong>Ưu tiên ${rank}</strong>:`) + codeBox(body.code ?? "") +
+        p("Mã dùng một lần, hết hạn sau 10 phút. Máy đang giữ bậc này sẽ thành Máy khác.", "font-size:13px;color:#6B655B;") +
+        p("Không phải bạn? Đừng đưa mã này cho ai và đổi mật khẩu ngay.", "font-size:14px;");
+      en = p("Hi,") + p(`The code to make <strong>${label}</strong> your <strong>Priority ${rank}</strong> device:`) + codeBox(body.code ?? "") +
+        p("One use, expires in 10 minutes.", "font-size:13px;color:#6B655B;");
+      break;
+    case "rank_taken":
+      subject = `AVORA: ${body.label ?? ""} vừa nhận Ưu tiên ${body.rank ?? ""}`;
+      vi = p("Chào bạn,") + p(`<strong>${label}</strong> vừa nhận <strong>Ưu tiên ${rank}</strong> lúc ${when}. <strong>${escapeHtml(body.old_label ?? "")}</strong> đã bị đăng xuất và thành Máy khác.`) +
+        p("Không phải bạn? Bấm <strong>Không phải tôi</strong> trên trang dưới đây (cần mật khẩu tài khoản) để lấy lại bậc và gỡ máy kia.") + open + scanNote;
+      en = p("Hi,") + p(`<strong>${label}</strong> just took <strong>Priority ${rank}</strong>. Your previous device was signed out.`) +
+        p("Wasn't you? Press <strong>Not me</strong> on the page below (account password needed).") + enLink;
+      break;
+    case "lost_report":
+      subject = `AVORA: ${body.label ?? ""} đã được báo mất — xác nhận giúp`;
+      vi = p("Chào bạn,") + p(`<strong>${label}</strong> đã được báo mất từ <strong>${escapeHtml(body.reporter ?? "")}</strong> lúc ${when}. Máy đó đã ngừng dùng.`) +
+        p(`Trên trang xác nhận có 3 lựa chọn: <strong>Đúng, tôi đã báo</strong> · <strong>Sai — tôi không báo mất</strong> · <strong>Tôi đã tìm lại thiết bị</strong>. Sau ${escapeHtml(String(body.days ?? 3))} ngày mà không ai bấm, AVORA coi như <strong>Đúng</strong>.`) +
+        open + scanNote;
+      en = p("Hi,") + p(`<strong>${label}</strong> was reported lost from another device of yours. It has stopped working.`) +
+        p(`Confirm, reject or mark it found on the page below. With no answer in ${escapeHtml(String(body.days ?? 3))} days it counts as confirmed.`) + enLink;
+      break;
+    case "lost_result": {
+      const result = body.result === "confirm" ? "đã được gỡ hẳn khỏi tài khoản" : body.result === "reject" ? "được dùng lại (báo mất bị từ chối); máy đã gửi báo bị đăng xuất" : "đã trở lại như cũ";
+      subject = `AVORA: kết quả báo mất ${body.label ?? ""}`;
+      vi = p("Chào bạn,") + p(`<strong>${label}</strong> ${result} lúc ${when}.`) +
+        (body.result === "reject" ? p("Nên đổi mật khẩu tài khoản ngay.", "font-size:14px;") : "");
+      en = p("Hi,") + p(`The lost-device report for <strong>${label}</strong> is settled (${escapeHtml(body.result ?? "")}).`);
+      break;
+    }
+    case "lock_on":
+      subject = "AVORA: đã bật Khoá thiết bị";
+      vi = p("Chào bạn,") + p(`<strong>Khoá thiết bị</strong> vừa được bật từ <strong>${label}</strong> lúc ${when}. Mọi máy ngoài phạm vi đã bị đăng xuất và không đăng nhập thêm được cho tới khi bạn tắt.`);
+      en = p("Hi,") + p(`<strong>Device lock</strong> was turned on from <strong>${label}</strong>. Other devices were signed out until you turn it off.`);
+      break;
+    case "lock_attempt":
+      subject = "AVORA: có người thử vào tài khoản đang khoá";
+      vi = p("Chào bạn,") + p(`Có một lần đăng nhập đúng mật khẩu vào tài khoản đang <strong>Khoá thiết bị</strong> (${label}) lúc ${when}. Máy đó chỉ thấy màn chặn.`) +
+        p("Nếu không phải bạn, hãy đổi mật khẩu tài khoản.", "font-size:14px;");
+      en = p("Hi,") + p("Someone signed in with the right password while your account is device-locked. They only see a block screen. Change your password if it wasn't you.");
+      break;
+    case "lock_escape":
+      subject = "AVORA: yêu cầu tắt Khoá thiết bị sau 72 giờ";
+      vi = p("Chào bạn,") + p(`Có yêu cầu <strong>“Tôi không còn máy chính”</strong> lúc ${when}. Khoá thiết bị sẽ tự tắt sau <strong>72 giờ</strong>.`) +
+        p("Không phải bạn? Bấm <strong>Huỷ</strong> trên trang dưới đây hoặc trong Hồ sơ › Bảo mật của máy chính.") + open + scanNote;
+      en = p("Hi,") + p("Someone asked to turn off device lock because they no longer have the main device. It turns off in 72 hours unless you cancel.") + enLink;
+      break;
+  }
+  const text = `${subject}\n${body.when}${link === null ? "" : `\n${link}`}`;
+  return { subject, html: frame(vi, en, footer), text };
+}
+
 function compose(body: Body): { subject: string; html: string; text: string } {
+  if (body.kind === "device") return composeDevice(body);
   const email = escapeHtml(body.email);
   if (body.kind === "reset_code") {
     const vi = p("Chào bạn,") + p("Đây là mã xác nhận để đặt lại mã Két sắt trong AVORA:") + codeBox(body.code) +
@@ -90,6 +185,12 @@ function isBody(value: unknown): value is Body {
     return (
       (v.action === "reset" || v.action === "change" || v.action === "signout") && typeof v.when === "string"
     );
+  }
+  if (v.kind === "device") {
+    const actions = ["new", "rank_code", "rank_taken", "lost_report", "lost_result", "lock_on", "lock_attempt", "lock_escape"];
+    if (typeof v.action !== "string" || !actions.includes(v.action) || typeof v.when !== "string") return false;
+    if (v.action === "rank_code") return typeof v.code === "string" && /^[0-9]{6}$/.test(v.code);
+    return true;
   }
   return false;
 }

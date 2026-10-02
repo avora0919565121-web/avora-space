@@ -14,6 +14,10 @@ import { HOME_ROUTE } from "@/lib/navigation";
 import { ChatRealtimeProvider } from "@/lib/realtime";
 
 import AcceptContactInvite from "./pages/AcceptContactInvite";
+import ArgonBench from "./pages/ArgonBench";
+import PublicPolicy from "./pages/PublicPolicy";
+import SettingsPolicy from "./pages/SettingsPolicy";
+import DeviceConfirm from "./pages/DeviceConfirm";
 import Auth from "./pages/Auth";
 import ThinkHub from "./pages/ThinkHub";
 import ConnectByPin from "./pages/ConnectByPin";
@@ -64,8 +68,13 @@ const App = () => (
               <Route path="/dang-ky" element={<Navigate to="/dang-nhap?mode=dang-ky" replace />} />
               {/* Public on purpose: the recovery session is not allowed past RequireAuth yet. */}
               <Route path="/dat-lai-mat-khau" element={<ResetPassword />} />
+              {/* AVORA-67: email links work without signing in; opening the page changes nothing. */}
+              <Route path="/xac-nhan-thiet-bi" element={<DeviceConfirm />} />
+              {/* AVORA-66: the policy is readable before signing up. */}
+              <Route path="/chinh-sach" element={<PublicPolicy />} />
               <Route element={<RequireAuth />}>
                 <Route path="/tong-quan" element={<Dashboard />} />
+                <Route path="/thu-argon" element={<ArgonBench />} />
                 <Route path="/tin-nhan" element={<Messages />} />
                 <Route path="/tin-nhan/:conversationId" element={<Messages />} />
                 <Route path="/loi-moi/:token" element={<JoinGroup />} />
@@ -88,6 +97,7 @@ const App = () => (
 
                 <Route path="/cai-dat" element={<Settings />}>
                   <Route index element={<Profile />} />
+                  <Route path="chinh-sach" element={<SettingsPolicy />} />
                   <Route path="thiet-lap" element={<SettingsPreferences />} />
                   <Route path="thong-bao" element={<SettingsNotifications />} />
                   <Route path="avora-ai" element={<SettingsAssistant />} />

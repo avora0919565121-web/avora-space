@@ -147,6 +147,8 @@ export async function fetchOpportunities(): Promise<Opportunity[]> {
   const { data, error } = await supabase
     .from("crm_opportunity")
     .select("*")
+    // AVORA-72: `Bỏ cơ hội` is soft — removed ones live only in the board's trash.
+    .is("removed_at" as never, null)
     .order("created_at", { ascending: false });
 
   if (error) throw fail(error.code, error.message);
@@ -292,8 +294,121 @@ export async function updateOpportunityDetails(input: {
   if (error) throw fail(error.code, error.message);
 }
 
-/** Drops an opportunity recorded by mistake. The contact itself is untouched. */
+/**
+ * `Bỏ cơ hội` (AVORA-72 · Luật 5): the person is no longer an opportunity; the contact stays.
+ * Soft — the row on `Danh sách cơ hội` goes to that board's trash with its own columns and sub-tables.
+ */
 export async function deleteOpportunity(opportunityId: string): Promise<void> {
-  const { error } = await supabase.from("crm_opportunity").delete().eq("id", opportunityId);
+  const { error } = await supabase
+    .from("crm_opportunity")
+    .update({ removed_at: new Date().toISOString() } as never)
+    .eq("id", opportunityId);
   if (error) throw fail(error.code, error.message);
+}
+
+/** `Bước tiếp theo` — date + short words, edited on the contact or the board. */
+export async function updateOpportunityNext(input: { opportunityId: string; date: string | null; note: string | null }): Promise<void> {
+  const { error } = await supabase
+    .from("crm_opportunity")
+    .update({ next_action_date: input.date, next_action_note: input.note?.trim() || null } as never)
+    .eq("id", input.opportunityId);
+  if (error) throw fail(error.code, error.message);
+}
+
+/** The row a synced board needs: the opportunity plus its live contact. */
+export type OpportunityBoardRow = {
+  id: string;
+  contactId: string | null;
+  title: string;
+  stage: OpportunityStage;
+  estimatedValue: number | null;
+  nextActionDate: string | null;
+  nextActionNote: string | null;
+  lastContactAt: string | null;
+  conversationId: string | null;
+  removedAt: string | null;
+  contact: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    contactType: string;
+    employerName: string | null;
+    representative: string | null;
+    industry: string | null;
+    address: string | null;
+    taxCode: string | null;
+    relationship: string | null;
+    note: string | null;
+    needsDetails: boolean;
+  } | null;
+};
+
+type BoardRowRaw = {
+  id: string;
+  contact_id: string | null;
+  title: string;
+  stage: string;
+  estimated_value: number | null;
+  next_action_date: string | null;
+  next_action_note: string | null;
+  last_contact_at: string | null;
+  conversation_id: string | null;
+  removed_at: string | null;
+  contact_snapshot: { name?: string } | null;
+  contact: {
+    name: string;
+    phone: string | null;
+    email: string | null;
+    contact_type: string;
+    representative_name: string | null;
+    representative_phone: string | null;
+    industry: string | null;
+    business_address: string | null;
+    tax_code: string | null;
+    relationship_tag: string | null;
+    note: string | null;
+    needs_details: boolean | null;
+    employer: { name: string } | null;
+  } | null;
+};
+
+/** Opportunities joined with their contact, read live (ADR-045: nothing is copied). */
+export async function fetchOpportunityBoardRows(): Promise<OpportunityBoardRow[]> {
+  const { data, error } = await supabase
+    .from("crm_opportunity")
+    .select(
+      "id, contact_id, title, stage, estimated_value, next_action_date, next_action_note, last_contact_at, conversation_id, removed_at, contact_snapshot, contact:contact_id(name, phone, email, contact_type, representative_name, representative_phone, industry, business_address, tax_code, relationship_tag, note, needs_details, employer:employer_contact_id(name))" as never,
+    );
+  if (error) throw fail(error.code, error.message);
+  return ((data ?? []) as unknown as BoardRowRaw[]).map((row) => ({
+    id: row.id,
+    contactId: row.contact_id,
+    title: row.title,
+    stage: isOpportunityStage(row.stage) ? row.stage : "lead",
+    estimatedValue: row.estimated_value === null ? null : Number(row.estimated_value),
+    nextActionDate: row.next_action_date,
+    nextActionNote: row.next_action_note,
+    lastContactAt: row.last_contact_at,
+    conversationId: row.conversation_id,
+    removedAt: row.removed_at,
+    contact:
+      row.contact === null
+        ? row.contact_snapshot?.name
+          ? { name: row.contact_snapshot.name, phone: null, email: null, contactType: "individual", employerName: null, representative: null, industry: null, address: null, taxCode: null, relationship: null, note: null, needsDetails: false }
+          : null
+        : {
+            name: row.contact.name,
+            phone: row.contact.phone,
+            email: row.contact.email,
+            contactType: row.contact.contact_type,
+            employerName: row.contact.employer?.name ?? null,
+            representative: [row.contact.representative_name, row.contact.representative_phone].filter(Boolean).join(" · ") || null,
+            industry: row.contact.industry,
+            address: row.contact.business_address,
+            taxCode: row.contact.tax_code,
+            relationship: row.contact.relationship_tag,
+            note: row.contact.note,
+            needsDetails: row.contact.needs_details === true,
+          },
+  }));
 }

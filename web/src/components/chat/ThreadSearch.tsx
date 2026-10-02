@@ -35,7 +35,8 @@ export function ThreadSearch({
 }: {
   conversationId: string;
   senderNameOf: (message: ChatMessage) => string;
-  onJumpTo: (messageId: string) => void;
+  /** The query rides along so the landing line can light up the matching words (AVORA-70). */
+  onJumpTo: (messageId: string, query: string) => void;
   onClose: () => void;
 }) {
   const [query, setQuery] = useState<string>("");
@@ -128,7 +129,7 @@ export function ThreadSearch({
                       <li key={message.id}>
                         <button
                           type="button"
-                          onClick={() => onJumpTo(message.id)}
+                          onClick={() => onJumpTo(message.id, debounced)}
                           className={cn(
                             "press w-full rounded-[8px] border border-transparent px-2.5 py-2 text-left transition-colors",
                             "hover:border-border hover:bg-accent/40",

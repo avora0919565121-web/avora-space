@@ -3,6 +3,8 @@ import { Loader2 } from "lucide-react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
+import { DeviceGuard } from "@/components/DeviceGuard";
+import { DeviceRankPrompt } from "@/components/DeviceSecurity";
 import { GuestMachineBanner } from "@/components/GuestMachineBanner";
 import { PinGate, PinReminderBanner } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
@@ -49,7 +51,9 @@ export function RequireAuth() {
   if (isRecovering) return <Navigate to="/dat-lai-mat-khau" replace />;
 
   return (
-    // AVORA 33: the PIN blocks only after its 30-day window; until then a quiet banner reminds.
+    // AVORA-67: a blocked session sees only the block screen — before the PIN gate, before any data.
+    <DeviceGuard>
+    {/* AVORA 33: the PIN blocks only after its 30-day window; until then a quiet banner reminds. */}
     <PinGate>
     {/* AVORA-51: the Két sắt lock is known to every screen (badge, quick transaction), not only Két sắt. */}
     <VaultLockProvider>
@@ -84,8 +88,10 @@ export function RequireAuth() {
       <PersonCardHost />
       <GroupCardHost />
       <FocusHost />
+      <DeviceRankPrompt />
     </div>
     </VaultLockProvider>
     </PinGate>
+    </DeviceGuard>
   );
 }

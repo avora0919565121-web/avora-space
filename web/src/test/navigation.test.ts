@@ -75,6 +75,7 @@ describe("the sectioned screens", () => {
   it("opens Cài đặt on the profile, with Hướng dẫn last in the row (AVORA-57 · A)", () => {
     expect(SETTINGS_TABS.map((tab) => tab.label)).toEqual([
       "Hồ sơ",
+      "Chính sách",
       "Tuỳ chọn chung",
       "Thông báo",
       "Avora AI",
@@ -82,6 +83,7 @@ describe("the sectioned screens", () => {
     ]);
     expect(SETTINGS_TABS.map((tab) => tab.to)).toEqual([
       "/cai-dat",
+      "/cai-dat/chinh-sach",
       "/cai-dat/thiet-lap",
       "/cai-dat/thong-bao",
       "/cai-dat/avora-ai",

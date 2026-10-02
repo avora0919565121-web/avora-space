@@ -492,15 +492,20 @@ export function shouldShowMemberSearch(memberCount: number): boolean {
  * everyone. This is what the panel filters the roster and the pending-removal list with, so
  * an admin can pull up one person to act on without scrolling a large group.
  */
-export function memberMatchesQuery(member: GroupMember, query: string): boolean {
+export function memberMatchesQuery(member: GroupMember, query: string, myNames?: ReadonlyMap<string, string>): boolean {
   const needle = query.trim().toLowerCase();
   if (!needle) return true;
-  return (member.displayName ?? "").toLowerCase().includes(needle);
+  // AVORA-71 · E: my own name for them (Liên hệ / tên gợi nhớ) matches too, accent-free.
+  const fold = (text: string): string => text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D").toLowerCase();
+  const folded = fold(needle);
+  return [member.displayName ?? "", myNames?.get(member.userId) ?? ""].some(
+    (name) => name.toLowerCase().includes(needle) || fold(name).includes(folded),
+  );
 }
 
 /** The members matching the query, keeping the caller's ordering untouched. */
-export function filterGroupMembers(members: GroupMember[], query: string): GroupMember[] {
-  return members.filter((member) => memberMatchesQuery(member, query));
+export function filterGroupMembers(members: GroupMember[], query: string, myNames?: ReadonlyMap<string, string>): GroupMember[] {
+  return members.filter((member) => memberMatchesQuery(member, query, myNames));
 }
 
 /** Role badge text. Short forms keep member rows at one line. */

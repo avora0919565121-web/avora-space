@@ -13,11 +13,12 @@ import {
   conversationSourceTasks,
   firstLineByDay,
   localDayKey,
-  type FileFilter,
 } from "@/lib/conversation-diary";
 import { useTasks } from "@/lib/use-tasks";
 import type { TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
+import { FileChipRow } from "@/components/chat/FileChipRow";
+import { matchesFileChip, readFileChip, writeFileChip, type FileChip } from "@/lib/file-category";
 
 type DiaryTab = "days" | "files" | "links" | "sources";
 
@@ -60,7 +61,12 @@ export function ConversationDiarySheet({
   onOpenTask: (task: TaskItem) => void;
 }) {
   const [tab, setTab] = useState<DiaryTab>("days");
-  const [fileFilter, setFileFilter] = useState<FileFilter>("all");
+  // AVORA-73 · B: the same chip row as File của tôi, remembered per device.
+  const [fileChip, setFileChipState] = useState<FileChip>(() => readFileChip("avora.conversation-files.chip"));
+  const setFileChip = (next: FileChip): void => {
+    setFileChipState(next);
+    writeFileChip("avora.conversation-files.chip", next);
+  };
   const [month, setMonth] = useState<Date>(() => {
     const now = new Date();
     return new Date(now.getFullYear(), now.getMonth(), 1);
@@ -86,8 +92,8 @@ export function ConversationDiarySheet({
   const links = useMemo(() => conversationLinks(lines), [lines]);
   const allFiles = useMemo(() => conversationFiles(attachmentsQuery.data ?? [], lines, "all"), [attachmentsQuery.data, lines]);
   const files = useMemo(
-    () => (fileFilter === "all" ? allFiles : allFiles.filter((file) => file.kind === fileFilter)),
-    [allFiles, fileFilter],
+    () => allFiles.filter((file) => matchesFileChip({ kind: file.kind, mimeType: file.mimeType, fileName: file.fileName, captureSource: file.captureSource ?? null }, fileChip)),
+    [allFiles, fileChip],
   );
   const sources = useMemo(() => conversationSourceTasks(tasks ?? [], conversationId), [tasks, conversationId]);
 
@@ -213,28 +219,12 @@ export function ConversationDiarySheet({
             </div>
           ) : tab === "files" ? (
             <div>
-              <div role="group" aria-label="Lọc tệp" className="mb-3 flex gap-1.5">
-                {(
-                  [
-                    ["all", "Tất cả"],
-                    ["image", "Ảnh"],
-                    ["file", "Tệp"],
-                    ["voice", "Ghi âm"],
-                  ] as const
-                ).map(([id, label]) => (
-                  <button
-                    key={id}
-                    type="button"
-                    aria-pressed={fileFilter === id}
-                    onClick={() => setFileFilter(id)}
-                    className={cn(
-                      "press min-h-9 rounded-full border px-3 text-[12.5px]",
-                      fileFilter === id ? "border-foreground/25 bg-accent text-foreground" : "border-border text-muted-foreground",
-                    )}
-                  >
-                    {label}
-                  </button>
-                ))}
+              <div className="-mx-1 mb-3">
+                <FileChipRow
+                  files={allFiles.map((file) => ({ kind: file.kind, mimeType: file.mimeType, fileName: file.fileName, captureSource: file.captureSource ?? null }))}
+                  chip={fileChip}
+                  onChip={setFileChip}
+                />
               </div>
               {files.length === 0 ? (
                 <p className="py-10 text-center text-[13.5px] text-muted-foreground">Chưa có tệp nào ở đây.</p>

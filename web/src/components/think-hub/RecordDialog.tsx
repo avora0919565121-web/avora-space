@@ -68,6 +68,8 @@ type RecordDialogProps = {
   boardOwnerId?: string;
   /** AVORA-65 · E: a shared board — a Liên hệ cell then says the name will be seen by everyone. */
   isSharedBoard?: boolean;
+  /** AVORA-72: a line saying synced cells edit Danh bạ / the opportunity. */
+  syncNote?: string;
 };
 
 /**
@@ -251,6 +253,7 @@ export function RecordDialog({
   isReadOnly = false,
   boardOwnerId,
   isSharedBoard = false,
+  syncNote,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
@@ -376,6 +379,7 @@ export function RecordDialog({
               ? "Chỉ tiêu đề là bắt buộc. Những ô còn lại điền dần cũng được."
               : "Sửa gì lưu nấy — những ô bạn không đụng tới giữ nguyên."}
           </DialogDescription>
+          {syncNote !== undefined ? <p className="mt-1.5 rounded-md bg-secondary/60 px-3 py-1.5 text-[12.5px] text-foreground" data-sync-note="">{syncNote}</p> : null}
           {/* AVORA-53 · 5.4: the extra actions live in ⋯ at the head; Lưu / Huỷ are the fixed footer. */}
           {record !== null && (onToggleStar !== undefined || onMove !== undefined || onCopy !== undefined || onQuickTask !== undefined || subTables !== undefined) ? (
             <DropdownMenu>

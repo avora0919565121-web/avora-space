@@ -219,6 +219,12 @@ export type ThinkTable = {
   orphanOrigin: string | null;
   /** AVORA-69: a shared board is `Cùng sửa` (edit) or `Chỉ xem` (view: the owner changes it). */
   shareMode?: "edit" | "view";
+  /** AVORA-72 (ADR-045): a system board fed by a source (`contact_opportunities`). */
+  syncSource?: "contact_opportunities" | null;
+  /** AVORA-72: `Ẩn khỏi danh sách` (the synced board only). */
+  hiddenInList?: boolean;
+  /** AVORA-72: synced columns the owner folded away. */
+  syncHidden?: readonly string[];
 };
 
 /** One status a table offers; `done` ones count as finished for the ★ tile. */
@@ -251,6 +257,8 @@ export type ThinkRecord = {
   deletedAt: string | null;
   /** C11: "Chuyển từ Bảng … · dd/mm". */
   movedFrom: { tableName: string; at: string } | null;
+  /** AVORA-72: the opportunity this Hạng mục mirrors on the synced board. */
+  opportunityId?: string | null;
 };
 
 export const thinkHubKeys = {
@@ -325,6 +333,9 @@ type TableRow = {
   kind?: string | null;
   orphan_origin?: string | null;
   share_mode?: string | null;
+  sync_source?: string | null;
+  hidden_in_list?: boolean | null;
+  sync_hidden?: string[] | null;
 };
 
 type RecordRow = {
@@ -346,6 +357,7 @@ type RecordRow = {
   updated_at: string;
   deleted_at: string | null;
   moved_from?: unknown;
+  opportunity_id?: string | null;
 };
 
 /** AVORA-65 · E: the name a picker brought into a shared Liên hệ cell, and who picked it. */
@@ -484,6 +496,9 @@ function toTable(row: TableRow): ThinkTable {
     kind: row.kind === "bookshelf" ? "bookshelf" : null,
     orphanOrigin: row.orphan_origin ?? null,
     shareMode: row.share_mode === "view" ? "view" : "edit",
+    syncSource: row.sync_source === "contact_opportunities" ? "contact_opportunities" : null,
+    hiddenInList: row.hidden_in_list === true,
+    syncHidden: row.sync_hidden ?? [],
   };
 }
 
@@ -509,6 +524,7 @@ function toRecord(row: RecordRow): ThinkRecord {
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
     movedFrom: parseMovedFrom(row.moved_from),
+    opportunityId: row.opportunity_id ?? null,
   };
 }
 

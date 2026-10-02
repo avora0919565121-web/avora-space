@@ -134,6 +134,8 @@ export const VAULT_TABS: readonly NavEntry[] = [
 /** Cài đặt: the profile, the app's own settings, its notifications, and the unbuilt assistant. */
 export const SETTINGS_TABS: readonly NavEntry[] = [
   { to: "/cai-dat", label: "Hồ sơ" },
+  // AVORA-66 (ADR-040): second, right after the account.
+  { to: "/cai-dat/chinh-sach", label: "Chính sách" },
   // Not "Thiết lập": that reads as a synonym of the section name "Cài đặt". Route unchanged.
   { to: "/cai-dat/thiet-lap", label: "Tuỳ chọn chung" },
   { to: "/cai-dat/thong-bao", label: "Thông báo" },

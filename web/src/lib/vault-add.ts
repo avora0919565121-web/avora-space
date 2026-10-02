@@ -10,9 +10,9 @@ export type VaultAddEntry = { path: string; label: string; enabled: boolean };
 export const VAULT_ADD_ENTRIES: readonly VaultAddEntry[] = [
   { path: "/ket-sat", label: "Giao dịch", enabled: true },
   { path: "/ket-sat/mat-khau", label: "Mật khẩu", enabled: false },
-  { path: "/ket-sat/chung-chi", label: "Chứng chỉ", enabled: false },
-  { path: "/ket-sat/tai-lieu", label: "Tài liệu", enabled: false },
-  { path: "/ket-sat/tai-san", label: "Tài sản", enabled: false },
+  { path: "/ket-sat/chung-chi", label: "Chứng chỉ", enabled: true },
+  { path: "/ket-sat/tai-lieu", label: "Tài liệu", enabled: true },
+  { path: "/ket-sat/tai-san", label: "Tài sản", enabled: true },
 ];
 
 /** The entry for the sub-tab that is open (finance sub-routes belong to Tài chính). */

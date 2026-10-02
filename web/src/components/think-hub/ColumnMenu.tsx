@@ -89,7 +89,10 @@ export function ColumnMenu({
   const subject: ColumnDef = column ?? { id: columnId, key: columnId, label, type: "text" };
   const hold = useLongPress({ onHold: () => setIsOpen(true), pointerTypes: ["touch", "pen"], contextMenu: "always" });
   const systemReason = "Cột hệ thống của mọi Bảng.";
-  const locked = actions.lockedReason ?? null;
+  // AVORA-72 (ADR-045): a synced column comes from Danh bạ / the opportunity — only hide, sort, filter.
+  const isSynced = column !== null && column.key.startsWith("sync_");
+  const syncedReason = "Cột đồng bộ từ Danh bạ — chỉ ẩn được.";
+  const locked = isSynced ? syncedReason : (actions.lockedReason ?? null);
   const safe = column === null ? [] : (actions.safeTypes?.(column) ?? []);
 
   return (
@@ -194,6 +197,10 @@ export function ColumnMenu({
         </DropdownMenuSub>
         {isSystem ? (
           <Blocked reason={systemReason}>Ẩn cột</Blocked>
+        ) : isSynced && actions.onHide !== undefined ? (
+          <DropdownMenuItem className="min-h-10 gap-2" onSelect={() => actions.onHide?.(subject)}>
+            <EyeOff className="h-4 w-4" aria-hidden="true" /> Ẩn cột
+          </DropdownMenuItem>
         ) : locked !== null || actions.onHide === undefined ? (
           <Blocked reason={locked ?? "Chỉ chủ Bảng ẩn được."}>Ẩn cột</Blocked>
         ) : (
@@ -218,8 +225,8 @@ export function ColumnMenu({
           </DropdownMenuSub>
         )}
         <DropdownMenuSeparator />
-        {isSystem ? (
-          <Blocked reason="Cột hệ thống không xoá được.">Xoá cột</Blocked>
+        {isSystem || isSynced ? (
+          <Blocked reason={isSynced ? syncedReason : "Cột hệ thống không xoá được."}>Xoá cột</Blocked>
         ) : actions.onDelete !== undefined && locked === null ? (
           <DropdownMenuItem className="min-h-10 gap-2 text-destructive focus:text-destructive" onSelect={() => actions.onDelete?.(subject)}>
             <Trash2 className="h-4 w-4" aria-hidden="true" /> Xoá cột

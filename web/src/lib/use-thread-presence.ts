@@ -70,8 +70,9 @@ export function useThreadPresence(
       return;
     }
 
+    // S2: a private channel — realtime.messages policies let only participants of an allowed session in.
     const channel = supabase.channel(`thread-${conversationId}`, {
-      config: { presence: { key: userId } },
+      config: { private: true, presence: { key: userId } },
     });
     channelRef.current = channel;
 

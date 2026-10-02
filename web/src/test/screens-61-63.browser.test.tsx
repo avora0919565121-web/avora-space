@@ -934,12 +934,12 @@ function seedJournal(extraDayLines = 0): void {
     ...(db.rpcs.list_my_conversations as unknown[]),
   ];
 }
-/** Opens Nhật ký and turns on `Hiện tất cả` (44's rule is kept: files / links show with it on). */
+/** Opens Nhật ký — every entry shows since AVORA-70 dropped the `Hiện tất cả` switch. */
 async function openJournal(width: number, height: number, at = "/tin-nhan/j1?xem=nhat-ky") {
   await viewport(width, height);
   const screen = await render(<JournalHubs at={at} />);
   await expect.element(screen.getByText("Viết cho mình: hôm nay xong phần móng").first()).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("switch", { name: "Hiện tất cả" }));
+  expect(document.querySelector('[role="switch"][aria-label="Hiện tất cả"]')).toBeNull();
   await settle(400);
   return screen;
 }

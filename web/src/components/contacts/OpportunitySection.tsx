@@ -127,6 +127,11 @@ export function OpportunitySection({
         </ul>
       )}
 
+      {opportunities.length > 0 ? (
+        <a href="/ke-hoach?danh-sach-co-hoi=1" className="press flex min-h-11 items-center border-t border-border px-5 text-[13.5px] font-medium text-primary" data-open-opportunity-board="">
+          Mở trong Danh sách cơ hội ›
+        </a>
+      ) : null}
       {notice !== null ? (
         <p role="alert" className="border-t border-border px-5 py-3 text-[13px] text-primary">
           {notice}
@@ -232,7 +237,7 @@ function OpportunityRow({
             ) : (
               <>
                 <span className="text-[12.5px] text-muted-foreground">
-                  Bỏ cơ hội này? Liên hệ vẫn giữ nguyên.
+                  Bỏ {opportunity.title} khỏi danh sách cơ hội? Liên hệ vẫn còn trong Danh bạ.
                 </span>
                 <Button
                   variant="outline"

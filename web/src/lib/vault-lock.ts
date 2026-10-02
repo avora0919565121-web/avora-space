@@ -23,6 +23,12 @@ export type VaultStatus = {
   lockedUntil: string | null;
   /** Tries left before the next wait. */
   remaining: number;
+  /** AVORA-68: the account has an encrypted keyring (Chứng chỉ · Tài liệu · Tài sản). */
+  hasKeyring: boolean;
+  /** AVORA-68: this device holds a Két sắt share (quick open by the 6-digit code). */
+  deviceShare: boolean;
+  /** AVORA-67 · 3.5: Két sắt may open on this device (Ưu tiên 1 – 2, or allowed elsewhere). */
+  deviceAllowed: boolean;
 };
 
 export type VaultAttempt =
@@ -49,6 +55,9 @@ export function parseVaultStatus(raw: unknown): VaultStatus {
     expiresAt: text(row.expires_at),
     lockedUntil: text(row.locked_until),
     remaining: typeof row.remaining === "number" ? Math.max(0, row.remaining) : 5,
+    hasKeyring: row.has_keyring === true,
+    deviceShare: row.device_share === true,
+    deviceAllowed: row.device_allowed !== false,
   };
 }
 
@@ -95,6 +104,9 @@ export function waitLine(lockedUntil: string, now: number): string {
 /** Server errors of the lock, said plainly. */
 export function vaultErrorMessage(message: string): string {
   const m = message.toLowerCase();
+  // AVORA-67 · 3.5: Két sắt opens on Ưu tiên 1 – 2 only, unless the owner allowed other devices.
+  if (m.includes("avora_vault_device_not_allowed")) return "Két sắt chỉ mở trên điện thoại và máy tính chính của bạn.";
+  if (m.includes("avora_session_not_allowed")) return "Phiên này không còn được dùng.";
   if (m.includes("avora_vault_code_format")) return "Mã Két sắt gồm đúng 6 chữ số.";
   if (m.includes("avora_vault_code_exists")) return "Két sắt đã có mã. Mở bằng mã đó, hoặc chọn Quên mã?";
   if (m.includes("avora_vault_no_code")) return "Két sắt chưa có mã. Đặt mã trước nhé.";
@@ -114,11 +126,12 @@ export const VAULT_SET_HINT = "Mã này khoá Két sắt trên máy này và m�
  * These are the only places the word "mã hoá" may appear in Két sắt.
  */
 export const VAULT_ABOUT = {
-  title: "Khoá Két sắt là khoá cửa, chưa phải két mã hoá.",
+  title: "Mã 6 số là khoá cửa của Két sắt.",
   lines: [
     "Mã này ngăn người cầm máy của bạn (hoặc một máy khác đang đăng nhập tài khoản của bạn) mở Két sắt.",
-    "Nếu ai đó chiếm được hộp thư email của bạn, họ có thể vào tài khoản và đặt lại mã này.",
-    "AVORA đang xây phần mã hoá thật cho Két sắt. Khi có, chúng tôi sẽ báo và cách đặt lại mã sẽ thay đổi.",
+    "Chứng chỉ · Tài liệu · Tài sản: đã mã hoá ngay trên máy bạn.",
+    "Tài chính: đang bảo vệ bằng khoá Két sắt; mã hoá sắp có.",
+    "Mật khẩu: sắp có.",
   ],
 } as const;
 

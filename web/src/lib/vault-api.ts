@@ -1,4 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
+import { thisDeviceId } from "@/lib/device";
+import { rememberShare } from "@/lib/vault-keys";
 import { logError } from "@/lib/log";
 import { parseVaultAttempt, parseVaultStatus, vaultErrorMessage, type VaultAttempt, type VaultStatus } from "@/lib/vault-lock";
 
@@ -43,9 +45,14 @@ export async function setVaultCode(code: string): Promise<void> {
   if (error) throw fail(error);
 }
 
+/** S10: the device id rides along so the server can check the rank (67) and hand back the device share (68). */
 export async function unlockVault(code: string): Promise<VaultAttempt> {
-  const { data, error } = await supabase.rpc("vault_unlock", { p_code: code });
+  const deviceId = await thisDeviceId().catch(() => null);
+  const { data, error } = await supabase.rpc("vault_unlock" as never, { p_code: code, p_device_id: deviceId } as never);
   if (error) throw fail(error);
+  // AVORA-68 · 2.3: the server share comes back only on a right code, only for this bound device.
+  const share = (data as { share?: unknown } | null)?.share;
+  rememberShare(typeof share === "string" ? share : null);
   return parseVaultAttempt(data);
 }
 

@@ -97,6 +97,7 @@ import {
   tableAncestry,
   tablesInScope,
   thinkHubKeys,
+  moveThinkTable,
   todayIso,
   type ColumnDef,
   type ColumnType,
@@ -108,6 +109,9 @@ import { tablePlaces } from "@/lib/table-places";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
 import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
+import { DefaultBoardsGroup, OpportunityBoardBar, NewOpportunityDialog } from "@/components/think-hub/OpportunityBoard";
+import { isSyncBoard, isSyncColumnKey, matchesStageChip, saveSyncEdits, setBoardView, splitSyncPatch, syncColumnDefs, withSyncValues, type StageChip } from "@/lib/opportunity-board";
+import { useInvalidateOpportunityBoard, useOpportunityBoardRows } from "@/lib/use-opportunity-board";
 import { AvoraSearchButton } from "@/components/search/AvoraSearch";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { ReturnChip } from "@/components/nav/ReturnChip";
@@ -148,6 +152,8 @@ const ThinkHub = () => {
   const queryClient = useQueryClient();
   // C3 ③: the URL wins, then the table last opened on this device.
   const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM) ?? readLastTable(user?.id));
+  // AVORA-72 · A: `?danh-sach-co-hoi=1` (Liên hệ, a contact) opens the synced board, whatever was open before.
+  const wantsOpportunityBoard = searchParams.get("danh-sach-co-hoi") === "1";
   const [view, setView] = useState<ViewMode>("table");
   const viewChosenRef = useRef<string | null>(null);
   // AVORA-65 · C: on a phone held upright, one row — `Thẻ · Bảng · Theo trạng thái · Cây`.
@@ -162,6 +168,9 @@ const ThinkHub = () => {
   const allTablesQuery = useThinkTables();
   const [isTrashOpen, setIsTrashOpen] = useState<boolean>(false);
   const [onlyStarred, setOnlyStarred] = useState<boolean>(false);
+  /** AVORA-72: the synced board's stage chip (default `Đang mở`) and its `Cơ hội mới` dialog. */
+  const [stageChip, setStageChip] = useState<StageChip>("open");
+  const [isNewOpportunityOpen, setIsNewOpportunityOpen] = useState<boolean>(false);
   const [proposeTarget, setProposeTarget] = useState<{ action: ProposalAction; targetType: ProposalTarget; targetId: string; name: string } | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ThinkTable | null>(null);
   const [saveTemplateTarget, setSaveTemplateTarget] = useState<ThinkTable | null>(null);
@@ -283,7 +292,8 @@ const ThinkHub = () => {
     [tables, records, projectById],
   );
   const shelf = useMemo(
-    () => arrangeShelf(tables, records, user?.id, kindOf, placeOf, today),
+    // AVORA-72: the synced board lives in its own group (`Bảng Avora mặc định`), not in a drawer.
+    () => arrangeShelf(tables.filter((table) => !isSyncBoard(table)), records, user?.id, kindOf, placeOf, today),
     [tables, records, user?.id, kindOf, placeOf, today],
   );
   const tiles = useMemo(() => reminderTiles(tables, records, stars, today, isQuiet), [tables, records, stars, today, isQuiet]);
@@ -358,10 +368,34 @@ const ThinkHub = () => {
   );
   const activeRootId: string | undefined = ancestry[0]?.table.id ?? active?.id;
 
+  // AVORA-72 (ADR-045): the synced board reads opportunity + contact live; nothing is copied in.
+  const isSynced: boolean = isSyncBoard(active);
+  useEffect(() => {
+    if (!wantsOpportunityBoard) return;
+    const board = tables.find((table) => isSyncBoard(table));
+    if (board !== undefined && board.id !== activeId) setActiveId(board.id);
+  }, [wantsOpportunityBoard, tables, activeId]);
+  const opportunityBoard = useOpportunityBoardRows(isSynced);
+  const invalidateOpportunityBoard = useInvalidateOpportunityBoard();
+  const boardColumns: ColumnDef[] = useMemo(
+    () => (active === null ? [] : isSynced ? [...syncColumnDefs(active), ...active.columns] : [...active.columns]),
+    [active, isSynced],
+  );
   const visibleRecords: ThinkRecord[] = useMemo(() => {
-    const list = active === null ? [] : recordsOf(records, active.id);
+    let list = active === null ? [] : recordsOf(records, active.id);
+    if (isSynced) {
+      list = withSyncValues(
+        list,
+        opportunityBoard.rows,
+        (conversationId) => {
+          const here = conversationById.get(conversationId);
+          return here === undefined ? "Cuộc trò chuyện" : conversationTitle(here);
+        },
+        (recordId) => recordTaskLinksQuery.data?.filter((link) => link.recordId === recordId).length ?? 0,
+      ).filter((record) => matchesStageChip(record.status, stageChip));
+    }
     return onlyStarred ? list.filter((record) => stars.has(record.id)) : list;
-  }, [records, active, onlyStarred, stars]);
+  }, [records, active, onlyStarred, stars, isSynced, opportunityBoard.rows, stageChip, conversationById, recordTaskLinksQuery.data]);
 
   const tasksById = useMemo(() => new Map((tasksQuery.data ?? []).map((task) => [task.id, task] as const)), [tasksQuery.data]);
 
@@ -562,16 +596,34 @@ const ThinkHub = () => {
   const handleToggleColumnHidden = useCallback(
     (column: ColumnDef, hidden: boolean): void => {
       if (active === null) return;
+      // AVORA-72: a synced column is only folded away for me (it lives in Danh bạ, not on the board).
+      if (isSyncColumnKey(column.key)) {
+        const current = boardColumns.filter((c) => isSyncColumnKey(c.key) && c.hidden === true).map((c) => c.key);
+        const next = hidden ? [...new Set([...current, column.key])] : current.filter((k) => k !== column.key);
+        void setBoardView({ syncHidden: next }).then(
+          () => {
+            void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
+            toast.success(hidden ? `Đã ẩn cột "${column.label}".` : `Đã hiện lại cột "${column.label}".`);
+          },
+          (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được cột."),
+        );
+        return;
+      }
       actions.setColumnHidden({ tableId: active.id, columnId: column.id, hidden }).then(
         () => toast.success(hidden ? `Đã ẩn cột "${column.label}".` : `Đã hiện lại cột "${column.label}".`),
         (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được cột."),
       );
     },
-    [actions, active],
+    [actions, active, boardColumns, queryClient],
   );
 
   const openNewRecord = useCallback((): void => {
     if (active === null) return;
+    // AVORA-72: the synced board's `+` is `Cơ hội mới` — a Hạng mục appears from the opportunity.
+    if (isSyncBoard(active)) {
+      setIsNewOpportunityOpen(true);
+      return;
+    }
     if (isTableFull(records, active.id)) {
       toast.error(`Bảng đã đầy ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục, hãy dọn bớt trước khi thêm.`);
       return;
@@ -622,6 +674,16 @@ const ThinkHub = () => {
   const handleSaveRecord = useCallback(
     async (patch: RecordPatch): Promise<void> => {
       if (editing !== null) {
+        const row = editing.opportunityId == null ? undefined : opportunityBoard.byId.get(editing.opportunityId);
+        if (row !== undefined) {
+          // AVORA-72: synced cells go back to Danh bạ / the opportunity; the rest stays on the board.
+          const split = splitSyncPatch(patch);
+          await saveSyncEdits(row, split.contact, split.opportunity);
+          await actions.updateRecord(editing.id, split.board);
+          invalidateOpportunityBoard();
+          toast.success("Đã lưu.");
+          return;
+        }
         await actions.updateRecord(editing.id, patch);
         toast.success("Đã lưu.");
         return;
@@ -646,7 +708,7 @@ const ThinkHub = () => {
       });
       toast.success("Đã thêm Hạng mục.");
     },
-    [actions, editing, targetTable, records],
+    [actions, editing, targetTable, records, opportunityBoard.byId, invalidateOpportunityBoard],
   );
 
   /** AVORA-61 · D: a Có / Không cell ticks in place; the rest of the record's fields stay as they are. */
@@ -694,7 +756,9 @@ const ThinkHub = () => {
           (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được loại cột."),
         ),
       onHide: (column) =>
-        void actions.setColumnHidden({ tableId: table.id, columnId: column.id, hidden: true }).then(
+        isSyncColumnKey(column.key)
+          ? handleToggleColumnHidden(column, true)
+          : void actions.setColumnHidden({ tableId: table.id, columnId: column.id, hidden: true }).then(
           () => toast.success(`Đã ẩn cột "${column.label}".`),
           (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được cột."),
         ),
@@ -859,6 +923,23 @@ const ThinkHub = () => {
   /** AVORA-61 · C: the board's own actions, one list, shown beside its name. */
   const boardMenuItems: BoardMenuItem[] = (() => {
     if (active === null) return [];
+    // AVORA-72 · Luật 2: no Xoá / Lưu trữ / Di chuyển / Đổi tên / Sửa mục tiêu — only `Ẩn khỏi danh sách`.
+    if (isSyncBoard(active)) {
+      return [
+        {
+          id: "hide-in-list",
+          label: active.hiddenInList === true ? "Hiện trong danh sách" : "Ẩn khỏi danh sách",
+          onSelect: () =>
+            void setBoardView({ hiddenInList: active.hiddenInList !== true }).then(
+              () => {
+                void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
+                toast.success(active.hiddenInList === true ? "Đã hiện lại trong danh sách." : "Đã ẩn khỏi danh sách. Hiện lại ở menu ⋯ của Bảng.");
+              },
+              (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."),
+            ),
+        },
+      ];
+    }
     const isFixed = active.kind === "bookshelf" || isProjectRoot;
     const fixedReason = active.kind === "bookshelf" ? "Kệ sách là bảng hệ thống." : "Bảng gốc của Dự án đi cùng Dự án.";
     const items: BoardMenuItem[] = [
@@ -897,6 +978,22 @@ const ThinkHub = () => {
               : null,
       onSelect: () => setIsMoveOpen(true),
     });
+    // AVORA-69: the owner flips `Cùng sửa` / `Chỉ xem` of a board already shared into a conversation.
+    if (isOwner && active.conversationId !== null && active.parentRecordId === null && !isFixed) {
+      const nextMode: "edit" | "view" = active.shareMode === "view" ? "edit" : "view";
+      items.push({
+        id: "share-mode",
+        label: nextMode === "view" ? "Đổi sang Chỉ xem" : "Đổi sang Cùng sửa",
+        onSelect: () =>
+          void moveThinkTable({ tableId: active.id, conversationId: active.conversationId, mode: nextMode }).then(
+            () => {
+              void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
+              toast.success(nextMode === "view" ? "Mọi người giờ chỉ xem Bảng này." : "Mọi người giờ cùng sửa được Bảng này.");
+            },
+            (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."),
+          ),
+      });
+    }
     if (isShared) {
       items.push({ id: "history", label: "Lịch sử thay đổi", onSelect: () => setIsHistoryOpen(true) });
       items.push({
@@ -1006,6 +1103,7 @@ const ThinkHub = () => {
               variant="card"
               initialOpen={searchParams.get("nhin-lai") === "week" ? "week" : searchParams.get("nhin-lai") === "day" ? "day" : null}
             />
+            <DefaultBoardsGroup boards={tables.filter((table) => isSyncBoard(table) && table.deletedAt === null)} activeId={active?.id ?? null} onOpen={(id) => { openTable(id); setView("table"); }} />
             <HubShelf
               tiles={tiles}
               shelf={shelf}
@@ -1106,7 +1204,7 @@ const ThinkHub = () => {
                 </form>
               ) : (
                 <div className="flex min-w-0 items-center gap-1">
-                  {isReadOnly || active.kind === "bookshelf" || isProjectRoot ? (
+                  {isReadOnly || active.kind === "bookshelf" || isProjectRoot || isSynced ? (
                     <h2 className="min-w-0 truncate text-[20px] font-semibold tracking-tight text-foreground">{active.name}</h2>
                   ) : (
                     <button
@@ -1143,6 +1241,10 @@ const ThinkHub = () => {
                   return here === undefined ? "cuộc trò chuyện" : conversationTitle(here);
                 })()} · {active.shareMode === "view" ? "Chỉ xem" : "Cùng sửa"}
               </p>
+            ) : null}
+
+            {isSynced ? (
+              <OpportunityBoardBar chip={stageChip} onChip={setStageChip} records={visibleRecords} isEmpty={opportunityBoard.rows.filter((row) => row.removedAt === null).length === 0} onNew={() => setIsNewOpportunityOpen(true)} />
             ) : null}
 
             <section aria-label="Mục đích của bảng" className="mt-3 rounded-lg border border-border bg-card px-4 py-3">
@@ -1185,7 +1287,7 @@ const ThinkHub = () => {
                   <p className={cn("min-w-0 flex-1 text-[14px]", active.purpose === null ? "text-muted-foreground" : "text-foreground")}>
                     {active.purpose ?? "Chưa ghi mục đích."}
                   </p>
-                  {isOwner ? (
+                  {isOwner && !isSynced ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -1305,7 +1407,7 @@ const ThinkHub = () => {
                     onClick={openNewRecord}
                     className="press inline-flex min-h-9 items-center gap-1 rounded-md bg-primary px-3 text-[13.5px] font-semibold text-primary-foreground"
                   >
-                    <Plus className="h-4 w-4" aria-hidden="true" /> Hạng mục
+                    <Plus className="h-4 w-4" aria-hidden="true" /> {isSynced ? "Cơ hội mới" : "Hạng mục"}
                   </button>
                 )}
                 <button
@@ -1344,7 +1446,7 @@ const ThinkHub = () => {
               <TableView
                 tableId={active.id}
                 records={visibleRecords}
-                columns={active.columns}
+                columns={boardColumns}
                 onOpenRecord={openRecord}
                 onAddColumn={isOwner && !isReadOnly ? () => {
                   setAddColumnTableId(null);
@@ -1579,12 +1681,18 @@ const ThinkHub = () => {
         isWorking={actions.isWorking}
       />
 
+      <NewOpportunityDialog
+        open={isNewOpportunityOpen}
+        onOpenChange={setIsNewOpportunityOpen}
+        onCreated={() => invalidateOpportunityBoard()}
+      />
       <RecordDialog
         open={isRecordOpen}
         onOpenChange={setIsRecordOpen}
-        columns={(editing === null ? targetTable : editingTable)?.columns ?? []}
-        record={editing}
-        knownStatuses={knownStatuses}
+        columns={editing !== null && editingTable !== undefined && isSyncBoard(editingTable) ? [...syncColumnDefs(editingTable).map((c) => ({ ...c, hidden: false })), ...editingTable.columns] : ((editing === null ? targetTable : editingTable)?.columns ?? [])}
+        syncNote={editing !== null && editing.opportunityId != null ? "Sửa ở đây là sửa trong Danh bạ. Ô 🔗 Liên hệ, Công ty, Nơi trao đổi đổi ở chính liên hệ." : undefined}
+        record={editing !== null && editing.opportunityId != null ? (withSyncValues([editing], opportunityBoard.rows, () => "", () => 0)[0] ?? editing) : editing}
+        knownStatuses={editing !== null && editing.opportunityId != null ? ["lead", "tiem_nang", "dang_cham_soc", "doi_tac", "khong_thanh"] : knownStatuses}
         onSave={handleSaveRecord}
         isWorking={actions.isWorking}
         tableChoices={tableChoices}

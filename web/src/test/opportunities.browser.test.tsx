@@ -226,7 +226,7 @@ test("dropping an opportunity asks once before doing it", async () => {
 
   expect(state.removed).toEqual([]);
   // And the question says what survives, because the contact is not what is being dropped.
-  await expect.element(screen.getByText(/Liên hệ vẫn giữ nguyên/)).toBeInTheDocument();
+  await expect.element(screen.getByText(/Liên hệ vẫn còn trong Danh bạ/)).toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: "Bỏ cơ hội", exact: true }));
   expect(state.removed).toEqual(["o-1"]);

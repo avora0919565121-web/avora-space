@@ -2,6 +2,8 @@ import { Lock } from "lucide-react";
 import { useMemo, useState } from "react";
 
 import { AssigneePicker } from "@/components/chat/AssigneePicker";
+import { useContacts } from "@/lib/use-contacts";
+import { useUserAliases } from "@/lib/use-user-aliases";
 import type { GroupMember } from "@/lib/groups";
 import {
   choiceLabel,
@@ -46,6 +48,14 @@ export function RecipientPicker({
   lockedLabel?: string;
 }) {
   const [isPicking, setIsPicking] = useState<boolean>(false);
+  // AVORA-71 · E: the picker shows and searches my own name for each person.
+  const { aliases } = useUserAliases();
+  const { data: contacts } = useContacts();
+  const myNames = useMemo(() => {
+    const names = new Map<string, string>(aliases);
+    for (const contact of contacts ?? []) if (contact.linkedUserId !== null) names.set(contact.linkedUserId, contact.name);
+    return names;
+  }, [aliases, contacts]);
   const options = choicesFor(place);
   const pickable = useMemo(() => pickerMembers(members, selfId), [members, selfId]);
   const picked = useMemo(
@@ -110,6 +120,7 @@ export function RecipientPicker({
             onChange={(next) => onPickedIds(next.map((member) => member.userId))}
             selfId={selfId}
             allowSelf
+            myNames={myNames}
           />
           <div className="mt-2 flex justify-end">
             <button

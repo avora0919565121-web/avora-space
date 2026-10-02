@@ -27,10 +27,11 @@ export function memberLabel(member: GroupMember): string {
  * Whether a member answers to what has been typed. Only the name is searched — a group never
  * hands out its members' email addresses.
  */
-export function memberMatchesQuery(member: GroupMember, query: string): boolean {
+export function memberMatchesQuery(member: GroupMember, query: string, myNames?: ReadonlyMap<string, string>): boolean {
   const needle = foldVietnamese(query);
   if (needle === "") return true;
-  const haystacks = [memberLabel(member), member.displayName ?? ""];
+  // AVORA-71 · E: my own name for them (Liên hệ / tên gợi nhớ) matches as well as theirs.
+  const haystacks = [memberLabel(member), member.displayName ?? "", myNames?.get(member.userId) ?? ""];
   return haystacks.some((value) => foldVietnamese(value).includes(needle));
 }
 
@@ -50,12 +51,14 @@ export function searchAssignees(
     excludeUserIds: readonly string[];
     selfId?: string | undefined;
     allowSelf?: boolean;
+    /** My names for people (Liên hệ name or alias), keyed by user id. */
+    myNames?: ReadonlyMap<string, string>;
   },
 ): GroupMember[] {
   return members
     .filter((member) => options.allowSelf === true || member.userId !== options.selfId)
     .filter((member) => !options.excludeUserIds.includes(member.userId))
-    .filter((member) => memberMatchesQuery(member, query));
+    .filter((member) => memberMatchesQuery(member, query, options.myNames));
 }
 
 /** Vietnamese plural-free phrasing for how many people a task is about to be given to. */

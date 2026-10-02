@@ -455,6 +455,16 @@ const Auth = () => {
               {submitLabel}
             </button>
 
+            {/* AVORA-66: the consent line under `Tạo tài khoản`; both phrases open the public policy. */}
+            {isSignUp ? (
+              <p className="text-center text-[12.5px] leading-relaxed text-muted-foreground" data-signup-consent="">
+                Tạo tài khoản là bạn đồng ý với{" "}
+                <a href="/chinh-sach#dieu-khoan" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Điều khoản sử dụng</a>{" "}
+                và đã đọc{" "}
+                <a href="/chinh-sach#bao-mat" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Chính sách bảo mật</a>.
+              </p>
+            ) : null}
+
             {isForgot ? (
               <button
                 type="button"

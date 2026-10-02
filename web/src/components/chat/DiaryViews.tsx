@@ -12,6 +12,7 @@ import {
   NotebookText,
   Paperclip,
   ScrollText,
+  Search,
   Trash2,
   type LucideIcon,
 } from "lucide-react";
@@ -19,6 +20,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { DayLineList, type DayLine } from "@/components/chat/DayLineList";
+import { FileChipRow } from "@/components/chat/FileChipRow";
+import { fileCategoryOf, matchesFileChip, readFileChip, writeFileChip, type CategorizableFile, type FileChip } from "@/lib/file-category";
+import { normalizeSearch } from "@/lib/normalize-search";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import type { MessageAttachment } from "@/lib/attachments";
 import { formatClock, formatDayLabel } from "@/lib/chat";
@@ -316,6 +320,14 @@ export function DiaryFilesView({
   onDelete: (entry: DiaryFileNote) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  // AVORA-73: one chip at a time, remembered per device; search by file name, combined with the chip.
+  const [chip, setChipState] = useState<FileChip>(() => readFileChip(FILE_CHIP_KEY));
+  const setChip = (next: FileChip): void => {
+    setChipState(next);
+    writeFileChip(FILE_CHIP_KEY, next);
+  };
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [query, setQuery] = useState<string>("");
   if (isLoading) {
     return (
       <div className="flex justify-center py-14" role="status" aria-label="Đang tải tệp">
@@ -329,7 +341,19 @@ export function DiaryFilesView({
     | { kind: "note"; file: NoteFileRow };
   const rows = new Map<string, Row>();
   const lines: DayLine[] = [];
+  const asFile = (a: MessageAttachment): CategorizableFile => ({ kind: a.kind, mimeType: a.mimeType, fileName: a.fileName, captureSource: a.captureSource ?? null });
+  const meetingFile = (title: string): CategorizableFile => ({ kind: "file", mimeType: "application/pdf", fileName: `${title}.pdf` });
+  // Every file counts once for the chips, whatever line it sits on.
+  const allFiles: CategorizableFile[] = [
+    ...notes.flatMap((entry) => entry.attachments.map(asFile)),
+    ...meetingNotes.map((ref) => meetingFile(ref.title)),
+    ...noteFiles.map((file) => asFile(file.attachment)),
+  ];
+  const needle = normalizeSearch(query);
+  const keep = (files: readonly CategorizableFile[]): boolean =>
+    files.some((file) => matchesFileChip(file, chip) && (needle === "" || normalizeSearch(file.fileName).includes(needle)));
   for (const entry of notes) {
+    if (!keep(entry.attachments.map(asFile))) continue;
     const first = entry.attachments[0];
     const id = `j-${entry.messageId}`;
     rows.set(id, { kind: "journal", entry });
@@ -345,11 +369,13 @@ export function DiaryFilesView({
     });
   }
   for (const ref of meetingNotes) {
+    if (!keep([meetingFile(ref.title)])) continue;
     const id = `m-${ref.messageId}`;
     rows.set(id, { kind: "meeting", ref });
     lines.push({ id, at: ref.createdAt, icon: ScrollText, title: ref.title, meta: "Sổ quyết định", entryId: null });
   }
   for (const file of noteFiles) {
+    if (!keep([asFile(file.attachment)])) continue;
     const id = `n-${file.id}`;
     rows.set(id, { kind: "note", file });
     lines.push({
@@ -413,6 +439,26 @@ export function DiaryFilesView({
   };
 
   return (
+    <div data-diary-files="">
+      {/* ② One row of chips, the same on phone and computer; 🔍 opens a name search beside it. */}
+      {allFiles.length > 0 ? (
+        <div className="flex items-center gap-1 border-b border-border pr-2">
+          <div className="min-w-0 flex-1 [&>[data-file-chips]]:border-b-0">
+            <FileChipRow files={allFiles} chip={chip} onChip={setChip} />
+          </div>
+          <button type="button" onClick={() => { setIsSearching((v) => !v); setQuery(""); }} aria-label="Tìm theo tên tệp" aria-pressed={isSearching} className="icon-btn h-10 w-10 shrink-0">
+            <Search className="h-4 w-4" aria-hidden="true" />
+          </button>
+        </div>
+      ) : null}
+      {isSearching ? (
+        <div className="border-b border-border px-3 py-2">
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tên tệp…" aria-label="Tìm theo tên tệp" className="h-10 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-primary md:text-[14px]" />
+        </div>
+      ) : null}
+      {allFiles.length > 0 && lines.length === 0 ? (
+        <p className="px-4 py-10 text-center text-[13.5px] text-muted-foreground" data-files-none="">Không có tệp nào khớp.</p>
+      ) : null}
     <DayLineList
       lines={lines}
       foldKey="avora.diary-files.folded-days"
@@ -432,8 +478,12 @@ export function DiaryFilesView({
         />
       }
     />
+    </div>
   );
 }
+
+const FILE_CHIP_KEY = "avora.diary-files.chip";
+void fileCategoryOf;
 
 /**
  * Liên kết (AVORA-70 · B): one line per link — 🔗, its caption or domain, the time. Nothing is

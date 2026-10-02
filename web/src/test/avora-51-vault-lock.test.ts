@@ -110,24 +110,30 @@ describe("AVORA-51 · 51.12 no encryption promise", () => {
     /pages\/(Vault|Finance)|components\/(finance|vault)\/|lib\/(vault|finance|use-vault)/.test(file),
   );
 
-  it("B2 says it is not encryption, word for word", () => {
-    expect(VAULT_ABOUT.title).toBe("Khoá Két sắt là khoá cửa, chưa phải két mã hoá.");
-    expect(VAULT_ABOUT.lines).toHaveLength(3);
+  it("B2 says exactly what is encrypted and what is not (ADR-041 replaces the 51 wording)", () => {
+    expect(VAULT_ABOUT.title).toBe("Mã 6 số là khoá cửa của Két sắt.");
+    expect(VAULT_ABOUT.lines).toContain("Chứng chỉ · Tài liệu · Tài sản: đã mã hoá ngay trên máy bạn.");
+    expect(VAULT_ABOUT.lines).toContain("Tài chính: đang bảo vệ bằng khoá Két sắt; mã hoá sắp có.");
+    expect(VAULT_ABOUT.lines).toContain("Mật khẩu: sắp có.");
   });
 
-  it("no screen promises an encrypted vault", () => {
-    // "Tiền mã hoá" is the name of an account type (crypto money), not a promise about storage.
-    const allowed = new Set(["chưa phải két mã hoá", "đang xây phần mã hoá thật", "Tiền mã hoá"]);
+  it("68.15: encryption is only claimed for the three paper compartments", () => {
+    // The encrypted compartments (AVORA-68) may say so; everywhere else only "sắp có" or the crypto
+    // money account type ("Tiền mã hoá") may carry the word.
+    const e2eeFiles = /components\/vault\/(VaultSetup|VaultCompartment|VaultForgot)\.tsx$|lib\/(vault-crypto|vault-keys|use-vault-e2ee|vault-templates|recovery-kit-pdf|vault-image)\.ts$/;
+    const allowed = ["Tiền mã hoá", "mã hoá sắp có", "Chứng chỉ · Tài liệu · Tài sản: đã mã hoá"];
     const offenders: string[] = [];
     expect(vaultFiles.length).toBeGreaterThan(10);
     for (const file of vaultFiles) {
       const source = readFileSync(file, "utf8");
-      // Only user-facing string literals matter; comments may discuss encryption.
+      const code = source.replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, "");
+      if (/an toàn tuyệt đối|bảo mật cấp ngân hàng/i.test(code)) offenders.push(`${file}: overclaim`);
+      if (e2eeFiles.test(file)) continue;
       const literals = source.match(/(["'`])(?:(?!\1)[^\\]|\\.)*?mã hoá(?:(?!\1)[^\\]|\\.)*?\1/g) ?? [];
       for (const literal of literals) {
-        if (![...allowed].some((ok) => literal.includes(ok))) offenders.push(`${file}: ${literal}`);
+        if (!allowed.some((ok) => literal.includes(ok))) offenders.push(`${file}: ${literal}`);
       }
-      if (/an toàn tuyệt đối|chỉ bạn đọc được/i.test(source.replace(/\/\/.*$|\/\*[\s\S]*?\*\//gm, ""))) offenders.push(file);
+      if (/chỉ bạn đọc được/i.test(code)) offenders.push(file);
     }
     expect(offenders).toEqual([]);
   });

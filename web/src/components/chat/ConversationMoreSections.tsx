@@ -1,5 +1,5 @@
-import { Ban, BookLock, CalendarClock, ChevronRight, Flag, FolderKanban, ListTodo, Plus, Search, Table2, Trash2, Undo2 } from "lucide-react";
-import type { ReactNode } from "react";
+import { Ban, BookLock, CalendarClock, ChevronDown, ChevronRight, Flag, FolderKanban, ListTodo, Pin, Plus, Table2, Trash2, Undo2 } from "lucide-react";
+import { useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { newTableLink, tableLink, useTablesHere } from "@/components/projects/TableStrip";
@@ -34,6 +34,29 @@ function OpenRow({ icon, label, count, onClick }: { icon: ReactNode; label: stri
 
 const iconClass = "h-4 w-4 shrink-0 text-muted-foreground";
 
+const PROJECT_FOLD_KEY = "avora.info.projects-open";
+
+/** AVORA-71 · C luật 2: `Dự án của nhóm` starts folded to one line; opened state is kept per device. */
+function useProjectFold(): [boolean, () => void] {
+  const [isOpen, setIsOpen] = useState<boolean>(() => {
+    try {
+      return window.localStorage.getItem(PROJECT_FOLD_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  const toggle = (): void =>
+    setIsOpen((current) => {
+      try {
+        window.localStorage.setItem(PROJECT_FOLD_KEY, current ? "0" : "1");
+      } catch {
+        // Remembering is a courtesy.
+      }
+      return !current;
+    });
+  return [isOpen, toggle];
+}
+
 /**
  * The "⋯" panel of a thread — one frame for Nhật ký · 1-1 · Nhóm · Dự án, in the one order of
  * `CONVERSATION_MENU_ORDER` (AVORA-71 · C): ① Nhiệm vụ · Bảng · Nhật ký trò chuyện, ② (Nhóm)
@@ -51,7 +74,8 @@ export function ConversationMoreSections({
   onOpenDecisions,
   onOpenTasks,
   taskCount = null,
-  onSearch,
+  pinned,
+  onProposeDeleteGroup,
   onScheduleCall,
   trash,
   onNavigate,
@@ -78,7 +102,12 @@ export function ConversationMoreSections({
   /** Nhóm: "Nhiệm vụ của nhóm" (the whole room's list). */
   onOpenTasks?: () => void;
   taskCount?: number | null;
+  /** Kept for callers; search now lives only in the quick row at the top of `⋯` (AVORA-71). */
   onSearch?: () => void;
+  /** `Tin đã ghim (N)` — opens the pinned list over `⋯`. Omitted when nothing is pinned. */
+  pinned?: { count: number; onOpen: () => void };
+  /** Nhóm: `Đề nghị xoá nhóm` in the restricted group at the very end (ADR-031). */
+  onProposeDeleteGroup?: () => void;
   onScheduleCall?: () => void;
   /** Nhật ký: its Thùng rác (AVORA-44 · việc 8). */
   trash?: { count: number | null; onOpen: () => void };
@@ -97,6 +126,7 @@ export function ConversationMoreSections({
   const isOnline = useOnline();
   const location = useLocation();
   const here = hereFrom(location, placeLabel);
+  const [isProjectsOpen, toggleProjects] = useProjectFold();
 
   return (
     <div className="space-y-5 px-3 pb-5">
@@ -138,14 +168,27 @@ export function ConversationMoreSections({
 
       {diaryRow !== null ? <section aria-label="Nhật ký trò chuyện" className="px-3">{diaryRow}</section> : null}
 
+      {pinned !== undefined && pinned.count > 0 ? (
+        <section aria-label="Tin đã ghim" className="px-3" data-pinned-row="">
+          <OpenRow icon={<Pin className={iconClass} strokeWidth={1.8} aria-hidden="true" />} label="Tin đã ghim" count={pinned.count} onClick={pinned.onOpen} />
+        </section>
+      ) : null}
+
       {roomSlot !== null ? <div data-room-slot="">{roomSlot}</div> : null}
 
       {kind === "group" && showProjects ? (
-        <section aria-label="Dự án của nhóm" className="px-3">
-          <SectionTitle icon={<FolderKanban className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />}>
-            Dự án <span className="tabular font-medium normal-case">({projects.length})</span>
-          </SectionTitle>
-          <ul className="mt-1.5 space-y-0.5">
+        <section aria-label="Dự án của nhóm" className="px-3" data-fold="projects">
+          <button type="button" onClick={toggleProjects} aria-expanded={isProjectsOpen} className={rowClass}>
+            <FolderKanban className={iconClass} strokeWidth={1.8} aria-hidden="true" />
+            <span className="text-[14px] text-foreground">Dự án của nhóm</span>
+            <span className="tabular text-[12.5px] text-muted-foreground">({projects.length})</span>
+            <span className="ml-auto min-w-0 truncate text-[12.5px] text-muted-foreground">
+              {projects.slice(0, 2).map((project) => project.title).join(" · ")}
+            </span>
+            <ChevronDown className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${isProjectsOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+          </button>
+          {isProjectsOpen ? (
+          <ul className="mt-1 space-y-0.5 pl-4">
             {projects.map((project) => (
               <li key={project.id}>
                 <Link to={withReturn(projectChatLink(project), here)} onClick={onNavigate} className={rowClass}>
@@ -174,6 +217,7 @@ export function ConversationMoreSections({
               </li>
             ) : null}
           </ul>
+          ) : null}
         </section>
       ) : null}
 
@@ -183,11 +227,8 @@ export function ConversationMoreSections({
         </section>
       ) : null}
 
-      {onSearch !== undefined || onScheduleCall !== undefined || trash !== undefined ? (
+      {onScheduleCall !== undefined || trash !== undefined ? (
         <section aria-label="Khác" className="space-y-0.5 px-3">
-          {onSearch !== undefined ? (
-            <OpenRow icon={<Search className={iconClass} strokeWidth={1.8} aria-hidden="true" />} label="Tìm trong cuộc này" onClick={onSearch} />
-          ) : null}
           {onScheduleCall !== undefined ? (
             <OpenRow icon={<CalendarClock className={iconClass} strokeWidth={1.8} aria-hidden="true" />} label="Lên lịch cuộc gọi" onClick={onScheduleCall} />
           ) : null}
@@ -230,6 +271,15 @@ export function ConversationMoreSections({
               Chặn / Báo cáo — {NEEDS_NETWORK_MESSAGE}
             </p>
           )}
+        </section>
+      ) : null}
+
+      {kind === "group" && onProposeDeleteGroup !== undefined ? (
+        <section aria-label="Hạn chế" className="mx-3 border-t border-border pt-3">
+          <button type="button" onClick={onProposeDeleteGroup} disabled={!isOnline} className={`${rowClass} disabled:opacity-50`} data-propose-delete-group="">
+            <Trash2 className="h-3.5 w-3.5 shrink-0 text-destructive" strokeWidth={1.8} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[14px] text-destructive">Đề nghị xoá nhóm</span>
+          </button>
         </section>
       ) : null}
     </div>
