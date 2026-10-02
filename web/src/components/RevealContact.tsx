@@ -91,7 +91,7 @@ export function useReveal(): {
             onChange={(event) => setPassword(event.target.value)}
             aria-label="Mật khẩu tài khoản"
             placeholder="Mật khẩu tài khoản"
-            className="h-12 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] outline-none focus:border-primary/70"
+            className="h-12 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] outline-none focus:border-personal/70"
           />
           {error !== null ? (
             <p role="alert" className="text-[13.5px] text-destructive">

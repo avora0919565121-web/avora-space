@@ -118,7 +118,7 @@ const Profile = () => {
                 value={nameDraft}
                 onChange={(event) => setNameDraft(event.target.value)}
                 placeholder="Chưa đặt tên"
-                className="h-12 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/70"
+                className="h-12 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-personal/70"
               />
             </div>
 

@@ -207,9 +207,18 @@ for (const [w, h] of SIZES) {
     await expect.element(screen.getByRole("button", { name: "Bắt đầu" })).toBeInTheDocument();
     await page.screenshot({ path: `${OUT}/68-1-gioi-thieu-${w}.png` });
     await userEvent.click(screen.getByRole("button", { name: "Bắt đầu" }));
-    const inputs = document.querySelectorAll<HTMLInputElement>("input[type=text]");
-    await userEvent.fill(inputs[0], "mot hai ba bon nam");
-    await userEvent.fill(inputs[1], "mot hai ba bon nam");
+    const first = document.querySelector<HTMLInputElement>("[data-passphrase]") as HTMLInputElement;
+    const again = document.querySelector<HTMLInputElement>("[data-passphrase-again]") as HTMLInputElement;
+    // AVORA-75 · A1: hidden by default, never offered to a password manager.
+    expect(first.type).toBe("password");
+    expect(again.type).toBe("password");
+    expect(first.autocomplete).toBe("off");
+    await userEvent.fill(first, "mot hai ba bon nam");
+    await userEvent.fill(again, "mot hai ba bon nam");
+    // The suggestion shows its words once, so they can be copied down.
+    await userEvent.click(screen.getByRole("button", { name: /Gợi ý một cụm dễ nhớ/ }));
+    expect(first.type).toBe("text");
+    await userEvent.fill(again, first.value);
     await settle(200);
     await page.screenshot({ path: `${OUT}/68-2-mat-khau-ket-sat-${w}.png` });
     await userEvent.click(screen.getByRole("button", { name: "Tiếp" }));

@@ -73,6 +73,73 @@
     --sidebar-accent-foreground: 13 62% 40%;
     --sidebar-border: 38 28% 86%;
     --sidebar-ring: 13 73% 56%;
+
+    /* AVORA-74 (ADR-046): the personal layer — the tone a person picked, only on their own
+       traces. `--primary` above stays Avora's terracotta. Defaults = tone Avora, light canvas;
+       theme.ts (and the pre-paint script in index.html) overwrite these on <html>. */
+    --personal: 13 70% 44%;
+    --personal-foreground: 15 100% 97%;
+    --personal-soft: 16 63% 92%;
+    --personal-soft-foreground: 13 62% 36%;
+    --ring: 13 70% 44%;
+
+    /* Meaning colours: never follow the tone. */
+    --star: 40 59% 45%;
+    --star-soft: 44 87% 92%;
+  }
+
+  /* AVORA-74 · A: Sắc màu Tối — warm charcoal, not pure black; cards one step lighter; ivory ink. */
+  .dark {
+    --background: 30 9% 9%;
+    --foreground: 40 30% 92%;
+    --card: 30 8% 13%;
+    --card-foreground: 40 30% 92%;
+    --popover: 30 8% 13%;
+    --popover-foreground: 40 30% 92%;
+
+    /* The brand itself is the same terracotta; only the text set on it darkens. */
+    --primary: 13 73% 56%;
+    --primary-foreground: 30 10% 8%;
+
+    --secondary: 30 7% 18%;
+    --secondary-foreground: 40 30% 92%;
+    --muted: 30 8% 13%;
+    --muted-foreground: 35 10% 68%;
+    --accent: 16 30% 20%;
+    --accent-foreground: 16 70% 78%;
+
+    --destructive: 4 72% 62%;
+    --destructive-foreground: 30 10% 8%;
+
+    --border: 30 8% 22%;
+    --input: 30 8% 24%;
+
+    --online: 153 40% 52%;
+    --task-overdue: 12 68% 63%;
+    --task-due-soon: 16 56% 64%;
+    --task-routine: 0 0% 62%;
+    --task-idle: 0 0% 38%;
+    --task-important: 40 62% 58%;
+    --money-in: 153 40% 52%;
+    --money-out: 13 65% 62%;
+
+    --sidebar-background: 30 9% 9%;
+    --sidebar-foreground: 40 30% 92%;
+    --sidebar-primary: 13 73% 56%;
+    --sidebar-primary-foreground: 30 10% 8%;
+    --sidebar-accent: 16 30% 20%;
+    --sidebar-accent-foreground: 16 70% 78%;
+    --sidebar-border: 30 8% 22%;
+    --sidebar-ring: 13 70% 62%;
+
+    --personal: 13 70% 62%;
+    --personal-foreground: 30 10% 8%;
+    --personal-soft: 13 30% 20%;
+    --personal-soft-foreground: 16 70% 78%;
+    --ring: 13 70% 62%;
+
+    --star: 40 62% 58%;
+    --star-soft: 40 30% 18%;
   }
 
   /* AVORA-57 · F (ADR-037): one shape for every icon and primary button, picked in
@@ -99,6 +166,16 @@
     --btn-bg: transparent;
     --btn-primary-bg: transparent;
     --btn-primary-fg: hsl(var(--primary));
+  }
+
+  /* AVORA-74: a primary icon button that belongs to the person (Gửi), not to Avora (+). */
+  .icon-btn-personal {
+    --btn-primary-bg: hsl(var(--personal));
+    --btn-primary-fg: hsl(var(--personal-foreground));
+  }
+  [data-button-style="icon"] .icon-btn-personal {
+    --btn-primary-bg: transparent;
+    --btn-primary-fg: hsl(var(--personal));
   }
 }
 
@@ -205,7 +282,7 @@
   /* Faint paper grain over the canvas — depth without shadows. */
   .paper {
     background-color: hsl(var(--background));
-    background-image: radial-gradient(hsl(38 28% 86% / 0.55) 0.5px, transparent 0.5px);
+    background-image: radial-gradient(hsl(var(--border) / 0.55) 0.5px, transparent 0.5px);
     background-size: 22px 22px;
   }
 }

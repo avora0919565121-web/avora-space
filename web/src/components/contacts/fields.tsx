@@ -29,7 +29,7 @@ export function FieldLabel({
 }
 
 export const contactInputClass =
-  "h-10 w-full rounded-md border border-border bg-card px-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60 disabled:opacity-60";
+  "h-10 w-full rounded-md border border-border bg-card px-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60 disabled:opacity-60";
 
 /** One labelled text field — the shape every line of both contact forms takes. */
 export function TextField({
@@ -133,7 +133,7 @@ export function NoteField({
         spellCheck
         placeholder="Điều bạn muốn nhớ về người này"
         onChange={(event) => onChange(event.target.value)}
-        className="mt-1.5 w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+        className="mt-1.5 w-full resize-none rounded-md border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
       />
     </div>
   );

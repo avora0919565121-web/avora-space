@@ -112,7 +112,7 @@ const DeviceConfirm = () => {
                     void choose("not_me_rank");
                   }}
                 >
-                  <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Mật khẩu tài khoản" placeholder="Mật khẩu tài khoản" className="h-12 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-primary" />
+                  <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Mật khẩu tài khoản" placeholder="Mật khẩu tài khoản" className="h-12 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal" />
                   <button type="submit" disabled={isWorking || password === ""} className={`${btn} bg-destructive text-destructive-foreground`}>Không phải tôi</button>
                 </form>
               </>

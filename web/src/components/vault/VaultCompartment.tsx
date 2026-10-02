@@ -16,7 +16,7 @@ import { prepareVaultFile, VAULT_MAX_PAGES } from "@/lib/vault-image";
 import { daysLeft, SECTION_LABEL, templateOf, VAULT_TEMPLATES, type VaultPayload } from "@/lib/vault-templates";
 import { cn } from "@/lib/utils";
 
-const field = "mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-primary md:text-[15px]";
+const field = "mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[15px]";
 
 function emptyPayload(section: VaultSection): VaultPayload {
   return { v: 1, type: VAULT_TEMPLATES[section][0].type, title: "", owner_label: "Tôi", owner_contact_id: null, fields: {}, tags: [], note: "", links: [], show_name_in_reminder: false };
@@ -155,7 +155,7 @@ function ItemForm({ section, initial, pages, onAddPages, onSave, onCancel, isSav
         </label>
       ))}
       <label className="block"><span className="text-[13px] font-medium">Ghi chú</span>
-        <textarea value={payload.note} onChange={(e) => set({ note: e.target.value })} rows={3} className="mt-1 w-full rounded-lg border border-input bg-card px-3 py-2 text-[16px] outline-none focus:border-primary md:text-[15px]" />
+        <textarea value={payload.note} onChange={(e) => set({ note: e.target.value })} rows={3} className="mt-1 w-full rounded-lg border border-input bg-card px-3 py-2 text-[16px] outline-none focus:border-personal md:text-[15px]" />
       </label>
       <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3">
         <span className="min-w-0 flex-1">
@@ -319,7 +319,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Tìm trong ${SECTION_LABEL[section]}`} aria-label={`Tìm trong ${SECTION_LABEL[section]}`} className="h-11 w-full rounded-xl border border-input bg-card pl-9 pr-3 text-[16px] outline-none focus:border-primary md:text-[15px]" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Tìm trong ${SECTION_LABEL[section]}`} aria-label={`Tìm trong ${SECTION_LABEL[section]}`} className="h-11 w-full rounded-xl border border-input bg-card pl-9 pr-3 text-[16px] outline-none focus:border-personal md:text-[15px]" />
           </div>
           <button type="button" onClick={() => setMode({ kind: "trash" })} aria-label="Thùng rác" className="icon-btn h-11 w-11"><Trash2 className="h-4 w-4" />{trashed.length > 0 ? <span className="sr-only">{trashed.length}</span> : null}</button>
         </div>

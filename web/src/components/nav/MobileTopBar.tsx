@@ -84,13 +84,13 @@ export function MobileTopBar() {
                       aria-current={isActive ? "page" : undefined}
                       className={cn(
                         "press flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left transition-colors",
-                        isActive ? "bg-accent/70 text-primary" : "text-foreground hover:bg-accent/40",
+                        isActive ? "bg-personal-soft text-personal-soft-foreground" : "text-foreground hover:bg-accent/40",
                       )}
                     >
                       <span
                         className={cn(
                           "flex h-9 w-9 shrink-0 items-center justify-center rounded-full",
-                          isActive ? "bg-primary text-primary-foreground" : "bg-card text-foreground",
+                          isActive ? "bg-personal text-personal-foreground" : "bg-card text-foreground",
                         )}
                       >
                         <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />

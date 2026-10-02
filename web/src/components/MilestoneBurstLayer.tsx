@@ -80,10 +80,10 @@ export function MilestoneBurstLayer() {
       style={{ opacity: isShown ? 1 : 0, transition: motionFor(currentRhythm()).transition }}
     >
       <div className="relative flex flex-col items-center gap-2 rounded-[16px] border border-border bg-card/95 px-6 py-5 shadow-lg">
-        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fdf3d7] text-[#b98a2f]">
+        <span className="flex h-12 w-12 items-center justify-center rounded-full bg-star-soft text-star">
           <Flag className="h-6 w-6" strokeWidth={1.8} aria-hidden="true" />
         </span>
-        <p className="text-[13px] font-semibold uppercase tracking-wide text-[#b98a2f]">Cột mốc hoàn thành</p>
+        <p className="text-[13px] font-semibold uppercase tracking-wide text-star">Cột mốc hoàn thành</p>
         {burst.title !== null ? (
           <p className="max-w-[260px] truncate text-[15px] font-semibold text-foreground">{burst.title}</p>
         ) : null}

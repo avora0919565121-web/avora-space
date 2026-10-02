@@ -1676,6 +1676,8 @@ export type Database = {
           base_currency: string
           button_style: string
           celebration_style: string
+          color_scheme: string
+          accent_tone: string
           created_at: string
           daily_thought_category: string
           display_name: string | null
@@ -1701,6 +1703,8 @@ export type Database = {
           base_currency?: string
           button_style?: string
           celebration_style?: string
+          color_scheme?: string
+          accent_tone?: string
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
@@ -1726,6 +1730,8 @@ export type Database = {
           base_currency?: string
           button_style?: string
           celebration_style?: string
+          color_scheme?: string
+          accent_tone?: string
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null

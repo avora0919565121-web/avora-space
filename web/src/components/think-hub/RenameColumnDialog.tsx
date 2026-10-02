@@ -63,7 +63,7 @@ export function RenameColumnDialog({
             maxLength={60}
             aria-label="Tên cột"
             onChange={(event) => setLabel(event.target.value)}
-            className="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-primary"
+            className="w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-personal"
           />
           {notice !== null ? (
             <p role="alert" className="text-[13.5px] text-destructive">

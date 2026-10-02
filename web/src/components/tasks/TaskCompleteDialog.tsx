@@ -90,7 +90,7 @@ export function TaskCompleteDialog({
             onChange={(event) => setOutput(event.target.value)}
             placeholder="Ví dụ: Báo cáo đã gửi, được 12 trang — số liệu tháng 8 đã rà soát…"
             aria-label="Kết quả của việc này"
-            className="w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2.5 text-[16px] md:text-[14px] leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            className="w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2.5 text-[16px] md:text-[14px] leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:border-personal/60"
           />
           {tooLong ? (
             <p className="text-[12px] text-destructive">

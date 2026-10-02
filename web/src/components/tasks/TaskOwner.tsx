@@ -29,7 +29,7 @@ export function TaskOwnerFrame({
   return (
     <div
       data-task-mine={owner.isMine ? "true" : "false"}
-      className={cn("border-l-[3px]", owner.isMine ? "border-l-primary" : "border-l-transparent", className)}
+      className={cn("border-l-[3px]", owner.isMine ? "border-l-personal" : "border-l-transparent", className)}
       {...rest}
     >
       {children}
@@ -39,7 +39,7 @@ export function TaskOwnerFrame({
 
 /** `ownerStripeClass(isMine)` for rows that already are a `<li>` and cannot take a wrapper. */
 export function ownerStripeClass(isMine: boolean): string {
-  return cn("border-l-[3px]", isMine ? "border-l-primary" : "border-l-transparent");
+  return cn("border-l-[3px]", isMine ? "border-l-personal" : "border-l-transparent");
 }
 
 /** A circle that is somebody else's to tap: shown, never inviting. */

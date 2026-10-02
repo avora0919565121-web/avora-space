@@ -92,3 +92,4 @@ khi hai bên lệch nhau, file code là đúng.
 - `push_subscriptions` — personal, chỉ chủ đọc / gỡ; `endpoint`, `p256dh`, `auth` = secret (AVORA-46)
 - `push_outbox` — internal, chỉ chủ đọc; ghi và gửi chỉ qua server (service role)
 - `profiles.push_show_content`, `profiles.push_reminders` — internal
+- `profiles.color_scheme`, `profiles.accent_tone` — internal (AVORA-74: Sắc màu / Tông màu; không suy từ tuổi)

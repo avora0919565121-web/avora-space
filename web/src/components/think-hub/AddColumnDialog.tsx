@@ -93,7 +93,7 @@ export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddCol
               autoFocus
               maxLength={60}
               placeholder="Giá trị hợp đồng"
-              className="mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-primary"
+              className="mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-personal"
             />
           </div>
 
@@ -134,7 +134,7 @@ export function AddColumnDialog({ open, onOpenChange, onAdd, isWorking }: AddCol
                 onChange={(event) => setOptions(event.target.value)}
                 rows={3}
                 placeholder={"Miền Bắc\nMiền Trung\nMiền Nam"}
-                className="mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-primary"
+                className="mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-personal"
               />
               <p className="mt-1 text-[12.5px] text-muted-foreground">
                 Mỗi dòng là một lựa chọn.

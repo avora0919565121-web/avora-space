@@ -33,7 +33,7 @@ export function RecordingBar() {
   if (!recorder.isRecording) return null;
   const here = recorder.returnTo !== null && recorder.returnTo === `${location.pathname}${location.search}`;
   return (
-    <div role="status" className={cn("flex h-9 shrink-0 items-center gap-2 px-3 text-[13px] text-white", recorder.isNearEnd ? "bg-amber-600" : "bg-rose-600")}>
+    <div role="status" className={cn("flex h-9 shrink-0 items-center gap-2 px-3 text-[13px] text-destructive-foreground", recorder.isNearEnd ? "bg-task-important" : "bg-destructive")}>
       <button
         type="button"
         disabled={here || recorder.returnTo === null}
@@ -41,8 +41,8 @@ export function RecordingBar() {
         className="flex min-w-0 flex-1 items-center gap-2 text-left"
       >
         <span className="relative flex h-2.5 w-2.5">
-          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white/70" />
-          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-destructive-foreground/70" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-destructive-foreground" />
         </span>
         <Mic className="h-3.5 w-3.5 shrink-0" />
         <span className="truncate font-medium">
@@ -51,7 +51,7 @@ export function RecordingBar() {
           {here ? "" : " · chạm để quay lại"}
         </span>
       </button>
-      <button type="button" onClick={() => stopRecording()} className="press inline-flex items-center gap-1 rounded-full bg-white/20 px-2.5 py-1 font-semibold">
+      <button type="button" onClick={() => stopRecording()} className="press inline-flex items-center gap-1 rounded-full bg-destructive-foreground/20 px-2.5 py-1 font-semibold">
         <Square className="h-3 w-3 fill-current" /> Dừng
       </button>
       <button type="button" aria-label="Bỏ bản ghi" onClick={() => cancelRecording()} className="press rounded-full p-1 opacity-80 hover:opacity-100">

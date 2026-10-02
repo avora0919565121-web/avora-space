@@ -2,6 +2,7 @@ import { CheckSquare, Copy, FileText, Forward, Image as ImageIcon, Link2, ListCh
 import { useState } from "react";
 
 import { DayLineList, type DayLine } from "@/components/chat/DayLineList";
+import { fileIconOf } from "@/components/chat/file-icon";
 import { MessageActionsMenu, type MessageAction } from "@/components/chat/MessageActionsMenu";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import type { MessageAttachment } from "@/lib/attachments";
@@ -81,7 +82,7 @@ export function JournalLines({
     return {
       id: message.id,
       at: message.createdAt,
-      icon: KIND_ICON[kind],
+      icon: kind === "file" && files[0] !== undefined ? fileIconOf({ kind: files[0].kind, mimeType: files[0].mimeType, fileName: files[0].fileName }) : KIND_ICON[kind],
       title: kind === "forwarded" ? `Tin chuyển tiếp: ${journalFirstLine(message.content, files)}` : journalFirstLine(messageBodyText(message), files),
       thumbUrl: image === undefined ? null : urlOf(image.storagePath),
       entryId: message.pending === true ? null : message.id,
@@ -120,7 +121,7 @@ export function JournalLines({
               rows={3}
               maxLength={4000}
               aria-label="Sửa mục Nhật ký"
-              className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-[16px] leading-relaxed outline-none focus:border-primary/60 md:text-[15px]"
+              className="w-full resize-y rounded-lg border border-input bg-card px-3 py-2 text-[16px] leading-relaxed outline-none focus:border-personal/60 md:text-[15px]"
             />
             <div className="flex gap-1.5">
               <button

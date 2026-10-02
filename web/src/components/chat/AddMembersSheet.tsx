@@ -84,7 +84,7 @@ export function AddMembersSheet({
               onChange={(event) => setQuery(event.target.value)}
               placeholder="Tìm theo tên hoặc PIN"
               aria-label="Tìm bạn bè"
-              className="h-11 w-full rounded-md border border-border bg-card pl-9 pr-3 text-[16px] md:text-[15px] outline-none focus:border-primary/60"
+              className="h-11 w-full rounded-md border border-border bg-card pl-9 pr-3 text-[16px] md:text-[15px] outline-none focus:border-personal/60"
             />
           </label>
         </div>
@@ -121,7 +121,7 @@ export function AddMembersSheet({
                       <span
                         className={cn(
                           "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
-                          isOn ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                          isOn ? "border-personal bg-personal text-personal-foreground" : "border-border",
                         )}
                       >
                         {isOn ? <Check className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden="true" /> : null}

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
-import { ChevronLeft, ChevronRight, Download, FileText, Forward, Lock, Mic, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, Download, Forward, Lock, Mic, X } from "lucide-react";
 import { toast } from "sonner";
 
 import {
@@ -9,6 +9,7 @@ import {
   signedUrlFor,
   type MessageAttachment,
 } from "@/lib/attachments";
+import { fileIconOf } from "@/components/chat/file-icon";
 import { cn } from "@/lib/utils";
 
 /** Widest a photo is drawn in a bubble — past this the thread stops being readable. */
@@ -195,11 +196,12 @@ function VoiceAttachment({ attachment, url }: AttachmentProps) {
 
 function FileAttachment({ attachment }: AttachmentProps) {
   const canSave = canExportAttachment(attachment.permission);
+  const KindIcon = fileIconOf(attachment);
 
   return (
     <div className="flex w-[280px] items-center gap-3 rounded-[12px] border border-border bg-card px-3 py-2.5">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-secondary text-muted-foreground">
-        <FileText className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+        <KindIcon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" data-file-icon="" />
       </span>
       <div className="min-w-0 flex-1">
         <p className="truncate text-[13.5px] font-medium text-foreground" title={attachment.fileName}>

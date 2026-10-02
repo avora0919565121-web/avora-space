@@ -113,11 +113,11 @@ export function NewOpportunityDialog({ open, onOpenChange, onCreated }: { open: 
           </div>
           <label className="block">
             <span className="text-[13px] font-medium">Tiêu đề</span>
-            <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} className="mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-primary md:text-[15px]" />
+            <input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={120} className="mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[15px]" />
           </label>
           <label className="block">
             <span className="text-[13px] font-medium">Giá trị ước tính (₫)</span>
-            <input inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} className="mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] tabular-nums outline-none focus:border-primary md:text-[15px]" />
+            <input inputMode="numeric" value={value} onChange={(e) => setValue(e.target.value)} className="mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] tabular-nums outline-none focus:border-personal md:text-[15px]" />
           </label>
           <div className="flex justify-end gap-2 pt-1">
             <button type="button" onClick={() => onOpenChange(false)} className="press h-11 rounded-lg px-4 text-[14px] text-muted-foreground">Huỷ</button>

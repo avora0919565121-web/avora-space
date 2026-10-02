@@ -2387,7 +2387,7 @@ const Messages = () => {
       // First visit on this account: the journal is created on demand.
       journalMutation.mutate();
     },
-    [conversations, navigate, journalMutation, conversationId, isWide],
+    [conversations, navigate, journalMutation, conversationId],
   );
 
   /**
@@ -2617,7 +2617,7 @@ const Messages = () => {
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
                 placeholder={activeTab === "group" ? "Tìm nhóm theo tên" : isProjects ? "Tìm dự án theo tên" : "Tìm theo tên"}
-                className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+                className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
               />
             </label>
           )}
@@ -3563,7 +3563,7 @@ const Messages = () => {
                                       }
                                       onClick={(event) => event.stopPropagation()}
                                       aria-label={`Chọn tin nhắn: ${messageBodyText(message).slice(0, 40)}`}
-                                      className="h-4 w-4 accent-primary disabled:opacity-40"
+                                      className="h-4 w-4 accent-personal disabled:opacity-40"
                                     />
                                   </span>
                                 ) : null}
@@ -3628,7 +3628,7 @@ const Messages = () => {
                                         rows={2}
                                         maxLength={4000}
                                         aria-label="Sửa tin nhắn"
-                                        className="w-full resize-y rounded-bubble border border-input bg-card px-3 py-2 text-[16px] md:text-[15px] leading-relaxed text-foreground outline-none focus:border-primary/60"
+                                        className="w-full resize-y rounded-bubble border border-input bg-card px-3 py-2 text-[16px] md:text-[15px] leading-relaxed text-foreground outline-none focus:border-personal/60"
                                       />
                                       <div className="flex items-center gap-1.5">
                                         <button
@@ -3746,7 +3746,7 @@ const Messages = () => {
                                         className={cn(
                                           "whitespace-pre-wrap break-words rounded-bubble px-4 py-2.5 text-[15px] leading-relaxed",
                                           outgoing
-                                            ? "rounded-br-[4px] bg-primary text-primary-foreground"
+                                            ? "rounded-br-[4px] bg-personal text-personal-foreground"
                                             : "rounded-bl-[4px] border border-border bg-card text-foreground",
                                           message.pending ? "opacity-70" : "",
                                           message.failed === true ? "cursor-pointer" : "",

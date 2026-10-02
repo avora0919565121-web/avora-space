@@ -22,7 +22,7 @@ import { cn } from "@/lib/utils";
 
 const buttonPrimary = "press rounded-md bg-primary px-4 py-2 text-[14px] font-semibold text-primary-foreground disabled:opacity-50";
 const buttonQuiet = "press rounded-md border border-border px-4 py-2 text-[14px]";
-const field = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] md:text-[15px] outline-none focus:border-primary";
+const field = "mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] md:text-[15px] outline-none focus:border-personal";
 
 /** "Đề nghị xoá / lưu trữ / mở lại" (ADR-031): reason required, stakeholders shown before sending. */
 export function ProposeDialog({

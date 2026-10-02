@@ -40,6 +40,8 @@ export const PRIVACY: PolicyDoc = {
         { id: "mask", text: "Email và số điện thoại trong Cài đặt chỉ hiện một phần đầu và cuối.", status: "done", evidence: "web/src/lib/mask.ts" },
         { id: "guest", text: "Đăng nhập trên máy của người khác: chọn `Đây là máy của người khác` — phiên chỉ trong thẻ trình duyệt đó, không nhớ email.", status: "done", evidence: "web/src/lib/guest-machine.ts" },
         { id: "otp", text: "Đăng nhập bằng mã 6 số gửi qua email.", status: "done", evidence: "web/src/pages/Auth.tsx (otp mode)" },
+        // V7: OTP length 6 / expiry 600 s confirmed by VMT in the Auth dashboard (01/10 19:16).
+        { id: "otp-expiry", text: "Mã đăng nhập hết hạn sau 10 phút.", status: "done", evidence: "xác nhận cấu hình Auth 01/10 (6 số · 600 giây)" },
         { id: "signout", text: "`Đăng xuất mọi thiết bị khác`, kèm email báo cho bạn.", status: "done", evidence: "public.security_signout_notice · vault-mail alarm signout" },
         { id: "ranks", text: "Hai máy chính: điện thoại (Ưu tiên 1) và máy tính (Ưu tiên 2). Máy chính ngắt được các máy khác.", status: "done", evidence: `${M67} (revoke_device, set_device_rank)` },
         { id: "lock", text: "`Khoá thiết bị`: khi nghi ngờ, chặn mọi lần đăng nhập mới cho tới khi bạn tắt.", status: "done", evidence: `${M67} (set_device_lock, session_allowed)` },

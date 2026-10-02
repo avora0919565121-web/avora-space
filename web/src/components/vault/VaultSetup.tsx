@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, FileDown, KeyRound, Loader2, Printer, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowLeft, Copy, Eye, EyeOff, FileDown, KeyRound, Loader2, Printer, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -77,27 +77,57 @@ export function E2eeAboutText({ className }: { className?: string }) {
   );
 }
 
-/** 4.1 · step 2 — the passphrase, typed twice, with the meter and the suggestion. */
+/**
+ * A secret field: hidden by default (people nearby, Android keyboards that learn `text`
+ * fields), `autoComplete="off"` so no browser or iCloud offers to keep it.
+ */
+function SecretInput({ value, onChange, isShown, onToggle, label, ...rest }: { value: string; onChange: (v: string) => void; isShown: boolean; onToggle: () => void; label: string; "data-passphrase"?: string; "data-passphrase-again"?: string }) {
+  return (
+    <label className="block">
+      <span className="text-[13px] font-medium">{label}</span>
+      <span className="relative mt-1 block">
+        <input
+          type={isShown ? "text" : "password"}
+          autoComplete="off"
+          autoCapitalize="none"
+          autoCorrect="off"
+          spellCheck={false}
+          data-lpignore="true"
+          data-1p-ignore="true"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className="h-12 w-full rounded-xl border border-input bg-card pl-3 pr-12 font-mono text-[16px] outline-none focus:border-personal"
+          {...rest}
+        />
+        <button type="button" onClick={onToggle} aria-label={isShown ? `Ẩn ${label.toLowerCase()}` : `Hiện ${label.toLowerCase()}`} aria-pressed={isShown} className="press absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground" data-secret-toggle="">
+          {isShown ? <EyeOff className="h-[18px] w-[18px]" aria-hidden="true" /> : <Eye className="h-[18px] w-[18px]" aria-hidden="true" />}
+        </button>
+      </span>
+    </label>
+  );
+}
+
+/**
+ * 4.1 · step 2 — the passphrase, typed twice, with the meter and the suggestion.
+ * Hidden by default; a suggestion is shown once so it can be copied down, and hides again
+ * as soon as this step is left (the component unmounts on `Tiếp`).
+ */
 export function PassphraseFields({ value, onChange, again, onAgain }: { value: string; onChange: (v: string) => void; again: string; onAgain: (v: string) => void }) {
   const strength = passphraseStrength(value);
+  const [isShown, setIsShown] = useState<boolean>(false);
+  const [isAgainShown, setIsAgainShown] = useState<boolean>(false);
   const colors = ["bg-border", "bg-destructive", "bg-[hsl(32_90%_55%)]", "bg-[hsl(90_45%_45%)]", "bg-[hsl(150_45%_38%)]"];
   return (
     <div className="mt-5 space-y-3">
-      <label className="block">
-        <span className="text-[13px] font-medium">Mật khẩu Két sắt</span>
-        <input type="text" autoComplete="new-password" autoCapitalize="none" spellCheck={false} value={value} onChange={(e) => onChange(e.target.value)} className="mt-1 h-12 w-full rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-primary" data-passphrase="" />
-      </label>
+      <SecretInput label="Mật khẩu Két sắt" value={value} onChange={onChange} isShown={isShown} onToggle={() => setIsShown((s) => !s)} data-passphrase="" />
       <div className="flex gap-1" aria-hidden="true">
         {[1, 2, 3, 4].map((n) => <span key={n} className={cn("h-1.5 flex-1 rounded-full transition-colors", strength.score >= n ? colors[strength.score] : "bg-border")} />)}
       </div>
       <p className="text-[12.5px] text-muted-foreground">Ít nhất 12 ký tự hoặc 4 từ. Đừng dùng lại mật khẩu đăng nhập AVORA.</p>
-      <button type="button" onClick={() => { const s = suggestPassphrase(); onChange(s); onAgain(""); }} className="press inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-[13.5px] font-medium text-primary">
+      <button type="button" onClick={() => { onChange(suggestPassphrase()); onAgain(""); setIsShown(true); }} className="press inline-flex min-h-10 items-center gap-1.5 rounded-lg px-2 text-[13.5px] font-medium text-primary">
         <Sparkles className="h-4 w-4" aria-hidden="true" /> Gợi ý một cụm dễ nhớ
       </button>
-      <label className="block">
-        <span className="text-[13px] font-medium">Nhập lại</span>
-        <input type="text" autoComplete="new-password" autoCapitalize="none" spellCheck={false} value={again} onChange={(e) => onAgain(e.target.value)} className="mt-1 h-12 w-full rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-primary" />
-      </label>
+      <SecretInput label="Nhập lại" value={again} onChange={onAgain} isShown={isAgainShown} onToggle={() => setIsAgainShown((s) => !s)} data-passphrase-again="" />
       {again !== "" && again.trim() !== value.trim() ? <p className="text-[13px] text-destructive">Hai lần chưa khớp.</p> : null}
     </div>
   );
@@ -151,7 +181,7 @@ export function KitCheck({ words, onPassed }: { words: readonly string[]; onPass
       {positions.map((p, i) => (
         <label key={p} className="flex items-center gap-3">
           <span className="w-16 shrink-0 text-[14px] text-muted-foreground">Từ số {p + 1}</span>
-          <input autoCapitalize="none" autoComplete="off" spellCheck={false} value={answers[i]} onChange={(e) => setAnswers((a) => a.map((v, j) => (j === i ? e.target.value : v)))} className="h-12 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-primary" data-kit-check={p} />
+          <input autoCapitalize="none" autoComplete="off" spellCheck={false} value={answers[i]} onChange={(e) => setAnswers((a) => a.map((v, j) => (j === i ? e.target.value : v)))} className="h-12 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-personal" data-kit-check={p} />
         </label>
       ))}
       {error ? <p className="text-[13.5px] text-destructive" role="alert">Chưa đúng. Xem lại tờ đã cất nhé.</p> : null}
@@ -269,9 +299,9 @@ export function VaultOpenHere({ ring, onRecovered }: { ring: Keyring; onRecovere
       </p>
       <form className="mt-5 space-y-3" onSubmit={(e) => { e.preventDefault(); void run(); }}>
         {mode === "pass" ? (
-          <input type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} aria-label="Mật khẩu Két sắt" placeholder="Mật khẩu Két sắt" className="h-12 w-full rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-primary" />
+          <input type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} aria-label="Mật khẩu Két sắt" placeholder="Mật khẩu Két sắt" className="h-12 w-full rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-personal" />
         ) : (
-          <textarea rows={4} autoCapitalize="none" spellCheck={false} value={kit} onChange={(e) => setKit(e.target.value)} aria-label="24 từ" className="w-full rounded-xl border border-input bg-card px-3 py-2 font-mono text-[16px] outline-none focus:border-primary" />
+          <textarea rows={4} autoCapitalize="none" spellCheck={false} value={kit} onChange={(e) => setKit(e.target.value)} aria-label="24 từ" className="w-full rounded-xl border border-input bg-card px-3 py-2 font-mono text-[16px] outline-none focus:border-personal" />
         )}
         {badWords.length > 0 ? <p className="text-[13px] text-destructive">Từ không có trong danh sách: {badWords.slice(0, 3).join(", ")}</p> : null}
         {error !== null ? <p className="text-[13.5px] text-destructive" role="alert">{error}</p> : null}

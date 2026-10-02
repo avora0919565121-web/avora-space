@@ -66,7 +66,7 @@ export function ToolBelt() {
                 className={({ isActive }) =>
                   cn(
                     "press relative flex h-[52px] min-h-12 flex-col items-center justify-center gap-1 transition-colors",
-                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground",
+                    isActive ? "text-personal" : "text-muted-foreground hover:text-foreground",
                   )
                 }
               >
@@ -75,7 +75,7 @@ export function ToolBelt() {
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "absolute inset-x-5 top-0 h-[2.5px] rounded-b-full bg-primary transition-opacity",
+                        "absolute inset-x-5 top-0 h-[2.5px] rounded-b-full bg-personal transition-opacity",
                         isActive ? "opacity-100" : "opacity-0",
                       )}
                     />

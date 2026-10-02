@@ -68,6 +68,7 @@ import { Toaster } from "@/components/ui/sonner";
 import type { Note, NoteFolder } from "@/lib/notes";
 import { todayIso } from "@/lib/tasks";
 import type { NotesData } from "@/lib/use-notes";
+import { setSavedLook } from "@/lib/theme";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import ContactNameRepair from "@/pages/ContactNameRepair";
 import Messages from "@/pages/Messages";
@@ -1277,3 +1278,48 @@ test("69 · thẻ chia sẻ Bảng trong chat", async () => {
   await expect.element(screen.getByRole("button", { name: "Mở" })).toBeInTheDocument();
   await page.screenshot({ path: `${OUT2}/69-the-chia-se-trong-chat-390.png` });
 });
+
+// ------------------------------------------------------------------ 74 · Sắc màu × Tông màu on real screens
+function seedTasksForLook(): void {
+  seed();
+  const base = {
+    type: "1-1-shared", creator_id: "lan", assignee_id: "me", context_snapshot: null, conversation_id: "c-lan", description: "",
+    status: "confirmed", confirmed_at: now, done_at: null, completed_confirmed_at: null, skipped_at: null, skipped_silently: false,
+    deadline_date: today, deadline_time: null, deadline_tz: "Asia/Ho_Chi_Minh", task_category_id: null, is_important: false, is_milestone: false,
+    progress_percent: null, output_value: null, recurrence: "none", recurrence_pattern: null, recurrence_spawned_at: null, deleted_by_creator: false,
+    deleted_by_peer: false, created_at: now, estimated_duration_minutes: null, requires_presence: false, start_at: null, end_at: null, location: null,
+    latitude: null, longitude: null, travel_duration_minutes: null, departure_reminder_at: null, source_transaction_id: null,
+  };
+  db.tables.tasks = [
+    { ...base, id: "t1", title: "Gửi báo giá mái tôn", is_important: true },
+    { ...base, id: "t2", creator_id: "me", assignee_id: "lan", title: "Chụp ảnh hiện trạng mái", status: "pending_confirmation" },
+    { ...base, id: "t3", type: "personal", creator_id: "me", assignee_id: null, conversation_id: null, title: "Đặt lịch khám răng" },
+  ];
+}
+
+const LOOK_SCREENS = [
+  ["ket-noi", () => { groupChatSeed(); return <JournalHubs at="/tin-nhan/g1" />; }, "Ok, em mang bản vẽ"],
+  ["nhiem-vu", () => { seedTasksForLook(); return <Hubs at="/nhiem-vu?muc=viec&xem=tat-ca" />; }, "Gửi báo giá mái tôn"],
+  ["ke-hoach", () => { seed({ changes: false }); return <Hubs at="/ke-hoach?bang=b1" />; }, "Dự án Sun Group"],
+] as const;
+
+for (const tone of ["avora", "bien", "ngoc", "tim", "than"] as const) {
+  for (const scheme of ["light", "dark"] as const) {
+    for (const [name, make, marker] of LOOK_SCREENS) {
+      for (const [width, height] of name === "ket-noi" ? ([[390, 844], [1280, 800]] as const) : ([[390, 844]] as const)) {
+        test(`74 · ${tone} × ${scheme} · ${name} · ${width}`, async () => {
+          setSavedLook({ scheme, tone });
+          await viewport(width, height);
+          const screen = await render(make());
+          await expect.element(screen.getByText(marker).first()).toBeInTheDocument();
+          await settle(700);
+          // Brand stays terracotta whatever the tone: the + of the area and the wordmark area.
+          expect(getComputedStyle(document.documentElement).getPropertyValue("--primary").trim()).toBe("13 73% 56%");
+          expect(document.documentElement.classList.contains("dark")).toBe(scheme === "dark");
+          await page.screenshot({ path: `${OUT2}/74-${tone}-${scheme === "light" ? "sang" : "toi"}-${name}-${width}.png` });
+        });
+      }
+    }
+  }
+}
+afterAll(() => setSavedLook({ scheme: "light", tone: "avora" }));

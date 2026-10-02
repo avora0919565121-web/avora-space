@@ -28,6 +28,25 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="AVORA" />
+
+    <!-- AVORA-74 · 74.6: paint the look saved on this device before the first frame (no orange flash). -->
+    <script>
+      (function () {
+        try {
+          var raw = JSON.parse(localStorage.getItem("avora.look") || "null");
+          var scheme = raw && raw.scheme ? raw.scheme : "device";
+          var dark = scheme === "dark" || (scheme === "device" && window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches);
+          var root = document.documentElement;
+          if (dark) root.classList.add("dark");
+          root.style.colorScheme = dark ? "dark" : "light";
+          var vars = raw && (dark ? raw.dark : raw.light);
+          if (vars) for (var k in vars) if (/^--[a-z-]+$/.test(k)) root.style.setProperty(k, String(vars[k]));
+          if (raw && raw.tone) root.setAttribute("data-tone", String(raw.tone));
+          var meta = document.querySelector('meta[name="theme-color"]');
+          if (meta) meta.setAttribute("content", dark ? "#191715" : "#F6F3EC");
+        } catch (e) {}
+      })();
+    </script>
   </head>
 
   <body>

@@ -73,7 +73,7 @@ export function NoteExits({
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Tìm Bảng"
-            className="mt-3 h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14px] outline-none focus:border-primary"
+            className="mt-3 h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14px] outline-none focus:border-personal"
           />
           </LongDialogHeader>
           <LongDialogBody>

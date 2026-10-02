@@ -38,14 +38,14 @@ export function ProjectProgressBar({
           style={{ width: `${clamped}%` }}
           className={cn(
             "absolute inset-y-0 left-0 rounded-full transition-[width] duration-500 ease-out",
-            isComplete ? "bg-primary" : "bg-primary/70",
+            isComplete ? "bg-personal" : "bg-personal/70",
           )}
         />
       </span>
       <span
         className={cn(
           "tabular shrink-0 text-[12px]",
-          isComplete ? "font-semibold text-primary" : "text-muted-foreground",
+          isComplete ? "font-semibold text-personal" : "text-muted-foreground",
         )}
       >
         {clamped}%

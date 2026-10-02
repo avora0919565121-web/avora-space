@@ -10,9 +10,9 @@ import { useProjectActions } from "@/lib/use-projects";
 import { cn } from "@/lib/utils";
 
 const inputClass =
-  "mt-1.5 h-11 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60";
+  "mt-1.5 h-11 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60";
 const areaClass =
-  "mt-1.5 w-full resize-y rounded-md border border-border bg-card px-4 py-2.5 text-[14.5px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60";
+  "mt-1.5 w-full resize-y rounded-md border border-border bg-card px-4 py-2.5 text-[14.5px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60";
 
 /**
  * Opens a project in a group: title, Kim chỉ nam, Mục tiêu, and both dates.

@@ -1050,7 +1050,7 @@ function ProposedSection({
                   setWithdrawTarget(null);
                   void handleWithdraw(id);
                 }}
-                className="bg-destructive text-white hover:bg-destructive/90"
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               >
                 Rút lại
               </AlertDialogAction>
@@ -1150,7 +1150,7 @@ function ReportRow({
         <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[12px] text-muted-foreground">
           {day !== null ? <span>Hoàn thành {day}</span> : null}
           {task.isMilestone ? (
-            <span className="font-medium text-[#b98a2f]">Cột mốc</span>
+            <span className="font-medium text-star">Cột mốc</span>
           ) : null}
           {deadlineLabel(task.deadline, today) !== null ? (
             <span>Hạn {deadlineLabel(task.deadline, today)}</span>

@@ -93,13 +93,13 @@ function PasswordDialog({
         >
           <label className="block">
             <span className="text-[13px] font-medium text-foreground">Mật khẩu tài khoản</span>
-            <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-primary md:text-[15px]" />
+            <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className="mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[15px]" />
           </label>
           {needsCode ? (
             <div>
               <span className="text-[13px] font-medium text-foreground">Mã 6 số gửi qua email</span>
               <div className="mt-1 flex gap-2">
-                <input inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="h-11 min-w-0 flex-1 rounded-lg border border-input bg-card px-3 font-mono text-[16px] tracking-[0.3em] outline-none focus:border-primary" aria-label="Mã 6 số" />
+                <input inputMode="numeric" maxLength={6} value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))} className="h-11 min-w-0 flex-1 rounded-lg border border-input bg-card px-3 font-mono text-[16px] tracking-[0.3em] outline-none focus:border-personal" aria-label="Mã 6 số" />
                 <button
                   type="button"
                   className="press h-11 shrink-0 rounded-lg border border-border px-3 text-[13px] font-medium"
@@ -312,7 +312,7 @@ export function DeviceSecuritySection({ signOutOthers }: { signOutOthers: ReactN
             <button type="button" onClick={() => act(() => deviceApi.cancelEscape(), "Đã huỷ yêu cầu tắt khoá.")} className="press h-9 rounded-md border border-current px-3 text-[13px] font-medium">Huỷ</button>
           ) : null}
           {canTurnOffLock ? (
-            <button type="button" onClick={() => setPending({ kind: "lock", on: false })} className="press h-9 rounded-md bg-[hsl(14_70%_45%)] px-3 text-[13px] font-semibold text-white">Tắt</button>
+            <button type="button" onClick={() => setPending({ kind: "lock", on: false })} className="press h-9 rounded-md bg-destructive px-3 text-[13px] font-semibold text-destructive-foreground">Tắt</button>
           ) : null}
         </div>
       ) : null}

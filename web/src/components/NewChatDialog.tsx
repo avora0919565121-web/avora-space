@@ -142,7 +142,7 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
                   setNotice(null);
                 }}
                 placeholder="Tên bạn bè hoặc A-XXXXXXXX"
-                className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+                className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
               />
             </label>
             <Button type="button" variant="outline" className="press h-11 gap-1.5 px-3.5" onClick={() => setIsQrOpen(true)}>

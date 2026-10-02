@@ -63,7 +63,7 @@ export function ThreadChipRow({
                   onClick={() => onToggle(chip.id)}
                   className={cn(
                     base,
-                    isOpen ? "border-primary bg-primary text-primary-foreground" : "border-border bg-background text-foreground hover:bg-accent/40",
+                    isOpen ? "border-personal bg-personal text-personal-foreground" : "border-border bg-background text-foreground hover:bg-accent/40",
                   )}
                 >
                   <Icon className="h-3.5 w-3.5 shrink-0" strokeWidth={1.9} aria-hidden="true" />

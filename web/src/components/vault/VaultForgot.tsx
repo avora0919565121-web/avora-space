@@ -115,7 +115,7 @@ export function VaultForgotEncrypted({ onBack }: { onBack: () => void }) {
       <Panel title="Quên mã 6 số" onBack={() => setStep({ kind: "menu" })}>
         <p className="mt-2 text-[14.5px] text-muted-foreground">Nhập Mật khẩu Két sắt để đặt mã 6 số mới.</p>
         <form className="mt-5 space-y-3" onSubmit={(e) => { e.preventDefault(); void run(async () => { const ring = await fetchKeyring(); if (ring === null) throw new Error("Két sắt chưa mã hoá."); await provePassphrase(ring, pass); setPass(""); setStep({ kind: "code-new", first: null }); }); }}>
-          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} aria-label="Mật khẩu Két sắt" placeholder="Mật khẩu Két sắt" className="h-12 w-full rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-primary" />
+          <input type="password" value={pass} onChange={(e) => setPass(e.target.value)} aria-label="Mật khẩu Két sắt" placeholder="Mật khẩu Két sắt" className="h-12 w-full rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-personal" />
           {error !== null ? <p className="text-[13.5px] text-destructive" role="alert">{error}</p> : null}
           <button type="submit" disabled={isWorking || pass === ""} className={primary}>{isWorking ? <Loader2 className="h-4 w-4 animate-spin" /> : null}{isWorking ? "Đang kiểm tra trên máy…" : "Tiếp"}</button>
         </form>
@@ -158,13 +158,13 @@ export function VaultForgotEncrypted({ onBack }: { onBack: () => void }) {
           Giấy tờ đã cất trong Chứng chỉ, Tài liệu, Tài sản sẽ mất hẳn. AVORA không giữ chìa nên không ai mở lại được. Tài chính không bị ảnh hưởng.
         </p>
         <form className="mt-5 space-y-3" onSubmit={(e) => { e.preventDefault(); if (user === null) return; void run(async () => { await resetEverything(user.id, password, emailCode); toast.success("Đã xoá phần mã hoá. Bạn có thể bắt đầu lại."); onBack(); }); }}>
-          <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Mật khẩu tài khoản" placeholder="Mật khẩu tài khoản" className="h-12 w-full rounded-xl border border-input bg-card px-3 text-[16px] outline-none focus:border-primary" />
+          <input type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-label="Mật khẩu tài khoản" placeholder="Mật khẩu tài khoản" className="h-12 w-full rounded-xl border border-input bg-card px-3 text-[16px] outline-none focus:border-personal" />
           <div className="flex gap-2">
-            <input inputMode="numeric" maxLength={6} value={emailCode} onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ""))} aria-label="Mã email" placeholder="Mã 6 số từ email" className="h-12 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-primary" />
+            <input inputMode="numeric" maxLength={6} value={emailCode} onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ""))} aria-label="Mã email" placeholder="Mã 6 số từ email" className="h-12 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-personal" />
             <button type="button" onClick={() => void run(async () => { await requestVaultReset(); setSent(true); })} className="press h-12 shrink-0 rounded-xl border border-border px-3 text-[13.5px] font-medium">{sent ? "Gửi lại" : "Gửi mã"}</button>
           </div>
           <label className="block text-[13.5px]">Gõ <strong>XOÁ</strong> để xác nhận
-            <input value={typed} onChange={(e) => setTyped(e.target.value)} className="mt-1 h-12 w-full rounded-xl border border-input bg-card px-3 text-[16px] outline-none focus:border-primary" />
+            <input value={typed} onChange={(e) => setTyped(e.target.value)} className="mt-1 h-12 w-full rounded-xl border border-input bg-card px-3 text-[16px] outline-none focus:border-personal" />
           </label>
           {error !== null ? <p className="text-[13.5px] text-destructive" role="alert">{error}</p> : null}
           <button type="submit" disabled={isWorking || password === "" || emailCode.length !== 6 || typed.trim().toUpperCase() !== "XOÁ"} className="press flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-destructive text-[15px] font-semibold text-destructive-foreground disabled:opacity-50">

@@ -76,7 +76,7 @@ function FlagChip({ isActive, onClick, children }: { isActive: boolean; onClick:
       onClick={onClick}
       className={cn(
         "press h-9 rounded-full border px-3 text-[12.5px] font-medium transition-colors",
-        isActive ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-foreground hover:bg-accent/50",
+        isActive ? "border-personal bg-personal text-personal-foreground" : "border-border bg-card text-foreground hover:bg-accent/50",
       )}
     >
       {children}

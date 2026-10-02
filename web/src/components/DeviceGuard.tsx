@@ -111,7 +111,7 @@ export function BlockScreen({ status }: { status: DeviceStatus }) {
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
-              className="h-12 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-primary"
+              className="h-12 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal"
             />
             <button type="submit" disabled={isWorking || password === ""} className="press flex h-12 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50">
               {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}

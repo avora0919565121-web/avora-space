@@ -18,7 +18,7 @@ import type { TaskItem } from "@/lib/tasks";
 import { useCheckAdjust, useProjectActions } from "@/lib/use-projects";
 
 const areaClass =
-  "mt-1.5 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-[14.5px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary";
+  "mt-1.5 w-full resize-y rounded-md border border-border bg-background px-3.5 py-2.5 text-[14.5px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal";
 /**
  * The one question after a successful close. The box starts empty on purpose (ADR-021): the
  * words are the leader's own, never a draft written for them. Sending posts once into the

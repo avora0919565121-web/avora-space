@@ -55,6 +55,17 @@ export default {
           foreground: "hsl(var(--card-foreground))",
         },
         online: "hsl(var(--online))",
+        // AVORA-74 (ADR-046): the person's own tone. `primary` stays Avora's terracotta.
+        personal: {
+          DEFAULT: "hsl(var(--personal))",
+          foreground: "hsl(var(--personal-foreground))",
+          soft: "hsl(var(--personal-soft))",
+          "soft-foreground": "hsl(var(--personal-soft-foreground))",
+        },
+        star: {
+          DEFAULT: "hsl(var(--star))",
+          soft: "hsl(var(--star-soft))",
+        },
         money: {
           in: "hsl(var(--money-in))",
           out: "hsl(var(--money-out))",

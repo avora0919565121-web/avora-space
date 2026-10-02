@@ -30,7 +30,7 @@ export const DATA_CLASSIFICATION = {
   profiles: {
     level: "personal",
     domain: "identity",
-    columns: { display_name: "personal", avatar_url: "personal", push_show_content: "internal", push_reminders: "internal", focus_mode: "internal", focus_until: "internal" },
+    columns: { display_name: "personal", avatar_url: "personal", push_show_content: "internal", push_reminders: "internal", focus_mode: "internal", focus_until: "internal", color_scheme: "internal", accent_tone: "internal" },
   },
   user_pins: { level: "internal", domain: "identity", columns: { pin: "internal" } },
   family_relations: { level: "personal", domain: "identity" },

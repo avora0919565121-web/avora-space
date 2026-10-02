@@ -711,6 +711,24 @@ const ThinkHub = () => {
     [actions, editing, targetTable, records, opportunityBoard.byId, invalidateOpportunityBoard],
   );
 
+  /**
+   * AVORA-75 · 72: dragging a card to another column in `Theo trạng thái` changes its status. On the
+   * synced board the status is the opportunity's stage — the server trigger carries it over.
+   */
+  const handleMoveRecord = useCallback(
+    (record: ThinkRecord, status: string): void => {
+      const isSynced = record.opportunityId != null;
+      actions
+        .updateRecord(record.id, { status })
+        .then(() => {
+          if (isSynced) invalidateOpportunityBoard();
+          toast.success("Đã chuyển trạng thái.");
+        })
+        .catch((caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không chuyển được."));
+    },
+    [actions, invalidateOpportunityBoard],
+  );
+
   /** AVORA-61 · D: a Có / Không cell ticks in place; the rest of the record's fields stay as they are. */
   const handleToggleCheckbox = useCallback(
     (record: ThinkRecord, column: ColumnDef, next: boolean): void => {
@@ -1193,7 +1211,7 @@ const ThinkHub = () => {
                     onKeyDown={(event) => {
                       if (event.key === "Escape") setIsRenamingTable(false);
                     }}
-                    className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[18px] font-semibold text-foreground outline-none focus:border-primary"
+                    className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[18px] font-semibold text-foreground outline-none focus:border-personal"
                   />
                   <button type="submit" className="press h-11 rounded-md bg-primary px-4 text-[14px] font-semibold text-primary-foreground">
                     Lưu
@@ -1272,7 +1290,7 @@ const ThinkHub = () => {
                       if (event.key === "Enter") void savePurpose();
                       if (event.key === "Escape") setIsEditingPurpose(false);
                     }}
-                    className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[16px] md:text-[14px] text-foreground outline-none focus:border-primary"
+                    className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[16px] md:text-[14px] text-foreground outline-none focus:border-personal"
                   />
                   <button
                     type="button"
@@ -1481,7 +1499,7 @@ const ThinkHub = () => {
               />
             ) : (
               view === "kanban" ? (
-                <KanbanView records={visibleRecords} onOpenRecord={openRecord} today={today} statusOptions={active.statusOptions} />
+                <KanbanView records={visibleRecords} onOpenRecord={openRecord} today={today} statusOptions={active.statusOptions} onMoveRecord={isReadOnly ? undefined : handleMoveRecord} />
               ) : (
                 <MindmapView
                   table={active}

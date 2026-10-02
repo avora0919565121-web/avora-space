@@ -100,7 +100,7 @@ export function AppSidebar() {
                   cn(
                     "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-[15px] font-medium transition-colors",
                     isActive
-                      ? "bg-accent/70 text-primary"
+                      ? "bg-personal-soft text-personal-soft-foreground"
                       : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
                   )
                 }
@@ -110,7 +110,7 @@ export function AppSidebar() {
                     <span
                       aria-hidden="true"
                       className={cn(
-                        "absolute -left-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-primary transition-opacity",
+                        "absolute -left-3 top-1/2 h-6 w-[3px] -translate-y-1/2 rounded-r-full bg-personal transition-opacity",
                         isActive ? "opacity-100" : "opacity-0",
                       )}
                     />

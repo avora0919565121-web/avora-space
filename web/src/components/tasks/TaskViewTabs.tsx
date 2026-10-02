@@ -110,10 +110,10 @@ export function TaskViewTabs({ mode, order, onChange, onReorder }: TaskViewTabsP
             className={cn(
               "press min-h-12 flex-1 cursor-grab rounded-[7px] px-2 text-[13px] transition-colors active:cursor-grabbing sm:min-h-11 sm:flex-none sm:px-3",
               mode === option
-                ? "bg-primary text-primary-foreground"
+                ? "bg-personal text-personal-foreground"
                 : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
               draggingId === option ? "opacity-50" : "",
-              overId === option && draggingId !== option ? "ring-2 ring-primary/50" : "",
+              overId === option && draggingId !== option ? "ring-2 ring-personal/50" : "",
             )}
           >
             {TASK_VIEW_LABELS[option]}

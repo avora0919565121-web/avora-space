@@ -72,7 +72,7 @@ export function NewTableDialog({
   );
 
   const fieldClass =
-    "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-primary";
+    "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-personal";
   const shared = place !== PERSONAL_VALUE;
 
   return (

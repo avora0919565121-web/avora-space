@@ -33,7 +33,7 @@ export function LandscapeRail() {
             className={({ isActive }) =>
               cn(
                 "press no-callout relative flex h-11 w-11 shrink-0 items-center justify-center rounded-xl transition-colors",
-                isActive ? "bg-accent/70 text-primary" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
+                isActive ? "bg-personal-soft text-personal-soft-foreground" : "text-muted-foreground hover:bg-accent/40 hover:text-foreground",
               )
             }
           >

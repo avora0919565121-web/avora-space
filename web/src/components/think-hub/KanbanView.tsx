@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, type DragEvent } from "react";
 
 import { groupByStatus, priorityLabel, type StatusOption, type ThinkRecord } from "@/lib/think-hub";
 import { cn } from "@/lib/utils";
@@ -9,7 +9,11 @@ type KanbanViewProps = {
   today: string;
   /** The table's own statuses (Đợt gộp 2 · C1); null = the four defaults. */
   statusOptions?: readonly StatusOption[] | null;
+  /** AVORA-75 · 72: when given, cards can be dragged to another column to change their status. */
+  onMoveRecord?: (record: ThinkRecord, status: string) => void;
 };
+
+const DRAG_TYPE = "application/x-avora-record";
 
 /**
  * The board: one column per status, grouped by the Trạng thái column and nothing else.
@@ -18,8 +22,21 @@ type KanbanViewProps = {
  * of decisions (what happens to records with no value, what the column order is, whether the
  * grouping is remembered per table) and the one grouping people actually reach for is status.
  */
-export function KanbanView({ records, onOpenRecord, today, statusOptions = null }: KanbanViewProps) {
+export function KanbanView({ records, onOpenRecord, today, statusOptions = null, onMoveRecord }: KanbanViewProps) {
   const columns = useMemo(() => groupByStatus(records, statusOptions), [records, statusOptions]);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [overStatus, setOverStatus] = useState<string | null>(null);
+  const canDrag = onMoveRecord !== undefined;
+
+  const dropOn = (event: DragEvent<HTMLElement>, status: string): void => {
+    event.preventDefault();
+    const id = event.dataTransfer.getData(DRAG_TYPE) || draggingId;
+    setDraggingId(null);
+    setOverStatus(null);
+    const record = records.find((item) => item.id === id);
+    if (record === undefined || record.status.trim() === status || onMoveRecord === undefined) return;
+    onMoveRecord(record, status);
+  };
 
   return (
     <div className="mt-5 flex gap-4 overflow-x-auto pb-2">
@@ -27,7 +44,14 @@ export function KanbanView({ records, onOpenRecord, today, statusOptions = null 
         <section
           key={column.status}
           aria-label={column.label}
-          className="flex w-[264px] shrink-0 flex-col rounded-xl border border-border bg-card"
+          data-kanban-column={column.status}
+          onDragOver={canDrag ? (event) => { event.preventDefault(); event.dataTransfer.dropEffect = "move"; if (overStatus !== column.status) setOverStatus(column.status); } : undefined}
+          onDragLeave={canDrag ? (event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOverStatus(null); } : undefined}
+          onDrop={canDrag ? (event) => dropOn(event, column.status) : undefined}
+          className={cn(
+            "flex w-[264px] shrink-0 flex-col rounded-xl border bg-card transition-colors",
+            overStatus === column.status && draggingId !== null ? "border-primary bg-accent/40" : "border-border",
+          )}
         >
           <header className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
             <h3 className="text-[14px] font-semibold text-foreground">{column.label}</h3>
@@ -36,10 +60,10 @@ export function KanbanView({ records, onOpenRecord, today, statusOptions = null 
             </span>
           </header>
 
-          <div className="flex flex-col gap-2 p-3">
+          <div className="flex min-h-[72px] flex-col gap-2 p-3">
             {column.records.length === 0 ? (
               <p className="px-1 py-4 text-center text-[13px] text-muted-foreground">
-                Chưa có Hạng mục nào
+                {canDrag ? "Kéo thẻ vào đây" : "Chưa có Hạng mục nào"}
               </p>
             ) : (
               column.records.map((record) => {
@@ -50,8 +74,15 @@ export function KanbanView({ records, onOpenRecord, today, statusOptions = null 
                     key={record.id}
                     data-record-id={record.id}
                     type="button"
+                    draggable={canDrag}
+                    onDragStart={canDrag ? (event) => { event.dataTransfer.setData(DRAG_TYPE, record.id); event.dataTransfer.effectAllowed = "move"; setDraggingId(record.id); } : undefined}
+                    onDragEnd={canDrag ? () => { setDraggingId(null); setOverStatus(null); } : undefined}
                     onClick={() => onOpenRecord(record)}
-                    className="press rounded-lg border border-border bg-background px-3.5 py-3 text-left transition-colors hover:bg-accent/30"
+                    className={cn(
+                      "press rounded-lg border border-border bg-background px-3.5 py-3 text-left transition-colors hover:bg-accent/30",
+                      canDrag && "cursor-grab active:cursor-grabbing",
+                      draggingId === record.id && "opacity-50",
+                    )}
                   >
                     <p className="text-[14.5px] font-medium text-foreground">{record.title}</p>
                     <p className="mt-1 text-[12.5px] text-muted-foreground">

@@ -62,7 +62,8 @@ export function ContactPicker({
     const known = new Set(contacts.map((contact) => contact.id));
     return [...contacts, ...added.filter((contact) => !known.has(contact.id))];
   }, [contacts, added]);
-  const recent = useMemo(() => readRecentContacts(user?.id), [user?.id, open]);
+  // Read again each time the picker opens, so a person picked a moment ago is already first.
+  const recent = useMemo(() => (open ? readRecentContacts(user?.id) : []), [user?.id, open]);
   const ranked = useMemo(() => rankContacts(all, query, recent), [all, query, recent]);
   const selected = all.find((contact) => contact.id === value) ?? null;
   const duplicates = useMemo(() => sameNameContacts(all, query), [all, query]);
@@ -119,8 +120,8 @@ export function ContactPicker({
               ))}
             </div>
           ) : null}
-          <input value={phone} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="SĐT (không bắt buộc)" aria-label="Số điện thoại" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-primary" />
-          <input value={email} inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="Email (không bắt buộc)" aria-label="Email" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-primary" />
+          <input value={phone} inputMode="tel" onChange={(e) => setPhone(e.target.value)} placeholder="SĐT (không bắt buộc)" aria-label="Số điện thoại" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-personal" />
+          <input value={email} inputMode="email" onChange={(e) => setEmail(e.target.value)} placeholder="Email (không bắt buộc)" aria-label="Email" className="h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-personal" />
           <div className="flex justify-end gap-2">
             <button type="button" onClick={() => setAdding(false)} className="press rounded-md border border-border px-3 py-1.5 text-[13.5px]">Quay lại</button>
             <button type="button" disabled={isSaving} onClick={() => void addAndPick()} className="press rounded-md bg-primary px-3 py-1.5 text-[13.5px] font-semibold text-primary-foreground disabled:opacity-50">

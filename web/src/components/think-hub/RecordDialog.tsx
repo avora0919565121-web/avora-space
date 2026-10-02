@@ -97,7 +97,7 @@ function SubTableSection({
   const [notice, setNotice] = useState<string | null>(null);
 
   const inputClass =
-    "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-primary";
+    "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-personal";
 
   return (
     <div className="mt-5 border-t border-border pt-4">
@@ -363,7 +363,7 @@ export function RecordDialog({
   );
 
   const fieldClass =
-    "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-primary";
+    "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[15px] text-foreground outline-none transition-colors focus:border-personal";
   const labelClass = "text-[13px] font-medium text-muted-foreground";
 
   return (

@@ -57,7 +57,7 @@ export function SectionTabs({
                   <span
                     aria-hidden="true"
                     className={cn(
-                      "absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-primary transition-opacity",
+                      "absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-personal transition-opacity",
                       isActive ? "opacity-100" : "opacity-0",
                     )}
                   />

@@ -1,6 +1,7 @@
 import { Clock, Coins, Loader2, PencilLine, Quote } from "lucide-react";
 import { toast } from "sonner";
 
+import { AppearanceCard } from "@/components/AppearanceCard";
 import { BlockedPeopleCard } from "@/components/BlockedPeopleCard";
 import { LookPrefsCard } from "@/components/LookPrefsCard";
 import { currenciesByRegion, REGION_LABELS, formatRate } from "@/lib/currency";
@@ -14,7 +15,7 @@ import { TIMEZONE_OPTIONS } from "@/lib/settings";
 import { useCurrencyRates, useProfileSettings, useSettingsActions } from "@/lib/use-settings";
 
 const SELECT_CLASS =
-  "h-12 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors focus:border-primary/70";
+  "h-12 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors focus:border-personal/70";
 
 /**
  * Thiết lập — reporting currency, timezone, and the daily thought.
@@ -201,7 +202,7 @@ const SettingsPreferences = () => {
                     checked={hidesTyping}
                     disabled={isWorking}
                     onChange={(event) => void changeTypingSignal(event.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                    className="mt-0.5 h-4 w-4 shrink-0 accent-personal"
                   />
                   <span className="min-w-0">
                     <span className="flex items-center gap-2">
@@ -267,6 +268,8 @@ const SettingsPreferences = () => {
             </div>
           </div>
         </section>
+
+        <AppearanceCard />
 
         <LookPrefsCard />
 

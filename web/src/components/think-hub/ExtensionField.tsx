@@ -18,7 +18,7 @@ import { useContacts } from "@/lib/use-contacts";
 import { cn } from "@/lib/utils";
 
 const fieldClass =
-  "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-primary";
+  "mt-1.5 w-full rounded-md border border-border bg-background px-3.5 py-2.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors focus:border-personal";
 
 /** Opens a board file in a new tab through a short-lived link. */
 export async function openBoardFile(file: BoardCellFile): Promise<void> {

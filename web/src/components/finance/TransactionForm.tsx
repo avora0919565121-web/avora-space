@@ -263,8 +263,8 @@ export function TransactionForm({
                 "press rounded-[7px] px-4 py-1.5 text-[13.5px] font-semibold transition-colors",
                 draft.type === type
                   ? type === "income"
-                    ? "bg-money-in text-white"
-                    : "bg-money-out text-white"
+                    ? "bg-money-in text-destructive-foreground"
+                    : "bg-money-out text-destructive-foreground"
                   : "text-muted-foreground hover:text-foreground",
               )}
             >
@@ -385,7 +385,7 @@ export function TransactionForm({
           rows={2}
           maxLength={DESCRIPTION_MAX_LEN}
           placeholder="Không bắt buộc — ví dụ: mua phân bón ở chợ Bến Thành"
-          className="mt-1.5 w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+          className="mt-1.5 w-full resize-y rounded-md border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] leading-relaxed text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
         />
       </div>
 

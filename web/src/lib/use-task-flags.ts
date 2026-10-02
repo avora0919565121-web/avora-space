@@ -148,7 +148,7 @@ export function useGuidance(): {
     staleTime: 5 * 60_000,
   });
 
-  const dismissed = data ?? [];
+  const dismissed = useMemo<GuidanceKey[]>(() => data ?? [], [data]);
 
   const shouldShow = useCallback(
     (key: GuidanceKey): boolean => (isSuccess ? shouldShowGuidance(dismissed, key) : false),

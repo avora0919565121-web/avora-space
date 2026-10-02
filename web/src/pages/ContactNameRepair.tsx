@@ -282,7 +282,7 @@ function IssueRow({
           lang="vi"
           aria-label={`Tên mới cho "${issue.current}"`}
           className={cn(
-            "mt-1 h-10 w-full rounded-md border bg-background px-3 text-[16px] font-medium text-foreground outline-none focus:border-primary md:text-[15px]",
+            "mt-1 h-10 w-full rounded-md border bg-background px-3 text-[16px] font-medium text-foreground outline-none focus:border-personal md:text-[15px]",
             stillSuspect.length > 0 && value !== issue.current ? "border-amber-500/60" : "border-border",
           )}
         />

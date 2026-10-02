@@ -135,7 +135,7 @@ export function ConfirmHost() {
               maxLength={request.maxLength}
               onChange={(event) => setText(event.target.value)}
               aria-label={request.title}
-              className="h-11 w-full rounded-[10px] border border-input bg-background px-3 text-[16px] md:text-[15px] outline-none focus:border-primary"
+              className="h-11 w-full rounded-[10px] border border-input bg-background px-3 text-[16px] md:text-[15px] outline-none focus:border-personal"
             />
           </form>
         ) : null}
@@ -151,7 +151,7 @@ export function ConfirmHost() {
               "press flex h-11 items-center justify-center whitespace-nowrap rounded-[10px] px-5 text-[14px] font-semibold transition-colors disabled:opacity-50",
               request?.kind === "confirm" && request.danger
                 ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                : "bg-primary text-primary-foreground hover:bg-primary/90",
+                : "bg-personal text-personal-foreground hover:bg-personal/90",
             )}
           >
             {request?.confirmLabel ?? "Đồng ý"}

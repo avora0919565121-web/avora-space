@@ -82,7 +82,7 @@ export function InviteMessageDialog({ open, onOpenChange, recipientLabel, onSend
                 setProblem(null);
               }}
               placeholder={INVITE_MESSAGE_HINT}
-              className="mt-1.5 block w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-[16px] md:text-[15px] leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+              className="mt-1.5 block w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-[16px] md:text-[15px] leading-6 text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
             />
           </label>
           <div className="mt-1.5 flex items-start justify-between gap-3 text-[12px]">

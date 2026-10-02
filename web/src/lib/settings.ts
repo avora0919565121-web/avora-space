@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { DEFAULT_SCHEME, DEFAULT_TONE, isColorScheme, isToneId, type ColorScheme, type ToneId } from "@/lib/theme";
 import { supabase } from "@/integrations/supabase/client";
 import { buildRateTable, DEFAULT_BASE_CURRENCY, isSupportedCurrency, type RateTable } from "@/lib/currency";
 import {
@@ -67,11 +68,19 @@ export type ProfileSettings = {
   celebrationStyle: CelebrationStyle;
   /** AVORA-57 · F (ADR-037): one shape for every icon and primary button. Default `round`. */
   buttonStyle: ButtonStyle;
+  /** AVORA-74 (ADR-046): Sắc màu. Default `device`. */
+  colorScheme: ColorScheme;
+  /** AVORA-74: Tông màu — only the person's own traces. Default `avora`. */
+  accentTone: ToneId;
 };
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
 const PROFILE_SETTINGS_COLUMNS =
-  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders, focus_mode, focus_until, celebration_style, button_style";
+  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders, focus_mode, focus_until, celebration_style, button_style, color_scheme, accent_tone";
+/** Before the AVORA-74 migration reaches a database: everything except the two look columns. */
+const LEGACY_SETTINGS_COLUMNS = PROFILE_SETTINGS_COLUMNS.replace(", color_scheme, accent_tone", "");
+let settingsColumns: string = PROFILE_SETTINGS_COLUMNS;
+const profileColumns = (): string => settingsColumns;
 
 type ProfileSettingsRow = {
   base_currency: string | null;
@@ -90,6 +99,8 @@ type ProfileSettingsRow = {
   focus_until?: string | null;
   celebration_style?: string | null;
   button_style?: string | null;
+  color_scheme?: string | null;
+  accent_tone?: string | null;
 };
 
 /**
@@ -121,20 +132,24 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     focusUntil: row?.focus_until ?? null,
     celebrationStyle: isCelebrationStyle(row?.celebration_style) ? row.celebration_style : DEFAULT_CELEBRATION_STYLE,
     buttonStyle: isButtonStyle(row?.button_style) ? row.button_style : DEFAULT_BUTTON_STYLE,
+    colorScheme: isColorScheme(row?.color_scheme) ? row.color_scheme : DEFAULT_SCHEME,
+    accentTone: isToneId(row?.accent_tone) ? row.accent_tone : DEFAULT_TONE,
   };
 }
 
 /** Hiệu ứng khi hoàn thành / Kiểu nút (AVORA-56 · E, AVORA-57 · F). */
 export async function updateLookPrefs(
   userId: string,
-  patch: Partial<Pick<ProfileSettings, "celebrationStyle" | "buttonStyle">>,
+  patch: Partial<Pick<ProfileSettings, "celebrationStyle" | "buttonStyle" | "colorScheme" | "accentTone">>,
 ): Promise<ProfileSettings> {
-  const row: { celebration_style?: string; button_style?: string } = {};
+  const row: { celebration_style?: string; button_style?: string; color_scheme?: string; accent_tone?: string } = {};
   if (patch.celebrationStyle !== undefined) row.celebration_style = patch.celebrationStyle;
   if (patch.buttonStyle !== undefined) row.button_style = patch.buttonStyle;
-  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(PROFILE_SETTINGS_COLUMNS).single();
+  if (patch.colorScheme !== undefined) row.color_scheme = patch.colorScheme;
+  if (patch.accentTone !== undefined) row.accent_tone = patch.accentTone;
+  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(profileColumns()).single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /** Turns Chế độ tập trung on (mode + end, null end = until turned off) or off (mode null). */
@@ -147,10 +162,10 @@ export async function updateFocus(
     .from("profiles")
     .update({ focus_mode: mode, focus_until: mode === null ? null : (until?.toISOString() ?? null) })
     .eq("id", userId)
-    .select(PROFILE_SETTINGS_COLUMNS)
+    .select(profileColumns())
     .single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /** Ngày nghỉ và hai thói quen Nhìn lại (C7). */
@@ -163,9 +178,9 @@ export async function updateReviewPrefs(
   if (patch.reviewDailyEnabled !== undefined) row.review_daily_enabled = patch.reviewDailyEnabled;
   if (patch.reviewDailyHour !== undefined) row.review_daily_hour = patch.reviewDailyHour;
   if (patch.reviewWeeklyEnabled !== undefined) row.review_weekly_enabled = patch.reviewWeeklyEnabled;
-  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(PROFILE_SETTINGS_COLUMNS).single();
+  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(profileColumns()).single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /** The two push switches (AVORA-46). */
@@ -176,9 +191,9 @@ export async function updatePushPrefs(
   const row: { push_show_content?: boolean; push_reminders?: boolean } = {};
   if (patch.pushShowContent !== undefined) row.push_show_content = patch.pushShowContent;
   if (patch.pushReminders !== undefined) row.push_reminders = patch.pushReminders;
-  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(PROFILE_SETTINGS_COLUMNS).single();
+  const { data, error } = await supabase.from("profiles").update(row).eq("id", userId).select(profileColumns()).single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /** One of the two in-app sound switches (A11). */
@@ -192,10 +207,10 @@ export async function updateSoundPref(
     .from("profiles")
     .update(patch)
     .eq("id", userId)
-    .select(PROFILE_SETTINGS_COLUMNS)
+    .select(profileColumns())
     .single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 export const settingsKeys = {
@@ -222,13 +237,16 @@ function fail(scope: string, code: string | undefined, message: string): Error {
 }
 
 export async function fetchProfileSettings(userId: string): Promise<ProfileSettings> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select(PROFILE_SETTINGS_COLUMNS)
-    .eq("id", userId)
-    .maybeSingle();
+  const read = () => supabase.from("profiles").select(profileColumns()).eq("id", userId).maybeSingle();
+  let { data, error } = await read();
+  // 42703 = undefined column: the database has not had the AVORA-74 migration yet. Keep the
+  // rest of Cài đặt working on the old columns; the look then stays on this device's default.
+  if (error?.code === "42703" && settingsColumns !== LEGACY_SETTINGS_COLUMNS) {
+    settingsColumns = LEGACY_SETTINGS_COLUMNS;
+    ({ data, error } = await read());
+  }
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /**
@@ -242,10 +260,10 @@ export async function updateBaseCurrency(userId: string, code: string): Promise<
     .from("profiles")
     .update({ base_currency: code.toUpperCase() })
     .eq("id", userId)
-    .select(PROFILE_SETTINGS_COLUMNS)
+    .select(profileColumns())
     .single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 export async function updateTimezone(userId: string, timezone: string): Promise<ProfileSettings> {
@@ -253,10 +271,10 @@ export async function updateTimezone(userId: string, timezone: string): Promise<
     .from("profiles")
     .update({ timezone })
     .eq("id", userId)
-    .select(PROFILE_SETTINGS_COLUMNS)
+    .select(profileColumns())
     .single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /**
@@ -272,10 +290,10 @@ export async function updateDailyThoughtCategory(
     .from("profiles")
     .update({ daily_thought_category: category })
     .eq("id", userId)
-    .select(PROFILE_SETTINGS_COLUMNS)
+    .select(profileColumns())
     .single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /**
@@ -289,10 +307,10 @@ export async function updateTypingSignal(userId: string, hide: boolean): Promise
     .from("profiles")
     .update({ hide_typing_signal: hide })
     .eq("id", userId)
-    .select(PROFILE_SETTINGS_COLUMNS)
+    .select(profileColumns())
     .single();
   if (error) throw fail("settings", error.code, error.message);
-  return toProfileSettings(data);
+  return toProfileSettings(data as unknown as ProfileSettingsRow | null);
 }
 
 /**

@@ -170,7 +170,7 @@ export function TimeField({ id, value, onChange, ariaLabel, after = null }: Time
                 onChange={(event) => setCustomMinute(event.target.value.replace(/\D/g, ""))}
                 aria-label="Phút (0–59)"
                 placeholder="0–59"
-                className="tabular h-10 w-20 rounded-md border border-input bg-background px-2.5 text-[16px] text-foreground outline-none focus:border-primary sm:text-[14px]"
+                className="tabular h-10 w-20 rounded-md border border-input bg-background px-2.5 text-[16px] text-foreground outline-none focus:border-personal sm:text-[14px]"
               />
               <button
                 type="submit"

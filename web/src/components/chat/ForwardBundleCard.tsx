@@ -46,7 +46,7 @@ export function ForwardBundleCard({
     <div
       className={cn(
         "min-w-[220px] rounded-bubble border px-4 py-2.5",
-        outgoing ? "rounded-br-[4px] border-primary/30 bg-primary/[0.07]" : "rounded-bl-[4px] border-border bg-card",
+        outgoing ? "rounded-br-[4px] border-personal/30 bg-personal-soft" : "rounded-bl-[4px] border-border bg-card",
       )}
     >
       <p className="flex items-center gap-1.5 text-[11.5px] text-muted-foreground">

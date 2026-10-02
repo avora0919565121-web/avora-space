@@ -129,7 +129,7 @@ export function DayLineList({
                   checked={allPicked}
                   onChange={(event) => onSelect?.(dayEntries, event.target.checked)}
                   aria-label={`Chọn cả ngày ${group.label}`}
-                  className="h-[18px] w-[18px] accent-primary"
+                  className="h-[18px] w-[18px] accent-personal"
                 />
               ) : null}
               <button
@@ -285,7 +285,7 @@ function LineRow({
             disabled={line.entryId === null}
             onChange={(event) => onPick(event.target.checked)}
             aria-label={`Chọn: ${line.title}`}
-            className="h-[18px] w-[18px] shrink-0 accent-primary disabled:opacity-30"
+            className="h-[18px] w-[18px] shrink-0 accent-personal disabled:opacity-30"
           />
         ) : null}
         <button

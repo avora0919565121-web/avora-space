@@ -147,7 +147,7 @@ export function AnnounceDialog({
             maxLength={500}
             rows={2}
             onChange={(event) => setNote(event.target.value)}
-            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] outline-none focus:border-primary md:text-[14.5px]"
+            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] outline-none focus:border-personal md:text-[14.5px]"
           />
         </label>
         {suggestions.length > 0 ? (

@@ -60,20 +60,21 @@ export function useColumnWidth(spec: ColumnSpec): ColumnWidthControl {
   const widthRef = useRef<number>(spec.fallback);
   widthRef.current = width;
 
+  const { key: specKey, min: specMin, max: specMax, fallback: specFallback } = spec;
   useEffect(() => {
     let stored: string | null = null;
     try {
-      stored = window.localStorage.getItem(storageKey(spec.key));
+      stored = window.localStorage.getItem(storageKey(specKey));
     } catch {
       // Private mode or blocked storage: the default simply applies.
     }
-    setWidth(parseColumnWidth(stored, spec));
+    setWidth(parseColumnWidth(stored, { key: specKey, min: specMin, max: specMax, fallback: specFallback }));
 
     const query = window.matchMedia(DESKTOP_QUERY);
     const onChange = (event: MediaQueryListEvent): void => setIsDesktop(event.matches);
     query.addEventListener("change", onChange);
     return () => query.removeEventListener("change", onChange);
-  }, [spec.key, spec.min, spec.max, spec.fallback]);
+  }, [specKey, specMin, specMax, specFallback]);
 
   const persist = useCallback((next: number): void => {
     try {

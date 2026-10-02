@@ -79,7 +79,7 @@ export function LookPrefsCard() {
                   <span
                     className={cn(
                       "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border",
-                      isOn ? "border-primary bg-primary text-primary-foreground" : "border-border",
+                      isOn ? "border-personal bg-personal text-personal-foreground" : "border-border",
                     )}
                   >
                     {isOn ? <Check className="h-3 w-3" strokeWidth={3} aria-hidden="true" /> : null}

@@ -1940,6 +1940,24 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - **File theo loại (73):** ① đầu · ② một hàng chip (`Tất cả · Ảnh · Chụp từ máy · Video · Ghi âm · Âm thanh · Tài liệu · PDF · Sách · Khác`, chỉ chip có tệp, có số, một chip, nhớ theo máy) + 🔍 tên tệp · ③ danh sách theo ngày. Cùng ba vùng trên điện thoại và máy tính; máy tính không thêm cột hay khung. Nút 📷 trong ô soạn (điện thoại) ghi `capture_source = camera`.
 - **CSP:** khi thêm Content-Security-Policy phải cho `wasm-unsafe-eval` (Argon2id chạy WASM).
 
+## AVORA-75 · Sửa và làm nốt sau 02/10
+
+- **Mật khẩu Két sắt (68):** hai ô `type=password`, mặc định ẩn, nút 👁 riêng từng ô; `autoComplete="off"` (không đề nghị lưu). `Gợi ý một cụm dễ nhớ` hiện chữ một lần để chép; rời bước (`Tiếp`) là ẩn lại.
+- **Biểu tượng tệp (73):** mỗi loại một biểu tượng theo `fileCategoryOf` (`web/src/components/chat/file-icon.ts`): Ảnh · Video · Ghi âm (mic) · Âm thanh (nốt nhạc) · Tài liệu · PDF · Sách · Khác. Dùng chung ở File của tôi, Nhật ký, thẻ tệp trong tin, tệp đang chờ gửi.
+- **Theo trạng thái (72):** kéo thẻ sang cột khác = đổi trạng thái (bảng đồng bộ: đổi giai đoạn cơ hội). Cột đích viền nhấn khi rê; cột trống ghi `Kéo thẻ vào đây`. Bảng chỉ xem: không kéo được.
+
+## AVORA-74 · Sắc màu + Tông màu (02/10/2026) — xem ADR-046
+
+**Luật: chỉ đổi màu nhấn của người dùng; màu Avora và màu ý nghĩa cố định.**
+
+- Hai lớp biến: `primary` (cam đất `13 73% 56%`, sáng = tối) cho **vùng Avora**; `personal` / `personal-foreground` / `personal-soft` / `personal-soft-foreground` cho **vùng của bạn**. Code mới: cái gì là "tôi đang làm" dùng `personal`; logo, `+`, huy hiệu, màn đăng nhập dùng `primary`.
+- Vùng của bạn hiện có: bong bóng của mình + thẻ chuyển tiếp của mình, gạch chân tab (`SectionTabs`, thanh đáy, thanh bên, menu điện thoại), chip/ô đang chọn (cách xem Nhiệm vụ, chip luồng, người nhận, chọn thành viên, Kiểu hiệu ứng), vạch việc của tôi (`TaskOwner`), viền ô đang gõ (`focus:border-personal`, vòng focus `--ring`), nút chính hộp thoại (`ConfirmHost`, `Button` mặc định), nút `Gửi` (`icon-btn-personal`), thanh tiến độ.
+- Vùng Avora giữ cam: logo/AVORA, `+` của mỗi khu (`PlusMenuButton`), huy hiệu số chưa đọc, màn đăng nhập/đặt lại mật khẩu, Hướng dẫn, gợi ý trong chat, Danh ngôn, Avora AI, email.
+- Chưa chắc, đang để vùng Avora (cho Claude xem): hàng ngày Nhật ký (nền đất nung nhạt, `DayLineList`), bìa thư mục Ghi chép mặc định (`Cam` — màu bìa người dùng chọn, không phải màu nhấn), nền chữ cái ảnh đại diện (cát trung tính, không cam), nút chính ở Avora Space (`Lưu suy ngẫm`), chip `Tất cả` của Nhiệm vụ (đen/trắng).
+- **Nền tối:** than ấm `30 9% 9%`, thẻ `30 8% 13%`, chữ ngà `40 30% 92%`, viền `30 8% 22%`; đỏ xoá `4 72% 62%`, xanh lá `153 40% 52%`, ★ `40 62% 58%`. Không đen tuyền. Hạt giấy lấy màu viền nên tự tối theo.
+- Màu cứng: không còn `bg-white` / `text-black` / `text-white`… trừ lớp phủ ảnh, camera, mã QR (test `theme.test.ts` · 74.9 liệt kê từng chỗ được phép).
+- Ảnh: `docs/screens/2026-10-02/74-{tông}-{sang|toi}-{ket-noi|nhiem-vu|ke-hoach}-{390|1280}.png`, `74-cai-dat-giao-dien-*`, `74-xem-truoc-bien-390.png`, `74-theo-thiet-bi-khong-ho-tro-390.png`.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

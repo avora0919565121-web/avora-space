@@ -747,7 +747,7 @@ export function GroupInfoSheet({
                         onChange={(event) => setSearch(event.target.value)}
                         placeholder="Tìm theo tên"
                         aria-label="Tìm thành viên"
-                        className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-9 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60 [&::-webkit-search-cancel-button]:hidden"
+                        className="h-10 w-full rounded-md border border-border bg-card pl-10 pr-9 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60 [&::-webkit-search-cancel-button]:hidden"
                       />
                       {search ? (
                         <button
@@ -1275,7 +1275,7 @@ export function GroupInfoSheet({
                 maxLength={GROUP_NAME_MAX_LENGTH}
                 autoFocus
                 placeholder="Tên nhóm"
-                className="h-11 w-full rounded-md border border-border bg-background px-3.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+                className="h-11 w-full rounded-md border border-border bg-background px-3.5 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
               />
               <p className="mt-1.5 text-right text-[12px] text-muted-foreground">
                 {nameDraft.trim().length}/{GROUP_NAME_MAX_LENGTH}
@@ -1318,7 +1318,7 @@ export function GroupInfoSheet({
                 onClick={() => runConfirmedAction(confirmAction)}
                 className={cn(
                   confirmCopy(confirmAction).destructive
-                    ? "bg-destructive text-white hover:bg-destructive/90"
+                    ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
                     : "bg-primary text-primary-foreground hover:bg-primary/92",
                 )}
               >

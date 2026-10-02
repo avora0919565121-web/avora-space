@@ -562,7 +562,7 @@ export function GroupDecisionSheet({
                 value={title}
                 onChange={(event) => setTitle(event.target.value.slice(0, DECISION_TITLE_MAX_LENGTH))}
                 placeholder={composing === "poll" ? "Câu hỏi cần quyết" : "Tiêu đề biên bản"}
-                className="w-full rounded-[8px] border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+                className="w-full rounded-[8px] border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-personal/60"
               />
 
               {composing === "meeting_note" ? (
@@ -572,7 +572,7 @@ export function GroupDecisionSheet({
                     onChange={(event) => setBody(event.target.value)}
                     rows={4}
                     placeholder="Nội dung đã thống nhất…"
-                    className="mt-2 w-full resize-none rounded-[8px] border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+                    className="mt-2 w-full resize-none rounded-[8px] border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-personal/60"
                   />
                   <MeetingNoteFields
                     details={composeDetails}
@@ -593,7 +593,7 @@ export function GroupDecisionSheet({
                           setOptions(next);
                         }}
                         placeholder={`Lựa chọn ${index + 1}`}
-                        className="min-w-0 flex-1 rounded-[8px] border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+                        className="min-w-0 flex-1 rounded-[8px] border border-border bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none placeholder:text-muted-foreground focus:border-personal/60"
                       />
                       {options.length > DECISION_MIN_OPTIONS ? (
                         <button
@@ -752,7 +752,7 @@ export function GroupDecisionSheet({
                             onChange={(event) =>
                               setEditTitle(event.target.value.slice(0, DECISION_TITLE_MAX_LENGTH))
                             }
-                            className="w-full rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[16px] md:text-[14px] font-medium text-foreground outline-none focus:border-primary/60"
+                            className="w-full rounded-[8px] border border-border bg-card px-2.5 py-1.5 text-[16px] md:text-[14px] font-medium text-foreground outline-none focus:border-personal/60"
                           />
                         ) : (
                           <p className="text-[14px] font-medium leading-5 text-foreground">{entry.title}</p>
@@ -780,7 +780,7 @@ export function GroupDecisionSheet({
                             value={editBody}
                             onChange={(event) => setEditBody(event.target.value)}
                             rows={4}
-                            className="w-full resize-none rounded-[8px] border border-border bg-card px-2.5 py-2 text-[16px] md:text-[13.5px] text-foreground outline-none focus:border-primary/60"
+                            className="w-full resize-none rounded-[8px] border border-border bg-card px-2.5 py-2 text-[16px] md:text-[13.5px] text-foreground outline-none focus:border-personal/60"
                           />
                           <MeetingNoteFields
                             details={editDetails}

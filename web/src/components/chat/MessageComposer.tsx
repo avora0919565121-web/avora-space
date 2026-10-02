@@ -2,6 +2,7 @@ import { ArrowUp, Mic } from "lucide-react";
 import {
   useCallback,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type FormEvent,
@@ -94,13 +95,13 @@ export function MessageComposer({
   const [mentionRange, setMentionRange] = useState<{ start: number; caret: number } | null>(null);
   const [highlighted, setHighlighted] = useState<number>(0);
 
-  const suggestions =
-    mentionRange === null || mentionCandidates.length === 0
-      ? []
-      : filterMentionCandidates(
-          mentionCandidates,
-          value.slice(mentionRange.start + 1, mentionRange.caret),
-        );
+  const suggestions = useMemo(
+    () =>
+      mentionRange === null || mentionCandidates.length === 0
+        ? []
+        : filterMentionCandidates(mentionCandidates, value.slice(mentionRange.start + 1, mentionRange.caret)),
+    [mentionRange, mentionCandidates, value],
+  );
 
   /** Recomputed on every change of text or caret, so the picker follows the cursor. */
   const syncMentionRange = useCallback(
@@ -266,7 +267,7 @@ export function MessageComposer({
           placeholder={placeholder}
           aria-label={ariaLabel}
           enterKeyHint="enter"
-          className="min-h-11 w-full resize-none rounded-[22px] border border-border bg-card px-4 py-[11px] text-[16px] md:text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+          className="min-h-11 w-full resize-none rounded-[22px] border border-border bg-card px-4 py-[11px] text-[16px] md:text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
         />
       </div>
         {trailingAction}
@@ -287,7 +288,7 @@ export function MessageComposer({
             disabled={!canSend}
             aria-label="Gửi"
             title="Gửi"
-            className="icon-btn icon-btn-primary h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
+            className="icon-btn icon-btn-primary icon-btn-personal h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
           >
             <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
           </button>
@@ -331,7 +332,7 @@ export function MessageComposer({
                   // Keyboard users: Enter/Space submit as usual; the menu never steals them.
                   if (event.key === "Enter" || event.key === " ") event.stopPropagation();
                 }}
-                className="icon-btn icon-btn-primary h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
+                className="icon-btn icon-btn-primary icon-btn-personal h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
               >
                 <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
               </button>

@@ -274,7 +274,7 @@ export function ConversationRowActions({
                   aria-hidden="true"
                   className={cn(
                     "ml-2 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border",
-                    isSelected ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card",
+                    isSelected ? "border-personal bg-personal text-personal-foreground" : "border-border bg-card",
                   )}
                 >
                   {isSelected ? <Check className="h-3.5 w-3.5" strokeWidth={3} /> : null}

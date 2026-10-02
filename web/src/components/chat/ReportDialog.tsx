@@ -94,7 +94,7 @@ export function ReportDialog({
                   value={option.value}
                   checked={active}
                   onChange={() => setReason(option.value)}
-                  className="h-4 w-4 accent-primary"
+                  className="h-4 w-4 accent-personal"
                 />
                 <span className="text-[14px] text-foreground">{option.label}</span>
               </label>
@@ -113,7 +113,7 @@ export function ReportDialog({
             maxLength={REPORT_NOTE_MAX}
             onChange={(event) => setNote(event.target.value)}
             placeholder="Điều gì đã xảy ra?"
-            className="mt-1.5 w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2.5 text-[16px] md:text-[14px] leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:border-primary/60"
+            className="mt-1.5 w-full resize-y rounded-[10px] border border-input bg-card px-3 py-2.5 text-[16px] md:text-[14px] leading-6 text-foreground outline-none placeholder:text-muted-foreground focus:border-personal/60"
           />
         </div>
 

@@ -1,4 +1,6 @@
-import { Camera, FileText, Mic, Paperclip, Square, X } from "lucide-react";
+import { Camera, Mic, Paperclip, Square, X } from "lucide-react";
+
+import { fileIconOf } from "@/components/chat/file-icon";
 
 import {
   formatDuration,
@@ -53,11 +55,10 @@ export function StagedAttachmentBar({
                 />
               ) : (
                 <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[7px] bg-secondary text-muted-foreground">
-                  {item.kind === "voice" ? (
-                    <Mic className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                  ) : (
-                    <FileText className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                  )}
+                  {(() => {
+                    const KindIcon = fileIconOf(item);
+                    return <KindIcon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />;
+                  })()}
                 </span>
               )}
               <div className="min-w-0 flex-1">

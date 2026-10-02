@@ -110,7 +110,7 @@ export function FriendsPanel({ query }: { query: string }) {
             autoComplete="off"
             spellCheck={false}
             placeholder="Kết bạn qua PIN: A-XXXXXXXX"
-            className="h-11 w-full rounded-md border border-border bg-card pl-10 pr-3 font-mono text-[16px] md:text-[14.5px] uppercase text-foreground outline-none transition-colors placeholder:font-sans placeholder:normal-case placeholder:text-muted-foreground/70 focus:border-primary/60"
+            className="h-11 w-full rounded-md border border-border bg-card pl-10 pr-3 font-mono text-[16px] md:text-[14.5px] uppercase text-foreground outline-none transition-colors placeholder:font-sans placeholder:normal-case placeholder:text-muted-foreground/70 focus:border-personal/60"
           />
         </label>
         <button

@@ -20,8 +20,9 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
 import { DayLineList, type DayLine } from "@/components/chat/DayLineList";
+import { fileIconOf } from "@/components/chat/file-icon";
 import { FileChipRow } from "@/components/chat/FileChipRow";
-import { fileCategoryOf, matchesFileChip, readFileChip, writeFileChip, type CategorizableFile, type FileChip } from "@/lib/file-category";
+import { matchesFileChip, readFileChip, writeFileChip, type CategorizableFile, type FileChip } from "@/lib/file-category";
 import { normalizeSearch } from "@/lib/normalize-search";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import type { MessageAttachment } from "@/lib/attachments";
@@ -360,7 +361,7 @@ export function DiaryFilesView({
     lines.push({
       id,
       at: entry.createdAt,
-      icon: first?.kind === "image" ? ImageIcon : FileText,
+      icon: first === undefined ? FileText : fileIconOf(asFile(first)),
       thumbUrl: first?.kind === "image" ? urlOf(first.storagePath) : null,
       title: first === undefined ? "Tệp" : entry.attachments.length > 1 ? `${first.fileName} và ${entry.attachments.length - 1} tệp khác` : first.fileName,
       meta: fileSizeLabel(entry.attachments.reduce((sum, item) => sum + item.byteSize, 0)),
@@ -381,7 +382,7 @@ export function DiaryFilesView({
     lines.push({
       id,
       at: file.createdAt,
-      icon: Paperclip,
+      icon: fileIconOf(asFile(file.attachment)),
       title: file.attachment.fileName,
       meta: fileSizeLabel(file.attachment.byteSize),
       entryId: null,
@@ -453,7 +454,7 @@ export function DiaryFilesView({
       ) : null}
       {isSearching ? (
         <div className="border-b border-border px-3 py-2">
-          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tên tệp…" aria-label="Tìm theo tên tệp" className="h-10 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-primary md:text-[14px]" />
+          <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Tên tệp…" aria-label="Tìm theo tên tệp" className="h-10 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[14px]" />
         </div>
       ) : null}
       {allFiles.length > 0 && lines.length === 0 ? (
@@ -483,7 +484,6 @@ export function DiaryFilesView({
 }
 
 const FILE_CHIP_KEY = "avora.diary-files.chip";
-void fileCategoryOf;
 
 /**
  * Liên kết (AVORA-70 · B): one line per link — 🔗, its caption or domain, the time. Nothing is

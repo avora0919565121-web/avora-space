@@ -484,7 +484,7 @@ export function ViewModeSwitch({
           className={cn(
             "press rounded-[7px] px-3 py-1.5 text-[13px] transition-colors",
             mode === option
-              ? "bg-primary text-primary-foreground"
+              ? "bg-personal text-personal-foreground"
               : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
           )}
         >

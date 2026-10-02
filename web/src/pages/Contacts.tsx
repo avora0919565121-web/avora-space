@@ -240,7 +240,7 @@ const Contacts = () => {
                   ? "Tìm bạn bè theo tên hoặc PIN"
                   : "Tìm theo tên hoặc mã số thuế"
             }
-            className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-primary/60"
+            className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
           />
         </label>
         {/* AVORA-44 · việc 5: this box filters here; the line below searches all of AVORA (ADR-032). */}

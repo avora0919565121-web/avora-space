@@ -263,7 +263,7 @@ const Bookshelf = () => {
                   defaultValue={field(opened, keys.position)}
                   placeholder="40% · trang 120/300 · chương 5"
                   onBlur={(event) => event.target.value !== field(opened, keys.position) && patchField(opened, keys.position, event.target.value)}
-                  className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-primary"
+                  className="mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] md:text-[14.5px] outline-none focus:border-personal"
                 />
               </label>
               <label className="block">
@@ -273,7 +273,7 @@ const Bookshelf = () => {
                   rows={3}
                   defaultValue={field(opened, keys.lesson)}
                   onBlur={(event) => event.target.value !== field(opened, keys.lesson) && patchField(opened, keys.lesson, event.target.value)}
-                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] md:text-[14.5px] outline-none focus:border-primary"
+                  className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] md:text-[14.5px] outline-none focus:border-personal"
                 />
               </label>
               <div className="flex flex-wrap gap-2">
@@ -385,7 +385,7 @@ function AddBookDialog({
     setSource("");
     setLink("");
   }, [open]);
-  const input = "mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-[14.5px] outline-none focus:border-primary";
+  const input = "mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-[14.5px] outline-none focus:border-personal";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[440px]">
