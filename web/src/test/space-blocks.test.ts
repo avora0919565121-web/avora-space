@@ -100,8 +100,10 @@ describe("Avora Space block order", () => {
     for (const id of ["attention", "reminders", "invitations", "communication"] as const) {
       expect(SPACE_BLOCK_COPY[id].hint).toBeNull();
     }
+    // AVORA-77 · A2: Góc kế hoạch is one row with its own ›, so it needs no hint line either.
+    expect(SPACE_BLOCK_COPY.planning.title).toBe("Góc kế hoạch");
+    expect(SPACE_BLOCK_COPY.planning.hint).toBeNull();
     // Blocks without their own tap sign keep saying what tapping does.
-    expect(SPACE_BLOCK_COPY.planning.hint?.length ?? 0).toBeGreaterThan(0);
     expect(SPACE_BLOCK_COPY.greeting.hint?.length ?? 0).toBeGreaterThan(0);
   });
 
@@ -198,7 +200,7 @@ describe("Nhắc nhở sắp tới", () => {
   });
 });
 
-describe("Góc hoạch định", () => {
+describe("Góc kế hoạch", () => {
   const now = new Date(2026, 8, 15, 8, 0);
   const tables = [table("t1", "Khách hàng"), table("t2", "Nhà cung cấp"), table("t3", "Cũ", "2026-09-01")];
 

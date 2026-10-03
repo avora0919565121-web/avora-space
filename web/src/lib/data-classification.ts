@@ -153,6 +153,14 @@ export const DATA_CLASSIFICATION = {
   think_hub_announcements: { level: "personal", domain: "personal" },
   think_hub_table_seen: { level: "internal", domain: "personal" },
   think_hub_nudges: { level: "personal", domain: "personal" },
+  // AVORA-77 · A4: a board's conclusions — members of the board read them.
+  think_hub_conclusions: { level: "personal", domain: "personal", columns: { body: "sensitive" } },
+  // AVORA-77 · D2: the open library's public catalogue (titles of public-domain books).
+  book_catalog: { level: "public", domain: "personal" },
+  // AVORA-77 · D4: where I am in a book, only I read it.
+  book_reading_state: { level: "personal", domain: "personal" },
+  // AVORA-77 · D3: the hourly limit of book-text; no client reads it.
+  book_text_hits: { level: "internal", domain: "personal" },
   // AVORA-69: `Nhắc tôi xem lại` — each person's own, only they read it.
   think_hub_record_reminders: { level: "personal", domain: "personal" },
   // AVORA-71 · E: a name I give someone — only I read it, they never know.

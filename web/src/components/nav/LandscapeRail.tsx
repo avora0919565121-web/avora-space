@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 
 import { navIconFor } from "@/components/nav/nav-icons";
+import { useTabPress } from "@/components/nav/use-tab-press";
 import { formatUnreadBadge } from "@/lib/chat";
 import { NAV_ITEMS } from "@/lib/navigation";
 import { useNavBadges } from "@/lib/use-nav-badges";
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils";
  */
 export function LandscapeRail() {
   const badges = useNavBadges();
+  const pressTab = useTabPress();
   return (
     <nav
       aria-label="Điều hướng chính"
@@ -28,6 +30,7 @@ export function LandscapeRail() {
           <NavLink
             key={item.to}
             to={item.to}
+            onClick={(event) => pressTab(event, item.to)}
             aria-label={item.label}
             title={item.label}
             className={({ isActive }) =>

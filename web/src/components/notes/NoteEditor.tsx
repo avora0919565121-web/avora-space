@@ -633,7 +633,13 @@ export function NoteEditor({
                         if (node === null) refs.current.delete(block.id);
                         else refs.current.set(block.id, node);
                       }}
-                      placeholder={index === 0 && blocks.length === 1 ? "Bạn đang học được điều gì?" : undefined}
+                      placeholder={
+                        index === 0 && blocks.length === 1
+                          ? "Bạn đang học được điều gì?"
+                          : initial.bookRecordId !== null && index === blocks.length - 1 && block.text === ""
+                            ? "Điều này áp dụng vào đâu?"
+                            : undefined
+                      }
                       onChange={(value, caret) => {
                         const next = [...blocks];
                         const typed = applyTyping(block, value);

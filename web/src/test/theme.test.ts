@@ -135,7 +135,8 @@ describe("AVORA-74 · 74.9 — no hard-coded white / black", () => {
   const ALLOWED: readonly [string, RegExp][] = [
     ["components/contacts/ConnectQrDialog.tsx", /bg-white p-3|border-white\/80/],
     ["components/PersonCard.tsx", /bg-black\/85|bg-white\/10 text-white/],
-    ["pages/Bookshelf.tsx", /text-white/],
+    ["components/library/BookshelfPanel.tsx", /text-white/],
+    ["pages/BookReader.tsx", /bg-black\/30/],
     ["components/ui/sheet.tsx", /bg-black\/80/],
     ["components/ui/alert-dialog.tsx", /bg-black\/80/],
     ["components/ui/drawer.tsx", /bg-black\/80/],

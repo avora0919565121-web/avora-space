@@ -86,6 +86,9 @@
     /* Meaning colours: never follow the tone. */
     --star: 40 59% 45%;
     --star-soft: 44 87% 92%;
+
+    /* AVORA-77 · D3: the reader's page — a touch warmer than the canvas, like paper. */
+    --reader-paper: 40 45% 94%;
   }
 
   /* AVORA-74 · A: Sắc màu Tối — warm charcoal, not pure black; cards one step lighter; ivory ink. */
@@ -140,6 +143,8 @@
 
     --star: 40 62% 58%;
     --star-soft: 40 30% 18%;
+
+    --reader-paper: 32 10% 11%;
   }
 
   /* AVORA-57 · F (ADR-037): one shape for every icon and primary button, picked in

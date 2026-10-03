@@ -9,6 +9,7 @@ import { activeFocus } from "@/lib/mute";
 import { useProfileSettings } from "@/lib/use-settings";
 import { ResizeHandle } from "@/components/ResizeHandle";
 import { navIconFor } from "@/components/nav/nav-icons";
+import { useTabPress } from "@/components/nav/use-tab-press";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
@@ -34,6 +35,7 @@ export function AppSidebar() {
   const navColumn = useColumnWidth(NAV_COLUMN);
   const asideRef = useRef<HTMLElement | null>(null);
   const badges = useNavBadges();
+  const pressTab = useTabPress();
   const { data: profile } = useProfileSettings();
   const isFocused = activeFocus(profile?.focusMode, profile?.focusUntil) !== null;
 
@@ -86,6 +88,7 @@ export function AppSidebar() {
             <li key={item.to}>
               <NavLink
                 to={item.to}
+                onClick={(event) => pressTab(event, item.to)}
                 // AVORA-47 · C: right-click or double-click Kết nối opens Chế độ tập trung.
                 onContextMenu={
                   item.to === "/tin-nhan"

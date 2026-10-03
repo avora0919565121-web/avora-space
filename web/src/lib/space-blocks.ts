@@ -64,9 +64,9 @@ export const SPACE_BLOCK_COPY: Readonly<Record<SpaceBlockId, SpaceBlockCopy>> = 
     empty: "Không có nhắc nhở nào sắp tới.",
   },
   planning: {
-    title: "Góc hoạch định",
-    description: "Các hạng mục trong Kế hoạch bạn hẹn xem lại đã tới lúc.",
-    hint: "Chạm tên bảng để mở thẳng bảng đó.",
+    title: "Góc kế hoạch",
+    description: null,
+    hint: null,
     empty: null,
   },
   invitations: {

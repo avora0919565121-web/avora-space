@@ -37,6 +37,7 @@ vi.mock("@/lib/use-notes", () => ({
     folders: { data: [] },
     notes: { data: [] },
     attachments: { data: [] },
+    liveNotes: [],
   }),
 }));
 vi.mock("@/lib/use-think-hub-shelf", () => ({
@@ -220,13 +221,14 @@ function businessTable(
   };
 }
 
-async function open() {
+/** AVORA-77: a board opens when the address names it; without one, the library shows its shelves. */
+async function open(at: string = "/ke-hoach?bang=t-1") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   (window as unknown as { __thinkHubQc?: QueryClient }).__thinkHubQc = client;
   return await render(
     <div style={{ width: 1100 }}>
       <QueryClientProvider client={client}>
-        <MemoryRouter>
+        <MemoryRouter initialEntries={[at]}>
           <ThinkHub />
         </MemoryRouter>
       </QueryClientProvider>
@@ -254,13 +256,12 @@ beforeEach(async () => {
  * before they know what a table here even is.
  */
 test("the first visit lands in a table nobody had to create", async () => {
-  const screen = await open();
+  const screen = await open("/ke-hoach");
 
-  // Scoped to the Kệ: the open table shows the same name in its title, and a bare name lookup
-  // would match both places at once.
-  const ke = screen.getByRole("region", { name: "Kệ" });
+  // AVORA-77 · B1: a computer opens on kệ 02 (Bảng tôi hoạch định), where the default board sits.
+  const shelf = screen.getByRole("region", { name: "Bảng tôi hoạch định" });
   await expect
-    .element(ke.getByRole("button", { name: /Bảng tổng hợp/ }))
+    .element(shelf.getByRole("button", { name: /Bảng tổng hợp/ }))
     .toBeInTheDocument();
   // The ensure can run twice (ensure → invalidate → refetch re-enters); the invariant is that
   // the default table was ensured without the person creating anything.
@@ -269,7 +270,7 @@ test("the first visit lands in a table nobody had to create", async () => {
 
 /** The seven default columns ARE the offer — they show before there is a single record. */
 test("an empty table still shows the columns it is offering", async () => {
-  const screen = await open();
+  const screen = await open("/ke-hoach?bang=t-default");
 
   await expect.element(screen.getByRole("columnheader", { name: "Tiêu đề" })).toBeInTheDocument();
   await expect
@@ -310,7 +311,7 @@ test("the board shows the same records the grid does, standing under their statu
   const screen = await open();
   await expect.element(screen.getByText("Khách sạn ABC")).toBeInTheDocument();
 
-  await userEvent.click(screen.getByRole("button", { name: "Theo trạng thái" }));
+  await userEvent.click(screen.getByRole("button", { name: "Theo trạng thái", exact: true }));
 
   await expect.element(screen.getByRole("region", { name: "Đang làm" })).toBeInTheDocument();
   await expect.element(screen.getByText("Khách sạn ABC")).toBeInTheDocument();
@@ -325,7 +326,7 @@ test("the board keeps a status of the person's own rather than hiding its record
   ];
 
   const screen = await open();
-  await userEvent.click(screen.getByRole("button", { name: "Theo trạng thái" }));
+  await userEvent.click(screen.getByRole("button", { name: "Theo trạng thái", exact: true }));
 
   await expect.element(screen.getByRole("region", { name: "Đang thi công" })).toBeInTheDocument();
   await expect.element(screen.getByText("Nhà xưởng số 3")).toBeInTheDocument();

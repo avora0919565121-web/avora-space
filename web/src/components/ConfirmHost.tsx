@@ -26,7 +26,9 @@ type TextRequest = {
   body?: string;
   initial: string;
   confirmLabel: string;
+  cancelLabel: string;
   maxLength: number;
+  placeholder?: string;
   resolve: (value: string | null) => void;
 };
 
@@ -78,7 +80,7 @@ export function askConfirm(input: {
 }
 
 /** A short name typed in the app's own box (folder names), in place of `prompt()`. Null = cancelled. */
-export function askText(input: { title: string; body?: string; initial?: string; confirmLabel?: string; maxLength?: number }): Promise<string | null> {
+export function askText(input: { title: string; body?: string; initial?: string; confirmLabel?: string; cancelLabel?: string; maxLength?: number; placeholder?: string }): Promise<string | null> {
   dismissCurrent();
   return new Promise<string | null>((resolve) => {
     publish({
@@ -87,7 +89,9 @@ export function askText(input: { title: string; body?: string; initial?: string;
       body: input.body,
       initial: input.initial ?? "",
       confirmLabel: input.confirmLabel ?? "Lưu",
+      cancelLabel: input.cancelLabel ?? "Huỷ",
       maxLength: input.maxLength ?? 80,
+      placeholder: input.placeholder,
       resolve,
     });
   });
@@ -135,13 +139,14 @@ export function ConfirmHost() {
               maxLength={request.maxLength}
               onChange={(event) => setText(event.target.value)}
               aria-label={request.title}
+              placeholder={request.placeholder}
               className="h-11 w-full rounded-[10px] border border-input bg-background px-3 text-[16px] md:text-[15px] outline-none focus:border-personal"
             />
           </form>
         ) : null}
         <AlertDialogFooter className="gap-2">
           <AlertDialogCancel className="press h-11 whitespace-nowrap rounded-[10px]">
-            {request?.kind === "confirm" ? request.cancelLabel : "Huỷ"}
+            {request?.cancelLabel ?? "Huỷ"}
           </AlertDialogCancel>
           <button
             type="button"

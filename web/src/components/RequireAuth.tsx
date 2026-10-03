@@ -25,6 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { useNewDayLanding } from "@/lib/use-new-day-landing";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import { useTrackHistory } from "@/lib/nav-history";
+import { useTabMemory } from "@/lib/tab-memory";
 
 /** Gate for every signed-in screen; renders the shared site navigation around the page. */
 export function RequireAuth() {
@@ -33,6 +34,8 @@ export function RequireAuth() {
   // Before any early return, so the hook order never changes between renders.
   useNewDayLanding(session !== null && !isRecovering ? session?.user.id : undefined);
   useTrackHistory();
+  // AVORA-77 · G: each tab keeps the place it was left at (on this device, per account).
+  useTabMemory(session !== null && !isRecovering ? session?.user.id : undefined);
 
   if (isLoading) {
     return (

@@ -1,4 +1,6 @@
 import {
+  BookOpen,
+  ChevronLeft,
   ChevronRight,
   KanbanSquare,
   LayoutList,
@@ -12,7 +14,9 @@ import {
   Pencil,
   Plus,
   Star,
+  Search,
   Table2,
+  X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
@@ -48,6 +52,25 @@ import { RenameColumnDialog } from "@/components/think-hub/RenameColumnDialog";
 import { readPhoneMode, TableView, writePhoneMode, type PhoneMode } from "@/components/think-hub/TableView";
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { HubShelf } from "@/components/think-hub/HubShelf";
+import { BoardHead, ThinkingTypeDialog } from "@/components/library/BoardHead";
+import { BookshelfPanel, useBookshelf } from "@/components/library/BookshelfPanel";
+import { ShelfCards } from "@/components/library/ShelfCards";
+import { DefaultShelf, DiaryShelf, LifecycleShelf, OtherShelf, PlannedShelf } from "@/components/library/ShelfPanels";
+import {
+  byLifecycle,
+  initialShelf,
+  isDefaultBoard,
+  isShelfId,
+  plannedBoards,
+  searchLibrary,
+  SHELF_PARAM,
+  shelfOf,
+  shelfStatus,
+  type LibraryCounts,
+  type ShelfId,
+} from "@/lib/library";
+import { guideQuestionOf, HUB_TILE_PARAM, isReminderTile } from "@/lib/think-hub-shelf";
+import { useNotes } from "@/lib/use-notes";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
 import { useReview } from "@/lib/use-review";
 import { TemplateGallery } from "@/components/think-hub/TemplateGallery";
@@ -109,13 +132,14 @@ import { tablePlaces } from "@/lib/table-places";
 import { useConversations } from "@/lib/use-conversations";
 import { useProjects, useTaskProjectLinks } from "@/lib/use-projects";
 import { useRecordTaskLinks, useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
-import { DefaultBoardsGroup, OpportunityBoardBar, NewOpportunityDialog } from "@/components/think-hub/OpportunityBoard";
+import { OpportunityBoardBar, NewOpportunityDialog } from "@/components/think-hub/OpportunityBoard";
 import { isSyncBoard, isSyncColumnKey, matchesStageChip, saveSyncEdits, setBoardView, splitSyncPatch, syncColumnDefs, withSyncValues, type StageChip } from "@/lib/opportunity-board";
 import { useInvalidateOpportunityBoard, useOpportunityBoardRows } from "@/lib/use-opportunity-board";
 import { AvoraSearchButton } from "@/components/search/AvoraSearch";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { ReturnChip } from "@/components/nav/ReturnChip";
 import { carryReturn, hereFrom, readReturn, withReturn } from "@/lib/return-to";
+import { canGoBackInApp } from "@/lib/navigation";
 import { taskLink } from "@/lib/task-scope";
 import type { TaskItem } from "@/lib/tasks";
 import { useTasks } from "@/lib/use-tasks";
@@ -151,7 +175,8 @@ const ThinkHub = () => {
   const location = useLocation();
   const queryClient = useQueryClient();
   // C3 ③: the URL wins, then the table last opened on this device.
-  const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM) ?? readLastTable(user?.id));
+  // AVORA-77 · B: a board opens only when named (`?bang=`); otherwise the library shows its shelves.
+  const [activeId, setActiveId] = useState<string | null>(() => searchParams.get(HUB_TABLE_PARAM));
   // AVORA-72 · A: `?danh-sach-co-hoi=1` (Liên hệ, a contact) opens the synced board, whatever was open before.
   const wantsOpportunityBoard = searchParams.get("danh-sach-co-hoi") === "1";
   const [view, setView] = useState<ViewMode>("table");
@@ -160,6 +185,13 @@ const ThinkHub = () => {
   const isPhoneUpright = useMediaQuery("(max-width: 767px)");
   const [phoneMode, setPhoneMode] = useState<PhoneMode>("cards");
   const isFullscreen: boolean = searchParams.get("toan-man") === "1";
+  const [libraryQuery, setLibraryQuery] = useState<string>("");
+  const [addBookRequest, setAddBookRequest] = useState<number>(0);
+  const [isThinkingTypeOpen, setIsThinkingTypeOpen] = useState<boolean>(false);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const focusScrollRef = useRef<number>(0);
+  const notesData = useNotes();
+  const bookshelfData = useBookshelf();
   const shelfActions = useShelfActions();
   const starsQuery = useStars();
   const stars: Set<string> = useMemo(() => starsQuery.data ?? new Set<string>(), [starsQuery.data]);
@@ -226,15 +258,9 @@ const ThinkHub = () => {
   // Follows the tables rather than owning a copy: the first visit creates a table asynchronously,
   // and a table put away should not leave the screen pointing at nothing.
   const active: ThinkTable | null = useMemo(() => {
-    if (tables.length === 0) return null;
-    const shelfRoots = roots.filter((table) => table.kind !== "bookshelf");
-    return (
-      tables.find((table) => table.id === activeId) ??
-      shelfRoots.find((table) => table.conversationId === null && table.projectId === null) ??
-      shelfRoots[0] ??
-      tables[0]
-    );
-  }, [tables, roots, activeId]);
+    if (tables.length === 0 || activeId === null) return null;
+    return tables.find((table) => table.id === activeId) ?? null;
+  }, [tables, activeId]);
 
   /*
    * AVORA-53 · 3.1 / 3.2 — `?bang=` is followed every time it changes (search result, ReturnChip),
@@ -253,9 +279,14 @@ const ThinkHub = () => {
     const next = new URLSearchParams(searchParams);
     next.delete(HUB_TABLE_PARAM);
     setSearchParams(next, { replace: true });
-    if (activeId === requestedTableId) setActiveId(readLastTable(user?.id));
+    if (activeId === requestedTableId) setActiveId(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs when the requested table or the list changes
   }, [requestedTableId, isPending, tables]);
+
+  // `‹ Kệ` (or Back) took `?bang=` away: the board closes, the shelf stays.
+  useEffect(() => {
+    if (requestedTableId === null && activeId !== null && searchParams.get("danh-sach-co-hoi") !== "1") setActiveId(null);
+  }, [requestedTableId, activeId, searchParams]);
 
   useEffect(() => {
     if (active !== null && active.id !== activeId) setActiveId(active.id);
@@ -291,11 +322,6 @@ const ThinkHub = () => {
     },
     [tables, records, projectById],
   );
-  const shelf = useMemo(
-    // AVORA-72: the synced board lives in its own group (`Bảng Avora mặc định`), not in a drawer.
-    () => arrangeShelf(tables.filter((table) => !isSyncBoard(table)), records, user?.id, kindOf, placeOf, today),
-    [tables, records, user?.id, kindOf, placeOf, today],
-  );
   const tiles = useMemo(() => reminderTiles(tables, records, stars, today, isQuiet), [tables, records, stars, today, isQuiet]);
   const drawerOf = useCallback((table: ThinkTable): Drawer => drawerOfTable(table, kindOf), [kindOf]);
   const activeRoot: ThinkTable | null = useMemo(() => {
@@ -303,14 +329,6 @@ const ThinkHub = () => {
     const steps = tableAncestry(tables, records, active.id);
     return steps[0]?.table ?? active;
   }, [active, tables, records]);
-  const selectedShelf = useMemo(() => {
-    if (activeRoot === null) return null;
-    for (const drawer of Object.values(shelf)) {
-      const found = [...drawer.live, ...drawer.archived].find((item) => item.table.id === activeRoot.id);
-      if (found !== undefined) return found;
-    }
-    return null;
-  }, [shelf, activeRoot]);
   const isArchived: boolean = active !== null && isArchivedTree(tables, records, active.id);
   const isShared: boolean = active !== null && (active.conversationId !== null || active.projectId !== null);
   const openProposal = useMemo(
@@ -328,18 +346,93 @@ const ThinkHub = () => {
     [allTablesQuery.data, user?.id],
   );
 
+  // ---------------------------------------------------------------- AVORA-77 · the six shelves
+  const planned: ThinkTable[] = useMemo(() => plannedBoards(tables), [tables]);
+  const lanes = useMemo(() => byLifecycle(planned), [planned]);
+  const defaultBoards: ThinkTable[] = useMemo(
+    () => tables.filter((table) => isDefaultBoard(table) && table.deletedAt === null && table.parentRecordId === null),
+    [tables],
+  );
+  const recordCount: Map<string, number> = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const record of records) if (record.deletedAt === null) map.set(record.tableId, (map.get(record.tableId) ?? 0) + 1);
+    return map;
+  }, [records]);
+  const syncedAt: string | null = useMemo(() => {
+    const ids = new Set(defaultBoards.map((board) => board.id));
+    let latest: string | null = null;
+    for (const board of defaultBoards) if (latest === null || board.updatedAt > latest) latest = board.updatedAt;
+    for (const record of records) if (ids.has(record.tableId) && (latest === null || record.updatedAt > latest)) latest = record.updatedAt;
+    return latest;
+  }, [defaultBoards, records]);
+  const noQuestion: ThinkTable[] = useMemo(
+    // Only boards with something on them: an empty board (the first one every account gets) is nothing to file yet.
+    () =>
+      planned.filter(
+        (table) => table.archivedAt === null && table.purpose === null && table.ownerUserId === user?.id && table.projectId === null && (recordCount.get(table.id) ?? 0) > 0,
+      ),
+    [planned, user?.id, recordCount],
+  );
+  const archivedBoards: ThinkTable[] = useMemo(() => planned.filter((table) => table.archivedAt !== null), [planned]);
+  const libraryCounts: LibraryCounts = useMemo(() => {
+    const books = bookshelfData.books;
+    return {
+      defaultBoards: defaultBoards.length,
+      syncedAt,
+      planned: planned.filter((table) => table.archivedAt === null).length,
+      thinking: lanes.thinking.length,
+      waiting: lanes.waiting.length,
+      concluded: lanes.concluded.length,
+      reading: books.filter((book) => book.status === "dang_doc").length,
+      wantToRead: books.filter((book) => book.status === "muon_doc").length,
+      books: books.length,
+      diaryToday: null,
+      notes: notesData.notes.data === undefined ? null : notesData.liveNotes.length,
+      noQuestion: noQuestion.length,
+    };
+  }, [defaultBoards.length, syncedAt, planned, lanes, bookshelfData.books, notesData.notes.data, notesData.liveNotes.length, noQuestion.length]);
+  const libraryHits = useMemo(
+    () =>
+      searchLibrary(
+        libraryQuery,
+        rootTables(tables).filter((table) => table.kind !== "bookshelf"),
+        bookshelfData.books,
+        (book) => bookshelfData.field(book, bookshelfData.keys.author),
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- field() reads keys
+    [libraryQuery, tables, bookshelfData.books, bookshelfData.keys.author],
+  );
+
+  /**
+   * AVORA-77 · A3 — `⤢` opens the board as a focus room: nothing else on screen. `⤡`, Esc or a
+   * swipe down comes back to the same shelf, board and scroll. No timer, no score.
+   */
   const setFullscreen = useCallback(
     (on: boolean): void => {
       const next = new URLSearchParams(searchParams);
       if (on) {
+        focusScrollRef.current = scrollRef.current?.scrollTop ?? 0;
         next.set("toan-man", "1");
         setSearchParams(next);
       } else if (searchParams.get("toan-man") === "1") {
-        navigate(-1);
+        if (canGoBackInApp(window.history.state)) navigate(-1);
+        else {
+          next.delete("toan-man");
+          setSearchParams(next, { replace: true });
+        }
       }
     },
     [searchParams, setSearchParams, navigate],
   );
+  const wasFullscreenRef = useRef<boolean>(isFullscreen);
+  useEffect(() => {
+    if (wasFullscreenRef.current && !isFullscreen) {
+      const top = focusScrollRef.current;
+      window.setTimeout(() => scrollRef.current?.scrollTo({ top }), 30);
+    }
+    wasFullscreenRef.current = isFullscreen;
+  }, [isFullscreen]);
+  const swipeRef = useRef<{ y: number; atTop: boolean } | null>(null);
 
   useEffect(() => {
     if (!isFullscreen) return;
@@ -350,17 +443,56 @@ const ThinkHub = () => {
     return () => window.removeEventListener("keydown", onKey);
   }, [isFullscreen, setFullscreen]);
 
+  /** Which shelf a board sits on (B2): system boards on 01, the bookshelf on 04, every other on 02. */
+  const shelfForTable = useCallback(
+    (tableId: string): ShelfId => {
+      const table = tables.find((item) => item.id === tableId);
+      if (table === undefined) return "hoach-dinh";
+      if (isDefaultBoard(table)) return "mac-dinh";
+      if (table.kind === "bookshelf") return "ke-sach";
+      return "hoach-dinh";
+    },
+    [tables],
+  );
+
   const openTable = useCallback(
     (tableId: string): void => {
       setActiveId(tableId);
       setIsEditingPurpose(false);
       // The way back survives moving between tables, so "← {nơi xuất phát}" stays until the person leaves.
       const next = carryReturn(searchParams, new URLSearchParams());
+      const shelfNow = searchParams.get(SHELF_PARAM);
+      // A board opened from kệ 03 / 06 stays on that shelf; from anywhere else it goes where it lives.
+      next.set(SHELF_PARAM, shelfNow === "trang-thai" || shelfNow === "khac" ? shelfNow : shelfForTable(tableId));
       next.set(HUB_TABLE_PARAM, tableId);
       setSearchParams(next, { replace: true });
     },
+    [searchParams, setSearchParams, shelfForTable],
+  );
+
+  /** Opens one shelf (B1). The board closes; the way back stays. */
+  const openShelf = useCallback(
+    (id: ShelfId | null): void => {
+      const next = carryReturn(searchParams, new URLSearchParams());
+      if (id !== null) next.set(SHELF_PARAM, id);
+      setActiveId(null);
+      setLibraryQuery("");
+      setSearchParams(next);
+      scrollRef.current?.scrollTo({ top: 0 });
+    },
     [searchParams, setSearchParams],
   );
+
+  /** `‹ {kệ}` on a phone, `×` on a computer: the board closes, its row on the shelf lights up. */
+  const closeBoard = useCallback((): void => {
+    const closing = activeId;
+    const next = new URLSearchParams(searchParams);
+    next.delete(HUB_TABLE_PARAM);
+    next.delete("toan-man");
+    setActiveId(null);
+    setSearchParams(next, { replace: true });
+    if (closing !== null) spotlight("data-board-row", closing);
+  }, [activeId, searchParams, setSearchParams]);
 
   const ancestry = useMemo(
     () => (active === null ? [] : tableAncestry(tables, records, active.id)),
@@ -373,7 +505,8 @@ const ThinkHub = () => {
   useEffect(() => {
     if (!wantsOpportunityBoard) return;
     const board = tables.find((table) => isSyncBoard(table));
-    if (board !== undefined && board.id !== activeId) setActiveId(board.id);
+    if (board !== undefined && board.id !== activeId) openTable(board.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once the board is known
   }, [wantsOpportunityBoard, tables, activeId]);
   const opportunityBoard = useOpportunityBoardRows(isSynced);
   const invalidateOpportunityBoard = useInvalidateOpportunityBoard();
@@ -880,15 +1013,31 @@ const ThinkHub = () => {
     [actions, editing, openTable],
   );
 
-  const savePurpose = useCallback(async (): Promise<void> => {
-    if (active === null) return;
-    try {
-      await actions.setPurpose(active.id, purposeDraft);
-      setIsEditingPurpose(false);
-    } catch (caught) {
-      toast.error(caught instanceof Error ? caught.message : "Không lưu được mục đích.");
-    }
-  }, [actions, active, purposeDraft]);
+  const savePurpose = useCallback(
+    async (question: string, tableId?: string): Promise<void> => {
+      const target = tableId ?? active?.id;
+      if (target === undefined) return;
+      try {
+        await actions.setPurpose(target, question);
+        setIsEditingPurpose(false);
+        toast.success("Đã lưu câu hỏi của Bảng.");
+      } catch (caught) {
+        toast.error(caught instanceof Error ? caught.message : "Không lưu được câu hỏi.");
+      }
+    },
+    [actions, active],
+  );
+
+  /** `+ Ghi câu hỏi của Bảng` from a row on kệ 02 — asked in place, no need to open the board. */
+  const askQuestionFor = useCallback(
+    (tableId: string): void => {
+      const table = tables.find((item) => item.id === tableId);
+      void askText({ title: "Câu hỏi của Bảng", body: table?.name, confirmLabel: "Lưu", maxLength: 500, placeholder: guideQuestionOf(table?.thinkingType) ?? "Bảng này giúp bạn trả lời câu hỏi gì?" }).then(
+        (question) => question !== null && void savePurpose(question, tableId),
+      );
+    },
+    [tables, savePurpose],
+  );
 
   const saveTableName = async (): Promise<void> => {
     if (active === null) return;
@@ -972,14 +1121,23 @@ const ThinkHub = () => {
       },
       {
         id: "purpose",
-        label: "Sửa mục tiêu",
-        blockedReason: isProjectRoot ? "Mục tiêu của Dự án sửa trong Dự án." : !isOwner ? "Chỉ chủ Bảng sửa mục tiêu." : isReadOnly ? "Bảng đang chỉ xem." : null,
+        label: "Sửa câu hỏi của Bảng",
+        blockedReason: isProjectRoot ? "Mục tiêu của Dự án sửa trong Dự án." : !isOwner ? "Chỉ chủ Bảng sửa câu hỏi." : isReadOnly ? "Bảng đang chỉ xem." : null,
         onSelect: () => {
           setPurposeDraft(active.purpose ?? "");
           setIsEditingPurpose(true);
         },
       },
     ];
+    // AVORA-77 · A5: how this board thinks — the faint guide in an empty note follows it.
+    if (active.kind === null && active.parentRecordId === null) {
+      items.push({
+        id: "thinking-type",
+        label: "Kiểu tư duy",
+        blockedReason: isReadOnly ? "Bảng đang chỉ xem." : active.shareMode === "view" && !isOwner ? "Bảng đang Chỉ xem." : null,
+        onSelect: () => setIsThinkingTypeOpen(true),
+      });
+    }
     if (isOwner && !isReadOnly) items.push({ id: "template", label: "Lưu làm mẫu của tôi", onSelect: () => setSaveTemplateTarget(active) });
     // AVORA-69: the one way a board changes place — no "Sao chép sang".
     items.push({
@@ -1077,96 +1235,218 @@ const ThinkHub = () => {
     return items;
   })();
 
+  const currentShelf: ShelfId | null = (() => {
+    const named = searchParams.get(SHELF_PARAM);
+    if (isShelfId(named)) return named;
+    if (active !== null) return shelfForTable(active.id);
+    return initialShelf(null, isPhoneUpright);
+  })();
+  const shelfMeta = currentShelf === null ? null : shelfOf(currentShelf);
+  // A phone swaps the whole screen for the open board; a computer keeps the library above it.
+  const showLibrary: boolean = !isFullscreen && !(isPhoneUpright && active !== null);
+  const requestedTile = searchParams.get(HUB_TILE_PARAM);
+
+  const renderShelf = (id: ShelfId): ReactNode => {
+    switch (id) {
+      case "mac-dinh":
+        return (
+          <DefaultShelf
+            boards={defaultBoards}
+            countOf={(tableId) => recordCount.get(tableId) ?? 0}
+            activeId={active?.id ?? null}
+            onOpen={(tableId) => {
+              openTable(tableId);
+              setView("table");
+            }}
+          />
+        );
+      case "hoach-dinh":
+        return (
+          <PlannedShelf
+            boards={planned}
+            kindOf={kindOf}
+            placeOf={placeOf}
+            countOf={(tableId) => recordCount.get(tableId) ?? 0}
+            activeId={active?.id ?? null}
+            onOpen={openTable}
+            onAskQuestion={askQuestionFor}
+            onNewBoard={() => {
+              setGalleryConversationId(null);
+              setIsNewTableOpen(true);
+            }}
+          />
+        );
+      case "trang-thai":
+        return <LifecycleShelf boards={planned} placeOf={placeOf} onOpen={openTable} />;
+      case "ke-sach":
+        return <BookshelfPanel addRequest={addBookRequest} />;
+      case "nhat-ky":
+        return <DiaryShelf />;
+      case "khac":
+        return <OtherShelf noQuestion={noQuestion} archived={archivedBoards} binCount={binnedPersonal.length} onOpen={openTable} onOpenTrash={() => setIsTrashOpen(true)} />;
+    }
+  };
+
   return (
-    <div className={cn("paper flex min-h-0 flex-1 flex-col", isFullscreen && "fixed inset-0 z-50 bg-background")}>
+    <div className={cn("paper flex min-h-0 flex-1 flex-col", isFullscreen && "fixed inset-0 z-50 bg-background")} data-focus-room={isFullscreen ? "" : undefined}>
       {isFullscreen ? null : (
       <HubTitle
         title="Kế hoạch"
+        subtitle="Thư viện của những điều bạn đang nghĩ"
         className="max-w-6xl"
         action={
           <div className="flex items-center gap-2">
             <AvoraSearchButton here={{ tab: "ke-hoach", label: "Kế hoạch" }} />
-            <button
-              type="button"
-              onClick={() => navigate(withReturn("/ke-hoach/ke-sach", hereFrom(location, "Kế hoạch")))}
-              aria-label="Kệ sách"
-              className="icon-btn h-11 gap-1.5 px-3 text-[14.5px] font-medium text-foreground"
-            >
-              <Library className="h-[18px] w-[18px]" strokeWidth={1.8} aria-hidden="true" />
-              <span className="hidden md:inline">Kệ sách</span>
-            </button>
-            {/* AVORA-57 · E: one `+` — tap adds a Hạng mục, hold (or ▾) offers Hạng mục / Bảng. */}
-            <PlanPlusButton
-              canAddRecord={active !== null && !isReadOnly}
-              onNewRecord={openNewRecord}
-              onNewTable={() => {
-                setGalleryConversationId(null);
-                setIsNewTableOpen(true);
-              }}
-            />
+            {currentShelf === "ke-sach" && active === null ? (
+              <button
+                type="button"
+                onClick={() => setAddBookRequest((count) => count + 1)}
+                className="press inline-flex h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-[14px] font-semibold text-primary-foreground"
+              >
+                <Plus className="h-[18px] w-[18px]" aria-hidden="true" /> <span className="hidden sm:inline">Thêm sách</span>
+              </button>
+            ) : (
+              // AVORA-57 · E: one `+` — tap adds a Hạng mục, hold (or ▾) offers Hạng mục / Bảng.
+              <PlanPlusButton
+                canAddRecord={active !== null && !isReadOnly}
+                onNewRecord={openNewRecord}
+                onNewTable={() => {
+                  setGalleryConversationId(null);
+                  setIsNewTableOpen(true);
+                }}
+              />
+            )}
           </div>
         }
       />
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div
+        ref={scrollRef}
+        data-scroll-memory=""
+        className="min-h-0 flex-1 overflow-y-auto"
+        onTouchStart={
+          isFullscreen
+            ? (event) => {
+                swipeRef.current = { y: event.touches[0]?.clientY ?? 0, atTop: (scrollRef.current?.scrollTop ?? 0) <= 0 };
+              }
+            : undefined
+        }
+        onTouchEnd={
+          isFullscreen
+            ? (event) => {
+                const start = swipeRef.current;
+                swipeRef.current = null;
+                // A swipe down from the very top leaves the focus room.
+                if (start !== null && start.atTop && (event.changedTouches[0]?.clientY ?? 0) - start.y > 110) setFullscreen(false);
+              }
+            : undefined
+        }
+      >
       <div className={cn("mx-auto px-4 pb-10 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pt-2" : "max-w-6xl")}>
 
-        {isFullscreen ? null : (
+        {isFullscreen ? null : <ReturnChip className="-mt-2 mb-2" />}
+        {showLibrary ? (
           <>
-            <ReturnChip className="-mt-2 mb-2" />
             {/* C7 · AVORA-50 B: Nhìn lại tuần (card) / hôm nay (one line), only when due. */}
-            {/* AVORA-55 · 3.3: a jump from Avora Space (`?nhin-lai=`) lands with the review open. */}
             <ReviewPrompt
               review={review}
               variant="card"
               initialOpen={searchParams.get("nhin-lai") === "week" ? "week" : searchParams.get("nhin-lai") === "day" ? "day" : null}
             />
-            <DefaultBoardsGroup boards={tables.filter((table) => isSyncBoard(table) && table.deletedAt === null)} activeId={active?.id ?? null} onOpen={(id) => { openTable(id); setView("table"); }} />
+            {/* B2: one search across every shelf — never Két sắt boards (ADR-032). */}
+            <div className="mb-4">
+              <label className="flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:border-personal">
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                <input
+                  value={libraryQuery}
+                  onChange={(event) => setLibraryQuery(event.target.value)}
+                  placeholder="Tìm trong mọi kệ"
+                  aria-label="Tìm trong mọi kệ"
+                  className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]"
+                />
+                {libraryQuery !== "" ? (
+                  <button type="button" onClick={() => setLibraryQuery("")} aria-label="Xoá ô tìm" className="press flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground">
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                ) : null}
+              </label>
+              {libraryQuery.trim() !== "" ? (
+                <ul className="mt-2 overflow-hidden rounded-xl border border-border bg-card" data-library-results="">
+                  {libraryHits.map((hit) => (
+                    <li key={hit.kind === "board" ? `b-${hit.table.id}` : `s-${hit.record.id}`} className="border-b border-border/60 last:border-b-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setLibraryQuery("");
+                          if (hit.kind === "board") openTable(hit.table.id);
+                          else navigate(`/ke-hoach?${SHELF_PARAM}=ke-sach&sach=${encodeURIComponent(hit.record.id)}`);
+                        }}
+                        className="press flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/25"
+                      >
+                        {hit.kind === "board" ? (
+                          <Table2 className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        ) : (
+                          <BookOpen className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+                        )}
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14px] font-medium text-foreground">{hit.kind === "board" ? hit.table.name : hit.record.title}</span>
+                          {hit.detail !== null ? <span className="block truncate text-[12.5px] text-muted-foreground">{hit.detail}</span> : null}
+                        </span>
+                        <span className="shrink-0 text-[12px] text-muted-foreground">
+                          {hit.kind === "book" ? "Kệ sách" : `Kệ ${shelfOf(shelfForTable(hit.table.id)).no}`}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                  {libraryHits.length === 0 ? <li className="px-4 py-3 text-[13.5px] text-muted-foreground">Không thấy gì khớp “{libraryQuery.trim()}”.</li> : null}
+                </ul>
+              ) : null}
+            </div>
             <HubShelf
+              key={requestedTile ?? "none"}
               tiles={tiles}
-              shelf={shelf}
               today={today}
-              selected={selectedShelf}
-              selectedDrawer={selectedShelf?.drawer ?? null}
+              initialTile={isReminderTile(requestedTile) ? requestedTile : null}
               drawerOfLine={(line) => drawerOf(line.table)}
-              onPickTable={openTable}
               onPickLine={(line) => {
                 openTable(line.record.tableId);
                 setView("table");
                 spotlight("data-record-id", line.record.id);
               }}
-              onNewTable={(drawer) => {
-                // AVORA-53 · 5.5: "Bảng mới ở đây" starts in the drawer it was pressed in.
-                if (drawer === "project") {
-                  const projectRoots = roots.filter((table) => table.projectId !== null && table.parentRecordId === null);
-                  const chosen = projectRoots.find((table) => table.id === activeRoot?.id) ?? projectRoots[0];
-                  if (chosen === undefined) {
-                    toast("Chưa có dự án nào. Tạo dự án trong Kết nối › Dự án.");
-                    return;
-                  }
-                  openTable(chosen.id);
-                  setView("table");
-                  toast("Bảng của dự án mọc từ một Hạng mục của Bảng gốc này: mở Hạng mục › ⋯ › Bảng con.");
-                  return;
-                }
-                const here =
-                  drawer === "personal"
-                    ? null
-                    : activeRoot !== null && activeRoot.conversationId !== null && drawerOf(activeRoot) === drawer
-                      ? activeRoot.conversationId
-                      : (places.find((place) => place.conversationId !== null && kindOf(place.conversationId) === drawer)?.conversationId ?? null);
-                setGalleryConversationId(here);
-                setIsNewTableOpen(true);
-              }}
-              onOpenTrash={() => setIsTrashOpen(true)}
             />
+            {/* One line, only when there is something: changes to my Hạng mục (AVORA-62 · Báo nhóm). */}
+            <NudgeLines onOpen={(nudge) => openTable(nudge.tableId)} />
+            <div className="mt-5">
+              {isPhoneUpright ? (
+                currentShelf === null ? <ShelfCards layout="list" current={null} statusOf={(id) => shelfStatus(id, libraryCounts)} onPick={openShelf} /> : null
+              ) : (
+                <ShelfCards layout="cards" current={currentShelf} statusOf={(id) => shelfStatus(id, libraryCounts)} onPick={openShelf} />
+              )}
+            </div>
+            {active === null && currentShelf !== null && shelfMeta !== null ? (
+              <section aria-label={shelfMeta.name} className="mt-5" data-open-shelf={currentShelf}>
+                {isPhoneUpright ? (
+                  <button type="button" onClick={() => openShelf(null)} className="press -ml-1.5 mb-1 inline-flex min-h-11 items-center gap-0.5 pr-2 text-[14px] font-medium text-personal" data-back-library="">
+                    <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Thư viện
+                  </button>
+                ) : null}
+                <div className="mb-3 flex items-baseline gap-2">
+                  <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Kệ {shelfMeta.no}</span>
+                  <h2 className="text-[19px] font-semibold tracking-tight text-foreground">{shelfMeta.name}</h2>
+                </div>
+                {renderShelf(currentShelf)}
+              </section>
+            ) : null}
           </>
-        )}
+        ) : null}
 
-        {active === null ? (
-          <p className="mt-8 text-[15px] text-muted-foreground">Chưa có bảng nào. Tạo bảng đầu tiên để bắt đầu.</p>
-        ) : (
+        {active === null ? null : (
           <>
+            {isFullscreen ? null : (
+              <button type="button" onClick={closeBoard} data-board-back="" className="press mt-5 inline-flex min-h-10 items-center gap-0.5 rounded-md pr-2 text-[13.5px] font-medium text-personal">
+                <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Kệ {shelfOf(currentShelf ?? "hoach-dinh").no} · {shelfOf(currentShelf ?? "hoach-dinh").name}
+              </button>
+            )}
             {ancestry.length > 1 ? (
               <nav aria-label="Vị trí bảng" className="mt-5 flex flex-wrap items-center gap-1 text-[13px]">
                 {ancestry.map((step, index) => (
@@ -1265,63 +1545,16 @@ const ThinkHub = () => {
               <OpportunityBoardBar chip={stageChip} onChip={setStageChip} records={visibleRecords} isEmpty={opportunityBoard.rows.filter((row) => row.removedAt === null).length === 0} onNew={() => setIsNewOpportunityOpen(true)} />
             ) : null}
 
-            <section aria-label="Mục đích của bảng" className="mt-3 rounded-lg border border-border bg-card px-4 py-3">
-              <p className="text-[12px] font-medium text-muted-foreground">{scopeLabel(active)}</p>
-              {isProjectRoot ? (
-                <dl className="mt-1.5 space-y-1.5 text-[13.5px]">
-                  <div>
-                    <dt className="inline font-medium text-muted-foreground">Kim chỉ nam: </dt>
-                    <dd className="inline text-foreground">{activeProject?.valueOrientation ?? "…"}</dd>
-                  </div>
-                  <div>
-                    <dt className="inline font-medium text-muted-foreground">Mục tiêu: </dt>
-                    <dd className="inline text-foreground">{activeProject?.objective ?? "…"}</dd>
-                  </div>
-                </dl>
-              ) : isEditingPurpose ? (
-                <div className="mt-1.5 flex items-center gap-2">
-                  <input
-                    value={purposeDraft}
-                    autoFocus
-                    maxLength={2000}
-                    aria-label="Mục đích của bảng"
-                    onChange={(event) => setPurposeDraft(event.target.value)}
-                    onKeyDown={(event) => {
-                      if (event.key === "Enter") void savePurpose();
-                      if (event.key === "Escape") setIsEditingPurpose(false);
-                    }}
-                    className="h-10 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[16px] md:text-[14px] text-foreground outline-none focus:border-personal"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => void savePurpose()}
-                    className="press rounded-md bg-primary px-3.5 py-2 text-[13px] font-semibold text-primary-foreground"
-                  >
-                    Lưu
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-1 flex items-start gap-2">
-                  <p className={cn("min-w-0 flex-1 text-[14px]", active.purpose === null ? "text-muted-foreground" : "text-foreground")}>
-                    {active.purpose ?? "Chưa ghi mục đích."}
-                  </p>
-                  {isOwner && !isSynced ? (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setPurposeDraft(active.purpose ?? "");
-                        setIsEditingPurpose(true);
-                      }}
-                      aria-label="Sửa mục đích"
-                      title="Sửa mục đích"
-                      className="press shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-                    >
-                      <Pencil className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    </button>
-                  ) : null}
-                </div>
-              )}
-            </section>
+            <BoardHead
+              key={active.id}
+              table={active}
+              isReadOnly={isReadOnly}
+              scopeLabel={scopeLabel(active)}
+              editingQuestion={isEditingPurpose}
+              onEditingQuestion={setIsEditingPurpose}
+              onSaveQuestion={(question) => savePurpose(question)}
+              projectLines={isProjectRoot ? { guide: activeProject?.valueOrientation ?? null, objective: activeProject?.objective ?? null } : null}
+            />
 
             {isArchived ? (
               <p role="status" className="mt-4 flex items-center gap-2 rounded-lg bg-secondary/70 px-4 py-2.5 text-[13.5px] text-muted-foreground">
@@ -1431,12 +1664,12 @@ const ThinkHub = () => {
                 <button
                   type="button"
                   onClick={() => setFullscreen(!isFullscreen)}
-                  aria-label={isFullscreen ? "Thu gọn" : "Xem toàn màn"}
-                  title={isFullscreen ? "Thu gọn (Esc)" : "Xem toàn màn"}
+                  aria-label={isFullscreen ? "Thu nhỏ" : "Mở to tập trung"}
+                  title={isFullscreen ? "Thu nhỏ (Esc)" : "Mở to tập trung"}
                   className="press inline-flex min-h-9 items-center gap-1 rounded-md border border-border px-2.5 text-[13px]"
                 >
                   {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                  {isFullscreen ? <span>Thu gọn</span> : null}
+                  {isFullscreen ? <span>Thu nhỏ</span> : null}
                 </button>
               </div>
               {isTableFull(records, active.id) ? (
@@ -1760,7 +1993,9 @@ const ThinkHub = () => {
           const board = editing === null ? targetTable : editingTable;
           return board != null && (board.conversationId !== null || board.projectId !== null);
         })()}
+        guideQuestion={guideQuestionOf((editing === null ? targetTable : editingTable)?.thinkingType ?? activeRoot?.thinkingType)}
       />
+      {active !== null ? <ThinkingTypeDialog table={active} open={isThinkingTypeOpen} onOpenChange={setIsThinkingTypeOpen} /> : null}
     </div>
   );
 };

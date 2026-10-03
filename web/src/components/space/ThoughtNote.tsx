@@ -86,7 +86,7 @@ export function ThoughtNote({
           type="button"
           onClick={() => void save()}
           disabled={!canSave}
-          className="press flex h-11 items-center gap-2 rounded-[10px] bg-primary px-4 text-[13.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
+          className="press flex h-11 items-center gap-2 rounded-[10px] bg-personal px-4 text-[13.5px] font-semibold text-personal-foreground transition-colors hover:bg-personal/90 disabled:cursor-not-allowed disabled:opacity-40"
         >
           {isSaving ? (
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />

@@ -42,7 +42,7 @@ import type { TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 
 /** What each Nhật ký view holds, in one line under its name. */
-const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
+export const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
   journal: "Ý nghĩ, thu nhanh, tin chuyển tiếp — chỉ mình bạn xem",
   notes: "Bài bạn tự viết, xếp theo thư mục",
   files: "Mọi ảnh và tệp trong Nhật ký và Ghi chép",
@@ -50,7 +50,7 @@ const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
   sources: "Việc tạo từ Nhật ký",
 };
 
-const DIARY_ICONS: Readonly<Record<DiaryView, LucideIcon>> = {
+export const DIARY_ICONS: Readonly<Record<DiaryView, LucideIcon>> = {
   journal: NotebookPen,
   notes: NotebookText,
   files: Paperclip,

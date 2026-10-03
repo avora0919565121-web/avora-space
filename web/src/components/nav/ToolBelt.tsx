@@ -3,6 +3,7 @@ import { NavLink } from "react-router-dom";
 
 import { openFocusSheet } from "@/components/chat/FocusHost";
 import { navIconFor } from "@/components/nav/nav-icons";
+import { useTabPress } from "@/components/nav/use-tab-press";
 import { activeFocus } from "@/lib/mute";
 import { useProfileSettings } from "@/lib/use-settings";
 import { formatUnreadBadge } from "@/lib/chat";
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
  */
 export function ToolBelt() {
   const badges = useNavBadges();
+  const pressTab = useTabPress();
   const { data: profile } = useProfileSettings();
   const isFocused = activeFocus(profile?.focusMode, profile?.focusUntil) !== null;
   // Hold Kết nối (AVORA-47 · C): opens Chế độ tập trung instead of navigating.
@@ -59,10 +61,12 @@ export function ToolBelt() {
                         if (holdRef.current.fired) {
                           event.preventDefault();
                           holdRef.current.fired = false;
+                          return;
                         }
+                        pressTab(event, item.to);
                       },
                     }
-                  : {})}
+                  : { onClick: (event: React.MouseEvent) => pressTab(event, item.to) })}
                 className={({ isActive }) =>
                   cn(
                     "press relative flex h-[52px] min-h-12 flex-col items-center justify-center gap-1 transition-colors",

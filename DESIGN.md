@@ -1953,10 +1953,31 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - Hai lớp biến: `primary` (cam đất `13 73% 56%`, sáng = tối) cho **vùng Avora**; `personal` / `personal-foreground` / `personal-soft` / `personal-soft-foreground` cho **vùng của bạn**. Code mới: cái gì là "tôi đang làm" dùng `personal`; logo, `+`, huy hiệu, màn đăng nhập dùng `primary`.
 - Vùng của bạn hiện có: bong bóng của mình + thẻ chuyển tiếp của mình, gạch chân tab (`SectionTabs`, thanh đáy, thanh bên, menu điện thoại), chip/ô đang chọn (cách xem Nhiệm vụ, chip luồng, người nhận, chọn thành viên, Kiểu hiệu ứng), vạch việc của tôi (`TaskOwner`), viền ô đang gõ (`focus:border-personal`, vòng focus `--ring`), nút chính hộp thoại (`ConfirmHost`, `Button` mặc định), nút `Gửi` (`icon-btn-personal`), thanh tiến độ.
 - Vùng Avora giữ cam: logo/AVORA, `+` của mỗi khu (`PlusMenuButton`), huy hiệu số chưa đọc, màn đăng nhập/đặt lại mật khẩu, Hướng dẫn, gợi ý trong chat, Danh ngôn, Avora AI, email.
-- Chưa chắc, đang để vùng Avora (cho Claude xem): hàng ngày Nhật ký (nền đất nung nhạt, `DayLineList`), bìa thư mục Ghi chép mặc định (`Cam` — màu bìa người dùng chọn, không phải màu nhấn), nền chữ cái ảnh đại diện (cát trung tính, không cam), nút chính ở Avora Space (`Lưu suy ngẫm`), chip `Tất cả` của Nhiệm vụ (đen/trắng).
+- Chưa chắc, đang để vùng Avora (cho Claude xem): hàng ngày Nhật ký (nền đất nung nhạt, `DayLineList`), bìa thư mục Ghi chép mặc định (`Cam` — màu bìa người dùng chọn, không phải màu nhấn), nền chữ cái ảnh đại diện (cát trung tính, không cam), chip `Tất cả` của Nhiệm vụ (đen/trắng).
 - **Nền tối:** than ấm `30 9% 9%`, thẻ `30 8% 13%`, chữ ngà `40 30% 92%`, viền `30 8% 22%`; đỏ xoá `4 72% 62%`, xanh lá `153 40% 52%`, ★ `40 62% 58%`. Không đen tuyền. Hạt giấy lấy màu viền nên tự tối theo.
 - Màu cứng: không còn `bg-white` / `text-black` / `text-white`… trừ lớp phủ ảnh, camera, mã QR (test `theme.test.ts` · 74.9 liệt kê từng chỗ được phép).
 - Ảnh: `docs/screens/2026-10-02/74-{tông}-{sang|toi}-{ket-noi|nhiem-vu|ke-hoach}-{390|1280}.png`, `74-cai-dat-giao-dien-*`, `74-xem-truoc-bien-390.png`, `74-theo-thiet-bi-khong-ho-tro-390.png`.
+- **AVORA-77 · A6:** hàng ngày Nhật ký (`DayLineList`) và nút `Lưu vào Nhật ký` của Góc suy ngẫm đã chuyển sang `--personal`.
+
+## AVORA-77 · Kế hoạch = Thư viện 6 kệ · Kệ sách đọc được (03/10/2026) — xem ADR-047, ADR-048
+
+**Luật 1 — Kế hoạch là Thư viện 6 kệ.** Từ trên xuống: tìm trong mọi kệ · 4 ô · 6 thẻ kệ · nội dung kệ đang chọn. Kệ: `01 Bảng Avora mặc định · 02 Bảng tôi hoạch định · 03 Theo trạng thái · 04 Kệ sách · 05 Nhật ký · 06 Khác` (một nguồn chữ: `SHELVES` trong `lib/library.ts`). Kệ 03 và 05 là **cách xem / lối vào**, không lưu riêng: kệ 03 là chính các Bảng của kệ 02 dựng theo vòng đời; kệ 05 chỉ mở Nhật ký. Máy tính: thẻ kệ một hàng, mở kệ 02 lần đầu. Điện thoại: danh sách 6 dòng, chạm → mở kệ thay màn, `‹ Thư viện` để về. Địa chỉ `?ke=<id>`; Bảng mở thêm `?bang=`. `/ke-hoach/ke-sach` vẫn mở được (thành `?ke=ke-sach`). Tìm trong mọi kệ không bao giờ ra Bảng Két sắt (ADR-032).
+
+**Luật 2 — Vòng đời chỉ đo việc nghĩ.** `Đang chờ` (= chưa đánh dấu) · `Đang suy nghĩ` · `Đã chốt` · `Lưu trữ`. **Chỉ người dùng tự đánh dấu** (▾ ở đầu Bảng, kéo hoặc `Chuyển sang` ở kệ 03); Avora không suy ra. Không có `Đang làm` — làm thuộc về Nhiệm vụ. Ghi kết luận lần đầu → gợi ý một lần `Đánh dấu Đã chốt?`. Đã chốt → `Tạo việc từ kết luận`. Bảng Avora mặc định và Kệ sách không có vòng đời. `Lưu trữ` đi đường lưu trữ cũ (Bảng chung = đề nghị, ADR-031). Mọi thay đổi kết luận / vòng đời trên Bảng chung ghi vào Báo nhóm (`board_edit`).
+
+**Luật 3 — Đầu Bảng gọn 2 dòng.** Dòng 1: `Câu hỏi của Bảng` (cột `purpose`) + vòng đời ▾. Dòng 2: `Kết luận: … · ngày ›` (lịch sử chỉ đọc) hoặc `+ Ghi kết luận`. Không đặt lên màn kệ, trừ câu hỏi mờ một dòng ở kệ 02.
+
+**Luật 4 — Kiểu tư duy.** 5 kiểu trong `THINKING_TYPES` (`lib/think-hub-shelf.ts`) — một nguồn chữ. Câu hỏi dẫn hiện **mờ trong ô ghi chú trống** của Hạng mục; không thêm hộp hướng dẫn. Đổi ở `⋯ › Kiểu tư duy`.
+
+**Luật 5 — Phòng tập trung.** `⤢` = chỉ còn tên Bảng + câu hỏi + nội dung Bảng; ẩn điều hướng, 4 ô, 6 kệ. Ra bằng `⤡` / Esc / vuốt xuống từ đỉnh → đúng kệ, đúng Bảng, đúng chỗ cuộn. Không hẹn giờ, không điểm.
+
+**Luật 6 — Kệ sách chỉ nguồn công cộng hợp pháp.** Gutenberg: danh mục chính thức `pg_catalog.csv` nhập một lần (66.135 sách `en/fr/vi`), nội dung lấy từ mirror chính thức `gutenberg.pglaf.org`, không bao giờ từ `www.gutenberg.org`. Wikisource: chỉ trang đã kiểm có `PD-old` (`WIKISOURCE_TITLES`). Cuối sách luôn có `Về bản này` giữ nguyên văn giấy phép. **Bản dịch không bao giờ lưu** — dịch là việc của trình duyệt: nội dung là chữ thường, có `lang`, không `translate="no"`, không iframe/canvas. `Mở bằng app đọc trên máy` = file EPUB; không ghi Kindle. Sách tôi đang có (Kindle · Sách giấy · PDF · Khác) không đọc trong Avora.
+
+**Luật 7 — Mỗi tab nhớ chỗ đang đứng; bấm lại tab = về gốc.** Áp cho 6 khu. Nhớ đường dẫn đầy đủ + vị trí cuộn của vùng nội dung chính (`data-scroll-memory`), trên máy, theo tài khoản; máy dùng chung → chỉ trong phiên; đăng xuất → xoá. Không nhớ tham số một lần (`moi`, `toan-man`…). Két sắt chỉ nhớ đường dẫn, khoá vẫn hỏi trước (ADR-034). Chỗ cũ không còn → trang gốc, không báo lỗi. Không đồng bộ giữa máy (trừ chỗ đọc sách D4). Sang ngày mới vẫn vào Avora Space (AVORA-22).
+
+- **Đọc sách:** chữ có chân (`font-reader`: Charter / Iowan / Noto Serif / Georgia), 17px / 1.7, nền `--reader-paper`, `Aa` 3 mức lưu trên máy, mục lục theo chương, không hiệu ứng lật trang. Ghi chỗ đọc khi dừng cuộn 2 giây, đổi chương, rời màn; `Đang ở` = `Chương 4 · 38%`. Máy khác đọc xa hơn → một dòng hỏi, không tự nhảy. Không mạng: sách đã mở ở IndexedDB, chỗ đọc gửi khi có mạng.
+- **Để sau:** làm mới danh mục Gutenberg hằng tuần (chưa dựng lịch chạy; nhập lại bằng script `pg_catalog.csv` → `book_catalog`, upsert theo `(source, source_id)`). `Ý chưa xếp` ở kệ 06 chờ `Đưa vào Kế hoạch` (K2). Số `Hôm nay` của kệ 05 chưa tính (tốn kém) — kệ hiện `Ghi chép n`.
+- Ảnh: `docs/screens/2026-10-03/77-*-{1280|390|844}.png`.
 
 ## Out of scope
 

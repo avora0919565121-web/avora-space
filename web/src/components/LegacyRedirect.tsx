@@ -13,3 +13,14 @@ export function LegacyRedirect() {
 
   return <Navigate to={target ?? HOME_ROUTE} replace />;
 }
+
+/**
+ * AVORA-77 · C — `/ke-hoach/ke-sach` stays a working address: it opens Kế hoạch on kệ 04, every
+ * parameter kept (`?sach=` opens that book, `?ve=` keeps the way back).
+ */
+export function ShelfRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set("ke", "ke-sach");
+  return <Navigate to={`/ke-hoach?${params.toString()}`} replace />;
+}

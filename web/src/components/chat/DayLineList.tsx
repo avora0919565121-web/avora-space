@@ -120,7 +120,7 @@ export function DayLineList({
           <section key={group.key} data-day={group.key}>
             <div
               style={{ height: DAY_ROW_PX }}
-              className="sticky top-0 z-10 flex items-center gap-2 border-b border-[hsl(18_45%_70%)] bg-[hsl(20_60%_93%)] px-3 text-[13px] font-semibold text-[hsl(16_45%_30%)] backdrop-blur-sm dark:border-[hsl(18_30%_35%)] dark:bg-[hsl(18_25%_18%)] dark:text-[hsl(20_50%_82%)]"
+              className="sticky top-0 z-10 flex items-center gap-2 border-b border-personal/30 bg-personal-soft px-3 text-[13px] font-semibold text-personal-soft-foreground backdrop-blur-sm"
               data-day-row={group.key}
             >
               {isSelecting && dayEntries.length > 0 ? (
@@ -254,7 +254,7 @@ function LineRow({
   }, [hold]);
 
   return (
-    <li id={domId} data-line={line.id} className={cn("relative scroll-mt-12 overflow-hidden border-b border-border", isFlashed && "bg-primary/10")}>
+    <li id={domId} data-line={line.id} className={cn("relative scroll-mt-12 overflow-hidden border-b border-border", isFlashed && "bg-personal-soft")}>
       {canSwipe ? (
         <button
           type="button"
@@ -321,7 +321,7 @@ function LineRow({
         <div className="border-t border-border/60 bg-secondary/20 px-4 pb-3 pt-3" data-line-detail={line.id}>
           {detail}
           {line.isLong === true ? (
-            <button type="button" onClick={onFull} className="press mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-primary">
+            <button type="button" onClick={onFull} className="press mt-2 inline-flex min-h-10 items-center gap-1.5 rounded-md px-2 text-[13px] font-medium text-personal">
               <Maximize2 className="h-4 w-4" aria-hidden="true" /> Xem toàn màn
             </button>
           ) : null}

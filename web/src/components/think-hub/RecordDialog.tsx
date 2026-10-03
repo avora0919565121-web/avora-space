@@ -70,6 +70,8 @@ type RecordDialogProps = {
   isSharedBoard?: boolean;
   /** AVORA-72: a line saying synced cells edit Danh bạ / the opportunity. */
   syncNote?: string;
+  /** AVORA-77 · A5: the board's guiding question, faint inside an empty note. */
+  guideQuestion?: string | null;
 };
 
 /**
@@ -254,6 +256,7 @@ export function RecordDialog({
   boardOwnerId,
   isSharedBoard = false,
   syncNote,
+  guideQuestion = null,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
@@ -550,7 +553,7 @@ export function RecordDialog({
               allow="future"
             />
             <p className="mt-1 text-[12.5px] text-muted-foreground">
-              Tới lúc đó, mục này sẽ hiện ở Góc hoạch định trên Avora Space. Để trống nếu không cần.
+              Tới lúc đó, mục này sẽ hiện ở Góc kế hoạch trên Avora Space. Để trống nếu không cần.
             </p>
           </div>
 
@@ -578,8 +581,9 @@ export function RecordDialog({
               id="record-notes"
               value={draft.notes}
               onChange={(event) => setField("notes", event.target.value)}
+              placeholder={guideQuestion ?? undefined}
               rows={3}
-              className={fieldClass}
+              className={cn(fieldClass, "placeholder:italic placeholder:text-muted-foreground/70")}
             />
           </div>
 

@@ -21,13 +21,22 @@ import {
 
 export type ThinkingType = "track" | "progress" | "breakdown" | "weigh" | "learn";
 
-export const THINKING_TYPES: readonly { id: ThinkingType; label: string; question: string }[] = [
-  { id: "track", label: "Theo dõi", question: "Tôi cần nắm những gì?" },
-  { id: "progress", label: "Tiến trình", question: "Mỗi việc đang ở giai đoạn nào?" },
-  { id: "breakdown", label: "Phân rã", question: "Mục tiêu lớn gồm những phần nào?" },
-  { id: "weigh", label: "Cân nhắc", question: "Nên chọn gì, vì sao?" },
-  { id: "learn", label: "Học hỏi", question: "Tôi học được gì, áp dụng thế nào?" },
+/**
+ * AVORA-77 · A5 — the five ways a board thinks. The one source of these words: the template
+ * gallery, `⋯ › Kiểu tư duy`, and the faint guide in an empty Hạng mục note all read from here.
+ */
+export const THINKING_TYPES: readonly { id: ThinkingType; label: string; description: string; question: string }[] = [
+  { id: "track", label: "Theo dõi", description: "Nắm những thứ đang diễn ra — khách hàng, việc nhà, sức khoẻ, người thân.", question: "Điều gì cần để mắt tới?" },
+  { id: "progress", label: "Tiến trình", description: "Đi từng bước tới đích — một dự án, một kỹ năng, một sự kiện.", question: "Mỗi phần đang ở bước nào?" },
+  { id: "breakdown", label: "Phân rã", description: "Chia điều lớn thành phần nhỏ, làm được từng phần.", question: "Điều này gồm những phần nào?" },
+  { id: "weigh", label: "Cân nhắc", description: "Đặt các lựa chọn cạnh nhau để quyết định — mua gì, chọn ai, đi đâu.", question: "Nếu chọn cái này mà sai thì vì sao?" },
+  { id: "learn", label: "Học hỏi", description: "Giữ lại điều học được và đem ra dùng — sách, khoá học, bài học từ sai lầm.", question: "Điều này áp dụng vào đâu?" },
 ];
+
+/** The guiding question a board's type asks, or null for a board made without a template. */
+export function guideQuestionOf(type: ThinkingType | null | undefined): string | null {
+  return THINKING_TYPES.find((item) => item.id === type)?.question ?? null;
+}
 
 export type TemplateScope = "journal" | "direct" | "group" | "project";
 
@@ -269,6 +278,24 @@ export function searchShelf(items: readonly ShelfTable[], query: string): ShelfT
 }
 
 export type ReminderTile = "overdue" | "today" | "week" | "starred";
+
+/**
+ * AVORA-77 · A1 — the four tiles' words, one source for Kế hoạch and Avora Space's `Góc kế hoạch`.
+ * Soft on purpose: each says what the moment asks of the thinking, not a verdict. Nhiệm vụ keeps its own.
+ */
+export const REMINDER_TILES: readonly { id: ReminderTile; label: string; ask: string }[] = [
+  { id: "overdue", label: "Quá hạn", ask: "cần chốt" },
+  { id: "today", label: "Hôm nay", ask: "cần tập trung" },
+  { id: "week", label: "Trong tuần", ask: "cần sắp xếp" },
+  { id: "starred", label: "★ Quan trọng", ask: "cần ưu tiên" },
+];
+
+/** The query parameter that opens Kế hoạch with one tile unfolded (`?o=overdue`). */
+export const HUB_TILE_PARAM = "o";
+
+export function isReminderTile(value: string | null): value is ReminderTile {
+  return value === "overdue" || value === "today" || value === "week" || value === "starred";
+}
 
 export type ReminderLine = { record: ThinkRecord; table: ThinkTable; when: string | null };
 

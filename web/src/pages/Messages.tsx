@@ -1038,7 +1038,17 @@ const Messages = () => {
     const noteParam = searchParams.get("ghi-chep");
     const bookParam = searchParams.get("sach");
     if (noteParam !== null) setNotesRequest({ noteId: noteParam });
-    else if (bookParam !== null) setNotesRequest({ book: { recordId: bookParam, title: searchParams.get("ten") ?? "Sách" } });
+    else if (bookParam !== null) {
+      // AVORA-77 · D3: `trich=` carries a passage chosen in the reader (≤ 2000 chars) and `cho=` its chapter.
+      const excerpt = searchParams.get("trich");
+      setNotesRequest({
+        book: {
+          recordId: bookParam,
+          title: searchParams.get("ten") ?? "Sách",
+          excerpt: excerpt === null || excerpt.trim() === "" ? undefined : { text: excerpt.slice(0, 2000), where: searchParams.get("cho") ?? null },
+        },
+      });
+    }
     else return;
     if (conversationId !== undefined) navigate(`/tin-nhan/${conversationId}?${DIARY_VIEW_PARAM}=${diaryViewSlug("notes")}`, { replace: true });
   }, [activeKind, searchParams, conversationId, navigate]);

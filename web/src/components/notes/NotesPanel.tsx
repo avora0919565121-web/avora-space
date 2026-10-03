@@ -88,7 +88,7 @@ function isEditableTarget(target: EventTarget | null): boolean {
 /** What the tree (or anything else in the app) asks Ghi chép to open. */
 export type NotesRequest = {
   noteId?: string;
-  book?: { recordId: string; title: string };
+  book?: { recordId: string; title: string; excerpt?: { text: string; where: string | null } };
   /** Start a new note in this folder (null = Chưa xếp). */
   newIn?: string | null;
   /** Show Thùng rác in the pane. */
@@ -206,6 +206,17 @@ export function NotesPanel({
             tags: [request.book.title],
             bookRecordId: request.book.recordId,
             bookTitle: request.book.title,
+            // The passage as a quotation, where it came from, then an empty line for the thought.
+            ...(request.book.excerpt !== undefined
+              ? {
+                  blocks: [
+                    { ...emptyBlock(), text: `“${request.book.excerpt.text}”` },
+                    ...(request.book.excerpt.where !== null ? [{ ...emptyBlock(), text: `— ${request.book.excerpt.where}` }] : []),
+                    emptyBlock(),
+                  ],
+                  startDirty: true,
+                }
+              : {}),
           }),
         );
       }

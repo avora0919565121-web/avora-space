@@ -225,6 +225,10 @@ export type ThinkTable = {
   hiddenInList?: boolean;
   /** AVORA-72: synced columns the owner folded away. */
   syncHidden?: readonly string[];
+  /** AVORA-77 · A5: how this board thinks (`null` = made without a template). */
+  thinkingType?: "track" | "progress" | "breakdown" | "weigh" | "learn" | null;
+  /** AVORA-77 · A4: how far the thinking has gone — marked by people only. */
+  lifecycle?: "waiting" | "thinking" | "concluded" | "archived";
 };
 
 /** One status a table offers; `done` ones count as finished for the ★ tile. */
@@ -336,6 +340,8 @@ type TableRow = {
   sync_source?: string | null;
   hidden_in_list?: boolean | null;
   sync_hidden?: string[] | null;
+  thinking_type?: string | null;
+  lifecycle?: string | null;
 };
 
 type RecordRow = {
@@ -499,6 +505,16 @@ function toTable(row: TableRow): ThinkTable {
     syncSource: row.sync_source === "contact_opportunities" ? "contact_opportunities" : null,
     hiddenInList: row.hidden_in_list === true,
     syncHidden: row.sync_hidden ?? [],
+    thinkingType:
+      row.thinking_type === "track" || row.thinking_type === "progress" || row.thinking_type === "breakdown" || row.thinking_type === "weigh" || row.thinking_type === "learn"
+        ? row.thinking_type
+        : null,
+    lifecycle:
+      row.archived_at != null
+        ? "archived"
+        : row.lifecycle === "thinking" || row.lifecycle === "concluded"
+          ? row.lifecycle
+          : "waiting",
   };
 }
 
@@ -993,6 +1009,12 @@ function extraHubError(normalized: string): string | null {
     ["avora_record_move_unmatched", "Có cột không khớp — xác nhận ghi vào Ghi chú trước."],
     ["avora_record_move_same_table", "Hạng mục đã ở Bảng này."],
     ["avora_record_move_bookshelf", "Kệ sách chỉ nhận sách."],
+    // AVORA-77
+    ["avora_think_hub_view_only", "Bảng này đang Chỉ xem — chỉ chủ Bảng đổi được."],
+    ["avora_sync_board_locked", "Bảng Avora mặc định do Avora tự lập — không đổi được phần này."],
+    ["avora_conclusion_length", "Kết luận dài 1–500 ký tự."],
+    ["avora_lifecycle_archive_via_archive", "Lưu trữ Bảng ở menu ⋯ cạnh tên Bảng."],
+    ["avora_book_not_yours", "Cuốn này không còn trên Kệ sách của bạn."],
   ];
   for (const [code, text] of table) if (normalized.includes(code)) return text;
   return null;

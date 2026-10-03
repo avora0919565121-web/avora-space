@@ -49,6 +49,98 @@ export type Database = {
           },
         ]
       }
+      account_device_lock: {
+        Row: {
+          locked_at: string
+          locked_by_device: string
+          locked_rank: number
+          unlock_requested_at: string | null
+          user_id: string
+        }
+        Insert: {
+          locked_at?: string
+          locked_by_device: string
+          locked_rank: number
+          unlock_requested_at?: string | null
+          user_id: string
+        }
+        Update: {
+          locked_at?: string
+          locked_by_device?: string
+          locked_rank?: number
+          unlock_requested_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_device_lock_locked_by_device_fkey"
+            columns: ["locked_by_device"]
+            isOneToOne: false
+            referencedRelation: "account_devices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      account_devices: {
+        Row: {
+          approved_at: string | null
+          created_at: string
+          device_id: string
+          device_public_key: string
+          guest: boolean
+          id: string
+          kind: string
+          label: string
+          last_seen_at: string
+          lost_deadline: string | null
+          lost_reported_at: string | null
+          lost_reported_by_device: string | null
+          lost_status: string | null
+          rank: number
+          revoked_at: string | null
+          session_id: string | null
+          user_id: string
+        }
+        Insert: {
+          approved_at?: string | null
+          created_at?: string
+          device_id: string
+          device_public_key: string
+          guest?: boolean
+          id?: string
+          kind?: string
+          label?: string
+          last_seen_at?: string
+          lost_deadline?: string | null
+          lost_reported_at?: string | null
+          lost_reported_by_device?: string | null
+          lost_status?: string | null
+          rank?: number
+          revoked_at?: string | null
+          session_id?: string | null
+          user_id: string
+        }
+        Update: {
+          approved_at?: string | null
+          created_at?: string
+          device_id?: string
+          device_public_key?: string
+          guest?: boolean
+          id?: string
+          kind?: string
+          label?: string
+          last_seen_at?: string
+          lost_deadline?: string | null
+          lost_reported_at?: string | null
+          lost_reported_by_device?: string | null
+          lost_status?: string | null
+          rank?: number
+          revoked_at?: string | null
+          session_id?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           account_number: string | null
@@ -96,6 +188,95 @@ export type Database = {
           tags?: string[]
           type?: Database["public"]["Enums"]["account_type"]
           updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      book_catalog: {
+        Row: {
+          authors: string | null
+          category: string
+          epub_url: string | null
+          language: string
+          search_text: string
+          source: string
+          source_id: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          authors?: string | null
+          category?: string
+          epub_url?: string | null
+          language: string
+          search_text?: string
+          source: string
+          source_id: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          authors?: string | null
+          category?: string
+          epub_url?: string | null
+          language?: string
+          search_text?: string
+          source?: string
+          source_id?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      book_reading_state: {
+        Row: {
+          device_label: string | null
+          locator: string
+          percent: number
+          record_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          device_label?: string | null
+          locator: string
+          percent: number
+          record_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          device_label?: string | null
+          locator?: string
+          percent?: number
+          record_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_reading_state_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_text_hits: {
+        Row: {
+          at: string
+          id: number
+          user_id: string
+        }
+        Insert: {
+          at?: string
+          id?: never
+          user_id: string
+        }
+        Update: {
+          at?: string
+          id?: never
           user_id?: string
         }
         Relationships: []
@@ -637,37 +818,52 @@ export type Database = {
       }
       crm_opportunity: {
         Row: {
-          contact_id: string
+          contact_id: string | null
+          contact_snapshot: Json | null
           conversation_id: string | null
           created_at: string
           estimated_value: number | null
           id: string
+          last_contact_at: string | null
+          next_action_date: string | null
+          next_action_note: string | null
           owner_user_id: string
           project_id: string | null
+          removed_at: string | null
           stage: string
           title: string
           updated_at: string
         }
         Insert: {
-          contact_id: string
+          contact_id?: string | null
+          contact_snapshot?: Json | null
           conversation_id?: string | null
           created_at?: string
           estimated_value?: number | null
           id?: string
+          last_contact_at?: string | null
+          next_action_date?: string | null
+          next_action_note?: string | null
           owner_user_id: string
           project_id?: string | null
+          removed_at?: string | null
           stage?: string
           title: string
           updated_at?: string
         }
         Update: {
-          contact_id?: string
+          contact_id?: string | null
+          contact_snapshot?: Json | null
           conversation_id?: string | null
           created_at?: string
           estimated_value?: number | null
           id?: string
+          last_contact_at?: string | null
+          next_action_date?: string | null
+          next_action_note?: string | null
           owner_user_id?: string
           project_id?: string | null
+          removed_at?: string | null
           stage?: string
           title?: string
           updated_at?: string
@@ -1211,6 +1407,7 @@ export type Database = {
           algorithm_version?: string | null
           attached_by?: string
           byte_size?: number
+          capture_source?: string | null
           conversation_id?: string
           created_at?: string
           duration_seconds?: number | null
@@ -1671,13 +1868,13 @@ export type Database = {
       }
       profiles: {
         Row: {
+          accent_tone: string
           allow_group_connection: boolean
           avatar_url: string | null
           base_currency: string
           button_style: string
           celebration_style: string
           color_scheme: string
-          accent_tone: string
           created_at: string
           daily_thought_category: string
           display_name: string | null
@@ -1696,15 +1893,16 @@ export type Database = {
           sound_messages: boolean
           sound_reminders: boolean
           timezone: string
+          vault_other_devices_allowed: boolean
         }
         Insert: {
+          accent_tone?: string
           allow_group_connection?: boolean
           avatar_url?: string | null
           base_currency?: string
           button_style?: string
           celebration_style?: string
           color_scheme?: string
-          accent_tone?: string
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
@@ -1723,15 +1921,16 @@ export type Database = {
           sound_messages?: boolean
           sound_reminders?: boolean
           timezone?: string
+          vault_other_devices_allowed?: boolean
         }
         Update: {
+          accent_tone?: string
           allow_group_connection?: boolean
           avatar_url?: string | null
           base_currency?: string
           button_style?: string
           celebration_style?: string
           color_scheme?: string
-          accent_tone?: string
           created_at?: string
           daily_thought_category?: string
           display_name?: string | null
@@ -1750,6 +1949,7 @@ export type Database = {
           sound_messages?: boolean
           sound_reminders?: boolean
           timezone?: string
+          vault_other_devices_allowed?: boolean
         }
         Relationships: [
           {
@@ -2167,6 +2367,8 @@ export type Database = {
           created_at: string
           id: string
           message_id: string | null
+          move_mode: string | null
+          move_to_conversation: string | null
           proposed_by: string
           reason: string
           reminded_at: string | null
@@ -2182,6 +2384,8 @@ export type Database = {
           created_at?: string
           id?: string
           message_id?: string | null
+          move_mode?: string | null
+          move_to_conversation?: string | null
           proposed_by: string
           reason: string
           reminded_at?: string | null
@@ -2197,6 +2401,8 @@ export type Database = {
           created_at?: string
           id?: string
           message_id?: string | null
+          move_mode?: string | null
+          move_to_conversation?: string | null
           proposed_by?: string
           reason?: string
           reminded_at?: string | null
@@ -2219,6 +2425,13 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_proposals_move_to_conversation_fkey"
+            columns: ["move_to_conversation"]
+            isOneToOne: false
+            referencedRelation: "conversations"
             referencedColumns: ["id"]
           },
         ]
@@ -3134,6 +3347,38 @@ export type Database = {
           },
         ]
       }
+      think_hub_conclusions: {
+        Row: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          table_id: string
+        }
+        Insert: {
+          body: string
+          created_at?: string
+          created_by: string
+          id?: string
+          table_id: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          table_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_conclusions_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       think_hub_delete_cascade: {
         Row: {
           batch_id: string
@@ -3224,6 +3469,7 @@ export type Database = {
       think_hub_record: {
         Row: {
           category: string | null
+          contact_labels: Json
           created_at: string
           deleted_at: string | null
           editor_ids: string[]
@@ -3232,6 +3478,7 @@ export type Database = {
           moved_from: Json | null
           next_action_date: string | null
           notes: string | null
+          opportunity_id: string | null
           owner_user_id: string
           priority: string
           project_id: string | null
@@ -3244,6 +3491,7 @@ export type Database = {
         }
         Insert: {
           category?: string | null
+          contact_labels?: Json
           created_at?: string
           deleted_at?: string | null
           editor_ids?: string[]
@@ -3252,6 +3500,7 @@ export type Database = {
           moved_from?: Json | null
           next_action_date?: string | null
           notes?: string | null
+          opportunity_id?: string | null
           owner_user_id: string
           priority?: string
           project_id?: string | null
@@ -3264,6 +3513,7 @@ export type Database = {
         }
         Update: {
           category?: string | null
+          contact_labels?: Json
           created_at?: string
           deleted_at?: string | null
           editor_ids?: string[]
@@ -3272,6 +3522,7 @@ export type Database = {
           moved_from?: Json | null
           next_action_date?: string | null
           notes?: string | null
+          opportunity_id?: string | null
           owner_user_id?: string
           priority?: string
           project_id?: string | null
@@ -3284,6 +3535,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "think_hub_record_opportunity_id_fkey"
+            columns: ["opportunity_id"]
+            isOneToOne: false
+            referencedRelation: "crm_opportunity"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "think_hub_record_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -3295,6 +3553,35 @@ export type Database = {
             columns: ["table_id"]
             isOneToOne: false
             referencedRelation: "think_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      think_hub_record_reminders: {
+        Row: {
+          record_id: string
+          remind_at: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          record_id: string
+          remind_at: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          record_id?: string
+          remind_at?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_record_reminders_record_id_fkey"
+            columns: ["record_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_record"
             referencedColumns: ["id"]
           },
         ]
@@ -3375,8 +3662,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -3385,9 +3674,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -3404,8 +3697,10 @@ export type Database = {
           deleted_at?: string | null
           deleted_via?: string | null
           depth?: number
+          hidden_in_list?: boolean
           id?: string
           kind?: string | null
+          lifecycle?: string
           mobile_columns?: string[] | null
           name: string
           orphan_origin?: string | null
@@ -3414,9 +3709,13 @@ export type Database = {
           position?: number
           project_id?: string | null
           purpose?: string | null
+          share_mode?: string
           source_template_key?: string | null
           source_template_version?: number | null
           status_options?: Json | null
+          sync_hidden?: string[]
+          sync_source?: string | null
+          thinking_type?: string | null
           title_label?: string | null
           updated_at?: string
         }
@@ -3433,8 +3732,10 @@ export type Database = {
           deleted_at?: string | null
           deleted_via?: string | null
           depth?: number
+          hidden_in_list?: boolean
           id?: string
           kind?: string | null
+          lifecycle?: string
           mobile_columns?: string[] | null
           name?: string
           orphan_origin?: string | null
@@ -3443,9 +3744,13 @@ export type Database = {
           position?: number
           project_id?: string | null
           purpose?: string | null
+          share_mode?: string
           source_template_key?: string | null
           source_template_version?: number | null
           status_options?: Json | null
+          sync_hidden?: string[]
+          sync_source?: string | null
+          thinking_type?: string | null
           title_label?: string | null
           updated_at?: string
         }
@@ -3733,6 +4038,27 @@ export type Database = {
           },
         ]
       }
+      user_aliases: {
+        Row: {
+          alias: string
+          owner_user_id: string
+          target_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          alias: string
+          owner_user_id: string
+          target_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          alias?: string
+          owner_user_id?: string
+          target_user_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_blocks: {
         Row: {
           blocked_id: string
@@ -3855,6 +4181,143 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vault_files: {
+        Row: {
+          bytes: number
+          created_at: string
+          id: string
+          item_id: string
+          mime_class: string
+          owner_user_id: string
+          page_no: number
+          storage_path: string
+          wrapped_file_key: string
+        }
+        Insert: {
+          bytes: number
+          created_at?: string
+          id?: string
+          item_id: string
+          mime_class: string
+          owner_user_id: string
+          page_no?: number
+          storage_path: string
+          wrapped_file_key: string
+        }
+        Update: {
+          bytes?: number
+          created_at?: string
+          id?: string
+          item_id?: string
+          mime_class?: string
+          owner_user_id?: string
+          page_no?: number
+          storage_path?: string
+          wrapped_file_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vault_files_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "vault_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vault_items: {
+        Row: {
+          algorithm_version: number
+          ciphertext: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          key_version: number
+          owner_user_id: string
+          remind_on: string | null
+          reminder_task_id: string | null
+          reminder_title: string | null
+          section: string
+          updated_at: string
+          wrapped_item_key: string
+        }
+        Insert: {
+          algorithm_version?: number
+          ciphertext: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          key_version?: number
+          owner_user_id: string
+          remind_on?: string | null
+          reminder_task_id?: string | null
+          reminder_title?: string | null
+          section: string
+          updated_at?: string
+          wrapped_item_key: string
+        }
+        Update: {
+          algorithm_version?: number
+          ciphertext?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          key_version?: number
+          owner_user_id?: string
+          remind_on?: string | null
+          reminder_task_id?: string | null
+          reminder_title?: string | null
+          section?: string
+          updated_at?: string
+          wrapped_item_key?: string
+        }
+        Relationships: []
+      }
+      vault_keyring: {
+        Row: {
+          created_at: string
+          kdf_params: Json
+          key_version: number
+          kit_confirmed_at: string | null
+          mk_wrapped_pass: string
+          mk_wrapped_rec: string
+          rec_check: string
+          salt_pass: string
+          salt_rec: string
+          section_keys: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          kdf_params: Json
+          key_version?: number
+          kit_confirmed_at?: string | null
+          mk_wrapped_pass: string
+          mk_wrapped_rec: string
+          rec_check: string
+          salt_pass: string
+          salt_rec: string
+          section_keys: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          kdf_params?: Json
+          key_version?: number
+          kit_confirmed_at?: string | null
+          mk_wrapped_pass?: string
+          mk_wrapped_rec?: string
+          rec_check?: string
+          salt_pass?: string
+          salt_rec?: string
+          section_keys?: Json
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
@@ -3998,8 +4461,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -4008,9 +4473,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -4049,8 +4518,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -4059,9 +4530,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -4083,6 +4558,7 @@ export type Database = {
         Returns: string
       }
       block_user: { Args: { p_user_id: string }; Returns: undefined }
+      cancel_lock_escape: { Args: never; Returns: undefined }
       cancel_scheduled_message: { Args: { p_id: string }; Returns: undefined }
       cast_group_vote: {
         Args: { p_decision_id: string; p_option_id: string }
@@ -4103,8 +4579,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -4113,9 +4591,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -4440,8 +4922,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -4450,9 +4934,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -4467,6 +4955,7 @@ export type Database = {
         Args: { p_record_id: string; p_target_table_id: string }
         Returns: {
           category: string | null
+          contact_labels: Json
           created_at: string
           deleted_at: string | null
           editor_ids: string[]
@@ -4475,6 +4964,7 @@ export type Database = {
           moved_from: Json | null
           next_action_date: string | null
           notes: string | null
+          opportunity_id: string | null
           owner_user_id: string
           priority: string
           project_id: string | null
@@ -4747,13 +5237,18 @@ export type Database = {
           p_title: string
         }
         Returns: {
-          contact_id: string
+          contact_id: string | null
+          contact_snapshot: Json | null
           conversation_id: string | null
           created_at: string
           estimated_value: number | null
           id: string
+          last_contact_at: string | null
+          next_action_date: string | null
+          next_action_note: string | null
           owner_user_id: string
           project_id: string | null
+          removed_at: string | null
           stage: string
           title: string
           updated_at: string
@@ -5082,6 +5577,7 @@ export type Database = {
         }
         Returns: {
           category: string | null
+          contact_labels: Json
           created_at: string
           deleted_at: string | null
           editor_ids: string[]
@@ -5090,6 +5586,7 @@ export type Database = {
           moved_from: Json | null
           next_action_date: string | null
           notes: string | null
+          opportunity_id: string | null
           owner_user_id: string
           priority: string
           project_id: string | null
@@ -5122,8 +5619,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -5132,9 +5631,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -5160,8 +5663,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -5170,9 +5675,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -5203,8 +5712,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -5213,9 +5724,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -5439,8 +5954,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -5449,9 +5966,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -5466,6 +5987,7 @@ export type Database = {
         Args: { p_record_id: string }
         Returns: {
           category: string | null
+          contact_labels: Json
           created_at: string
           deleted_at: string | null
           editor_ids: string[]
@@ -5474,6 +5996,7 @@ export type Database = {
           moved_from: Json | null
           next_action_date: string | null
           notes: string | null
+          opportunity_id: string | null
           owner_user_id: string
           priority: string
           project_id: string | null
@@ -5506,8 +6029,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -5516,9 +6041,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -5562,6 +6091,30 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      device_action: {
+        Args: { p_choice: string; p_password?: string; p_token: string }
+        Returns: Json
+      }
+      device_action_info: { Args: { p_token: string }; Returns: Json }
+      device_bind: {
+        Args: {
+          p_device_id: string
+          p_guest: boolean
+          p_kind: string
+          p_label: string
+          p_nonce: string
+          p_public_key: string
+          p_session: string
+          p_user: string
+        }
+        Returns: Json
+      }
+      device_challenge: { Args: { p_device_id: string }; Returns: string }
+      device_key_for: {
+        Args: { p_device_id: string; p_user: string }
+        Returns: string
+      }
+      device_status: { Args: never; Returns: Json }
       dismiss_contact_link: {
         Args: { p_contact_id: string }
         Returns: undefined
@@ -5658,8 +6211,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -5668,9 +6223,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -5721,8 +6280,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -5731,9 +6292,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -5796,6 +6361,7 @@ export type Database = {
           user_id: string
         }[]
       }
+      forget_this_device: { Args: { p_device_id: string }; Returns: undefined }
       forward_blocked_note: { Args: never; Returns: string }
       forward_messages: {
         Args: { p_message_ids: string[]; p_target_conversation_id: string }
@@ -5878,13 +6444,18 @@ export type Database = {
       link_opportunity_conversation: {
         Args: { p_conversation_id: string; p_opportunity_id: string }
         Returns: {
-          contact_id: string
+          contact_id: string | null
+          contact_snapshot: Json | null
           conversation_id: string | null
           created_at: string
           estimated_value: number | null
           id: string
+          last_contact_at: string | null
+          next_action_date: string | null
+          next_action_note: string | null
           owner_user_id: string
           project_id: string | null
+          removed_at: string | null
           stage: string
           title: string
           updated_at: string
@@ -6030,6 +6601,7 @@ export type Database = {
           verification_via_group_id: string
         }[]
       }
+      list_my_devices: { Args: never; Returns: Json }
       list_my_scheduled_messages: {
         Args: { p_conversation_id: string }
         Returns: {
@@ -6064,6 +6636,7 @@ export type Database = {
           table_id: string
         }[]
       }
+      lost_device_dispute: { Args: { p_password: string }; Returns: undefined }
       mark_1_1_task_done: {
         Args: { p_task_id: string }
         Returns: {
@@ -6255,6 +6828,7 @@ export type Database = {
         }
         Returns: {
           category: string | null
+          contact_labels: Json
           created_at: string
           deleted_at: string | null
           editor_ids: string[]
@@ -6263,6 +6837,7 @@ export type Database = {
           moved_from: Json | null
           next_action_date: string | null
           notes: string | null
+          opportunity_id: string | null
           owner_user_id: string
           priority: string
           project_id: string | null
@@ -6280,6 +6855,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      move_think_hub_table: {
+        Args: {
+          p_conversation_id?: string
+          p_mode?: string
+          p_table_id: string
+        }
+        Returns: Json
+      }
+      opportunity_board: { Args: never; Returns: string }
       pin_message: {
         Args: { p_message_id: string; p_scope: string }
         Returns: {
@@ -6376,6 +6960,8 @@ export type Database = {
           created_at: string
           id: string
           message_id: string | null
+          move_mode: string | null
+          move_to_conversation: string | null
           proposed_by: string
           reason: string
           reminded_at: string | null
@@ -6447,6 +7033,17 @@ export type Database = {
       }
       recompute_account_state: {
         Args: { p_account_id: string }
+        Returns: undefined
+      }
+      record_argon_bench: {
+        Args: {
+          p_browser: string
+          p_device_kind: string
+          p_error: string
+          p_profile: string
+          p_runs_ms: number[]
+          p_standalone: boolean
+        }
         Returns: undefined
       }
       record_project_success_criterion: {
@@ -6556,6 +7153,10 @@ export type Database = {
         }
       }
       rename_contacts_bulk: { Args: { p_changes: Json }; Returns: Json }
+      rename_device: {
+        Args: { p_device: string; p_label: string }
+        Returns: undefined
+      }
       rename_group_conversation: {
         Args: { p_conversation_id: string; p_name: string }
         Returns: string
@@ -6575,8 +7176,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -6585,9 +7188,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -6613,8 +7220,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -6623,9 +7232,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -6666,6 +7279,15 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      report_device_lost: {
+        Args: {
+          p_days: number
+          p_device: string
+          p_origin?: string
+          p_password: string
+        }
+        Returns: string
+      }
       report_user: {
         Args: {
           p_also_block?: boolean
@@ -6678,6 +7300,11 @@ export type Database = {
         }
         Returns: string
       }
+      request_lock_escape: {
+        Args: { p_origin?: string; p_password: string }
+        Returns: string
+      }
+      request_rank_claim_code: { Args: { p_rank: number }; Returns: undefined }
       request_remove_participant: {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: string
@@ -6839,8 +7466,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -6849,9 +7478,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -6933,8 +7566,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -6943,9 +7578,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -6960,6 +7599,7 @@ export type Database = {
         Args: { p_record_id: string }
         Returns: {
           category: string | null
+          contact_labels: Json
           created_at: string
           deleted_at: string | null
           editor_ids: string[]
@@ -6968,6 +7608,7 @@ export type Database = {
           moved_from: Json | null
           next_action_date: string | null
           notes: string | null
+          opportunity_id: string | null
           owner_user_id: string
           priority: string
           project_id: string | null
@@ -7000,8 +7641,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -7010,9 +7653,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -7233,6 +7880,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      revoke_device: { Args: { p_device: string }; Returns: undefined }
       revoke_group_decision_permission: {
         Args: { p_grant_id: string }
         Returns: undefined
@@ -7331,6 +7979,29 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      save_reading_state: {
+        Args: {
+          p_at?: string
+          p_device_label: string
+          p_locator: string
+          p_percent: number
+          p_record_id: string
+        }
+        Returns: {
+          device_label: string | null
+          locator: string
+          percent: number
+          record_id: string
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "book_reading_state"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       save_table_as_template: {
         Args: { p_name: string; p_table_id: string }
         Returns: {
@@ -7403,6 +8074,31 @@ export type Database = {
           title: string
         }[]
       }
+      search_book_catalog: {
+        Args: {
+          p_category?: string
+          p_limit?: number
+          p_query: string
+          p_source?: string
+        }
+        Returns: {
+          authors: string | null
+          category: string
+          epub_url: string | null
+          language: string
+          search_text: string
+          source: string
+          source_id: string
+          title: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "book_catalog"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       security_signout_notice: { Args: never; Returns: undefined }
       seed_finance_categories: { Args: { p_user_id: string }; Returns: number }
       send_message_with_attachments: {
@@ -7444,6 +8140,30 @@ export type Database = {
         }
       }
       send_scheduled_message_now: { Args: { p_id: string }; Returns: string }
+      set_board_conclusion: {
+        Args: { p_body: string; p_table_id: string }
+        Returns: {
+          body: string
+          created_at: string
+          created_by: string
+          id: string
+          table_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_conclusions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_board_lifecycle: {
+        Args: { p_lifecycle: string; p_table_id: string }
+        Returns: string
+      }
+      set_board_thinking_type: {
+        Args: { p_table_id: string; p_type: string }
+        Returns: string
+      }
       set_conversation_mute: {
         Args: { p_conversation_id: string; p_until: string }
         Returns: string
@@ -7452,12 +8172,29 @@ export type Database = {
         Args: { p_conversation_id: string; p_pinned: boolean }
         Returns: string
       }
+      set_device_lock: {
+        Args: { p_on: boolean; p_password: string }
+        Returns: undefined
+      }
+      set_device_rank: {
+        Args: {
+          p_email_code?: string
+          p_origin?: string
+          p_password: string
+          p_rank: number
+        }
+        Returns: Json
+      }
       set_group_admin: {
         Args: {
           make_admin: boolean
           target_conversation_id: string
           target_user_id: string
         }
+        Returns: undefined
+      }
+      set_opportunity_board_view: {
+        Args: { p_hidden_in_list: boolean; p_sync_hidden: string[] }
         Returns: undefined
       }
       set_task_travel: {
@@ -7483,8 +8220,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -7493,9 +8232,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -7521,8 +8264,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -7531,9 +8276,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -7559,8 +8308,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -7569,9 +8320,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -7597,8 +8352,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -7607,9 +8364,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -7635,8 +8396,10 @@ export type Database = {
           deleted_at: string | null
           deleted_via: string | null
           depth: number
+          hidden_in_list: boolean
           id: string
           kind: string | null
+          lifecycle: string
           mobile_columns: string[] | null
           name: string
           orphan_origin: string | null
@@ -7645,9 +8408,13 @@ export type Database = {
           position: number
           project_id: string | null
           purpose: string | null
+          share_mode: string
           source_template_key: string | null
           source_template_version: number | null
           status_options: Json | null
+          sync_hidden: string[]
+          sync_source: string | null
+          thinking_type: string | null
           title_label: string | null
           updated_at: string
         }
@@ -7657,6 +8424,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      set_vault_other_devices_allowed: {
+        Args: { p_on: boolean; p_password: string }
+        Returns: undefined
       }
       settle_transaction: {
         Args: { p_amount: number; p_transaction_id: string }
@@ -7922,13 +8693,18 @@ export type Database = {
       update_opportunity_stage: {
         Args: { p_opportunity_id: string; p_stage: string }
         Returns: {
-          contact_id: string
+          contact_id: string | null
+          contact_snapshot: Json | null
           conversation_id: string | null
           created_at: string
           estimated_value: number | null
           id: string
+          last_contact_at: string | null
+          next_action_date: string | null
+          next_action_note: string | null
           owner_user_id: string
           project_id: string | null
+          removed_at: string | null
           stage: string
           title: string
           updated_at: string
@@ -8156,6 +8932,7 @@ export type Database = {
         Args: { p_patch: Json; p_record_id: string }
         Returns: {
           category: string | null
+          contact_labels: Json
           created_at: string
           deleted_at: string | null
           editor_ids: string[]
@@ -8164,6 +8941,7 @@ export type Database = {
           moved_from: Json | null
           next_action_date: string | null
           notes: string | null
+          opportunity_id: string | null
           owner_user_id: string
           priority: string
           project_id: string | null
@@ -8186,30 +8964,62 @@ export type Database = {
         Args: { p_new: string; p_old: string }
         Returns: Json
       }
+      vault_change_passphrase: {
+        Args: {
+          p_params: Json
+          p_proof: string
+          p_salt: string
+          p_wrapped: string
+        }
+        Returns: undefined
+      }
       vault_confirm_reset: {
         Args: { p_email_code: string; p_new_code: string }
         Returns: Json
       }
+      vault_keyring_get: { Args: never; Returns: Json }
       vault_lock: { Args: never; Returns: undefined }
+      vault_prove: {
+        Args: { p_kind: string; p_proof: string }
+        Returns: boolean
+      }
+      vault_purge_item: { Args: { p_id: string }; Returns: undefined }
+      vault_register_device_share: {
+        Args: { p_device_id: string }
+        Returns: string
+      }
       vault_request_reset: { Args: never; Returns: Json }
+      vault_reset_code_by_passphrase: {
+        Args: { p_new_code: string }
+        Returns: undefined
+      }
+      vault_reset_everything: {
+        Args: { p_email_code: string; p_password: string }
+        Returns: undefined
+      }
+      vault_rotate_recovery: {
+        Args: {
+          p_check: string
+          p_proof: string
+          p_salt: string
+          p_wrapped: string
+        }
+        Returns: undefined
+      }
       vault_set_code: { Args: { p_code: string }; Returns: Json }
+      vault_setup: {
+        Args: { p_pass_proof: string; p_rec_proof: string; p_ring: Json }
+        Returns: undefined
+      }
       vault_status: { Args: never; Returns: Json }
       vault_touch: { Args: never; Returns: Json }
-      vault_unlock: { Args: { p_code: string }; Returns: Json }
+      vault_unlock: {
+        Args: { p_code: string; p_device_id?: string }
+        Returns: Json
+      }
       verify_account_password: {
         Args: { p_password: string }
         Returns: boolean
-      }
-      record_argon_bench: {
-        Args: {
-          p_device_kind: string
-          p_browser: string
-          p_standalone: boolean
-          p_profile: string
-          p_runs_ms: number[]
-          p_error: string | null
-        }
-        Returns: undefined
       }
       vote_shared_proposal: {
         Args: { p_proposal_id: string; p_reason?: string; p_vote: string }
@@ -8219,6 +9029,8 @@ export type Database = {
           created_at: string
           id: string
           message_id: string | null
+          move_mode: string | null
+          move_to_conversation: string | null
           proposed_by: string
           reason: string
           reminded_at: string | null
@@ -8243,6 +9055,8 @@ export type Database = {
           created_at: string
           id: string
           message_id: string | null
+          move_mode: string | null
+          move_to_conversation: string | null
           proposed_by: string
           reason: string
           reminded_at: string | null

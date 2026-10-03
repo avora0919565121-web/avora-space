@@ -90,6 +90,8 @@ export default {
       },
       fontFamily: {
         sans: ["Inter Tight", "ui-sans-serif", "system-ui", "sans-serif"],
+        // AVORA-77 · D3: the reader's serif — system serifs that carry Vietnamese marks well.
+        reader: ["Charter", "'Iowan Old Style'", "'Noto Serif'", "Georgia", "'Times New Roman'", "serif"],
       },
       borderRadius: {
         lg: "var(--radius)",

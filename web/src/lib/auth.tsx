@@ -8,6 +8,7 @@ import { clearAllDrafts } from "@/lib/chat-drafts";
 import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { isSafeReturnPath } from "@/lib/return-to";
+import { clearTabMemory } from "@/lib/tab-memory";
 
 export type Profile = {
   id: string;
@@ -305,6 +306,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     // Half-typed messages stay on this device only while signed in (Đợt gộp 2 · A8).
     clearAllDrafts();
+    // AVORA-77 · G: where each tab stood is forgotten on sign-out.
+    clearTabMemory();
     writeRecoveryFlag(false);
     setIsRecovering(false);
     setProfile(null);

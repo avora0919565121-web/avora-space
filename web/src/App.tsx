@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
-import { LegacyRedirect } from "@/components/LegacyRedirect";
+import { LegacyRedirect, ShelfRedirect } from "@/components/LegacyRedirect";
 import { LookSync } from "@/components/LookSync";
 import { KeyboardSync } from "@/components/KeyboardSync";
 import { NotchSync } from "@/components/NotchSync";
@@ -32,7 +32,7 @@ import FinanceReports from "./pages/FinanceReports";
 import FinanceTransactions from "./pages/FinanceTransactions";
 import JoinGroup from "./pages/JoinGroup";
 import Messages from "./pages/Messages";
-import Bookshelf from "./pages/Bookshelf";
+import BookReader from "./pages/BookReader";
 import NotFound from "./pages/NotFound";
 import Profile from "./pages/Profile";
 import ProjectDetail from "./pages/ProjectDetail";
@@ -82,7 +82,9 @@ const App = () => (
                 <Route path="/nhiem-vu" element={<Tasks />} />
                 <Route path="/du-an/:projectId" element={<ProjectDetail />} />
                 <Route path="/ke-hoach" element={<ThinkHub />} />
-                <Route path="/ke-hoach/ke-sach" element={<Bookshelf />} />
+                {/* AVORA-77 · C: one screen — Kệ sách is kệ 04 of Kế hoạch; the old address still opens it. */}
+                <Route path="/ke-hoach/ke-sach" element={<ShelfRedirect />} />
+                <Route path="/ke-hoach/ke-sach/doc/:recordId" element={<BookReader />} />
 
                 <Route path="/ket-sat" element={<Vault />}>
                   <Route index element={<Finance />} />

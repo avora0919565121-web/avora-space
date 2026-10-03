@@ -1,6 +1,6 @@
 import { Bell, BookOpen, CalendarClock, CalendarDays, ChevronRight, ListChecks, Loader2, MailOpen, MessagesSquare, Table2, UserPlus } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 
 import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBoundary";
 import { ThoughtNote } from "@/components/space/ThoughtNote";
@@ -36,6 +36,8 @@ import { deadlineLabel, todayIso, type TaskItem } from "@/lib/tasks";
 import { TaskOwnerLine } from "@/components/tasks/TaskOwner";
 import { useTaskProjectIndex } from "@/lib/use-projects";
 import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
+import { useStars } from "@/lib/use-think-hub-shelf";
+import { HUB_TILE_PARAM, isArchivedTree, REMINDER_TILES, reminderTiles } from "@/lib/think-hub-shelf";
 import { useConversations } from "@/lib/use-conversations";
 import { useDailyThoughtCategory } from "@/lib/use-settings";
 import { usePendingInvitationCount } from "@/lib/use-task-collab";
@@ -173,6 +175,14 @@ export default function Dashboard() {
     () => planningCounts(hubRecords ?? [], hubTables ?? [], opened),
     [hubRecords, hubTables, opened],
   );
+  const navigate = useNavigate();
+  const starsQuery = useStars();
+  // The very same four counts the Kế hoạch tiles show (A1 / A2).
+  const planTiles = useMemo(() => {
+    const tables = hubTables ?? [];
+    const records = hubRecords ?? [];
+    return reminderTiles(tables, records, starsQuery.data ?? new Set<string>(), today, (table) => isArchivedTree(tables, records, table.id));
+  }, [hubTables, hubRecords, starsQuery.data, today]);
 
   const renderBlock = (id: SpaceBlockId): ReactNode => {
     switch (id) {
@@ -330,12 +340,12 @@ export default function Dashboard() {
           </Block>
         );
 
-      case "planning":
+      case "planning": {
         if (recordsFailed || tablesFailed) {
           return (
             <Block key={id} id={id} icon={<Table2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
               <BlockLoadError
-                name="Góc hoạch định"
+                name="Góc kế hoạch"
                 onRetry={() => {
                   void refetchRecords();
                   void refetchTables();
@@ -344,24 +354,67 @@ export default function Dashboard() {
             </Block>
           );
         }
-        if (!isBlockVisible(id, planning.length)) return null;
+        // AVORA-77 · A2: one small row — the four Kế hoạch tiles, only those above 0 — and under it
+        // at most three boards whose review date has come. Nothing at all → the block hides.
+        const liveTiles = REMINDER_TILES.filter((tile) => planTiles[tile.id].length > 0);
+        if (!isBlockVisible(id, liveTiles.length + planning.length)) return null;
         return (
           <Block key={id} id={id} icon={<Table2 className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />}>
             <p className="sr-only">{planningSummary(planning)}</p>
-            <div className="flex flex-wrap gap-2">
-              {planning.map((entry) => (
-                <Link
-                  key={entry.tableId}
-                  to={withReturn(`/ke-hoach?bang=${encodeURIComponent(entry.tableId)}`, SPACE_ORIGIN)}
-                  className="press flex min-h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-[14px] text-foreground transition-colors hover:bg-accent/30"
-                >
-                  {entry.tableName}
-                  <span className="tabular font-semibold">{entry.count}</span>
-                </Link>
-              ))}
-            </div>
+            {liveTiles.length > 0 ? (
+              <div
+                role="link"
+                tabIndex={0}
+                aria-label="Mở Kế hoạch"
+                data-plan-row=""
+                onClick={() => navigate(withReturn("/ke-hoach", SPACE_ORIGIN))}
+                onKeyDown={(event) => event.key === "Enter" && navigate(withReturn("/ke-hoach", SPACE_ORIGIN))}
+                className="press flex min-h-11 cursor-pointer items-center gap-1 rounded-[12px] border border-border bg-card px-3 py-1.5 transition-colors hover:bg-accent/30"
+              >
+                <span className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1 gap-y-0.5 text-[13.5px]">
+                  {liveTiles.map((tile, index) => (
+                    <span key={tile.id} className="inline-flex items-center">
+                      {index > 0 ? <span className="px-1.5 text-task-idle" aria-hidden="true">·</span> : null}
+                      <Link
+                        to={withReturn(`/ke-hoach?${HUB_TILE_PARAM}=${tile.id}`, SPACE_ORIGIN)}
+                        onClick={(event) => event.stopPropagation()}
+                        data-plan-tile={tile.id}
+                        className="rounded-md px-1 py-1 hover:bg-accent/50"
+                      >
+                        <span className="text-foreground">{tile.id === "starred" ? "★" : tile.label}</span>{" "}
+                        <span className={cn("tabular font-semibold", tile.id === "overdue" ? "text-task-overdue" : tile.id === "starred" ? "text-star" : "text-foreground")}>
+                          {planTiles[tile.id].length}
+                        </span>
+                        <span className="text-muted-foreground"> · {tile.ask}</span>
+                      </Link>
+                    </span>
+                  ))}
+                </span>
+                <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
+              </div>
+            ) : null}
+            {planning.length > 0 ? (
+              <div className={cn("flex flex-wrap gap-1.5", liveTiles.length > 0 && "mt-2")}>
+                {planning.slice(0, 3).map((entry) => (
+                  <Link
+                    key={entry.tableId}
+                    to={withReturn(`/ke-hoach?bang=${encodeURIComponent(entry.tableId)}`, SPACE_ORIGIN)}
+                    className="press flex min-h-9 items-center gap-1.5 rounded-full border border-border bg-card px-3 text-[13px] text-foreground transition-colors hover:bg-accent/30"
+                  >
+                    {entry.tableName}
+                    <span className="tabular font-semibold">{entry.count}</span>
+                  </Link>
+                ))}
+                {planning.length > 3 ? (
+                  <Link to={withReturn("/ke-hoach", SPACE_ORIGIN)} aria-label={`Còn ${planning.length - 3} bảng`} className="press flex min-h-9 items-center rounded-full px-2 text-[13px] text-muted-foreground">
+                    …
+                  </Link>
+                ) : null}
+              </div>
+            ) : null}
           </Block>
         );
+      }
 
       case "invitations":
         if (!isBlockVisible(id, invitationCount)) return null;

@@ -316,7 +316,8 @@ for (const [name, at] of [
 
 test("61.1 · rê chuột lên +: chú thích Bấm · Giữ", async () => {
   await viewport(1280, 800);
-  await render(<Hubs at="/ke-hoach" />);
+  // AVORA-77: with a board open, `+` adds a Hạng mục (on the library alone it offers a Bảng).
+  await render(<Hubs at="/ke-hoach?bang=b1" />);
   await settle(1200);
   const button = document.querySelector("[data-plus-button]") as HTMLElement;
   await userEvent.hover(button);
@@ -408,7 +409,7 @@ test("61.4 · ⋯ cạnh tên Bảng (bảng chung): Đề nghị xoá ở đây
   const screen = await openBoard();
   expect(document.querySelector('[aria-label="Thêm thao tác với Bảng"]')).toBeNull();
   await userEvent.click(screen.getByRole("button", { name: "Thao tác với Bảng Dự án chiếu sáng" }));
-  for (const label of ["Đổi tên", "Sửa mục tiêu", "Lịch sử thay đổi", "Báo thay đổi", "Đề nghị xoá"]) {
+  for (const label of ["Đổi tên", "Sửa câu hỏi của Bảng", "Lịch sử thay đổi", "Báo thay đổi", "Đề nghị xoá"]) {
     await expect.element(screen.getByRole("menuitem", { name: new RegExp(label) })).toBeInTheDocument();
   }
   await settle(300);
