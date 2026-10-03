@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppearanceCard } from "@/components/AppearanceCard";
 import { BlockedPeopleCard } from "@/components/BlockedPeopleCard";
 import { LookPrefsCard } from "@/components/LookPrefsCard";
+import { PlanBoardsCard } from "@/components/PlanBoardsCard";
 import { currenciesByRegion, REGION_LABELS, formatRate } from "@/lib/currency";
 import {
   DAILY_THOUGHT_OPTIONS,
@@ -272,6 +273,8 @@ const SettingsPreferences = () => {
         <AppearanceCard />
 
         <LookPrefsCard />
+
+        <PlanBoardsCard />
 
         <BlockedPeopleCard />
       </div>

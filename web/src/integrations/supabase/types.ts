@@ -202,6 +202,8 @@ export type Database = {
           source: string
           source_id: string
           title: string
+          title_vi: string | null
+          title_vi_kind: string | null
           updated_at: string
         }
         Insert: {
@@ -213,6 +215,8 @@ export type Database = {
           source: string
           source_id: string
           title: string
+          title_vi?: string | null
+          title_vi_kind?: string | null
           updated_at?: string
         }
         Update: {
@@ -224,6 +228,8 @@ export type Database = {
           source?: string
           source_id?: string
           title?: string
+          title_vi?: string | null
+          title_vi_kind?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -233,6 +239,7 @@ export type Database = {
           device_label: string | null
           locator: string
           percent: number
+          pinned_at: string | null
           record_id: string
           updated_at: string
           user_id: string
@@ -241,6 +248,7 @@ export type Database = {
           device_label?: string | null
           locator: string
           percent: number
+          pinned_at?: string | null
           record_id: string
           updated_at?: string
           user_id: string
@@ -249,6 +257,7 @@ export type Database = {
           device_label?: string | null
           locator?: string
           percent?: number
+          pinned_at?: string | null
           record_id?: string
           updated_at?: string
           user_id?: string
@@ -1884,8 +1893,10 @@ export type Database = {
           id: string
           last_opened_date: string | null
           pin_required_at: string | null
+          prefs: Json
           push_reminders: boolean
           push_show_content: boolean
+          quiet_reading_until: string | null
           rest_weekday: number
           review_daily_enabled: boolean
           review_daily_hour: number
@@ -1912,8 +1923,10 @@ export type Database = {
           id: string
           last_opened_date?: string | null
           pin_required_at?: string | null
+          prefs?: Json
           push_reminders?: boolean
           push_show_content?: boolean
+          quiet_reading_until?: string | null
           rest_weekday?: number
           review_daily_enabled?: boolean
           review_daily_hour?: number
@@ -1940,8 +1953,10 @@ export type Database = {
           id?: string
           last_opened_date?: string | null
           pin_required_at?: string | null
+          prefs?: Json
           push_reminders?: boolean
           push_show_content?: boolean
+          quiet_reading_until?: string | null
           rest_weekday?: number
           review_daily_enabled?: boolean
           review_daily_hour?: number
@@ -3418,6 +3433,32 @@ export type Database = {
           },
         ]
       }
+      think_hub_desk: {
+        Row: {
+          placed_at: string
+          table_id: string
+          user_id: string
+        }
+        Insert: {
+          placed_at?: string
+          table_id: string
+          user_id?: string
+        }
+        Update: {
+          placed_at?: string
+          table_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "think_hub_desk_table_id_fkey"
+            columns: ["table_id"]
+            isOneToOne: false
+            referencedRelation: "think_hub_table"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       think_hub_nudges: {
         Row: {
           actor_id: string
@@ -3897,6 +3938,36 @@ export type Database = {
           status_options?: Json | null
           thinking_type?: string | null
           title_label?: string | null
+        }
+        Relationships: []
+      }
+      think_hub_view_row_meta: {
+        Row: {
+          board_key: string
+          note: string | null
+          note_sealed: string | null
+          source_key: string
+          starred: boolean
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          board_key: string
+          note?: string | null
+          note_sealed?: string | null
+          source_key: string
+          starred?: boolean
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          board_key?: string
+          note?: string | null
+          note_sealed?: string | null
+          source_key?: string
+          starred?: boolean
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -6483,6 +6554,20 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      list_assigned_by_me: {
+        Args: never
+        Returns: {
+          assignee_id: string
+          assignee_name: string
+          conversation_id: string
+          deadline: string
+          done_at: string
+          item_id: string
+          kind: string
+          status: string
+          title: string
+        }[]
+      }
       list_deleted_projects: {
         Args: never
         Returns: {
@@ -6601,7 +6686,34 @@ export type Database = {
           verification_via_group_id: string
         }[]
       }
+      list_my_decisions: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          decision_id: string
+          kind: string
+          settled_at: string
+          settled_by: string
+          settled_by_name: string
+          summary: string
+          title: string
+        }[]
+      }
       list_my_devices: { Args: never; Returns: Json }
+      list_my_projects_summary: {
+        Args: never
+        Returns: {
+          conversation_id: string
+          done: number
+          overdue: number
+          parent_group_id: string
+          project_id: string
+          status: string
+          target_end_date: string
+          title: string
+          total: number
+        }[]
+      }
       list_my_scheduled_messages: {
         Args: { p_conversation_id: string }
         Returns: {
@@ -6881,6 +6993,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      place_on_desk: { Args: { p_table_id: string }; Returns: number }
       post_project_thanks: {
         Args: { p_body: string; p_project_id: string }
         Returns: {
@@ -7102,6 +7215,7 @@ export type Database = {
         }
       }
       remove_connection: { Args: { p_user_id: string }; Returns: undefined }
+      remove_from_desk: { Args: { p_table_id: string }; Returns: undefined }
       remove_group_participant: {
         Args: { target_conversation_id: string; target_user_id: string }
         Returns: undefined
@@ -7991,6 +8105,7 @@ export type Database = {
           device_label: string | null
           locator: string
           percent: number
+          pinned_at: string | null
           record_id: string
           updated_at: string
           user_id: string
@@ -8090,6 +8205,8 @@ export type Database = {
           source: string
           source_id: string
           title: string
+          title_vi: string | null
+          title_vi_kind: string | null
           updated_at: string
         }[]
         SetofOptions: {
@@ -8164,6 +8281,10 @@ export type Database = {
         Args: { p_table_id: string; p_type: string }
         Returns: string
       }
+      set_book_pin: {
+        Args: { p_pinned: boolean; p_record_id: string }
+        Returns: string
+      }
       set_conversation_mute: {
         Args: { p_conversation_id: string; p_until: string }
         Returns: string
@@ -8197,6 +8318,7 @@ export type Database = {
         Args: { p_hidden_in_list: boolean; p_sync_hidden: string[] }
         Returns: undefined
       }
+      set_quiet_reading: { Args: { p_on: boolean }; Returns: string }
       set_task_travel: {
         Args: {
           p_reminder_offset_minutes?: number

@@ -7,7 +7,7 @@ import { logError } from "@/lib/log";
 import { openFile, openItem, sealFile, sealItem, type VaultSection } from "@/lib/vault-crypto";
 import { fetchKeyring, hasMasterKey, keyForSection, subscribeVaultKeys, type Keyring } from "@/lib/vault-keys";
 import { remindOnFor, type VaultPayload } from "@/lib/vault-templates";
-import { useVaultLock } from "@/lib/use-vault-lock";
+import { useVaultLock, useVaultUnlocked } from "@/lib/use-vault-lock";
 
 /**
  * AVORA-68 · the three encrypted compartments as the screens see them. Rows come back as ciphertext and
@@ -51,8 +51,8 @@ export function useHasMasterKey(): boolean {
 
 export function useKeyring(): { ring: Keyring | null | undefined; isPending: boolean } {
   const { user } = useAuth();
-  const vault = useVaultLock();
-  const query = useQuery({ queryKey: vaultE2eeKeys.keyring(user?.id), queryFn: fetchKeyring, enabled: Boolean(user?.id) && vault.isUnlocked, staleTime: 60_000 });
+  const isUnlocked = useVaultUnlocked();
+  const query = useQuery({ queryKey: vaultE2eeKeys.keyring(user?.id), queryFn: fetchKeyring, enabled: Boolean(user?.id) && isUnlocked, staleTime: 60_000 });
   return { ring: query.data, isPending: query.isPending };
 }
 

@@ -16,6 +16,7 @@ export function HubShelf({
   initialTile = null,
   drawerOfLine,
   onPickLine,
+  listOnly = false,
 }: {
   tiles: Record<ReminderTile, ReminderLine[]>;
   today: string;
@@ -23,6 +24,8 @@ export function HubShelf({
   initialTile?: ReminderTile | null;
   drawerOfLine: (line: ReminderLine) => Drawer;
   onPickLine: (line: ReminderLine) => void;
+  /** AVORA-81 · B1: the chips live in Bàn nghĩ; here only the unfolded list. */
+  listOnly?: boolean;
 }) {
   const [openTile, setOpenTile] = useState<ReminderTile | null>(initialTile);
   const [showAll, setShowAll] = useState<boolean>(false);
@@ -37,7 +40,7 @@ export function HubShelf({
 
   return (
     <section aria-label="Cần nhắc" data-reminder-tiles="">
-      <div className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
+      <div hidden={listOnly} className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
         {REMINDER_TILES.map((tile) => {
           const count = tiles[tile.id].length;
           const active = openTile === tile.id;

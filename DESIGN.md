@@ -1976,8 +1976,30 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 **Luật 7 — Mỗi tab nhớ chỗ đang đứng; bấm lại tab = về gốc.** Áp cho 6 khu. Nhớ đường dẫn đầy đủ + vị trí cuộn của vùng nội dung chính (`data-scroll-memory`), trên máy, theo tài khoản; máy dùng chung → chỉ trong phiên; đăng xuất → xoá. Không nhớ tham số một lần (`moi`, `toan-man`…). Két sắt chỉ nhớ đường dẫn, khoá vẫn hỏi trước (ADR-034). Chỗ cũ không còn → trang gốc, không báo lỗi. Không đồng bộ giữa máy (trừ chỗ đọc sách D4). Sang ngày mới vẫn vào Avora Space (AVORA-22).
 
 - **Đọc sách:** chữ có chân (`font-reader`: Charter / Iowan / Noto Serif / Georgia), 17px / 1.7, nền `--reader-paper`, `Aa` 3 mức lưu trên máy, mục lục theo chương, không hiệu ứng lật trang. Ghi chỗ đọc khi dừng cuộn 2 giây, đổi chương, rời màn; `Đang ở` = `Chương 4 · 38%`. Máy khác đọc xa hơn → một dòng hỏi, không tự nhảy. Không mạng: sách đã mở ở IndexedDB, chỗ đọc gửi khi có mạng.
-- **Để sau:** làm mới danh mục Gutenberg hằng tuần (chưa dựng lịch chạy; nhập lại bằng script `pg_catalog.csv` → `book_catalog`, upsert theo `(source, source_id)`). `Ý chưa xếp` ở kệ 06 chờ `Đưa vào Kế hoạch` (K2). Số `Hôm nay` của kệ 05 chưa tính (tốn kém) — kệ hiện `Ghi chép n`.
+- **Để sau:** làm mới danh mục Gutenberg hằng tuần (chưa dựng lịch chạy; nhập lại bằng script `pg_catalog.csv` → `book_catalog`, upsert theo `(source, source_id)`). `Ý chưa xếp` ở kệ 06 chờ `Đưa vào Kế hoạch` (K2).
+- **Quyết định Rork tự chọn ở 77, VMT đã chấp nhận (03/10):** ① kệ 06 chỉ đếm `Bảng chưa có câu hỏi` khi Bảng **đã có Hạng mục** — Bảng trống tạo sẵn cho mọi tài khoản không bị tính, nên tài khoản mới thấy `Không có gì cần xếp`. ② kệ 05 bỏ số `Hôm nay` (đếm tốn kém, phải đọc mọi tin Nhật ký); kệ hiện `Ghi chép n`.
+- **Kinh Thánh trên Wikisource:** giữ bản *Kinh Thánh Cựu Ước và Tân Ước 1925* (Phan Khôi và cộng sự). Wikisource không có trang “bản Truyền thống 1926”.
+- **77.13 (probe thật 03/10):** id ngoài danh mục → 404 `not_in_catalog`; lần thứ 31 trong một giờ → 429 `rate_limited`, người khác vẫn 200. Probe phát hiện `service_role` thiếu quyền trên `book_text_hits` (giới hạn không chạy) — vá bằng `20261004093000`.
 - Ảnh: `docs/screens/2026-10-03/77-*-{1280|390|844}.png`.
+
+## AVORA-81 · PHẦN 1 · Bảng Avora lập sẵn (03/10/2026) — xem ADR-049
+
+**Luật — Bảng nối vs Bảng xem; dữ liệu Két sắt chỉ tính trên máy, không chép sang Kế hoạch.**
+
+- 11 bảng ở ngăn **Avora lập sẵn**, 3 nhóm `Kết nối · Nhiệm vụ · Két sắt` (một nguồn: `DEFAULT_BOARDS`). Mỗi dòng: tên · Mục tiêu (mờ) · số dòng; Két sắt khoá → 🔒, không số. Dòng chữ màu nhấn khi cần chú ý: khoản tới hạn ≤ 7 ngày, giấy tờ ≤ 30 ngày, việc giao đã trễ, dự án có việc quá hạn, sinh nhật ≤ 7 ngày.
+- Mở Bảng xem: tên · Mục tiêu (không sửa) · `Bảng Avora mặc định · đồng bộ từ {nguồn} 🔗` · `⤢` · ⋯ (`Ẩn khỏi danh sách`). Mỗi dòng: ★ · nội dung · ⋯ (`Ghi chú riêng` · `Tạo việc`). Bấm dòng → đúng chỗ gốc, `‹ Kế hoạch` về đúng bảng.
+- Bảng trống: Mục tiêu + `Dữ liệu vào đây khi bạn …`. Báo cáo tổng hợp chưa có giá trị tài sản → `Chưa gồm tài sản`.
+- Tiền: `Money` + đơn vị gốc; bảng tổng theo tháng đọc sổ đã quy đổi về tiền gốc như Tài chính.
+- Ảnh: `docs/screens/2026-10-03/78-*`.
+
+## AVORA-81 · PHẦN 2 · Bàn nghĩ · cách bày · Đọc sách (03/10/2026) — xem ADR-050, ADR-051
+
+- **Bàn nghĩ riêng từng người, tối đa 5.** Cố định trên cùng mọi cách bày: `Bàn nghĩ n/5` + chip (chỉ ô > 0) + `Dọn bàn cuối tuần ›` (mở `ReviewSheet`), thẻ câu hỏi (to) + `nơi · lần mở cuối`, thẻ `Đọc tiếp` (không tính), ô `Điều gì đang ở trong đầu bạn?` + `Đặt lên bàn`. Đủ 5 → tấm đáy `Bàn đã đủ 5`. Điện thoại: thẻ cuộn ngang; máy tính: một hàng 5 cột. Không còn ô tìm thứ hai, 4 ô số to, banner `Nhìn lại tuần`, 6 thẻ kệ.
+- **3 cách bày, chỉ đổi cách bày không đổi dữ liệu.** Dòng Bảng: dấu trạng thái (vòng rỗng / chấm `--personal` / tích xanh) · câu hỏi · `trạng thái hoặc nơi · lần mở` · `→ kết luận` khi Đã chốt; tên trùng câu hỏi chỉ hiện một lần; ≥ 30 ngày chưa mở → mờ 50%. `Theo nơi` có hai ngăn `Avora lập sẵn` · `Sách`; hai cách kia có `Cũng trên kệ: Sách · Avora lập sẵn ›`. Cuối trang: `Nhật ký · Ghi chép n ›` và `Kho: Lưu trữ n · Thùng rác n`.
+- **Đọc: lật trang mặc định, 7 cỡ, dịch chỉ trên máy.** Đáy: `Còn N phút trong chương · trang x / y` (tốc độ đo trên máy; chưa đủ → chỉ trang). Công cụ: `‹ · tên · Mục lục · Aa · Dịch · ☾ · ⋯ (Ghim · Tải về · Mở bằng app đọc)`, dưới: thanh kéo + `Trang x / y · Chương n` + `có trên máy ✓`. Tin mới → dải 6 giây + `Xem nhanh` (ngăn 55%, `Quay lại trang x`); ☾ không dải, không âm, push giữ lại.
+- **Tựa sách:** tựa Việt dòng chính · tựa gốc dòng phụ mờ · `tạm dịch` nhỏ khi là tựa Avora dịch. Tìm `kieu hanh` hay `pride` ra cùng cuốn.
+- **iPhone:** không có Fullscreen API — màn đọc phủ toàn khung (`fixed inset-0`, `viewport-fit=cover`, nền theo giao diện đọc); thanh địa chỉ Safari vẫn do Safari quyết. Chưa thử trên iPhone thật.
+- Ảnh: `docs/screens/2026-10-03/79-*`.
 
 ## Out of scope
 

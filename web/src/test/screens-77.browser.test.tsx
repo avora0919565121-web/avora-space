@@ -14,10 +14,12 @@ const db = vi.hoisted(() => ({
   tables: {} as Record<string, unknown[]>,
   rpcs: {} as Record<string, unknown>,
   calls: [] as { name: string; args: unknown }[],
+  writes: [] as { table: string; row: unknown }[],
+  errors: {} as Record<string, { message: string; code: string }>,
 }));
 
 vi.mock("@/integrations/supabase/client", () => {
-  const builder = (rows: unknown): unknown => {
+  const builder = (rows: unknown, table = "", failure: unknown = null): unknown => {
     let single = false;
     const proxy: unknown = new Proxy(
       {},
@@ -25,8 +27,14 @@ vi.mock("@/integrations/supabase/client", () => {
         get: (_target, key) => {
           if (key === "then") {
             const data = single ? (Array.isArray(rows) ? (rows[0] ?? null) : rows) : rows;
-            const done = Promise.resolve({ data, error: null, count: Array.isArray(rows) ? rows.length : 0 });
+            const done = Promise.resolve({ data: failure === null ? data : null, error: failure, count: Array.isArray(rows) ? rows.length : 0 });
             return done.then.bind(done);
+          }
+          if (key === "update" || key === "upsert" || key === "insert") {
+            return (row: unknown) => {
+              db.writes.push({ table, row });
+              return proxy;
+            };
           }
           if (key === "single" || key === "maybeSingle") {
             return () => {
@@ -42,10 +50,10 @@ vi.mock("@/integrations/supabase/client", () => {
   };
   return {
     supabase: {
-      from: (table: string) => builder(db.tables[table] ?? []),
+      from: (table: string) => builder(db.tables[table] ?? [], table),
       rpc: (name: string, args: unknown) => {
         db.calls.push({ name, args });
-        return builder(db.rpcs[name] ?? []);
+        return builder(db.rpcs[name] ?? [], name, db.errors[name] ?? null);
       },
       storage: { from: () => builder([]) },
       channel: () => builder([]),
@@ -107,7 +115,9 @@ import { ToolBelt } from "@/components/nav/ToolBelt";
 import { Toaster } from "@/components/ui/sonner";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import { useTabMemory } from "@/lib/tab-memory";
+import { paintLook, resolveLook } from "@/lib/theme";
 import BookReader from "@/pages/BookReader";
+import Dashboard from "@/pages/Dashboard";
 import Tasks from "@/pages/Tasks";
 import ThinkHub from "@/pages/ThinkHub";
 
@@ -216,6 +226,8 @@ const CATALOG = [
 
 function seed(options: { vaultUnlocked?: boolean; empty?: boolean } = {}): void {
   db.calls = [];
+  db.writes = [];
+  db.errors = {};
   db.tables = {
     dismissed_guidance: [{ guidance_key: "plan_plus_hold" }, { guidance_key: "task_plus_hold" }],
     think_hub_table: options.empty === true ? [TABLES[5], tableRow({ id: "t-default", name: "Bảng tổng hợp" }), TABLES[6]] : TABLES,
@@ -273,6 +285,7 @@ function App({ at }: { at: string }) {
         <LandscapeRail />
         <main className="flex min-h-0 min-w-0 flex-1 flex-col short:pr-[var(--inset-r)]">
           <Routes>
+            <Route path="/tong-quan" element={<Dashboard />} />
             <Route path="/ke-hoach" element={<ThinkHub />} />
             <Route path="/ke-hoach/ke-sach/doc/:recordId" element={<BookReader />} />
             <Route path="/nhiem-vu" element={<Tasks />} />
@@ -300,6 +313,8 @@ const SIZES = [
 ] as const;
 
 beforeEach(() => {
+  // Headless Chromium resizes the frame on Fullscreen; the reader asks for it on the first tap.
+  Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: undefined });
   seed();
   reader.server = null;
   reader.saved = [];
@@ -307,24 +322,19 @@ beforeEach(() => {
   window.sessionStorage.clear();
 });
 
-// ------------------------------------------------------------------ 77.1
+// ------------------------------------------------------------------ 77.1 (AVORA-81: Bàn nghĩ + cách bày thay 6 thẻ kệ)
 for (const [w, h] of SIZES) {
   test(`77.1 · Kế hoạch lần đầu · ${w}x${h}`, async () => {
     await viewport(w, h);
     await render(<App at="/ke-hoach" />);
     await settle(1200);
-    // A1: four soft tiles.
-    expect(document.querySelector('[data-tile="overdue"]')?.textContent).toContain("cần chốt");
-    expect(document.querySelector('[data-tile="today"]')?.textContent).toContain("cần tập trung");
-    if (w === 390) {
-      // B1: a phone shows the six shelves as a list, no shelf open yet.
-      expect(document.querySelectorAll("[data-shelf-list] [data-shelf]").length).toBe(6);
-      expect(document.querySelector("[data-open-shelf]")).toBeNull();
-    } else {
-      expect(document.querySelectorAll("[data-shelf-cards] [data-shelf]").length).toBe(6);
-      expect(document.querySelector('[data-shelf="hoach-dinh"]')?.getAttribute("aria-pressed")).toBe("true");
-      expect(document.querySelector('[data-open-shelf="hoach-dinh"]')).not.toBeNull();
-    }
+    // A1 → B1: the soft tiles are chips inside Bàn nghĩ; only those above 0.
+    expect(document.querySelector('[data-desk] [data-tile="overdue"]')?.textContent).toContain("cần chốt");
+    expect(document.querySelector('[data-desk] [data-tile="today"]')?.textContent).toContain("cần tập trung");
+    expect(document.querySelector('[data-desk] [data-tile="week"]')).toBeNull();
+    // No six shelf cards; the shelves open `Theo nơi`.
+    expect(document.querySelector("[data-shelf-cards], [data-shelf-list]")).toBeNull();
+    expect(document.querySelector('[data-arranged="noi"]')).not.toBeNull();
     await page.screenshot({ path: `${OUT}/77-1-thu-vien-${w}.png` });
   });
 }
@@ -366,12 +376,12 @@ test("77.4 · chuyển Bảng sang Đang suy nghĩ đi qua RPC set_board_lifecyc
   expect(db.calls.find((call) => call.name === "set_board_lifecycle")?.args).toEqual({ p_table_id: "b2", p_lifecycle: "thinking" });
 });
 
-test("77.6 · kệ 06 trên tài khoản trống", async () => {
+test("77.6 · Kho trên tài khoản trống (thay kệ 06)", async () => {
   seed({ empty: true });
   await viewport(1280, 800);
   await render(<App at="/ke-hoach?ke=khac" />);
   await settle(1000);
-  expect(document.querySelector('[data-shelf="khac"]')?.textContent).toContain("Không có gì cần xếp");
+  expect(document.querySelector("[data-store]")?.textContent).toBe("Kho: Lưu trữ 0 · Thùng rác 0");
   expect(document.body.textContent).not.toContain("Ý chưa xếp");
   await page.screenshot({ path: `${OUT}/77-6-ke-06-trong-1280.png` });
 });
@@ -385,11 +395,11 @@ test("77.23 · người mới: thư viện không có chữ hướng dẫn dài"
 });
 
 // ------------------------------------------------------------------ 77.5 kệ 05
-test("77.5 · kệ 05 Nhật ký là lối vào: 5 thẻ", async () => {
+test("77.5 · Nhật ký là lối vào ở cuối trang (thay kệ 05)", async () => {
   await viewport(1280, 800);
   await render(<App at="/ke-hoach?ke=nhat-ky" />);
   await settle(1000);
-  expect(document.querySelectorAll("[data-diary-door]").length).toBe(5);
+  expect(document.querySelector("[data-diary-door]")?.textContent).toContain("Nhật ký · Ghi chép");
   await page.screenshot({ path: `${OUT}/77-5-ke-05-nhat-ky-1280.png` });
 });
 
@@ -469,7 +479,14 @@ for (const [w, h] of SIZES) {
   });
 }
 
-// ------------------------------------------------------------------ 77.7 / 77.8 the reader
+// ------------------------------------------------------------------ 77.7 / 77.8 the reader (AVORA-81: full screen)
+const tapMiddle = async (): Promise<void> => {
+  const view = document.querySelector("[data-reader] article")?.parentElement as HTMLElement;
+  const rect = view.getBoundingClientRect();
+  view.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: window.innerWidth / 2, clientY: rect.top + rect.height / 2 }));
+  await settle(250);
+};
+
 for (const [w, h] of SIZES) {
   test(`77.7 · đọc trong Avora · ${w}x${h}`, async () => {
     await viewport(w, h);
@@ -478,7 +495,6 @@ for (const [w, h] of SIZES) {
     const article = document.querySelector("[data-reader] article") as HTMLElement;
     expect(article.getAttribute("lang")).toBe("en");
     expect(article.closest("[translate]")).toBeNull();
-    expect(document.querySelector("[data-translate-line]")?.textContent).toBe("Sách tiếng Anh. Dịch bằng trình duyệt — bản dịch không lưu.");
     await page.screenshot({ path: `${OUT}/77-7-doc-sach-${w}.png` });
   });
 }
@@ -487,15 +503,14 @@ test("77.7 · mục lục + cuối sách có Về bản này", async () => {
   await viewport(390, 844);
   const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
   await settle(1200);
+  await tapMiddle();
   await userEvent.click(screen.getByRole("button", { name: "Mục lục" }));
   await settle(300);
   await page.screenshot({ path: `${OUT}/77-7-muc-luc-390.png` });
   await userEvent.click(screen.getByRole("button", { name: /Chapter III/ }));
-  await settle(600);
+  await settle(700);
   const about = document.querySelector("[data-about-edition]") as HTMLElement;
   expect(about.textContent).toContain("Project Gutenberg License");
-  about.scrollIntoView();
-  await settle(300);
   await page.screenshot({ path: `${OUT}/77-7-ve-ban-nay-390.png` });
 });
 
@@ -504,11 +519,230 @@ test("77.8 · máy khác đọc xa hơn: hỏi, không tự nhảy", async () =>
   await viewport(1280, 800);
   await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
   await settle(1200);
-  const offer = document.querySelector("[data-reading-offer]");
-  expect(offer?.textContent).toContain("Bạn đã đọc tới 52% trên iPhone · Safari — mở tới đó?");
+  expect(document.querySelector("[data-reading-offer]")?.textContent).toContain("Bạn đã đọc tới 52% trên iPhone · Safari — mở tới đó?");
   // Still on chapter 1 — it did not jump by itself.
-  expect(document.querySelector("[data-reader] header")?.textContent).toContain("Chapter I.");
+  expect(document.querySelector("[data-reader] article")?.textContent).toContain("¶ 1.");
   await page.screenshot({ path: `${OUT}/77-8-may-khac-doc-xa-hon-1280.png` });
+});
+
+// ------------------------------------------------------------------ AVORA-81 · 79.7 – 79.15 the reader
+/** The first paragraph whose start is on the visible page. */
+const firstVisibleBlock = (): number => {
+  const view = (document.querySelector("[data-reader] article")?.parentElement as HTMLElement).getBoundingClientRect();
+  for (const node of document.querySelectorAll<HTMLElement>("[data-reader] article [data-b]")) {
+    const r = node.getClientRects()[0];
+    if (r !== undefined && r.left >= view.left - 2 && r.left < view.right - 2) return Number(node.dataset.b);
+  }
+  return -1;
+};
+
+for (const [w, h] of SIZES) {
+  test(`79.7 · tràn màn; chạm giữa hiện / ẩn công cụ; chạm phải sang trang · ${w}x${h}`, async () => {
+    await viewport(w, h);
+    await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+    await settle(1200);
+    const root = document.querySelector("[data-reader]") as HTMLElement;
+    const rect = root.getBoundingClientRect();
+    expect([rect.left, rect.top, Math.round(rect.width), Math.round(rect.height)]).toEqual([0, 0, w, h]);
+    expect(document.querySelector("[data-reader-tools]")).toBeNull();
+    await page.screenshot({ path: `${OUT}/79-7-doc-tran-man-${w}.png` });
+    await tapMiddle();
+    expect(document.querySelector("[data-reader-tools]")).not.toBeNull();
+    await page.screenshot({ path: `${OUT}/79-7-cong-cu-${w}.png` });
+    await tapMiddle();
+    expect(document.querySelector("[data-reader-tools]")).toBeNull();
+    const article = document.querySelector("[data-reader] article") as HTMLElement;
+    const before = Number(article.dataset.page);
+    article.parentElement?.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: window.innerWidth - 10, clientY: rect.height / 2 }));
+    await settle(400);
+    expect(Number((document.querySelector("[data-reader] article") as HTMLElement).dataset.page)).toBe(before + 1);
+  });
+}
+
+/** Paragraphs with any line on the visible page. */
+const visibleBlocks = (): number[] => {
+  const view = (document.querySelector("[data-reader] article")?.parentElement as HTMLElement).getBoundingClientRect();
+  const out: number[] = [];
+  for (const node of document.querySelectorAll<HTMLElement>("[data-reader] article [data-b]")) {
+    if ([...node.getClientRects()].some((r) => r.width > 0 && r.left >= view.left - 2 && r.left < view.right - 2)) out.push(Number(node.dataset.b));
+  }
+  return out;
+};
+
+test("79.8 · đổi cỡ chữ nấc 2 → 7 giữa chương: vẫn đúng đoạn", async () => {
+  db.tables.profiles = [{ prefs: { reader: { size: 1 } } }];
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1200);
+  await userEvent.keyboard("{ArrowRight}");
+  await userEvent.keyboard("{ArrowRight}");
+  await settle(400);
+  // The paragraph being read = the one at the top of the page (it may have begun on the page before).
+  const anchor = visibleBlocks()[0];
+  expect(anchor).toBeGreaterThan(0);
+  await tapMiddle();
+  await userEvent.click(screen.getByRole("button", { name: "Chữ và giao diện" }));
+  await userEvent.click(screen.getByRole("button", { name: "Nấc 7" }));
+  await settle(600);
+  expect(document.querySelector("[data-size-step]")?.getAttribute("data-size-step")).toBe("7");
+  await userEvent.keyboard("{Escape}");
+  await document.fonts.ready;
+  await settle(600);
+  expect(visibleBlocks()).toContain(anchor);
+  await page.screenshot({ path: `${OUT}/79-8-co-chu-7-390.png` });
+});
+
+test("79.8 · Aa: 7 nấc, 4 kiểu chữ, 4 giao diện, lề, giãn dòng, cách sang trang", async () => {
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1200);
+  await tapMiddle();
+  await userEvent.click(screen.getByRole("button", { name: "Chữ và giao diện" }));
+  await settle(300);
+  const panel = document.querySelector("[data-reader-aa]") as HTMLElement;
+  expect(panel.querySelectorAll('[aria-label^="Nấc "]').length).toBe(7);
+  for (const label of ["Literata", "Source Serif 4", "Inter Tight", "Atkinson", "Trắng", "Kem", "Xanh dịu", "Đêm", "Hẹp", "Rộng", "Gọn", "Thoáng", "Lật trái / phải", "Cuộn liền", "Căn đều hai bên", "Hiệu ứng lật giấy"]) expect(panel.textContent).toContain(label);
+  await page.screenshot({ path: `${OUT}/79-8-aa-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: /Đêm/ }));
+  await settle(200);
+  expect(db.writes.filter((item) => item.table === "profiles").slice(-1)[0]?.row).toMatchObject({ prefs: { reader: { theme: "dem" } } });
+});
+
+test("79.9 · máy tính 1280 ngang: 2 trang cạnh nhau", async () => {
+  await viewport(1280, 800);
+  await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1200);
+  expect(document.querySelector("[data-reader]")?.hasAttribute("data-spread")).toBe(true);
+  await page.screenshot({ path: `${OUT}/79-9-hai-trang-1280.png` });
+});
+
+test("79.10 · giảm chuyển động + lật giấy bật: chỉ mờ dần", async () => {
+  db.tables.profiles = [{ prefs: { reader: { curl: true } } }];
+  const original = window.matchMedia.bind(window);
+  window.matchMedia = ((query: string) => (query.includes("reduced-motion") ? ({ matches: true, media: query, addEventListener: () => undefined, removeEventListener: () => undefined } as unknown as MediaQueryList) : original(query))) as typeof window.matchMedia;
+  try {
+    await viewport(390, 844);
+    await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+    await settle(1200);
+    expect(document.querySelector("[data-reader]")?.getAttribute("data-turn-effect")).toBe("fade");
+  } finally {
+    window.matchMedia = original;
+  }
+});
+
+test("79.11 · Chrome có Translator: dịch trên máy, 55% chương → chương sau dịch sẵn, không request dịch", async () => {
+  const urls: string[] = [];
+  const realFetch = window.fetch;
+  window.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    urls.push(String(input));
+    return realFetch(input, init);
+  }) as typeof window.fetch;
+  (globalThis as Record<string, unknown>).Translator = {
+    availability: async () => "available",
+    create: async () => ({ translate: async (value: string) => `VI ${value}` }),
+  };
+  try {
+    await viewport(390, 844);
+    const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+    await settle(1200);
+    await tapMiddle();
+    await userEvent.click(screen.getByRole("button", { name: "Dịch" }));
+    await userEvent.click(screen.getByRole("button", { name: "Dịch sang Tiếng Việt" }));
+    await settle(800);
+    expect(document.querySelector("[data-reader] article")?.textContent).toContain("VI ¶ 1.");
+    for (let i = 0; i < 12; i += 1) {
+      const article = document.querySelector("[data-reader] article") as HTMLElement;
+      const total = Number(document.querySelector("[data-reader-foot]")?.textContent?.match(/\/ (\d+)/)?.[1] ?? "1");
+      if (Number(article.dataset.page) / Math.max(1, total - 1) >= 0.55) break;
+      await userEvent.keyboard("{ArrowRight}");
+      await settle(150);
+    }
+    await settle(800);
+    expect(document.querySelector("[data-translation-line]")?.textContent).toContain("chương 2 đã dịch sẵn");
+    expect(urls.filter((url) => /translat/i.test(url))).toEqual([]);
+    await page.screenshot({ path: `${OUT}/79-11-dich-tren-may-390.png` });
+  } finally {
+    window.fetch = realFetch;
+    delete (globalThis as Record<string, unknown>).Translator;
+  }
+});
+
+test("79.12 · không có API: Dịch mở hướng dẫn; chương sau đã nạp sẵn trong trang", async () => {
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1200);
+  expect(document.querySelector("[data-next-chapter]")?.textContent).toContain("§ 1.");
+  expect(document.querySelector("[data-next-chapter]")?.getAttribute("lang")).toBe("en");
+  await tapMiddle();
+  await userEvent.click(screen.getByRole("button", { name: "Dịch" }));
+  await settle(300);
+  expect(document.querySelector("[data-translate-help]")?.textContent?.length ?? 0).toBeGreaterThan(10);
+  await page.screenshot({ path: `${OUT}/79-12-huong-dan-dich-390.png` });
+});
+
+const incoming = (): void => {
+  window.dispatchEvent(new CustomEvent("avora:incoming-message", { detail: { conversationId: "c-lan", senderId: "lan", mentionsViewer: false, isReading: false } }));
+};
+const MESSAGE = { id: "m1", conversation_id: "c-lan", sender_id: "lan", content: "Anh ơi tối nay họp lúc 8 giờ nhé", created_at: new Date().toISOString(), edited_at: null, deleted_at: null, reply_to_message_id: null, mentioned_user_ids: [], origin_group_id: null, attachment_count: 0, origin_content_id: null, origin_sender_id: null, system_kind: null, forward_bundle: null, is_urgent: false };
+
+test("79.13 · tin nhắn khi đang đọc → Xem nhanh → Quay lại: đúng trang", async () => {
+  db.tables.messages = [MESSAGE];
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1200);
+  await userEvent.keyboard("{ArrowRight}");
+  await settle(300);
+  const at = (document.querySelector("[data-reader] article") as HTMLElement).dataset.page;
+  incoming();
+  await settle(500);
+  expect(document.querySelector("[data-message-strip]")?.textContent).toContain("Lan Nguyễn");
+  await page.screenshot({ path: `${OUT}/79-13-dai-tin-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Xem nhanh" }));
+  await settle(500);
+  expect(document.querySelector("[data-quick-peek]")?.textContent).toContain("Anh ơi tối nay họp lúc 8 giờ nhé");
+  await page.screenshot({ path: `${OUT}/79-13-xem-nhanh-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: /Quay lại trang/ }));
+  await settle(400);
+  expect((document.querySelector("[data-reader] article") as HTMLElement).dataset.page).toBe(at);
+});
+
+test("79.14 · ☾ bật: không dải tin; tắt ☾ → `Có 1 tin nhắn…`", async () => {
+  db.tables.messages = [MESSAGE];
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1200);
+  await tapMiddle();
+  await userEvent.click(screen.getByRole("button", { name: "Đọc yên tĩnh" }));
+  await settle(200);
+  expect(db.calls.find((call) => call.name === "set_quiet_reading")?.args).toEqual({ p_on: true });
+  incoming();
+  await settle(500);
+  expect(document.querySelector("[data-message-strip]")).toBeNull();
+  await userEvent.click(screen.getByRole("button", { name: "Đọc yên tĩnh" }));
+  await settle(300);
+  expect(db.calls.filter((call) => call.name === "set_quiet_reading").slice(-1)[0]?.args).toEqual({ p_on: false });
+  expect(document.body.textContent).toContain("Có 1 tin nhắn trong lúc bạn đọc");
+});
+
+test("79.15 · ghim cuốn thứ 4: hỏi bỏ ghim cuốn nào", async () => {
+  db.errors.set_book_pin = { message: "avora_pin_full", code: "P0001" };
+  db.tables.book_reading_state = [
+    { record_id: "k2", locator: "c0:p0", percent: 0, device_label: null, updated_at: daysAgo(1), pinned_at: daysAgo(1) },
+    { record_id: "k3", locator: "c0:p0", percent: 0, device_label: null, updated_at: daysAgo(1), pinned_at: daysAgo(2) },
+    { record_id: "k4", locator: "c0:p0", percent: 0, device_label: null, updated_at: daysAgo(1), pinned_at: daysAgo(3) },
+  ];
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1200);
+  await tapMiddle();
+  await userEvent.click(screen.getByRole("button", { name: "Thêm" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /Ghim để đọc trước/ }));
+  await settle(400);
+  const sheet = document.querySelector("[data-pin-full]") as HTMLElement;
+  expect(sheet.textContent).toContain("Đã ghim 3 cuốn");
+  expect(sheet.textContent).toContain("Truyện Kiều");
+  expect(sheet.textContent).toContain("Meditations");
+  await page.screenshot({ path: `${OUT}/79-15-ghim-day-390.png` });
 });
 
 test("77.10 · bôi chọn → thanh Chép vào Ghi chép sách", async () => {
@@ -528,6 +762,58 @@ test("77.10 · bôi chọn → thanh Chép vào Ghi chép sách", async () => {
   await page.screenshot({ path: `${OUT}/77-10-chep-y-1280.png` });
 });
 
+// ------------------------------------------------------------------ 77.15 / 77.22
+for (const [w, h] of SIZES) {
+  test(`77.15 · Avora Space: một hàng Góc kế hoạch · ${w}x${h}`, async () => {
+    await viewport(w, h);
+    await render(<App at="/tong-quan" />);
+    await settle(1400);
+    const row = document.querySelector("[data-plan-row]") as HTMLElement;
+    expect(row.textContent).toContain("Quá hạn");
+    row.scrollIntoView({ block: "center" });
+    await settle(300);
+    await page.screenshot({ path: `${OUT}/77-15-goc-ke-hoach-${w}.png` });
+  });
+}
+
+for (const [w, h] of SIZES) {
+  test(`77.22 · tông Biển: vùng của bạn đổi màu, vùng Avora giữ cam · ${w}x${h}`, async () => {
+    paintLook(resolveLook({ scheme: "light", tone: "bien" }));
+    try {
+      await viewport(w, h);
+      await render(<App at="/ke-hoach?ke=hoach-dinh&bang=b1" />);
+      await settle(1200);
+      expect(document.documentElement.dataset.tone).toBe("bien");
+      await page.screenshot({ path: `${OUT}/77-22-tong-bien-${w}.png` });
+    } finally {
+      paintLook(resolveLook({ scheme: "light", tone: "avora" }));
+    }
+  });
+}
+
+// ------------------------------------------------------------------ 77.11 D5
+test("77.11 · Đã đọc: hỏi `Bạn giữ lại điều gì?` một lần, lưu vào Bài học chính", async () => {
+  db.rpcs.update_think_hub_record = recordRow({ id: "k4", table_id: "shelf", title: "Meditations", status: "da_doc" });
+  await viewport(1280, 800);
+  const screen = await render(<App at="/ke-hoach?ke=ke-sach&sach=k4" />);
+  await settle(1200);
+  await userEvent.click(screen.getByRole("button", { name: "Đã đọc", exact: true }));
+  await expect.element(screen.getByRole("alertdialog")).toHaveTextContent("Bạn giữ lại điều gì?");
+  await userEvent.fill(screen.getByRole("textbox", { name: "Bạn giữ lại điều gì?" }), "Việc trong tầm tay mới đáng lo.");
+  await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
+  await settle(400);
+  const updates = db.calls.filter((call) => call.name === "update_think_hub_record").map((call) => call.args as { p_record_id: string; p_patch: Record<string, unknown> });
+  expect(updates[0].p_patch).toEqual({ status: "da_doc" });
+  const lessonKey = SHELF_COLUMNS.find((column) => column.label === "Bài học chính")?.key as string;
+  expect((updates[1].p_patch.extension_fields as Record<string, unknown>)[lessonKey]).toBe("Việc trong tầm tay mới đáng lo.");
+  // Once only: back to Muốn đọc and to Đã đọc again asks nothing.
+  await userEvent.click(screen.getByRole("button", { name: "Muốn đọc", exact: true }));
+  await settle(300);
+  await userEvent.click(screen.getByRole("button", { name: "Đã đọc", exact: true }));
+  await settle(400);
+  expect(document.querySelector('[role="alertdialog"]')).toBeNull();
+});
+
 // ------------------------------------------------------------------ 77.24 tab memory
 test("77.24 · Kế hoạch › kệ 04 → Nhiệm vụ → bấm Kế hoạch: về đúng kệ 04", async () => {
   await viewport(390, 844);
@@ -537,10 +823,120 @@ test("77.24 · Kế hoạch › kệ 04 → Nhiệm vụ → bấm Kế hoạch:
   await settle(800);
   await userEvent.click(screen.getByRole("link", { name: /Kế hoạch/ }));
   await settle(1000);
-  expect(document.querySelector('[data-open-shelf="ke-sach"]')).not.toBeNull();
-  // 77.25: pressing Kế hoạch again goes to its root — on a phone, the six shelves.
+  expect(document.querySelector('[data-drawer="sach"] [data-shelf-panel="ke-sach"]')).not.toBeNull();
+  // 77.25: pressing Kế hoạch again goes to its root — Bàn nghĩ and the shelves, no drawer open.
   await userEvent.click(screen.getByRole("link", { name: /Kế hoạch/ }));
   await settle(800);
-  expect(document.querySelector("[data-open-shelf]")).toBeNull();
-  expect(document.querySelector("[data-shelf-list]")).not.toBeNull();
+  expect(document.querySelector('[data-shelf-panel="ke-sach"]')).toBeNull();
+  expect(document.querySelector("[data-desk]")).not.toBeNull();
+});
+
+// ------------------------------------------------------------------ AVORA-81 · PHẦN 2 · 79.1 – 79.6
+const OUT79 = OUT;
+
+for (const [w, h] of SIZES) {
+  test(`79.1 · Kế hoạch: Bàn nghĩ trên cùng, không ô tìm thứ hai, không banner, không 6 thẻ · ${w}x${h}`, async () => {
+    db.tables.think_hub_desk = [
+      { table_id: "b1", placed_at: daysAgo(1) },
+      { table_id: "b5", placed_at: daysAgo(0) },
+      { table_id: "b3", placed_at: daysAgo(2) },
+    ];
+    await viewport(w, h);
+    await render(<App at="/ke-hoach" />);
+    await settle(1300);
+    expect(document.querySelector('input[aria-label="Tìm trong mọi kệ"]')).toBeNull();
+    expect(document.querySelector("[data-plan-search-button]")).not.toBeNull();
+    expect(document.body.textContent).not.toContain("Nhìn lại tuần 2");
+    expect(document.querySelector("[data-shelf-cards], [data-shelf-list]")).toBeNull();
+    expect(document.querySelector("[data-desk-count]")?.textContent).toBe("3/5");
+    expect(document.querySelectorAll("[data-desk-card]").length).toBe(3);
+    // The book to continue sits beside, not counted in the five.
+    expect(document.querySelector("[data-desk-book]")).not.toBeNull();
+    await page.screenshot({ path: `${OUT79}/79-1-ban-nghi-${w}.png` });
+  });
+}
+
+test("79.1 · 🔍 mở ô tìm ngay tại chỗ; Huỷ đóng", async () => {
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach" />);
+  await settle(1000);
+  await userEvent.click(screen.getByRole("button", { name: "Tìm trong Kế hoạch" }));
+  await userEvent.fill(screen.getByRole("textbox", { name: "Tìm trong Kế hoạch" }), "xuong");
+  await settle(300);
+  expect(document.querySelector("[data-library-results]")?.textContent).toContain("Có nên mở xưởng thứ hai?");
+  await page.screenshot({ path: `${OUT79}/79-1-tim-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Huỷ" }));
+  expect(document.querySelector("[data-plan-search]")).toBeNull();
+});
+
+test("79.2 · gõ ở Bàn nghĩ trống: tạo Bảng Của tôi, câu hỏi = câu gõ, Đang suy nghĩ, nằm trên bàn", async () => {
+  seed({ empty: true });
+  db.tables.think_hub_desk = [];
+  db.rpcs.create_think_hub_table = tableRow({ id: "new1", name: "Năm tới tôi muốn học gì?", purpose: "Năm tới tôi muốn học gì?" });
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach" />);
+  await settle(1000);
+  await page.screenshot({ path: `${OUT79}/79-2-ban-trong-390.png` });
+  await userEvent.fill(screen.getByRole("textbox", { name: "Điều gì đang ở trong đầu bạn?" }), "Năm tới tôi muốn học gì?");
+  await userEvent.click(screen.getByRole("button", { name: /Đặt lên bàn/ }));
+  await settle(500);
+  const created = db.calls.find((call) => call.name === "create_think_hub_table")?.args as Record<string, unknown>;
+  expect(created).toMatchObject({ p_name: "Năm tới tôi muốn học gì?", p_purpose: "Năm tới tôi muốn học gì?" });
+  expect(created.p_conversation_id).toBeUndefined();
+  expect(db.calls.find((call) => call.name === "set_board_lifecycle")?.args).toEqual({ p_table_id: "new1", p_lifecycle: "thinking" });
+  expect(db.calls.find((call) => call.name === "place_on_desk")?.args).toEqual({ p_table_id: "new1" });
+});
+
+test("79.3 · bàn đủ 5 → khung `Bàn đã đủ 5`", async () => {
+  db.tables.think_hub_desk = ["b1", "b2", "b3", "b4", "b5"].map((id) => ({ table_id: id, placed_at: daysAgo(1) }));
+  db.rpcs.create_think_hub_table = tableRow({ id: "new6", name: "Thứ sáu", purpose: "Thứ sáu" });
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach" />);
+  await settle(1000);
+  // The server answers avora_desk_full; the mock reaches the same branch through the sheet event.
+  window.dispatchEvent(new CustomEvent("avora:desk-full", { detail: "new6" }));
+  await settle(500);
+  expect(document.querySelector("[data-desk-full]")?.textContent).toContain("Bàn đã đủ 5");
+  await page.screenshot({ path: `${OUT79}/79-3-ban-day-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: /Dự án chiếu sáng|Báo giá và hợp đồng/ }).last());
+  await settle(400);
+  expect(db.calls.find((call) => call.name === "remove_from_desk")?.args).toEqual({ p_table_id: "b3" });
+  expect(db.calls.filter((call) => call.name === "place_on_desk").slice(-1)[0]?.args).toEqual({ p_table_id: "new6" });
+});
+
+test("79.5 · 3 cách bày: mỗi Bảng đúng một lần mỗi cách; lựa chọn được nhớ", async () => {
+  await viewport(1280, 800);
+  const screen = await render(<App at="/ke-hoach" />);
+  await settle(1100);
+  const count = (): Record<string, number> => {
+    const out: Record<string, number> = {};
+    for (const node of document.querySelectorAll("[data-arranged] [data-board-row], [data-arranged] [data-lane-card]")) {
+      const id = node.getAttribute("data-board-row") ?? node.getAttribute("data-lane-card") ?? "";
+      out[id] = (out[id] ?? 0) + 1;
+    }
+    return out;
+  };
+  const expected = { b1: 1, b2: 1, b3: 1, b4: 1, b5: 1 };
+  expect(count()).toEqual(expected);
+  await page.screenshot({ path: `${OUT79}/79-5-theo-noi-1280.png` });
+  await userEvent.click(screen.getByRole("tab", { name: "Theo tiến trình" }));
+  await settle(400);
+  expect(count()).toEqual(expected);
+  await page.screenshot({ path: `${OUT79}/79-5-theo-tien-trinh-1280.png` });
+  await userEvent.click(screen.getByRole("tab", { name: "Theo cách nghĩ" }));
+  await settle(400);
+  expect(count()).toEqual(expected);
+  expect(document.querySelector('[data-shelf-group="none"]')?.textContent).toContain("Chưa chọn kiểu");
+  await page.screenshot({ path: `${OUT79}/79-5-theo-cach-nghi-1280.png` });
+  const saved = db.writes.filter((item) => item.table === "profiles");
+  expect(JSON.stringify(saved.slice(-1)[0]?.row ?? {})).toContain("cach-nghi");
+});
+
+test("79.6 · tài khoản < 3 Bảng: không thấy `Bày theo`", async () => {
+  seed({ empty: true });
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach" />);
+  await settle(1000);
+  expect(document.querySelector("[data-arrange-picker]")).toBeNull();
+  await page.screenshot({ path: `${OUT79}/79-6-it-bang-390.png` });
 });

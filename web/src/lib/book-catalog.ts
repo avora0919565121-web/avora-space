@@ -62,9 +62,12 @@ export type CatalogBook = {
   language: "en" | "vi" | "fr";
   category: BookCategory;
   epubUrl: string | null;
+  /** C7: the Vietnamese title — `xuat_ban` (a printed edition, certain) or `tam_dich` (Avora's). */
+  titleVi: string | null;
+  titleViKind: "xuat_ban" | "tam_dich" | null;
 };
 
-type CatalogRow = { source: string; source_id: string; title: string; authors: string | null; language: string; category: string; epub_url: string | null };
+type CatalogRow = { source: string; source_id: string; title: string; authors: string | null; language: string; category: string; epub_url: string | null; title_vi?: string | null; title_vi_kind?: string | null };
 
 function toBook(row: CatalogRow): CatalogBook {
   return {
@@ -75,7 +78,15 @@ function toBook(row: CatalogRow): CatalogBook {
     language: row.language === "vi" ? "vi" : row.language === "fr" ? "fr" : "en",
     category: (BOOK_CATEGORIES.some((item) => item.id === row.category) ? row.category : "khac") as BookCategory,
     epubUrl: row.epub_url,
+    titleVi: row.title_vi ?? null,
+    titleViKind: row.title_vi_kind === "xuat_ban" || row.title_vi_kind === "tam_dich" ? row.title_vi_kind : null,
   };
+}
+
+/** C7 · how a catalogue title reads: Vietnamese first, the original always kept under it. */
+export function bookTitleLines(book: Pick<CatalogBook, "title" | "titleVi" | "titleViKind" | "language">): { main: string; original: string | null; tentative: boolean } {
+  if (book.titleVi === null || book.titleVi.trim() === "" || book.language === "vi" || book.titleVi === book.title) return { main: book.title, original: null, tentative: false };
+  return { main: book.titleVi, original: book.title, tentative: book.titleViKind === "tam_dich" };
 }
 
 export const bookCatalogKeys = {

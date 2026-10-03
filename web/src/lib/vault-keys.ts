@@ -5,6 +5,7 @@ import {
   createKeyring,
   DEFAULT_KDF,
   fromB64,
+  hkdf,
   importAesKey,
   newDeviceKey,
   passProofFor,
@@ -197,6 +198,18 @@ export async function resetEverything(userId: string, password: string, emailCod
 
 export async function forgetDeviceWrap(userId: string): Promise<void> {
   await deviceStorePut(WRAP_RECORD(userId), undefined).catch(() => undefined);
+}
+
+/**
+ * AVORA-81 · 78.8 — the key that seals my private notes on Két sắt view boards. Derived from the
+ * master key (never stored); null while the vault is closed or never set up.
+ */
+export async function viewNoteKey(userId: string): Promise<CryptoKey | null> {
+  if (mk === null) return null;
+  const raw = await hkdf(mk, new TextEncoder().encode(`avora-view-note|${userId}`), "avora-view-note-v1");
+  const key = await importAesKey(raw);
+  wipe(raw);
+  return key;
 }
 
 /** SK of one section, opened once per unlock. */

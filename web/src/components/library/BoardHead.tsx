@@ -26,6 +26,8 @@ import {
   type Lifecycle,
 } from "@/lib/board-head";
 import { boardChangeKeys } from "@/lib/board-changes";
+import { supabase } from "@/integrations/supabase/client";
+import { announceDeskFull } from "@/lib/use-desk";
 import { thinkHubKeys, type ThinkTable } from "@/lib/think-hub";
 import { THINKING_TYPES, type ThinkingType } from "@/lib/think-hub-shelf";
 import { useComposerActions } from "@/lib/use-task-composer";
@@ -43,6 +45,12 @@ export function useLifecycleChange(): (table: ThinkTable, next: Lifecycle) => Pr
   return async (table, next) => {
     try {
       await setLifecycle(table.id, next);
+      // AVORA-81 · B1 ①: marking a board Đang suy nghĩ puts it on my desk (full → choose one to put down).
+      if (next === "thinking") {
+        const { error } = await supabase.rpc("place_on_desk", { p_table_id: table.id });
+        if (error?.message.includes("avora_desk_full")) announceDeskFull(table.id);
+        void queryClient.invalidateQueries({ queryKey: ["think-desk"] });
+      }
       void queryClient.invalidateQueries({ queryKey: thinkHubKeys.all });
       void queryClient.invalidateQueries({ queryKey: boardChangeKeys.table(table.id) });
       toast.success(`Đã đánh dấu “${lifecycleLabel(next)}”.`);

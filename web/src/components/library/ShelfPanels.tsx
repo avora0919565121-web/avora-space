@@ -18,56 +18,89 @@ import { useNotes } from "@/lib/use-notes";
 import { useVaultUnlocked } from "@/lib/use-vault-lock";
 import { cn } from "@/lib/utils";
 import { useConclusions, useLifecycleChange } from "@/components/library/BoardHead";
+import { DEFAULT_BOARDS, viewBoardOf, ZONES, type ViewBoardKey } from "@/lib/avora-default-boards";
+import { useHiddenBoards } from "@/lib/use-default-boards";
+import { useViewBoardRows } from "@/lib/use-view-board-rows";
+import { boardQuestion, sameWords } from "@/lib/desk";
 
 const rowClass = "press flex w-full items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-accent/25";
 
 // ------------------------------------------------------------------ kệ 01
 
 /**
- * Kệ 01 · Bảng Avora mặc định — three columns `Kết nối · Nhiệm vụ · Két sắt` (ADR-045). While Két
- * sắt is locked its column says so and names nothing (ADR-034).
+ * Avora lập sẵn (AVORA-81 · PHẦN 1, ADR-045 / ADR-049) — the eleven system boards in three groups
+ * `Kết nối · Nhiệm vụ · Két sắt`, read from the one registry. Each line: name · goal · rows. While Két
+ * sắt is locked its boards show no count and no row names (ADR-034).
  */
-export function DefaultShelf({ boards, countOf, activeId, onOpen }: { boards: readonly ThinkTable[]; countOf: (tableId: string) => number; activeId: string | null; onOpen: (id: string) => void }) {
+export function DefaultShelf({
+  boards,
+  countOf,
+  activeId,
+  activeView,
+  onOpen,
+  onOpenView,
+}: {
+  boards: readonly ThinkTable[];
+  countOf: (tableId: string) => number;
+  activeId: string | null;
+  activeView: ViewBoardKey | null;
+  onOpen: (id: string) => void;
+  onOpenView: (key: ViewBoardKey) => void;
+}) {
   const isVaultOpen = useVaultUnlocked();
-  const navigate = useNavigate();
-  const zones: { id: "ket-noi" | "nhiem-vu" | "ket-sat"; label: string; boards: readonly ThinkTable[] }[] = [
-    { id: "ket-noi", label: "Kết nối", boards: boards.filter((b) => b.syncSource === "contact_opportunities") },
-    { id: "nhiem-vu", label: "Nhiệm vụ", boards: [] },
-    { id: "ket-sat", label: "Két sắt", boards: [] },
-  ];
+  const { boards: live } = useViewBoardRows();
+  const { hidden } = useHiddenBoards();
   return (
     <div className="grid gap-3 md:grid-cols-3" data-shelf-panel="mac-dinh">
-      {zones.map((zone) => (
-        <section key={zone.id} aria-label={zone.label} className="rounded-xl border border-border bg-card">
+      {ZONES.map((zone) => (
+        <section key={zone.id} aria-label={zone.label} data-zone={zone.id} className="rounded-xl border border-border bg-card">
           <h3 className="border-b border-border/70 px-4 py-2 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{zone.label}</h3>
           {zone.id === "ket-sat" && !isVaultOpen ? (
-            <button type="button" onClick={() => navigate("/ket-sat")} data-vault-locked="" className={cn(rowClass, "text-muted-foreground")}>
-              <Lock className="h-4 w-4 shrink-0" aria-hidden="true" />
-              <span className="min-w-0 flex-1 text-[13.5px]">Đang khoá · Mở Két sắt để xem</span>
-              <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-            </button>
-          ) : zone.boards.length === 0 ? (
-            <p className="px-4 py-3 text-[13px] text-muted-foreground">Chưa có bảng nào ở đây.</p>
-          ) : (
-            <ul>
-              {zone.boards.map((board) => (
-                <li key={board.id} className="border-b border-border/50 last:border-b-0">
-                  <button type="button" onClick={() => onOpen(board.id)} data-default-board={board.id} className={cn(rowClass, activeId === board.id && "bg-accent/40")}>
+            <p data-vault-locked="" className="flex items-center gap-2 border-b border-border/50 px-4 py-2 text-[12.5px] text-muted-foreground">
+              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Đang khoá · Mở Két sắt để xem
+            </p>
+          ) : null}
+          <ul>
+            {DEFAULT_BOARDS.filter((def) => def.zone === zone.id).map((def) => {
+              if (def.kind === "link") {
+                const board = boards.find((b) => b.syncSource === "contact_opportunities");
+                if (board === undefined) return null;
+                return (
+                  <li key={def.key} className="border-b border-border/50 last:border-b-0">
+                    <button type="button" onClick={() => onOpen(board.id)} data-default-board={board.id} className={cn(rowClass, activeId === board.id && "bg-accent/40")}>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-[14.5px] font-medium text-foreground">{board.name}</span>
+                        {board.purpose !== null ? <span className="block truncate text-[12.5px] text-muted-foreground">{board.purpose}</span> : null}
+                      </span>
+                      <span className="tabular shrink-0 text-[12.5px] text-muted-foreground">{countOf(board.id)} dòng</span>
+                    </button>
+                  </li>
+                );
+              }
+              if (hidden.includes(def.key)) return null;
+              const rows = live[def.key];
+              const locked = zone.id === "ket-sat" && (!isVaultOpen || rows.locked);
+              const hot = !locked && rows.rows.some((row) => row.hot === true);
+              return (
+                <li key={def.key} className="border-b border-border/50 last:border-b-0">
+                  <button type="button" onClick={() => onOpenView(def.key)} data-view-board-link={def.key} data-hot={hot ? "" : undefined} className={cn(rowClass, activeView === def.key && "bg-accent/40")}>
+                    {locked ? <Lock className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" /> : null}
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-[14.5px] font-medium text-foreground">{board.name}</span>
-                      {board.purpose !== null ? <span className="block truncate text-[12.5px] text-muted-foreground">{board.purpose}</span> : null}
+                      <span className={cn("block truncate text-[14.5px] font-medium", hot ? "text-personal" : "text-foreground")}>{def.name}</span>
+                      <span className="block truncate text-[12.5px] text-muted-foreground">{def.goal}</span>
                     </span>
-                    <span className="tabular shrink-0 text-[12.5px] text-muted-foreground">{countOf(board.id)} dòng</span>
+                    {locked ? null : <span className="tabular shrink-0 text-[12.5px] text-muted-foreground">{rows.rows.length} dòng</span>}
                   </button>
                 </li>
-              ))}
-            </ul>
-          )}
+              );
+            })}
+          </ul>
         </section>
       ))}
     </div>
   );
 }
+
 
 // ------------------------------------------------------------------ kệ 02
 
@@ -231,8 +264,8 @@ export function LifecycleShelf({ boards, placeOf, onOpen }: { boards: readonly T
                 >
                   <div className="flex items-start">
                     <button type="button" onClick={() => onOpen(board.id)} className="press min-w-0 flex-1 px-3 py-2.5 text-left">
-                      <span className="block truncate text-[14px] font-semibold text-foreground">{board.name}</span>
-                      <span className="block truncate text-[12px] text-muted-foreground">{placeOf(board) ?? "Của tôi"}</span>
+                      <span className="block truncate text-[14px] font-semibold text-foreground">{boardQuestion(board)}</span>
+                      <span className="block truncate text-[12px] text-muted-foreground">{[sameWords(board.name, boardQuestion(board)) ? null : board.name, placeOf(board) ?? "Của tôi"].filter(Boolean).join(" · ")}</span>
                       <span className="mt-0.5 block truncate text-[12.5px] text-muted-foreground/90">{line !== undefined ? `Kết luận: ${line.body}` : editedAgo(board.updatedAt)}</span>
                     </button>
                     {editable ? (

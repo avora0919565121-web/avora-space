@@ -258,8 +258,8 @@ beforeEach(async () => {
 test("the first visit lands in a table nobody had to create", async () => {
   const screen = await open("/ke-hoach");
 
-  // AVORA-77 · B1: a computer opens on kệ 02 (Bảng tôi hoạch định), where the default board sits.
-  const shelf = screen.getByRole("region", { name: "Bảng tôi hoạch định" });
+  // AVORA-81 · B2: the shelves open `Theo nơi`; a private board sits under `Của tôi`.
+  const shelf = screen.getByRole("region", { name: "Của tôi" });
   await expect
     .element(shelf.getByRole("button", { name: /Bảng tổng hợp/ }))
     .toBeInTheDocument();

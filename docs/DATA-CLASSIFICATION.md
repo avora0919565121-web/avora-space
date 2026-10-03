@@ -67,6 +67,7 @@ khi hai bên lệch nhau, file code là đúng.
 - `think_hub_delete_cascade` — internal (sổ ghi việc đi theo khi xoá Bảng, để khôi phục)
 - `think_hub_conclusions` — personal, `body` = sensitive; thành viên Bảng đọc, chỉ thêm qua `set_board_conclusion` (AVORA-77 · A4). `think_hub_table.thinking_type / lifecycle` — internal
 - `book_catalog` — public (danh mục sách công cộng; chỉ service_role ghi). `book_reading_state` — personal, chỉ chủ đọc. `book_text_hits` — internal (giới hạn 30 lần/giờ, không client nào đọc, xoá sau 1 ngày). Storage `public-domain-books` — public-domain text đã làm sạch, không bao giờ lưu bản dịch (AVORA-77 · D)
+- `think_hub_view_row_meta` — personal, chỉ chủ; `note` sensitive, `note_sealed` (bảng Két sắt) mã hoá trên máy, máy chủ không đọc được (AVORA-81 · 78). `think_hub_desk` — personal, chỉ chủ (Bàn nghĩ, tối đa 5). `profiles.prefs` — personal (bảng ẩn, cách bày, cài đặt đọc). `profiles.quiet_reading_until` — personal. `book_catalog.title_vi` — public.
 - `think_hub_table.sync_source / hidden_in_list / sync_hidden`, `think_hub_record.opportunity_id` — internal (bảng đồng bộ AVORA-72)
 
 **identity — thiết bị (AVORA-67)**

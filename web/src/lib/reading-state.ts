@@ -25,7 +25,7 @@ export type BookText = {
   fetchedAt: string;
 };
 
-export type ReadingState = { recordId: string; locator: string; percent: number; deviceLabel: string | null; updatedAt: string };
+export type ReadingState = { recordId: string; locator: string; percent: number; deviceLabel: string | null; updatedAt: string; pinnedAt?: string | null };
 
 // ------------------------------------------------------------------ IndexedDB (small, wrapped)
 
@@ -109,7 +109,7 @@ export class BookTextError extends Error {
 }
 
 const MESSAGES: Record<BookTextError["code"], string> = {
-  offline: "Bạn đang không có mạng, và cuốn này chưa từng mở trên máy này.",
+  offline: "Cần mạng để mở lần đầu.",
   rate_limited: "Bạn đã mở nhiều sách trong một giờ. Thử lại sau ít phút.",
   not_in_catalog: "Cuốn này không có trong Thư viện mở.",
   source_failed: "Nguồn sách đang không trả lời. Thử lại sau.",
@@ -202,9 +202,9 @@ export async function fetchReadingState(recordId: string): Promise<ReadingState 
 
 /** Every place I have in every book — for `Đọc tiếp` (the book opened most recently). */
 export async function fetchAllReadingStates(): Promise<ReadingState[]> {
-  const { data, error } = await supabase.from("book_reading_state").select("record_id, locator, percent, device_label, updated_at").order("updated_at", { ascending: false }).limit(200);
+  const { data, error } = await supabase.from("book_reading_state").select("record_id, locator, percent, device_label, updated_at, pinned_at").order("updated_at", { ascending: false }).limit(200);
   if (error) throw hubFail(error.code, error.message);
-  return (data ?? []).map((row) => ({ recordId: row.record_id, locator: row.locator, percent: Number(row.percent), deviceLabel: row.device_label, updatedAt: row.updated_at }));
+  return (data ?? []).map((row) => ({ recordId: row.record_id, locator: row.locator, percent: Number(row.percent), deviceLabel: row.device_label, updatedAt: row.updated_at, pinnedAt: row.pinned_at }));
 }
 
 type PendingPosition = { locator: string; percent: number; deviceLabel: string; at: string };
@@ -318,4 +318,64 @@ export const EXCERPT_LIMIT = 2000;
 export function clipExcerpt(text: string): string {
   const clean = text.replace(/\s+\n/g, "\n").trim();
   return clean.length <= EXCERPT_LIMIT ? clean : `${clean.slice(0, EXCERPT_LIMIT - 1)}…`;
+}
+
+// ------------------------------------------------------------------ AVORA-81 · C6 · pin + on this device
+
+export class PinFullError extends Error {
+  constructor() {
+    super("Đã ghim 3 cuốn");
+  }
+}
+
+/** Pins a book to read first (at most 3 — the server answers `avora_pin_full`). */
+export async function setBookPin(recordId: string, pinned: boolean): Promise<void> {
+  const { error } = await supabase.rpc("set_book_pin", { p_record_id: recordId, p_pinned: pinned });
+  if (error) {
+    if (error.message.includes("avora_pin_full")) throw new PinFullError();
+    throw hubFail(error.code, error.message);
+  }
+}
+
+/** Whole on this device: the text is kept and every chapter has its blocks. */
+export async function isOnDevice(source: BookSource, sourceId: string): Promise<boolean> {
+  const kept = await idbGet<BookText>("texts", textKey(source, sourceId));
+  return kept !== null && kept.chapters.every((chapter) => chapter.blocks !== null);
+}
+
+/** `Tải về`: every chapter, cleaned, into IndexedDB (only the device; nothing on the server). */
+export async function downloadBook(source: BookSource, sourceId: string, onProgress?: (done: number, total: number) => void): Promise<BookText> {
+  let book = await loadBookText(source, sourceId);
+  const total = book.chapters.length;
+  for (let index = 0; index < total; index += 1) {
+    if (book.chapters[index]?.blocks == null) book = await loadPart(book, index);
+    onProgress?.(index + 1, total);
+  }
+  return book;
+}
+
+export async function removeFromDevice(source: BookSource, sourceId: string): Promise<void> {
+  await idbDelete("texts", textKey(source, sourceId));
+}
+
+/** `n cuốn trên máy · x MB`. */
+export async function booksOnDevice(): Promise<{ key: string; title: string; bytes: number; complete: boolean }[]> {
+  const db = await openDb();
+  if (db === null) return [];
+  return await new Promise((resolve) => {
+    const out: { key: string; title: string; bytes: number; complete: boolean }[] = [];
+    try {
+      const request = db.transaction("texts", "readonly").objectStore("texts").openCursor();
+      request.onsuccess = () => {
+        const cursor = request.result;
+        if (cursor === null) return resolve(out);
+        const value = cursor.value as BookText;
+        out.push({ key: String(cursor.key), title: value.title, bytes: new Blob([JSON.stringify(value)]).size, complete: value.chapters.every((chapter) => chapter.blocks !== null) });
+        cursor.continue();
+      };
+      request.onerror = () => resolve(out);
+    } catch {
+      resolve(out);
+    }
+  });
 }

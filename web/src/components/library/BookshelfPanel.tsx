@@ -19,13 +19,15 @@ import {
   sourceLabel,
   type BookCategory,
   type BookSource,
+  bookTitleLines,
   type CatalogBook,
 } from "@/lib/book-catalog";
 import { ensureJournalConversation } from "@/lib/chat";
 import { coverColor } from "@/lib/library";
 import { normalizeSearch } from "@/lib/normalize-search";
 import { noteDisplayTitle } from "@/lib/notes";
-import { fetchAllReadingStates, type ReadingState } from "@/lib/reading-state";
+import { booksOnDevice, fetchAllReadingStates, removeFromDevice, type ReadingState } from "@/lib/reading-state";
+import { translateTitleOnDevice } from "@/lib/reader-settings";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { recordsOf, scopeOfTable, todayIso, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
 import { useConversations } from "@/lib/use-conversations";
@@ -204,7 +206,8 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
     if (keys.author !== null && item.authors !== null) extensionFields[keys.author] = item.authors.slice(0, 200);
     if (keys.source !== null) extensionFields[keys.source] = sourceLabel(item.source);
     if (keys.link !== null) extensionFields[keys.link] = catalogLink(item);
-    await actions.createRecord({ tableId: shelf.id, scope: scopeOfTable(shelf), title: item.title.slice(0, 200), status: "muon_doc", extensionFields });
+    // C7: the book goes on the shelf under its Vietnamese title when there is one; the original stays in Link.
+    await actions.createRecord({ tableId: shelf.id, scope: scopeOfTable(shelf), title: bookTitleLines(item).main.slice(0, 200), status: "muon_doc", extensionFields });
     toast.success("Đã thêm vào tầng Muốn đọc.");
   };
 
@@ -267,6 +270,7 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
         </section>
       ) : null}
 
+      <OnDeviceLine />
       <div className="flex flex-wrap items-center gap-2">
         <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-card px-3">
           <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
@@ -464,6 +468,41 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
 }
 
 /** Thư viện mở: Vietnamese Wikisource first, then Project Gutenberg; search and nine categories. */
+/** C6 · `n cuốn trên máy · x MB` → the list, `Xoá khỏi máy` one by one. Only this device knows. */
+function OnDeviceLine() {
+  const [open, setOpen] = useState<boolean>(false);
+  const list = useQuery({ queryKey: ["books-on-device"], queryFn: booksOnDevice, staleTime: 10_000 });
+  const whole = (list.data ?? []).filter((item) => item.complete);
+  if (whole.length === 0) return null;
+  const mb = whole.reduce((sum, item) => sum + item.bytes, 0) / 1_048_576;
+  return (
+    <div className="mb-3" data-on-device="">
+      <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="press inline-flex min-h-10 items-center gap-1.5 text-[13px] text-muted-foreground">
+        <Download className="h-4 w-4" aria-hidden="true" /> {whole.length} cuốn trên máy · {mb.toFixed(1)} MB
+      </button>
+      {open ? (
+        <ul className="mt-1 overflow-hidden rounded-xl border border-border bg-card">
+          {whole.map((item) => (
+            <li key={item.key} className="flex items-center gap-3 border-b border-border/60 px-3 py-2 last:border-b-0">
+              <span className="min-w-0 flex-1 truncate text-[14px]">✓ {item.title}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  const [source, ...rest] = item.key.split(":");
+                  void removeFromDevice(source === "wikisource" ? "wikisource" : "gutenberg", rest.join(":")).then(() => list.refetch());
+                }}
+                className="press min-h-9 rounded-md px-2 text-[13px] text-destructive"
+              >
+                Xoá khỏi máy
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </div>
+  );
+}
+
 function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: (item: CatalogBook) => Promise<void> }) {
   const [text, setText] = useState<string>("");
   const [query, setQuery] = useState<string>("");
@@ -482,6 +521,20 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
     queryFn: () => searchCatalog(query, category, effectiveSource),
     staleTime: 5 * 60_000,
   });
+  // C7: titles outside book_title_vi.csv, translated on this device only (never stored on a server).
+  const [deviceTitles, setDeviceTitles] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let cancelled = false;
+    for (const item of results.data ?? []) {
+      if (item.titleVi !== null || item.language === "vi") continue;
+      void translateTitleOnDevice(item.title, item.language).then((vi) => {
+        if (!cancelled && vi !== null) setDeviceTitles((all) => ({ ...all, [`${item.source}:${item.sourceId}`]: vi }));
+      });
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [results.data]);
   return (
     <section aria-label="Thư viện mở" data-open-library="" className="mt-8">
       <div className="flex items-center gap-3">
@@ -549,7 +602,20 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
               <li key={key} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
                 <span className="h-12 w-8 shrink-0 rounded-sm ring-1 ring-black/10" style={{ backgroundColor: coverColor(item.title) }} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
-                  <span className="line-clamp-2 text-[14px] font-medium leading-snug text-foreground">{item.title}</span>
+                  {(() => {
+                    const fromFile = bookTitleLines(item);
+                    const device = fromFile.original === null && item.language !== "vi" ? deviceTitles[key] : undefined;
+                    const lines = device === undefined ? fromFile : { main: device, original: item.title, tentative: true };
+                    return (
+                      <>
+                        <span className="line-clamp-2 text-[14px] font-medium leading-snug text-foreground" data-title-main="">
+                          {lines.main}
+                          {lines.tentative ? <span className="ml-1 text-[11px] font-normal text-muted-foreground" data-tentative="">tạm dịch</span> : null}
+                        </span>
+                        {lines.original !== null ? <span className="block truncate text-[12px] text-muted-foreground/80" data-title-original="" lang={item.language}>{lines.original}</span> : null}
+                      </>
+                    );
+                  })()}
                   <span className="block truncate text-[12px] text-muted-foreground">
                     {[item.authors, sourceLabel(item.source), LANGUAGE_NAMES[item.language]].filter((part) => part != null && part !== "").join(" · ")}
                   </span>

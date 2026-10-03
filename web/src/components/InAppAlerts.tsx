@@ -14,6 +14,7 @@ import {
   type IncomingMessageSignal,
 } from "@/lib/in-app-alerts";
 import { isFamily } from "@/lib/family";
+import { isQuietReading } from "@/lib/quiet-reading";
 import { taskLink } from "@/lib/task-scope";
 import { useConversations } from "@/lib/use-conversations";
 import { useFamilyRelations } from "@/lib/use-family";
@@ -93,6 +94,8 @@ export function InAppAlerts() {
       const now = Date.now();
       if (!shouldChime({ signal, soundOn: on, lastChimeAt: lastChimeRef.current, now, decision })) return;
       lastChimeRef.current = now;
+      // AVORA-81 · C5: Đọc yên tĩnh — the message still arrives, no sound.
+      if (isQuietReading()) return;
       play(MESSAGE_SOUND_URL);
     };
     window.addEventListener(INCOMING_MESSAGE_EVENT, onIncoming);
