@@ -99,3 +99,4 @@ khi hai bên lệch nhau, file code là đúng.
 - `profiles.color_scheme`, `profiles.accent_tone` — internal (AVORA-74: Sắc màu / Tông màu; không suy từ tuổi)
 
 - `activity_daily` — personal, chỉ chủ (lần mở + giây dùng thật theo ngày, 180 ngày, AVORA-93 · ADR-058). `notes.book_locator` — theo mức của `notes`. `app_config` — internal (cờ dịch). `book_edition_link` — public (cặp ấn bản phạm vi công cộng).
+- `think_hub_record.archived_at` — personal (theo mức của `think_hub_record`; mục đã cất, AVORA-100 · V). `think_hub_template.is_foundation` — public (mẫu hệ thống). `profiles.prefs.template_audiences` — personal (vai trò người dùng tự chọn; chỉ dùng xếp mẫu, không hiện ở hồ sơ, không chia sẻ, không suy đoán). `profiles.prefs.cleanup_seen_week` — internal. `my_storage_usage()` — chỉ trả số và tên file của chính người gọi.

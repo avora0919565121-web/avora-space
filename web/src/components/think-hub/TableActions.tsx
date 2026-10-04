@@ -18,6 +18,7 @@ import {
   type ProposalTarget,
 } from "@/lib/think-hub-shelf";
 import { useSharedTrash, useShelfActions } from "@/lib/use-think-hub-shelf";
+import { daysLeft } from "@/lib/cleanup";
 import { cn } from "@/lib/utils";
 
 const buttonPrimary = "press rounded-md bg-primary px-4 py-2 text-[14px] font-semibold text-primary-foreground disabled:opacity-50";
@@ -203,10 +204,21 @@ export function HubTrashDialog({
         <DialogTitle className="text-[18px]">Thùng rác Kế hoạch</DialogTitle>
         <p className="text-[12.5px] font-medium text-muted-foreground">Của tôi</p>
         {personalBinned.length === 0 ? <p className="text-[13.5px] text-muted-foreground">Trống.</p> : null}
+        {personalBinned.length > 0 ? (() => {
+          const soonest = [...personalBinned].sort((x, y) => (x.deletedAt ?? "").localeCompare(y.deletedAt ?? ""))[0];
+          return (
+            <p className="text-[12.5px] text-muted-foreground" data-trash-summary="">
+              Tự xoá hẳn sau 30 ngày · sớm nhất: “{soonest.name}” còn {daysLeft(soonest.deletedAt ?? new Date().toISOString())} ngày
+            </p>
+          );
+        })() : null}
         <ul>
           {personalBinned.map((table) => (
             <li key={table.id} className={row}>
-              <span className="min-w-0 flex-1 truncate text-[14.5px]">{table.name}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14.5px]">{table.name}</span>
+                <span className="block text-[12px] text-muted-foreground" data-days-left="">Còn {daysLeft(table.deletedAt ?? new Date().toISOString())} ngày</span>
+              </span>
               <button type="button" className="press inline-flex items-center gap-1 rounded px-2 py-1 text-[13px]" onClick={() => void onRestorePersonal(table.id)}>
                 <RotateCcw className="h-4 w-4" /> Khôi phục
               </button>

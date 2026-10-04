@@ -259,6 +259,8 @@ export type ThinkRecord = {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** AVORA-100 · V·3.2: put away — hidden from views and counts, still found by search. */
+  archivedAt?: string | null;
   /** C11: "Chuyển từ Bảng … · dd/mm". */
   movedFrom: { tableName: string; at: string } | null;
   /** AVORA-72: the opportunity this Hạng mục mirrors on the synced board. */
@@ -362,6 +364,7 @@ type RecordRow = {
   created_at: string;
   updated_at: string;
   deleted_at: string | null;
+  archived_at?: string | null;
   moved_from?: unknown;
   opportunity_id?: string | null;
 };
@@ -539,6 +542,7 @@ function toRecord(row: RecordRow): ThinkRecord {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     deletedAt: row.deleted_at,
+    archivedAt: row.archived_at ?? null,
     movedFrom: parseMovedFrom(row.moved_from),
     opportunityId: row.opportunity_id ?? null,
   };
@@ -1058,6 +1062,8 @@ export async function fetchThinkRecords(): Promise<ThinkRecord[]> {
     .from("think_hub_record")
     .select("*")
     .is("deleted_at", null)
+    // AVORA-100 · V·3.2: put-away Hạng mục are not part of a board's views, counts or kệ 2.
+    .is("archived_at", null)
     .order("created_at", { ascending: false });
 
   if (error) throw fail(error.code, error.message);

@@ -41,7 +41,7 @@ describe("AVORA-66 policy content", () => {
   });
 
   it("Chính sách is the second Settings tab", () => {
-    expect(SETTINGS_TABS.map((t) => t.label)).toEqual(["Hồ sơ", "Chính sách", "Tuỳ chọn chung", "Thông báo", "Avora AI", "Hướng dẫn"]);
+    expect(SETTINGS_TABS.map((t) => t.label)).toEqual(["Hồ sơ", "Chính sách", "Tuỳ chọn chung", "Thông báo", "Dung lượng", "Avora AI", "Hướng dẫn"]);
   });
 
   it("has the anchors the app links to", () => {

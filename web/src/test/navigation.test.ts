@@ -77,6 +77,7 @@ describe("the sectioned screens", () => {
       "Chính sách",
       "Tuỳ chọn chung",
       "Thông báo",
+      "Dung lượng",
       "Avora AI",
       "Hướng dẫn",
     ]);
@@ -85,6 +86,7 @@ describe("the sectioned screens", () => {
       "/cai-dat/chinh-sach",
       "/cai-dat/thiet-lap",
       "/cai-dat/thong-bao",
+      "/cai-dat/dung-luong",
       "/cai-dat/avora-ai",
       "/cai-dat/huong-dan",
     ]);

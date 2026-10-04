@@ -176,6 +176,11 @@ import { spotlight } from "@/lib/spotlight";
 import { cn } from "@/lib/utils";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 import { isAreaRoot } from "@/lib/go-back";
+import { CleanupCard } from "@/components/library/CleanupCard";
+import { ArchivedRecordsRow, RecordSelectSheet } from "@/components/think-hub/ArchivedRecords";
+import { isoWeek } from "@/lib/cleanup";
+import { useProfilePrefs } from "@/lib/use-default-boards";
+import { LONG_PRESS_MS, LONG_PRESS_SLOP_PX } from "@/hooks/use-long-press";
 
 type ViewMode = "table" | "kanban" | "mindmap";
 
@@ -218,6 +223,22 @@ const ThinkHub = () => {
   const isFullscreen: boolean = searchParams.get("toan-man") === "1";
   // ---------------------------------------------------------------- AVORA-89 · PHẦN 2 · the room (ADR-057)
   const roomPrefs = useRoomPrefs();
+  // AVORA-100 · V·3.3: `Dọn kệ tuần này` at most once a week; `?don=1` (Cài đặt › Dung lượng) asks for it now.
+  const cleanupPrefs = useProfilePrefs();
+  const thisWeek = isoWeek();
+  const [isCleanupAsked, setIsCleanupAsked] = useState<boolean>(() => searchParams.get("don") === "1");
+  const showCleanup = cleanupPrefs.isLoaded && (isCleanupAsked || cleanupPrefs.prefs.cleanup_seen_week !== thisWeek);
+  const laterCleanup = (): void => {
+    setIsCleanupAsked(false);
+    void cleanupPrefs.setPref("cleanup_seen_week", thisWeek).catch(() => undefined);
+  };
+  // V·3.3: hold a Hạng mục to choose several (Cất · Xoá · Huỷ).
+  const [selectStart, setSelectStart] = useState<string | null>(null);
+  const holdRef = useRef<{ timer: number | null; x: number; y: number; fired: boolean }>({ timer: null, x: 0, y: 0, fired: false });
+  const endHold = (): void => {
+    if (holdRef.current.timer !== null) window.clearTimeout(holdRef.current.timer);
+    holdRef.current.timer = null;
+  };
   const roomFromUrl = roomFromParams(searchParams);
   const room: RoomShelf = roomFromUrl?.shelf ?? roomPrefs.savedRoom ?? ROOM_HOME;
   const [roomDir, setRoomDir] = useState<"left" | "right" | "up" | "down" | null>(null);
@@ -1752,6 +1773,7 @@ const ThinkHub = () => {
             usedAt={usage.usedAt}
             places={places}
             onCreated={(table) => void onCreatedBoard(table)}
+            onChangeRoles={() => setIsAudienceAskOpen(true)}
           />
         ) : null}
         {showLibrary ? (
@@ -1802,6 +1824,7 @@ const ThinkHub = () => {
               </div>
             ) : room === 3 ? (
               <>
+                {showCleanup ? <CleanupCard onLater={laterCleanup} /> : null}
                 <ProgressMatrix
                   focusLane={focusLane}
                   boards={planned}
@@ -1889,9 +1912,11 @@ const ThinkHub = () => {
         <PlacePicker template={placingTemplate} places={places} onClose={() => setPlacingTemplate(null)} onCreated={(table) => void onCreatedBoard(table)} />
         <AudienceAsk
           open={isAudienceAskOpen}
+          initial={roomPrefs.audiences}
           onDone={(picked) => {
             setIsAudienceAskOpen(false);
-            // Asked once: skipping is an answer too.
+            // Asked once: skipping is an answer too. Closing the sheet when changing roles keeps them.
+            if (picked === null && roomPrefs.audiencesAsked) return;
             roomPrefs.saveAudiences(picked ?? []);
             if (picked !== null && picked.length > 0) openTemplateLibrary();
           }}
@@ -2164,6 +2189,33 @@ const ThinkHub = () => {
             <div
               data-change-seen={isMarkingSeen ? "true" : "false"}
               onScroll={() => undefined}
+              onPointerDown={(event) => {
+                holdRef.current.fired = false;
+                const row = (event.target as HTMLElement).closest<HTMLElement>("[data-record-id]");
+                const id = row?.getAttribute("data-record-id") ?? null;
+                if (isReadOnly || id === null || event.button !== 0) return;
+                endHold();
+                holdRef.current.x = event.clientX;
+                holdRef.current.y = event.clientY;
+                holdRef.current.timer = window.setTimeout(() => {
+                  holdRef.current.timer = null;
+                  holdRef.current.fired = true;
+                  if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(12);
+                  setSelectStart(id);
+                }, LONG_PRESS_MS);
+              }}
+              onPointerMove={(event) => {
+                if (Math.abs(event.clientX - holdRef.current.x) > LONG_PRESS_SLOP_PX || Math.abs(event.clientY - holdRef.current.y) > LONG_PRESS_SLOP_PX) endHold();
+              }}
+              onPointerUp={endHold}
+              onPointerCancel={endHold}
+              onClickCapture={(event) => {
+                // A hold already answered: the click that follows must not also open the Hạng mục.
+                if (!holdRef.current.fired) return;
+                holdRef.current.fired = false;
+                event.preventDefault();
+                event.stopPropagation();
+              }}
             >
             {/* Rendered even when empty: the columns ARE what a new table is offering. */}
             {view === "table" ? (
@@ -2218,6 +2270,20 @@ const ThinkHub = () => {
               )
             )}
             </div>
+            <ArchivedRecordsRow tableId={active.id} canEdit={!isReadOnly} />
+            <RecordSelectSheet
+              records={visibleRecords}
+              startId={selectStart}
+              onClose={() => setSelectStart(null)}
+              onDelete={async (ids) => {
+                try {
+                  for (const id of ids) await actions.removeRecord(id);
+                  toast.success(`Đã chuyển ${ids.length} mục vào Thùng rác.`);
+                } catch (caught) {
+                  toast.error(caught instanceof Error ? caught.message : "Chưa xoá được.");
+                }
+              }}
+            />
           </>
         )}
       </div>

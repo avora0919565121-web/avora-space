@@ -3638,6 +3638,7 @@ export type Database = {
       }
       think_hub_record: {
         Row: {
+          archived_at: string | null
           category: string | null
           contact_labels: Json
           created_at: string
@@ -3660,6 +3661,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          archived_at?: string | null
           category?: string | null
           contact_labels?: Json
           created_at?: string
@@ -3682,6 +3684,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          archived_at?: string | null
           category?: string | null
           contact_labels?: Json
           created_at?: string
@@ -3983,6 +3986,7 @@ export type Database = {
           example_rows: Json | null
           guiding_question: string | null
           is_active: boolean
+          is_foundation: boolean
           key: string
           mobile_columns: string[]
           name: string
@@ -4003,6 +4007,7 @@ export type Database = {
           example_rows?: Json | null
           guiding_question?: string | null
           is_active?: boolean
+          is_foundation?: boolean
           key: string
           mobile_columns?: string[]
           name: string
@@ -4023,6 +4028,7 @@ export type Database = {
           example_rows?: Json | null
           guiding_question?: string | null
           is_active?: boolean
+          is_foundation?: boolean
           key?: string
           mobile_columns?: string[]
           name?: string
@@ -5174,6 +5180,7 @@ export type Database = {
       copy_think_hub_record: {
         Args: { p_record_id: string; p_target_table_id: string }
         Returns: {
+          archived_at: string | null
           category: string | null
           contact_labels: Json
           created_at: string
@@ -5796,6 +5803,7 @@ export type Database = {
           p_title: string
         }
         Returns: {
+          archived_at: string | null
           category: string | null
           contact_labels: Json
           created_at: string
@@ -6206,6 +6214,7 @@ export type Database = {
       delete_think_hub_record: {
         Args: { p_record_id: string }
         Returns: {
+          archived_at: string | null
           category: string | null
           contact_labels: Json
           created_at: string
@@ -7102,6 +7111,7 @@ export type Database = {
           p_target_table_id: string
         }
         Returns: {
+          archived_at: string | null
           category: string | null
           contact_labels: Json
           created_at: string
@@ -7138,6 +7148,7 @@ export type Database = {
         }
         Returns: Json
       }
+      my_storage_usage: { Args: never; Returns: Json }
       opportunity_board: { Args: never; Returns: string }
       pin_message: {
         Args: { p_message_id: string; p_scope: string }
@@ -7885,6 +7896,7 @@ export type Database = {
       restore_think_hub_record: {
         Args: { p_record_id: string }
         Returns: {
+          archived_at: string | null
           category: string | null
           contact_labels: Json
           created_at: string
@@ -8634,6 +8646,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      set_think_hub_records_archived: {
+        Args: { p_archived: boolean; p_record_ids: string[] }
+        Returns: number
+      }
       set_think_hub_table_archived: {
         Args: { p_archived: boolean; p_table_id: string }
         Returns: {
@@ -8942,6 +8958,49 @@ export type Database = {
       task_recipient_ids: {
         Args: { p_conversation_id: string }
         Returns: string[]
+      }
+      think_hub_archived_records: {
+        Args: { p_table_id: string }
+        Returns: {
+          archived_at: string | null
+          category: string | null
+          contact_labels: Json
+          created_at: string
+          deleted_at: string | null
+          editor_ids: string[]
+          extension_fields: Json
+          id: string
+          moved_from: Json | null
+          next_action_date: string | null
+          notes: string | null
+          opportunity_id: string | null
+          owner_user_id: string
+          priority: string
+          project_id: string | null
+          remind_at: string | null
+          status: string
+          table_id: string
+          tags: string[]
+          title: string
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "think_hub_record"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      think_hub_cleanup_apply: { Args: { p_items: Json }; Returns: Json }
+      think_hub_cleanup_suggestions: {
+        Args: never
+        Returns: {
+          item_count: number
+          kind: string
+          last_touch: string
+          table_id: string
+          table_name: string
+        }[]
       }
       think_hub_open_questions: {
         Args: never
@@ -9269,6 +9328,7 @@ export type Database = {
       update_think_hub_record: {
         Args: { p_patch: Json; p_record_id: string }
         Returns: {
+          archived_at: string | null
           category: string | null
           contact_labels: Json
           created_at: string

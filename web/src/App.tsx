@@ -41,6 +41,7 @@ import Settings from "./pages/Settings";
 import SettingsAssistant from "./pages/SettingsAssistant";
 import SettingsGuide from "./pages/SettingsGuide";
 import SettingsNotifications from "./pages/SettingsNotifications";
+import SettingsStorage from "./pages/SettingsStorage";
 import SettingsPreferences from "./pages/SettingsPreferences";
 import Tasks from "./pages/Tasks";
 import Vault from "./pages/Vault";
@@ -102,6 +103,7 @@ const App = () => (
                   <Route path="chinh-sach" element={<SettingsPolicy />} />
                   <Route path="thiet-lap" element={<SettingsPreferences />} />
                   <Route path="thong-bao" element={<SettingsNotifications />} />
+                  <Route path="dung-luong" element={<SettingsStorage />} />
                   <Route path="avora-ai" element={<SettingsAssistant />} />
                   <Route path="huong-dan" element={<SettingsGuide />} />
                 </Route>

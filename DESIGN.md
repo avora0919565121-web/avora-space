@@ -2048,6 +2048,16 @@ Học một lần, áp cho mọi màn, điện thoại và máy tính. **Chạm 
 - **Không quay tròn mãi:** sau 10 giây hiện `Chưa tải được · Thử lại` (mất mạng: `Đang không có mạng`), luôn kèm `‹` ở màn bên trong.
 - Cài đặt › Hướng dẫn mở đầu bằng `Cách đi trong AVORA` (6 dòng, cùng chữ với bảng trên).
 
+## Vai trò · Bảng nền tảng · Dọn dẹp · Dung lượng (AVORA-100 · V · ADR-063)
+
+- **Tấm vai trò:** `Bạn đang ở những vai trò nào?` — 13 chip xuống dòng, chip chọn có `✓`, dòng `Đã chọn n`. Không giới hạn số vai. `Bỏ qua` · `Xem mẫu hợp với tôi`. Mở lại từ Mẫu bảng › `Vai trò của tôi: n · Đổi`.
+- **Mẫu bảng:** `NỀN TẢNG · AI CŨNG DÙNG` (6 dòng gọn: tên, cột, `Dùng`) → `HỢP VỚI VAI TRÒ CỦA BẠN` (nhóm theo vai, nhãn vai màu cam đất) → `Tất cả mẫu ›` (bộ lọc "để làm gì × dành cho ai" cũ). Chưa chọn vai: chỉ Nền tảng + `Chọn vai trò để thấy mẫu hợp với bạn`.
+- **Mẫu có chuyện riêng của người khác** (`prayer_list`, `member_care`, `newcomers`): khi chọn nơi đặt hiện `Bảng này có chuyện riêng của người khác — chỉ chia sẻ với người cần biết.`
+- **Kệ 3 · `Dọn kệ tuần này`:** chỉ khi có gợi ý, tối đa một lần / tuần. Mỗi loại một dòng có ô tick + số + ví dụ tên; `Để tuần sau` · `Dọn n việc đã chọn`; xong hiện `Đã dọn · Hoàn tác` 10 giây. Câu đầu: `Avora chỉ gợi ý. Không gì bị xoá nếu bạn không chọn.`
+- **Thùng rác Kế hoạch:** mỗi dòng `Còn n ngày`; dòng tóm tắt `Tự xoá hẳn sau 30 ngày · sớm nhất: "…" còn n ngày`.
+- **Trong một Bảng:** giữ một Hạng mục → tấm chọn nhiều `Cất · Xoá · Huỷ`; cuối bảng `Đã cất n mục · Xem` → `Lấy ra`.
+- **Cài đặt › Dung lượng** (sau `Thông báo`): số tổng lớn, dòng mờ `Hạn mức gói và kho chung sẽ hiện ở đây.`, 4 thanh theo nơi chứa; `DỌN DẸP`: 20 file lớn nhất · Thùng rác chung · Dọn kệ Kế hoạch · Bộ nhớ trên máy này. Đơn vị KB / MB / GB một chữ số lẻ, dấu phẩy thập phân. **Không màu đỏ** — đây là thông tin, không phải cảnh báo.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

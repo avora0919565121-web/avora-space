@@ -129,6 +129,8 @@ export const SETTINGS_TABS: readonly NavEntry[] = [
   // Not "Thiết lập": that reads as a synonym of the section name "Cài đặt". Route unchanged.
   { to: "/cai-dat/thiet-lap", label: "Tuỳ chọn chung" },
   { to: "/cai-dat/thong-bao", label: "Thông báo" },
+  // AVORA-100 · V·4: not "Lưu trữ" — on kệ 3 that already means putting a board away.
+  { to: "/cai-dat/dung-luong", label: "Dung lượng" },
   { to: "/cai-dat/avora-ai", label: "Avora AI" },
   // AVORA-57 · A: last in the row.
   { to: "/cai-dat/huong-dan", label: "Hướng dẫn" },

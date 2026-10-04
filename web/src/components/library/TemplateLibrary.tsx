@@ -1,11 +1,11 @@
-import { Search } from "lucide-react";
+import { Check, ChevronDown, ChevronRight, Search, Table2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import type { TablePlace } from "@/lib/table-places";
 import type { ThinkTable } from "@/lib/think-hub";
-import { libraryTemplates, TEMPLATE_AUDIENCES, THINKING_TYPES, type BoardTemplate, type TemplateAudience, type ThinkingType } from "@/lib/think-hub-shelf";
+import { audienceLabel, foundationTemplates, libraryTemplates, PICKABLE_ROLES, roleGroups, SENSITIVE_TEMPLATES, TEMPLATE_AUDIENCES, THINKING_TYPES, type BoardTemplate, type TemplateAudience, type ThinkingType } from "@/lib/think-hub-shelf";
 import { foldVi } from "@/lib/context-refs";
 import { useShelfActions } from "@/lib/use-think-hub-shelf";
 import { cn } from "@/lib/utils";
@@ -20,13 +20,34 @@ export function TemplateLibrary({
   usedAt,
   places,
   onCreated,
+  onChangeRoles,
 }: {
   templates: readonly BoardTemplate[];
   mine: readonly TemplateAudience[];
   usedAt: ReadonlyMap<string, string>;
   places: readonly TablePlace[];
   onCreated: (table: ThinkTable) => void;
+  /** AVORA-100 · V·1.3: `Vai trò của tôi: n · Đổi` reopens the role sheet. */
+  onChangeRoles?: () => void;
 }) {
+  const [isAllOpen, setIsAllOpen] = useState<boolean>(false);
+  const foundation = useMemo(() => foundationTemplates(templates), [templates]);
+  const groups = useMemo(() => roleGroups(templates, mine), [templates, mine]);
+  const groupCount = groups.reduce((sum, group) => sum + group.templates.length, 0);
+  const row = (template: BoardTemplate, attr: Record<string, string>) => (
+    <li key={template.id} className="flex min-h-[52px] items-center gap-3 border-b border-border/60 px-3 py-2 last:border-b-0">
+      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-secondary text-muted-foreground">
+        <Table2 className="h-4 w-4" aria-hidden="true" />
+      </span>
+      <button type="button" onClick={() => (template.id === "blank" ? setPlacing(template) : setPreview(template))} className="press min-w-0 flex-1 text-left" {...attr}>
+        <span className="block truncate text-[15px] font-semibold text-foreground">{template.name}</span>
+        <span className="block truncate text-[12px] text-muted-foreground">
+          {template.id === "blank" ? "Tự đặt cột" : [template.titleLabel, ...template.columns.map((column) => column.label)].join(" · ").toLowerCase()}
+        </span>
+      </button>
+      <button type="button" onClick={() => setPlacing(template)} className="press h-10 shrink-0 rounded-lg px-2.5 text-[13.5px] font-semibold text-personal">Dùng</button>
+    </li>
+  );
   const [type, setType] = useState<ThinkingType | null>(null);
   const [audiences, setAudiences] = useState<TemplateAudience[]>(() => [...mine]);
   const [query, setQuery] = useState<string>("");
@@ -40,12 +61,56 @@ export function TemplateLibrary({
     const needle = foldVi(query.trim());
     return needle === "" ? all : all.filter((template) => foldVi(`${template.name} ${template.whenToUse ?? ""}`).includes(needle));
   }, [templates, type, audiences, mine, usedAt, query]);
-  const audienceOrder = [...TEMPLATE_AUDIENCES].sort((a, b) => Number(mine.includes(b.id)) - Number(mine.includes(a.id)));
+  const audienceOrder = [...PICKABLE_ROLES].sort((a, b) => Number(mine.includes(b.id)) - Number(mine.includes(a.id)));
   const toggle = (id: TemplateAudience): void => setAudiences((current) => (current.includes(id) ? current.filter((item) => item !== id) : [...current, id]));
   const chip = (isOn: boolean) => cn("press h-9 shrink-0 whitespace-nowrap rounded-full border px-3.5 text-[13.5px]", isOn ? "border-personal bg-personal font-semibold text-personal-foreground" : "border-border bg-card text-foreground");
 
   return (
     <div data-template-library="">
+      <div className="flex items-center justify-between gap-2" data-my-roles="">
+        <p className="text-[13px] text-muted-foreground">
+          Vai trò của tôi: <b className="tabular font-semibold text-foreground">{mine.filter((id) => id !== "moi_nguoi").length}</b>
+        </p>
+        {onChangeRoles !== undefined ? (
+          <button type="button" onClick={onChangeRoles} className="press h-10 rounded-md px-2 text-[13.5px] font-semibold text-personal">Đổi</button>
+        ) : null}
+      </div>
+      <h3 className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+        Nền tảng · ai cũng dùng <span className="tabular">{foundation.length}</span>
+      </h3>
+      <ul className="mt-1.5 overflow-hidden rounded-xl border border-border bg-card" data-foundation="">
+        {foundation.map((template) => row(template, { "data-foundation-card": template.id }))}
+      </ul>
+      {groups.length > 0 ? (
+        <>
+          <h3 className="mt-5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+            Hợp với vai trò của bạn <span className="tabular">{groupCount}</span>
+          </h3>
+          <div className="mt-1.5 overflow-hidden rounded-xl border border-border bg-card" data-role-groups="">
+            {groups.map((group) => (
+              <section key={group.role} data-role-group={group.role}>
+                <p className="px-3 pt-2.5 text-[12.5px] font-semibold text-personal">{audienceLabel(group.role)}</p>
+                <ul>{group.templates.map((template) => row(template, { "data-role-card": template.id }))}</ul>
+              </section>
+            ))}
+          </div>
+        </>
+      ) : (
+        <button type="button" onClick={onChangeRoles} data-pick-roles-hint="" className="press mt-4 flex min-h-11 w-full items-center justify-between rounded-xl border border-dashed border-border px-3 text-left text-[13.5px] text-muted-foreground">
+          Chọn vai trò để thấy mẫu hợp với bạn <ChevronRight className="h-4 w-4" aria-hidden="true" />
+        </button>
+      )}
+      <button
+        type="button"
+        onClick={() => setIsAllOpen((open) => !open)}
+        aria-expanded={isAllOpen}
+        data-all-templates=""
+        className="press mt-5 flex min-h-11 w-full items-center justify-between border-t border-border pt-2 text-[14.5px] font-semibold text-foreground"
+      >
+        Tất cả mẫu {isAllOpen ? <ChevronDown className="h-4 w-4" aria-hidden="true" /> : <ChevronRight className="h-4 w-4" aria-hidden="true" />}
+      </button>
+      {isAllOpen ? (
+      <div className="mt-2" data-all-templates-body="">
       {isSearching ? (
         <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mẫu…" aria-label="Tìm mẫu" className="mb-3 h-11 w-full rounded-xl border border-border bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]" />
       ) : (
@@ -117,6 +182,8 @@ export function TemplateLibrary({
           </li>
         ))}
       </ul>
+      </div>
+      ) : null}
 
       <Sheet open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
         <SheetContent side="bottom" className="mx-auto max-h-[85dvh] max-w-xl overflow-y-auto rounded-t-2xl" data-template-preview="">
@@ -190,6 +257,11 @@ export function PlacePicker({ template, places, onClose, onCreated }: { template
           <span className="text-[13px] font-medium">Tên Bảng</span>
           <input value={name} maxLength={120} onChange={(event) => setName(event.target.value)} className="mt-1 h-11 w-full rounded-lg border border-border bg-background px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]" />
         </label>
+        {template !== null && SENSITIVE_TEMPLATES.has(template.id) ? (
+          <p className="mt-2 rounded-lg bg-secondary px-3 py-2 text-[12.5px] text-muted-foreground" data-sensitive-note="">
+            Bảng này có chuyện riêng của người khác — chỉ chia sẻ với người cần biết.
+          </p>
+        ) : null}
         <ul className="mt-2">
           {places.map((place) => (
             <li key={place.conversationId ?? "personal"} className="border-b border-border/60 last:border-b-0">
@@ -204,29 +276,50 @@ export function PlacePicker({ template, places, onClose, onCreated }: { template
   );
 }
 
-/** 2.4b · C — asked once: "Bạn thường nghĩ về chuyện gì?" Used only to order templates. */
-export function AudienceAsk({ open, onDone }: { open: boolean; onDone: (picked: TemplateAudience[] | null) => void }) {
+/**
+ * AVORA-100 · V·1 — `Bạn đang ở những vai trò nào?` 13 roles, pick as many as you like. Asked once, reopened
+ * from `Vai trò của tôi · Đổi`. Only ever used to order templates; Avora never guesses a role (V·1.4).
+ */
+export function AudienceAsk({ open, initial = [], onDone }: { open: boolean; initial?: readonly TemplateAudience[]; onDone: (picked: TemplateAudience[] | null) => void }) {
   const [picked, setPicked] = useState<TemplateAudience[]>([]);
+  const [shownFor, setShownFor] = useState<boolean>(false);
+  if (open !== shownFor) {
+    setShownFor(open);
+    if (open) setPicked(initial.filter((id) => id !== "moi_nguoi"));
+  }
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onDone(null)}>
-      <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl" data-audience-ask="">
-        <SheetTitle className="text-[19px]">Bạn thường nghĩ về chuyện gì?</SheetTitle>
-        <SheetDescription className="text-[13.5px]">Chọn một hoặc vài nhóm để Avora đưa mẫu hợp với bạn lên trước. Không bắt buộc, đổi lúc nào cũng được.</SheetDescription>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {TEMPLATE_AUDIENCES.filter((item) => item.id !== "moi_nguoi").map((item) => (
-            <button
-              key={item.id}
-              type="button"
-              aria-pressed={picked.includes(item.id)}
-              onClick={() => setPicked((current) => (current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]))}
-              className={cn("press h-11 rounded-xl border px-4 text-[14.5px]", picked.includes(item.id) ? "border-personal bg-personal-soft font-semibold text-personal-soft-foreground" : "border-border bg-card")}
-            >
-              {item.label}
-            </button>
-          ))}
+      <SheetContent side="bottom" className="mx-auto max-h-[92dvh] max-w-lg overflow-y-auto rounded-t-2xl" data-audience-ask="">
+        <SheetTitle className="text-[20px] tracking-tight">Bạn đang ở những vai trò nào?</SheetTitle>
+        <SheetDescription className="text-[13.5px] leading-snug">
+          Chọn bao nhiêu cũng được. Avora đưa vài mẫu hợp với từng vai lên trước — bảng nền tảng thì ai cũng có.
+        </SheetDescription>
+        <div className="mt-3 flex flex-wrap gap-2" data-role-chips="">
+          {PICKABLE_ROLES.map((item) => {
+            const isOn = picked.includes(item.id);
+            return (
+              <button
+                key={item.id}
+                type="button"
+                aria-pressed={isOn}
+                data-role={item.id}
+                onClick={() => setPicked((current) => (current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]))}
+                className={cn(
+                  "press inline-flex min-h-11 max-w-full items-center gap-1 rounded-xl border px-3.5 text-left text-[14.5px]",
+                  isOn ? "border-personal bg-personal-soft font-semibold text-personal-soft-foreground" : "border-border bg-card text-foreground",
+                )}
+              >
+                {isOn ? <Check className="h-4 w-4 shrink-0" aria-hidden="true" /> : null}
+                <span className="min-w-0">{item.label}</span>
+              </button>
+            );
+          })}
         </div>
-        <div className="mt-4 grid grid-cols-[1fr_2fr] gap-2">
-          <button type="button" onClick={() => onDone([])} className="press h-12 rounded-xl border border-border text-[15px]">Bỏ qua</button>
+        <p className="mt-3 text-[12.5px] text-muted-foreground" data-role-count="">
+          Đã chọn <span className="tabular">{picked.length}</span> · đổi lúc nào cũng được ở Mẫu bảng › Vai trò của tôi
+        </p>
+        <div className="mt-3 grid grid-cols-[1fr_2fr] gap-2">
+          <button type="button" onClick={() => onDone(initial.length > 0 ? null : [])} className="press h-12 rounded-xl border border-border text-[15px]">Bỏ qua</button>
           <button type="button" onClick={() => onDone(picked)} className="press h-12 rounded-xl bg-personal text-[15px] font-semibold text-personal-foreground">Xem mẫu hợp với tôi</button>
         </div>
       </SheetContent>

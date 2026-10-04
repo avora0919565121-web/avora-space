@@ -59,18 +59,82 @@ export type BoardTemplate = {
   whenToUse: string | null;
   /** Two example Hạng mục, shown in the preview only — never saved. */
   exampleRows: readonly Record<string, string>[];
+  /** AVORA-100 · V·2.2: one of the six foundation boards everyone has. */
+  isFoundation?: boolean;
 };
 
-export type TemplateAudience = "moi_nguoi" | "hoc_sinh" | "gia_dinh" | "doanh_nhan" | "sales" | "ke_toan" | "ky_thuat";
+/** AVORA-100 · V·1: 13 vai trò, chọn nhiều. `moi_nguoi` is the internal key of shared templates — never a chip. */
+export type TemplateAudience =
+  | "moi_nguoi" | "hoc_sinh" | "giao_vien" | "van_phong" | "quan_ly" | "doanh_nhan" | "sales"
+  | "ke_toan" | "ky_thuat" | "tu_do" | "gia_dinh" | "cham_soc" | "hoi_thanh" | "cong_dong";
 export const TEMPLATE_AUDIENCES: readonly { id: TemplateAudience; label: string }[] = [
   { id: "moi_nguoi", label: "Mọi người" },
   { id: "hoc_sinh", label: "Học sinh · Sinh viên" },
-  { id: "gia_dinh", label: "Gia đình · Nội trợ" },
-  { id: "doanh_nhan", label: "Doanh nhân" },
-  { id: "sales", label: "Sales" },
-  { id: "ke_toan", label: "Kế toán" },
+  { id: "giao_vien", label: "Giáo viên · Đào tạo" },
+  { id: "van_phong", label: "Nhân viên văn phòng" },
+  { id: "quan_ly", label: "Quản lý · Trưởng nhóm" },
+  { id: "doanh_nhan", label: "Chủ doanh nghiệp · Cửa hàng" },
+  { id: "sales", label: "Sales · Kinh doanh" },
+  { id: "ke_toan", label: "Kế toán · Tài chính" },
   { id: "ky_thuat", label: "Kỹ thuật · Thi công" },
+  { id: "tu_do", label: "Làm tự do · Sáng tạo" },
+  { id: "gia_dinh", label: "Gia đình · Nội trợ" },
+  { id: "cham_soc", label: "Chăm sóc người thân" },
+  { id: "hoi_thanh", label: "Hội thánh · Mục vụ" },
+  { id: "cong_dong", label: "Cộng đồng · Thiện nguyện" },
 ];
+/** The 13 roles a person can pick (no `moi_nguoi`). */
+export const PICKABLE_ROLES = TEMPLATE_AUDIENCES.filter((item) => item.id !== "moi_nguoi");
+export function audienceLabel(id: TemplateAudience): string {
+  return TEMPLATE_AUDIENCES.find((item) => item.id === id)?.label ?? id;
+}
+
+/**
+ * AVORA-100 · V·2.3: per role, the 2–4 templates shown under `HỢP VỚI VAI TRÒ CỦA BẠN` (in this order).
+ * Other templates of a role stay in `Tất cả mẫu`.
+ */
+export const ROLE_TEMPLATES: Readonly<Record<Exclude<TemplateAudience, "moi_nguoi">, readonly string[]>> = {
+  hoc_sinh: ["homework", "exam_plan", "subject_notes", "choose_school"],
+  giao_vien: ["lesson_plan", "learners", "question_bank"],
+  van_phong: ["weekly_report", "meeting_followup", "lessons"],
+  quan_ly: ["team_assign", "one_on_one", "quarter_goals", "hiring"],
+  doanh_nhan: ["biz_idea", "inventory", "suppliers", "risks"],
+  sales: ["customers", "weekly_visits", "objections", "quotes_sent"],
+  ke_toan: ["tax_calendar", "reconcile", "missing_docs"],
+  ky_thuat: ["construction", "handover_check", "materials", "maintenance"],
+  tu_do: ["client_jobs", "content_calendar", "ideas_bank"],
+  gia_dinh: ["weekly_menu", "shopping", "kids_school", "home_repair"],
+  cham_soc: ["care_schedule", "care_contacts", "care_log"],
+  hoi_thanh: ["member_care", "serve_roster", "teaching_plan", "prayer_list"],
+  cong_dong: ["small_group", "donations", "event"],
+};
+
+/** Boards whose rows are about other people's private lives: a reminder when shared into a group. */
+export const SENSITIVE_TEMPLATES: ReadonlySet<string> = new Set(["prayer_list", "member_care", "newcomers"]);
+
+/** The six foundation templates, in the fixed order of V·2.2. */
+export const FOUNDATION_ORDER: readonly string[] = ["f_list", "f_track", "f_catalog", "f_log", "weigh_options", "blank"];
+
+export function foundationTemplates(templates: readonly BoardTemplate[]): BoardTemplate[] {
+  return FOUNDATION_ORDER.flatMap((key) => templates.filter((template) => template.source !== "mine" && template.id === key).slice(0, 1));
+}
+
+/** `HỢP VỚI VAI TRÒ CỦA BẠN`: one group per picked role (in the order picked), each template once — at the first role. */
+export function roleGroups(templates: readonly BoardTemplate[], roles: readonly TemplateAudience[]): { role: TemplateAudience; templates: BoardTemplate[] }[] {
+  const byId = new Map(templates.filter((template) => template.source === "system").map((template) => [template.id, template] as const));
+  const shown = new Set<string>(FOUNDATION_ORDER);
+  return roles.flatMap((role) => {
+    if (role === "moi_nguoi") return [];
+    const list = (ROLE_TEMPLATES[role] ?? []).flatMap((key) => {
+      const template = byId.get(key);
+      if (template === undefined || shown.has(key)) return [];
+      shown.add(key);
+      return [template];
+    });
+    return list.length === 0 ? [] : [{ role, templates: list }];
+  });
+}
+
 export function isTemplateAudience(value: unknown): value is TemplateAudience {
   return typeof value === "string" && TEMPLATE_AUDIENCES.some((item) => item.id === value);
 }
@@ -99,6 +163,10 @@ export function libraryTemplates(
     const ua = usedAt.get(a.id) ?? "";
     const ub = usedAt.get(b.id) ?? "";
     if (ua !== ub) return ub.localeCompare(ua);
+    // AVORA-100 · V·2.4: used recently → foundation → fits my roles → sort_order.
+    const fa = a.isFoundation === true ? 1 : 0;
+    const fb = b.isFoundation === true ? 1 : 0;
+    if (fa !== fb) return fb - fa;
     if (fits(a) !== fits(b)) return fits(b) - fits(a);
     return a.sortOrder - b.sortOrder;
   });
@@ -154,6 +222,7 @@ export async function fetchTemplates(): Promise<BoardTemplate[]> {
       audiences: (row.audiences ?? ["moi_nguoi"]).filter(isTemplateAudience),
       whenToUse: row.when_to_use ?? null,
       exampleRows: Array.isArray(row.example_rows) ? (row.example_rows as Record<string, string>[]) : [],
+      isFoundation: (row as { is_foundation?: boolean }).is_foundation === true,
     }));
   const mineTemplates: BoardTemplate[] = (mine.data ?? []).map((row) => ({
     id: row.id,

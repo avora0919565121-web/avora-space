@@ -1023,8 +1023,11 @@ test("88.4b / 88.14 · gáy Mẫu bảng: hỏi một lần; 3 mẫu; chạm m�
   await settle(500);
   expect(document.querySelector("[data-audience-ask]")).not.toBeNull();
   await page.screenshot({ path: `${OUT79}/88-14-hoi-mot-lan-390.png` });
-  await userEvent.click(screen.getByRole("button", { name: "Sales" }));
-  await userEvent.click(screen.getByRole("button", { name: "Doanh nhân" }));
+  // AVORA-100 · V·1: 13 roles with their new names.
+  expect(document.querySelectorAll("[data-audience-ask] [data-role]").length).toBe(13);
+  await userEvent.click(screen.getByRole("button", { name: "Sales · Kinh doanh" }));
+  await userEvent.click(screen.getByRole("button", { name: "Chủ doanh nghiệp · Cửa hàng" }));
+  expect(document.querySelector("[data-role-count]")?.textContent).toMatch(/^Đã chọn 2/);
   await userEvent.click(screen.getByRole("button", { name: "Xem mẫu hợp với tôi" }));
   await settle(500);
   const saved = db.writes.filter((item) => item.table === "profiles").map((item) => JSON.stringify(item.row)).join(" ");
@@ -1032,8 +1035,11 @@ test("88.4b / 88.14 · gáy Mẫu bảng: hỏi một lần; 3 mẫu; chạm m�
   expect(saved).toContain("sales");
   // The library opens as a focus screen; my groups stand first and are picked.
   expect(document.querySelector("[data-template-library]")).not.toBeNull();
-  expect([...document.querySelectorAll("[data-filter-audience] [data-audience]")].slice(0, 2).map((n) => n.getAttribute("data-audience")).sort()).toEqual(["doanh_nhan", "sales"]);
-  expect(document.querySelector("[data-template-count]")?.textContent).toMatch(/^2 mẫu hợp với (Sales · Doanh nhân|Doanh nhân · Sales)$/);
+  // AVORA-100 · V·2.1: Nền tảng first, then one group per picked role (in the order picked), no template twice.
+  expect([...document.querySelectorAll("[data-foundation-card]")].map((n) => n.getAttribute("data-foundation-card"))).toEqual(["weigh_options"]);
+  expect([...document.querySelectorAll("[data-role-group]")].map((n) => n.getAttribute("data-role-group"))).toEqual(["sales", "doanh_nhan"]);
+  expect([...document.querySelectorAll("[data-role-card]")].map((n) => n.getAttribute("data-role-card"))).toEqual(["objections", "biz_idea"]);
+  expect(document.querySelector("[data-my-roles]")?.textContent).toContain("Vai trò của tôi: 2");
   await page.screenshot({ path: `${OUT79}/88-14-thu-vien-mau-390.png` });
   document.querySelector<HTMLButtonElement>("[data-focus-back]")?.click();
   await settle(400);
@@ -1059,6 +1065,11 @@ test("88.15 / 88.16 · lọc Quyết định × Học sinh; xem trước 2 Hạn
   expect(document.querySelector("[data-audience-ask]")).toBeNull();
   document.querySelector<HTMLButtonElement>("[data-open-library-full]")?.click();
   await settle(400);
+  // AVORA-100 · V·2.1: no roles picked → only Nền tảng + a line to pick roles; the filters live in `Tất cả mẫu`.
+  expect(document.querySelector("[data-pick-roles-hint]")).not.toBeNull();
+  expect(document.querySelector("[data-role-groups]")).toBeNull();
+  document.querySelector<HTMLButtonElement>("[data-all-templates]")?.click();
+  await settle(300);
   const typeChip = () => document.querySelector<HTMLButtonElement>('[data-filter-type] button:nth-child(5)');
   expect(typeChip()?.textContent).toBe("Quyết định");
   typeChip()?.click();
