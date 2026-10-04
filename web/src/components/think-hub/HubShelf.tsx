@@ -40,7 +40,7 @@ export function HubShelf({
 
   return (
     <section aria-label="Cần nhắc" data-reminder-tiles="">
-      <div hidden={listOnly} className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
+      <div hidden={listOnly} className="flex gap-2 overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-4 md:overflow-visible md:px-0">
         {REMINDER_TILES.map((tile) => {
           const count = tiles[tile.id].length;
           const active = openTile === tile.id;

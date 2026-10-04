@@ -67,3 +67,35 @@ export const DESK_FULL_EVENT = "avora:desk-full";
 export function announceDeskFull(tableId: string): void {
   window.dispatchEvent(new CustomEvent<string>(DESK_FULL_EVENT, { detail: tableId }));
 }
+
+/** AVORA-89 · 1.5 — when *I* last opened each Bảng (board id or view key). Mine only; server throttles to 1 write / 10 min. */
+export const boardOpenedKeys = { all: (userId: string | undefined) => ["board-opened", userId ?? "none"] as const };
+
+export function useBoardOpened(): { openedAt: ReadonlyMap<string, string>; markOpened: (boardKey: string) => void } {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const query = useQuery<Map<string, string>, Error>({
+    queryKey: boardOpenedKeys.all(user?.id),
+    enabled: Boolean(user?.id),
+    staleTime: 60_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("think_hub_board_opened").select("board_key, opened_at");
+      if (error) throw new Error("Không tải được lần mở.");
+      return new Map((data ?? []).map((row) => [row.board_key, row.opened_at] as const));
+    },
+  });
+  const markOpened = useCallback(
+    (boardKey: string): void => {
+      const known = query.data?.get(boardKey);
+      // Same rule as the server: one write per board per 10 minutes.
+      if (known !== undefined && Date.now() - new Date(known).getTime() < 10 * 60_000) return;
+      void supabase.rpc("mark_board_opened", { p_board_key: boardKey }).then(({ data, error }) => {
+        if (error || typeof data !== "string") return;
+        queryClient.setQueryData<Map<string, string>>(boardOpenedKeys.all(user?.id), (old) => new Map(old ?? []).set(boardKey, data));
+      });
+    },
+    [query.data, queryClient, user?.id],
+  );
+  const openedAt = useMemo(() => query.data ?? new Map<string, string>(), [query.data]);
+  return { openedAt, markOpened };
+}

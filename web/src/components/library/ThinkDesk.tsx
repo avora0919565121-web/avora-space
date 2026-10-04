@@ -6,7 +6,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { boardQuestion, DESK_LIMIT, openedAgo } from "@/lib/desk";
 import { REMINDER_TILES, type ReminderLine, type ReminderTile } from "@/lib/think-hub-shelf";
 import type { ThinkTable } from "@/lib/think-hub";
-import { DeskFullError, useDesk } from "@/lib/use-desk";
+import { DeskFullError, useBoardOpened, useDesk } from "@/lib/use-desk";
 import { cn } from "@/lib/utils";
 
 export type DeskBook = { id: string; title: string; subtitle: string | null; percent: number | null };
@@ -42,6 +42,7 @@ export function ThinkDesk({
   onFull: (tableId: string) => void;
 }) {
   const desk = useDesk();
+  const { openedAt } = useBoardOpened();
   const [text, setText] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const byId = useMemo(() => new Map(boards.map((board) => [board.id, board] as const)), [boards]);
@@ -99,7 +100,7 @@ export function ThinkDesk({
             <li key={board.id} className="w-[64%] shrink-0 snap-start md:w-auto">
               <button type="button" onClick={() => onOpenBoard(board.id)} data-desk-card={board.id} className="press flex h-full min-h-[104px] w-full flex-col justify-between rounded-xl border border-border bg-background p-3 text-left transition-colors hover:border-personal/60">
                 <span className="line-clamp-3 text-[15px] font-semibold leading-snug text-foreground">{boardQuestion(board)}</span>
-                <span className="mt-2 truncate text-[12px] text-muted-foreground">{[placeOf(board) ?? "Của tôi", openedAgo(board.updatedAt)].filter((part) => part !== "").join(" · ")}</span>
+                <span className="mt-2 truncate text-[12px] text-muted-foreground">{[placeOf(board) ?? "Của tôi", openedAgo(openedAt.get(board.id) ?? board.updatedAt)].filter((part) => part !== "").join(" · ")}</span>
               </button>
             </li>
           ))}

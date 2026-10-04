@@ -134,7 +134,8 @@ describe("77 · A4 — lifecycle only measures the thinking", () => {
 
 describe("77 · A5 — five ways of thinking, one source", () => {
   it("carries the agreed words", () => {
-    expect(THINKING_TYPES.map((item) => item.label)).toEqual(["Theo dõi", "Tiến trình", "Phân rã", "Cân nhắc", "Học hỏi"]);
+    // AVORA-89 · 2.4b: labels renamed ("Tiến trình" is now kệ 3's name); stored keys unchanged.
+    expect(THINKING_TYPES.map((item) => item.label)).toEqual(["Theo dõi", "Đi từng bước", "Chia nhỏ", "Quyết định", "Học hỏi"]);
     expect(guideQuestionOf("weigh")).toBe("Nếu chọn cái này mà sai thì vì sao?");
     expect(guideQuestionOf("learn")).toBe("Điều này áp dụng vào đâu?");
     expect(guideQuestionOf(null)).toBeNull();
@@ -290,7 +291,9 @@ describe("77 · G — every tab remembers where you stood", () => {
   });
   it("77.25 · pressing the tab you are on goes to its root", () => {
     rememberPlace("u1", "/ke-hoach?ke=ke-sach", 300);
-    expect(tabTarget("/ke-hoach", "/ke-hoach", "u1")).toEqual({ path: "/ke-hoach", scroll: 0, remembered: false });
+    // AVORA-89 · 2.2: Kế hoạch's root is kệ 2 Tổng quan.
+    expect(tabTarget("/ke-hoach", "/ke-hoach", "u1")).toEqual({ path: "/ke-hoach?ke=2", scroll: 0, remembered: false });
+    expect(tabTarget("/nhiem-vu", "/nhiem-vu", "u1")).toEqual({ path: "/nhiem-vu", scroll: 0, remembered: false });
   });
   it("one-shot parameters are not remembered; accounts are kept apart", () => {
     rememberPlace("u1", "/nhiem-vu?moi=1&muc=lich", 0);

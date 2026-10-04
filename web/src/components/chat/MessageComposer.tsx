@@ -1,6 +1,7 @@
 import { ArrowUp, Mic } from "lucide-react";
 import {
   useCallback,
+  useEffect,
   useLayoutEffect,
   useMemo,
   useRef,
@@ -21,6 +22,18 @@ import {
   type MentionCandidate,
 } from "@/lib/mentions";
 import { cn } from "@/lib/utils";
+import {
+  activeTrigger,
+  applyRef,
+  removeTrigger,
+  suggestContactCards,
+  suggestRefs,
+  REF_KIND_LABEL,
+  type CardSuggestion,
+  type RefChoice,
+  type RefContext,
+  type Trigger,
+} from "@/lib/context-refs";
 
 /** Beyond this the composer stops growing and scrolls, so the thread keeps most of the screen. */
 const MAX_COMPOSER_HEIGHT_PX = 160;
@@ -54,6 +67,19 @@ export type MessageComposerProps = {
    */
   onStartRecording?: () => void;
   urgent?: { blockedNote: string | null; onSendUrgent: (content: string) => void };
+  /**
+   * AVORA-89 · ADR-052 — where this composer stands. `#` and `@@` only suggest what the server
+   * returns for this context; omitted = no `#` / `@@` here.
+   */
+  refContext?: RefContext;
+  /** Shown above the picker: `Trong cuộc trò chuyện với Lan` / `Trong nhóm …` / `Riêng của bạn`. */
+  contextLabel?: string;
+  /** 1-1 only: the other person's name, for the `@` hint (nobody to name here). */
+  directPeerName?: string;
+  /** `#` chips chosen so far (the parent sends the ones still written in the text). */
+  onRefsChange?: (refs: RefChoice[]) => void;
+  /** `@@`: introduce one friend (name + PIN). */
+  onShareCard?: (person: CardSuggestion) => void;
 };
 
 /**
@@ -78,7 +104,68 @@ export function MessageComposer({
   attachmentSlot,
   onStartRecording,
   urgent,
+  refContext,
+  contextLabel,
+  directPeerName,
+  onRefsChange,
+  onShareCard,
 }: MessageComposerProps) {
+  const [trigger, setTrigger] = useState<Trigger | null>(null);
+  const [triggerCaret, setTriggerCaret] = useState<number>(0);
+  const [refOptions, setRefOptions] = useState<RefChoice[]>([]);
+  const [cardOptions, setCardOptions] = useState<CardSuggestion[]>([]);
+  const [hashFilter, setHashFilter] = useState<"all" | "file" | "record" | "note">("all");
+  const chosenRefsRef = useRef<RefChoice[]>([]);
+  const isJournal = refContext === "journal";
+
+  useEffect(() => {
+    if (trigger === null || refContext === undefined) return;
+    let cancelled = false;
+    if (trigger.kind === "hash") {
+      void suggestRefs(refContext, hashFilter, trigger.query).then(
+        (rows) => !cancelled && setRefOptions(rows),
+        () => !cancelled && setRefOptions([]),
+      );
+    } else if (trigger.kind === "atat" && !isJournal) {
+      void suggestContactCards(refContext, trigger.query).then(
+        (rows) => !cancelled && setCardOptions(rows),
+        () => !cancelled && setCardOptions([]),
+      );
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, [trigger, refContext, hashFilter, isJournal]);
+
+  const syncTrigger = useCallback(
+    (text: string, caret: number): void => {
+      if (refContext === undefined && directPeerName === undefined) return;
+      const found = activeTrigger(text, caret);
+      // Group `@` keeps the member picker; everything else is the context picker.
+      setTrigger(found !== null && (found.kind !== "at" || directPeerName !== undefined) ? found : null);
+      setTriggerCaret(caret);
+    },
+    [refContext, directPeerName],
+  );
+
+  const chooseRef = (ref: RefChoice): void => {
+    if (trigger === null) return;
+    const result = applyRef(value, trigger, triggerCaret, ref.label);
+    chosenRefsRef.current = [...chosenRefsRef.current, ref];
+    onRefsChange?.(chosenRefsRef.current);
+    onValueChange(result.text);
+    setTrigger(null);
+    window.requestAnimationFrame(() => {
+      fieldRef.current?.focus();
+      fieldRef.current?.setSelectionRange(result.caret, result.caret);
+    });
+  };
+  const chooseCard = (person: CardSuggestion): void => {
+    if (trigger === null || !person.hasPin) return;
+    onValueChange(removeTrigger(value, trigger, triggerCaret).text);
+    setTrigger(null);
+    onShareCard?.(person);
+  };
   const [isUrgentMenuOpen, setIsUrgentMenuOpen] = useState<boolean>(false);
   const holdTimerRef = useRef<number | null>(null);
   const heldRef = useRef<boolean>(false);
@@ -139,7 +226,7 @@ export function MessageComposer({
     const field = fieldRef.current;
     if (!field) return;
     field.style.height = "auto";
-    field.style.height = `${Math.min(field.scrollHeight, MAX_COMPOSER_HEIGHT_PX)}px`;
+    field.style.height = `${Math.min(field.scrollHeight + (field.offsetHeight - field.clientHeight), MAX_COMPOSER_HEIGHT_PX)}px`;
   }, [value]);
 
   const submit = useCallback((): void => {
@@ -207,7 +294,7 @@ export function MessageComposer({
     <>
       {attachmentSlot}
       <form
-        className="mx-auto flex max-w-2xl items-end gap-2 md:gap-3 [&>*]:self-end"
+        className="mx-auto flex max-w-2xl items-end gap-1 border-t border-border pt-1 transition-colors has-[textarea:focus-visible]:border-personal md:gap-3 [&>*]:self-end"
         onSubmit={handleSubmit}
         onKeyDown={blockEnterSubmit}
       >
@@ -245,6 +332,88 @@ export function MessageComposer({
           </ul>
         ) : null}
 
+        {trigger !== null ? (
+          <div
+            data-context-picker={trigger.kind}
+            className="absolute bottom-[calc(100%+6px)] left-0 z-20 w-full max-w-[340px] overflow-hidden rounded-[12px] border border-border bg-card shadow-lg"
+          >
+            {trigger.kind === "at" && directPeerName !== undefined ? (
+              <p className="px-3 py-2.5 text-[13px] leading-snug text-muted-foreground" data-direct-at-hint="">
+                Trong trò chuyện 1-1 không cần gọi tên {directPeerName}. <b className="font-semibold text-foreground">@@</b> để giới thiệu một người cho {directPeerName}.
+              </p>
+            ) : trigger.kind === "atat" ? (
+              isJournal ? (
+                <p className="px-3 py-2.5 text-[13px] text-muted-foreground">Nhật ký là của riêng bạn — không có ai để giới thiệu.</p>
+              ) : (
+                <>
+                  <p className="border-b border-border/60 px-3 pb-1.5 pt-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
+                    {directPeerName !== undefined ? `Giới thiệu cho ${directPeerName}` : "Giới thiệu cho nhóm"}
+                    <span className="block text-[11.5px] font-normal normal-case tracking-normal">Chỉ gửi tên và PIN · không gửi số điện thoại, email</span>
+                  </p>
+                  <ul role="listbox" aria-label="Giới thiệu một người" className="max-h-[220px] overflow-y-auto p-1">
+                    {cardOptions.length === 0 ? <li className="px-2.5 py-2 text-[13px] text-muted-foreground">Chưa có bạn Avora nào để giới thiệu ở đây.</li> : null}
+                    {cardOptions.map((person) => (
+                      <li key={person.userId}>
+                        <button
+                          type="button"
+                          role="option"
+                          aria-selected={false}
+                          aria-disabled={!person.hasPin}
+                          disabled={!person.hasPin}
+                          onMouseDown={(event) => event.preventDefault()}
+                          onClick={() => chooseCard(person)}
+                          className="press flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left text-[14px] hover:bg-accent/50 disabled:opacity-45"
+                        >
+                          <span className="min-w-0 flex-1 truncate">{person.name}</span>
+                          <span className="shrink-0 font-mono text-[11.5px] text-muted-foreground">{person.hasPin ? person.pin : "chưa có PIN"}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )
+            ) : (
+              <>
+                <div className="flex items-center gap-1.5 border-b border-border/60 px-2 py-1.5">
+                  {contextLabel !== undefined ? <span className="mr-auto truncate pl-1 text-[11.5px] text-muted-foreground">{contextLabel}</span> : <span className="mr-auto" />}
+                  {(isJournal ? (["all", "file", "record", "note"] as const) : (["all", "file", "record"] as const)).map((kind) => (
+                    <button
+                      key={kind}
+                      type="button"
+                      onMouseDown={(event) => event.preventDefault()}
+                      onClick={() => setHashFilter(kind)}
+                      aria-pressed={hashFilter === kind}
+                      className={cn("press shrink-0 rounded-full px-2 py-0.5 text-[11.5px]", hashFilter === kind ? "bg-foreground text-background" : "text-muted-foreground")}
+                    >
+                      {kind === "all" ? "Tất cả" : kind === "file" ? "File" : kind === "record" ? "Hạng mục" : "Ghi chép"}
+                    </button>
+                  ))}
+                </div>
+                <ul role="listbox" aria-label="Gọi tài liệu" className="max-h-[220px] overflow-y-auto p-1">
+                  {refOptions.length === 0 ? (
+                    <li className="px-2.5 py-2 text-[13px] text-muted-foreground">{isJournal ? "Chưa có gì của riêng bạn khớp." : "Chưa có tệp nào trong cuộc trò chuyện này."}</li>
+                  ) : null}
+                  {refOptions.map((ref) => (
+                    <li key={`${ref.kind}:${ref.id}`}>
+                      <button
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        onMouseDown={(event) => event.preventDefault()}
+                        onClick={() => chooseRef(ref)}
+                        className="press flex w-full items-center gap-2 rounded-[8px] px-2.5 py-2 text-left text-[14px] hover:bg-accent/50"
+                      >
+                        <span className="min-w-0 flex-1 truncate">{ref.label}</span>
+                        <span className="shrink-0 text-[11.5px] text-muted-foreground">{REF_KIND_LABEL[ref.kind]}</span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        ) : null}
+
         <textarea
           lang="vi"
           spellCheck
@@ -254,6 +423,7 @@ export function MessageComposer({
           onChange={(event) => {
             onValueChange(event.target.value);
             syncMentionRange(event.target.value, event.target.selectionStart ?? 0);
+            syncTrigger(event.target.value, event.target.selectionStart ?? 0);
           }}
           onKeyDown={handleFieldKeyDown}
           onClick={(event) => {
@@ -262,12 +432,15 @@ export function MessageComposer({
             const field = event.currentTarget;
             syncMentionRange(field.value, field.selectionStart ?? 0);
           }}
-          onBlur={() => setMentionRange(null)}
+          onBlur={() => {
+            setMentionRange(null);
+            setTrigger(null);
+          }}
           maxLength={4000}
           placeholder={placeholder}
           aria-label={ariaLabel}
           enterKeyHint="enter"
-          className="min-h-11 w-full resize-none rounded-[22px] border border-border bg-card px-4 py-[11px] text-[16px] md:text-[15px] leading-snug text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
+          className="block min-h-11 w-full resize-none border-0 bg-transparent px-1 py-[11px] text-[16px] leading-[22px] text-foreground outline-none placeholder:truncate placeholder:text-muted-foreground/70 md:text-[15px]"
         />
       </div>
         {trailingAction}

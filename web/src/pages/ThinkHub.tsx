@@ -57,11 +57,20 @@ import { BookshelfPanel, useBookshelf } from "@/components/library/BookshelfPane
 import { ShelfCards } from "@/components/library/ShelfCards";
 import { DefaultShelf, DiaryShelf, LifecycleShelf, OtherShelf, PlannedShelf } from "@/components/library/ShelfPanels";
 import { ViewBoardPanel } from "@/components/library/ViewBoardPanel";
-import { ArrangedShelves } from "@/components/library/ArrangedShelves";
-import { DeskFullSheet, ThinkDesk, type DeskBook } from "@/components/library/ThinkDesk";
+import { DeskFullSheet, type DeskBook } from "@/components/library/ThinkDesk";
+import { EdgeArrows, OverviewShelf, ProgressMatrix, RoomBar, RoomMapSheet, RoomStage, ThinkingOverview, UpDownPill, WorkDesk, type SpinePreview } from "@/components/library/PlanRoom";
+import { AudienceAsk, PlacePicker, TemplateLibrary } from "@/components/library/TemplateLibrary";
+import { neighbour, ROOM_HOME, ROOM_PARAM, roomFromParams, shelfOfRoom, startsInHorizontalScroller, swipeDirection, type RoomShelf } from "@/lib/room";
+import { templateUsage, useOpenQuestions, useRoomPrefs } from "@/lib/use-room";
+import { useFocusHeader } from "@/lib/focus-header";
+import { libraryTemplates, type BoardTemplate } from "@/lib/think-hub-shelf";
+import { coverColor } from "@/lib/library";
+import { noteDisplayTitle } from "@/lib/notes";
+import { DEFAULT_BOARDS, viewBoardOf } from "@/lib/avora-default-boards";
+import { lifecycleLabel } from "@/lib/board-head";
 import { useDefaultShelfAttention } from "@/lib/use-view-board-rows";
 import { ARRANGEMENT_PARAM, arrangementFromLegacy, DRAWER_PARAM, isArrangement, type Arrangement, type PlaceKind } from "@/lib/desk";
-import { DESK_FULL_EVENT, useArrangement, useDesk } from "@/lib/use-desk";
+import { DESK_FULL_EVENT, useArrangement, useBoardOpened, useDesk } from "@/lib/use-desk";
 import { setLifecycle } from "@/lib/board-head";
 import { ReviewSheet } from "@/components/review/ReviewSheet";
 import { findJournal } from "@/hooks/use-paste-task";
@@ -197,6 +206,16 @@ const ThinkHub = () => {
   const isPhoneUpright = useMediaQuery("(max-width: 767px)");
   const [phoneMode, setPhoneMode] = useState<PhoneMode>("cards");
   const isFullscreen: boolean = searchParams.get("toan-man") === "1";
+  // ---------------------------------------------------------------- AVORA-89 · PHẦN 2 · the room (ADR-057)
+  const roomPrefs = useRoomPrefs();
+  const roomFromUrl = roomFromParams(searchParams);
+  const room: RoomShelf = roomFromUrl?.shelf ?? roomPrefs.savedRoom ?? ROOM_HOME;
+  const [roomDir, setRoomDir] = useState<"left" | "right" | "up" | "down" | null>(null);
+  const [isRoomMapOpen, setIsRoomMapOpen] = useState<boolean>(false);
+  const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
+  const [isAudienceAskOpen, setIsAudienceAskOpen] = useState<boolean>(false);
+  const [placingTemplate, setPlacingTemplate] = useState<BoardTemplate | null>(null);
+  const roomSwipeRef = useRef<{ x: number; y: number; skip: boolean } | null>(null);
   const [libraryQuery, setLibraryQuery] = useState<string>("");
   const [addBookRequest, setAddBookRequest] = useState<number>(0);
   const [isThinkingTypeOpen, setIsThinkingTypeOpen] = useState<boolean>(false);
@@ -468,20 +487,18 @@ const ThinkHub = () => {
   );
 
   const openTable = useCallback(
-    (tableId: string): void => {
+    (tableId: string, homeShelf?: RoomShelf): void => {
       setActiveId(tableId);
       setIsEditingPurpose(false);
+      setIsLibraryOpen(false);
       // The way back survives moving between tables, so "← {nơi xuất phát}" stays until the person leaves.
       const next = carryReturn(searchParams, new URLSearchParams());
-      // AVORA-81 · B2: the arrangement and the open drawer stay; the board opens on top.
-      for (const key of [ARRANGEMENT_PARAM, DRAWER_PARAM]) {
-        const value = searchParams.get(key);
-        if (value !== null) next.set(key, value);
-      }
+      // AVORA-89 · 2.3: the board opens on top of the shelf it came from; `‹` goes back there.
+      next.set(ROOM_PARAM, String(homeShelf ?? room));
       next.set(HUB_TABLE_PARAM, tableId);
       setSearchParams(next, { replace: true });
     },
-    [searchParams, setSearchParams],
+    [searchParams, setSearchParams, room],
   );
 
   /** Opens one shelf (B1). The board closes; the way back stays. */
@@ -503,14 +520,12 @@ const ThinkHub = () => {
   const openView = useCallback(
     (key: ViewBoardKey): void => {
       const next = carryReturn(searchParams, new URLSearchParams());
-      const bay = searchParams.get(ARRANGEMENT_PARAM);
-      if (bay !== null) next.set(ARRANGEMENT_PARAM, bay);
-      next.set(DRAWER_PARAM, "avora");
+      next.set(ROOM_PARAM, String(room));
       next.set(VIEW_BOARD_PARAM, key);
       setActiveId(null);
       setSearchParams(next);
     },
-    [searchParams, setSearchParams],
+    [searchParams, setSearchParams, room],
   );
   const closeView = useCallback((): void => {
     const next = new URLSearchParams(searchParams);
@@ -1093,6 +1108,15 @@ const ThinkHub = () => {
   };
 
   const desk = useDesk();
+  // AVORA-89 · 1.5: "lần mở cuối" is my own last open, not the last edit.
+  const boardOpened = useBoardOpened();
+  const markBoardOpened = boardOpened.markOpened;
+  useEffect(() => {
+    if (activeId !== null) markBoardOpened(activeId);
+  }, [activeId, markBoardOpened]);
+  useEffect(() => {
+    if (activeView !== null) markBoardOpened(activeView);
+  }, [activeView, markBoardOpened]);
   const [wantedDesk, setWantedDesk] = useState<string | null>(null);
   // ---------------------------------------------------------------- AVORA-81 · PHẦN 2 · Bàn nghĩ + cách bày
   const saved = useArrangement();
@@ -1155,6 +1179,110 @@ const ThinkHub = () => {
       navigate(withReturn(`/tin-nhan/${journalId}`, hereFrom(location, "Kế hoạch")));
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Chưa mở được Nhật ký.");
+    }
+  };
+
+  const goRoom = (to: RoomShelf, dir: "left" | "right" | "up" | "down" | null = null): void => {
+    const params = carryReturn(searchParams, new URLSearchParams());
+    params.set(ROOM_PARAM, String(to));
+    setActiveId(null);
+    setIsLibraryOpen(false);
+    setIsStoreOpen(false);
+    setRoomDir(dir ?? (to > room ? (to - room >= 3 ? "down" : "right") : room - to >= 3 ? "up" : "left"));
+    setSearchParams(params, { replace: true });
+    roomPrefs.saveRoom(to);
+    scrollRef.current?.scrollTo({ top: 0 });
+  };
+  const inRoom = active === null && activeView === null && !isLibraryOpen && !isFullscreen;
+  useEffect(() => {
+    if (active === null && activeView === null) roomPrefs.saveRoom(room);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- remember where the person stands
+  }, [room]);
+  useEffect(() => {
+    if (!inRoom || isSearchOpen) return;
+    const onKey = (event: KeyboardEvent): void => {
+      const target = event.target as HTMLElement | null;
+      if (target !== null && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      const side = event.key === "ArrowLeft" ? "left" : event.key === "ArrowRight" ? "right" : event.key === "ArrowUp" ? "up" : event.key === "ArrowDown" ? "down" : null;
+      if (side === null) return;
+      const to = neighbour(room, side);
+      if (to === null) return;
+      event.preventDefault();
+      goRoom(to, side);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  });
+  const closeFocus = useCallback((): void => {
+    if (isLibraryOpen) setIsLibraryOpen(false);
+    else if (activeView !== null) closeView();
+    else closeBoard();
+  }, [isLibraryOpen, activeView, closeView, closeBoard]);
+  // 2.3 · one thing to focus on: the phone's top row becomes `‹ · name · kệ gốc · nơi · trạng thái`.
+  useFocusHeader(
+    isPhoneUpright && !isFullscreen && (active !== null || activeView !== null || isLibraryOpen)
+      ? {
+          title: active !== null ? active.name : activeView !== null ? viewBoardOf(activeView).name : "Mẫu bảng",
+          subtitle:
+            active !== null
+              ? [shelfOfRoom(room).name, placeOf(active) ?? "Của tôi", lifecycleLabel(active.lifecycle)].join(" · ")
+              : activeView !== null
+                ? `${shelfOfRoom(room).name} · Bảng xem`
+                : null,
+          onBack: closeFocus,
+        }
+      : null,
+  );
+  const openQuestions = useOpenQuestions();
+  const usage = useMemo(() => templateUsage(tables), [tables]);
+  /** 2.2: a new board opens focused; on the desk if there is room (closes to kệ 6), else closes to kệ 3. */
+  const onCreatedBoard = async (table: ThinkTable): Promise<void> => {
+    let home: RoomShelf = 3;
+    if (desk.ids.length < 5) {
+      try {
+        await desk.place.mutateAsync(table.id);
+        home = 6;
+      } catch {
+        home = 3;
+      }
+    }
+    openTable(table.id, home);
+  };
+
+  const roomTemplates = libraryTemplates(templatesQuery.data ?? [], { type: null, audiences: [] }, roomPrefs.audiences, usage.usedAt);
+  const openTemplateLibrary = (): void => {
+    setActiveId(null);
+    setIsLibraryOpen(true);
+    scrollRef.current?.scrollTo({ top: 0 });
+  };
+  const spinePreview = (id: "avora" | "desk" | "progress" | "books" | "diary"): SpinePreview => {
+    switch (id) {
+      case "avora":
+        return { title: "Bảng Avora", count: DEFAULT_BOARDS.length, items: DEFAULT_BOARDS.slice(0, 5).map((def) => ({ key: def.key, label: def.name })), primary: { label: "Mở mặt bàn 4 ›", onPress: () => goRoom(4, "down") } };
+      case "desk": {
+        const onDesk = desk.ids.map((deskId) => tables.find((table) => table.id === deskId)).filter((table): table is ThinkTable => table !== undefined);
+        return { title: "Bàn làm việc", count: onDesk.length, items: onDesk.map((table) => ({ key: table.id, label: table.purpose ?? table.name })), primary: { label: "Mở mặt bàn 6 ›", onPress: () => goRoom(6) } };
+      }
+      case "progress": {
+        const recent = [...planned].filter((table) => table.archivedAt === null).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        return { title: "Tiến trình", count: recent.length, items: recent.slice(0, 5).map((table) => ({ key: table.id, label: table.purpose ?? table.name, sub: lifecycleLabel(table.lifecycle) })), primary: { label: "Mở kệ 3 ›", onPress: () => goRoom(3, "right") } };
+      }
+      case "books":
+        return {
+          title: "Sách",
+          count: bookshelfData.books.length,
+          items: bookshelfData.books.slice(0, 5).map((book) => ({ key: book.id, label: book.title, tone: coverColor(book.title) })),
+          primary: { label: "Mở mặt bàn 5 ›", onPress: () => goRoom(5) },
+          secondary: deskBook !== null ? { label: "Đọc tiếp", onPress: () => navigate(withReturn(`/ke-hoach/ke-sach/doc/${deskBook.id}`, hereFrom(location, "Kế hoạch"))) } : undefined,
+        };
+      case "diary":
+        return {
+          title: "Nhật ký",
+          count: notesData.liveNotes.length,
+          items: notesData.liveNotes.slice(0, 5).map((note) => ({ key: note.id, label: noteDisplayTitle(note) })),
+          primary: { label: "Mở mặt bàn 5 ›", onPress: () => goRoom(5) },
+          secondary: { label: "Mở Nhật ký", onPress: () => void openJournal() },
+        };
     }
   };
 
@@ -1362,7 +1490,8 @@ const ThinkHub = () => {
   })();
   const shelfMeta = currentShelf === null ? null : shelfOf(currentShelf);
   // A phone swaps the whole screen for the open board; a computer keeps the library above it.
-  const showLibrary: boolean = !isFullscreen && !(isPhoneUpright && (active !== null || activeView !== null));
+  // AVORA-89 · 2.3: one thing at a time — an open board / view / library replaces the room on every screen.
+  const showLibrary: boolean = inRoom;
   const requestedTile = searchParams.get(HUB_TILE_PARAM);
 
   const renderShelf = (id: ShelfId): ReactNode => {
@@ -1409,7 +1538,7 @@ const ThinkHub = () => {
   };
 
   return (
-    <div className={cn("paper flex min-h-0 flex-1 flex-col", isFullscreen && "fixed inset-0 z-50 bg-background")} data-focus-room={isFullscreen ? "" : undefined}>
+    <div className={cn("paper relative flex min-h-0 flex-1 flex-col", isFullscreen && "fixed inset-0 z-50 bg-background")} data-focus-room={isFullscreen ? "" : undefined} data-room={room}>
       {isSearchOpen && !isFullscreen ? (
         <div className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-2 backdrop-blur md:px-10" data-plan-search="">
           <div className="mx-auto flex max-w-6xl items-center gap-2">
@@ -1475,7 +1604,6 @@ const ThinkHub = () => {
       {isFullscreen || isSearchOpen ? null : (
       <HubTitle
         title="Kế hoạch"
-        subtitle="Thư viện của những điều bạn đang nghĩ"
         className="max-w-6xl"
         action={
           <div className="flex items-center gap-2">
@@ -1496,8 +1624,9 @@ const ThinkHub = () => {
                 canAddRecord={active !== null && !isReadOnly}
                 onNewRecord={openNewRecord}
                 onNewTable={() => {
-                  setGalleryConversationId(null);
-                  setIsNewTableOpen(true);
+                  if (!roomPrefs.audiencesAsked) setIsAudienceAskOpen(true);
+                  setActiveId(null);
+                  setIsLibraryOpen(true);
                 }}
               />
             )}
@@ -1505,92 +1634,140 @@ const ThinkHub = () => {
         }
       />
       )}
+      {inRoom && !isSearchOpen ? <RoomBar shelf={room} onGo={(to, dir) => goRoom(to, dir)} onOpenMap={() => setIsRoomMapOpen(true)} /> : null}
+      {inRoom && !isSearchOpen ? <UpDownPill shelf={room} onGo={(to, dir) => goRoom(to, dir)} /> : null}
       <div
         ref={scrollRef}
         data-scroll-memory=""
-        className="min-h-0 flex-1 overflow-y-auto"
-        onTouchStart={
-          isFullscreen
-            ? (event) => {
-                swipeRef.current = { y: event.touches[0]?.clientY ?? 0, atTop: (scrollRef.current?.scrollTop ?? 0) <= 0 };
-              }
-            : undefined
-        }
-        onTouchEnd={
-          isFullscreen
-            ? (event) => {
-                const start = swipeRef.current;
-                swipeRef.current = null;
-                // A swipe down from the very top leaves the focus room.
-                if (start !== null && start.atTop && (event.changedTouches[0]?.clientY ?? 0) - start.y > 110) setFullscreen(false);
-              }
-            : undefined
-        }
+        className={cn("min-h-0 flex-1 overflow-y-auto", inRoom && (room <= 3 ? "bg-[hsl(var(--room-wall)/0.45)]" : "bg-[hsl(var(--room-desk)/0.45)]"))}
+        onTouchStart={(event) => {
+          const touch = event.touches[0];
+          if (isFullscreen) swipeRef.current = { y: touch?.clientY ?? 0, atTop: (scrollRef.current?.scrollTop ?? 0) <= 0 };
+          // 2.2: a sideways swipe on the open floor changes shelf — never inside chips, desk cards or a wide table.
+          roomSwipeRef.current = inRoom ? { x: touch?.clientX ?? 0, y: touch?.clientY ?? 0, skip: startsInHorizontalScroller(event.target, scrollRef.current) } : null;
+        }}
+        onTouchEnd={(event) => {
+          const touch = event.changedTouches[0];
+          if (isFullscreen) {
+            const start = swipeRef.current;
+            swipeRef.current = null;
+            // A swipe down from the very top leaves the focus room.
+            if (start !== null && start.atTop && (touch?.clientY ?? 0) - start.y > 110) setFullscreen(false);
+          }
+          const begin = roomSwipeRef.current;
+          roomSwipeRef.current = null;
+          if (begin === null || begin.skip || touch === undefined) return;
+          const side = swipeDirection(touch.clientX - begin.x, touch.clientY - begin.y);
+          const to = side === null ? null : neighbour(room, side);
+          if (side !== null && to !== null) goRoom(to, side);
+        }}
       >
-      <div className={cn("mx-auto px-4 pb-10 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pt-2" : "max-w-6xl")}>
+      <div className={cn("mx-auto px-4 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : "pb-10")}>
 
         {isFullscreen ? null : <ReturnChip className="-mt-2 mb-2" />}
+        {isLibraryOpen && active === null && activeView === null ? (
+          <TemplateLibrary
+            templates={templatesQuery.data ?? []}
+            mine={roomPrefs.audiences}
+            usedAt={usage.usedAt}
+            places={places}
+            onCreated={(table) => void onCreatedBoard(table)}
+          />
+        ) : null}
         {showLibrary ? (
-          <>
-            {/* AVORA-81 · B1: Bàn nghĩ — mine, at most five; chips + Dọn bàn cuối tuần live here. */}
-            <ThinkDesk
-              boards={tables}
-              placeOf={placeOf}
-              tiles={tiles}
-              book={deskBook}
-              canReview={review.due === "week"}
-              onOpenBoard={openTable}
-              onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
-              onPickTile={(tile) => setPickedTile((current) => (current === tile ? null : tile))}
-              onReview={() => setReviewOpen("week")}
-              onCreate={createOnDesk}
-              onFull={setWantedDesk}
-            />
-            {pickedTile !== null ? (
-              <div className="mt-2">
-                <HubShelf
-                  key={pickedTile}
-                  listOnly
-                  tiles={tiles}
-                  today={today}
-                  initialTile={pickedTile}
-                  drawerOfLine={(line) => drawerOf(line.table)}
-                  onPickLine={(line) => {
-                    openTable(line.record.tableId);
-                    setView("table");
-                    spotlight("data-record-id", line.record.id);
-                  }}
-                />
-              </div>
-            ) : null}
-            {/* One line, only when there is something: changes to my Hạng mục (AVORA-62 · Báo nhóm). */}
-            <NudgeLines onOpen={(nudge) => openTable(nudge.tableId)} />
-            {active === null && activeView === null ? (
-              <ArrangedShelves
-                boards={planned}
-                arrangement={arrangement}
-                ownBoards={ownBoards}
-                placeKind={placeKind}
-                placeOf={placeOf}
-                drawer={drawer}
-                onArrangement={chooseArrangement}
-                onOpenBoard={openTable}
-                onOpenDrawer={setDrawer}
-                renderDrawer={(id) => renderShelf(id === "sach" ? "ke-sach" : "mac-dinh")}
-                diaryCount={notesData.notes.data === undefined ? null : notesData.liveNotes.length}
-                archivedCount={archivedBoards.length}
-                binCount={binnedPersonal.length}
-                onOpenDiary={() => void openJournal()}
-                onOpenStore={() => setIsStoreOpen((open) => !open)}
-                hotDefault={hotDefault}
+          <RoomStage shelf={room} dir={roomDir}>
+            {room === 1 ? (
+              <OverviewShelf
+                counts={{
+                  avora: DEFAULT_BOARDS.length,
+                  desk: desk.ids.length,
+                  progress: planned.filter((table) => table.archivedAt === null).length,
+                  books: bookshelfData.books.length,
+                  diary: notesData.liveNotes.length,
+                  templates: roomTemplates.length,
+                }}
+                previewOf={spinePreview}
+                templates={roomTemplates}
+                templateCount={roomTemplates.length}
+                usedCount={usage.count}
+                onUseTemplate={setPlacingTemplate}
+                onOpenLibrary={openTemplateLibrary}
+                onFirstTemplates={() => {
+                  if (!roomPrefs.audiencesAsked) setIsAudienceAskOpen(true);
+                }}
               />
-            ) : null}
-            {isStoreOpen && active === null ? (
-              <div className="mt-3">
-                <OtherShelf noQuestion={[]} archived={archivedBoards} binCount={binnedPersonal.length} onOpen={openTable} onOpenTrash={() => setIsTrashOpen(true)} />
+            ) : room === 2 ? (
+              <ThinkingOverview
+                boards={planned}
+                deskIds={desk.ids}
+                openQuestions={openQuestions}
+                placeOf={placeOf}
+                onOpen={(id) => openTable(id, 2)}
+                onAskQuestions={(ids) => ids[0] !== undefined && askQuestionFor(ids[0])}
+                onGo={(to) => goRoom(to)}
+              />
+            ) : room === 3 ? (
+              <>
+                <ProgressMatrix
+                  boards={planned}
+                  placeKind={placeKind}
+                  placeOf={placeOf}
+                  archivedCount={archivedBoards.length}
+                  binCount={binnedPersonal.length}
+                  onOpen={(id) => openTable(id, 3)}
+                  onOpenArchive={() => setIsStoreOpen((open) => !open)}
+                  onOpenTrash={() => setIsTrashOpen(true)}
+                />
+                {isStoreOpen || roomFromUrl?.focus === "store" ? (
+                  <div className="mt-3" data-room-store="">
+                    <OtherShelf noQuestion={[]} archived={archivedBoards} binCount={binnedPersonal.length} onOpen={(id) => openTable(id, 3)} onOpenTrash={() => setIsTrashOpen(true)} />
+                  </div>
+                ) : null}
+              </>
+            ) : room === 4 ? (
+              <div data-room-shelf="4">{renderShelf("mac-dinh")}</div>
+            ) : room === 5 ? (
+              <div data-room-shelf="5">
+                <section id="room-books" data-room-section="books">{renderShelf("ke-sach")}</section>
+                <section id="room-diary" data-room-section="diary" className="mt-8">
+                  <h2 className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Nhật ký · {notesData.liveNotes.length}</h2>
+                  <DiaryShelf />
+                </section>
               </div>
-            ) : null}
-          </>
+            ) : (
+              <WorkDesk boards={tables} placeOf={placeOf} countOf={(id) => recordCount.get(id) ?? 0} onOpen={(id) => openTable(id, 6)} onCreate={createOnDesk} onFull={setWantedDesk} onGo={(to) => goRoom(to)} />
+            )}
+          </RoomStage>
+        ) : null}
+        <RoomMapSheet
+          open={isRoomMapOpen}
+          shelf={room}
+          summaries={{
+            1: "6 gáy",
+            2: `${planned.filter((table) => table.lifecycle === "thinking").length} đang nghĩ`,
+            3: "nơi × tiến trình",
+            4: `${DEFAULT_BOARDS.length} bảng xem`,
+            5: `${bookshelfData.books.length} sách · ${notesData.liveNotes.length}`,
+            6: `trên bàn ${desk.ids.length}/5`,
+          }}
+          onOpenChange={setIsRoomMapOpen}
+          onGo={(to) => {
+            setIsRoomMapOpen(false);
+            goRoom(to);
+          }}
+        />
+        <PlacePicker template={placingTemplate} places={places} onClose={() => setPlacingTemplate(null)} onCreated={(table) => void onCreatedBoard(table)} />
+        <AudienceAsk
+          open={isAudienceAskOpen}
+          onDone={(picked) => {
+            setIsAudienceAskOpen(false);
+            // Asked once: skipping is an answer too.
+            roomPrefs.saveAudiences(picked ?? []);
+            if (picked !== null && picked.length > 0) openTemplateLibrary();
+          }}
+        />
+        {!isFullscreen && (active !== null || activeView !== null) ? (
+          <EdgeArrows home={room} title={active?.name ?? (activeView !== null ? viewBoardOf(activeView).name : "")} onGo={(to) => goRoom(to)} />
         ) : null}
         {reviewOpen !== null ? <ReviewSheet kind={reviewOpen} review={review} open onOpenChange={(next) => !next && setReviewOpen(null)} /> : null}
         <DeskFullSheet wanted={wantedDesk} boards={tables} placeOf={placeOf} onClose={() => setWantedDesk(null)} />

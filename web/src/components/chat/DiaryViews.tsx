@@ -177,23 +177,6 @@ export function DiaryList({
                 </span>
               ) : (
                 <div className="flex items-center">
-                {/* AVORA-61 · B: on a computer the Ghi chép row folds its tree away, remembered per device. */}
-                {view.id === "notes" && notesTree !== undefined ? (
-                  <button
-                    type="button"
-                    onClick={toggleTree}
-                    aria-expanded={isTreeOpen}
-                    aria-label={isTreeOpen ? "Thu gọn cây Ghi chép" : "Mở rộng cây Ghi chép"}
-                    data-notes-tree-toggle=""
-                    className="press -ml-1 flex h-9 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
-                  >
-                    {isTreeOpen ? (
-                      <ChevronDown className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-                    )}
-                  </button>
-                ) : null}
                 <Link
                   to={`/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
                   replace={isWide}
@@ -219,12 +202,30 @@ export function DiaryList({
                     <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">{DIARY_HINTS[view.id]}</span>
                   </span>
                   {dots[view.id] === true && !isActive ? <span className="tabular shrink-0 text-[11px] font-semibold text-primary">mới</span> : null}
-                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.8} aria-hidden="true" />
+                  {/* AVORA-89 · 3.C: the tree toggle sits inside the row on the right, so all five rows share one left edge. */}
+                  {view.id === "notes" && notesTree !== undefined ? (
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        toggleTree();
+                      }}
+                      aria-expanded={isTreeOpen}
+                      aria-label={isTreeOpen ? "Thu gọn cây Ghi chép" : "Mở rộng cây Ghi chép"}
+                      data-notes-tree-toggle=""
+                      className="press -mr-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    >
+                      {isTreeOpen ? <ChevronDown className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" /> : <ChevronRight className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />}
+                    </button>
+                  ) : (
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground md:hidden" strokeWidth={1.8} aria-hidden="true" />
+                  )}
                 </Link>
                 </div>
               )}
               {view.id === "notes" && notesTree !== undefined && isTreeOpen ? (
-                <div className="ml-4 border-l border-border/70 pl-1">{notesTree}</div>
+                <div className="ml-[62px] border-l border-border/70 pl-1">{notesTree}</div>
               ) : null}
             </li>
           );

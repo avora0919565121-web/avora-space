@@ -90,7 +90,8 @@ export function rememberPlace(userId: string | undefined, path: string, scroll: 
  * its root the first time.
  */
 export function tabTarget(tab: string, currentPathname: string, userId: string | undefined): { path: string; scroll: number; remembered: boolean } {
-  if (activeNavEntry(currentPathname)?.to === tab) return { path: tab, scroll: 0, remembered: false };
+  // AVORA-89 · 2.2: pressing Kế hoạch while inside goes back to kệ 2 Tổng quan.
+  if (activeNavEntry(currentPathname)?.to === tab) return { path: tab === "/ke-hoach" ? "/ke-hoach?ke=2" : tab, scroll: 0, remembered: false };
   const place = readTabMemory(userId)[tab];
   if (place === undefined || place.path === tab) return { path: tab, scroll: 0, remembered: false };
   return { path: place.path, scroll: place.scroll, remembered: true };

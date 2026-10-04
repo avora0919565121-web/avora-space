@@ -50,9 +50,9 @@ const PROGRESS_GROUPS: readonly { id: "waiting" | "thinking" | "concluded"; labe
 
 const THINKING_GROUPS: readonly { id: string; label: string }[] = [
   { id: "track", label: "Theo dõi" },
-  { id: "progress", label: "Tiến trình" },
-  { id: "breakdown", label: "Phân rã" },
-  { id: "weigh", label: "Cân nhắc" },
+  { id: "progress", label: "Đi từng bước" },
+  { id: "breakdown", label: "Chia nhỏ" },
+  { id: "weigh", label: "Quyết định" },
   { id: "learn", label: "Học hỏi" },
   { id: "none", label: "Chưa chọn kiểu" },
 ];

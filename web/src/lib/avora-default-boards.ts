@@ -421,7 +421,7 @@ export function cashflowRows(entries: readonly LedgerEntry[]): ViewRow[] {
         in: entry.type === "income" ? entry.amountCents : null,
         out: entry.type === "expense" ? entry.amountCents : null,
       },
-      href: `/ket-sat/giao-dich?thang=${monthKey(entry.date)}`,
+      href: `/ket-sat/giao-dich?thang=${monthKey(entry.date)}&mo=${entry.id}`,
       group: monthKey(entry.date),
     }));
 }

@@ -164,6 +164,10 @@ export const DATA_CLASSIFICATION = {
   // AVORA-81 · 78: ★ + one private note per Bảng xem row; Két sắt notes arrive sealed on the device.
   // AVORA-81 · 79: Bàn nghĩ — which boards I keep on my desk (at most five), only I read it.
   think_hub_desk: { level: "personal", domain: "personal" },
+  // AVORA-89 · 1.5: when I last opened a Bảng — mine only.
+  think_hub_board_opened: { level: "personal", domain: "personal" },
+  // AVORA-89 · @@: "X introduced you to Y" — only the person introduced reads it.
+  contact_card_notice: { level: "personal", domain: "personal" },
   think_hub_view_row_meta: { level: "personal", domain: "personal", columns: { note: "sensitive", note_sealed: "secret" } },
   // AVORA-69: `Nhắc tôi xem lại` — each person's own, only they read it.
   think_hub_record_reminders: { level: "personal", domain: "personal" },

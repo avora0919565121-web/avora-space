@@ -296,7 +296,7 @@ export async function addGroupMembers(conversationId: string, userIds: readonly 
 
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent, refs, contact_card_user_id";
 
 /** How many messages one page holds (Đợt gộp 2 · A7). */
 export const MESSAGE_PAGE_SIZE = 50;
@@ -318,6 +318,8 @@ type MessageRowShape = {
   system_kind: string | null;
   forward_bundle?: unknown;
   is_urgent?: boolean | null;
+  refs?: unknown;
+  contact_card_user_id?: string | null;
 };
 
 function toChatMessageRow(row: MessageRowShape): ChatMessage {
@@ -338,6 +340,8 @@ function toChatMessageRow(row: MessageRowShape): ChatMessage {
     systemKind: row.system_kind ?? null,
     forwardBundle: parseForwardBundle(row.forward_bundle),
     isUrgent: row.is_urgent === true,
+    refs: Array.isArray(row.refs) ? (row.refs as { type: string; id: string }[]) : null,
+    contactCardUserId: row.contact_card_user_id ?? null,
   };
 }
 
@@ -552,6 +556,8 @@ export async function sendMessage(
   replyToDailyThoughtId: string | null = null,
   /** Cờ Khẩn (AVORA-47 · D). The server enforces 1 / conversation / day and the 7-day lock. */
   isUrgent: boolean = false,
+  /** AVORA-89 · `#` chips; the server refuses any ref outside this conversation (`avora_ref_out_of_scope`). */
+  refs: readonly { type: string; id: string }[] = [],
 ): Promise<ChatMessage> {
   const trimmed = content.trim();
   const { data, error } = await supabase
@@ -565,6 +571,7 @@ export async function sendMessage(
       origin_group_id: originGroupId,
       reply_to_daily_thought_id: replyToDailyThoughtId,
       ...(isUrgent ? { is_urgent: true } : {}),
+      ...(refs.length > 0 ? { refs: refs.map((ref) => ({ type: ref.type, id: ref.id })) } : {}),
     })
     .select(MESSAGE_COLUMNS)
     .single();

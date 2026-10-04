@@ -135,7 +135,7 @@ export function PlannedShelf({
   const shown = filter === "all" ? live : live.filter((board) => placeKindOf(board, kindOf) === filter);
   return (
     <div data-shelf-panel="hoach-dinh">
-      <div role="tablist" aria-label="Lọc theo nơi" className="-mx-4 flex gap-1.5 overflow-x-auto px-4 pb-2 [scrollbar-width:none] md:mx-0 md:px-0">
+      <div role="tablist" aria-label="Lọc theo nơi" className="flex gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none]">
         {PLACE_FILTERS.map((item) => (
           <button
             key={item.id}

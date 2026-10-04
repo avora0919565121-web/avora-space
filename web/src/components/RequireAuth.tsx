@@ -26,6 +26,7 @@ import { useNewDayLanding } from "@/lib/use-new-day-landing";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import { useTrackHistory } from "@/lib/nav-history";
 import { useTabMemory } from "@/lib/tab-memory";
+import { useFocusHeaderValue } from "@/lib/focus-header";
 
 /** Gate for every signed-in screen; renders the shared site navigation around the page. */
 export function RequireAuth() {
@@ -36,6 +37,8 @@ export function RequireAuth() {
   useTrackHistory();
   // AVORA-77 · G: each tab keeps the place it was left at (on this device, per account).
   useTabMemory(session !== null && !isRecovering ? session?.user.id : undefined);
+  // AVORA-89 · 2.3: inside one focused thing the bottom bar steps aside (phone).
+  const isFocused = useFocusHeaderValue() !== null;
 
   if (isLoading) {
     return (
@@ -81,7 +84,7 @@ export function RequireAuth() {
           <Outlet />
         </RouteErrorBoundary>
       </main>
-      {inThread || inReader ? null : <ToolBelt />}
+      {inThread || inReader || isFocused ? null : <ToolBelt />}
       {/* Floats at the top right on every screen; takes no row of its own. A phone's thread header
           needs that corner for 🔍 and ⋯, so there it steps aside (AVORA-49 · 2.6). */}
       {inReader ? null : inThread ? <div className="hidden md:contents"><QuickActionBubble /></div> : <QuickActionBubble />}

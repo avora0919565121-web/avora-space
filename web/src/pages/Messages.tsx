@@ -77,6 +77,9 @@ import { PlusMenuButton } from "@/components/PlusMenuButton";
 import { BoardUpdateCard } from "@/components/think-hub/BoardChanges";
 import { BOARD_CHANGES_PARAM, boardChangeKeys, fetchAnnouncements } from "@/lib/board-changes";
 import { MessageComposer } from "@/components/chat/MessageComposer";
+import { MobileTopActions } from "@/components/nav/HubTitle";
+import { ContactCardBubble, MessageRefChips } from "@/components/chat/ContactCardBubble";
+import { refsInText, shareContactCard, type RefChoice, type RefContext } from "@/lib/context-refs";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import { ForwardDialog } from "@/components/chat/ForwardDialog";
@@ -382,6 +385,8 @@ const Messages = () => {
     },
     [conversationId, userId],
   );
+  // AVORA-89 · ADR-052: `#` chips picked in the composer (kept while their `#name` stays in the text).
+  const chosenRefsRef = useRef<RefChoice[]>([]);
   /** The thread on screen right now, for the last-line check before a send. */
   const activeConversationRef = useRef<string | undefined>(conversationId);
   activeConversationRef.current = conversationId;
@@ -1726,6 +1731,8 @@ const Messages = () => {
       // Read off the finished text rather than tracked as chips: deleting part of a name
       // un-names that person, which is what someone editing the sentence expects.
       const mentioned = extractMentionedIds(payload.content, mentionable);
+      const refs = refsInText(payload.content, chosenRefsRef.current).map((ref) => ({ type: ref.kind, id: ref.id }));
+      chosenRefsRef.current = [];
 
       if (payload.files.length === 0) {
         await sendMessage(
@@ -1737,6 +1744,7 @@ const Messages = () => {
           originGroupId,
           null,
           payload.isUrgent === true,
+          refs,
         );
         if (payload.isUrgent === true) void queryClient.invalidateQueries({ queryKey: ["chat", "urgent", payload.conversationId] });
         return;
@@ -2527,9 +2535,10 @@ const Messages = () => {
           control={listColumn}
           label="Độ rộng danh sách"
         />
-        <div className="px-6 pb-4 pt-7 short:px-4 short:pt-3">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground md:text-[30px]">Kết nối</h1>
+        <div className="px-4 pb-2 pt-2 md:px-6 md:pb-4 md:pt-7 short:px-4 short:pt-3">
+          <div className="flex items-center justify-between gap-3 max-md:empty:hidden">
+            {/* AVORA-89 · 1.1: on an upright phone the top row already reads `A · Kết nối`. */}
+            <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground max-md:hidden short:block md:text-[30px]">Kết nối</h1>
             {!isLive ? (
               <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground" role="status">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
@@ -2537,6 +2546,7 @@ const Messages = () => {
               </span>
             ) : null}
             {/* AVORA-52 · F: the title never wraps; when the column is narrow these give way instead. */}
+            <MobileTopActions>
             <div className="flex min-w-0 shrink items-center gap-1.5 [&>*]:shrink-0 sm:gap-2">
               {/* 1.5: 1-1 and Nhóm search from their own box (with "trong toàn AVORA"); 🔍 stays where there is none. */}
               {activeTab === "direct" || activeTab === "group" ? null : (
@@ -2580,9 +2590,10 @@ const Messages = () => {
                 ]}
               />
             </div>
+            </MobileTopActions>
           </div>
 
-          <div role="tablist" aria-label="Hướng trò chuyện" className="no-scrollbar mt-5 flex items-center overflow-x-auto border-b border-border [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] [scroll-padding-inline:12px]">
+          <div role="tablist" aria-label="Hướng trò chuyện" className="no-scrollbar mt-1 md:mt-5 flex items-center overflow-x-auto border-b border-border [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] [scroll-padding-inline:12px]">
             {MESSAGE_TABS.map((tab) => {
               const isActive = tab.id === activeTab;
               const tabUnread = unreadForTab(conversations, tab.id);
@@ -3293,7 +3304,7 @@ const Messages = () => {
               <div
                 ref={threadScrollRef}
                 onScroll={handleThreadScroll}
-                className={cn("h-full overflow-y-auto", activeKind === "personal" ? "px-0 pb-6 pt-0" : "px-5 py-6 md:px-10")}
+                className={cn("h-full overflow-y-auto", activeKind === "personal" ? "px-0 pb-6 pt-0" : "px-2 py-3 md:px-10 md:py-6")}
               >
                 {messagesQuery.isPending ? (
                   <p className="text-center text-[13px] text-muted-foreground">Đang tải tin nhắn…</p>
@@ -3367,7 +3378,7 @@ const Messages = () => {
                     ) : dayGroups.map((group) => (
                       <div key={group.key}>
                         <p className="mb-6 text-center text-[12px] font-medium text-muted-foreground/80">{group.label}</p>
-                        <ul className="flex flex-col gap-3">
+                        <ul className="flex flex-col gap-1 md:gap-3">
                           {group.messages.map((message, index) => {
                             // A line the server wrote itself: no bubble, no sender, no actions.
                             if (message.systemKind === "proposal_opened") {
@@ -3629,7 +3640,7 @@ const Messages = () => {
                                   ) : null}
 
                                   {isBeingEdited ? (
-                                    <div className="w-full max-w-[80%] space-y-1.5">
+                                    <div className="w-full max-w-[86%] space-y-1.5 md:max-w-[80%]">
                                       <textarea
                                         lang="vi"
                                         spellCheck
@@ -3751,10 +3762,13 @@ const Messages = () => {
                                           images={attachmentsOf(message.id)}
                                           urlOf={attachmentUrlOf}
                                         />
+                                      ) : message.contactCardUserId != null ? (
+                                        <ContactCardBubble messageId={message.id} senderName={senderNames.get(message.senderId) ?? ""} outgoing={outgoing} />
                                       ) : message.content.trim() === "" ? null : (
                                       <div
                                         className={cn(
-                                          "whitespace-pre-wrap break-words rounded-bubble px-4 py-2.5 text-[15px] leading-relaxed",
+                                          // AVORA-89 · 1.1: denser on a phone (16/21 px, 12×7 padding); desktop unchanged.
+                                          "whitespace-pre-wrap break-words rounded-bubble px-3 py-[7px] text-[16px] leading-[21px] md:px-4 md:py-2.5 md:text-[15px] md:leading-relaxed",
                                           outgoing
                                             ? "rounded-br-[4px] bg-personal text-personal-foreground"
                                             : "rounded-bl-[4px] border border-border bg-card text-foreground",
@@ -3826,6 +3840,7 @@ const Messages = () => {
                                         )}
                                       </div>
                                       )}
+                                      {message.refs != null && message.refs.length > 0 && message.pending !== true ? <MessageRefChips messageId={message.id} outgoing={outgoing} /> : null}
                                     </MessageActionsAffordance>
                                   )}
 
@@ -4127,9 +4142,33 @@ activeKind === "personal" ? (
                   onSend={handleSend}
                   onStartRecording={!recorder.isUnsupported && !recorder.isRecording && activeVerification === null ? startRecording : undefined}
                   isSending={sendMutation.isPending || isUploading}
-                  placeholder={activeKind === "personal" ? "Ghi vào nhật ký…" : `Nhắn tin cho ${threadTitle}…`}
+                  placeholder={activeKind === "personal" ? "Ghi vào Nhật ký" : activeKind === "direct" ? `Nhắn tin cho ${threadTitle}` : projectHere !== undefined ? `Nhắn trong Dự án ${projectHere.title}` : `Nhắn trong ${threadTitle}`}
                   ariaLabel={activeKind === "personal" ? "Ghi vào nhật ký" : `Nhắn tin cho ${threadTitle}`}
                   mentionCandidates={mentionable}
+                  refContext={conversationId ? (activeKind === "personal" ? "journal" : (`conversation:${conversationId}` as RefContext)) : undefined}
+                  contextLabel={
+                    activeKind === "personal"
+                      ? "Riêng của bạn"
+                      : activeKind === "direct"
+                        ? `Trong cuộc trò chuyện với ${threadTitle}`
+                        : projectHere !== undefined
+                          ? `Trong dự án ${projectHere.title}`
+                          : `Trong nhóm ${threadTitle}`
+                  }
+                  directPeerName={activeKind === "direct" ? threadTitle : undefined}
+                  onRefsChange={(refs) => {
+                    chosenRefsRef.current = refs;
+                  }}
+                  onShareCard={(person) => {
+                    if (!conversationId) return;
+                    void shareContactCard(`conversation:${conversationId}`, person.userId).then(
+                      () => {
+                        toast.success(`Đã giới thiệu ${person.name}.`);
+                        void queryClient.invalidateQueries({ queryKey: ["chat"] });
+                      },
+                      (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Chưa gửi được thẻ."),
+                    );
+                  }}
                   attachmentCount={staged.length}
                   urgent={
                     activeKind === "personal" || activeVerification !== null

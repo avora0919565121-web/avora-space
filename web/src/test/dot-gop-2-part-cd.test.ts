@@ -60,7 +60,7 @@ describe("C1 · a table's own statuses", () => {
 describe("C2 · gallery order", () => {
   const tpl = (id: string, scopes: BoardTemplate["scopes"], source: "system" | "mine" = "system"): BoardTemplate => ({
     id, source, name: id, thinkingType: "track", guidingQuestion: null, description: null, scopes, columns: [], statuses: [],
-    titleLabel: "Tiêu đề", subTemplateName: null, sortOrder: 0,
+    titleLabel: "Tiêu đề", subTemplateName: null, sortOrder: 0, audiences: ["moi_nguoi"], whenToUse: null, exampleRows: [],
   });
   it("puts templates that fit the place first, keeps the rest, lists mine separately", () => {
     const out = orderTemplates([tpl("shopping", ["journal"]), tpl("event", ["group"]), tpl("x", ["journal"], "mine"), tpl("blank", ["journal"])], "group", null);

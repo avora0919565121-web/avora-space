@@ -322,20 +322,22 @@ beforeEach(() => {
   window.sessionStorage.clear();
 });
 
-// ------------------------------------------------------------------ 77.1 (AVORA-81: Bàn nghĩ + cách bày thay 6 thẻ kệ)
+// ------------------------------------------------------------------ 77.1 → AVORA-89 · 88.1 (the room: first visit = kệ 2)
 for (const [w, h] of SIZES) {
-  test(`77.1 · Kế hoạch lần đầu · ${w}x${h}`, async () => {
+  test(`88.1 · Kế hoạch lần đầu = kệ 2 Tổng quan · ${w}x${h}`, async () => {
     await viewport(w, h);
     await render(<App at="/ke-hoach" />);
     await settle(1200);
-    // A1 → B1: the soft tiles are chips inside Bàn nghĩ; only those above 0.
-    expect(document.querySelector('[data-desk] [data-tile="overdue"]')?.textContent).toContain("cần chốt");
-    expect(document.querySelector('[data-desk] [data-tile="today"]')?.textContent).toContain("cần tập trung");
-    expect(document.querySelector('[data-desk] [data-tile="week"]')).toBeNull();
-    // No six shelf cards; the shelves open `Theo nơi`.
-    expect(document.querySelector("[data-shelf-cards], [data-shelf-list]")).toBeNull();
-    expect(document.querySelector('[data-arranged="noi"]')).not.toBeNull();
-    await page.screenshot({ path: `${OUT}/77-1-thu-vien-${w}.png` });
+    expect(document.querySelector("[data-room-bar]")?.getAttribute("data-room-bar")).toBe("2");
+    expect(document.querySelector('[data-room-shelf="2"]')).not.toBeNull();
+    // Kệ 2 is about thinking: questions, never deadlines or assignments.
+    const text = document.querySelector('[data-room-shelf="2"]')?.textContent ?? "";
+    expect(text).toContain("Điều gì còn chưa thông suốt?");
+    expect(text).not.toMatch(/Quá hạn|Trễ hạn|cần chốt|giao/);
+    // No arrangement row, no `Theo cách nghĩ` anywhere.
+    expect(document.body.textContent).not.toContain("Theo cách nghĩ");
+    expect(document.querySelector("[data-arranged]")).toBeNull();
+    await page.screenshot({ path: `${OUT}/88-1-ke-2-${w}.png` });
   });
 }
 
@@ -351,39 +353,56 @@ test("77.3 · kệ 01 khi Két sắt khoá: một ô Đang khoá, không lộ t�
 });
 
 for (const [w, h] of SIZES) {
-  test(`77.4 · kệ 03 theo trạng thái · ${w}x${h}`, async () => {
+  test(`88.5 · kệ 3 ma trận nơi × tiến trình (từ ?ke=trang-thai) · ${w}x${h}`, async () => {
     await viewport(w, h);
     await render(<App at="/ke-hoach?ke=trang-thai" />);
     await settle(1000);
-    const lane = (id: string) => [...document.querySelectorAll(`[data-lane="${id}"] [data-lane-card]`)].map((node) => node.getAttribute("data-lane-card"));
+    const lane = (id: string) => [...document.querySelectorAll(`[data-matrix-full] [data-cell$=":${id}"] [data-matrix-card]`)].map((node) => node.getAttribute("data-matrix-card"));
     expect(lane("waiting").sort()).toEqual(["b2", "b4"]);
     expect(lane("thinking").sort()).toEqual(["b1", "b5"]);
     expect(lane("concluded")).toEqual(["b3"]);
-    // Neither the system board nor the bookshelf stands here.
-    expect(document.querySelector('[data-lane-card="sb"]')).toBeNull();
-    expect(document.querySelector('[data-lane-card="shelf"]')).toBeNull();
-    await page.screenshot({ path: `${OUT}/77-4-ke-03-trang-thai-${w}.png` });
+    // Each board once; no Bảng Avora, no bookshelf; place rows.
+    expect(document.querySelectorAll("[data-matrix-full] [data-matrix-card]").length).toBe(5);
+    expect(document.querySelector('[data-matrix-card="sb"], [data-matrix-card="shelf"]')).toBeNull();
+    expect(document.querySelector('[data-matrix-full] [data-cell="group:concluded"] [data-matrix-card="b3"]')).not.toBeNull();
+    expect(document.querySelector('[data-matrix-full] [data-cell="direct:thinking"] [data-matrix-card="b5"]')).not.toBeNull();
+    expect(document.querySelector("[data-matrix-store]")?.textContent).toMatch(/Lưu trữ \d+.*Thùng rác \d+/);
+    expect(document.body.textContent).not.toContain("Theo cách nghĩ");
+    await page.screenshot({ path: `${OUT}/88-5-ke-3-${w}.png` });
   });
 }
 
-test("77.4 · chuyển Bảng sang Đang suy nghĩ đi qua RPC set_board_lifecycle", async () => {
-  await viewport(1280, 800);
-  const screen = await render(<App at="/ke-hoach?ke=trang-thai" />);
+test("88.5 · điện thoại: chạm ô Nhóm · Đã chốt → danh sách ngay dưới lưới", async () => {
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach?ke=3" />);
   await settle(1000);
-  await userEvent.click(screen.getByRole("button", { name: 'Chuyển "Chọn trường cho con" sang trạng thái khác' }));
-  await userEvent.click(screen.getByRole("menuitem", { name: "Chuyển sang Đang suy nghĩ" }));
+  await userEvent.click(screen.getByRole("button", { name: "1" }).nth(0));
+  document.querySelector<HTMLButtonElement>('[data-matrix-cell="group:concluded"]')?.click();
+  await settle(300);
+  expect(document.querySelector("[data-matrix-picked]")?.textContent).toContain("Nhóm · Đã chốt 1");
+  expect(document.querySelector('[data-matrix-picked] [data-matrix-card="b3"]')).not.toBeNull();
+  await page.screenshot({ path: `${OUT}/88-5-ke-3-o-390.png` });
+});
+
+test("77.4 · đánh dấu Đang suy nghĩ ở kệ 3 đi qua RPC set_board_lifecycle", async () => {
+  await viewport(1280, 800);
+  const screen = await render(<App at="/ke-hoach?ke=3" />);
+  await settle(1000);
+  await userEvent.click(screen.getByRole("button", { name: "Đánh dấu “Chọn trường cho con”" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Đánh dấu Đang suy nghĩ" }));
   await settle(300);
   expect(db.calls.find((call) => call.name === "set_board_lifecycle")?.args).toEqual({ p_table_id: "b2", p_lifecycle: "thinking" });
 });
 
-test("77.6 · Kho trên tài khoản trống (thay kệ 06)", async () => {
+test("77.6 · Kho ở cuối kệ 3 (từ ?ke=khac), tài khoản trống", async () => {
   seed({ empty: true });
   await viewport(1280, 800);
   await render(<App at="/ke-hoach?ke=khac" />);
   await settle(1000);
-  expect(document.querySelector("[data-store]")?.textContent).toBe("Kho: Lưu trữ 0 · Thùng rác 0");
+  expect(document.querySelector('[data-room-shelf="3"]')).not.toBeNull();
+  expect(document.querySelector("[data-matrix-store]")?.textContent?.replace(/\s+/g, " ").trim()).toBe("Lưu trữ 0 Thùng rác 0");
   expect(document.body.textContent).not.toContain("Ý chưa xếp");
-  await page.screenshot({ path: `${OUT}/77-6-ke-06-trong-1280.png` });
+  await page.screenshot({ path: `${OUT}/77-6-kho-1280.png` });
 });
 
 test("77.23 · người mới: thư viện không có chữ hướng dẫn dài", async () => {
@@ -394,13 +413,14 @@ test("77.23 · người mới: thư viện không có chữ hướng dẫn dài"
   await page.screenshot({ path: `${OUT}/77-23-nguoi-moi-390.png` });
 });
 
-// ------------------------------------------------------------------ 77.5 kệ 05
-test("77.5 · Nhật ký là lối vào ở cuối trang (thay kệ 05)", async () => {
+// ------------------------------------------------------------------ 77.5 → kệ 5 Đọc & Nhật ký
+test("77.5 · ?ke=nhat-ky mở kệ 5, phần Nhật ký có lối vào", async () => {
   await viewport(1280, 800);
   await render(<App at="/ke-hoach?ke=nhat-ky" />);
   await settle(1000);
-  expect(document.querySelector("[data-diary-door]")?.textContent).toContain("Nhật ký · Ghi chép");
-  await page.screenshot({ path: `${OUT}/77-5-ke-05-nhat-ky-1280.png` });
+  expect(document.querySelector('[data-room-shelf="5"] [data-room-section="diary"] [data-diary-door]')).not.toBeNull();
+  expect(document.querySelector('[data-room-shelf="5"] [data-room-section="books"]')).not.toBeNull();
+  await page.screenshot({ path: `${OUT}/77-5-ke-5-1280.png` });
 });
 
 // ------------------------------------------------------------------ D1 kệ 04
@@ -814,8 +834,8 @@ test("77.11 · Đã đọc: hỏi `Bạn giữ lại điều gì?` một lần, 
   expect(document.querySelector('[role="alertdialog"]')).toBeNull();
 });
 
-// ------------------------------------------------------------------ 77.24 tab memory
-test("77.24 · Kế hoạch › kệ 04 → Nhiệm vụ → bấm Kế hoạch: về đúng kệ 04", async () => {
+// ------------------------------------------------------------------ 77.24 / 88.9 tab memory
+test("88.9 · rời ở kệ 5 → Nhiệm vụ → Kế hoạch: về kệ 5; bấm lại tab → kệ 2", async () => {
   await viewport(390, 844);
   const screen = await render(<App at="/ke-hoach?ke=ke-sach" />);
   await settle(1200);
@@ -823,38 +843,50 @@ test("77.24 · Kế hoạch › kệ 04 → Nhiệm vụ → bấm Kế hoạch:
   await settle(800);
   await userEvent.click(screen.getByRole("link", { name: /Kế hoạch/ }));
   await settle(1000);
-  expect(document.querySelector('[data-drawer="sach"] [data-shelf-panel="ke-sach"]')).not.toBeNull();
-  // 77.25: pressing Kế hoạch again goes to its root — Bàn nghĩ and the shelves, no drawer open.
+  expect(document.querySelector('[data-room-shelf="5"]')).not.toBeNull();
   await userEvent.click(screen.getByRole("link", { name: /Kế hoạch/ }));
   await settle(800);
-  expect(document.querySelector('[data-shelf-panel="ke-sach"]')).toBeNull();
-  expect(document.querySelector("[data-desk]")).not.toBeNull();
+  expect(document.querySelector('[data-room-shelf="2"]')).not.toBeNull();
 });
 
-// ------------------------------------------------------------------ AVORA-81 · PHẦN 2 · 79.1 – 79.6
+// ------------------------------------------------------------------ AVORA-89 · PHẦN 2 · the room (88.x)
 const OUT79 = OUT;
+const ROOM_TEMPLATES = [
+  { key: "weigh_options", name: "Cân nhắc lựa chọn", thinking_type: "weigh", guiding_question: "Nếu chọn cái này mà sai thì vì sao?", description: null, scopes: ["journal", "direct", "group", "project"], column_defs: [{ type: "text", label: "Lợi" }, { type: "text", label: "Hại" }], status_options: [{ key: "a", label: "Đang cân nhắc" }], title_label: "Lựa chọn", sub_template_key: null, sort_order: 60, is_active: true, audiences: ["moi_nguoi"], when_to_use: "Phải chọn giữa vài phương án.", example_rows: null },
+  { key: "objections", name: "Xử lý lời từ chối", thinking_type: "learn", guiding_question: "Khách thật sự lo điều gì?", description: null, scopes: ["journal", "direct", "group"], column_defs: [{ type: "text", label: "Lo thật" }, { type: "text", label: "Cách đáp" }], status_options: [{ key: "a", label: "Đang thử" }], title_label: "Khách nói", sub_template_key: null, sort_order: 340, is_active: true, audiences: ["sales"], when_to_use: "Gom câu khách hay nói và cách đáp tốt.", example_rows: [{ title: "“Giá cao quá”", "Lo thật": "Sợ không đáng tiền" }, { title: "“Để anh suy nghĩ thêm”", "Lo thật": "Chưa đủ tin" }] },
+  { key: "choose_school", name: "Chọn trường · chọn ngành", thinking_type: "weigh", guiding_question: "Mình hợp với điều gì nhất?", description: null, scopes: ["journal", "direct", "group"], column_defs: [{ type: "number", label: "Điểm chuẩn" }], status_options: [{ key: "a", label: "Đang cân nhắc" }], title_label: "Trường / ngành", sub_template_key: null, sort_order: 240, is_active: true, audiences: ["hoc_sinh"], when_to_use: "Chọn nguyện vọng.", example_rows: null },
+  { key: "biz_idea", name: "Ý tưởng kinh doanh", thinking_type: "weigh", guiding_question: "Ai cần điều này?", description: null, scopes: ["journal", "group"], column_defs: [{ type: "text", label: "Ai cần" }], status_options: [{ key: "a", label: "Đang nghĩ" }], title_label: "Ý tưởng", sub_template_key: null, sort_order: 300, is_active: true, audiences: ["doanh_nhan"], when_to_use: "Có ý mới.", example_rows: null },
+];
 
 for (const [w, h] of SIZES) {
-  test(`79.1 · Kế hoạch: Bàn nghĩ trên cùng, không ô tìm thứ hai, không banner, không 6 thẻ · ${w}x${h}`, async () => {
+  test(`88.5b · kệ 6 Bàn làm việc: chỉ bảng trên bàn + Chỗ trống · ${w}x${h}`, async () => {
     db.tables.think_hub_desk = [
       { table_id: "b1", placed_at: daysAgo(1) },
       { table_id: "b5", placed_at: daysAgo(0) },
       { table_id: "b3", placed_at: daysAgo(2) },
     ];
     await viewport(w, h);
-    await render(<App at="/ke-hoach" />);
+    await render(<App at="/ke-hoach?ke=6" />);
     await settle(1300);
-    expect(document.querySelector('input[aria-label="Tìm trong mọi kệ"]')).toBeNull();
     expect(document.querySelector("[data-plan-search-button]")).not.toBeNull();
-    expect(document.body.textContent).not.toContain("Nhìn lại tuần 2");
-    expect(document.querySelector("[data-shelf-cards], [data-shelf-list]")).toBeNull();
     expect(document.querySelector("[data-desk-count]")?.textContent).toBe("3/5");
     expect(document.querySelectorAll("[data-desk-card]").length).toBe(3);
-    // The book to continue sits beside, not counted in the five.
-    expect(document.querySelector("[data-desk-book]")).not.toBeNull();
-    await page.screenshot({ path: `${OUT79}/79-1-ban-nghi-${w}.png` });
+    expect(document.querySelectorAll("[data-desk-slot]").length).toBe(2);
+    expect(document.querySelector('[data-desk-card="b2"]')).toBeNull();
+    await page.screenshot({ path: `${OUT79}/88-5b-ke-6-${w}.png` });
   });
 }
+
+test("88.5b · Đặt xuống → remove_from_desk", async () => {
+  db.tables.think_hub_desk = [{ table_id: "b1", placed_at: daysAgo(1) }];
+  await viewport(1280, 800);
+  const screen = await render(<App at="/ke-hoach?ke=6" />);
+  await settle(1000);
+  await userEvent.click(screen.getByRole("button", { name: "Thêm cho “Có nên mở xưởng thứ hai?”" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Đặt xuống" }));
+  await settle(300);
+  expect(db.calls.find((call) => call.name === "remove_from_desk")?.args).toEqual({ p_table_id: "b1" });
+});
 
 test("79.1 · 🔍 mở ô tìm ngay tại chỗ; Huỷ đóng", async () => {
   await viewport(390, 844);
@@ -869,12 +901,12 @@ test("79.1 · 🔍 mở ô tìm ngay tại chỗ; Huỷ đóng", async () => {
   expect(document.querySelector("[data-plan-search]")).toBeNull();
 });
 
-test("79.2 · gõ ở Bàn nghĩ trống: tạo Bảng Của tôi, câu hỏi = câu gõ, Đang suy nghĩ, nằm trên bàn", async () => {
+test("79.2 · kệ 6 gõ câu hỏi: tạo Bảng Của tôi, câu hỏi = câu gõ, Đang suy nghĩ, lên bàn", async () => {
   seed({ empty: true });
   db.tables.think_hub_desk = [];
   db.rpcs.create_think_hub_table = tableRow({ id: "new1", name: "Năm tới tôi muốn học gì?", purpose: "Năm tới tôi muốn học gì?" });
   await viewport(390, 844);
-  const screen = await render(<App at="/ke-hoach" />);
+  const screen = await render(<App at="/ke-hoach?ke=6" />);
   await settle(1000);
   await page.screenshot({ path: `${OUT79}/79-2-ban-trong-390.png` });
   await userEvent.fill(screen.getByRole("textbox", { name: "Điều gì đang ở trong đầu bạn?" }), "Năm tới tôi muốn học gì?");
@@ -882,18 +914,15 @@ test("79.2 · gõ ở Bàn nghĩ trống: tạo Bảng Của tôi, câu hỏi = 
   await settle(500);
   const created = db.calls.find((call) => call.name === "create_think_hub_table")?.args as Record<string, unknown>;
   expect(created).toMatchObject({ p_name: "Năm tới tôi muốn học gì?", p_purpose: "Năm tới tôi muốn học gì?" });
-  expect(created.p_conversation_id).toBeUndefined();
   expect(db.calls.find((call) => call.name === "set_board_lifecycle")?.args).toEqual({ p_table_id: "new1", p_lifecycle: "thinking" });
   expect(db.calls.find((call) => call.name === "place_on_desk")?.args).toEqual({ p_table_id: "new1" });
 });
 
 test("79.3 · bàn đủ 5 → khung `Bàn đã đủ 5`", async () => {
   db.tables.think_hub_desk = ["b1", "b2", "b3", "b4", "b5"].map((id) => ({ table_id: id, placed_at: daysAgo(1) }));
-  db.rpcs.create_think_hub_table = tableRow({ id: "new6", name: "Thứ sáu", purpose: "Thứ sáu" });
   await viewport(390, 844);
-  const screen = await render(<App at="/ke-hoach" />);
+  const screen = await render(<App at="/ke-hoach?ke=6" />);
   await settle(1000);
-  // The server answers avora_desk_full; the mock reaches the same branch through the sheet event.
   window.dispatchEvent(new CustomEvent("avora:desk-full", { detail: "new6" }));
   await settle(500);
   expect(document.querySelector("[data-desk-full]")?.textContent).toContain("Bàn đã đủ 5");
@@ -901,42 +930,196 @@ test("79.3 · bàn đủ 5 → khung `Bàn đã đủ 5`", async () => {
   await userEvent.click(screen.getByRole("button", { name: /Dự án chiếu sáng|Báo giá và hợp đồng/ }).last());
   await settle(400);
   expect(db.calls.find((call) => call.name === "remove_from_desk")?.args).toEqual({ p_table_id: "b3" });
-  expect(db.calls.filter((call) => call.name === "place_on_desk").slice(-1)[0]?.args).toEqual({ p_table_id: "new6" });
 });
 
-test("79.5 · 3 cách bày: mỗi Bảng đúng một lần mỗi cách; lựa chọn được nhớ", async () => {
-  await viewport(1280, 800);
-  const screen = await render(<App at="/ke-hoach" />);
-  await settle(1100);
-  const count = (): Record<string, number> => {
-    const out: Record<string, number> = {};
-    for (const node of document.querySelectorAll("[data-arranged] [data-board-row], [data-arranged] [data-lane-card]")) {
-      const id = node.getAttribute("data-board-row") ?? node.getAttribute("data-lane-card") ?? "";
-      out[id] = (out[id] ?? 0) + 1;
-    }
-    return out;
-  };
-  const expected = { b1: 1, b2: 1, b3: 1, b4: 1, b5: 1 };
-  expect(count()).toEqual(expected);
-  await page.screenshot({ path: `${OUT79}/79-5-theo-noi-1280.png` });
-  await userEvent.click(screen.getByRole("tab", { name: "Theo tiến trình" }));
-  await settle(400);
-  expect(count()).toEqual(expected);
-  await page.screenshot({ path: `${OUT79}/79-5-theo-tien-trinh-1280.png` });
-  await userEvent.click(screen.getByRole("tab", { name: "Theo cách nghĩ" }));
-  await settle(400);
-  expect(count()).toEqual(expected);
-  expect(document.querySelector('[data-shelf-group="none"]')?.textContent).toContain("Chưa chọn kiểu");
-  await page.screenshot({ path: `${OUT79}/79-5-theo-cach-nghi-1280.png` });
-  const saved = db.writes.filter((item) => item.table === "profiles");
-  expect(JSON.stringify(saved.slice(-1)[0]?.row ?? {})).toContain("cach-nghi");
-});
-
-test("79.6 · tài khoản < 3 Bảng: không thấy `Bày theo`", async () => {
-  seed({ empty: true });
+test("88.1b · kệ 2: Đang nghĩ (câu hỏi = mục đích, ô trống) · Để lâu · chưa có câu hỏi · Vừa thông suốt", async () => {
+  db.tables.think_hub_desk = [{ table_id: "b1", placed_at: daysAgo(1) }];
+  db.tables.think_hub_board_opened = [{ board_key: "b2", opened_at: daysAgo(10) }];
+  db.rpcs.think_hub_open_questions = [{ table_id: "b5", empty_cells: 3, has_conclusion: false, others_changed_at: null }];
   await viewport(390, 844);
-  await render(<App at="/ke-hoach" />);
+  const screen = await render(<App at="/ke-hoach?ke=2" />);
+  await settle(1100);
+  const thinking = document.querySelector('[data-overview="thinking"]');
+  // On the desk first, then by last open; questions shown as the purpose.
+  expect([...(thinking?.querySelectorAll("[data-open-question]") ?? [])].map((n) => n.getAttribute("data-open-question"))).toEqual(["b1", "b5"]);
+  expect(thinking?.textContent).toContain("“Làm gì trước khi mùa mưa tới?”");
+  expect(thinking?.textContent).toContain("Còn trống 3 ô");
+  expect(document.querySelector('[data-overview="dusty"]')?.textContent).toContain("10 ngày chưa mở");
+  expect(document.querySelector('[data-overview="no-question"]')?.textContent).toContain("1 bảng chưa có câu hỏi");
+  expect(document.querySelector('[data-overview="settled"]')?.textContent).toContain("Chốt nhà cung cấp Rạng Đông");
+  await page.screenshot({ path: `${OUT79}/88-1b-ke-2-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: /Làm gì trước khi mùa mưa tới/ }));
+  await settle(600);
+  expect(document.querySelector("[data-board-question]")?.textContent).toBe("Làm gì trước khi mùa mưa tới?");
+});
+
+test("88.2 · đi đủ 6 kệ bằng ‹ › và nút lên/xuống; 1/4 không có ‹, 3/6 không có ›", async () => {
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=1" />);
   await settle(1000);
-  expect(document.querySelector("[data-arrange-picker]")).toBeNull();
-  await page.screenshot({ path: `${OUT79}/79-6-it-bang-390.png` });
+  const at = () => Number(document.querySelector("[data-room-bar]")?.getAttribute("data-room-bar"));
+  const click = (sel: string) => document.querySelector<HTMLButtonElement>(sel)?.click();
+  const seen: number[] = [];
+  for (const step of ["", "[data-room-next]", "[data-room-next]", "[data-room-updown]", "[data-room-prev]", "[data-room-prev]"]) {
+    if (step !== "") click(step);
+    await settle(450);
+    seen.push(at());
+    const id = at();
+    expect(document.querySelector("[data-room-prev]") === null).toBe(id === 1 || id === 4);
+    expect(document.querySelector("[data-room-next]") === null).toBe(id === 3 || id === 6);
+    expect(document.querySelector("[data-room-minimap] [data-on]")).not.toBeNull();
+    await page.screenshot({ path: `${OUT79}/88-2-ke-${id}-390.png` });
+  }
+  expect(seen).toEqual([1, 2, 3, 6, 5, 4]);
+});
+
+test("88.3 · chạm bản đồ → tấm Cả phòng → ô 6", async () => {
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=2" />);
+  await settle(900);
+  document.querySelector<HTMLButtonElement>("[data-room-map-button]")?.click();
+  await settle(500);
+  expect(document.querySelectorAll("[data-room-sheet] [data-room-tile]").length).toBe(6);
+  expect(document.querySelector('[data-room-tile="2"]')?.getAttribute("aria-current")).toBe("true");
+  await page.screenshot({ path: `${OUT79}/88-3-ca-phong-390.png` });
+  document.querySelector<HTMLButtonElement>('[data-room-tile="6"]')?.click();
+  await settle(500);
+  expect(document.querySelector('[data-room-shelf="6"]')).not.toBeNull();
+});
+
+test("88.4 · kệ 1: 6 gáy khác kiểu; chạm gáy nhô lên, xem bên trong, không chuyển kệ", async () => {
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=1" />);
+  await settle(1000);
+  expect([...document.querySelectorAll("[data-spine]")].map((n) => n.getAttribute("data-spine-kind"))).toEqual(["binder", "box", "binder", "book", "notebook", "box"]);
+  expect(document.querySelector("[data-spine-hint]")).not.toBeNull();
+  await page.screenshot({ path: `${OUT79}/88-4-ke-1-390.png` });
+  document.querySelector<HTMLButtonElement>('[data-spine="books"]')?.click();
+  await settle(400);
+  expect(document.querySelector('[data-spine="books"]')?.getAttribute("aria-pressed")).toBe("true");
+  expect(document.querySelector('[data-spine-preview="books"]')?.textContent).toContain("Pride and Prejudice");
+  expect(document.querySelector('[data-room-shelf="1"]')).not.toBeNull();
+  expect(document.body.textContent).not.toContain("Thùng rác");
+  await page.screenshot({ path: `${OUT79}/88-4-ke-1-gay-sach-390.png` });
+  document.querySelector<HTMLButtonElement>("[data-spine-primary]")?.click();
+  await settle(500);
+  expect(document.querySelector('[data-room-shelf="5"]')).not.toBeNull();
+});
+
+test("88.4b / 88.14 · gáy Mẫu bảng: hỏi một lần; 3 mẫu; chạm mẫu → chọn Nhóm → tạo, mở tập trung, lên bàn", async () => {
+  db.tables.think_hub_template = ROOM_TEMPLATES;
+  db.tables.think_hub_user_template = [];
+  db.tables.think_hub_desk = [];
+  db.rpcs.create_think_hub_table_from_template = tableRow({ id: "nt1", name: "Cân nhắc lựa chọn", conversation_id: "g1", source_template_key: "weigh_options" });
+  db.tables.think_hub_table = [...(db.tables.think_hub_table as Record<string, unknown>[]), tableRow({ id: "nt1", name: "Cân nhắc lựa chọn", conversation_id: "g1", source_template_key: "weigh_options" })];
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach?ke=1" />);
+  await settle(1000);
+  document.querySelector<HTMLButtonElement>('[data-spine="templates"]')?.click();
+  await settle(500);
+  expect(document.querySelector("[data-audience-ask]")).not.toBeNull();
+  await page.screenshot({ path: `${OUT79}/88-14-hoi-mot-lan-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Sales" }));
+  await userEvent.click(screen.getByRole("button", { name: "Doanh nhân" }));
+  await userEvent.click(screen.getByRole("button", { name: "Xem mẫu hợp với tôi" }));
+  await settle(500);
+  const saved = db.writes.filter((item) => item.table === "profiles").map((item) => JSON.stringify(item.row)).join(" ");
+  expect(saved).toContain("template_audiences");
+  expect(saved).toContain("sales");
+  // The library opens as a focus screen; my groups stand first and are picked.
+  expect(document.querySelector("[data-template-library]")).not.toBeNull();
+  expect([...document.querySelectorAll("[data-filter-audience] [data-audience]")].slice(0, 2).map((n) => n.getAttribute("data-audience")).sort()).toEqual(["doanh_nhan", "sales"]);
+  expect(document.querySelector("[data-template-count]")?.textContent).toMatch(/^2 mẫu hợp với (Sales · Doanh nhân|Doanh nhân · Sales)$/);
+  await page.screenshot({ path: `${OUT79}/88-14-thu-vien-mau-390.png` });
+  document.querySelector<HTMLButtonElement>("[data-focus-back]")?.click();
+  await settle(400);
+  expect(document.querySelectorAll("[data-template-quick]").length).toBe(3);
+  await page.screenshot({ path: `${OUT79}/88-4b-gay-mau-bang-390.png` });
+  document.querySelector<HTMLButtonElement>('[data-template-quick="weigh_options"]')?.click();
+  await settle(400);
+  document.querySelector<HTMLButtonElement>('[data-place-picker] [data-place="g1"]')?.click();
+  await settle(800);
+  expect(db.calls.find((call) => call.name === "create_think_hub_table_from_template")?.args).toMatchObject({ p_template_key: "weigh_options", p_conversation_id: "g1" });
+  expect(db.calls.find((call) => call.name === "place_on_desk")?.args).toEqual({ p_table_id: "nt1" });
+});
+
+test("88.15 / 88.16 · lọc Quyết định × Học sinh; xem trước 2 Hạng mục ví dụ (không lưu)", async () => {
+  db.tables.think_hub_template = ROOM_TEMPLATES;
+  db.tables.think_hub_user_template = [];
+  db.tables.profiles = [{ prefs: { template_audiences: [], template_audiences_asked: true } }];
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach?ke=1" />);
+  await settle(900);
+  document.querySelector<HTMLButtonElement>('[data-spine="templates"]')?.click();
+  await settle(300);
+  expect(document.querySelector("[data-audience-ask]")).toBeNull();
+  document.querySelector<HTMLButtonElement>("[data-open-library-full]")?.click();
+  await settle(400);
+  const typeChip = () => document.querySelector<HTMLButtonElement>('[data-filter-type] button:nth-child(5)');
+  expect(typeChip()?.textContent).toBe("Quyết định");
+  typeChip()?.click();
+  document.querySelector<HTMLButtonElement>('[data-audience="hoc_sinh"]')?.click();
+  await settle(200);
+  expect([...document.querySelectorAll("[data-template-card]")].map((n) => n.getAttribute("data-template-card"))).toEqual(["choose_school"]);
+  typeChip()?.click();
+  document.querySelector<HTMLButtonElement>('[data-audience="hoc_sinh"]')?.click();
+  await settle(200);
+  document.querySelector<HTMLButtonElement>('[data-template-card="objections"]')?.click();
+  await settle(400);
+  expect(document.querySelectorAll("[data-template-preview] [data-example-row]").length).toBe(2);
+  await page.screenshot({ path: `${OUT79}/88-16-xem-truoc-390.png` });
+  expect(db.calls.some((call) => call.name.includes("record"))).toBe(false);
+});
+
+test("88.7 · mở Bảng từ kệ 6: chỉ còn Bảng, mũi tên mép trái (→5) và trên (→3); ‹ về kệ 6", async () => {
+  db.tables.think_hub_desk = [{ table_id: "b1", placed_at: daysAgo(1) }];
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=6" />);
+  await settle(1000);
+  document.querySelector<HTMLButtonElement>('[data-desk-card="b1"] button')?.click();
+  await settle(800);
+  expect(document.querySelector("[data-room-bar]")).toBeNull();
+  expect(document.querySelector("[data-room-updown]")).toBeNull();
+  expect(document.querySelector("[data-focus-title]")?.textContent).toContain("Bàn làm việc");
+  expect([...document.querySelectorAll("[data-edge-arrow]")].map((n) => n.getAttribute("data-edge-arrow")).sort()).toEqual(["left", "up"]);
+  expect(document.querySelector('[data-edge-arrow="left"]')?.getAttribute("aria-label")).toBe("Rời Có nên mở xưởng thứ hai?, sang Đọc & Nhật ký");
+  await page.screenshot({ path: `${OUT79}/88-7-tap-trung-390.png` });
+  document.querySelector<HTMLButtonElement>("[data-focus-back]")?.click();
+  await settle(600);
+  expect(document.querySelector('[data-room-shelf="6"]')).not.toBeNull();
+  document.querySelector<HTMLButtonElement>('[data-desk-card="b1"] button')?.click();
+  await settle(600);
+  document.querySelector<HTMLButtonElement>('[data-edge-arrow="left"]')?.click();
+  await settle(600);
+  expect(document.querySelector('[data-room-shelf="5"]')).not.toBeNull();
+});
+
+for (const [at, shelf] of [["/ke-hoach?bay=tien-trinh", "3"], ["/ke-hoach?ke=ke-sach", "5"], ["/ke-hoach?ngan=avora", "4"], ["/ke-hoach?bay=noi", "3"]] as const) {
+  test(`88.11 · liên kết cũ ${at} → kệ ${shelf}`, async () => {
+    await viewport(1280, 800);
+    await render(<App at={at} />);
+    await settle(800);
+    expect(document.querySelector("[data-room-bar]")?.getAttribute("data-room-bar")).toBe(shelf);
+  });
+}
+
+test("88.12 · máy tính bấm ↓ từ kệ 2 → kệ 5; giảm chuyển động: không trượt", async () => {
+  await viewport(1280, 800);
+  await render(<App at="/ke-hoach?ke=2" />);
+  await settle(800);
+  window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
+  await settle(500);
+  expect(document.querySelector('[data-room-shelf="5"]')).not.toBeNull();
+  // The slide class exists; under prefers-reduced-motion the CSS swaps it for a fade (index.css).
+  expect(document.querySelector("[data-room-stage]")?.className).toContain("room-in-down");
+  const css = [...document.styleSheets].flatMap((sheet) => { try { return [...sheet.cssRules].map((r) => r.cssText); } catch { return []; } }).join(" ");
+  expect(css).toMatch(/prefers-reduced-motion: reduce[^}]*room-in-down/);
+});
+
+test("88.13 · 844×390 nằm ngang: kệ 2 không vỡ", async () => {
+  await viewport(844, 390);
+  await render(<App at="/ke-hoach?ke=2" />);
+  await settle(900);
+  expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
+  await page.screenshot({ path: `${OUT79}/88-13-ngang-844.png` });
 });

@@ -9,7 +9,7 @@ source_id,title_vi,title_vi_kind
 55,Phù thủy xứ Oz,xuat_ban
 113,Khu vườn bí mật,xuat_ban
 146,Công chúa nhỏ,xuat_ban
-236,Cậu bé rừng xanh,xuat_ban
+236,Sách rừng xanh,xuat_ban
 271,Ngựa ô yêu dấu,xuat_ban
 289,Gió qua rặng liễu,xuat_ban
 132,Binh pháp Tôn Tử,xuat_ban
@@ -25,7 +25,7 @@ source_id,title_vi,title_vi_kind
 74,Những cuộc phiêu lưu của Tom Sawyer,xuat_ban
 76,Những cuộc phiêu lưu của Huckleberry Finn,xuat_ban
 1400,Những kỳ vọng lớn lao,xuat_ban
-98,Chuyện hai thành phố,xuat_ban
+98,Chuyện hai thành phố,tam_dich
 730,Oliver Twist,xuat_ban
 46,Bài ca Giáng sinh,xuat_ban
 766,David Copperfield,xuat_ban
@@ -34,7 +34,7 @@ source_id,title_vi,title_vi_kind
 158,Emma,xuat_ban
 161,Lý trí và tình cảm,xuat_ban
 105,Thuyết phục,xuat_ban
-514,Những người phụ nữ bé nhỏ,xuat_ban
+514,Những người phụ nữ bé nhỏ,tam_dich
 174,Bức chân dung của Dorian Gray,xuat_ban
 844,Tầm quan trọng của sự nghiêm túc,tam_dich
 120,Đảo giấu vàng,xuat_ban
@@ -55,13 +55,12 @@ source_id,title_vi,title_vi_kind
 996,Don Quijote,xuat_ban
 3160,Odyssey,xuat_ban
 2199,Iliad,xuat_ban
-1995,Thần khúc,xuat_ban
+1995,Thần khúc — Tập 1: Địa ngục,tam_dich
 1112,Romeo và Juliet,xuat_ban
 1533,Macbeth,xuat_ban
 100,Toàn tập William Shakespeare,tam_dich
 64317,Gatsby vĩ đại,xuat_ban
 5200,Hóa thân,xuat_ban
-34380,Tiếng gọi nơi hoang dã,xuat_ban
 910,Nanh trắng,xuat_ban
 219,Tâm bóng tối,xuat_ban
 33,Chữ A màu đỏ,xuat_ban
@@ -97,7 +96,7 @@ source_id,title_vi,title_vi_kind
 8,Diễn văn nhậm chức lần hai của Abraham Lincoln,tam_dich
 9,Diễn văn nhậm chức lần đầu của Abraham Lincoln,tam_dich
 18,Luận cương Liên bang,tam_dich
-59,Luận về phương pháp,xuat_ban
+59,Luận về phương pháp,tam_dich
 70,Con người là gì? và các tiểu luận khác,tam_dich
 71,Về bổn phận bất tuân dân sự,tam_dich
 130,Chính thống,tam_dich
@@ -107,7 +106,7 @@ source_id,title_vi,title_vi_kind
 228,Aeneid,tam_dich
 301,Bản ballad nhà tù Reading,tam_dich
 833,Lý thuyết về giai cấp nhàn rỗi,tam_dich
-636,Những ảo tưởng đám đông phi thường,tam_dich
+636,Những ảo tưởng đám đông phi thường — Tập 1,tam_dich
 445,Tâm lý học đám đông,xuat_ban
 448,Tâm lý học cách mạng,tam_dich
 47,Anne ở Avonlea,tam_dich
@@ -120,13 +119,13 @@ source_id,title_vi,title_vi_kind
 408,Linh hồn người da đen,tam_dich
 2009,Nguồn gốc các loài,xuat_ban
 3207,Leviathan,tam_dich
-66048,Giải mộng,xuat_ban
+66048,Giải mộng,tam_dich
 19942,Candide,xuat_ban
 2527,Nỗi đau của chàng Werther,xuat_ban
-3023,Faust,xuat_ban
+3023,Faust — Phần 1,xuat_ban
 54873,Hai vạn dặm dưới biển,xuat_ban
 800,Tám mươi ngày vòng quanh thế giới,xuat_ban
-17989,Bá tước Monte Cristo,xuat_ban
+17989,Bá tước Monte Cristo — Tập 1,xuat_ban
 13951,Ba chàng lính ngự lâm,xuat_ban
 5711,Germinal,xuat_ban
 4650,Candide,xuat_ban

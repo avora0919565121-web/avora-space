@@ -393,7 +393,7 @@ export function MessageActionsAffordance({
   if (disabled) {
     return (
       <div className={cn("flex w-full items-center gap-1.5", outgoing ? "flex-row-reverse" : "flex-row")}>
-        <div className="max-w-[80%]">{children}</div>
+        <div className="max-w-[86%] md:max-w-[80%]">{children}</div>
       </div>
     );
   }
@@ -421,7 +421,7 @@ export function MessageActionsAffordance({
         style={swipe.offset > 0 ? { transform: `translateX(${swipe.offset}px)` } : undefined}
         className={cn(
           // AVORA-59 · D: holding a bubble opens our menu, never the phone's text callout.
-          "no-callout max-w-[80%] transition-opacity",
+          "no-callout max-w-[86%] transition-opacity md:max-w-[80%]",
           swipe.offset === 0 && "transition-transform",
           isPressing ? "select-none opacity-70" : "opacity-100",
         )}

@@ -20,6 +20,7 @@ import {
   type BookCategory,
   type BookSource,
   bookTitleLines,
+  withoutAdultInBrowse,
   type CatalogBook,
 } from "@/lib/book-catalog";
 import { ensureJournalConversation } from "@/lib/chat";
@@ -167,6 +168,17 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
     return [...reading].sort((a, b) => (at.get(b.id) ?? b.updatedAt).localeCompare(at.get(a.id) ?? a.updatedAt))[0];
   }, [books, states.data]);
 
+  const pinnedAt = useMemo(
+    () => new Map((states.data ?? []).filter((state) => state.pinnedAt != null).map((state) => [state.recordId, state.pinnedAt as string] as const)),
+    [states.data],
+  );
+  const onDevice = useQuery({ queryKey: ["books-on-device"], queryFn: booksOnDevice, staleTime: 10_000 });
+  const deviceKeys = useMemo(() => new Set((onDevice.data ?? []).filter((item) => item.complete).map((item) => item.key)), [onDevice.data]);
+  const catalogKeyOf = (book: ThinkRecord): string => {
+    const ref = catalogRefOf(field(book, keys.link));
+    return ref === null ? "" : `${ref.source}:${ref.sourceId}`;
+  };
+
   const onShelf = useMemo(() => {
     const set = new Set<string>();
     for (const book of books) {
@@ -293,12 +305,15 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
         <p role="status" className="mt-6 text-center text-[14.5px] text-muted-foreground">Không thấy sách nào khớp “{query.trim()}”.</p>
       ) : (
         TIERS.map((tier) => {
-          const list = filtered.filter((book) => book.status === tier.key);
+          // AVORA-89 · 1.6: 📌 books stand first on their tier (pinned most recently first).
+          const list = filtered
+            .filter((book) => book.status === tier.key)
+            .sort((a, b) => (pinnedAt.get(b.id) ?? "").localeCompare(pinnedAt.get(a.id) ?? ""));
           if (list.length === 0) return null;
           return (
             <section key={tier.key} aria-label={tier.label} className="mt-6">
               <h3 className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{tier.label} · {list.length}</h3>
-              <ul className="-mx-4 flex gap-3 overflow-x-auto border-b-[3px] border-foreground/10 px-4 pb-0 md:mx-0 md:grid md:grid-cols-[repeat(auto-fill,minmax(118px,1fr))] md:overflow-visible md:px-0">
+              <ul className="flex gap-3 overflow-x-auto border-b-[3px] border-foreground/10 pb-0 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] md:grid md:[mask-image:none] md:grid-cols-[repeat(auto-fill,minmax(118px,1fr))] md:overflow-visible md:px-0">
                 {list.map((book) => {
                   const progress = readingProgress(field(book, keys.position));
                   const lesson = tier.key === "da_doc" ? field(book, keys.lesson) : "";
@@ -309,7 +324,11 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
                           <span className="line-clamp-4 text-[13px] font-semibold leading-snug text-white">{book.title}</span>
                           <span className="line-clamp-2 text-[11px] text-white/75">{field(book, keys.author)}</span>
                           {stars.data?.has(book.id) === true ? <Star className="absolute right-1.5 top-1.5 h-3.5 w-3.5 fill-amber-300 text-amber-300" aria-label="Quan trọng" /> : null}
+                          {pinnedAt.has(book.id) ? <span className="absolute left-1.5 top-1.5 text-[12px]" data-book-pinned="" aria-label="Đã ghim">📌</span> : null}
                         </span>
+                        {deviceKeys.has(catalogKeyOf(book)) ? (
+                          <span className="mt-1 block text-[11px] text-muted-foreground" data-book-on-device="">✓ trên máy</span>
+                        ) : null}
                         {progress !== null ? (
                           <span className="mt-1.5 block h-1 overflow-hidden rounded-full bg-secondary">
                             <span className="block h-full rounded-full bg-personal" style={{ width: `${Math.round(progress * 100)}%` }} />
@@ -518,7 +537,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
   const effectiveSource: BookSource | null = query === "" ? source : null;
   const results = useQuery<CatalogBook[], Error>({
     queryKey: ["book-catalog", query, category, effectiveSource],
-    queryFn: () => searchCatalog(query, category, effectiveSource),
+    queryFn: async () => withoutAdultInBrowse(await searchCatalog(query, category, effectiveSource), query),
     staleTime: 5 * 60_000,
   });
   // C7: titles outside book_title_vi.csv, translated on this device only (never stored on a server).
@@ -567,7 +586,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
         <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Tìm tên sách, tác giả" aria-label="Tìm trong Thư viện mở" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]" />
       </label>
-      <div className="-mx-4 mt-2 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none] md:mx-0 md:flex-wrap md:px-0">
+      <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:flex-wrap md:[mask-image:none]">
         {BOOK_CATEGORIES.map((item) => (
           <button
             key={item.id}
@@ -594,12 +613,12 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
       ) : results.data.length === 0 ? (
         <p className="mt-4 text-[13.5px] text-muted-foreground">Không thấy sách nào khớp.</p>
       ) : (
-        <ul className="mt-3 grid gap-2 md:grid-cols-2" data-catalog-results="">
+        <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2 md:grid-cols-[repeat(2,minmax(0,1fr))]" data-catalog-results="">
           {results.data.map((item) => {
             const key = `${item.source}:${item.sourceId}`;
             const isOn = onShelf.has(key);
             return (
-              <li key={key} className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+              <li key={key} className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
                 <span className="h-12 w-8 shrink-0 rounded-sm ring-1 ring-black/10" style={{ backgroundColor: coverColor(item.title) }} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   {(() => {
@@ -612,7 +631,13 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
                           {lines.main}
                           {lines.tentative ? <span className="ml-1 text-[11px] font-normal text-muted-foreground" data-tentative="">tạm dịch</span> : null}
                         </span>
-                        {lines.original !== null ? <span className="block truncate text-[12px] text-muted-foreground/80" data-title-original="" lang={item.language}>{lines.original}</span> : null}
+                        {lines.original !== null ? (
+                          <span className="block truncate text-[12px] text-muted-foreground/80" data-title-original="">
+                            <span lang={item.language}>{lines.original}</span>
+                            {/* Same Vietnamese title in two languages (Candide, Monte Cristo…): the language tells them apart. */}
+                            <span data-title-language=""> · {LANGUAGE_NAMES[item.language] ?? item.language}</span>
+                          </span>
+                        ) : null}
                       </>
                     );
                   })()}
@@ -622,7 +647,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
                 </span>
                 {isOn ? (
                   <span className="inline-flex shrink-0 items-center gap-1 text-[12.5px] text-muted-foreground">
-                    <Check className="h-3.5 w-3.5" aria-hidden="true" /> Trên kệ của bạn
+                    <Check className="h-3.5 w-3.5" aria-hidden="true" /> <span className="md:hidden">Trên kệ</span><span className="hidden md:inline">Trên kệ của bạn</span>
                   </span>
                 ) : (
                   <button

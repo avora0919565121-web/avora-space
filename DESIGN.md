@@ -2001,6 +2001,16 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - **iPhone:** không có Fullscreen API — màn đọc phủ toàn khung (`fixed inset-0`, `viewport-fit=cover`, nền theo giao diện đọc); thanh địa chỉ Safari vẫn do Safari quyết. Chưa thử trên iPhone thật.
 - Ảnh: `docs/screens/2026-10-03/79-*`.
 
+## AVORA-89 · Một màn một việc · hàng đầu điện thoại · căn phòng Kế hoạch (04/10/2026) — ADR-052, 053, 057
+
+- **Một màn một việc.** Mở một thứ để tập trung (Bảng, Bảng xem, thư viện mẫu) thì mọi khu khác ẩn: không thanh tên kệ, không nút lên/xuống, không thanh điều hướng dưới. Chỉ còn mũi tên nhỏ ở mép (nền 14 % màu nhấn, không chữ) tới kệ liền kề. Màn đọc sách chặt hơn: chỉ `‹`.
+- **Hàng đầu điện thoại (52 px).** Logo A + tên tab ở màn gốc; chữ AVORA chỉ ở Avora Space. Có `‹` thì không logo. Nút của tab nằm trong hàng, ngay trái bubble; không còn hàng tiêu đề lớn thứ hai trên điện thoại dựng đứng. Khung chat không bubble.
+- **Ô nhập chat.** Không khung, một vạch mảnh phía trên; chữ gợi ý `Nhắn tin cho Lan` / `Nhắn trong …` / `Ghi vào Nhật ký`; textarea `block`, 1 dòng = 44 px. Bong bóng điện thoại 16/21 px, `px-3 py-[7px]`, rộng 86 %, lề vùng cuộn 8 px.
+- **`@` / `#` / `@@` chỉ trong đúng bối cảnh** — bảng chọn ghi rõ `Trong cuộc trò chuyện với Lan` / `Trong nhóm …` / `Riêng của bạn`; không có gì → `Chưa có tệp nào trong cuộc trò chuyện này`, không lấy thêm từ nơi khác. 1-1 gõ `@` → dòng nhắc dùng `@@`. Thẻ `@@` chỉ tên + PIN.
+- **Kế hoạch = căn phòng 6 kệ.** Kệ treo tường (nền `--room-wall`) / mặt bàn (`--room-desk`), chênh nhẹ. Thanh tên kệ 48 px: `‹ kệ trái` · tên + bản đồ 6 ô + `KỆ TREO TƯỜNG · n` · `kệ phải ›`. Nút viên thuốc giữa đáy. Chuyển kệ trượt 220 ms theo hướng; giảm chuyển động → mờ dần. Kệ 2 là trung tâm suy nghĩ (điều còn chưa thông suốt); việc phải làm thuộc Nhiệm vụ / Avora Space.
+- **Lề điện thoại (bắt đầu).** Hàng cuộn ngang nằm trong lề, mép phải mờ 24 px (`mask-image`), không `-mx-4 px-4`. Lưới điện thoại khai báo `grid-cols-[minmax(0,1fr)]`. Nút cuối dòng `shrink-0`, chữ bên trái co lại. Còn lại xem báo cáo AVORA-89 (chưa rà hết, chưa có `gutter.browser.test`).
+- Ảnh: `docs/screens/2026-10-03/88-*`.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

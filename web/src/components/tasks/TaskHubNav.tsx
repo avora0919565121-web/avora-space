@@ -37,7 +37,7 @@ export function TaskHubNav({
 
   return (
     <div>
-      <nav aria-label="Các mục Nhiệm vụ" className="-mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
+      <nav aria-label="Các mục Nhiệm vụ" className="overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] sm:[mask-image:none]">
         <div className="flex w-max items-center gap-1.5 pb-1">
           {shown.map((section) => {
             const isActive = section.id === active.id;

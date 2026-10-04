@@ -224,6 +224,10 @@ export type ChatMessage = {
   forwardBundle?: ForwardBundle | null;
   /** Cờ Khẩn (AVORA-47 · D): drawn with a small `Khẩn` label; passes focus and conversation mutes. */
   isUrgent?: boolean;
+  /** AVORA-89 · `#` chips by id (labels resolved at view time, ADR-052). */
+  refs?: { type: string; id: string }[] | null;
+  /** AVORA-89 · `@@`: the person introduced (name + PIN read at view time). */
+  contactCardUserId?: string | null;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
   /**

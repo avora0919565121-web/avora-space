@@ -89,6 +89,18 @@ export function bookTitleLines(book: Pick<CatalogBook, "title" | "titleVi" | "ti
   return { main: book.titleVi, original: book.title, tentative: book.titleViKind === "tam_dich" };
 }
 
+/**
+ * AVORA-89 · 1.2.5 — adult titles stay findable by name but never appear in a browse (no query)
+ * nor on the children's shelf.
+ */
+export const ADULT_BOOK_IDS: ReadonlySet<string> = new Set<string>(["gutenberg:27827"]);
+
+/** Hides adult titles when the reader is browsing rather than searching for them by name. */
+export function withoutAdultInBrowse<T extends Pick<CatalogBook, "source" | "sourceId">>(books: readonly T[], query: string): T[] {
+  if (query.trim() !== "") return [...books];
+  return books.filter((book) => !ADULT_BOOK_IDS.has(`${book.source}:${book.sourceId}`));
+}
+
 export const bookCatalogKeys = {
   search: (query: string, category: string | null, source: string | null) => ["book-catalog", query, category, source] as const,
 };

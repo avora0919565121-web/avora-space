@@ -34,7 +34,7 @@ export function SectionTabs({
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
         {action?.(current) ?? null}
       </div>
-      <nav aria-label={`Mục ${section}`} className="-mx-2 mt-2 overflow-x-auto px-2">
+      <nav aria-label={`Mục ${section}`} className="mt-2 overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]">
         <ul className="flex items-center gap-1 whitespace-nowrap">
           {tabs.map((tab) => {
             const isActive: boolean = tab.to === current;

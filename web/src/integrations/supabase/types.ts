@@ -1,6 +1,3 @@
-/* eslint-disable */
-// AUTO-GENERATED — DO NOT EDIT
-// Run migrations to regenerate.
 export type Json =
   | string
   | number
@@ -446,6 +443,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      contact_card_notice: {
+        Row: {
+          audience_label: string
+          created_at: string
+          id: string
+          introduced_user_id: string
+          introducer_id: string
+          seen_at: string | null
+        }
+        Insert: {
+          audience_label: string
+          created_at?: string
+          id?: string
+          introduced_user_id: string
+          introducer_id: string
+          seen_at?: string | null
+        }
+        Update: {
+          audience_label?: string
+          created_at?: string
+          id?: string
+          introduced_user_id?: string
+          introducer_id?: string
+          seen_at?: string | null
+        }
+        Relationships: []
       }
       contact_channel: {
         Row: {
@@ -1592,6 +1616,7 @@ export type Database = {
         Row: {
           algorithm_version: string | null
           attachment_count: number
+          contact_card_user_id: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -1605,6 +1630,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          refs: Json | null
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
@@ -1614,6 +1640,7 @@ export type Database = {
         Insert: {
           algorithm_version?: string | null
           attachment_count?: number
+          contact_card_user_id?: string | null
           content: string
           conversation_id: string
           created_at?: string
@@ -1627,6 +1654,7 @@ export type Database = {
           origin_content_id?: string | null
           origin_group_id?: string | null
           origin_sender_id?: string | null
+          refs?: Json | null
           reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
           sender_id: string
@@ -1636,6 +1664,7 @@ export type Database = {
         Update: {
           algorithm_version?: string | null
           attachment_count?: number
+          contact_card_user_id?: string | null
           content?: string
           conversation_id?: string
           created_at?: string
@@ -1649,6 +1678,7 @@ export type Database = {
           origin_content_id?: string | null
           origin_group_id?: string | null
           origin_sender_id?: string | null
+          refs?: Json | null
           reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
           sender_id?: string
@@ -3239,6 +3269,24 @@ export type Database = {
           },
         ]
       }
+      think_hub_board_opened: {
+        Row: {
+          board_key: string
+          opened_at: string
+          user_id: string
+        }
+        Insert: {
+          board_key: string
+          opened_at?: string
+          user_id?: string
+        }
+        Update: {
+          board_key?: string
+          opened_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       think_hub_cell_files: {
         Row: {
           byte_size: number
@@ -3847,9 +3895,11 @@ export type Database = {
       }
       think_hub_template: {
         Row: {
+          audiences: string[]
           column_defs: Json
           default_view: string
           description: string | null
+          example_rows: Json | null
           guiding_question: string | null
           is_active: boolean
           key: string
@@ -3862,11 +3912,14 @@ export type Database = {
           thinking_type: string | null
           title_label: string
           version: number
+          when_to_use: string | null
         }
         Insert: {
+          audiences?: string[]
           column_defs?: Json
           default_view?: string
           description?: string | null
+          example_rows?: Json | null
           guiding_question?: string | null
           is_active?: boolean
           key: string
@@ -3879,11 +3932,14 @@ export type Database = {
           thinking_type?: string | null
           title_label?: string
           version?: number
+          when_to_use?: string | null
         }
         Update: {
+          audiences?: string[]
           column_defs?: Json
           default_view?: string
           description?: string | null
+          example_rows?: Json | null
           guiding_question?: string | null
           is_active?: boolean
           key?: string
@@ -3896,6 +3952,7 @@ export type Database = {
           thinking_type?: string | null
           title_label?: string
           version?: number
+          when_to_use?: string | null
         }
         Relationships: []
       }
@@ -4969,6 +5026,17 @@ export type Database = {
       confirm_verification: {
         Args: { p_conversation_id: string }
         Returns: string
+      }
+      contact_card_view: {
+        Args: { p_message_id: string }
+        Returns: {
+          avatar_url: string
+          is_friend: boolean
+          is_self: boolean
+          name: string
+          pin: string
+          user_id: string
+        }[]
       }
       contact_invite_timed_out: {
         Args: { p_invited_at: string; p_status: string }
@@ -6196,6 +6264,7 @@ export type Database = {
         Returns: {
           algorithm_version: string | null
           attachment_count: number
+          contact_card_user_id: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -6209,6 +6278,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          refs: Json | null
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
@@ -6805,6 +6875,8 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      mark_board_opened: { Args: { p_board_key: string }; Returns: string }
+      mark_contact_card_notices_seen: { Args: never; Returns: undefined }
       mark_conversation_read: {
         Args: { p_conversation_id: string }
         Returns: string
@@ -7118,6 +7190,7 @@ export type Database = {
         Returns: {
           algorithm_version: string | null
           attachment_count: number
+          contact_card_user_id: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -7131,6 +7204,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          refs: Json | null
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
@@ -7426,6 +7500,14 @@ export type Database = {
       request_think_hub_column_delete: {
         Args: { p_column_id: string; p_reason: string; p_table_id: string }
         Returns: undefined
+      }
+      resolve_message_refs: {
+        Args: { p_message_id: string }
+        Returns: {
+          id: string
+          kind: string
+          label: string
+        }[]
       }
       resolve_removal_request: {
         Args: { approve: boolean; target_request_id: string }
@@ -8230,6 +8312,7 @@ export type Database = {
         Returns: {
           algorithm_version: string | null
           attachment_count: number
+          contact_card_user_id: string | null
           content: string
           conversation_id: string
           created_at: string
@@ -8243,6 +8326,7 @@ export type Database = {
           origin_content_id: string | null
           origin_group_id: string | null
           origin_sender_id: string | null
+          refs: Json | null
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
           sender_id: string
@@ -8593,6 +8677,10 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      share_contact_card: {
+        Args: { p_context: string; p_user_id: string }
+        Returns: string
+      }
       skip_shared_task: {
         Args: { p_silent?: boolean; p_task_id: string }
         Returns: {
@@ -8718,6 +8806,33 @@ export type Database = {
         Args: { p_message: string; p_pin: string }
         Returns: string
       }
+      suggest_contact_cards: {
+        Args: { p_context: string; p_query?: string }
+        Returns: {
+          has_pin: boolean
+          name: string
+          pin: string
+          user_id: string
+        }[]
+      }
+      suggest_mentions: {
+        Args: { p_context: string; p_query?: string }
+        Returns: {
+          id: string
+          kind: string
+          label: string
+        }[]
+      }
+      suggest_refs: {
+        Args: { p_context: string; p_kind?: string; p_query?: string }
+        Returns: {
+          at: string
+          detail: string
+          id: string
+          kind: string
+          label: string
+        }[]
+      }
       suggested_meeting_attendees: {
         Args: { p_conversation_id: string }
         Returns: string[]
@@ -8736,6 +8851,15 @@ export type Database = {
       task_recipient_ids: {
         Args: { p_conversation_id: string }
         Returns: string[]
+      }
+      think_hub_open_questions: {
+        Args: never
+        Returns: {
+          empty_cells: number
+          has_conclusion: boolean
+          others_changed_at: string
+          table_id: string
+        }[]
       }
       toggle_record_star: { Args: { p_record_id: string }; Returns: boolean }
       transfer_group_ownership: {

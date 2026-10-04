@@ -27,9 +27,9 @@ export type ThinkingType = "track" | "progress" | "breakdown" | "weigh" | "learn
  */
 export const THINKING_TYPES: readonly { id: ThinkingType; label: string; description: string; question: string }[] = [
   { id: "track", label: "Theo dõi", description: "Nắm những thứ đang diễn ra — khách hàng, việc nhà, sức khoẻ, người thân.", question: "Điều gì cần để mắt tới?" },
-  { id: "progress", label: "Tiến trình", description: "Đi từng bước tới đích — một dự án, một kỹ năng, một sự kiện.", question: "Mỗi phần đang ở bước nào?" },
-  { id: "breakdown", label: "Phân rã", description: "Chia điều lớn thành phần nhỏ, làm được từng phần.", question: "Điều này gồm những phần nào?" },
-  { id: "weigh", label: "Cân nhắc", description: "Đặt các lựa chọn cạnh nhau để quyết định — mua gì, chọn ai, đi đâu.", question: "Nếu chọn cái này mà sai thì vì sao?" },
+  { id: "progress", label: "Đi từng bước", description: "Đi từng bước tới đích — một dự án, một kỹ năng, một sự kiện.", question: "Mỗi phần đang ở bước nào?" },
+  { id: "breakdown", label: "Chia nhỏ", description: "Chia điều lớn thành phần nhỏ, làm được từng phần.", question: "Điều này gồm những phần nào?" },
+  { id: "weigh", label: "Quyết định", description: "Đặt các lựa chọn cạnh nhau để quyết định — mua gì, chọn ai, đi đâu.", question: "Nếu chọn cái này mà sai thì vì sao?" },
   { id: "learn", label: "Học hỏi", description: "Giữ lại điều học được và đem ra dùng — sách, khoá học, bài học từ sai lầm.", question: "Điều này áp dụng vào đâu?" },
 ];
 
@@ -54,7 +54,55 @@ export type BoardTemplate = {
   titleLabel: string;
   subTemplateName: string | null;
   sortOrder: number;
+  /** AVORA-89 · 2.4b: who usually uses it (one or more of TEMPLATE_AUDIENCES). */
+  audiences: readonly TemplateAudience[];
+  whenToUse: string | null;
+  /** Two example Hạng mục, shown in the preview only — never saved. */
+  exampleRows: readonly Record<string, string>[];
 };
+
+export type TemplateAudience = "moi_nguoi" | "hoc_sinh" | "gia_dinh" | "doanh_nhan" | "sales" | "ke_toan" | "ky_thuat";
+export const TEMPLATE_AUDIENCES: readonly { id: TemplateAudience; label: string }[] = [
+  { id: "moi_nguoi", label: "Mọi người" },
+  { id: "hoc_sinh", label: "Học sinh · Sinh viên" },
+  { id: "gia_dinh", label: "Gia đình · Nội trợ" },
+  { id: "doanh_nhan", label: "Doanh nhân" },
+  { id: "sales", label: "Sales" },
+  { id: "ke_toan", label: "Kế toán" },
+  { id: "ky_thuat", label: "Kỹ thuật · Thi công" },
+];
+export function isTemplateAudience(value: unknown): value is TemplateAudience {
+  return typeof value === "string" && TEMPLATE_AUDIENCES.some((item) => item.id === value);
+}
+
+/**
+ * Library order (2.4b · D): used most recently → matches my audiences → sort_order. Filters: what
+ * for (thinking type) × who for (audiences; `Mọi người` templates stay when other groups are picked
+ * only if `moi_nguoi` is chosen too).
+ */
+export function libraryTemplates(
+  templates: readonly BoardTemplate[],
+  filter: { type: ThinkingType | null; audiences: readonly TemplateAudience[] },
+  mine: readonly TemplateAudience[],
+  usedAt: ReadonlyMap<string, string>,
+): BoardTemplate[] {
+  const listed = templates.filter(
+    (template) =>
+      template.source === "system" &&
+      template.id !== "blank" &&
+      template.columns.length + template.statuses.length > 0 &&
+      (filter.type === null || template.thinkingType === filter.type) &&
+      (filter.audiences.length === 0 || template.audiences.some((audience) => filter.audiences.includes(audience))),
+  );
+  const fits = (template: BoardTemplate): number => (template.audiences.some((audience) => mine.includes(audience)) ? 1 : 0);
+  return [...listed].sort((a, b) => {
+    const ua = usedAt.get(a.id) ?? "";
+    const ub = usedAt.get(b.id) ?? "";
+    if (ua !== ub) return ub.localeCompare(ua);
+    if (fits(a) !== fits(b)) return fits(b) - fits(a);
+    return a.sortOrder - b.sortOrder;
+  });
+}
 
 function readColumns(raw: unknown): BoardTemplate["columns"] {
   if (!Array.isArray(raw)) return [];
@@ -103,6 +151,9 @@ export async function fetchTemplates(): Promise<BoardTemplate[]> {
       titleLabel: row.title_label,
       subTemplateName: row.sub_template_key === null ? null : names.get(row.sub_template_key) ?? null,
       sortOrder: row.sort_order,
+      audiences: (row.audiences ?? ["moi_nguoi"]).filter(isTemplateAudience),
+      whenToUse: row.when_to_use ?? null,
+      exampleRows: Array.isArray(row.example_rows) ? (row.example_rows as Record<string, string>[]) : [],
     }));
   const mineTemplates: BoardTemplate[] = (mine.data ?? []).map((row) => ({
     id: row.id,
@@ -117,6 +168,9 @@ export async function fetchTemplates(): Promise<BoardTemplate[]> {
     titleLabel: row.title_label ?? "Tiêu đề",
     subTemplateName: null,
     sortOrder: 0,
+    audiences: ["moi_nguoi"],
+    whenToUse: null,
+    exampleRows: [],
   }));
   return [...mineTemplates, ...systemTemplates];
 }

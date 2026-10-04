@@ -256,13 +256,10 @@ beforeEach(async () => {
  * before they know what a table here even is.
  */
 test("the first visit lands in a table nobody had to create", async () => {
-  const screen = await open("/ke-hoach");
+  const screen = await open("/ke-hoach?ke=3");
 
-  // AVORA-81 · B2: the shelves open `Theo nơi`; a private board sits under `Của tôi`.
-  const shelf = screen.getByRole("region", { name: "Của tôi" });
-  await expect
-    .element(shelf.getByRole("button", { name: /Bảng tổng hợp/ }))
-    .toBeInTheDocument();
+  // AVORA-89 · PHẦN 2: the board stands in kệ 3's matrix (Cá nhân · Đang chờ).
+  await expect.element(screen.getByRole("button", { name: /Bảng tổng hợp/ }).first()).toBeInTheDocument();
   // The ensure can run twice (ensure → invalidate → refetch re-enters); the invariant is that
   // the default table was ensured without the person creating anything.
   expect(state.ensured).toBeGreaterThanOrEqual(1);
@@ -287,10 +284,12 @@ test("a table is created by name and becomes the one on screen", async () => {
   const screen = await open();
   await userEvent.click(screen.getByRole("button", { name: /^Thêm Hạng mục/ }), { button: "right" });
   await userEvent.click(screen.getByRole("menuitem", { name: "Bảng mới" }));
-  await expect.element(screen.getByRole("dialog")).toBeInTheDocument();
+  // AVORA-89 · 2.4b: `Bảng mới` opens the Mẫu bảng library (focus screen); Bảng trống sits on top.
+  const ask = screen.getByRole("button", { name: "Bỏ qua" });
+  if (await ask.query()) await userEvent.click(ask);
   await userEvent.click(screen.getByRole("button", { name: /Bảng trống/ }));
   await userEvent.fill(screen.getByRole("textbox", { name: "Tên Bảng" }), "Công trình");
-  await userEvent.click(screen.getByRole("button", { name: "Dùng mẫu này" }));
+  await userEvent.click(screen.getByRole("button", { name: "Của tôi" }));
 
   expect(state.createdTables).toEqual(["Công trình"]);
   // "Becomes the one on screen": the created table opens as the active view (the Kệ lists it too).

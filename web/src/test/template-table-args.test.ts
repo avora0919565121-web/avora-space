@@ -15,7 +15,7 @@ function template(id: string, source: "system" | "mine" = "system"): BoardTempla
   return {
     id, source, name: id, thinkingType: null, guidingQuestion: null, description: null,
     scopes: ["journal", "direct", "group", "project"], columns: [], statuses: [], titleLabel: "Tiêu đề",
-    subTemplateName: null, sortOrder: 0,
+    subTemplateName: null, sortOrder: 0, audiences: ["moi_nguoi"], whenToUse: null, exampleRows: [],
   };
 }
 

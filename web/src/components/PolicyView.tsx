@@ -142,7 +142,7 @@ export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
                   ))}
                 </ul>
               </nav>
-              <div className="-mx-5 mb-5 flex gap-2 overflow-x-auto px-5 pb-1 [scrollbar-width:none] md:hidden" data-policy-chips="">
+              <div className="mb-5 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:hidden" data-policy-chips="">
                 {doc.sections.map((s) => (
                   <button key={s.id} type="button" onClick={() => jump(s.id)} className="press h-9 shrink-0 rounded-full bg-secondary/70 px-3.5 text-[13px] text-foreground">
                     {s.title.replace(/^[A-I]\.\s/, "")}

@@ -1,5 +1,6 @@
 import { ArrowLeft, Camera, Download, FileText, ImagePlus, Keyboard, Loader2, Pencil, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { askConfirm, askText } from "@/components/ConfirmHost";
@@ -197,6 +198,16 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
   const pickRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => onVaultAdd(() => setIsAddOpen(true)), []);
+  // AVORA-89 · 1.4: `?mo=<id>` opens that one item once the vault is open (the gate asks first). Id only.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const openId = searchParams.get("mo");
+  useEffect(() => {
+    if (openId === null || isPending || items.length === 0) return;
+    if (items.some((item) => item.id === openId)) setMode({ kind: "detail", id: openId });
+    const next = new URLSearchParams(searchParams);
+    next.delete("mo");
+    setSearchParams(next, { replace: true });
+  }, [isPending, items, openId, searchParams, setSearchParams]);
 
   const addFiles = useCallback(async (files: FileList | File[], openForm: boolean): Promise<void> => {
     try {

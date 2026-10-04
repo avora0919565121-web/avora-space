@@ -415,6 +415,17 @@ const FinanceTransactions = () => {
     [addTransaction, suggestions],
   );
 
+  // AVORA-89 · 1.4: `?mo=<id>` (from a Két sắt Bảng xem) opens that one entry. Only an id travels in the address.
+  const openId = searchParams.get("mo");
+  useEffect(() => {
+    if (openId === null || isLoading) return;
+    const entry = allEntries.find((item) => item.id === openId);
+    if (entry !== undefined) setViewing(entry);
+    const next = new URLSearchParams(searchParams);
+    next.delete("mo");
+    setSearchParams(next, { replace: true });
+  }, [allEntries, isLoading, openId, searchParams, setSearchParams]);
+
   // A receipt link is short-lived and minted on demand, never stored in the row.
   useEffect(() => {
     let cancelled = false;
