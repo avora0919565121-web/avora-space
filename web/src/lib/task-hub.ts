@@ -39,20 +39,24 @@ export type TaskHubSection = {
 export const TASK_HUB_PARAM = "muc";
 
 export const TASK_HUB_SECTIONS: readonly TaskHubSection[] = [
-  { id: "my_day", placement: "top", slug: "hom-nay", label: "Hôm nay", description: "Việc và cuộc hẹn của riêng hôm nay — chạm một dòng để mở.", empty: "Hôm nay nhẹ nhàng, chưa có gì cần làm." },
-  { id: "tasks", placement: "top", slug: "viec", label: "Tất cả", description: "Mọi nhiệm vụ đang mở, đọc theo cách bạn quen.", empty: "Chưa có việc nào đang mở." },
-  { id: "events", placement: "hidden", slug: "su-kien", label: "Sự kiện", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
+  { id: "my_day", placement: "top", slug: "hom-nay", label: "Hôm nay", description: "Lời mời, việc trễ hạn, rồi việc của hôm nay.", empty: "Hôm nay nhẹ nhàng, chưa có gì cần làm." },
   { id: "upcoming", placement: "top", slug: "sap-toi", label: "Sắp tới", description: "Bảy ngày tới trên một trang: khối là sự kiện, vạch là hạn chót.", empty: "Bảy ngày tới đang trống." },
-  { id: "calendar", placement: "top", slug: "lich", label: "Lịch", description: "Chạm một việc để xem và làm luôn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
-  { id: "overdue", placement: "top", slug: "qua-han", label: "Quá hạn", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
-  { id: "invitations", placement: "when-any", slug: "loi-moi", label: "Lời mời", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
+  { id: "tasks", placement: "top", slug: "viec", label: "Tất cả", description: "Mọi nhiệm vụ đang mở.", empty: "Chưa có việc nào đang mở." },
+  { id: "events", placement: "hidden", slug: "su-kien", label: "Sự kiện", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
+  { id: "calendar", placement: "more", slug: "lich", label: "Lịch", description: "Chạm một việc để xem và làm luôn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
+  { id: "overdue", placement: "hidden", slug: "qua-han", label: "Quá hạn", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
+  { id: "invitations", placement: "hidden", slug: "loi-moi", label: "Lời mời", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
   { id: "drafts", placement: "hidden", slug: "nhap", label: "Nháp", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },
   { id: "completed", placement: "more", slug: "hoan-thanh", label: "Đã xong", description: "Việc đã xong, mới nhất lên trước.", empty: "Chưa có việc nào hoàn thành." },
   { id: "trash", placement: "more", slug: "thung-rac", label: "Thùng rác", description: "Việc bạn đã xoá — chạm để khôi phục.", empty: "Thùng rác trống." },
 ];
 
+/** The three sections of the strip, in order (AVORA-89 · 3.B). */
+export const TASK_HUB_TOP: readonly TaskHubSectionId[] = ["my_day", "upcoming", "tasks"];
+
 export function sectionBySlug(slug: string | null): TaskHubSection {
-  return TASK_HUB_SECTIONS.find((section) => section.slug === slug) ?? TASK_HUB_SECTIONS[1];
+  // AVORA-93 · 4 (89 · 3.B1): Nhiệm vụ opens on `Hôm nay`.
+  return TASK_HUB_SECTIONS.find((section) => section.slug === slug) ?? TASK_HUB_SECTIONS[0];
 }
 
 function kept(tasks: readonly TaskItem[], userId: string | undefined): TaskItem[] {

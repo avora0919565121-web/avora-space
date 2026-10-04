@@ -5,6 +5,7 @@ import { ENTRY_PATH, decideDayOpen } from "@/lib/day-open";
 import { fetchLastOpenedDate, recordOpenedDate } from "@/lib/day-open-api";
 import { HOME_ROUTE } from "@/lib/navigation";
 import { todayIso } from "@/lib/tasks";
+import { isResumeDevice } from "@/lib/use-resume-place";
 
 /**
  * Runs the new-day check when the app opens fresh and every time it comes back from the
@@ -41,7 +42,8 @@ export function useNewDayLanding(userId: string | undefined): void {
         const decision = decideDayOpen(lastOpened, today, isCold ? ENTRY_PATH : pathRef.current, HOME_ROUTE, isCold ? "cold" : "resume");
         seenDayRef.current = today;
         if (decision === "stay") return;
-        if (decision === "go-home") navigate(HOME_ROUTE, { replace: true });
+        // AVORA-93 · 5: a phone follows the 04:00 resume rule instead (use-resume-place); only the day is recorded here.
+        if (decision === "go-home" && !isResumeDevice()) navigate(HOME_ROUTE, { replace: true });
         await recordOpenedDate(userId, today);
       } catch {
         // A failed read leaves the person where they are: missing the morning overview once is

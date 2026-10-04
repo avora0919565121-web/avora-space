@@ -12,6 +12,7 @@ import {
   MessagesSquare,
   Plus,
   Repeat,
+  SlidersHorizontal,
   Trash2,
   X,
 } from "lucide-react";
@@ -43,7 +44,7 @@ import {
   DurationTag,
   emptyScheduleDraft,
   ImportantStar,
-  ReminderBanner,
+  ReminderLine,
   ScheduleFields,
   TimeTag,
   type ScheduleDraft,
@@ -1406,6 +1407,26 @@ function HeavyView({
 }
 
 /** Tất cả, then the four Connect Hub layers in their fixed order. */
+/** `Xếp · Lọc` — the readings and filters of `Tất cả`, folded behind one button (89 · 3.B). */
+function SortFilterButton({ mode, filterCount, children }: { mode: TaskViewMode; filterCount: number; children: ReactNode }) {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  return (
+    <div data-sort-filter="">
+      <button
+        type="button"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        className="press inline-flex h-10 items-center gap-1.5 rounded-full border border-border bg-card px-3.5 text-[13.5px] text-foreground"
+      >
+        <SlidersHorizontal className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+        Xếp · Lọc
+        <span className="text-muted-foreground">· {TASK_VIEW_LABELS[mode]}{filterCount > 0 ? ` · ${filterCount} bộ lọc` : ""}</span>
+      </button>
+      {isOpen ? <div className="mt-3 space-y-3">{children}</div> : null}
+    </div>
+  );
+}
+
 function ScopeChips({ value, onChange }: { value: TaskScope | null; onChange: (next: TaskScope | null) => void }) {
   const options: { id: TaskScope | null; label: string }[] = [
     { id: null, label: "Tất cả" },
@@ -1753,7 +1774,8 @@ export default function Tasks() {
 
         {hubSection.id !== "tasks" ? (
           <div className="mt-5 space-y-3 pb-10">
-            <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} onOpen={setOpenTaskId} />
+            {/* AVORA-93 · 4: reminders fold into one line, only on `Hôm nay`. */}
+            {hubSection.id === "my_day" ? <ReminderLine due={due} titleFor={titleFor} onDismiss={dismiss} onOpen={setOpenTaskId} /> : null}
             {tasksFailed ? (
               <BlockLoadError name="nhiệm vụ" onRetry={() => void refetchTasks()} />
             ) : isLoading ? (
@@ -1775,19 +1797,7 @@ export default function Tasks() {
           </div>
         ) : (
         <>
-        <p className="mt-4 text-[14px] text-muted-foreground">
-          {mode === "deadline"
-            ? "Tất cả việc của bạn theo thứ tự phải làm trước."
-            : mode === "relationship"
-              ? "Việc của bạn và việc chung theo từng đối tượng. Bấm vào từng mục để mở ra."
-              : mode === "heavy"
-                ? "Việc bạn đánh giá là nặng, sắp theo chỗ trống còn lại trước hạn."
-                : "Những việc bạn đánh dấu là quan trọng — chỉ riêng bạn thấy."}
-        </p>
-
-        <div className="mt-5 space-y-3">
-          <ReminderBanner due={due} titleFor={titleFor} onDismiss={dismiss} onOpen={setOpenTaskId} />
-
+        <div className="mt-4 space-y-3">
           {/* Arrived from a dashboard block: say what is being left out, and offer the way back.
               In Theo đối tượng the layer chips already say it. */}
           {scope !== null && mode !== "relationship" ? (
@@ -1805,14 +1815,20 @@ export default function Tasks() {
             </div>
           ) : null}
 
-          <TaskViewTabs mode={mode} order={viewOrder} onChange={setMode} onReorder={reorderViews} />
-          {mode === "relationship" ? <ScopeChips value={scope} onChange={chooseScope} /> : null}
-          <CategoryFilterBar
-            categories={categories ?? []}
-            selected={categoryFilter}
-            onToggle={toggleCategory}
-            onClear={() => setCategoryFilter([])}
-          />
+          {/* AVORA-89 · 3.B: one `Xếp · Lọc` instead of four view tabs and six category chips. */}
+          <SortFilterButton
+            mode={mode}
+            filterCount={categoryFilter.length + (scope !== null ? 1 : 0)}
+          >
+            <TaskViewTabs mode={mode} order={viewOrder} onChange={setMode} onReorder={reorderViews} />
+            {mode === "relationship" ? <ScopeChips value={scope} onChange={chooseScope} /> : null}
+            <CategoryFilterBar
+              categories={categories ?? []}
+              selected={categoryFilter}
+              onToggle={toggleCategory}
+              onClear={() => setCategoryFilter([])}
+            />
+          </SortFilterButton>
         </div>
 
         {tasksFailed ? (

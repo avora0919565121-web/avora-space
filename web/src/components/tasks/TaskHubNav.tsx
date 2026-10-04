@@ -1,26 +1,13 @@
 import { MoreHorizontal } from "lucide-react";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { TASK_HUB_SECTIONS, type TaskHubSection, type TaskHubSectionId } from "@/lib/task-hub";
+import { TASK_HUB_SECTIONS, TASK_HUB_TOP, type TaskHubSection, type TaskHubSectionId } from "@/lib/task-hub";
 import { cn } from "@/lib/utils";
 
-/** The sections the strip shows right now: the five fixed ones, plus Lời mời while any wait. */
-export function visibleHubSections(
-  counts: Partial<Record<TaskHubSectionId, number>>,
-  active: TaskHubSection,
-): TaskHubSection[] {
-  return TASK_HUB_SECTIONS.filter(
-    (section) =>
-      section.placement === "top" ||
-      (section.placement === "when-any" && ((counts[section.id] ?? 0) > 0 || section.id === active.id)) ||
-      (section.placement === "hidden" && section.id === active.id),
-  );
-}
-
 /**
- * Where Nhiệm vụ can be read from (AVORA-53 · 4.7): `Hôm nay · Tất cả · Sắp tới · Lịch · Quá hạn`,
- * `Lời mời (n)` only while someone is waiting, and `Đã xong` · `Thùng rác` behind ⋯ at the end.
- * The section's description is a small quiet line, so the first task is visible on a phone.
+ * Nhiệm vụ's strip (AVORA-89 · 3.B / AVORA-93 · 4): three equal sections — `Hôm nay · Sắp tới ·
+ * Tất cả` — with how many each holds, and ⋯ for Lịch, Đã xong, Thùng rác. No description line:
+ * the first task stays in view on a phone.
  */
 export function TaskHubNav({
   active,
@@ -31,63 +18,54 @@ export function TaskHubNav({
   counts: Partial<Record<TaskHubSectionId, number>>;
   onChange: (section: TaskHubSection) => void;
 }) {
-  const shown = visibleHubSections(counts, active);
+  const top = TASK_HUB_TOP.map((id) => TASK_HUB_SECTIONS.find((section) => section.id === id)).filter(
+    (section): section is TaskHubSection => section !== undefined,
+  );
   const more = TASK_HUB_SECTIONS.filter((section) => section.placement === "more");
-  const activeInMore = more.some((section) => section.id === active.id);
+  const activeInMore = !TASK_HUB_TOP.includes(active.id);
 
   return (
-    <div>
-      <nav aria-label="Các mục Nhiệm vụ" className="overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] sm:[mask-image:none]">
-        <div className="flex w-max items-center gap-1.5 pb-1">
-          {shown.map((section) => {
-            const isActive = section.id === active.id;
-            const count = counts[section.id];
-            return (
-              <button
-                key={section.id}
-                type="button"
-                onClick={() => onChange(section)}
-                aria-current={isActive ? "page" : undefined}
-                className={cn(
-                  "press flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 text-[13px] transition-colors",
-                  isActive
-                    ? "border-foreground bg-foreground font-semibold text-background"
-                    : "border-border bg-card font-medium text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {section.label}
-                {count !== undefined && count > 0 ? (
-                  <span className={cn("tabular text-[11.5px]", isActive ? "text-background/70" : "text-task-idle")}>
-                    {section.id === "invitations" ? `(${count})` : count}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-          <DropdownMenu>
-            <DropdownMenuTrigger
-              aria-label="Thêm mục: Đã xong, Thùng rác"
-              className={cn(
-                "press flex h-10 min-w-10 items-center justify-center gap-1 rounded-full border px-2.5 text-[13px] transition-colors",
-                activeInMore
-                  ? "border-foreground bg-foreground font-semibold text-background"
-                  : "border-border bg-card text-muted-foreground hover:text-foreground",
-              )}
-            >
-              {activeInMore ? <span>{active.label}</span> : null}
-              <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
-              {more.map((section) => (
-                <DropdownMenuItem key={section.id} onSelect={() => onChange(section)} className="min-h-11">
-                  {section.label}
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </nav>
-      <p className="mt-1.5 text-[12px] leading-snug text-muted-foreground/80 short:hidden">{active.description}</p>
-    </div>
+    <nav aria-label="Các mục Nhiệm vụ" className="flex items-stretch border-b border-border" data-task-strip="">
+      {top.map((section) => {
+        const isActive = section.id === active.id;
+        const count = counts[section.id];
+        return (
+          <button
+            key={section.id}
+            type="button"
+            onClick={() => onChange(section)}
+            aria-current={isActive ? "page" : undefined}
+            className={cn(
+              "press relative flex min-h-11 flex-1 items-center justify-center gap-1.5 whitespace-nowrap px-1 text-[14px] transition-colors",
+              isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {section.label}
+            {count !== undefined && count > 0 ? <span className="tabular text-[12px] text-muted-foreground">{count}</span> : null}
+            {isActive ? <span aria-hidden="true" className="absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-personal" /> : null}
+          </button>
+        );
+      })}
+      <DropdownMenu>
+        <DropdownMenuTrigger
+          aria-label="Thêm mục: Lịch, Đã xong, Thùng rác"
+          className={cn(
+            "press relative flex min-h-11 min-w-11 shrink-0 items-center justify-center gap-1 px-2 text-[13.5px]",
+            activeInMore ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground",
+          )}
+        >
+          {activeInMore ? <span>{active.label}</span> : null}
+          <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          {activeInMore ? <span aria-hidden="true" className="absolute inset-x-1 -bottom-px h-[2px] rounded-full bg-personal" /> : null}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-44">
+          {more.map((section) => (
+            <DropdownMenuItem key={section.id} onSelect={() => onChange(section)} className="min-h-11">
+              {section.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </nav>
   );
 }

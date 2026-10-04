@@ -298,6 +298,8 @@ export type Note = {
   pinnedAt: string | null;
   bookRecordId: string | null;
   bookTitle: string | null;
+  /** AVORA-93 · 3.3: `chapter:block` in the book where this note was taken, when known. */
+  bookLocator?: string | null;
   deletedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -688,7 +690,7 @@ export function isOfflineError(error: unknown): boolean {
 type FolderRow = { id: string; parent_id: string | null; name: string; is_system: boolean; system_key: string | null; position: number; created_at: string; color?: string | null };
 type NoteRow = {
   id: string; folder_id: string | null; title: string; blocks: unknown; tags: string[] | null; pinned_at: string | null;
-  book_record_id: string | null; book_title: string | null; deleted_at: string | null; created_at: string; updated_at: string;
+  book_record_id: string | null; book_title: string | null; book_locator?: string | null; deleted_at: string | null; created_at: string; updated_at: string;
 };
 type AttachmentRow = {
   id: string; note_id: string; kind: string; storage_path: string; file_name: string; mime_type: string;
@@ -705,7 +707,7 @@ function toFolder(row: FolderRow): NoteFolder {
 export function toNote(row: NoteRow): Note {
   return {
     id: row.id, folderId: row.folder_id, title: row.title, blocks: readBlocks(row.blocks), tags: row.tags ?? [],
-    pinnedAt: row.pinned_at, bookRecordId: row.book_record_id, bookTitle: row.book_title, deletedAt: row.deleted_at,
+    pinnedAt: row.pinned_at, bookRecordId: row.book_record_id, bookTitle: row.book_title, bookLocator: row.book_locator ?? null, deletedAt: row.deleted_at,
     createdAt: row.created_at, updatedAt: row.updated_at,
   };
 }
@@ -719,7 +721,7 @@ function toAttachment(row: AttachmentRow): NoteAttachment {
 }
 
 const FOLDER_COLUMNS = "id, parent_id, name, is_system, system_key, position, created_at, color";
-const NOTE_COLUMNS = "id, folder_id, title, blocks, tags, pinned_at, book_record_id, book_title, deleted_at, created_at, updated_at";
+const NOTE_COLUMNS = "id, folder_id, title, blocks, tags, pinned_at, book_record_id, book_title, book_locator, deleted_at, created_at, updated_at";
 
 export async function fetchFolders(): Promise<NoteFolder[]> {
   const { error: ensureError } = await supabase.rpc("ensure_reading_folder");
@@ -789,7 +791,7 @@ export async function deleteFolder(id: string, trashNotes: boolean): Promise<num
 }
 
 /** Saves the whole note (created on first save — the id is made on this device). */
-export async function saveNote(note: Pick<Note, "id" | "folderId" | "title" | "blocks" | "tags" | "bookRecordId">): Promise<Note> {
+export async function saveNote(note: Pick<Note, "id" | "folderId" | "title" | "blocks" | "tags" | "bookRecordId"> & { bookLocator?: string | null }): Promise<Note> {
   const { data, error } = await supabase
     .from("notes")
     .upsert({
@@ -799,6 +801,7 @@ export async function saveNote(note: Pick<Note, "id" | "folderId" | "title" | "b
       blocks: note.blocks as unknown as Json,
       tags: normalizeTags(note.tags),
       book_record_id: note.bookRecordId,
+      ...(note.bookLocator != null ? { book_locator: note.bookLocator } : {}),
     })
     .select(NOTE_COLUMNS)
     .single();

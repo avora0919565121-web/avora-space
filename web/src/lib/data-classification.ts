@@ -168,6 +168,12 @@ export const DATA_CLASSIFICATION = {
   think_hub_board_opened: { level: "personal", domain: "personal" },
   // AVORA-89 · @@: "X introduced you to Y" — only the person introduced reads it.
   contact_card_notice: { level: "personal", domain: "personal" },
+  // AVORA-93 · PHẦN 2 (ADR-058): what I opened / how long, per day — only the owner reads it; 180 days.
+  activity_daily: { level: "personal", domain: "personal" },
+  // AVORA-93 · PHẦN 3 (ADR-060): switches only VMT flips (paid translation off, approved chapter engines).
+  app_config: { level: "internal", domain: "system" },
+  // Public-domain edition pairs (Gutenberg ↔ Wikisource), readable by any signed-in person.
+  book_edition_link: { level: "public", domain: "system" },
   think_hub_view_row_meta: { level: "personal", domain: "personal", columns: { note: "sensitive", note_sealed: "secret" } },
   // AVORA-69: `Nhắc tôi xem lại` — each person's own, only they read it.
   think_hub_record_reminders: { level: "personal", domain: "personal" },

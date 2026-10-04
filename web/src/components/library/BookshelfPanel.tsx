@@ -119,6 +119,7 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
   const { shelf, keys, books, field, isPending } = useBookshelf();
   const askedRef = useRef<boolean>(false);
   const [query, setQuery] = useState<string>("");
+  const [isShelfSearchOpen, setIsShelfSearchOpen] = useState<boolean>(false);
   const [isAdding, setIsAdding] = useState<boolean>(false);
   const [openId, setOpenId] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
@@ -283,18 +284,26 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
       ) : null}
 
       <OnDeviceLine />
-      <div className="flex flex-wrap items-center gap-2">
-        <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-md border border-border bg-card px-3">
-          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-          <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm trên kệ của bạn…" aria-label="Tìm sách trên kệ" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]" />
-        </label>
-        <button type="button" onClick={() => setIsAdding(true)} className="press inline-flex h-10 items-center gap-1.5 rounded-md border border-border px-3 text-[13.5px]">
-          <Plus className="h-4 w-4" aria-hidden="true" /> Thêm sách tôi đang có
+      {/* AVORA-93 · 3.4: an empty shelf has nothing to search; with books, 🔍 opens the box (kept open while it holds words). */}
+      <div className="flex items-center gap-2" data-shelf-tools="">
+        <button type="button" onClick={() => setIsAdding(true)} className="press inline-flex h-10 min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-3 text-[13.5px] md:flex-none">
+          <Plus className="h-4 w-4 shrink-0" aria-hidden="true" /> <span className="truncate">Thêm sách tôi đang có</span>
         </button>
-        <button type="button" onClick={() => navigate(`/ke-hoach?ke=ke-sach&bang=${shelf.id}`)} className="press inline-flex h-10 items-center gap-1.5 rounded-md border border-border px-3 text-[13.5px]">
-          <Table2 className="h-4 w-4" aria-hidden="true" /> Xem dạng bảng
+        {books.length > 0 ? (
+          <button type="button" onClick={() => setIsShelfSearchOpen((open) => !open || query.trim() !== "")} aria-label="Tìm sách trên kệ" aria-expanded={isShelfSearchOpen || query.trim() !== ""} data-shelf-search-toggle="" className="icon-btn h-10 w-10">
+            <Search className="h-[17px] w-[17px]" aria-hidden="true" />
+          </button>
+        ) : null}
+        <button type="button" onClick={() => navigate(`/ke-hoach?ke=ke-sach&bang=${shelf.id}`)} aria-label="Xem dạng bảng" title="Xem dạng bảng" className="icon-btn h-10 w-10">
+          <Table2 className="h-[17px] w-[17px]" aria-hidden="true" />
         </button>
       </div>
+      {books.length > 0 && (isShelfSearchOpen || query.trim() !== "") ? (
+        <label className="mt-2 flex h-10 min-w-0 items-center gap-2 rounded-md border border-border bg-card px-3" data-shelf-search="">
+          <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
+          <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm trên kệ của bạn…" aria-label="Tìm sách trên kệ" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]" />
+        </label>
+      ) : null}
 
       {books.length === 0 ? (
         <div className="mt-6 flex flex-col items-center text-center">
@@ -527,6 +536,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
   const [query, setQuery] = useState<string>("");
   const [category, setCategory] = useState<BookCategory | null>(null);
   const [source, setSource] = useState<BookSource>("wikisource");
+  const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [adding, setAdding] = useState<string | null>(null);
   const queryClient = useQueryClient();
   useEffect(() => {
@@ -558,15 +568,18 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
     <section aria-label="Thư viện mở" data-open-library="" className="mt-8">
       <div className="flex items-center gap-3">
         <h3 className="shrink-0 text-[12.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Thư viện mở</h3>
+        <button type="button" onClick={() => setIsSearchOpen((open) => !open || text !== "")} aria-label="Tìm trong Thư viện mở" aria-expanded={isSearchOpen || text !== ""} data-library-search-toggle="" className="icon-btn h-9 w-9">
+          <Search className="h-4 w-4" aria-hidden="true" />
+        </button>
         <span className="h-px flex-1 bg-border" aria-hidden="true" />
       </div>
-      <div role="tablist" aria-label="Nguồn" className="mt-3 flex flex-wrap gap-2">
+      <div role="tablist" aria-label="Nguồn" className="mt-3 grid grid-cols-2 gap-2 md:flex md:flex-wrap" data-library-sources="">
         {(
           [
-            ["wikisource", "Tiếng Việt (Wikisource)"],
-            ["gutenberg", "Project Gutenberg — hơn 75.000 sách"],
+            ["wikisource", "Tiếng Việt", "Tiếng Việt (Wikisource)"],
+            ["gutenberg", "Gutenberg", "Project Gutenberg — hơn 75.000 sách"],
           ] as const
-        ).map(([id, label]) => (
+        ).map(([id, short, label]) => (
           <button
             key={id}
             type="button"
@@ -576,16 +589,19 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
               setSource(id);
               setText("");
             }}
-            className={cn("press h-9 rounded-full border px-3.5 text-[13px] font-medium", source === id && query === "" ? "border-personal bg-personal-soft text-personal-soft-foreground" : "border-border bg-card")}
+            className={cn("press h-9 min-w-0 rounded-full border px-3.5 text-[13px] font-medium", source === id && query === "" ? "border-personal bg-personal-soft text-personal-soft-foreground" : "border-border bg-card")}
           >
-            {label}
+            <span className="md:hidden">{short}</span>
+            <span className="hidden md:inline">{label}</span>
           </button>
         ))}
       </div>
-      <label className="mt-3 flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3">
+      {isSearchOpen || text !== "" ? (
+      <label className="mt-3 flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3" data-library-search="">
         <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-        <input value={text} onChange={(event) => setText(event.target.value)} placeholder="Tìm tên sách, tác giả" aria-label="Tìm trong Thư viện mở" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]" />
+        <input autoFocus={isSearchOpen} value={text} onChange={(event) => setText(event.target.value)} placeholder="Tìm tên sách, tác giả" aria-label="Tìm trong Thư viện mở" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]" />
       </label>
+      ) : null}
       <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:flex-wrap md:[mask-image:none]">
         {BOOK_CATEGORIES.map((item) => (
           <button

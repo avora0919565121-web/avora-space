@@ -100,11 +100,32 @@ export function minutesLeft(pageMs: readonly number[], pagesLeft: number): numbe
   return Math.max(1, Math.round((median * pagesLeft) / 60_000));
 }
 
-/** Which third of the screen a tap fell in (C1): left = back, middle = tools, right = forward. */
+/** Which third of the screen a tap fell in (C1, kept for the side arrows' hit test). */
 export function tapZone(x: number, width: number): "back" | "tools" | "forward" {
   if (x < width / 3) return "back";
   if (x > (width * 2) / 3) return "forward";
   return "tools";
+}
+
+/** AVORA-93 · 4.1 (ADR-061): the top band (under the safe area) and the bottom band (incl. the safe area). */
+export const READER_TOP_BAND = 76;
+export const READER_BOTTOM_BAND = 96;
+/** A press this long selects a word instead of tapping. */
+export const READER_HOLD_MS = 400;
+
+export type ReaderZone = "tools" | "tabs" | "back" | "forward" | "none";
+
+/**
+ * AVORA-93 · 4.1 — four tap zones, no dead middle: top band → reading tools · bottom band → the five
+ * tabs · left half → previous page · right half → next page (split exactly in the middle). In
+ * continuous scroll the halves do nothing.
+ */
+export function readerZone(input: { x: number; y: number; width: number; height: number; safeTop: number; isPaged: boolean }): ReaderZone {
+  const { x, y, width, height, safeTop, isPaged } = input;
+  if (y < safeTop + READER_TOP_BAND) return "tools";
+  if (y > height - READER_BOTTOM_BAND) return "tabs";
+  if (!isPaged) return "none";
+  return x < width / 2 ? "back" : "forward";
 }
 
 // ------------------------------------------------------------------ C4 · on-device translation
@@ -121,13 +142,28 @@ export function translatorApi(): TranslatorApi | null {
   return api !== undefined && typeof api.create === "function" ? api : null;
 }
 
-/** One-step help for browsers without the on-device API (C4 ②). */
-export function translateHelp(userAgent: string, standalone: boolean): string {
-  if (standalone) return "Mở trong trình duyệt để dịch";
-  if (/iPhone|iPad|iPod/.test(userAgent)) return "Safari: chạm aA ở thanh địa chỉ › Dịch sang tiếng Việt.";
-  if (/Android/.test(userAgent) && /Chrome/.test(userAgent)) return "Chrome: chạm ⋮ › Dịch… › Tiếng Việt.";
-  if (/Firefox/.test(userAgent)) return "Firefox: chạm biểu tượng dịch trên thanh địa chỉ.";
-  return "Chuột phải trên trang › Dịch sang tiếng Việt.";
+/** AVORA-93 · 2.6: a lookup is at most one paragraph. */
+export const LOOKUP_MAX_CHARS = 600;
+/** Shown when this device cannot translate and Avora will not pay for it (ADR-060). */
+export const NO_DEVICE_TRANSLATION = "Máy này chưa dịch được. Avora đang xem xét gói trả phí để dịch qua máy chủ — hiện tính năng này chưa dùng được.";
+
+export type MtEngine = "chrome_translator" | "bergamot";
+
+/** Which engine this device can use for on-device translation (Bergamot is not shipped yet — see ADR-060). */
+export function deviceEngine(): MtEngine | null {
+  return translatorApi() !== null ? "chrome_translator" : null;
+}
+
+/** The sentence around a single picked word, so the word is read in its context (2.6). */
+export function sentenceAround(paragraph: string, word: string): string {
+  const at = paragraph.indexOf(word);
+  if (at === -1) return word;
+  const before = paragraph.slice(0, at);
+  const start = Math.max(before.lastIndexOf(". "), before.lastIndexOf("! "), before.lastIndexOf("? ")) + 1;
+  const rest = paragraph.slice(at + word.length);
+  const endRel = rest.search(/[.!?](\s|$)/);
+  const end = endRel === -1 ? paragraph.length : at + word.length + endRel + 1;
+  return paragraph.slice(start, end).trim();
 }
 
 const TRANSLATION_DB = "avora-book-translations";

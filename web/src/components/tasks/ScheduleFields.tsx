@@ -1,5 +1,5 @@
 import { Bell, BellOff, Hourglass, Repeat, Star, X } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { TimeField } from "@/components/tasks/TimeField";
 import { cn } from "@/lib/utils";
@@ -552,6 +552,50 @@ export function ReminderBanner({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * AVORA-93 · 4: due reminders fold into one line at the top of `Hôm nay` — `🔔 2 nhắc hẹn · Xem`.
+ * `Xem` opens the list, each with its own `Đã biết`.
+ */
+export function ReminderLine({
+  due,
+  titleFor,
+  onDismiss,
+  onOpen,
+}: {
+  due: readonly TaskReminder[];
+  titleFor: (taskId: string) => string | null;
+  onDismiss: (reminderId: string) => void;
+  onOpen?: (taskId: string) => void;
+}) {
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  if (due.length === 0) return null;
+  return (
+    <div data-reminder-line="" className="border-b border-border pb-1">
+      <button type="button" onClick={() => setIsOpen((open) => !open)} aria-expanded={isOpen} className="press flex min-h-11 w-full items-center gap-2 text-left text-[14px] text-foreground">
+        <Bell className="h-4 w-4 shrink-0 text-task-important" strokeWidth={1.8} aria-hidden="true" />
+        <span className="font-medium">{due.length} nhắc hẹn</span>
+        <span className="text-muted-foreground">·</span>
+        <span className="font-medium text-primary">{isOpen ? "Ẩn" : "Xem"}</span>
+      </button>
+      {isOpen ? (
+        <ul className="pb-1">
+          {due.map((reminder) => (
+            <li key={reminder.id} className="flex min-h-11 items-center gap-2 pl-6">
+              <button type="button" onClick={() => onOpen?.(reminder.taskId)} className="press min-w-0 flex-1 truncate text-left text-[14px] text-foreground">
+                {titleFor(reminder.taskId) ?? "Một nhiệm vụ"}
+                <span className="ml-1.5 text-[12px] text-muted-foreground">{formatReminderAt(new Date(reminder.at))}</span>
+              </button>
+              <button type="button" onClick={() => onDismiss(reminder.id)} className="press h-9 shrink-0 rounded-md px-2 text-[12.5px] text-muted-foreground hover:bg-accent/40 hover:text-foreground">
+                Đã biết
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </div>
   );
 }

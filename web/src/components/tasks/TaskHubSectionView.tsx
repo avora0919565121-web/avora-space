@@ -17,7 +17,7 @@ import {
   type MyDayCardNote,
   type TaskHubSection,
 } from "@/lib/task-hub";
-import { deadlineLabel, type TaskItem } from "@/lib/tasks";
+import { deadlineLabel, isDeletedFor, isTaskGone, type TaskItem } from "@/lib/tasks";
 import { useRespondInvitation, useTaskParticipants } from "@/lib/use-task-collab";
 import { useTaskActions } from "@/lib/use-tasks";
 import { cn } from "@/lib/utils";
@@ -201,6 +201,7 @@ export function TaskHubSectionView({ section, tasks, userId, today, onOpen }: { 
   if (section.id === "upcoming") return <UpcomingCalendar tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty={section.empty} />;
   if (section.id === "invitations") return <InvitationsList tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty={section.empty} />;
   if (section.id === "trash") return <TrashList tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty={section.empty} />;
+  if (section.id === "my_day") return <MyDay tasks={tasks} userId={userId} today={today} onOpen={onOpen} list={list} empty={section.empty} />;
   if (list.length === 0) return <Empty text={section.empty} />;
   return (
     <div className="overflow-hidden rounded-[12px] border border-border bg-card">
@@ -213,6 +214,58 @@ export function TaskHubSectionView({ section, tasks, userId, today, onOpen }: { 
           dayNote={section.id === "my_day" ? myDayCardNote(task, today) : null}
         />
       ))}
+    </div>
+  );
+}
+
+/**
+ * AVORA-89 · 3.B (AVORA-93 · 4): `Hôm nay` reads top to bottom — invitations waiting on me,
+ * then what is late, then today's own. A person with nothing at all gets one gentle start card.
+ */
+function MyDay({ tasks, userId, today, onOpen, list, empty }: { tasks: readonly TaskItem[]; userId: string | undefined; today: string; onOpen: (task: TaskItem) => void; list: readonly TaskItem[]; empty: string }) {
+  const { data: participants } = useTaskParticipants();
+  const invites = useMemo(() => invitationRows(participants ?? [], tasks, userId), [participants, tasks, userId]);
+  const late = useMemo(() => tasksForSection("overdue", tasks, userId, today).filter((task) => !list.some((item) => item.id === task.id)), [tasks, userId, today, list]);
+  const hasAnyTask = tasks.some((task) => !isTaskGone(task) && !isDeletedFor(task, userId));
+  if (!hasAnyTask && invites.length === 0) return <StartGently />;
+  return (
+    <div className="space-y-5" data-my-day="">
+      {invites.length > 0 ? (
+        <section aria-label="Lời mời" data-my-day-part="invitations">
+          <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Lời mời · {invites.length}</h3>
+          <InvitationsList tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty="" />
+        </section>
+      ) : null}
+      {late.length > 0 ? (
+        <section aria-label="Trễ hạn" data-my-day-part="overdue">
+          <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-task-overdue">Trễ hạn · {late.length}</h3>
+          <div className="border-y border-border">
+            {late.map((task) => <TaskLine key={task.id} task={task} today={today} onOpen={onOpen} />)}
+          </div>
+        </section>
+      ) : null}
+      <section aria-label="Hôm nay" data-my-day-part="today">
+        {invites.length > 0 || late.length > 0 ? <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Hôm nay · {list.length}</h3> : null}
+        {list.length === 0 ? (
+          <p className="py-3 text-[14px] text-muted-foreground">{empty}</p>
+        ) : (
+          <div className="border-y border-border">
+            {list.map((task) => <TaskLine key={task.id} task={task} today={today} onOpen={onOpen} dayNote={myDayCardNote(task, today)} />)}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+/** The one card a person with no tasks yet sees (89 · 3.B): what a task is, and one way in. */
+function StartGently() {
+  return (
+    <div data-start-gently="" className="rounded-[14px] bg-personal-soft/60 px-4 py-4">
+      <p className="text-[15px] font-semibold text-foreground">Bắt đầu nhẹ nhàng</p>
+      <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
+        Một việc cần nhớ? Bấm <span className="font-semibold text-foreground">+</span> ở trên. Việc người khác giao cho bạn trong Kết nối cũng hiện ở đây.
+      </p>
     </div>
   );
 }

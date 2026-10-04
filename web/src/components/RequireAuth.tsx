@@ -23,6 +23,7 @@ import { LandscapeRail } from "@/components/nav/LandscapeRail";
 import { hidesToolBelt } from "@/lib/navigation";
 import { useAuth } from "@/lib/auth";
 import { useNewDayLanding } from "@/lib/use-new-day-landing";
+import { useResumePlace } from "@/lib/use-resume-place";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import { useTrackHistory } from "@/lib/nav-history";
 import { useTabMemory } from "@/lib/tab-memory";
@@ -37,6 +38,8 @@ export function RequireAuth() {
   useTrackHistory();
   // AVORA-77 · G: each tab keeps the place it was left at (on this device, per account).
   useTabMemory(session !== null && !isRecovering ? session?.user.id : undefined);
+  // AVORA-93 · 5: on a phone, reopening lands by time away (new day → Avora Space · ≥ 1 h → Kết nối · < 1 h → same place).
+  useResumePlace(session !== null && !isRecovering ? session?.user.id : undefined);
   // AVORA-89 · 2.3: inside one focused thing the bottom bar steps aside (phone).
   const isFocused = useFocusHeaderValue() !== null;
 

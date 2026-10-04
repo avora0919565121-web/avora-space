@@ -2,6 +2,10 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, Copy, Download, Languages, List, Loader2, Moon, MoreHorizontal, NotebookPen, Pin, Type, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
+
+import { useActivityMeter } from "@/lib/use-activity";
+import { useTranslationConfig } from "@/lib/use-app-config";
+import { TempTabBar } from "@/components/nav/TempTabBar";
 import { toast } from "sonner";
 
 import { useBookshelf } from "@/components/library/BookshelfPanel";
@@ -28,8 +32,13 @@ import {
   READER_SIZES,
   READER_THEMES,
   readerSettingsFrom,
-  tapZone,
-  translateHelp,
+  readerZone,
+  READER_BOTTOM_BAND,
+  READER_TOP_BAND,
+  deviceEngine,
+  LOOKUP_MAX_CHARS,
+  NO_DEVICE_TRANSLATION,
+  sentenceAround,
   translatorApi,
   type ReaderSettings,
 } from "@/lib/reader-settings";
@@ -88,6 +97,8 @@ const BookReader = () => {
   const { data: conversations } = useConversations();
   const { prefs, setPref } = useProfilePrefs();
   const book = books.find((item) => item.id === recordId) ?? null;
+  // AVORA-93 · PHẦN 2: reading time — page turns, taps and keys keep it counting; idle > 2 min stops it.
+  const activity = useActivityMeter("book", book === null ? null : recordId);
   const ref = book === null ? null : catalogRefOf(field(book, keys.link));
 
   const [isPhone] = useState<boolean>(() => window.matchMedia("(max-width: 767px)").matches);
@@ -204,7 +215,9 @@ const BookReader = () => {
     void localPosition(recordId).then((mine) => {
       const server = serverState.data ?? null;
       const sameDevice = server !== null && server.deviceLabel === thisDeviceLabel();
-      const start = parseLocator(mine?.locator ?? (sameDevice ? server.locator : null));
+      // AVORA-93 · 3.3: `?o=chapter:block` (from a book note on kệ 5) opens that passage first.
+      const asked = new URLSearchParams(location.search).get("o");
+      const start = parseLocator(asked !== null && /^\d{1,5}:\d{1,6}$/.test(asked) ? asked : (mine?.locator ?? (sameDevice ? server.locator : null)));
       const at = Math.min(Math.max(0, start.chapter), text.chapters.length - 1);
       anchorRef.current = start.block;
       setChapter(at);
@@ -382,6 +395,7 @@ const BookReader = () => {
     (direction: 1 | -1): void => {
       if (text === null) return;
       setSelection(null);
+      activity.touch();
       const now = Date.now();
       if (direction === 1) pageTimesRef.current = [...pageTimesRef.current.slice(-19), now - pageAtRef.current];
       pageAtRef.current = now;
@@ -402,7 +416,7 @@ const BookReader = () => {
         setPage(next);
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps -- goChapter reads current state
-    [text, paged, page, pages, chapter, blockAtPage, reducedMotion],
+    [text, paged, page, pages, chapter, blockAtPage, reducedMotion, activity],
   );
 
   useEffect(() => {
@@ -438,15 +452,48 @@ const BookReader = () => {
   );
 
   const swipeRef = useRef<{ x: number; y: number } | null>(null);
-  const onTap = (event: React.MouseEvent<HTMLElement>): void => {
+  /*
+   * AVORA-93 · 4.1 (ADR-061): four zones — top band = tools, bottom band = the five tabs, left half =
+   * previous page, right half = next page (exactly half; no dead middle). Scroll mode: halves do nothing.
+   */
+  const [tabsShown, setTabsShown] = useState<boolean>(false);
+  const tapAt = (clientX: number, clientY: number, target: EventTarget | null): void => {
     tryFullscreen();
     if ((window.getSelection()?.toString() ?? "") !== "") return;
-    if ((event.target as HTMLElement).closest("a, button, input") !== null) return;
-    const zone = tapZone(event.clientX, window.innerWidth);
-    if (zone === "tools") setToolsOpen((open) => !open);
-    else {
+    if (target instanceof HTMLElement && target.closest("a, button, input, [data-reader-tabs]") !== null) return;
+    // The reader root pads by env(safe-area-inset-top): the top band starts under the notch.
+    const root = document.querySelector<HTMLElement>("[data-reader]");
+    const safeTop = root === null ? 0 : Number.parseFloat(getComputedStyle(root).paddingTop) || 0;
+    const zone = readerZone({ x: clientX, y: clientY, width: window.innerWidth, height: window.innerHeight, safeTop, isPaged: paged });
+    if (zone === "tools") {
+      setTabsShown(false);
+      setToolsOpen((open) => !open);
+      return;
+    }
+    if (zone === "tabs") {
       setToolsOpen(false);
-      turn(zone === "forward" ? 1 : -1);
+      setTabsShown((open) => !open);
+      return;
+    }
+    setTabsShown(false);
+    if (zone === "none") return;
+    setToolsOpen(false);
+    turn(zone === "forward" ? 1 : -1);
+  };
+  const onTap = (event: React.MouseEvent<HTMLElement>): void => tapAt(event.clientX, event.clientY, event.target);
+  // The bars hide themselves after 5 s untouched.
+  useEffect(() => {
+    if (!tabsShown) return;
+    const timer = window.setTimeout(() => setTabsShown(false), 5000);
+    return () => window.clearTimeout(timer);
+  }, [tabsShown]);
+  const [isFirstOpen, setIsFirstOpen] = useState<boolean>(() => safeLocal("avora.reader.zones-seen") !== "1");
+  const dismissFirstOpen = (): void => {
+    setIsFirstOpen(false);
+    try {
+      window.localStorage.setItem("avora.reader.zones-seen", "1");
+    } catch {
+      // Shown again next time; harmless.
     }
   };
 
@@ -472,6 +519,9 @@ const BookReader = () => {
       const journalId = findJournal(conversations)?.conversationId ?? (await ensureJournalConversation());
       const where = text.chapters[chapter]?.title ?? `Chương ${chapter + 1}`;
       const params = new URLSearchParams({ xem: "ghi-chep", sach: book.id, ten: book.title, trich: clipExcerpt(selection.text), cho: where.slice(0, 120) });
+      // AVORA-93 · 3.3: where the passage is, so kệ 5 can open it again.
+      const place = currentPlace();
+      if (place !== null) params.set("o", place.locator);
       save();
       navigate(withReturn(`/tin-nhan/${journalId}?${params.toString()}`, { path: `${location.pathname}${location.search}`, label: book.title.slice(0, 40) }));
     } catch (caught) {
@@ -555,7 +605,7 @@ const BookReader = () => {
   );
   const startTranslate = async (target: string): Promise<void> => {
     const api = translatorApi();
-    if (api === null || text === null) return;
+    if (api === null || text === null || !canTranslateChapter) return;
     try {
       const availability = await api.availability({ sourceLanguage: text.language, targetLanguage: target });
       if (availability === "unavailable") {
@@ -579,6 +629,53 @@ const BookReader = () => {
     } catch {
       toast.error("Chưa dịch được trên máy này.");
       setTranslating(null);
+    }
+  };
+  // ------------------------------------------------------------------ AVORA-93 · 2.4 / 2.6 · two ways
+  const translationConfig = useTranslationConfig();
+  const engine = deviceEngine();
+  // Whole-chapter machine translation only on an engine VMT approved (ADR-060); otherwise lookups only.
+  const canTranslateChapter = engine !== null && translationConfig.chapterEngines.includes(engine);
+  const [lookup, setLookup] = useState<{ source: string; word: string | null; out: string | null; sentenceOut: string | null; error: string | null; top: number } | null>(null);
+  const runLookup = async (): Promise<void> => {
+    if (selection === null || text === null) return;
+    const picked = selection.text.trim();
+    const top = Math.min(window.innerHeight - 220, selection.top + 64);
+    if (picked.length > LOOKUP_MAX_CHARS) {
+      setLookup({ source: picked, word: null, out: null, sentenceOut: null, error: "Chọn ngắn lại — tra tối đa một đoạn", top });
+      return;
+    }
+    const api = translatorApi();
+    const target = text.language === "vi" ? "en" : "vi";
+    if (api === null) {
+      setLookup({ source: picked, word: null, out: null, sentenceOut: null, error: NO_DEVICE_TRANSLATION, top });
+      return;
+    }
+    const isWord = !/\s/.test(picked);
+    const paragraph = window.getSelection()?.anchorNode?.parentElement?.closest("p, blockquote, li")?.textContent ?? picked;
+    setLookup({ source: picked, word: isWord ? picked : null, out: null, sentenceOut: null, error: null, top });
+    try {
+      // On this device only: the picked words never leave it.
+      const translator = await api.create({ sourceLanguage: text.language, targetLanguage: target });
+      const out = await translator.translate(picked);
+      const sentenceOut = isWord ? await translator.translate(sentenceAround(paragraph, picked)) : null;
+      setLookup((current) => (current?.source === picked ? { ...current, out, sentenceOut } : current));
+    } catch {
+      setLookup((current) => (current?.source === picked ? { ...current, error: NO_DEVICE_TRANSLATION } : current));
+    }
+  };
+  const lookupToNotes = async (): Promise<void> => {
+    if (lookup === null || lookup.out === null || book === null || text === null) return;
+    try {
+      const journalId = findJournal(conversations)?.conversationId ?? (await ensureJournalConversation());
+      const where = text.chapters[chapter]?.title ?? `Chương ${chapter + 1}`;
+      const params = new URLSearchParams({ xem: "ghi-chep", sach: book.id, ten: book.title, trich: clipExcerpt(`${lookup.source} → ${lookup.out}`), cho: where.slice(0, 120) });
+      const place = currentPlace();
+      if (place !== null) params.set("o", place.locator);
+      save();
+      navigate(withReturn(`/tin-nhan/${journalId}?${params.toString()}`, { path: `${location.pathname}${location.search}`, label: book.title.slice(0, 40) }));
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Chưa mở được Ghi chép.");
     }
   };
   // ~50% into a chapter: the next one is translated ahead (in the background).
@@ -871,9 +968,13 @@ const BookReader = () => {
       </footer>
 
       {selection !== null ? (
-        <div role="toolbar" aria-label="Đoạn đang chọn" className="fixed z-50 flex w-[260px] items-center gap-1 rounded-xl border border-border bg-card p-1 text-foreground shadow-lg" style={{ top: selection.top, left: selection.left }}>
-          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => void toNotes()} className="press flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-semibold text-personal hover:bg-accent/40">
-            <NotebookPen className="h-4 w-4" aria-hidden="true" /> Chép vào Ghi chép sách
+        <div role="toolbar" aria-label="Đoạn đang chọn" data-selection-bar="" className="fixed z-50 flex w-[280px] items-center gap-1 rounded-xl border border-border bg-card p-1 text-foreground shadow-lg" style={{ top: selection.top, left: selection.left }}>
+          {/* AVORA-93 · 2.6: Dịch · Ghi chú · Chép. Lookups stay on this device. */}
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => void runLookup()} className="press flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-semibold text-personal hover:bg-accent/40">
+            <Languages className="h-4 w-4" aria-hidden="true" /> Dịch
+          </button>
+          <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => void toNotes()} className="press flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] hover:bg-accent/40">
+            <NotebookPen className="h-4 w-4" aria-hidden="true" /> Ghi chú
           </button>
           <button
             type="button"
@@ -884,7 +985,7 @@ const BookReader = () => {
             }}
             className="press flex items-center gap-1 rounded-lg px-2.5 py-2 text-[13px] hover:bg-accent/40"
           >
-            <Copy className="h-4 w-4" aria-hidden="true" /> Sao chép
+            <Copy className="h-4 w-4" aria-hidden="true" /> Chép
           </button>
         </div>
       ) : null}
@@ -952,22 +1053,68 @@ const BookReader = () => {
       <Sheet open={panel === "translate"} onOpenChange={(open) => !open && setPanel(null)}>
         <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl" data-reader-dich="">
           <SheetTitle className="text-[17px]">Dịch sách {LANGUAGE_NAMES[language] ?? ""}</SheetTitle>
-          <SheetDescription className="text-[13px]">Dịch ngay trên máy — không gửi đi đâu, bản dịch không lưu ở máy chủ.</SheetDescription>
-          {translatorApi() !== null ? (
+          <SheetDescription className="text-[13px]">Dịch trên máy — chữ sách không rời máy, bản dịch không lưu ở máy chủ.</SheetDescription>
+          {canTranslateChapter ? (
             <div className="mt-3 space-y-2">
               <button type="button" onClick={() => void startTranslate("vi")} className="press flex h-12 w-full items-center justify-center rounded-xl bg-personal text-[15px] font-semibold text-personal-foreground">
-                Dịch sang Tiếng Việt
+                Dịch cả chương sang Tiếng Việt
               </button>
               {translating?.progress != null ? <p className="text-center text-[13px] text-muted-foreground">{translating.progress}</p> : null}
             </div>
           ) : (
-            <p className="mt-3 rounded-xl bg-secondary/60 px-4 py-3 text-[14.5px]" data-translate-help="">
-              {translateHelp(navigator.userAgent, window.matchMedia("(display-mode: standalone)").matches)}
-            </p>
+            <div className="mt-3 space-y-2" data-translate-help="">
+              {/* AVORA-93 · 2.4 (3): honest — no whole-chapter machine translation until it reads well. */}
+              <p className="rounded-xl bg-secondary/60 px-4 py-3 text-[14.5px]">Sách này chưa có bản dịch tiếng Việt đủ hay để đọc liền mạch. Giữ ngón tay lên chữ để tra từ hoặc đoạn.</p>
+              {engine === null ? <p className="text-[13px] text-muted-foreground">{NO_DEVICE_TRANSLATION} Trên máy tính, Chrome dịch được.</p> : null}
+              <p className="text-[12.5px] text-muted-foreground/80">Dịch trọn cuốn bằng AI — Avora đang xem xét trong gói trả phí, hiện chưa dùng được.</p>
+            </div>
           )}
         </SheetContent>
       </Sheet>
 
+      {lookup !== null ? (
+        <div role="dialog" aria-label="Tra nghĩa" data-lookup-card="" className="fixed inset-x-3 z-50 mx-auto max-h-[45vh] max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-3 text-foreground shadow-xl" style={{ top: lookup.top }}>
+          <div className="flex items-start gap-2">
+            <p className="line-clamp-2 min-w-0 flex-1 text-[13px] text-muted-foreground" lang={language}>{lookup.source}</p>
+            <button type="button" onClick={() => setLookup(null)} aria-label="Đóng" className="icon-btn h-8 w-8"><X className="h-4 w-4" aria-hidden="true" /></button>
+          </div>
+          {lookup.error !== null ? (
+            <p className="mt-1 text-[14px]" data-lookup-error="">{lookup.error}</p>
+          ) : lookup.out === null ? (
+            <p className="mt-1 flex items-center gap-2 text-[14px] text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Đang dịch trên máy…</p>
+          ) : (
+            <>
+              <p className="mt-1 text-[17px] font-medium leading-snug">{lookup.word !== null ? `${lookup.word} → ${lookup.out}` : lookup.out}</p>
+              {lookup.sentenceOut !== null ? <p className="mt-1 text-[13px] leading-snug text-muted-foreground">{lookup.sentenceOut}</p> : null}
+              <div className="mt-2 flex items-center justify-between gap-2">
+                <span className="text-[11.5px] text-muted-foreground">Dịch máy · để hiểu ý</span>
+                <button type="button" onClick={() => void lookupToNotes()} className="press h-9 rounded-lg px-2.5 text-[13px] font-medium text-personal">Ghi vào Nhật ký</button>
+              </div>
+            </>
+          )}
+        </div>
+      ) : null}
+      {/* AVORA-93 · 4.1: the four zones as buttons for keyboard / VoiceOver (taps on the page use the same rule). */}
+      <div className="sr-only">
+        <button type="button" onClick={() => setToolsOpen((open) => !open)}>Hiện công cụ đọc</button>
+        <button type="button" onClick={() => turn(-1)}>Trang trước</button>
+        <button type="button" onClick={() => turn(1)}>Trang sau</button>
+        <button type="button" onClick={() => setTabsShown((open) => !open)}>Hiện các tab</button>
+      </div>
+      {/* The bottom band also catches taps outside the page frame (footer). */}
+      <button type="button" aria-label="Hiện các tab" data-reader-bottom-band="" onClick={() => { setToolsOpen(false); setTabsShown((open) => !open); }} className="absolute inset-x-0 bottom-0 z-[25] bg-transparent" style={{ height: `${READER_BOTTOM_BAND - 40}px` }} />
+      {tabsShown ? <TempTabBar onHide={() => setTabsShown(false)} /> : null}
+      {isFirstOpen ? (
+        <button type="button" onClick={dismissFirstOpen} data-reader-zones-intro="" className="absolute inset-0 z-[60] flex flex-col bg-foreground/60 text-background">
+          <span className="flex items-center justify-center border-b border-dashed border-background/50 text-[13px]" style={{ height: `calc(env(safe-area-inset-top) + ${READER_TOP_BAND}px)` }}>Chạm: công cụ đọc</span>
+          <span className="flex flex-1">
+            <span className="flex flex-1 items-center justify-center border-r border-dashed border-background/50 text-[13px]">‹ Trang trước</span>
+            <span className="flex flex-1 items-center justify-center text-[13px]">Trang sau ›</span>
+          </span>
+          <span className="flex items-center justify-center border-t border-dashed border-background/50 text-[13px]" style={{ height: `${READER_BOTTOM_BAND}px` }}>Chạm: các tab</span>
+          <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[17px] font-semibold">Chạm để bắt đầu đọc</span>
+        </button>
+      ) : null}
       <PinFullSheet open={panel === "pin"} onClose={() => setPanel(null)} books={books.map((item) => ({ id: item.id, title: item.title }))} states={allStates.data ?? []} wanted={recordId} />
       <QuickPeek conversationId={peek} page={pageNumber} onClose={() => setPeek(null)} />
     </div>

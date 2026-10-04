@@ -78,6 +78,8 @@ import { BoardUpdateCard } from "@/components/think-hub/BoardChanges";
 import { BOARD_CHANGES_PARAM, boardChangeKeys, fetchAnnouncements } from "@/lib/board-changes";
 import { MessageComposer } from "@/components/chat/MessageComposer";
 import { MobileTopActions } from "@/components/nav/HubTitle";
+import { hasInAppPrevious } from "@/lib/nav-history";
+import { connectTabSlug } from "@/lib/resume-place";
 import { ContactCardBubble, MessageRefChips } from "@/components/chat/ContactCardBubble";
 import { refsInText, shareContactCard, type RefChoice, type RefContext } from "@/lib/context-refs";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
@@ -328,6 +330,8 @@ const Messages = () => {
   const isTabVisible = useDocumentVisible();
 
   const [query, setQuery] = useState<string>("");
+  // AVORA-93 · 3.1: on an upright phone the search box is not standing; 🔍 in the top row opens it over that row.
+  const [isListSearchOpen, setIsListSearchOpen] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<MessageTab>("direct");
   /** A direction named in the strip but not built yet: Email. */
   const isPlaceholder = isPlaceholderTab(activeTab);
@@ -1050,7 +1054,7 @@ const Messages = () => {
         book: {
           recordId: bookParam,
           title: searchParams.get("ten") ?? "Sách",
-          excerpt: excerpt === null || excerpt.trim() === "" ? undefined : { text: excerpt.slice(0, 2000), where: searchParams.get("cho") ?? null },
+          excerpt: excerpt === null || excerpt.trim() === "" ? undefined : { text: excerpt.slice(0, 2000), where: searchParams.get("cho") ?? null, locator: /^\d{1,5}:\d{1,6}$/.test(searchParams.get("o") ?? "") ? searchParams.get("o") : null },
         },
       });
     }
@@ -2466,7 +2470,10 @@ const Messages = () => {
 
   /** Arriving back from a project detail screen lands on the tab that listed it. */
   useEffect(() => {
-    if (searchParams.get("tab") === "du-an") setActiveTab("projects");
+    // AVORA-93 · 5: `?tab=` names the strip section (`1-1`, `nhom`, `du-an`, `nhat-ky`).
+    const slug = searchParams.get("tab");
+    const tab: MessageTab | null = slug === "du-an" ? "projects" : slug === "nhom" ? "group" : slug === "1-1" ? "direct" : slug === "nhat-ky" ? "journal" : null;
+    if (tab !== null) setActiveTab(tab);
   }, [searchParams]);
 
   /** AVORA-53 · 6.1: `?ket-ban=1` (Avora Space › Bắt đầu) opens "find a friend by PIN" once. */
@@ -2536,9 +2543,9 @@ const Messages = () => {
           label="Độ rộng danh sách"
         />
         <div className="px-4 pb-2 pt-2 md:px-6 md:pb-4 md:pt-7 short:px-4 short:pt-3">
-          <div className="flex items-center justify-between gap-3 max-md:empty:hidden">
+          <div className={cn("items-center justify-between gap-3 md:flex short:flex", isLive ? "hidden" : "flex")}>
             {/* AVORA-89 · 1.1: on an upright phone the top row already reads `A · Kết nối`. */}
-            <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground max-md:hidden short:block md:text-[30px]">Kết nối</h1>
+            <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground hidden md:block short:block md:text-[30px]">Kết nối</h1>
             {!isLive ? (
               <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground" role="status">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
@@ -2549,6 +2556,17 @@ const Messages = () => {
             <MobileTopActions>
             <div className="flex min-w-0 shrink items-center gap-1.5 [&>*]:shrink-0 sm:gap-2">
               {/* 1.5: 1-1 and Nhóm search from their own box (with "trong toàn AVORA"); 🔍 stays where there is none. */}
+              {activeTab === "journal" || isPlaceholder ? null : (
+                <button
+                  type="button"
+                  onClick={() => setIsListSearchOpen(true)}
+                  aria-label={activeTab === "group" ? "Tìm nhóm theo tên" : isProjects ? "Tìm dự án theo tên" : "Tìm theo tên"}
+                  data-list-search-open=""
+                  className="icon-btn h-11 w-11 text-foreground md:hidden short:hidden"
+                >
+                  <Search className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
+                </button>
+              )}
               {activeTab === "direct" || activeTab === "group" ? null : (
                 <AvoraSearchButton
                   here={{ tab: activeTab === "journal" ? "nhat-ky" : "ket-noi", conversationId: conversationId ?? null, label: activeTab === "journal" ? "Nhật ký" : "Kết nối" }}
@@ -2627,19 +2645,44 @@ const Messages = () => {
           </div>
 
           {activeTab === "journal" || isPlaceholder ? null : (
-            <label className="relative mt-4 block">
+            <label
+              data-list-search=""
+              className={cn(
+                "relative mt-4 md:block short:block",
+                // Phone, upright: laid over the top row (52px under the notch) with `Huỷ`.
+                isListSearchOpen
+                  ? "fixed inset-x-0 top-0 z-40 mt-0 flex items-center gap-2 border-b border-border bg-background px-3 pb-1.5 pt-[calc(env(safe-area-inset-top)+6px)] md:static md:mt-4 md:border-0 md:bg-transparent md:p-0 short:static short:mt-4 short:border-0 short:bg-transparent short:p-0"
+                  : "hidden",
+              )}
+            >
               <span className="sr-only">Tìm cuộc trò chuyện</span>
-              <Search
-                aria-hidden="true"
-                className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground"
-                strokeWidth={1.6}
-              />
-              <input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder={activeTab === "group" ? "Tìm nhóm theo tên" : isProjects ? "Tìm dự án theo tên" : "Tìm theo tên"}
-                className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
-              />
+              <span className="relative block min-w-0 flex-1">
+                <Search
+                  aria-hidden="true"
+                  className="pointer-events-none absolute left-3.5 top-1/2 h-[18px] w-[18px] -translate-y-1/2 text-muted-foreground"
+                  strokeWidth={1.6}
+                />
+                <input
+                  value={query}
+                  autoFocus={isListSearchOpen}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder={activeTab === "group" ? "Tìm nhóm theo tên" : isProjects ? "Tìm dự án theo tên" : "Tìm theo tên"}
+                  className="h-11 w-full rounded-md border border-border bg-card pl-11 pr-4 text-[16px] md:text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60"
+                />
+              </span>
+              {isListSearchOpen ? (
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    setIsListSearchOpen(false);
+                    setQuery("");
+                  }}
+                  className="press h-11 shrink-0 px-2 text-[15px] font-medium text-primary md:hidden short:hidden"
+                >
+                  Huỷ
+                </button>
+              ) : null}
             </label>
           )}
           {activeTab === "journal" || isPlaceholder ? null : (
@@ -2842,9 +2885,11 @@ const Messages = () => {
                     <Link
                       to={`/tin-nhan/${item.conversationId}`}
                       aria-current={isActive ? "page" : undefined}
+                      data-conversation-row=""
                       className={cn(
-                        "flex items-center gap-3 rounded-lg px-3 py-3 transition-colors",
-                        isActive ? "bg-accent/70" : "hover:bg-accent/35",
+                        // AVORA-93 · 3.1: phone rows have no card — a hairline between them, ≥ 8 fit on 390×844.
+                        "flex items-center gap-3 px-1 py-2.5 transition-colors md:rounded-lg md:px-3 md:py-3",
+                        isActive ? "md:bg-accent/70" : "md:hover:bg-accent/35",
                       )}
                     >
                       {item.kind === "personal" ? (
@@ -3012,12 +3057,20 @@ const Messages = () => {
                   type="button"
                   aria-label="Quay lại Kết nối"
                   onClick={() => {
-                    // 49 · 1.1: out of Nhật ký lands on the conversation list, and stays there.
-                    if (activeKind === "personal") setActiveTab("direct");
-                    // AVORA-53 · 2.10: opened from elsewhere (`tu`) → back there; otherwise the list, replacing.
+                    // AVORA-53 · 2.10: opened from elsewhere (`tu`) → back there.
                     const cameFrom = readReturn(searchParams);
-                    if (cameFrom !== null) navigate(cameFrom.path, { replace: true });
-                    else navigate("/tin-nhan", { replace: true });
+                    if (cameFrom !== null) {
+                      navigate(cameFrom.path, { replace: true });
+                      return;
+                    }
+                    // AVORA-93 · 5: the page actually behind (Avora Space, a task card, a board…) when there is one in the app.
+                    if (hasInAppPrevious()) {
+                      navigate(-1);
+                      return;
+                    }
+                    // Nothing behind (notification, link, reopened straight into it) → Kết nối, this conversation's section.
+                    const isProjectThread = activeKind === "group" && projectByIdMap !== undefined && [...projectByIdMap.values()].some((project) => project.conversationId === conversationId);
+                    navigate(`/tin-nhan?tab=${connectTabSlug(isProjectThread ? "project" : activeKind)}`, { replace: true });
                   }}
                   className="press flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
                 >

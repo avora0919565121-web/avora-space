@@ -287,6 +287,19 @@
     background-color: var(--btn-primary-bg);
     filter: brightness(0.95);
   }
+  /* AVORA-93 · 91 (ADR-059): every button in the phone's top row is 38px and see-through; the + gets a soft accent wash, never a solid orange. */
+  [data-mobile-top-row] .icon-btn,
+  [data-mobile-top-row] [data-top-btn] {
+    height: 38px;
+    width: 38px;
+    border-color: transparent;
+    background-color: transparent;
+  }
+  [data-mobile-top-row] .icon-btn-primary {
+    background-color: hsl(var(--personal-soft));
+    color: hsl(var(--personal));
+    filter: none;
+  }
   .icon-btn-preview {
     pointer-events: none;
   }

@@ -790,6 +790,8 @@ test("65.2 · điện thoại nằm ngang ở Nhiệm vụ: không còn chữ Ct
   const screen = await render(<Hubs at="/nhiem-vu?muc=viec&xem=tat-ca" />);
   await settle(1000);
   expect(document.body.textContent ?? "").not.toContain("Ctrl/⌘");
+  // AVORA-93 · 4: the readings sit behind `Xếp · Lọc`.
+  await userEvent.click(screen.getByRole("button", { name: /Xếp · Lọc/ }));
   await expect.element(screen.getByText(/Kéo để đổi thứ tự/).first()).toBeInTheDocument();
   await page.screenshot({ path: `${OUT2}/65-2-nhiem-vu-nam-ngang-844.png` });
   restore();

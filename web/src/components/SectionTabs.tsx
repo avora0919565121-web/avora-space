@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { Link, useLocation } from "react-router-dom";
 
 import { StatusPill } from "@/components/StatusPill";
+import { MobileTopActions } from "@/components/nav/HubTitle";
 import { activeSectionTab, type NavEntry } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
@@ -28,13 +29,14 @@ export function SectionTabs({
   const current: string = activeSectionTab(location.pathname, tabs);
 
   return (
-    <header className="shrink-0 border-b border-border bg-card px-4 pt-4 sm:px-6 md:px-10 md:pr-[4.5rem] md:pt-6 short:px-4 short:pr-[4.25rem] short:pt-2">
-      {/* The Hub's own large title, held above the page while its halves scroll beneath. */}
-      <div className="flex items-center justify-between gap-3">
+    <header data-section-tabs="" className="shrink-0 border-b border-border px-4 pt-1 sm:px-6 md:bg-card md:px-10 md:pr-[4.5rem] md:pt-6 short:bg-card short:px-4 short:pr-[4.25rem] short:pt-2">
+      {/* AVORA-93 · 91 (ADR-059): on an upright phone the tab name lives only in the top row; the title row is hidden and its `+` moves up there. */}
+      <div className="hidden items-center justify-between gap-3 md:flex short:flex">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
         {action?.(current) ?? null}
       </div>
-      <nav aria-label={`Mục ${section}`} className="mt-2 overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)]">
+      <PhoneActions>{action?.(current) ?? null}</PhoneActions>
+      <nav aria-label={`Mục ${section}`} className="no-scrollbar mt-0 overflow-x-auto [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] md:mt-2 short:mt-2">
         <ul className="flex items-center gap-1 whitespace-nowrap">
           {tabs.map((tab) => {
             const isActive: boolean = tab.to === current;
@@ -68,5 +70,15 @@ export function SectionTabs({
         </ul>
       </nav>
     </header>
+  );
+}
+
+/** The `+` of a sectioned area, carried into the phone's top row (renders nothing elsewhere — the title row has it). */
+function PhoneActions({ children }: { children: ReactNode }) {
+  if (children === null) return null;
+  return (
+    <div className="md:hidden short:hidden">
+      <MobileTopActions>{children}</MobileTopActions>
+    </div>
   );
 }

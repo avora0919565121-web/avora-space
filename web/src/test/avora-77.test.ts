@@ -242,7 +242,7 @@ describe("77 · D — the open library and the reader", () => {
     expect(source).not.toMatch(/<iframe|<canvas/);
     expect(source).toContain("lang={language}");
     // AVORA-81 · C4: Avora's own Dịch is on-device only; the next chapter is already in the page for the browser.
-    expect(source).toContain("Dịch ngay trên máy — không gửi đi đâu, bản dịch không lưu ở máy chủ.");
+    expect(source).toContain("Dịch trên máy — chữ sách không rời máy, bản dịch không lưu ở máy chủ.");
     expect(source).toContain("data-next-chapter");
   });
 });

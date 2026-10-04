@@ -2011,6 +2011,23 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - **Lề điện thoại (bắt đầu).** Hàng cuộn ngang nằm trong lề, mép phải mờ 24 px (`mask-image`), không `-mx-4 px-4`. Lưới điện thoại khai báo `grid-cols-[minmax(0,1fr)]`. Nút cuối dòng `shrink-0`, chữ bên trái co lại. Còn lại xem báo cáo AVORA-89 (chưa rà hết, chưa có `gutter.browser.test`).
 - Ảnh: `docs/screens/2026-10-03/88-*`.
 
+## AVORA-93 · Tab gọn · mở lại app · số liệu của mình · đọc 4 vùng chạm · dịch hai hướng (04/10/2026) — ADR-058…061
+
+- **Tên tab chỉ một lần trên điện thoại.** Không có tiêu đề lớn thứ hai, kể cả ở Két sắt, Cài đặt, Chính sách. Ngay dưới là một hàng ngăn có gạch chân, nằm trong lề 16 px, mép phải mờ 24 px. Nhiệm vụ dùng thanh 3 ngăn chia đều.
+- **Không dùng biến thể `max-*` của Tailwind.** Nó bị tắt vì `screens.short`, nên phải viết từ nhỏ lên: `hidden md:block short:block`.
+- **Nút ở hàng đầu 38 px**, trong suốt; `+` có nền nhạt màu nhấn, không tô đặc. 🔍 mở ô tìm đè lên hàng đầu, có `Huỷ`.
+- **Mở lại app trên điện thoại:**
+  - ngày mới (mốc 04:00) → Avora Space;
+  - vắng ≥ 1 giờ → Kết nối › 1-1;
+  - vắng < 1 giờ → đúng chỗ cũ;
+  - mở từ thông báo / liên kết → theo thông báo / liên kết.
+- **Số liệu Kế hoạch: chỉ của mình, để nhìn lại.** Không chuỗi ngày, mục tiêu, so sánh, mũi tên tăng giảm hay thông báo nhắc. Ẩn được bằng `⋯ › Ẩn số liệu`. Chỉ đếm khi màn đang hiện và có tương tác.
+- **Màn đọc 4 vùng:** dải trên = công cụ; dải dưới = các tab; nửa trái / phải = lật trang. Chọn chữ thì hiện 3 nút `Dịch · Ghi chú · Chép`.
+- **Dịch có 2 hướng:**
+  - Đọc trọn cuốn: bản dịch người trước; dịch máy cả chương chỉ khi đã duyệt chất lượng.
+  - Tra từ / đoạn: luôn có, nhãn `để hiểu ý`.
+  - Không gửi chữ sách lên máy chủ. AI văn học thuộc gói trả phí, chưa làm.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

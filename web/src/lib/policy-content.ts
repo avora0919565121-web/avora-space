@@ -221,3 +221,9 @@ export const POLICY_DOCS: readonly PolicyDoc[] = [PRIVACY, TERMS, COMMUNITY, HIS
 export const VAULT_REASSURANCE: readonly string[] = ["only-you", "no-bank", "papers"].map(
   (id) => PRIVACY.sections.find((s) => s.id === "ket-sat")?.items.find((i) => i.id === id)?.text ?? "",
 );
+
+/** AVORA-93 · 3.3: the phone chip drops the long tail (`Điều khoản sử dụng — giai đoạn thử nghiệm` → `Điều khoản`). */
+export function policyShortTitle(title: string): string {
+  if (title.startsWith("Điều khoản")) return "Điều khoản";
+  return title.split(" — ")[0];
+}

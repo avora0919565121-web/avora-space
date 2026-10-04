@@ -320,6 +320,8 @@ beforeEach(() => {
   reader.saved = [];
   window.localStorage.clear();
   window.sessionStorage.clear();
+  // AVORA-93 · 93.6: the one-time zones overlay is covered by its own test.
+  window.localStorage.setItem("avora.reader.zones-seen", "1");
 });
 
 // ------------------------------------------------------------------ 77.1 → AVORA-89 · 88.1 (the room: first visit = kệ 2)
@@ -500,10 +502,10 @@ for (const [w, h] of SIZES) {
 }
 
 // ------------------------------------------------------------------ 77.7 / 77.8 the reader (AVORA-81: full screen)
+/** AVORA-93 · 4.1 (ADR-061): the reading tools now live on the top band (was: the middle third). */
 const tapMiddle = async (): Promise<void> => {
   const view = document.querySelector("[data-reader] article")?.parentElement as HTMLElement;
-  const rect = view.getBoundingClientRect();
-  view.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: window.innerWidth / 2, clientY: rect.top + rect.height / 2 }));
+  view.dispatchEvent(new MouseEvent("click", { bubbles: true, clientX: window.innerWidth / 2, clientY: 30 }));
   await settle(250);
 };
 
@@ -661,13 +663,15 @@ test("79.11 · Chrome có Translator: dịch trên máy, 55% chương → chươ
     availability: async () => "available",
     create: async () => ({ translate: async (value: string) => `VI ${value}` }),
   };
+  // AVORA-93 · 92.3: whole-chapter machine translation only once VMT approves the engine.
+  db.tables.app_config = [{ key: "chapter_mt_engines", value: ["chrome_translator"] }, { key: "translation_paid_enabled", value: false }];
   try {
     await viewport(390, 844);
     const screen = await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
     await settle(1200);
     await tapMiddle();
     await userEvent.click(screen.getByRole("button", { name: "Dịch" }));
-    await userEvent.click(screen.getByRole("button", { name: "Dịch sang Tiếng Việt" }));
+    await userEvent.click(screen.getByRole("button", { name: "Dịch cả chương sang Tiếng Việt" }));
     await settle(800);
     expect(document.querySelector("[data-reader] article")?.textContent).toContain("VI ¶ 1.");
     for (let i = 0; i < 12; i += 1) {
@@ -778,7 +782,7 @@ test("77.10 · bôi chọn → thanh Chép vào Ghi chép sách", async () => {
   selection?.addRange(range);
   document.dispatchEvent(new Event("selectionchange"));
   await settle(300);
-  expect(document.querySelector('[role="toolbar"][aria-label="Đoạn đang chọn"]')?.textContent).toContain("Chép vào Ghi chép sách");
+  expect(document.querySelector('[role="toolbar"][aria-label="Đoạn đang chọn"]')?.textContent).toMatch(/Dịch.*Ghi chú.*Chép/);
   await page.screenshot({ path: `${OUT}/77-10-chep-y-1280.png` });
 });
 

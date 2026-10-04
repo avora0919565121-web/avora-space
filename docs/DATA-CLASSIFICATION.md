@@ -97,3 +97,5 @@ khi hai bên lệch nhau, file code là đúng.
 - `push_outbox` — internal, chỉ chủ đọc; ghi và gửi chỉ qua server (service role)
 - `profiles.push_show_content`, `profiles.push_reminders` — internal
 - `profiles.color_scheme`, `profiles.accent_tone` — internal (AVORA-74: Sắc màu / Tông màu; không suy từ tuổi)
+
+- `activity_daily` — personal, chỉ chủ (lần mở + giây dùng thật theo ngày, 180 ngày, AVORA-93 · ADR-058). `notes.book_locator` — theo mức của `notes`. `app_config` — internal (cờ dịch). `book_edition_link` — public (cặp ấn bản phạm vi công cộng).

@@ -2,7 +2,7 @@ import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 
-import { POLICY_DOCS, POLICY_DRAFT_NOTE, POLICY_VERSION, type PolicyDoc, type PolicyItem, type PolicySection } from "@/lib/policy-content";
+import { POLICY_DOCS, POLICY_DRAFT_NOTE, policyShortTitle, POLICY_VERSION, type PolicyDoc, type PolicyItem, type PolicySection } from "@/lib/policy-content";
 import { cn } from "@/lib/utils";
 
 /** `Đã thực hiện` (✓, bold) · `Sắp có` (muted) — small words at the end of the line, no new colours. */
@@ -115,15 +115,17 @@ export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
 
   return (
     <div className={cn("paper min-h-0 flex-1 overflow-y-auto", isPublic && "min-h-[100dvh]")} data-policy-view={isPublic ? "public" : "settings"}>
-      <div className="mx-auto w-full max-w-5xl px-5 pb-16 pt-6 md:px-10 md:pt-10">
+      <div className={cn("mx-auto w-full max-w-5xl px-4 pb-16 md:px-10 md:pt-10", isPublic ? "pt-6" : "pt-3")}>
         {isPublic ? <span className="wordmark text-[15px] text-muted-foreground">AVORA</span> : null}
-        <h1 className={cn("text-[26px] font-semibold tracking-tight text-foreground", isPublic && "mt-4")}>Chính sách</h1>
-        <p className="mt-1 text-[13px] text-muted-foreground">Cập nhật lần cuối: {POLICY_VERSION} · {POLICY_DRAFT_NOTE}</p>
+        {/* AVORA-93 · 3.3: inside Cài đặt on a phone the section strip already says `Chính sách`. */}
+        <h1 className={cn("text-[26px] font-semibold tracking-tight text-foreground", isPublic ? "mt-4" : "hidden md:block short:block")}>Chính sách</h1>
+        <p className={cn("text-muted-foreground", isPublic ? "mt-1 text-[13px]" : "text-[11.5px] opacity-80 md:mt-1 md:text-[13px] md:opacity-100")} data-policy-updated="">Cập nhật lần cuối: {POLICY_VERSION} · {POLICY_DRAFT_NOTE}</p>
 
-        <div role="tablist" aria-label="Bộ chính sách" className="mt-5 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none]">
+        <div role="tablist" aria-label="Bộ chính sách" className="mt-3 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:mt-5 md:[mask-image:none]">
           {POLICY_DOCS.map((d) => (
             <button key={d.id} type="button" role="tab" aria-selected={d.id === doc.id} onClick={() => { setDocId(d.id); window.history.replaceState(null, "", `${location.pathname}${location.search}#${d.id}`); }} className={cn("press h-10 shrink-0 rounded-full border px-4 text-[13.5px] font-medium", d.id === doc.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground")}>
-              {d.title}
+              <span className="md:hidden">{policyShortTitle(d.title)}</span>
+              <span className="hidden md:inline">{d.title}</span>
             </button>
           ))}
         </div>

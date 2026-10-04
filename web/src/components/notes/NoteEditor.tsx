@@ -69,6 +69,7 @@ type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "saved"; at: Da
 
 /** A note as the editor holds it (the server copy, or the local draft when that is newer). */
 export type EditingNote = Pick<Note, "id" | "folderId" | "title" | "blocks" | "tags" | "bookRecordId"> & {
+  bookLocator?: string | null;
   pinnedAt: string | null;
   bookTitle: string | null;
   isNew: boolean;
@@ -215,8 +216,8 @@ export function NoteEditor({
   const byId = useMemo(() => new Map(attachments.map((item) => [item.id, item] as const)), [attachments]);
 
   const snapshot = useCallback(
-    () => ({ id: noteId, folderId, title, blocks, tags, bookRecordId: initial.bookRecordId }),
-    [noteId, folderId, title, blocks, tags, initial.bookRecordId],
+    () => ({ id: noteId, folderId, title, blocks, tags, bookRecordId: initial.bookRecordId, bookLocator: initial.bookLocator ?? null }),
+    [noteId, folderId, title, blocks, tags, initial.bookRecordId, initial.bookLocator],
   );
 
   const persist = useCallback(async (): Promise<void> => {

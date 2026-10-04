@@ -189,6 +189,54 @@ export type Database = {
         }
         Relationships: []
       }
+      activity_daily: {
+        Row: {
+          active_seconds: number
+          day: string
+          item_key: string
+          kind: string
+          last_open_at: string | null
+          opens: number
+          user_id: string
+        }
+        Insert: {
+          active_seconds?: number
+          day: string
+          item_key: string
+          kind: string
+          last_open_at?: string | null
+          opens?: number
+          user_id?: string
+        }
+        Update: {
+          active_seconds?: number
+          day?: string
+          item_key?: string
+          kind?: string
+          last_open_at?: string | null
+          opens?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      app_config: {
+        Row: {
+          key: string
+          updated_at: string
+          value: Json
+        }
+        Insert: {
+          key: string
+          updated_at?: string
+          value: Json
+        }
+        Update: {
+          key?: string
+          updated_at?: string
+          value?: Json
+        }
+        Relationships: []
+      }
       book_catalog: {
         Row: {
           authors: string | null
@@ -228,6 +276,36 @@ export type Database = {
           title_vi?: string | null
           title_vi_kind?: string | null
           updated_at?: string
+        }
+        Relationships: []
+      }
+      book_edition_link: {
+        Row: {
+          chapter_map: Json | null
+          language: string
+          source: string
+          source_id: string
+          translator: string | null
+          translator_died: number | null
+          work_key: string
+        }
+        Insert: {
+          chapter_map?: Json | null
+          language: string
+          source: string
+          source_id: string
+          translator?: string | null
+          translator_died?: number | null
+          work_key: string
+        }
+        Update: {
+          chapter_map?: Json | null
+          language?: string
+          source?: string
+          source_id?: string
+          translator?: string | null
+          translator_died?: number | null
+          work_key?: string
         }
         Relationships: []
       }
@@ -1845,6 +1923,7 @@ export type Database = {
       notes: {
         Row: {
           blocks: Json
+          book_locator: string | null
           book_record_id: string | null
           book_title: string | null
           created_at: string
@@ -1860,6 +1939,7 @@ export type Database = {
         }
         Insert: {
           blocks?: Json
+          book_locator?: string | null
           book_record_id?: string | null
           book_title?: string | null
           created_at?: string
@@ -1875,6 +1955,7 @@ export type Database = {
         }
         Update: {
           blocks?: Json
+          book_locator?: string | null
           book_record_id?: string | null
           book_title?: string | null
           created_at?: string
@@ -6818,6 +6899,16 @@ export type Database = {
           table_id: string
         }[]
       }
+      log_activity: {
+        Args: {
+          p_day: string
+          p_item_key: string
+          p_kind: string
+          p_open: boolean
+          p_seconds: number
+        }
+        Returns: undefined
+      }
       lost_device_dispute: { Args: { p_password: string }; Returns: undefined }
       mark_1_1_task_done: {
         Args: { p_task_id: string }
@@ -8861,6 +8952,7 @@ export type Database = {
           table_id: string
         }[]
       }
+      think_hub_room_stats: { Args: { p_since: string }; Returns: Json }
       toggle_record_star: { Args: { p_record_id: string }; Returns: boolean }
       transfer_group_ownership: {
         Args: { new_owner_user_id: string; target_conversation_id: string }

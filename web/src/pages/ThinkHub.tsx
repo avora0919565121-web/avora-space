@@ -58,6 +58,12 @@ import { ShelfCards } from "@/components/library/ShelfCards";
 import { DefaultShelf, DiaryShelf, LifecycleShelf, OtherShelf, PlannedShelf } from "@/components/library/ShelfPanels";
 import { ViewBoardPanel } from "@/components/library/ViewBoardPanel";
 import { DeskFullSheet, type DeskBook } from "@/components/library/ThinkDesk";
+import { useActivityMeter } from "@/lib/use-activity";
+import { BottomTabStrip } from "@/components/nav/TempTabBar";
+
+/** AVORA-93 · 4.3: the Hạng mục open on a focused board (`?hm=<record id>`). */
+const OPEN_RECORD_PARAM = "hm";
+import { BookNotes, ReadingTime, RoomNumbers, StatsMenu } from "@/components/library/RoomStats";
 import { EdgeArrows, OverviewShelf, ProgressMatrix, RoomBar, RoomMapSheet, RoomStage, ThinkingOverview, UpDownPill, WorkDesk, type SpinePreview } from "@/components/library/PlanRoom";
 import { AudienceAsk, PlacePicker, TemplateLibrary } from "@/components/library/TemplateLibrary";
 import { neighbour, ROOM_HOME, ROOM_PARAM, roomFromParams, shelfOfRoom, startsInHorizontalScroller, swipeDirection, type RoomShelf } from "@/lib/room";
@@ -822,7 +828,35 @@ const ThinkHub = () => {
     setTargetTableId(record.tableId);
     setEditing(record);
     setIsRecordOpen(true);
-  }, []);
+    // AVORA-93 · 4.3 (ADR-061): the open Hạng mục lives in the address, so tab memory brings it back.
+    setSearchParams((current) => {
+      const next = new URLSearchParams(current);
+      next.set(OPEN_RECORD_PARAM, record.id);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+  const setRecordOpen = useCallback((open: boolean): void => {
+    setIsRecordOpen(open);
+    if (open) return;
+    setSearchParams((current) => {
+      if (current.get(OPEN_RECORD_PARAM) === null) return current;
+      const next = new URLSearchParams(current);
+      next.delete(OPEN_RECORD_PARAM);
+      return next;
+    }, { replace: true });
+  }, [setSearchParams]);
+  // Back at `?hm=` (tab memory, reopen): open that Hạng mục again once the records are here.
+  const keptRecordId: string | null = searchParams.get(OPEN_RECORD_PARAM);
+  const reopenedRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (keptRecordId === null || isPending || isRecordOpen || reopenedRef.current === keptRecordId) return;
+    reopenedRef.current = keptRecordId;
+    const record = records.find((entry) => entry.id === keptRecordId);
+    if (record === undefined) return;
+    setTargetTableId(record.tableId);
+    setEditing(record);
+    setIsRecordOpen(true);
+  }, [keptRecordId, isPending, isRecordOpen, records]);
 
   /*
    * `?hang-muc=<id>` (AVORA-39 / D4): open the table that holds it (a sub-table included), bring the
@@ -1117,6 +1151,8 @@ const ThinkHub = () => {
   useEffect(() => {
     if (activeView !== null) markBoardOpened(activeView);
   }, [activeView, markBoardOpened]);
+  // AVORA-93 · PHẦN 2: one open + the minutes really spent on the board in focus (mine only).
+  useActivityMeter("board", activeId ?? activeView ?? null);
   const [wantedDesk, setWantedDesk] = useState<string | null>(null);
   // ---------------------------------------------------------------- AVORA-81 · PHẦN 2 · Bàn nghĩ + cách bày
   const saved = useArrangement();
@@ -1662,7 +1698,9 @@ const ThinkHub = () => {
           if (side !== null && to !== null) goRoom(to, side);
         }}
       >
-      <div className={cn("mx-auto px-4 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : "pb-10")}>
+      {/* AVORA-93 · 4.3: a focused Bảng has no tab bar; this strip brings it up for a moment. */}
+      {isPhoneUpright && !inRoom && (active !== null || activeView !== null) ? <BottomTabStrip /> : null}
+      <div className={cn("mx-auto px-4 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : isPhoneUpright && (active !== null || activeView !== null) ? "pb-[calc(2.5rem+28px)]" : "pb-10")}>
 
         {isFullscreen ? null : <ReturnChip className="-mt-2 mb-2" />}
         {isLibraryOpen && active === null && activeView === null ? (
@@ -1697,6 +1735,16 @@ const ThinkHub = () => {
                 }}
               />
             ) : room === 2 ? (
+              <div className="space-y-5" data-room-two="">
+              {/* AVORA-93 · PHẦN 2: my numbers first (hidden until there is at least one open, or by ⋯ › Ẩn số liệu). */}
+              <div className="flex justify-end -mb-3"><StatsMenu /></div>
+              <RoomNumbers
+                isWide={!isPhoneUpright}
+                onOpenBoard={(key) => (/^[0-9a-f]{8}-/.test(key) ? openTable(key, 2) : navigate(`/ke-hoach?ke=4&bang=${key}`))}
+                onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
+                onOpenLane={() => goRoom(3)}
+                onOpenTasks={() => navigate(withReturn("/nhiem-vu?muc=viec", hereFrom(location, "Kế hoạch")))}
+              />
               <ThinkingOverview
                 boards={planned}
                 deskIds={desk.ids}
@@ -1706,6 +1754,7 @@ const ThinkHub = () => {
                 onAskQuestions={(ids) => ids[0] !== undefined && askQuestionFor(ids[0])}
                 onGo={(to) => goRoom(to)}
               />
+              </div>
             ) : room === 3 ? (
               <>
                 <ProgressMatrix
@@ -1728,6 +1777,22 @@ const ThinkHub = () => {
               <div data-room-shelf="4">{renderShelf("mac-dinh")}</div>
             ) : room === 5 ? (
               <div data-room-shelf="5">
+                <div className="flex justify-end"><StatsMenu /></div>
+                {/* AVORA-93 · PHẦN 2 · 3: reading time and book notes worth a second look, above the shelf. */}
+                <div className="mb-6 grid gap-4 md:grid-cols-2" data-room-five-top="">
+                  <ReadingTime
+                    books={bookshelfData.books.map((book) => ({ id: book.id, title: book.title, percent: null }))}
+                    continueBook={bookshelfData.books[0] !== undefined ? { id: bookshelfData.books[0].id, title: bookshelfData.books[0].title } : null}
+                    onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
+                  />
+                  <BookNotes
+                    notes={notesData.liveNotes}
+                    onShelf={new Set(bookshelfData.books.map((book) => book.id))}
+                    isWide={!isPhoneUpright}
+                    onOpenAt={(note) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${note.bookRecordId ?? ""}${note.bookLocator != null ? `?o=${note.bookLocator}` : ""}`, hereFrom(location, "Kế hoạch")))}
+                    onOpenAll={() => void openJournal()}
+                  />
+                </div>
                 <section id="room-books" data-room-section="books">{renderShelf("ke-sach")}</section>
                 <section id="room-diary" data-room-section="diary" className="mt-8">
                   <h2 className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Nhật ký · {notesData.liveNotes.length}</h2>
@@ -2282,7 +2347,7 @@ const ThinkHub = () => {
       />
       <RecordDialog
         open={isRecordOpen}
-        onOpenChange={setIsRecordOpen}
+        onOpenChange={setRecordOpen}
         columns={editing !== null && editingTable !== undefined && isSyncBoard(editingTable) ? [...syncColumnDefs(editingTable).map((c) => ({ ...c, hidden: false })), ...editingTable.columns] : ((editing === null ? targetTable : editingTable)?.columns ?? [])}
         syncNote={editing !== null && editing.opportunityId != null ? "Sửa ở đây là sửa trong Danh bạ. Ô 🔗 Liên hệ, Công ty, Nơi trao đổi đổi ở chính liên hệ." : undefined}
         record={editing !== null && editing.opportunityId != null ? (withSyncValues([editing], opportunityBoard.rows, () => "", () => 0)[0] ?? editing) : editing}

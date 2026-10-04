@@ -135,7 +135,7 @@ const SheetContent = ({
           // AVORA-59 · F: the `‹` bar below carries the notch inset itself. Callers often pass
           // `p-0`, which twMerge lets wipe the variant's safe-area padding — that left the bar
           // at y=0, under the status bar, on exactly the panels that needed it.
-          isSidePanel && !hasOwnHeader && "max-md:pt-0",
+          isSidePanel && !hasOwnHeader && "pt-0 md:pt-[env(safe-area-inset-top)]",
         )}
         onPointerDown={(event) => {
           edgeSwipe.onPointerDown(event);
@@ -178,7 +178,7 @@ const SheetContent = ({
           ref={closeRef}
           className={cn(
             "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none",
-            isSidePanel && !hasOwnHeader && "max-md:invisible",
+            isSidePanel && !hasOwnHeader && "invisible md:visible",
           )}
         >
           <X className="h-4 w-4" />
