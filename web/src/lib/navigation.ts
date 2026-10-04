@@ -93,16 +93,6 @@ export function canGoBackInApp(historyState: unknown): boolean {
   return typeof idx === "number" && idx > 0;
 }
 
-/**
- * What the logo does from where the person stands: from anywhere it goes home to Avora Space;
- * from Avora Space itself it steps back to the screen they came from, or does nothing when
- * there is nowhere inside AVORA to go back to.
- */
-export function logoAction(pathname: string, historyState: unknown): "home" | "back" | "stay" {
-  if (pathname !== HOME_ROUTE) return "home";
-  return canGoBackInApp(historyState) ? "back" : "stay";
-}
-
 /** Which main destination owns a path — the deepest match, so "/ket-sat/mat-khau" is Két sắt. */
 export function activeNavEntry(pathname: string): NavEntry | null {
   let best: NavEntry | null = null;

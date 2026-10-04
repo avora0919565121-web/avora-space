@@ -42,7 +42,9 @@ import {
   translatorApi,
   type ReaderSettings,
 } from "@/lib/reader-settings";
-import { readReturn, withReturn } from "@/lib/return-to";
+import { withReturn } from "@/lib/return-to";
+import { useBack } from "@/lib/go-back";
+import { useBackPress } from "@/components/nav/BackButton";
 import {
   BookTextError,
   clipExcerpt,
@@ -72,6 +74,7 @@ import { useConversations } from "@/lib/use-conversations";
 import { useProfilePrefs } from "@/lib/use-default-boards";
 import { useThinkHubActions } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 
 const GAP = 48;
 
@@ -546,11 +549,15 @@ const BookReader = () => {
     return () => window.clearTimeout(timer);
   }, [quiet.quiet]);
 
+  // AVORA-94B · luật 1: one way back (history → `tu` → Kế hoạch kệ 5), never a push.
+  const readerBack = useBack({ path: "/ke-hoach?ke=5", label: "Kế hoạch" });
   const back = (): void => {
     save();
-    const origin = readReturn(new URLSearchParams(location.search));
-    navigate(origin?.path ?? "/ke-hoach?bay=noi&ngan=sach");
+    readerBack.back();
   };
+  const backPress = useBackPress(back);
+  // AVORA-94B · PHẦN C: never a spinner forever — after 10 s say so, with `Thử lại`.
+  const [isSlow, setIsSlow] = useState<boolean>(false);
 
   // ------------------------------------------------------------------ C5 · messages while reading
   useEffect(() => {
@@ -722,6 +729,17 @@ const BookReader = () => {
     }
   };
 
+  const isOpeningBook = shelfPending || (book !== null && ref !== null && text === null && loadError === null);
+  const isOffline = typeof navigator !== "undefined" && !navigator.onLine;
+  useEffect(() => {
+    if (!isOpeningBook) {
+      setIsSlow(false);
+      return;
+    }
+    const timer = window.setTimeout(() => setIsSlow(true), 10_000);
+    return () => window.clearTimeout(timer);
+  }, [isOpeningBook]);
+
   // ------------------------------------------------------------------ render
   const isLast = text !== null && chapter === text.chapters.length - 1;
   const language = text?.language ?? "vi";
@@ -730,11 +748,30 @@ const BookReader = () => {
   const pageNumber = Math.min(page + 1, pages);
   const nextBlocks = text !== null && chapter + 1 < text.chapters.length ? (text.chapters[chapter + 1]?.blocks ?? null) : null;
 
-  if (shelfPending || (book !== null && ref !== null && text === null && loadError === null)) {
+  const stuckBar = (
+    <header className="flex items-center gap-1 px-1.5 pt-[max(env(safe-area-inset-top),0.25rem)]">
+      <button type="button" {...backPress} aria-label="Quay lại. Giữ để mở các tab" data-back="" className="icon-btn no-callout h-11 w-11 select-none [touch-action:manipulation]">
+        <ChevronLeft className="h-5 w-5" aria-hidden="true" />
+      </button>
+    </header>
+  );
+  if (isOpeningBook) {
     return (
-      <div className="paper flex min-h-0 flex-1 items-center justify-center" role="status">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="sr-only">Đang mở sách</span>
+      <div className="paper flex min-h-0 flex-1 flex-col" data-reader-loading="">
+        {stuckBar}
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center" role="status">
+          {isSlow ? (
+            <>
+              <p className="max-w-sm text-[15px] text-muted-foreground">{isOffline ? "Đang không có mạng. " : ""}Chưa mở được sách.</p>
+              <button type="button" onClick={() => window.location.reload()} className="press mt-4 min-h-11 rounded-md border border-border bg-card px-5 text-[14px] font-medium">Thử lại</button>
+            </>
+          ) : (
+            <>
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+              <span className="sr-only">Đang mở sách</span>
+            </>
+          )}
+        </div>
       </div>
     );
   }
@@ -745,12 +782,22 @@ const BookReader = () => {
           {loadError ?? (book === null ? "Cuốn này không còn trên Kệ sách của bạn." : "Cuốn này không đọc trong Avora được — chỉ sách từ Thư viện mở.")}
         </p>
         <button type="button" onClick={back} className="press mt-5 min-h-11 rounded-md border border-border bg-card px-5 text-[14px] font-medium">
-          ‹ Kệ sách
+          ‹ {readerBack.label}
         </button>
       </div>
     );
   }
-  if (text === null || book === null) return null;
+  if (text === null || book === null) {
+    // No shelf to read from (or nothing to show): explain and offer `‹`, never a blank screen.
+    return (
+      <div className="paper flex min-h-0 flex-1 flex-col" data-reader-empty="">
+        {stuckBar}
+        <div className="flex flex-1 flex-col items-center justify-center px-6 text-center">
+          <p role="alert" className="max-w-sm text-[15px] text-muted-foreground">Chưa có Kệ sách để mở cuốn này. Thêm sách từ Kế hoạch › Đọc &amp; Nhật ký.</p>
+        </div>
+      </div>
+    );
+  }
 
   const articleStyle: CSSProperties = {
     fontSize: `${READER_SIZES[look.size]}px`,
@@ -786,7 +833,7 @@ const BookReader = () => {
     >
       {toolsOpen ? (
         <header className="absolute inset-x-0 top-0 z-30 flex items-center gap-0.5 border-b px-1.5 pb-1 pt-[max(env(safe-area-inset-top),0.25rem)] shadow-sm" style={{ backgroundColor: theme.paper, borderColor: `${theme.muted}33` }} data-reader-tools="">
-          <button type="button" onClick={back} aria-label="Quay lại Kệ sách" className="icon-btn h-11 w-11">
+          <button type="button" {...backPress} aria-label={`Quay lại ${readerBack.label}. Giữ để mở các tab`} data-back="" className="icon-btn no-callout h-11 w-11 select-none [touch-action:manipulation]">
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <p className="min-w-0 flex-1 truncate px-1 text-[14px] font-semibold">{book.title}</p>
@@ -1073,6 +1120,7 @@ const BookReader = () => {
 
       {lookup !== null ? (
         <div role="dialog" aria-label="Tra nghĩa" data-lookup-card="" className="fixed inset-x-3 z-50 mx-auto max-h-[45vh] max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-3 text-foreground shadow-xl" style={{ top: lookup.top }}>
+          <BackClosesBinding close={() => setLookup(null)} />
           <div className="flex items-start gap-2">
             <p className="line-clamp-2 min-w-0 flex-1 text-[13px] text-muted-foreground" lang={language}>{lookup.source}</p>
             <button type="button" onClick={() => setLookup(null)} aria-label="Đóng" className="icon-btn h-8 w-8"><X className="h-4 w-4" aria-hidden="true" /></button>

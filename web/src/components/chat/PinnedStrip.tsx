@@ -6,6 +6,7 @@ import { canPinForGroup, pinScopeLabel, PIN_LIMIT, type MessagePin } from "@/lib
 import type { GroupRole } from "@/lib/groups";
 import { messageBodyText, quotePreview, type ChatMessage } from "@/lib/chat";
 import { cn } from "@/lib/utils";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 
 /**
  * The pinned messages above a thread.
@@ -180,6 +181,7 @@ export function PinChoiceDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/20 px-6"
       onClick={() => onOpenChange(false)}
     >
+      <BackClosesBinding close={() => onOpenChange(false)} />
       <div
         className="w-full max-w-sm rounded-[14px] border border-border bg-card p-4 shadow-lg"
         onClick={(event) => event.stopPropagation()}

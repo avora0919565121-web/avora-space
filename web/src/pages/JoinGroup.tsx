@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { chatKeys } from "@/lib/chat";
 import { joinGroupWithInvite, previewGroupInvite } from "@/lib/groups";
+import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 
 /**
  * The landing page of an invite link: it names the group and asks one question — join or not.
@@ -37,10 +38,7 @@ export default function JoinGroup() {
     <div className="paper flex min-h-0 flex-1 items-center justify-center overflow-y-auto px-6 py-12">
       <div className="w-full max-w-sm text-center">
         {previewQuery.isPending ? (
-          <>
-            <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="sr-only">Đang tải lời mời</span>
-          </>
+          <LoadingOrRetry label="Đang tải lời mời" onRetry={() => void previewQuery.refetch()} />
         ) : previewQuery.isError ? (
           <>
             <h1 className="text-[20px] font-semibold tracking-tight text-foreground">

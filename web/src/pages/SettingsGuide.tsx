@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth";
+import { NavRulesCard } from "@/components/nav/NavRules";
 import { GUIDE_CARDS } from "@/lib/guide-content";
 import { GUIDANCE_TEXT, guidanceKeys, REPLAYABLE_GUIDANCE, restoreGuidance } from "@/lib/guidance";
 
@@ -62,6 +63,8 @@ const SettingsGuide = () => (
         <BookOpen className="h-5 w-5 text-primary" strokeWidth={1.7} aria-hidden="true" />
         <p className="text-[14px] leading-6 text-muted-foreground">Mỗi khu vài dòng, chỉ những gì đang dùng được.</p>
       </header>
+      {/* AVORA-94B · E1: how to move comes first. */}
+      <NavRulesCard />
       {GUIDE_CARDS.map((card) => {
         const Icon = ICONS[card.id] ?? BookOpen;
         return (

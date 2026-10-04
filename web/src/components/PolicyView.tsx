@@ -4,6 +4,8 @@ import { useLocation, useSearchParams } from "react-router-dom";
 
 import { POLICY_DOCS, POLICY_DRAFT_NOTE, policyShortTitle, POLICY_VERSION, type PolicyDoc, type PolicyItem, type PolicySection } from "@/lib/policy-content";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/lib/auth";
+import { ChevronLeft } from "lucide-react";
 
 /** `Đã thực hiện` (✓, bold) · `Sắp có` (muted) — small words at the end of the line, no new colours. */
 function Status({ item }: { item: PolicyItem }) {
@@ -91,6 +93,7 @@ function Section({ section, openTech }: { section: PolicySection; openTech: bool
  * (`#ket-sat`) open the right document and scroll there; `?chi-tiet=1` opens every technical layer.
  */
 export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
+  const { session } = useAuth();
   const location = useLocation();
   const [params] = useSearchParams();
   const hash = location.hash.replace("#", "");
@@ -116,7 +119,13 @@ export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
   return (
     <div className={cn("paper min-h-0 flex-1 overflow-y-auto", isPublic && "min-h-[100dvh]")} data-policy-view={isPublic ? "public" : "settings"}>
       <div className={cn("mx-auto w-full max-w-5xl px-4 pb-16 md:px-10 md:pt-10", isPublic ? "pt-6" : "pt-3")}>
-        {isPublic ? <span className="wordmark text-[15px] text-muted-foreground">AVORA</span> : null}
+        {isPublic ? (
+          // AVORA-94B · PHẦN C: an installed app has no browser Back — `‹ AVORA` is the way out.
+          <a href={session !== null ? "/cai-dat/chinh-sach" : "/dang-nhap"} data-policy-exit="" className="press -ml-2 inline-flex min-h-11 items-center gap-0.5 rounded-md px-2 text-muted-foreground hover:text-foreground">
+            <ChevronLeft className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+            <span className="wordmark text-[15px]">AVORA</span>
+          </a>
+        ) : null}
         {/* AVORA-93 · 3.3: inside Cài đặt on a phone the section strip already says `Chính sách`. */}
         <h1 className={cn("text-[26px] font-semibold tracking-tight text-foreground", isPublic ? "mt-4" : "hidden md:block short:block")}>Chính sách</h1>
         <p className={cn("text-muted-foreground", isPublic ? "mt-1 text-[13px]" : "text-[11.5px] opacity-80 md:mt-1 md:text-[13px] md:opacity-100")} data-policy-updated="">Cập nhật lần cuối: {POLICY_VERSION} · {POLICY_DRAFT_NOTE}</p>

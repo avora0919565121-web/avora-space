@@ -11,6 +11,7 @@ import {
 } from "@/lib/attachments";
 import { fileIconOf } from "@/components/chat/file-icon";
 import { cn } from "@/lib/utils";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 
 /** Widest a photo is drawn in a bubble — past this the thread stops being readable. */
 const IMAGE_MAX_WIDTH_PX = 320;
@@ -113,6 +114,7 @@ function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/95 p-4"
           onClick={() => setIsOpen(false)}
         >
+          <BackClosesBinding close={() => setIsOpen(false)} />
           {/*
             Fills the viewer along its longest fitting side, small photos included. With a known
             ratio the box is sized exactly; without one the photo is stretched to the frame and
@@ -338,6 +340,7 @@ function ImageViewer({
       onPointerDown={onPointerDown}
       onPointerUp={onPointerUp}
     >
+      <BackClosesBinding close={onClose} />
       {url !== null ? (
         <img
           src={url}

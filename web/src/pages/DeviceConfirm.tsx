@@ -1,6 +1,7 @@
 import { Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { useAuth } from "@/lib/auth";
 
 /**
  * AVORA-67 · 2.3 — `/xac-nhan-thiet-bi?t=…`, the page behind the email links. No sign-in. Opening it
@@ -30,6 +31,7 @@ const RESULT: Record<string, string> = {
 };
 
 const DeviceConfirm = () => {
+  const { session } = useAuth();
   const [params] = useSearchParams();
   const token = params.get("t") ?? "";
   const [info, setInfo] = useState<Info | null>(null);
@@ -68,6 +70,12 @@ const DeviceConfirm = () => {
   };
 
   const label = info?.label ?? "Thiết bị";
+  // AVORA-94B · PHẦN C: every end state has a way on — into AVORA when signed in, else to sign in.
+  const exit = (
+    <a href={session !== null ? "/tong-quan" : "/dang-nhap"} data-device-exit="" className="press mt-6 inline-flex min-h-11 items-center rounded-md border border-border bg-card px-5 text-[14px] font-medium text-foreground">
+      {session !== null ? "Mở AVORA" : "Đăng nhập"}
+    </a>
+  );
   const btn = "press flex min-h-12 w-full items-center justify-center rounded-lg px-4 text-[15px] font-semibold disabled:opacity-50";
 
   return (
@@ -80,11 +88,15 @@ const DeviceConfirm = () => {
           <div className="mt-8" role="status">
             <ShieldCheck className="h-10 w-10 text-primary" strokeWidth={1.6} aria-hidden="true" />
             <p className="mt-4 text-[17px] leading-relaxed text-foreground">{done}</p>
+            {exit}
           </div>
         ) : info.status !== "open" ? (
-          <p className="mt-8 text-[17px] text-foreground">
-            {info.status === "used" ? "Liên kết này đã được dùng." : info.status === "expired" ? "Liên kết đã hết hạn." : "Liên kết không hợp lệ."}
-          </p>
+          <div className="mt-8">
+            <p className="text-[17px] text-foreground">
+              {info.status === "used" ? "Liên kết này đã được dùng." : info.status === "expired" ? "Liên kết đã hết hạn." : "Liên kết không hợp lệ."}
+            </p>
+            {exit}
+          </div>
         ) : (
           <div className="mt-8">
             {info.kind === "lost_confirm" ? (

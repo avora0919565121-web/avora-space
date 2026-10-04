@@ -10,6 +10,7 @@ import { isDayAllowed, orderRange, pickHint, yearChoices, type DateAllow } from 
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { todayIso, type TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 
 const MONTH_SHORT: readonly string[] = Array.from({ length: 12 }, (_, index) => `Thg ${index + 1}`);
 
@@ -70,6 +71,7 @@ export function CalendarPeekSheet(props: CalendarPeekSheetProps) {
 
   return (
     <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+      {open ? <BackClosesBinding close={() => onOpenChange(false)} /> : null}
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           style={animation}

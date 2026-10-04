@@ -95,18 +95,6 @@ export function wasExplicitOpen(now: number = Date.now()): boolean {
   return now - explicitAt < 3000;
 }
 
-export type ChatBack = { kind: "return"; path: string } | { kind: "history" } | { kind: "list"; path: string };
-
-/**
- * Where `‹` in a phone thread goes (AVORA-93 · 5, tested by AVORA-94 · 94.6):
- * `tu` → there; a page behind inside the app → step back; nothing behind → Kết nối, this thread's section.
- */
-export function chatBackTarget(input: { returnPath: string | null; hasPrevious: boolean; kind: string }): ChatBack {
-  if (input.returnPath !== null) return { kind: "return", path: input.returnPath };
-  if (input.hasPrevious) return { kind: "history" };
-  return { kind: "list", path: `/tin-nhan?tab=${connectTabSlug(input.kind)}` };
-}
-
 /** Kết nối's strip slug for a conversation kind — where `‹` lands when there is no page behind. */
 export function connectTabSlug(kind: "personal" | "direct" | "group" | "project" | string): string {
   if (kind === "personal") return "nhat-ky";

@@ -63,7 +63,7 @@ import { BottomTabStrip } from "@/components/nav/TempTabBar";
 
 /** AVORA-93 · 4.3: the Hạng mục open on a focused board (`?hm=<record id>`). */
 const OPEN_RECORD_PARAM = "hm";
-import { BookNotes, ReadingTime, RoomNumbers, StatsMenu } from "@/components/library/RoomStats";
+import { BookNotes, BooksCard, ReadingTime, RoomNumbers, StatsMenu } from "@/components/library/RoomStats";
 import { EdgeArrows, OverviewShelf, ProgressMatrix, RoomBar, RoomMapSheet, RoomStage, ThinkingOverview, UpDownPill, WorkDesk, type SpinePreview } from "@/components/library/PlanRoom";
 import { AudienceAsk, PlacePicker, TemplateLibrary } from "@/components/library/TemplateLibrary";
 import { neighbour, ROOM_HOME, ROOM_PARAM, roomFromParams, shelfOfRoom, startsInHorizontalScroller, swipeDirection, type RoomShelf } from "@/lib/room";
@@ -166,14 +166,16 @@ import { isSyncBoard, isSyncColumnKey, matchesStageChip, saveSyncEdits, setBoard
 import { useInvalidateOpportunityBoard, useOpportunityBoardRows } from "@/lib/use-opportunity-board";
 import { AvoraSearchButton } from "@/components/search/AvoraSearch";
 import { HubTitle } from "@/components/nav/HubTitle";
-import { ReturnChip } from "@/components/nav/ReturnChip";
+import { InlineBack } from "@/components/nav/InlineBack";
 import { carryReturn, hereFrom, readReturn, withReturn } from "@/lib/return-to";
-import { canGoBackInApp } from "@/lib/navigation";
+import { hasInAppPrevious, isPreviousEntry } from "@/lib/nav-history";
 import { taskLink } from "@/lib/task-scope";
 import type { TaskItem } from "@/lib/tasks";
 import { useTasks } from "@/lib/use-tasks";
 import { spotlight } from "@/lib/spotlight";
 import { cn } from "@/lib/utils";
+import { LoadingOrRetry } from "@/components/LoadingOrRetry";
+import { isAreaRoot } from "@/lib/go-back";
 
 type ViewMode = "table" | "kanban" | "mindmap";
 
@@ -464,7 +466,7 @@ const ThinkHub = () => {
         next.set("toan-man", "1");
         setSearchParams(next);
       } else if (searchParams.get("toan-man") === "1") {
-        if (canGoBackInApp(window.history.state)) navigate(-1);
+        if (hasInAppPrevious()) navigate(-1);
         else {
           next.delete("toan-man");
           setSearchParams(next, { replace: true });
@@ -514,7 +516,8 @@ const ThinkHub = () => {
       // AVORA-89 · 2.3: the board opens on top of the shelf it came from; `‹` goes back there.
       next.set(ROOM_PARAM, String(homeShelf ?? room));
       next.set(HUB_TABLE_PARAM, tableId);
-      setSearchParams(next, { replace: true });
+      // AVORA-94B (ADR-062): opening a Bảng goes deeper → push, so Back returns to the shelf.
+      setSearchParams(next);
     },
     [searchParams, setSearchParams, room],
   );
@@ -546,23 +549,31 @@ const ThinkHub = () => {
     [searchParams, setSearchParams, room],
   );
   const closeView = useCallback((): void => {
-    const next = new URLSearchParams(searchParams);
-    next.delete(VIEW_BOARD_PARAM);
-    next.delete("toan-man");
-    setSearchParams(next, { replace: true });
+    if (hasInAppPrevious()) navigate(-1);
+    else {
+      const next = new URLSearchParams(searchParams);
+      next.delete(VIEW_BOARD_PARAM);
+      next.delete("toan-man");
+      setSearchParams(next, { replace: true });
+    }
     if (activeView !== null) spotlight("data-view-board-link", activeView);
-  }, [searchParams, setSearchParams, activeView]);
+  }, [searchParams, setSearchParams, activeView, navigate]);
 
   /** `‹ {kệ}` on a phone, `×` on a computer: the board closes, its row on the shelf lights up. */
   const closeBoard = useCallback((): void => {
     const closing = activeId;
-    const next = new URLSearchParams(searchParams);
-    next.delete(HUB_TABLE_PARAM);
-    next.delete("toan-man");
     setActiveId(null);
-    setSearchParams(next, { replace: true });
+    // AVORA-94B · luật 1: closing = one step back when the shelf is the screen behind; else the shelf, replace.
+    if (hasInAppPrevious()) navigate(-1);
+    else {
+      const next = new URLSearchParams(searchParams);
+      next.delete(HUB_TABLE_PARAM);
+      next.delete("toan-man");
+      next.delete(OPEN_RECORD_PARAM);
+      setSearchParams(next, { replace: true });
+    }
     if (closing !== null) spotlight("data-board-row", closing);
-  }, [activeId, searchParams, setSearchParams]);
+  }, [activeId, searchParams, setSearchParams, navigate]);
 
   const ancestry = useMemo(
     () => (active === null ? [] : tableAncestry(tables, records, active.id)),
@@ -841,24 +852,43 @@ const ThinkHub = () => {
     setEditing(record);
     setIsRecordOpen(true);
     // AVORA-93 · 4.3 (ADR-061): the open Hạng mục lives in the address, so tab memory brings it back.
+    // AVORA-94B: a Hạng mục is one step deeper → push; Back closes it (luật 1 / 5).
     setSearchParams((current) => {
       const next = new URLSearchParams(current);
       next.set(OPEN_RECORD_PARAM, record.id);
       return next;
-    }, { replace: true });
+    });
   }, [setSearchParams]);
   const setRecordOpen = useCallback((open: boolean): void => {
     setIsRecordOpen(open);
     if (open) return;
+    // Opened by a tap (push): close = one step back. Reopened from tab memory: just drop `hm`.
+    const without = new URLSearchParams(searchParams);
+    without.delete(OPEN_RECORD_PARAM);
+    const query = without.toString();
+    if (searchParams.get(OPEN_RECORD_PARAM) !== null && isPreviousEntry(`${location.pathname}${query === "" ? "" : `?${query}`}`)) {
+      navigate(-1);
+      return;
+    }
     setSearchParams((current) => {
       if (current.get(OPEN_RECORD_PARAM) === null) return current;
       const next = new URLSearchParams(current);
       next.delete(OPEN_RECORD_PARAM);
       return next;
     }, { replace: true });
-  }, [setSearchParams]);
+  }, [setSearchParams, searchParams, navigate, location.pathname]);
   // Back at `?hm=` (tab memory, reopen): open that Hạng mục again once the records are here.
   const keptRecordId: string | null = searchParams.get(OPEN_RECORD_PARAM);
+  // AVORA-94B · luật 1: a step back that drops `hm` closes the Hạng mục with it.
+  const lastKeptRef = useRef<string | null>(keptRecordId);
+  useEffect(() => {
+    const was = lastKeptRef.current;
+    lastKeptRef.current = keptRecordId;
+    if (was !== null && keptRecordId === null) {
+      setIsRecordOpen(false);
+      reopenedRef.current = null;
+    }
+  }, [keptRecordId]);
   const reopenedRef = useRef<string | null>(null);
   useEffect(() => {
     if (keptRecordId === null || isPending || isRecordOpen || reopenedRef.current === keptRecordId) return;
@@ -1203,6 +1233,7 @@ const ThinkHub = () => {
   const [pickedTile, setPickedTile] = useState<ReminderTile | null>(() => (isReminderTile(searchParams.get(HUB_TILE_PARAM)) ? (searchParams.get(HUB_TILE_PARAM) as ReminderTile) : null));
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isStoreOpen, setIsStoreOpen] = useState<boolean>(false);
+  const [isShelfOpen, setIsShelfOpen] = useState<boolean>(false);
   const [focusLane, setFocusLane] = useState<"waiting" | "thinking" | "concluded" | null>(null);
   const deskBook: DeskBook | null = useMemo(() => {
     const reading = bookshelfData.books.filter((book) => book.status === "dang_doc").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -1338,10 +1369,7 @@ const ThinkHub = () => {
 
   if (isPending) {
     return (
-      <div className="paper flex min-h-0 flex-1 items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="sr-only">Đang tải</span>
-      </div>
+      <LoadingOrRetry className="paper" withBack={!isAreaRoot(location)} />
     );
   }
 
@@ -1716,7 +1744,7 @@ const ThinkHub = () => {
       {isPhoneUpright && !inRoom && (active !== null || activeView !== null) ? <BottomTabStrip /> : null}
       <div className={cn("mx-auto px-4 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : isPhoneUpright && (active !== null || activeView !== null) ? "pb-[calc(2.5rem+28px)]" : "pb-10")}>
 
-        {isFullscreen ? null : <ReturnChip className="-mt-2 mb-2" />}
+        {isFullscreen ? null : <InlineBack className="-mt-2 mb-2" />}
         {isLibraryOpen && active === null && activeView === null ? (
           <TemplateLibrary
             templates={templatesQuery.data ?? []}
@@ -1807,7 +1835,17 @@ const ThinkHub = () => {
                         onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
                       />
                     </div>
-                    <section id="room-books" data-room-section="books" className="order-3 min-w-0">{renderShelf("ke-sach")}</section>
+                    {isShelfOpen ? null : (
+                      <div className="order-3 hidden min-w-0 md:block">
+                        <BooksCard
+                          books={bookshelfData.books}
+                          onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
+                          onOpenShelf={() => setIsShelfOpen(true)}
+                        />
+                      </div>
+                    )}
+                    {/* Phone: the shelf as before. Computer: behind the card until asked for. */}
+                    <section id="room-books" data-room-section="books" className={cn("order-3 min-w-0", !isShelfOpen && "md:hidden")}>{renderShelf("ke-sach")}</section>
                   </div>
                   <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4" data-room-five-col="right">
                     <div className="order-2 min-w-0">

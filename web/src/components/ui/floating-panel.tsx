@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 
 /** Lớp nổi keeps at least this far from every screen edge (44b · H2.4). */
 export const FLOATING_EDGE_PX = 16;
@@ -89,6 +90,7 @@ export function FloatingPanel({
   if (isDesktop && placement !== "center") {
     return (
       <PopoverPrimitive.Root open={open} onOpenChange={onOpenChange}>
+        {open ? <BackClosesBinding close={() => onOpenChange(false)} /> : null}
         <PopoverPrimitive.Anchor asChild>{anchorNode}</PopoverPrimitive.Anchor>
         <PopoverPrimitive.Portal>
           <PopoverPrimitive.Content
@@ -115,6 +117,7 @@ export function FloatingPanel({
     <>
       {anchorNode}
       <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
+        {open ? <BackClosesBinding close={() => onOpenChange(false)} /> : null}
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/20 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
           <DialogPrimitive.Content

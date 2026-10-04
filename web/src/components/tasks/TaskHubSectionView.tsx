@@ -242,24 +242,37 @@ function MyDay({ tasks, userId, today, onOpen, list, empty }: { tasks: readonly 
       ) : null}
       {late.length > 0 ? (
         <section aria-label="Trễ hạn" data-my-day-part="overdue">
-          <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-task-overdue">Trễ hạn · {late.length}</h3>
+          <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-task-overdue" data-my-day-head="overdue">Trễ hạn {late.length}</h3>
           <div className="border-y border-border">
             {late.map((task) => <TaskLine key={task.id} task={task} today={today} onOpen={onOpen} />)}
           </div>
         </section>
       ) : null}
       <section aria-label="Hôm nay" data-my-day-part="today">
-        {invites.length > 0 || late.length > 0 ? <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Hôm nay · {list.length}</h3> : null}
+        {/* AVORA-94B · D1: always named, like the mockup — `TRỄ HẠN n` / `HÔM NAY n`. */}
+        <h3 className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground" data-my-day-head="today">Hôm nay {list.length}</h3>
         {list.length === 0 ? (
           <p className="py-3 text-[14px] text-muted-foreground">{empty}</p>
         ) : (
           <div className="border-y border-border">
-            {list.map((task) => <TaskLine key={task.id} task={task} today={today} onOpen={onOpen} dayNote={myDayCardNote(task, today)} />)}
+            {list.map((task) => <TaskLine key={task.id} task={task} today={today} onOpen={onOpen} dayNote={todayLine(task, today)} />)}
           </div>
         )}
       </section>
     </div>
   );
+}
+
+/**
+ * AVORA-94B · D1: inside `Hôm nay` the second line says only the time (the heading already says
+ * "today"); a task carried from earlier keeps its own note.
+ */
+function todayLine(task: TaskItem, today: string): MyDayCardNote | null {
+  if (task.startAt !== null) return { text: `${task.requiresPresence ? "Có mặt lúc" : "Lúc"} ${clock(task.startAt)}` };
+  if (task.deadlineTime !== null) return { text: task.deadlineTime.slice(0, 5) };
+  const note = myDayCardNote(task, today);
+  if (note === null || note.text === "Đã ở Hôm nay vì hạn hôm nay") return { text: "Trong ngày" };
+  return note;
 }
 
 /** The one card a person with no tasks yet sees (89 · 3.B): what a task is, and one way in. */

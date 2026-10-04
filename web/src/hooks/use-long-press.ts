@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent } from "react";
+import { useCallback, useEffect, useRef, type MouseEvent, type PointerEvent, type TouchEvent } from "react";
 
 /** How long a finger must rest on a message bubble before it counts as "I mean this one". */
 export const LONG_PRESS_MS = 500;
@@ -36,6 +36,8 @@ export function useLongPress({
   contextMenu?: "always" | "after-hold";
 }) {
   const timerRef = useRef<number | null>(null);
+  /** AVORA-94B · B2: a finger is down (touch events), so a stray `pointercancel` from iOS does not end the hold. */
+  const touchActiveRef = useRef<boolean>(false);
   const firedRef = useRef<boolean>(false);
   const startRef = useRef<{ x: number; y: number } | null>(null);
   const pressChangeRef = useRef(onPressChange);
@@ -52,14 +54,10 @@ export function useLongPress({
 
   useEffect(() => clear, [clear]);
 
-  const onPointerDown = useCallback(
-    (event: PointerEvent<HTMLElement>): void => {
-      firedRef.current = false;
-      if (!isEnabled() || event.button !== 0) return;
-      if (pointerTypes !== undefined && !pointerTypes.includes(event.pointerType)) return;
-      startRef.current = { x: event.clientX, y: event.clientY };
+  const start = useCallback(
+    (x: number, y: number): void => {
       clear();
-      startRef.current = { x: event.clientX, y: event.clientY };
+      startRef.current = { x, y };
       pressChangeRef.current?.(true);
       timerRef.current = window.setTimeout(() => {
         firedRef.current = true;
@@ -70,7 +68,47 @@ export function useLongPress({
         onHold();
       }, holdMs);
     },
-    [clear, holdMs, isEnabled, onHold, pointerTypes],
+    [clear, holdMs, onHold],
+  );
+
+  const onPointerDown = useCallback(
+    (event: PointerEvent<HTMLElement>): void => {
+      firedRef.current = false;
+      if (!isEnabled() || event.button !== 0) return;
+      if (pointerTypes !== undefined && !pointerTypes.includes(event.pointerType)) return;
+      // The touch path below may already be timing this same press.
+      if (timerRef.current !== null && touchActiveRef.current) return;
+      start(event.clientX, event.clientY);
+    },
+    [isEnabled, pointerTypes, start],
+  );
+
+  /** iOS fallback: some controls get `pointercancel` mid-hold; touch events keep the press alive. */
+  const onTouchStart = useCallback(
+    (event: TouchEvent<HTMLElement>): void => {
+      touchActiveRef.current = true;
+      if (!isEnabled() || timerRef.current !== null) return;
+      if (pointerTypes !== undefined && !pointerTypes.includes("touch")) return;
+      const touch = event.touches[0];
+      if (touch === undefined) return;
+      firedRef.current = false;
+      start(touch.clientX, touch.clientY);
+    },
+    [isEnabled, pointerTypes, start],
+  );
+  const onTouchEnd = useCallback((): void => {
+    touchActiveRef.current = false;
+    clear();
+  }, [clear]);
+  const onPointerCancel = useCallback((): void => {
+    if (!touchActiveRef.current) clear();
+  }, [clear]);
+  // A finger rolling slightly off the control is still holding it; only a mouse leaving ends it.
+  const onPointerLeave = useCallback(
+    (event: PointerEvent<HTMLElement>): void => {
+      if (event.pointerType === "mouse") clear();
+    },
+    [clear],
   );
 
   const onPointerMove = useCallback(
@@ -109,8 +147,11 @@ export function useLongPress({
     onPointerDown,
     onPointerMove,
     onPointerUp: clear,
-    onPointerCancel: clear,
-    onPointerLeave: clear,
+    onPointerCancel,
+    onPointerLeave,
+    onTouchStart,
+    onTouchEnd,
+    onTouchCancel: onTouchEnd,
     onClick,
     onContextMenu,
   };

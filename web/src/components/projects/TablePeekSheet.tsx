@@ -29,6 +29,7 @@ import { useTaskProjectLinks } from "@/lib/use-projects";
 import { useTasks } from "@/lib/use-tasks";
 import { useRecordTaskLinks, useThinkHubActions, useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 
 /**
  * "Xem bảng": a quick look at one table without leaving the Dự án tab.
@@ -57,6 +58,7 @@ export function TablePeekSheet({
 
   return (
     <DialogPrimitive.Root open={table !== null} onOpenChange={onOpenChange}>
+      {table !== null ? <BackClosesBinding close={() => onOpenChange(false)} /> : null}
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay
           style={animation}

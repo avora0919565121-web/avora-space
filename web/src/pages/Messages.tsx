@@ -65,7 +65,7 @@ import { ChatSuggestionPanel, useChatSuggestions } from "@/components/chat/ChatS
 import { ThreadChipRow, type ThreadChip, type ThreadChipId } from "@/components/chat/ThreadChipRow";
 import { askConfirm } from "@/components/ConfirmHost";
 import { JournalTrashSheet, useJournalTrashCount } from "@/components/chat/JournalTrashSheet";
-import { ReturnChip } from "@/components/nav/ReturnChip";
+import { InlineBack } from "@/components/nav/InlineBack";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { firstVisibleMessage, forgetThreadPlace, readThreadPlace, rememberThreadPlace } from "@/lib/thread-place";
 import { ChatTaskPanel, useChatThreadTasks } from "@/components/chat/ChatTaskPanel";
@@ -78,8 +78,9 @@ import { BoardUpdateCard } from "@/components/think-hub/BoardChanges";
 import { BOARD_CHANGES_PARAM, boardChangeKeys, fetchAnnouncements } from "@/lib/board-changes";
 import { MessageComposer } from "@/components/chat/MessageComposer";
 import { MobileTopActions } from "@/components/nav/HubTitle";
-import { hasInAppPrevious } from "@/lib/nav-history";
-import { chatBackTarget } from "@/lib/resume-place";
+import { connectTabSlug } from "@/lib/resume-place";
+import { useBack } from "@/lib/go-back";
+import { useBackPress } from "@/components/nav/BackButton";
 import { ContactCardBubble, MessageRefChips } from "@/components/chat/ContactCardBubble";
 import { refsInText, shareContactCard, type RefChoice, type RefContext } from "@/lib/context-refs";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
@@ -585,6 +586,11 @@ const Messages = () => {
 
   const activeKind: ConversationKind = activeSummary?.kind ?? "direct";
   const threadTitle: string = activeSummary ? conversationTitle(activeSummary) : peerName;
+  // AVORA-94B · luật 1 (ADR-062): the thread's `‹` — back one screen; nothing behind → Kết nối, this thread's section.
+  const isProjectThread: boolean = activeKind === "group" && [...projectByIdMap.values()].some((project) => project.conversationId === conversationId);
+  // Nhật ký (every view) → Kết nối › 1-1, never `?tab=nhat-ky` (that would reopen Nhật ký: the old loop).
+  const threadBack = useBack({ path: `/tin-nhan?tab=${activeKind === "personal" ? "1-1" : connectTabSlug(isProjectThread ? "project" : activeKind)}`, label: "Kết nối" });
+  const threadBackPress = useBackPress(threadBack.back);
   /**
    * AVORA-52 · C: a panel opened from `⋯` sits over it. `‹ {tên cuộc}` closes only the panel (⋯ is
    * still there, at its scroll); `✕` closes both and leaves the conversation on screen.
@@ -2415,20 +2421,20 @@ const Messages = () => {
   );
 
   /**
-   * Nhật ký never rests on its list: arriving at the bare inbox with that tab chosen (a step
-   * back, a reload) opens the journal itself, in place of the list entry.
+   * AVORA-94B (ADR-062): only a tap on the Nhật ký section opens the journal (`handleSelectTab`).
+   * `?tab=nhat-ky` arriving from an address opens it once with `replace` — never again on a step
+   * back, which is what used to trap `‹` in Nhật ký.
    */
+  const journalFromAddressRef = useRef<boolean>(false);
   useEffect(() => {
-    if (!isWide && activeTab === "journal" && journalSummary === undefined && conversationsQuery.isSuccess && !journalMutation.isPending) {
-      // First visit: the journal is created quietly, then opened.
-      journalMutation.mutate();
-      return;
-    }
-    if (conversationId !== undefined || activeTab !== "journal" || journalSummary === undefined) return;
-    navigate(`/tin-nhan/${journalSummary.conversationId}`, { replace: true });
-    // journalMutation is a fresh object each render; its pending flag is the part that matters.
+    if (journalFromAddressRef.current || conversationId !== undefined || searchParams.get("tab") !== "nhat-ky") return;
+    if (!conversationsQuery.isSuccess) return;
+    journalFromAddressRef.current = true;
+    if (journalSummary !== undefined) navigate(`/tin-nhan/${journalSummary.conversationId}`, { replace: true });
+    else journalMutation.mutate();
+    // journalMutation is a fresh object each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [conversationId, activeTab, journalSummary, navigate, isWide, conversationsQuery.isSuccess, journalMutation.isPending]);
+  }, [conversationId, searchParams, journalSummary, conversationsQuery.isSuccess, navigate]);
 
   // Opening a thread by link (or the "Nhắn riêng" jump out of a group) must land on the tab
   // that thread actually belongs to, or the list beside it would contradict the header. Keyed on
@@ -3046,7 +3052,7 @@ const Messages = () => {
               </p>
               <button
                 type="button"
-                onClick={() => navigate("/tin-nhan")}
+                onClick={threadBack.back}
                 className="press mt-7 rounded-md bg-primary px-6 py-3 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
               >
                 Về Kết nối
@@ -3057,17 +3063,12 @@ const Messages = () => {
               <header className="flex items-center gap-2 border-b border-border bg-card px-3 pb-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] md:gap-3 md:px-5 md:py-3.5 md:pr-[4.25rem]">
                 <button
                   type="button"
-                  aria-label="Quay lại Kết nối"
-                  onClick={() => {
-                    // AVORA-53 · 2.10 `tu` → there · AVORA-93 · 5 page behind → back · nothing behind → Kết nối, this thread's section.
-                    const isProjectThread = activeKind === "group" && projectByIdMap !== undefined && [...projectByIdMap.values()].some((project) => project.conversationId === conversationId);
-                    const back = chatBackTarget({ returnPath: readReturn(searchParams)?.path ?? null, hasPrevious: hasInAppPrevious(), kind: isProjectThread ? "project" : activeKind });
-                    if (back.kind === "history") navigate(-1);
-                    else navigate(back.path, { replace: true });
-                  }}
-                  className="press flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
+                  aria-label={`Quay lại ${threadBack.label}`}
+                  data-back=""
+                  {...threadBackPress}
+                  className="press no-callout flex h-11 min-w-11 shrink-0 select-none items-center justify-center gap-0.5 rounded-md text-muted-foreground transition-colors [touch-action:manipulation] hover:bg-accent/50 hover:text-foreground md:hidden"
                 >
-                  <ChevronLeft className="h-5 w-5" strokeWidth={1.6} />
+                  <ChevronLeft className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
                 </button>
                 {activeKind === "personal" ? (
                   <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-primary/30 bg-primary/10 text-primary">
@@ -3174,7 +3175,7 @@ const Messages = () => {
               ) : null}
 
               {/* 49 · 3.2: the way back to wherever this thread was opened from. */}
-              <ReturnChip className="border-b border-border bg-card px-4 md:px-10" />
+              <InlineBack className="border-b border-border bg-card px-4 md:px-10" />
 
               {isDiaryAside ? null : (
                 <ThreadChipRow chips={threadChips} open={openChip} onToggle={(id) => setOpenChip((current) => (current === id ? null : id))}>

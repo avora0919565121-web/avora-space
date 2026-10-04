@@ -1,9 +1,10 @@
-import { ArrowLeft, Check, FileUp, Loader2 } from "lucide-react";
+import { Check, FileUp, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { readReturn } from "@/lib/return-to";
+import { BackButton } from "@/components/nav/BackButton";
 import { IMPORT_ACCEPT, ImportFileError, readNameEntriesFromFile } from "@/lib/contact-import-file";
 import { proposeNamesFromFile, suspectSyllables, type NameIssue, type NameIssueKind } from "@/lib/contact-name-repair";
 import { useContacts } from "@/lib/use-contacts";
@@ -104,13 +105,7 @@ const ContactNameRepair = () => {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-4 pb-28 pt-6 sm:px-6 md:px-10 md:pt-10">
-        <button
-          type="button"
-          onClick={() => navigate(back?.path ?? "/lien-he")}
-          className="press -ml-1 inline-flex min-h-11 items-center gap-1 rounded-md px-1 text-[14px] text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" aria-hidden="true" /> {back?.label ?? "Liên hệ"}
-        </button>
+        <BackButton parent={{ path: "/lien-he", label: back?.label ?? "Liên hệ" }} showLabel className="-ml-2" />
         <h1 className="mt-2 text-[26px] font-semibold tracking-tight text-foreground">Sửa tên</h1>
         <p className="mt-1 text-[14px] text-muted-foreground">
           Tên chỉ đổi khi bạn bấm Áp dụng. Mọi kiểm tra chạy ngay trên máy, không gửi tên đi đâu.

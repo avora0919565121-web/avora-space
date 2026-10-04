@@ -4,6 +4,7 @@ import { ChevronLeft, X } from "lucide-react";
 import * as React from "react";
 
 import { useEdgeSwipeBack } from "@/components/chat/StackedSheetHeader";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 import { cn } from "@/lib/utils";
 
 const Sheet = SheetPrimitive.Root;
@@ -48,54 +49,8 @@ const sheetVariants = cva(
 /** Panels that draw their own `‹` (StackedSheetHeader) hide the default close with this class. */
 const OWN_HEADER_MARK = "[&>button.absolute]:hidden";
 
-/** Open full-height panels, top last: the browser's Back closes only the top one. */
-const backStack: string[] = [];
-
 function isPhoneWidth(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(max-width: 767px)").matches;
-}
-
-/**
- * AVORA-57 · H — on a phone, the browser's Back (and the system back gesture) closes the panel
- * instead of leaving the app. One history entry is added while the panel is open; it is taken
- * back on close only if it is still the current entry (a navigation from inside the panel is
- * never undone).
- */
-function useBackCloses(isActive: boolean, close: () => void): void {
-  const closeRef = React.useRef(close);
-  closeRef.current = close;
-
-  React.useEffect(() => {
-    if (!isActive || typeof window === "undefined") return;
-    const token = `sheet-${Math.random().toString(36).slice(2)}`;
-    backStack.push(token);
-    const base = (window.history.state ?? {}) as Record<string, unknown>;
-    window.history.pushState({ ...base, avoraSheet: token }, "");
-    let closedByBack = false;
-
-    const onPop = (event: PopStateEvent): void => {
-      const isTop = backStack[backStack.length - 1] === token;
-      const state = (event.state ?? {}) as Record<string, unknown>;
-      if (!isTop || state.avoraSheet === token) return;
-      closedByBack = true;
-      closeRef.current();
-    };
-    window.addEventListener("popstate", onPop);
-
-    return () => {
-      window.removeEventListener("popstate", onPop);
-      const at = backStack.lastIndexOf(token);
-      if (at !== -1) backStack.splice(at, 1);
-      const current = (window.history.state ?? {}) as Record<string, unknown>;
-      if (!closedByBack && current.avoraSheet === token) window.history.back();
-    };
-  }, [isActive]);
-}
-
-/** Renders nothing; binds the browser's Back to this open panel. */
-function SheetBackBinding({ close }: { close: () => void }) {
-  useBackCloses(true, close);
-  return null;
 }
 
 interface SheetContentProps
@@ -171,18 +126,18 @@ const SheetContent = ({
             </button>
           </div>
         ) : null}
-        {/* Mounted only while the panel is open (Radix renders Content children only then). */}
-        {isSidePanel && isPhone ? <SheetBackBinding close={close} /> : null}
+        {/* AVORA-94B · luật 5: every sheet (any side, any width) closes on Back first. Mounted only while open. */}
+        <BackClosesBinding close={close} />
         {children}
         <SheetPrimitive.Close
           ref={closeRef}
+          aria-label="Đóng"
           className={cn(
-            "absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none",
+            "absolute right-2 top-2 flex h-11 w-11 items-center justify-center rounded-md opacity-70 ring-offset-background transition-opacity data-[state=open]:bg-secondary hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none",
             isSidePanel && !hasOwnHeader && "invisible md:visible",
           )}
         >
-          <X className="h-4 w-4" />
-          <span className="sr-only">Đóng</span>
+          <X className="h-4 w-4" aria-hidden="true" />
         </SheetPrimitive.Close>
       </SheetPrimitive.Content>
     </SheetPortal>

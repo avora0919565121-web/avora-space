@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, KeyRound, Loader2, ScrollText, TriangleAlert } from "lucide-react";
+import { ChevronLeft, KeyRound, Loader2, ScrollText, TriangleAlert } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -21,7 +21,7 @@ function Panel({ title, onBack, children }: { title: string; onBack?: () => void
       <div className="animate-rise-in mx-auto w-full max-w-[420px]">
         {onBack !== undefined ? (
           <button type="button" onClick={onBack} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[13.5px] text-muted-foreground">
-            <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Quay lại
+            <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Quay lại
           </button>
         ) : null}
         <h2 className="mt-3 text-[24px] font-semibold tracking-tight">{title}</h2>

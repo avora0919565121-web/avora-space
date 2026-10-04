@@ -1,9 +1,11 @@
-import { ArrowLeft, Check, Mail, Phone, Trash2 } from "lucide-react";
+import { ChevronLeft, Check, Mail, Phone, Trash2 } from "lucide-react";
 import { useCallback, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { carryReturn, readReturn } from "@/lib/return-to";
+import { useBack } from "@/lib/go-back";
+import { useBackPress } from "@/components/nav/BackButton";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { SharedChannelCard } from "@/components/contacts/SharedChannelCard";
@@ -44,7 +46,8 @@ const ContactChannelReview = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const returnTo = readReturn(searchParams);
-  const back = { to: returnTo?.path ?? "/lien-he", label: returnTo?.label ?? "Liên hệ" };
+  // AVORA-94B · luật 1: one way back (history → `tu` → Kết nối › 1-1).
+  const back = useBack({ path: "/tin-nhan?tab=1-1", label: returnTo?.label ?? "Liên hệ" });
   const { groups, isPending, isError, error } = useContactsNeedingReview();
   const shared = useSharedChannels();
   const { confirm, remove, promote, keepAll, restoreFlags, isWorking } = useContactChannelActions();
@@ -118,7 +121,7 @@ const ContactChannelReview = () => {
 
   if (isPending || shared.isPending) {
     return (
-      <Shell backLabel={back.label} onBack={() => navigate(back.to)}>
+      <Shell backLabel={back.label} onBack={back.back}>
         <div className="space-y-3" aria-hidden="true">
           <div className="h-[92px] animate-pulse rounded-xl bg-secondary/70" />
           <div className="h-[92px] animate-pulse rounded-xl bg-secondary/50" />
@@ -129,7 +132,7 @@ const ContactChannelReview = () => {
 
   if (isError || shared.isError) {
     return (
-      <Shell backLabel={back.label} onBack={() => navigate(back.to)}>
+      <Shell backLabel={back.label} onBack={back.back}>
         <div className="rounded-xl border border-border bg-card px-6 py-10 text-center">
           <p className="text-[14px] text-muted-foreground">
             {error?.message ?? shared.error?.message ?? "Không đọc được danh sách cần xem lại."}
@@ -145,7 +148,7 @@ const ContactChannelReview = () => {
    */
   if (groups.length === 0 && shared.groups.length === 0) {
     return (
-      <Shell backLabel={back.label} onBack={() => navigate(back.to)}>
+      <Shell backLabel={back.label} onBack={back.back}>
         <div className="rounded-xl border border-border bg-card px-6 py-14 text-center">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent/50">
             <Check className="h-6 w-6 text-money-in" strokeWidth={2} aria-hidden="true" />
@@ -163,7 +166,7 @@ const ContactChannelReview = () => {
   }
 
   return (
-    <Shell backLabel={back.label} onBack={() => navigate(back.to)}>
+    <Shell backLabel={back.label} onBack={back.back}>
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Cần xem lại</h1>
@@ -365,15 +368,17 @@ function ChannelIcon({ kind }: { kind: ChannelKind }) {
 }
 
 function Shell({ children, onBack, backLabel }: { children: ReactNode; onBack: () => void; backLabel: string }) {
+  const backPress = useBackPress(onBack);
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="animate-rise-in mx-auto max-w-3xl px-6 py-10 md:px-10">
         <button
           type="button"
-          onClick={onBack}
-          className="press mb-6 inline-flex min-h-11 max-w-full items-center gap-1.5 text-[13.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          {...backPress}
+          data-back=""
+          className="press no-callout mb-6 inline-flex min-h-11 max-w-full select-none items-center gap-1 text-[13.5px] font-medium text-muted-foreground transition-colors [touch-action:manipulation] hover:text-foreground"
         >
-          <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={1.8} aria-hidden="true" />
+          <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={1.8} aria-hidden="true" />
           <span className="truncate">{backLabel}</span>
         </button>
         {children}

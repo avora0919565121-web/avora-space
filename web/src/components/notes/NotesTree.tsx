@@ -13,7 +13,8 @@ import {
   Search,
   Trash2,
 } from "lucide-react";
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { askConfirm, askText } from "@/components/ConfirmHost";
@@ -48,6 +49,9 @@ import {
 } from "@/lib/notes";
 import type { NotesData } from "@/lib/use-notes";
 import { cn } from "@/lib/utils";
+
+/** AVORA-94B: the folder open in Ghi chép on a phone (`?tm=<id>`). */
+const OPEN_FOLDER_PARAM = "tm";
 
 /** Root-level marker for the virtual "Chưa xếp" row (notes with no folder). */
 export const UNSORTED_KEY = "unsorted";
@@ -103,6 +107,27 @@ export function NotesTree({
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
   useEffect(() => rememberOpenFolders(open), [open]);
+
+  /**
+   * AVORA-94B · luật 1 (phone): opening a folder is a step deeper — `?tm=<id>` is pushed, so `‹`
+   * closes it again before leaving Ghi chép. A computer keeps the tree as a plain outline.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const folderParam: string | null = searchParams.get(OPEN_FOLDER_PARAM);
+  const lastFolderRef = useRef<string | null>(folderParam);
+  useEffect(() => {
+    const was = lastFolderRef.current;
+    lastFolderRef.current = folderParam;
+    if (was !== null && was !== folderParam) {
+      setOpen((current) => {
+        const next = new Set(current);
+        next.delete(was);
+        return next;
+      });
+    }
+    if (folderParam !== null) setOpen((current) => (current.has(folderParam) ? current : new Set([...current, folderParam])));
+  }, [folderParam]);
+  const isPhoneTree = (): boolean => typeof window.matchMedia === "function" && window.matchMedia("(max-width: 767px)").matches;
 
   const hasFilter = filter.voice || filter.files || filter.pinned;
   const isSearching = query.trim() !== "" || hasFilter;
@@ -250,8 +275,14 @@ export function NotesTree({
           <button
             type="button"
             onClick={() => {
-              toggle(folder.id);
               setSelectedFolder(folder.id);
+              if (isPhoneTree() && !open.has(folder.id) && folder.parentId === null) {
+                const next = new URLSearchParams(searchParams);
+                next.set(OPEN_FOLDER_PARAM, folder.id);
+                setSearchParams(next, { replace: folderParam !== null });
+                return;
+              }
+              toggle(folder.id);
             }}
             aria-expanded={isOpen}
             style={{ paddingLeft: 4 + depth * 16 }}

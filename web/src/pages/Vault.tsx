@@ -1,8 +1,8 @@
-import { Info, KeyRound, Loader2, Lock, MoreHorizontal, Plus } from "lucide-react";
+import { Info, KeyRound, Lock, MoreHorizontal, Plus } from "lucide-react";
 import { useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 
-import { ReturnChip } from "@/components/nav/ReturnChip";
+import { InlineBack } from "@/components/nav/InlineBack";
 import { SectionTabs } from "@/components/SectionTabs";
 import { PlusMenuButton } from "@/components/PlusMenuButton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -13,6 +13,7 @@ import { VaultGate } from "@/components/vault/VaultGate";
 import { VAULT_TABS } from "@/lib/navigation";
 import { useVaultLock } from "@/lib/use-vault-lock";
 import { requestVaultAdd, VAULT_ADD_PARAM, vaultAddFor } from "@/lib/vault-add";
+import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 
 /** `🔒 Khoá ngay` and `⋯` (Đổi mã Két sắt · Về khoá Két sắt), at the head of an open Két sắt. */
 function VaultBar() {
@@ -71,9 +72,7 @@ const Vault = () => {
   let body;
   if (vault.isLoading) {
     body = (
-      <div className="flex flex-1 items-center justify-center" role="status" aria-label="Đang mở Két sắt">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-      </div>
+      <LoadingOrRetry label="Đang mở Két sắt" />
     );
   } else if (vault.error !== null && vault.status === null) {
     body = (
@@ -121,7 +120,7 @@ const Vault = () => {
           );
         }}
       />
-      <ReturnChip className="mx-auto w-full max-w-5xl px-6 md:px-10 short:px-4" />
+      <InlineBack className="mx-auto w-full max-w-5xl px-6 md:px-10 short:px-4" />
       {body}
     </div>
   );

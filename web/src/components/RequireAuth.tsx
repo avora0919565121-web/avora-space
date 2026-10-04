@@ -1,5 +1,5 @@
 import { GroupCardHost } from "@/components/GroupCard";
-import { Loader2 } from "lucide-react";
+
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
@@ -13,6 +13,8 @@ import { InAppAlerts } from "@/components/InAppAlerts";
 import { ConfirmHost } from "@/components/ConfirmHost";
 import { PersonCardHost } from "@/components/PersonCard";
 import { FocusHost } from "@/components/chat/FocusHost";
+import { AppMapHost } from "@/components/nav/AppMapHost";
+import { NavGestures } from "@/components/nav/NavGestures";
 import { RecordingBar } from "@/components/RecordingBar";
 import { AvoraSearchHost } from "@/components/search/AvoraSearch";
 import { PushOfferCard } from "@/components/PushOfferCard";
@@ -25,9 +27,10 @@ import { useAuth } from "@/lib/auth";
 import { useNewDayLanding } from "@/lib/use-new-day-landing";
 import { useResumePlace } from "@/lib/use-resume-place";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
-import { useTrackHistory } from "@/lib/nav-history";
+import { useTrackHistory, useTrackScroll } from "@/lib/nav-history";
 import { useTabMemory } from "@/lib/tab-memory";
 import { useFocusHeaderValue } from "@/lib/focus-header";
+import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 
 /** Gate for every signed-in screen; renders the shared site navigation around the page. */
 export function RequireAuth() {
@@ -36,6 +39,7 @@ export function RequireAuth() {
   // Before any early return, so the hook order never changes between renders.
   useNewDayLanding(session !== null && !isRecovering ? session?.user.id : undefined);
   useTrackHistory();
+  useTrackScroll();
   // AVORA-77 · G: each tab keeps the place it was left at (on this device, per account).
   useTabMemory(session !== null && !isRecovering ? session?.user.id : undefined);
   // AVORA-93 · 5: on a phone, reopening lands by time away (new day → Avora Space · ≥ 1 h → Kết nối · < 1 h → same place).
@@ -45,9 +49,14 @@ export function RequireAuth() {
 
   if (isLoading) {
     return (
-      <div className="paper flex min-h-[100dvh] items-center justify-center">
-        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="sr-only">Đang tải</span>
+      <div className="paper flex min-h-[100dvh] flex-col">
+        <LoadingOrRetry
+          extra={
+            <a href="/dang-nhap" className="press mt-2 min-h-11 px-5 py-2.5 text-[14px] font-medium text-muted-foreground underline underline-offset-2">
+              Đăng nhập lại
+            </a>
+          }
+        />
       </div>
     );
   }
@@ -99,6 +108,8 @@ export function RequireAuth() {
       <PersonCardHost />
       <GroupCardHost />
       <FocusHost />
+      <AppMapHost />
+      <NavGestures />
       <DeviceRankPrompt />
     </div>
     </VaultLockProvider>

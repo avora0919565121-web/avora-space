@@ -1,4 +1,4 @@
-import { ArrowLeft, Check, Loader2 } from "lucide-react";
+import { ChevronLeft, Check, Loader2 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
@@ -199,7 +199,7 @@ export function TemplateGallery({
         <LongDialogFooter className="justify-between">
           {picked !== null ? (
             <button type="button" onClick={() => setPicked(null)} className="press inline-flex items-center gap-1 rounded-md px-3 py-2 text-[14px] text-muted-foreground hover:text-foreground">
-              <ArrowLeft className="h-4 w-4" /> Mẫu khác
+              <ChevronLeft className="h-4 w-4" /> Mẫu khác
             </button>
           ) : (
             <span />

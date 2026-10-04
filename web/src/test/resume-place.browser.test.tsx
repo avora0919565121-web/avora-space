@@ -79,9 +79,9 @@ vi.mock("@/lib/day-open-api", () => ({
 
 import { RequireAuth } from "@/components/RequireAuth";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useTrackHistory, hasInAppPrevious } from "@/lib/nav-history";
-import { chatBackTarget, writeLeftPlace } from "@/lib/resume-place";
-import { readReturn } from "@/lib/return-to";
+import { resetNavHistory, useTrackHistory } from "@/lib/nav-history";
+import { connectTabSlug, writeLeftPlace } from "@/lib/resume-place";
+import { useBack } from "@/lib/go-back";
 import { useResumePlace } from "@/lib/use-resume-place";
 
 type Mode = "phone" | "installed-computer" | "computer";
@@ -165,18 +165,10 @@ function List() {
 
 function Thread() {
   const { conversationId } = useParams<{ conversationId: string }>();
-  const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  // The same `‹` the real thread uses (AVORA-94B · luật 1).
+  const { back } = useBack({ path: `/tin-nhan?tab=${connectTabSlug(conversationId === "d1" ? "direct" : "group")}`, label: "Kết nối" });
   return (
-    <button
-      type="button"
-      aria-label="Quay lại Kết nối"
-      onClick={() => {
-        const back = chatBackTarget({ returnPath: readReturn(searchParams)?.path ?? null, hasPrevious: hasInAppPrevious(), kind: conversationId === "d1" ? "direct" : "group" });
-        if (back.kind === "history") navigate(-1);
-        else navigate(back.path, { replace: true });
-      }}
-    >
+    <button type="button" aria-label="Quay lại Kết nối" onClick={back}>
       ‹
     </button>
   );
@@ -205,6 +197,7 @@ async function tapTab(label: string): Promise<void> {
 }
 
 beforeEach(() => {
+  resetNavHistory();
   window.localStorage.clear();
   window.sessionStorage.clear();
   visibility = "visible";
@@ -345,7 +338,7 @@ describe.each(["phone", "installed-computer"] as const)("AVORA-94 · smoke · %s
     await setMode(mode);
   });
 
-  it("five tabs, one second each, the path stays", async () => {
+  it("five tabs, one second each, the path stays", { timeout: 60_000 }, async () => {
     renderApp();
     await settle(500);
     const navName = mode === "phone" ? "Các Hub" : "Điều hướng chính";

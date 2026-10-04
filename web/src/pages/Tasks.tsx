@@ -71,7 +71,7 @@ import { projectLink } from "@/lib/projects";
 import { contextLink, contextLinkFromTasks, CONTEXT_TASK_PARAM } from "@/lib/task-context";
 import { carryReturn, hereFrom, stripReturn, withReturn } from "@/lib/return-to";
 import { spotlight } from "@/lib/spotlight";
-import { ReturnChip } from "@/components/nav/ReturnChip";
+import { InlineBack } from "@/components/nav/InlineBack";
 import { DateField } from "@/components/calendar/DateField";
 import { forwardTaskOutputToJournal, completedDayLabel } from "@/lib/task-report";
 import { applyManualOrder, defaultViewMode } from "@/lib/task-order";
@@ -1716,7 +1716,7 @@ export default function Tasks() {
       />
       <div className="min-h-0 flex-1 overflow-y-auto">
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 short:mx-0 short:max-w-none short:px-4">
-        <ReturnChip className="-mt-2 mb-1" />
+        <InlineBack className="-mt-2 mb-1" />
         <div>
           <TaskHubNav active={hubSection} counts={hubCounts} onChange={selectHubSection} />
         </div>

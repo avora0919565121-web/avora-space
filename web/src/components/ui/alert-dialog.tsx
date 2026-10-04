@@ -2,6 +2,7 @@ import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog";
 import * as React from "react";
 
 import { buttonVariants } from "@/components/ui/button";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 import { cn } from "@/lib/utils";
 
 const AlertDialog = AlertDialogPrimitive.Root;
@@ -29,8 +30,11 @@ AlertDialogOverlay.displayName = AlertDialogPrimitive.Overlay.displayName;
 const AlertDialogContent = ({
   ref,
   className,
+  children,
   ...props
-}: React.ComponentPropsWithRef<typeof AlertDialogPrimitive.Content>) => (
+}: React.ComponentPropsWithRef<typeof AlertDialogPrimitive.Content>) => {
+  const cancelRef = React.useRef<HTMLButtonElement | null>(null);
+  return (
   <AlertDialogPortal>
     <AlertDialogOverlay />
     <AlertDialogPrimitive.Content
@@ -40,9 +44,15 @@ const AlertDialogContent = ({
         className,
       )}
       {...props}
-    />
+    >
+      {/* AVORA-94B · luật 5: Back answers like Huỷ. */}
+      <AlertDialogPrimitive.Cancel ref={cancelRef} tabIndex={-1} aria-hidden="true" className="hidden" />
+      <BackClosesBinding close={() => cancelRef.current?.click()} />
+      {children}
+    </AlertDialogPrimitive.Content>
   </AlertDialogPortal>
-);
+  );
+};
 AlertDialogContent.displayName = AlertDialogPrimitive.Content.displayName;
 
 const AlertDialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (

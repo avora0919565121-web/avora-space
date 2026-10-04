@@ -19,6 +19,7 @@ import {
   type ContactInviteState,
 } from "@/lib/contacts";
 import { useAcceptContactInvite, useContactInvitePreview } from "@/lib/use-contacts";
+import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 
 /**
  * The landing page of a contact invitation: it names who is asking, and asks one question.
@@ -60,8 +61,7 @@ const AcceptContactInvite = () => {
   if (previewQuery.isPending) {
     return (
       <Shell>
-        <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
-        <span className="sr-only">Đang mở lời mời</span>
+        <LoadingOrRetry label="Đang mở lời mời" onRetry={() => void previewQuery.refetch()} />
       </Shell>
     );
   }

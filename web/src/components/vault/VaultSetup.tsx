@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Copy, Eye, EyeOff, FileDown, KeyRound, Loader2, Printer, ShieldCheck, Sparkles } from "lucide-react";
+import { ChevronLeft, Copy, Eye, EyeOff, FileDown, KeyRound, Loader2, Printer, ShieldCheck, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
@@ -36,7 +36,7 @@ function Frame({ step, total, title, onBack, children }: { step?: number; total?
         <div className="flex min-h-11 items-center gap-2">
           {onBack !== undefined ? (
             <button type="button" onClick={onBack} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[13.5px] text-muted-foreground">
-              <ArrowLeft className="h-4 w-4" aria-hidden="true" /> Quay lại
+              <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Quay lại
             </button>
           ) : null}
           {step !== undefined && total !== undefined ? (

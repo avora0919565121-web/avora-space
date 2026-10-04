@@ -1,6 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
 import {
-  ArrowLeft,
   CheckCircle2,
   ChevronRight,
   FolderKanban,
@@ -35,6 +34,7 @@ import {
   type SuccessCriterion,
 } from "@/lib/projects";
 import { hereFrom, readReturn, withReturn, type ReturnTarget } from "@/lib/return-to";
+import { BackButton } from "@/components/nav/BackButton";
 import { spotlight } from "@/lib/spotlight";
 import { contextLink, CONTEXT_TASK_PARAM } from "@/lib/task-context";
 import { taskStatusLabel, type TaskItem } from "@/lib/tasks";
@@ -557,13 +557,8 @@ const ProjectDetail = () => {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="mx-auto max-w-3xl px-6 py-8 md:px-10 md:py-10">
-        <Link
-          to={back.to}
-          className="press inline-flex min-h-11 max-w-full items-center gap-1.5 text-[13px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4 shrink-0" strokeWidth={1.9} aria-hidden="true" />
-          <span className="truncate">{back.label}</span>
-        </Link>
+        {/* AVORA-94B · luật 1: back one screen; nothing behind → `tu`, else Kết nối › Dự án. */}
+        <BackButton parent={{ path: "/tin-nhan?tab=du-an", label: back.label }} showLabel className="-ml-2" />
 
         <header className="mt-5">
           <div className="flex items-start gap-3">

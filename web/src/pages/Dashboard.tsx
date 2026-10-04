@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 
 import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBoundary";
 import { ThoughtNote } from "@/components/space/ThoughtNote";
+import { NavRulesIntro } from "@/components/nav/NavRules";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
 import { useReview } from "@/lib/use-review";
 import { useAuth, useDisplayName } from "@/lib/auth";
@@ -495,6 +496,7 @@ export default function Dashboard() {
       <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
         {/* C7 · AVORA-50 B: one line when a review is due; never pushed. */}
         <ReviewPrompt review={review} variant="line" />
+        <NavRulesIntro />
         {starts.length > 0 ? (
           <section aria-labelledby="space-start" className="mt-2 rounded-[14px] border border-primary/25 bg-card p-4 shadow-[0_8px_30px_-18px_hsl(13_73%_56%/0.45)]">
             <h2 id="space-start" className={cn(TYPE.blockTitle)}>Bắt đầu</h2>

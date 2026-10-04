@@ -5,7 +5,6 @@ import {
   activeSectionTab,
   APP_MAP_UPCOMING,
   canGoBackInApp,
-  logoAction,
   hidesToolBelt,
   HOME_ROUTE,
   LOGO_HOLD_MS,
@@ -197,18 +196,7 @@ describe("native-style navigation (AVORA 30)", () => {
   });
 });
 
-describe("the logo steps back from Avora Space (AVORA 31)", () => {
-  it("goes home from any other screen, whatever the history holds", () => {
-    expect(logoAction("/nhiem-vu", { idx: 0 })).toBe("home");
-    expect(logoAction("/tin-nhan/abc", null)).toBe("home");
-  });
-
-  it("steps back from Avora Space only when the previous screen is inside AVORA", () => {
-    expect(logoAction(HOME_ROUTE, { idx: 3 })).toBe("back");
-    expect(logoAction(HOME_ROUTE, { idx: 0 })).toBe("stay");
-    expect(logoAction(HOME_ROUTE, null)).toBe("stay");
-    expect(logoAction(HOME_ROUTE, { usr: null })).toBe("stay");
-  });
+describe("the router position stamp (AVORA 31)", () => {
 
   it("reads only the router's own position stamp", () => {
     expect(canGoBackInApp({ idx: 1 })).toBe(true);

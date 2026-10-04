@@ -1,5 +1,6 @@
 import { BookOpen, ChevronLeft, ClipboardPaste, FolderInput, Mic, MoreHorizontal, Paperclip, Pin, Plus, RotateCcw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { NoteEditor, type EditingNote } from "@/components/notes/NoteEditor";
@@ -33,6 +34,10 @@ import {
 } from "@/lib/notes";
 import type { NotesData } from "@/lib/use-notes";
 import { cn } from "@/lib/utils";
+import { isPreviousEntry } from "@/lib/nav-history";
+
+/** AVORA-94B: the note open in Ghi chép, in the address (`?gc=<id>`). */
+export const OPEN_NOTE_PARAM = "gc";
 
 function relative(iso: string | null, now: Date = new Date()): string {
   if (iso === null) return "";
@@ -137,7 +142,49 @@ export function NotesPanel({
   const folders = useMemo(() => data.folders.data ?? [], [data.folders.data]);
   const notes = data.liveNotes;
   const attachments = useMemo(() => data.attachments.data ?? [], [data.attachments.data]);
-  const [editing, setEditing] = useState<EditingNote | null>(null);
+  const [editing, setEditingState] = useState<EditingNote | null>(null);
+  /**
+   * AVORA-94B · luật 1 (ADR-062): an open note is one step deeper — `?gc=<id>` is pushed, so `‹`,
+   * the browser Back and the editor's own `‹` all close it by stepping back.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const openParam: string | null = searchParams.get(OPEN_NOTE_PARAM);
+  const setEditing = useCallback(
+    (next: EditingNote | null): void => {
+      setEditingState(next);
+      const current = new URLSearchParams(location.search);
+      if (next === null) {
+        if (current.get(OPEN_NOTE_PARAM) === null) return;
+        current.delete(OPEN_NOTE_PARAM);
+        const query = current.toString();
+        if (isPreviousEntry(`${location.pathname}${query === "" ? "" : `?${query}`}`)) navigate(-1);
+        else setSearchParams(current, { replace: true });
+        return;
+      }
+      if (current.get(OPEN_NOTE_PARAM) === next.id) return;
+      const hadOne = current.get(OPEN_NOTE_PARAM) !== null;
+      current.set(OPEN_NOTE_PARAM, next.id);
+      setSearchParams(current, { replace: hadOne });
+    },
+    [location.pathname, location.search, navigate, setSearchParams],
+  );
+  // The address moved (Back, a link): follow it — the note opens or closes with it.
+  const seenParamRef = useRef<string | null>(openParam);
+  useEffect(() => {
+    if (seenParamRef.current === openParam) return;
+    seenParamRef.current = openParam;
+    if (openParam === null) {
+      setEditingState(null);
+      return;
+    }
+    setEditingState((current) => {
+      if (current?.id === openParam) return current;
+      const found = notes.find((note) => note.id === openParam);
+      return found === undefined ? current : toEditing(found);
+    });
+  }, [openParam, notes]);
   const [showTrash, setShowTrash] = useState<boolean>(false);
   const [restored, setRestored] = useState<boolean>(false);
   const [isFullscreen, setIsFullscreen] = useState<boolean>(() => readNotesFullscreen());
@@ -173,10 +220,20 @@ export function NotesPanel({
   useEffect(() => {
     if (restored || data.folders.data === undefined || data.notes.data === undefined) return;
     setRestored(true);
-    const place = readNotesPlace();
-    if (place === null || place.noteId === null) return;
-    const found = (data.notes.data ?? []).find((note) => note.id === place.noteId && note.deletedAt === null);
-    if (found !== undefined) setEditing(toEditing(found));
+    // The address names a note (Back / reload onto it): that one. Else the last one (same screen, `‹` closes it).
+    const wanted = openParam ?? readNotesPlace()?.noteId ?? null;
+    if (wanted === null) return;
+    const found = (data.notes.data ?? []).find((note) => note.id === wanted && note.deletedAt === null);
+    if (found === undefined) return;
+    setEditingState(toEditing(found));
+    // The address says which note is open (replace: reopening is not a step deeper).
+    if (openParam === null) {
+      const next = new URLSearchParams(location.search);
+      next.set(OPEN_NOTE_PARAM, found.id);
+      seenParamRef.current = found.id;
+      setSearchParams(next, { replace: true });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- once, when the data first arrives
   }, [restored, data.folders.data, data.notes.data]);
 
   // A saved note keeps its place; a new one is remembered only once it has something in it.
@@ -229,6 +286,7 @@ export function NotesPanel({
     }
     setRestored(true);
     onRequestHandled();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- setEditing follows the address
   }, [request, data.notes.data, data.folders.data, readingFolder, onRequestHandled]);
 
   const knownTags = useMemo(() => {
@@ -381,7 +439,7 @@ export function NotesPanel({
         attachments={attachmentsOf(editing.id)}
         notesData={data}
         knownTags={knownTags}
-        showBack={!isWide}
+        showBack={false}
         fullscreen={isWide ? { isOn: showFullscreen, toggle: toggleFullscreen } : null}
         onBack={() => setEditing(null)}
         onMove={(noteId, folderId) => {

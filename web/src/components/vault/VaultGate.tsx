@@ -1,4 +1,4 @@
-import { ArrowLeft, Loader2, Lock, LockKeyhole, Mail, Smartphone } from "lucide-react";
+import { ChevronLeft, Loader2, Lock, LockKeyhole, Mail, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 
 import { CodePad } from "@/components/vault/CodePad";
@@ -55,7 +55,7 @@ function Shell({ icon, title, children, onBack }: { icon: ReactNode; title: stri
             onClick={onBack}
             className="press absolute -left-2 -top-2 inline-flex min-h-11 items-center gap-1.5 px-2 text-[13px] font-medium text-muted-foreground hover:text-foreground"
           >
-            <ArrowLeft className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.9} aria-hidden="true" />
             Quay lại
           </button>
         ) : null}

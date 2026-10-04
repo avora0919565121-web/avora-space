@@ -1,5 +1,7 @@
 import {
-  ArrowLeft,
+  ChevronLeft,
+  IndentDecrease,
+  IndentIncrease,
   ArrowRight,
   BookOpen,
   Camera,
@@ -469,8 +471,8 @@ export function NoteEditor({
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-2 border-b border-border px-4 py-2.5 md:px-8">
         {showBack ? (
-          <button type="button" onClick={onBack} aria-label="Về danh sách" className="press rounded-md p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
-            <ArrowLeft className="h-5 w-5" strokeWidth={1.7} />
+          <button type="button" onClick={onBack} aria-label="Về danh sách" data-back="" className="press flex min-h-11 min-w-11 items-center justify-center rounded-md text-muted-foreground hover:bg-accent/50 hover:text-foreground">
+            <ChevronLeft className="h-5 w-5" strokeWidth={1.8} />
           </button>
         ) : null}
         <DropdownMenu>
@@ -736,10 +738,10 @@ export function NoteEditor({
       {/* The small toolbar that sits over the phone keyboard. */}
       <div className="flex items-center gap-1 border-t border-border bg-card px-3 py-2 md:px-8">
         <button type="button" aria-label="Lùi một cấp" onMouseDown={(event) => event.preventDefault()} onClick={() => indentFocused(-1)} className="press rounded-md p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
-          <ArrowLeft className="h-[18px] w-[18px]" />
+          <IndentDecrease className="h-[18px] w-[18px]" />
         </button>
         <button type="button" aria-label="Thụt vào một cấp" onMouseDown={(event) => event.preventDefault()} onClick={() => indentFocused(1)} className="press rounded-md p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
-          <ArrowRight className="h-[18px] w-[18px]" />
+          <IndentIncrease className="h-[18px] w-[18px]" />
         </button>
         <span className="mx-1 h-5 w-px bg-border" />
         <button type="button" aria-label="Đính kèm tệp" onClick={() => fileInput.current?.click()} className="press rounded-md p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground">

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useLongPress } from "@/hooks/use-long-press";
+import { EDGE_PX } from "@/components/nav/NavGestures";
 import type { MuteDurationOption } from "@/lib/mute";
 import { cn } from "@/lib/utils";
 
@@ -149,6 +150,11 @@ export function ConversationRowActions({
     hold.onPointerDown(event);
     if (event.pointerType !== "touch" || isSelecting) return;
     swipedRef.current = false;
+    // AVORA-94B · A5: the left 20 px belong to the back swipe, never to the row's own swipe.
+    if (event.clientX <= EDGE_PX) {
+      startRef.current = null;
+      return;
+    }
     startRef.current = { x: event.clientX, y: event.clientY, decided: null, base: tray === "left" ? -TRAY_PX : 0 };
   };
   const onPointerMove = (event: PointerEvent<HTMLDivElement>): void => {
@@ -204,7 +210,9 @@ export function ConversationRowActions({
       <ContextMenu>
         <ContextMenuTrigger asChild>
           <div className="relative overflow-hidden rounded-lg">
-            {/* Behind the row: what a left swipe uncovers. */}
+            {/* Behind the row: what a left swipe uncovers. AVORA-94B · D3: drawn only while swiping / open,
+                so an idle row never shows a coloured edge. */}
+            {tray === "left" || offset < 0 ? (
             <div aria-hidden={tray !== "left"} className="absolute inset-y-0 right-0 flex w-[152px] items-stretch">
               <button
                 type="button"
@@ -237,6 +245,7 @@ export function ConversationRowActions({
                 {isArchived ? "Bỏ lưu trữ" : "Lưu trữ"}
               </button>
             </div>
+            ) : null}
             {offset > 0 ? (
               <div aria-hidden="true" className="absolute inset-y-0 left-0 flex items-center gap-1.5 bg-secondary px-4 text-[12px] font-medium text-foreground" style={{ width: offset }}>
                 {mutedUntilLabel !== null ? <BellRing className="h-4 w-4" aria-hidden="true" /> : <BellOff className="h-4 w-4" aria-hidden="true" />}
@@ -265,7 +274,9 @@ export function ConversationRowActions({
               }}
               style={offset !== 0 ? { transform: `translateX(${offset}px)` } : undefined}
               className={cn(
-                "group/row no-callout relative flex items-center bg-background touch-pan-y",
+                // Idle: no card of its own (the list's surface shows through). Moving: opaque, over the tray.
+                "group/row no-callout relative flex items-center touch-pan-y",
+                offset !== 0 || tray !== null ? "bg-card" : "bg-transparent",
                 startRef.current === null && "transition-transform duration-200",
               )}
             >

@@ -2028,6 +2028,24 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   - Tra từ / đoạn: luôn có, nhãn `để hiểu ý`.
   - Không gửi chữ sách lên máy chủ. Máy chưa tra được → câu trung thực (bôi đen · Chép, hoặc Chrome máy tính), không nhắc gói trả phí. Bergamot hoãn (AVORA-94).
 
+## Cách đi trong AVORA (AVORA-94B · ADR-062)
+
+Học một lần, áp cho mọi màn, điện thoại và máy tính.
+
+| # | Luật | Người dùng chỉ cần nhớ |
+|---|---|---|
+| 1 | `‹` góc trên trái = lùi một bước. Có ở mọi màn trừ màn gốc của 6 khu. Nút lùi máy / trình duyệt và vuốt mép trái (app cài) làm y hệt. | Muốn lùi: `‹` |
+| 2 | Chạm logo A = về Avora Space. Chạm lần nữa ở Avora Space = về đúng chỗ vừa rời. | Về nhà: chạm A. Chạm lần nữa: quay lại |
+| 3 | Giữ logo A hoặc giữ `‹` = Toàn bộ AVORA (Avora Space + 5 tab). Lối thoát ở mọi màn. | Lạc: giữ góc trái trên |
+| 4 | Thanh 5 tab: chạm = chỗ đang dở; chạm lại tab đang đứng = đầu tab. Bên trong (chat, đọc, Bảng tập trung) thanh ẩn — dùng luật 3. | Đổi khu: thanh dưới |
+| 5 | Tấm, lớp phủ, ảnh phóng to: `✕`, `‹`, nút lùi, vuốt xuống, Escape đóng tấm trước, không rời màn dưới. | Đóng: ✕ hoặc lùi |
+
+- **Một hình cho nút lùi: `‹`** (không còn `←`). Nút `‹` ≥ 44 px, sát mép trái; có nơi trước thì mang nhãn nhỏ (`‹ Kế hoạch`). Không bao giờ đặt `‹` cạnh logo A.
+- **Push hay replace:** đi sâu hơn = push; đổi ngăn / kệ / bộ lọc = replace; tự chuyển hướng = replace.
+- **Không gì tự chuyển màn** khi người dùng chưa chạm (trừ lúc mở lại app trên điện thoại, ADR-059).
+- **Không quay tròn mãi:** sau 10 giây hiện `Chưa tải được · Thử lại` (mất mạng: `Đang không có mạng`), luôn kèm `‹` ở màn bên trong.
+- **Lần đầu** vào một màn không có logo (điện thoại): dòng nhỏ `Giữ ‹ để mở các tab`, tự ẩn sau 4 giây. Người mới: thẻ 3 dòng ở Avora Space, `Đã hiểu`. Cài đặt › Hướng dẫn mở đầu bằng `Cách đi trong AVORA`.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

@@ -1,4 +1,4 @@
-import { ArrowLeft, Camera, Download, FileText, ImagePlus, Keyboard, Loader2, Pencil, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, Camera, Download, FileText, ImagePlus, Keyboard, Loader2, Pencil, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -60,7 +60,7 @@ function ItemDetail({ item, section, onBack, onEdit, onTrash }: { item: VaultIte
   const left = daysLeft(section, item.payload);
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-16 pt-3 md:px-8" data-vault-detail={item.id}>
-      <button type="button" onClick={onBack} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[14px] text-muted-foreground"><ArrowLeft className="h-4 w-4" /> {SECTION_LABEL[section]}</button>
+      <button type="button" onClick={onBack} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[14px] text-muted-foreground"><ChevronLeft className="h-4 w-4" /> {SECTION_LABEL[section]}</button>
       <p className="mt-2 text-[12.5px] font-semibold uppercase tracking-wide text-primary">{template.label}</p>
       <h2 className="mt-1 text-[24px] font-semibold tracking-tight">{item.payload.title}</h2>
       <p className="text-[14px] text-muted-foreground">Của {item.payload.owner_label}{left !== null ? ` · ${left >= 0 ? `Còn ${left} ngày` : `Quá ${-left} ngày`}` : ""}</p>
@@ -270,7 +270,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
     return (
       <div className="paper min-h-0 flex-1 overflow-y-auto">
         <div className="mx-auto max-w-2xl px-4 pb-16 pt-3 md:px-8" data-vault-trash="">
-          <button type="button" onClick={() => setMode({ kind: "list" })} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[14px] text-muted-foreground"><ArrowLeft className="h-4 w-4" /> {SECTION_LABEL[section]}</button>
+          <button type="button" onClick={() => setMode({ kind: "list" })} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[14px] text-muted-foreground"><ChevronLeft className="h-4 w-4" /> {SECTION_LABEL[section]}</button>
           <h2 className="mt-2 text-[22px] font-semibold">Thùng rác</h2>
           <p className="text-[13.5px] text-muted-foreground">Tự xoá vĩnh viễn sau 30 ngày.</p>
           <ul className="mt-4 divide-y divide-border rounded-xl border border-border bg-card">

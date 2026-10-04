@@ -29,6 +29,7 @@ import { useTasks } from "@/lib/use-tasks";
 import { ALIAS_MAX } from "@/lib/user-aliases";
 import { useUserAliases } from "@/lib/use-user-aliases";
 import { cn } from "@/lib/utils";
+import { BackClosesBinding } from "@/lib/use-back-closes";
 
 type Request = { ref: PersonRef; anchor: DOMRect | null };
 
@@ -365,6 +366,7 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/85"
           onClick={() => setIsPhotoOpen(false)}
         >
+          <BackClosesBinding close={() => setIsPhotoOpen(false)} />
           <button type="button" aria-label="Đóng" className="press absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>

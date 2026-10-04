@@ -14,7 +14,10 @@ import { useAuth, useDisplayName } from "@/lib/auth";
 import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
 import { maskEmail } from "@/lib/mask";
-import { HOME_ROUTE, logoAction, NAV_ITEMS } from "@/lib/navigation";
+import { HOME_ROUTE, LOGO_HOLD_MS, NAV_ITEMS } from "@/lib/navigation";
+import { useLongPress } from "@/hooks/use-long-press";
+import { openAppMap } from "@/components/nav/app-map-event";
+import { useLogoTap } from "@/components/nav/use-logo-tap";
 import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +39,8 @@ export function AppSidebar() {
   const asideRef = useRef<HTMLElement | null>(null);
   const badges = useNavBadges();
   const pressTab = useTabPress();
+  const logoTap = useLogoTap();
+  const logoPress = useLongPress({ onTap: logoTap, onHold: openAppMap, holdMs: LOGO_HOLD_MS });
   const { data: profile } = useProfileSettings();
   const isFocused = activeFocus(profile?.focusMode, profile?.focusUntil) !== null;
 
@@ -58,14 +63,19 @@ export function AppSidebar() {
       */}
       <Link
         to={HOME_ROUTE}
+        {...logoPress}
         onClick={(event) => {
-          const action = logoAction(location.pathname, window.history.state);
-          if (action === "home") return;
+          // AVORA-94B · luật 2: home, and once there, back to the place just left (tap); hold = luật 3.
           event.preventDefault();
-          if (action === "back") navigate(-1);
+          logoPress.onClick(event);
         }}
-        aria-label={isHome ? "Quay lại màn trước" : "Về Avora Space"}
-        title={isHome ? "Quay lại màn trước" : "Về Avora Space"}
+        onContextMenu={(event) => {
+          event.preventDefault();
+          openAppMap();
+        }}
+        data-logo=""
+        aria-label={isHome ? "Quay lại chỗ vừa rời" : "Về Avora Space"}
+        title={isHome ? "Quay lại chỗ vừa rời" : "Về Avora Space"}
         className="press mx-3 mb-2 mt-3 flex items-center gap-2.5 rounded-lg px-3 pb-3 pt-3 transition-colors hover:bg-accent/40"
       >
         <img
@@ -74,7 +84,8 @@ export function AppSidebar() {
           aria-hidden="true"
           width={28}
           height={28}
-          className="h-7 w-7 rounded-md"
+          draggable={false}
+          className="pointer-events-none h-7 w-7 select-none rounded-md"
         />
         <span className="wordmark text-[17px] text-foreground">AVORA</span>
       </Link>

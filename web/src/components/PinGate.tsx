@@ -53,6 +53,7 @@ export function usePinStatus() {
  */
 export function PinGate({ children }: { children: ReactNode }) {
   const statusQuery = usePinStatus();
+  const { signOut } = useAuth();
 
   if (statusQuery.data !== undefined && pinPhase(statusQuery.data) === "overdue") {
     return (
@@ -71,6 +72,11 @@ export function PinGate({ children }: { children: ReactNode }) {
           </p>
           <div className="mt-6">
             <PinSetup />
+          </div>
+          {/* AVORA-94B · PHẦN C: never a dead end — a failed save or no network still has a way out. */}
+          <div className="mt-6 flex flex-wrap gap-2 border-t border-border pt-4" data-pin-exits="">
+            <button type="button" onClick={() => void statusQuery.refetch()} className="press min-h-11 rounded-md border border-border bg-card px-4 text-[14px] font-medium">Thử lại</button>
+            <button type="button" onClick={() => void signOut().finally(() => window.location.assign("/dang-nhap"))} className="press min-h-11 rounded-md px-4 text-[14px] font-medium text-muted-foreground">Đăng xuất</button>
           </div>
         </div>
       </div>
