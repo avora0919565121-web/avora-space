@@ -311,7 +311,8 @@ test("59.1 · việc được giao cho tôi, mở từ Lịch: Nhận việc nga
     </Frame>,
   );
   await expect.element(screen.getByRole("button", { name: "Nhận việc" })).toBeInTheDocument();
-  await expect.element(screen.getByText("Của tôi · từ Lan Nguyễn").first()).toBeInTheDocument();
+  // AVORA-94 · B2.1: whose it is is said once, in `Giao cho`.
+  await expect.element(screen.getByText("Tôi · do Lan Nguyễn giao").first()).toBeInTheDocument();
   await expect.element(screen.getByRole("button", { name: "Mở cuộc trò chuyện" })).toBeInTheDocument();
   expect(document.body.textContent ?? "").not.toMatch(/Người khác giao|nằm trong cuộc trò chuyện|@/);
   await settle();
@@ -337,7 +338,9 @@ test("59.2 · việc tôi giao: không có Xong, dòng Giao … · chờ nhận"
       <TaskDetailSheet task={item(ROWS[1])} today={today} open onOpenChange={() => undefined} />
     </Frame>,
   );
-  await expect.element(screen.getByText("Giao Lan Nguyễn · chờ nhận").first()).toBeInTheDocument();
+  // AVORA-94 · B2.1: whose it is is said once, in `Giao cho` (the header no longer repeats it).
+  await expect.element(screen.getByText("Lan Nguyễn · chờ nhận").first()).toBeInTheDocument();
+  expect(screen.getByText("Giao Lan Nguyễn · chờ nhận").elements()).toHaveLength(0);
   expect(screen.getByRole("button", { name: "Xong", exact: true }).elements()).toHaveLength(0);
   expect(screen.getByRole("button", { name: "Nhận việc" }).elements()).toHaveLength(0);
   await settle();

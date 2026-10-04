@@ -79,7 +79,7 @@ import { BOARD_CHANGES_PARAM, boardChangeKeys, fetchAnnouncements } from "@/lib/
 import { MessageComposer } from "@/components/chat/MessageComposer";
 import { MobileTopActions } from "@/components/nav/HubTitle";
 import { hasInAppPrevious } from "@/lib/nav-history";
-import { connectTabSlug } from "@/lib/resume-place";
+import { chatBackTarget } from "@/lib/resume-place";
 import { ContactCardBubble, MessageRefChips } from "@/components/chat/ContactCardBubble";
 import { refsInText, shareContactCard, type RefChoice, type RefContext } from "@/lib/context-refs";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
@@ -148,6 +148,8 @@ import {
   journalTimeline,
   latestOf,
   markDiarySeen,
+  NOTES_BOOKS_PARAM,
+  NOTES_BOOKS_VALUE,
   readDiarySeen,
   readLastDiaryView,
   rememberDiaryView,
@@ -3057,20 +3059,11 @@ const Messages = () => {
                   type="button"
                   aria-label="Quay lại Kết nối"
                   onClick={() => {
-                    // AVORA-53 · 2.10: opened from elsewhere (`tu`) → back there.
-                    const cameFrom = readReturn(searchParams);
-                    if (cameFrom !== null) {
-                      navigate(cameFrom.path, { replace: true });
-                      return;
-                    }
-                    // AVORA-93 · 5: the page actually behind (Avora Space, a task card, a board…) when there is one in the app.
-                    if (hasInAppPrevious()) {
-                      navigate(-1);
-                      return;
-                    }
-                    // Nothing behind (notification, link, reopened straight into it) → Kết nối, this conversation's section.
+                    // AVORA-53 · 2.10 `tu` → there · AVORA-93 · 5 page behind → back · nothing behind → Kết nối, this thread's section.
                     const isProjectThread = activeKind === "group" && projectByIdMap !== undefined && [...projectByIdMap.values()].some((project) => project.conversationId === conversationId);
-                    navigate(`/tin-nhan?tab=${connectTabSlug(isProjectThread ? "project" : activeKind)}`, { replace: true });
+                    const back = chatBackTarget({ returnPath: readReturn(searchParams)?.path ?? null, hasPrevious: hasInAppPrevious(), kind: isProjectThread ? "project" : activeKind });
+                    if (back.kind === "history") navigate(-1);
+                    else navigate(back.path, { replace: true });
                   }}
                   className="press flex h-10 w-9 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground md:hidden"
                 >
@@ -3287,6 +3280,12 @@ const Messages = () => {
                     onCreateTask={setNoteTaskExit}
                     onToBoard={setNoteBoardExit}
                     onOpenBook={(recordId) => navigate(withReturn(`/ke-hoach/ke-sach?sach=${encodeURIComponent(recordId)}`, hereFrom(location, "Ghi chép")))}
+                    onlyBooks={searchParams.get(NOTES_BOOKS_PARAM) === NOTES_BOOKS_VALUE}
+                    onClearFilter={() => {
+                      const next = new URLSearchParams(searchParams);
+                      next.delete(NOTES_BOOKS_PARAM);
+                      setSearchParams(next, { replace: true });
+                    }}
                     onEditingChange={(noteId) => {
                       setNotesEditingId(noteId);
                       if (noteId !== null) setIsNotesTrashOpen(false);

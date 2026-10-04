@@ -1065,8 +1065,7 @@ const BookReader = () => {
             <div className="mt-3 space-y-2" data-translate-help="">
               {/* AVORA-93 · 2.4 (3): honest — no whole-chapter machine translation until it reads well. */}
               <p className="rounded-xl bg-secondary/60 px-4 py-3 text-[14.5px]">Sách này chưa có bản dịch tiếng Việt đủ hay để đọc liền mạch. Giữ ngón tay lên chữ để tra từ hoặc đoạn.</p>
-              {engine === null ? <p className="text-[13px] text-muted-foreground">{NO_DEVICE_TRANSLATION} Trên máy tính, Chrome dịch được.</p> : null}
-              <p className="text-[12.5px] text-muted-foreground/80">Dịch trọn cuốn bằng AI — Avora đang xem xét trong gói trả phí, hiện chưa dùng được.</p>
+              {engine === null ? <p className="text-[13px] text-muted-foreground">{NO_DEVICE_TRANSLATION}</p> : null}
             </div>
           )}
         </SheetContent>
@@ -1112,7 +1111,8 @@ const BookReader = () => {
             <span className="flex flex-1 items-center justify-center text-[13px]">Trang sau ›</span>
           </span>
           <span className="flex items-center justify-center border-t border-dashed border-background/50 text-[13px]" style={{ height: `${READER_BOTTOM_BAND}px` }}>Chạm: các tab</span>
-          <span className="absolute inset-x-0 top-1/2 -translate-y-1/2 text-center text-[17px] font-semibold">Chạm để bắt đầu đọc</span>
+          {/* AVORA-94: kept clear of the ‹ › labels at mid-height (they overlapped at 390). */}
+          <span className="absolute inset-x-0 text-center text-[17px] font-semibold" style={{ bottom: `${READER_BOTTOM_BAND + 28}px` }}>Chạm để bắt đầu đọc</span>
         </button>
       ) : null}
       <PinFullSheet open={panel === "pin"} onClose={() => setPanel(null)} books={books.map((item) => ({ id: item.id, title: item.title }))} states={allStates.data ?? []} wanted={recordId} />

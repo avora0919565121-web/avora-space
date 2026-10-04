@@ -18,7 +18,7 @@ import {
   Table2,
   X,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -98,6 +98,8 @@ import {
 } from "@/lib/library";
 import { guideQuestionOf, HUB_TILE_PARAM, isReminderTile, type ReminderTile } from "@/lib/think-hub-shelf";
 import { useNotes } from "@/lib/use-notes";
+import { DIARY_VIEW_PARAM, diaryViewSlug, NOTES_BOOKS_PARAM, NOTES_BOOKS_VALUE } from "@/lib/diary-views";
+import { fetchAllReadingStates, type ReadingState } from "@/lib/reading-state";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
 import { useReview } from "@/lib/use-review";
 import { TemplateGallery } from "@/components/think-hub/TemplateGallery";
@@ -229,6 +231,16 @@ const ThinkHub = () => {
   const focusScrollRef = useRef<number>(0);
   const notesData = useNotes();
   const bookshelfData = useBookshelf();
+  // AVORA-94 · B2.3: the same query the shelf uses — `Đọc tiếp` is the book opened most recently, with its %.
+  const readingStates = useQuery<ReadingState[], Error>({ queryKey: ["book-reading-state", "all"], queryFn: fetchAllReadingStates, staleTime: 30_000 });
+  const lastRead = useMemo(() => {
+    const states = readingStates.data ?? [];
+    const percentOf = new Map(states.map((state) => [state.recordId, Number.isFinite(state.percent) ? state.percent : null] as const));
+    const byId = new Map(bookshelfData.books.map((book) => [book.id, book] as const));
+    // States come newest first; the first one still on the shelf is the book opened last.
+    const latest = states.map((state) => byId.get(state.recordId)).find((book) => book !== undefined) ?? null;
+    return { percentOf, latest };
+  }, [readingStates.data, bookshelfData.books]);
   const shelfActions = useShelfActions();
   const starsQuery = useStars();
   const stars: Set<string> = useMemo(() => starsQuery.data ?? new Set<string>(), [starsQuery.data]);
@@ -1191,6 +1203,7 @@ const ThinkHub = () => {
   const [pickedTile, setPickedTile] = useState<ReminderTile | null>(() => (isReminderTile(searchParams.get(HUB_TILE_PARAM)) ? (searchParams.get(HUB_TILE_PARAM) as ReminderTile) : null));
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isStoreOpen, setIsStoreOpen] = useState<boolean>(false);
+  const [focusLane, setFocusLane] = useState<"waiting" | "thinking" | "concluded" | null>(null);
   const deskBook: DeskBook | null = useMemo(() => {
     const reading = bookshelfData.books.filter((book) => book.status === "dang_doc").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
     const book = reading[0];
@@ -1209,10 +1222,11 @@ const ThinkHub = () => {
       return null;
     }
   };
-  const openJournal = async (): Promise<void> => {
+  const openJournal = async (onlyBookNotes = false): Promise<void> => {
     try {
       const journalId = findJournal(conversationsQuery.data)?.conversationId ?? (await ensureJournalConversation());
-      navigate(withReturn(`/tin-nhan/${journalId}`, hereFrom(location, "Kế hoạch")));
+      const query = onlyBookNotes ? `?${DIARY_VIEW_PARAM}=${diaryViewSlug("notes")}&${NOTES_BOOKS_PARAM}=${NOTES_BOOKS_VALUE}` : "";
+      navigate(withReturn(`/tin-nhan/${journalId}${query}`, hereFrom(location, "Kế hoạch")));
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Chưa mở được Nhật ký.");
     }
@@ -1742,7 +1756,10 @@ const ThinkHub = () => {
                 isWide={!isPhoneUpright}
                 onOpenBoard={(key) => (/^[0-9a-f]{8}-/.test(key) ? openTable(key, 2) : navigate(`/ke-hoach?ke=4&bang=${key}`))}
                 onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
-                onOpenLane={() => goRoom(3)}
+                onOpenLane={(lane) => {
+                  setFocusLane(lane);
+                  goRoom(3);
+                }}
                 onOpenTasks={() => navigate(withReturn("/nhiem-vu?muc=viec", hereFrom(location, "Kế hoạch")))}
               />
               <ThinkingOverview
@@ -1758,6 +1775,7 @@ const ThinkHub = () => {
             ) : room === 3 ? (
               <>
                 <ProgressMatrix
+                  focusLane={focusLane}
                   boards={planned}
                   placeKind={placeKind}
                   placeOf={placeOf}
@@ -1778,26 +1796,35 @@ const ThinkHub = () => {
             ) : room === 5 ? (
               <div data-room-shelf="5">
                 <div className="flex justify-end"><StatsMenu /></div>
-                {/* AVORA-93 · PHẦN 2 · 3: reading time and book notes worth a second look, above the shelf. */}
-                <div className="mb-6 grid gap-4 md:grid-cols-2" data-room-five-top="">
-                  <ReadingTime
-                    books={bookshelfData.books.map((book) => ({ id: book.id, title: book.title, percent: null }))}
-                    continueBook={bookshelfData.books[0] !== undefined ? { id: bookshelfData.books[0].id, title: bookshelfData.books[0].title } : null}
-                    onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
-                  />
-                  <BookNotes
-                    notes={notesData.liveNotes}
-                    onShelf={new Set(bookshelfData.books.map((book) => book.id))}
-                    isWide={!isPhoneUpright}
-                    onOpenAt={(note) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${note.bookRecordId ?? ""}${note.bookLocator != null ? `?o=${note.bookLocator}` : ""}`, hereFrom(location, "Kế hoạch")))}
-                    onOpenAll={() => void openJournal()}
-                  />
+                {/* AVORA-93 · PHẦN 2 · 3 / AVORA-94 · B2.3: computer = two columns as in Ke2-Ke5-So-Lieu.png
+                    (left: reading time + books · right: book notes + diary); a phone reads time → notes → books → diary. */}
+                <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start md:gap-4" data-room-five-top="">
+                  <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4" data-room-five-col="left">
+                    <div className="order-1 min-w-0">
+                      <ReadingTime
+                        books={bookshelfData.books.map((book) => ({ id: book.id, title: book.title, percent: lastRead.percentOf.get(book.id) ?? null }))}
+                        continueBook={lastRead.latest !== null ? { id: lastRead.latest.id, title: lastRead.latest.title } : null}
+                        onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
+                      />
+                    </div>
+                    <section id="room-books" data-room-section="books" className="order-3 min-w-0">{renderShelf("ke-sach")}</section>
+                  </div>
+                  <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4" data-room-five-col="right">
+                    <div className="order-2 min-w-0">
+                      <BookNotes
+                        notes={notesData.liveNotes}
+                        onShelf={new Set(bookshelfData.books.map((book) => book.id))}
+                        isWide={!isPhoneUpright}
+                        onOpenAt={(note) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${note.bookRecordId ?? ""}${note.bookLocator != null ? `?o=${note.bookLocator}` : ""}`, hereFrom(location, "Kế hoạch")))}
+                        onOpenAll={() => void openJournal(true)}
+                      />
+                    </div>
+                    <section id="room-diary" data-room-section="diary" className="order-4 min-w-0">
+                      <h2 className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Nhật ký · {notesData.liveNotes.length}</h2>
+                      <DiaryShelf />
+                    </section>
+                  </div>
                 </div>
-                <section id="room-books" data-room-section="books">{renderShelf("ke-sach")}</section>
-                <section id="room-diary" data-room-section="diary" className="mt-8">
-                  <h2 className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Nhật ký · {notesData.liveNotes.length}</h2>
-                  <DiaryShelf />
-                </section>
               </div>
             ) : (
               <WorkDesk boards={tables} placeOf={placeOf} countOf={(id) => recordCount.get(id) ?? 0} onOpen={(id) => openTable(id, 6)} onCreate={createOnDesk} onFull={setWantedDesk} onGo={(to) => goRoom(to)} />

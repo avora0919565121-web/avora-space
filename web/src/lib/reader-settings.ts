@@ -145,7 +145,8 @@ export function translatorApi(): TranslatorApi | null {
 /** AVORA-93 · 2.6: a lookup is at most one paragraph. */
 export const LOOKUP_MAX_CHARS = 600;
 /** Shown when this device cannot translate and Avora will not pay for it (ADR-060). */
-export const NO_DEVICE_TRANSLATION = "Máy này chưa dịch được. Avora đang xem xét gói trả phí để dịch qua máy chủ — hiện tính năng này chưa dùng được.";
+/** AVORA-94 · B1: a device limit, not a paywall — no word about paid plans here. */
+export const NO_DEVICE_TRANSLATION = "Máy này chưa tra dịch được. Bạn có thể bôi đen rồi bấm Chép, hoặc mở sách trên Chrome máy tính để tra.";
 
 export type MtEngine = "chrome_translator" | "bergamot";
 

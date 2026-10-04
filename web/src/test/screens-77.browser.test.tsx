@@ -1127,3 +1127,75 @@ test("88.13 · 844×390 nằm ngang: kệ 2 không vỡ", async () => {
   expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(window.innerWidth);
   await page.screenshot({ path: `${OUT79}/88-13-ngang-844.png` });
 });
+
+// ------------------------------------------------------------------ AVORA-94 · B2.4 (kệ 2 · kệ 5 · màn đọc, 3 khổ)
+const OUT94 = "../../../docs/screens/2026-10-04";
+const SIZES94 = [
+  [390, 844],
+  [768, 1024],
+  [1440, 900],
+] as const;
+
+function seedStats(): void {
+  db.rpcs.think_hub_room_stats = {
+    boards_by_status: { waiting: 3, thinking: 4, concluded: 1 },
+    records_total: 15,
+    records_new: 2,
+    open_tasks: 25,
+    top_items: [
+      { board_key: "b1", name: "Có nên mở xưởng thứ hai?", value: 42 },
+      { board_key: "b3", name: "Chọn nhà cung cấp đèn", value: 18 },
+    ],
+    top_opens: [{ board_key: "b1", name: "Có nên mở xưởng thứ hai?", value: 6 }],
+    top_time: [{ board_key: "b1", name: "Có nên mở xưởng thứ hai?", value: 2880 }],
+    viewed: [
+      { kind: "board", item_key: "b1", name: "Có nên mở xưởng thứ hai?", opens: 6, seconds: 2880, last_day: daysAgo(0).slice(0, 10) },
+      { kind: "book", item_key: "k1", name: "Pride and Prejudice", opens: 4, seconds: 4200, last_day: daysAgo(0).slice(0, 10) },
+    ],
+  };
+  const day = (ago: number): string => {
+    const at = new Date(Date.now() - ago * 86_400_000);
+    return `${at.getFullYear()}-${`${at.getMonth() + 1}`.padStart(2, "0")}-${`${at.getDate()}`.padStart(2, "0")}`;
+  };
+  db.tables.activity_daily = [
+    { day: day(0), item_key: "k1", active_seconds: 1500 },
+    { day: day(1), item_key: "k1", active_seconds: 2400 },
+    { day: day(3), item_key: "k1", active_seconds: 900 },
+  ];
+  db.tables.notes = [
+    { id: "n1", folder_id: null, title: "", blocks: [{ id: "a", level: null, text: "“It is a truth universally acknowledged…”" }, { id: "b", level: null, text: "Câu mở đầu tự giễu chính nó." }], tags: ["Pride and Prejudice"], pinned_at: daysAgo(1), book_record_id: "k1", book_title: "Pride and Prejudice", book_locator: "0:1", deleted_at: null, created_at: daysAgo(1), updated_at: daysAgo(1) },
+  ];
+}
+
+for (const [w, h] of SIZES94) {
+  test(`94 · ảnh kệ 2 số liệu · ${w}x${h}`, async () => {
+    seedStats();
+    await viewport(w, h);
+    await render(<App at="/ke-hoach?ke=2" />);
+    await settle(1400);
+    expect(document.querySelector('[data-room-shelf="2"]')).not.toBeNull();
+    await page.screenshot({ path: `${OUT94}/94-ke-2-${w}.png` });
+  });
+  test(`94 · ảnh kệ 5 thời gian đọc + ghi chú sách · ${w}x${h}`, async () => {
+    seedStats();
+    await viewport(w, h);
+    await render(<App at="/ke-hoach?ke=5" />);
+    await settle(1400);
+    const top = document.querySelector("[data-room-five-top]") as HTMLElement;
+    expect(top).not.toBeNull();
+    if (w >= 768) {
+      // Two columns on a computer / tablet: left (time + books) beside right (notes + diary).
+      const left = document.querySelector('[data-room-five-col="left"]')?.getBoundingClientRect();
+      const right = document.querySelector('[data-room-five-col="right"]')?.getBoundingClientRect();
+      expect(left !== undefined && right !== undefined && right.left >= left.right - 1).toBe(true);
+    }
+    await page.screenshot({ path: `${OUT94}/94-ke-5-${w}.png` });
+  });
+  test(`94 · ảnh màn đọc 4 vùng · ${w}x${h}`, async () => {
+    window.localStorage.removeItem("avora.reader.zones-seen");
+    await viewport(w, h);
+    await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+    await settle(1400);
+    await page.screenshot({ path: `${OUT94}/94-doc-4-vung-${w}.png` });
+  });
+}

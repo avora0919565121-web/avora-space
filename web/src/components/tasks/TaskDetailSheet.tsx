@@ -13,7 +13,7 @@ import { ownedTaskIds } from "@/lib/task-suggestions";
 import { useTaskSuggestions } from "@/lib/use-task-suggestions";
 import { MyDayButton, StartButton, TaskPlanFields } from "@/components/tasks/TaskPlanFields";
 import { TaskPrepPanel } from "@/components/tasks/TaskPrepPanel";
-import { ownerCircleClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
+import { ownerCircleClass } from "@/components/tasks/TaskOwner";
 import { usePeopleNames } from "@/lib/use-task-owner";
 import { taskOwnership } from "@/lib/task-owner";
 import {
@@ -346,11 +346,10 @@ export function TaskDetailSheet({
                 <span className={done ? undefined : "font-medium text-foreground"}>
                   {shared ? sharedTaskNote(task, userId) : taskStatusLabel(task.status)}
                 </span>
-                {/* AVORA-59 · B: whose it is is said once, by name, in the line below. */}
+                {/* AVORA-59 · B / AVORA-94 · B2.1: whose it is is said once, in `Giao cho` below — not here too. */}
                 {task.isMilestone ? " · Cột mốc" : ""}
                 {progress !== null ? ` · ${progress}` : ""}
               </p>
-              <TaskOwnerLine task={task} ownership={owner} className="mt-1" />
             </div>
           </div>
 

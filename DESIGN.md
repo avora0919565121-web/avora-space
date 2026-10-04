@@ -2026,7 +2026,7 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
 - **Dịch có 2 hướng:**
   - Đọc trọn cuốn: bản dịch người trước; dịch máy cả chương chỉ khi đã duyệt chất lượng.
   - Tra từ / đoạn: luôn có, nhãn `để hiểu ý`.
-  - Không gửi chữ sách lên máy chủ. AI văn học thuộc gói trả phí, chưa làm.
+  - Không gửi chữ sách lên máy chủ. Máy chưa tra được → câu trung thực (bôi đen · Chép, hoặc Chrome máy tính), không nhắc gói trả phí. Bergamot hoãn (AVORA-94).
 
 ## Out of scope
 

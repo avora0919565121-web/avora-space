@@ -76,10 +76,14 @@ function TaskLine({ task, today, onOpen, trailing, canComplete = true, dayNote }
         <span className="block truncate text-[14.5px] font-medium text-foreground">{task.title}</span>
         {/* AVORA-55 · 4: inside Hôm nay the line says why the task is here and when its own
             time really is — an Event's hour, a deadline already carrying it, an overdue day. */}
-        <span className={cn("block text-[12px]", dayNote?.tone === "overdue" ? "font-medium text-task-overdue" : "text-muted-foreground")}>
-          {dayNote?.text ?? trailing ?? meta}
+        {/* AVORA-94 · B2.1: 1 + 1 — why/when and whose share one line that never wraps. */}
+        <span data-task-meta="" className="flex min-w-0 items-center gap-1.5 overflow-hidden whitespace-nowrap text-[12px]">
+          <span className={cn("min-w-0 shrink truncate", dayNote?.tone === "overdue" ? "font-medium text-task-overdue" : "text-muted-foreground")}>
+            {dayNote?.text ?? trailing ?? meta}
+          </span>
+          <span className="shrink-0 text-task-idle" aria-hidden="true">·</span>
+          <TaskOwnerLine task={task} ownership={owner} className="min-w-0 shrink" />
         </span>
-        <TaskOwnerLine task={task} ownership={owner} className="mt-0.5" />
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
     </button>

@@ -1,5 +1,5 @@
 import { Archive, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MoreHorizontal, Plus, Table2, Trash2 } from "lucide-react";
-import { useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { useConclusions, useLifecycleChange } from "@/components/library/BoardHead";
@@ -445,7 +445,10 @@ export function ProgressMatrix({
   onOpen,
   onOpenArchive,
   onOpenTrash,
+  focusLane = null,
 }: {
+  /** AVORA-94 · B2.3: a colour tapped on kệ 2's status bar — open on that column. */
+  focusLane?: Lane | null;
   boards: readonly ThinkTable[];
   placeKind: (board: ThinkTable) => PlaceKind;
   placeOf: (board: ThinkTable) => string | null;
@@ -461,7 +464,17 @@ export function ProgressMatrix({
   const live = boards.filter((board) => board.archivedAt === null);
   const cellOf = (row: PlaceKind, lane: Lane) => live.filter((board) => placeKind(board) === row && laneOf(board) === lane);
   const latestOpen = [...live].sort((a, b) => (openedAt.get(b.id) ?? b.updatedAt).localeCompare(openedAt.get(a.id) ?? a.updatedAt))[0];
-  const [pick, setPick] = useState<{ row: PlaceKind | null; lane: Lane | null } | null>(null);
+  const [pick, setPick] = useState<{ row: PlaceKind | null; lane: Lane | null } | null>(() => (focusLane === null ? null : { row: null, lane: focusLane }));
+  useEffect(() => {
+    if (focusLane === null) return;
+    setPick({ row: null, lane: focusLane });
+    // The column is in view on either layout: the picked list on a phone, the column head on a computer.
+    const timer = window.setTimeout(() => {
+      const target = document.querySelector<HTMLElement>(`[data-lane-head="${focusLane}"]:not(:is(.hidden *))`) ?? document.querySelector<HTMLElement>("[data-matrix-picked]");
+      target?.scrollIntoView({ block: "start", inline: "center", behavior: "smooth" });
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [focusLane]);
   const chosen = pick ?? (latestOpen === undefined ? { row: null, lane: null } : { row: placeKind(latestOpen), lane: laneOf(latestOpen) });
   const picked = live.filter((board) => (chosen.row === null || placeKind(board) === chosen.row) && (chosen.lane === null || laneOf(board) === chosen.lane));
   const label = [chosen.row === null ? null : PLACE_ROWS.find((r) => r.id === chosen.row)?.label, chosen.lane === null ? null : lifecycleLabel(chosen.lane)].filter(Boolean).join(" · ");
@@ -569,7 +582,7 @@ export function ProgressMatrix({
         <div className="grid grid-cols-[96px_repeat(3,minmax(0,1fr))] gap-2">
           <span />
           {LIFECYCLES.map((lane) => (
-            <h3 key={lane.id} className="px-1 text-[12.5px] font-semibold text-muted-foreground">
+            <h3 key={lane.id} data-lane-head={lane.id} className={cn("px-1 text-[12.5px] font-semibold text-muted-foreground", focusLane === lane.id && "rounded-md bg-personal-soft text-foreground")}>
               {lane.label} · {live.filter((board) => laneOf(board) === lane.id).length}
             </h3>
           ))}

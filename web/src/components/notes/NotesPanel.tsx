@@ -115,6 +115,8 @@ export function NotesPanel({
   onOpenBook,
   onEditingChange,
   tree,
+  onlyBooks = false,
+  onClearFilter,
 }: {
   data: NotesData;
   isWide: boolean;
@@ -128,6 +130,9 @@ export function NotesPanel({
   onEditingChange?: (noteId: string | null) => void;
   /** Phone only: the tree, shown when nothing is open. */
   tree?: ReactNode;
+  /** AVORA-94 · B2.3: kệ 5 `Mọi ghi chú sách ›` — only notes tied to a book. */
+  onlyBooks?: boolean;
+  onClearFilter?: () => void;
 }) {
   const folders = useMemo(() => data.folders.data ?? [], [data.folders.data]);
   const notes = data.liveNotes;
@@ -389,11 +394,16 @@ export function NotesPanel({
       />
     );
 
-  const recentNotes = [...notes].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  const recentNotes = [...notes].filter((note) => !onlyBooks || note.bookRecordId !== null || note.bookTitle !== null).sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
   const recentPane = (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex items-center gap-1.5 px-5 pb-2 pt-4">
-        <p className="min-w-0 flex-1 truncate text-[16px] font-semibold text-foreground">Gần đây</p>
+        <p className="min-w-0 flex-1 truncate text-[16px] font-semibold text-foreground">{onlyBooks ? "Ghi chú sách" : "Gần đây"}</p>
+        {onlyBooks && onClearFilter !== undefined ? (
+          <button type="button" onClick={onClearFilter} data-notes-filter-clear="" className="press shrink-0 rounded-full px-2.5 py-1 text-[12.5px] text-muted-foreground hover:bg-accent/50 hover:text-foreground">
+            Bỏ lọc
+          </button>
+        ) : null}
         <button type="button" onClick={pasteFromButton} aria-label="Dán nội dung vừa copy" title="Dán nội dung vừa copy" className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-accent/50 hover:text-foreground">
           <ClipboardPaste className="h-4 w-4" />
         </button>
@@ -402,13 +412,15 @@ export function NotesPanel({
         </button>
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
-        {data.notes.isPending ? null : notes.length === 0 ? (
+        {data.notes.isPending ? null : onlyBooks && recentNotes.length === 0 ? (
+          <p className="px-4 py-14 text-center text-[14px] text-muted-foreground">Chưa có ghi chú nào gắn với sách.</p>
+        ) : notes.length === 0 ? (
           <div className="mx-auto max-w-sm px-4 py-14 text-center text-[14px] leading-relaxed text-muted-foreground">
             <p>Ghi chép là nơi bạn tự viết ra để đọc lại — bài học, bài giảng, ghi họp dài.</p>
             <p className="mt-2 text-[13px]">Tạo thư mục ở cây bên trái, hoặc bấm + Ghi chép. Dán chữ vừa copy vào đây cũng được.</p>
           </div>
         ) : (
-          bucketNotes(recentNotes.filter((note) => note.pinnedAt !== null).concat(recentNotes.filter((note) => note.pinnedAt === null).slice(0, RECENT_LIMIT))).map((bucket) => (
+          bucketNotes(onlyBooks ? recentNotes : recentNotes.filter((note) => note.pinnedAt !== null).concat(recentNotes.filter((note) => note.pinnedAt === null).slice(0, RECENT_LIMIT))).map((bucket) => (
             <section key={bucket.key}>
               <p className="px-3 pb-0.5 pt-3 text-[12px] font-medium text-muted-foreground">{bucket.label}</p>
               <ul>{bucket.notes.map((note) => noteRow(note))}</ul>
@@ -492,7 +504,7 @@ export function NotesPanel({
   let body: ReactElement;
   if (editorColumn !== null) body = <div className="h-full min-w-0">{editorColumn}</div>;
   else if (showTrash) body = trashPane;
-  else if (!isWide && tree !== undefined) body = <div className="h-full min-h-0 overflow-y-auto">{tree}</div>;
+  else if (!isWide && tree !== undefined && !onlyBooks) body = <div className="h-full min-h-0 overflow-y-auto">{tree}</div>;
   else body = recentPane;
 
   return (

@@ -10,34 +10,14 @@ import { cn } from "@/lib/utils";
  * The one place a task says whose it is (AVORA-59 · B). Every list, calendar, chat panel and the
  * detail use this pair, so "my work" looks the same everywhere:
  *
- * - `TaskOwnerFrame` — a 3px orange stripe on the left when the viewer has to do it; the same
+ * - `ownerStripeClass` — a 3px orange stripe on the left when the viewer has to do it; the same
  *   width, transparent, otherwise (rows never shift sideways).
  * - `TaskOwnerLine` — `Của tôi` · `Của tôi · từ Lan` · `Giao Lan · chờ nhận` · `Lan → Minh`.
  *
  * Whose circle is tappable stays with the row (only the doer finishes); a circle that is not the
  * viewer's to tap is drawn faded with `ownerCircleClass`.
  */
-export function TaskOwnerFrame({
-  task,
-  ownership,
-  className,
-  children,
-  ...rest
-}: { task: TaskItem; ownership?: TaskOwnership; children: ReactNode } & HTMLAttributes<HTMLDivElement>) {
-  const computed = useTaskOwnership(task);
-  const owner = ownership ?? computed;
-  return (
-    <div
-      data-task-mine={owner.isMine ? "true" : "false"}
-      className={cn("border-l-[3px]", owner.isMine ? "border-l-personal" : "border-l-transparent", className)}
-      {...rest}
-    >
-      {children}
-    </div>
-  );
-}
-
-/** `ownerStripeClass(isMine)` for rows that already are a `<li>` and cannot take a wrapper. */
+/** The owner stripe for a task row. */
 export function ownerStripeClass(isMine: boolean): string {
   return cn("border-l-[3px]", isMine ? "border-l-personal" : "border-l-transparent");
 }

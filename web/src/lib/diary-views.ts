@@ -20,6 +20,10 @@ export const DIARY_VIEWS: readonly { id: DiaryView; label: string; short: string
 /** The address-bar key naming which Nhật ký view is open (`?xem=`). */
 export const DIARY_VIEW_PARAM = "xem";
 
+/** AVORA-94 · B2.3: `?xem=ghi-chep&loc=sach` — Ghi chép showing only notes tied to a book. */
+export const NOTES_BOOKS_PARAM = "loc";
+export const NOTES_BOOKS_VALUE = "sach";
+
 const VIEW_SLUGS: Readonly<Record<DiaryView, string>> = {
   journal: "nhat-ky",
   notes: "ghi-chep",

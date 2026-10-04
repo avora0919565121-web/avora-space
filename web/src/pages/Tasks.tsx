@@ -225,7 +225,7 @@ function DeadlineChip({
   // same person's marks.
   const flags = useTaskFlagIndex();
   return (
-    <span className="flex flex-wrap items-center gap-2">
+    <span className="flex shrink-0 items-center gap-2">
       {label === null ? (
         <span className="text-task-idle" title="Không có hạn">
           Không có hạn
@@ -350,26 +350,6 @@ function TaskTitle({
   );
 }
 
-/**
- * The description is what was actually asked for, so it is shown on the row rather than hidden
- * behind a tap. Two lines is enough to recognise the work; the rest stays in the row's title
- * attribute so nothing is lost.
- */
-function TaskDescription({ task }: { task: TaskItem }) {
-  if (task.description.trim() === "") return null;
-  return (
-    <p
-      title={task.description}
-      className={cn(
-        "mt-0.5 line-clamp-2 text-[13px] leading-5",
-        task.status === "done" ? "text-task-idle" : "text-muted-foreground",
-      )}
-    >
-      {task.description}
-    </p>
-  );
-}
-
 function PersonalRow({
   task,
   today,
@@ -416,8 +396,8 @@ function PersonalRow({
       >
         {/* A personal task is always the reader's own move — nobody else can carry it. */}
         <TaskTitle task={task} muted={false} voice="mine" />
-        <TaskDescription task={task} />
-        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
+        {/* AVORA-94 · B2.1: 1 + 1 — the title, then one meta line that never wraps (the description lives in the sheet). */}
+        <div data-task-meta="" className="mt-0.5 flex min-w-0 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[12px]">
           <TaskOwnerLine task={task} />
           <DeadlineChip task={task} today={today} category={categories.get(task.categoryId ?? "")} />
         </div>
@@ -571,8 +551,7 @@ function SharedRow({
           className="press min-w-0 flex-1 pt-0.5 text-left disabled:cursor-default"
         >
           <TaskTitle task={task} muted={false} voice={voice} />
-          <TaskDescription task={task} />
-          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[12px]">
+          <div data-task-meta="" className="mt-0.5 flex min-w-0 items-center gap-x-2 overflow-hidden whitespace-nowrap text-[12px]">
             <TaskOwnerLine task={task} ownership={owner} />
             <DeadlineChip task={task} today={today} category={categories.get(task.categoryId ?? "")} />
             <span className="text-task-idle" aria-hidden="true">
@@ -1174,36 +1153,6 @@ function ReportRow({
         Vào Nhật ký
       </button>
     </li>
-  );
-}
-
-/** The bin. Always collapsed on arrival: it is a place you go looking for, never a distraction. */
-function BinSection({ tasks, userId, today }: { tasks: TaskItem[]; userId: string | undefined; today: string }) {
-  const { isOpen, toggle } = useTree();
-  const open = isOpen("bin", false);
-
-  return (
-    <section aria-labelledby="tasks-bin" className="rounded-[10px] border border-border bg-card">
-      <BranchHeader open={open} onToggle={() => toggle("bin", false)} className="px-5 py-4">
-        <h2 id="tasks-bin" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
-          Thùng rác
-        </h2>
-        <span className="tabular shrink-0 text-[13px] text-muted-foreground">{tasks.length} việc đã xoá</span>
-      </BranchHeader>
-
-      {open ? (
-        <div className="rise-in">
-          <p className="px-5 pb-2 text-[13px] text-muted-foreground">
-            Việc chung chỉ mất hẳn khi cả hai bên đều xoá. Trước đó, người kia vẫn thấy nó.
-          </p>
-          <ul className="px-5 pb-3">
-            {tasks.map((task) => (
-              <BinRow key={task.id} task={task} userId={userId} today={today} />
-            ))}
-          </ul>
-        </div>
-      ) : null}
-    </section>
   );
 }
 

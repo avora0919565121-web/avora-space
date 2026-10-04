@@ -25,6 +25,10 @@ export function useNewDayLanding(userId: string | undefined): void {
   const isColdRef = useRef<boolean>(true);
 
   pathRef.current = location.pathname;
+  // AVORA-94: `useNavigate()` changes identity on every pathname change; keep it out of the effect's deps,
+  // or the check re-runs on every tab tap.
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
 
   useEffect(() => {
     if (userId === undefined) return;
@@ -43,7 +47,8 @@ export function useNewDayLanding(userId: string | undefined): void {
         seenDayRef.current = today;
         if (decision === "stay") return;
         // AVORA-93 · 5: a phone follows the 04:00 resume rule instead (use-resume-place); only the day is recorded here.
-        if (decision === "go-home" && !isResumeDevice()) navigate(HOME_ROUTE, { replace: true });
+        // A computer, installed or not, still lands on Avora Space on a new day (AVORA-94 · 2b).
+        if (decision === "go-home" && !isResumeDevice()) navigateRef.current(HOME_ROUTE, { replace: true });
         await recordOpenedDate(userId, today);
       } catch {
         // A failed read leaves the person where they are: missing the morning overview once is
@@ -62,5 +67,5 @@ export function useNewDayLanding(userId: string | undefined): void {
       isCancelled = true;
       document.removeEventListener("visibilitychange", onVisible);
     };
-  }, [userId, navigate]);
+  }, [userId]);
 }
