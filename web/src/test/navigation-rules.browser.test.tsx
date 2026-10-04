@@ -130,6 +130,7 @@ function Tasks() {
   return (
     <Tall>
       <button type="button" onClick={() => navigate("/tin-nhan/d1")}>Mở chat từ việc</button>
+      <button type="button" onClick={() => navigate("/ke-hoach?bang=b1")}>Mở bảng từ việc</button>
     </Tall>
   );
 }
@@ -138,8 +139,10 @@ function List() {
   const navigate = useNavigate();
   return (
     <Tall>
-      {/* Same as Messages.handleSelectTab: from the bare list, Nhật ký takes the list's place. */}
-      <button type="button" onClick={() => navigate("/tin-nhan/j1", { replace: true })}>Ngăn Nhật ký</button>
+      {/* Same as Messages.handleSelectTab (AVORA-100 · C): Nhật ký is a step deeper (push); the other sections replace. */}
+      <button type="button" onClick={() => navigate("/tin-nhan/j1")}>Ngăn Nhật ký</button>
+      <button type="button" onClick={() => navigate("/tin-nhan?tab=nhom", { replace: true })}>Ngăn Nhóm</button>
+      <button type="button" onClick={() => navigate("/tin-nhan?tab=du-an", { replace: true })}>Ngăn Dự án</button>
       <button type="button" onClick={() => navigate("/tin-nhan/d1")}>mở d1</button>
     </Tall>
   );
@@ -170,6 +173,22 @@ function Thread() {
         </div>
       ) : null}
     </div>
+  );
+}
+
+/** Kế hoạch: opening a Bảng and a Hạng mục are steps deeper (push), as in ThinkHub. */
+function Plan() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const ke = searchParams.get("ke");
+  const board = searchParams.get("bang");
+  const base = ke === null ? "" : `ke=${ke}&`;
+  return (
+    <Tall>
+      {board !== null ? <BackButton showLabel /> : null}
+      {board === null ? <button type="button" onClick={() => navigate(`/ke-hoach?${base}bang=b1`)}>Mở bảng</button> : null}
+      {board !== null && searchParams.get("hm") === null ? <button type="button" onClick={() => navigate(`/ke-hoach?${base}bang=b1&hm=h1`)}>Mở hạng mục</button> : null}
+    </Tall>
   );
 }
 
@@ -224,7 +243,7 @@ function App() {
               <Route path="/tin-nhan" element={<List />} />
               <Route path="/tin-nhan/:conversationId" element={<Thread />} />
               <Route path="/nhiem-vu" element={<Tasks />} />
-              <Route path="/ke-hoach" element={<Tall />} />
+              <Route path="/ke-hoach" element={<Plan />} />
               <Route path="/ket-sat" element={<Tall />} />
               <Route path="/cai-dat" element={<Overlays />} />
               <Route path="/du-an/:id" element={<Inner />} />
@@ -278,13 +297,20 @@ async function staysAt(expected: string): Promise<void> {
   expect(where()).toBe(expected);
 }
 
+/** The visible way to a big tab: the phone's tool-belt or the computer's sidebar. */
+function tabLink(to: string): HTMLElement {
+  const found = [...document.querySelectorAll<HTMLElement>(`a[href="${to}"]`)].find((element) => element.getBoundingClientRect().width > 0);
+  if (found === undefined) throw new Error(`no visible tab ${to}`);
+  return found;
+}
+
 const scroller = (): HTMLElement => document.querySelector<HTMLElement>("main [data-page]") as HTMLElement;
 
 beforeEach(() => {
   resetNavHistory();
   window.localStorage.clear();
   window.sessionStorage.clear();
-  window.localStorage.setItem("avora.nav.hold-back-hint-seen", "1");
+  window.localStorage.setItem("avora.nav.hold-back-hint-seen.v2", "1");
 });
 
 afterEach(() => {
@@ -296,7 +322,7 @@ const SIZES = [
   [1440, 900],
 ] as const;
 
-describe.each(SIZES)("AVORA-94B · %i×%i", (w, h) => {
+describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
   beforeEach(async () => {
     await page.viewport(w, h);
     await expect.poll(() => window.innerWidth).toBe(w);
@@ -405,25 +431,89 @@ describe.each(SIZES)("AVORA-94B · %i×%i", (w, h) => {
       expect(where()).toBe("/cai-dat");
     }
   });
-});
 
-describe("AVORA-94B · 390 only", () => {
-  beforeEach(async () => {
-    await page.viewport(390, 844);
-    await expect.poll(() => window.innerWidth).toBe(390);
+  it("N.9 (sửa) · trong chat 1-1 giữ `‹` → Kết nối › 1-1, không mở Toàn bộ AVORA", async () => {
+    await start("/tin-nhan/d1");
+    await hold(backButton(), w < 768 ? "touch" : "mouse");
+    await staysAt("/tin-nhan?tab=1-1");
+    expect(document.querySelector('nav[aria-label="Toàn bộ AVORA"]')).toBeNull();
   });
 
-  it("N.9 · trong chat giữ `‹` → chọn Nhiệm vụ → `‹` → về lại chat", async () => {
-    await start("/tin-nhan/d1");
-    await hold(backButton(), "touch");
-    // Holding is not a step back.
-    expect(pathOf()).toBe("/tin-nhan/d1");
-    const map = page.getByRole("navigation", { name: "Toàn bộ AVORA" });
-    await expect.element(map).toBeInTheDocument();
-    await userEvent.click(map.getByRole("button", { name: /Nhiệm vụ/ }));
-    await expect.poll(pathOf).toBe("/nhiem-vu");
-    await settle(600);
+  it("N.5 · Kế hoạch kệ 4 → Bảng → Hạng mục → chạm `‹` ×2 → Bảng → kệ 4", async () => {
+    await start("/ke-hoach?ke=4");
+    await userEvent.click(page.getByRole("button", { name: "Mở bảng" }));
+    await expect.poll(where).toBe("/ke-hoach?ke=4&bang=b1");
+    await userEvent.click(page.getByRole("button", { name: "Mở hạng mục" }));
+    await expect.poll(where).toBe("/ke-hoach?ke=4&bang=b1&hm=h1");
     await userEvent.click(backButton());
-    await staysAt("/tin-nhan/d1");
+    await staysAt("/ke-hoach?ke=4&bang=b1");
+    await userEvent.click(backButton());
+    await staysAt("/ke-hoach?ke=4");
+  });
+
+  /** Tab Kết nối remembers Nhật ký › Ghi chép; Avora Space → Kết nối opens it straight away. */
+  async function intoRememberedJournal(): Promise<void> {
+    await start("/tong-quan");
+    window.localStorage.setItem("avora.tab-memory.v1:me", JSON.stringify({ "/tin-nhan": { path: "/tin-nhan/j1?xem=ghi-chep", scroll: 0 } }));
+    await userEvent.click(tabLink("/tin-nhan"));
+    await expect.poll(where).toBe("/tin-nhan/j1?xem=ghi-chep");
+  }
+
+  it("N.13 · Kết nối nhớ Nhật ký › Ghi chép: Avora Space → Kết nối → chạm `‹` → Avora Space, nhãn `‹ Avora Space`", async () => {
+    await intoRememberedJournal();
+    expect(backButton().getAttribute("data-back-label")).toBe("Avora Space");
+    await userEvent.click(backButton());
+    await staysAt("/tong-quan");
+  });
+
+  it("N.14 + N.15 · như N.13 nhưng giữ `‹` → Kết nối › 1-1, đứng yên, `Về đầu Kết nối`; mở chat 1-1 → `‹` → Kết nối › 1-1", async () => {
+    await intoRememberedJournal();
+    await hold(backButton(), w < 768 ? "touch" : "mouse");
+    await expect.element(page.getByText("Về đầu Kết nối")).toBeInTheDocument();
+    await staysAt("/tin-nhan?tab=1-1");
+    await userEvent.click(page.getByRole("button", { name: "mở d1" }));
+    await expect.poll(pathOf).toBe("/tin-nhan/d1");
+    await userEvent.click(backButton());
+    await staysAt("/tin-nhan?tab=1-1");
+  });
+
+  it("N.16 · 1-1 → Nhật ký → Ghi chép → thư mục → ghi chép → giữ `‹` → 1-1; nút lùi trình duyệt → ra trước Kết nối", { timeout: 60_000 }, async () => {
+    await start("/tong-quan");
+    await userEvent.click(tabLink("/tin-nhan"));
+    await expect.poll(where).toBe("/tin-nhan");
+    await userEvent.click(page.getByRole("button", { name: "Ngăn Nhật ký" }));
+    await expect.poll(where).toBe("/tin-nhan/j1");
+    await userEvent.click(page.getByRole("button", { name: "Ghi chép", exact: true }));
+    await expect.poll(where).toBe("/tin-nhan/j1?xem=ghi-chep");
+    [...document.querySelectorAll<HTMLElement>("button[aria-expanded]")].find((element) => element.textContent?.includes("Bài giảng 2026"))?.click();
+    await settle();
+    [...document.querySelectorAll<HTMLElement>("button")].find((element) => element.textContent?.includes("Bài giảng ngày 29/9"))?.click();
+    await expect.poll(() => params().get("gc")).toBe("n4");
+    await hold(backButton(), w < 768 ? "touch" : "mouse");
+    await staysAt("/tin-nhan");
+    window.history.back();
+    await staysAt("/tong-quan");
+  });
+
+  it("N.17 · Nhiệm vụ → Bảng từ một việc → Hạng mục → giữ `‹` → Kế hoạch (kệ đã nhớ)", async () => {
+    await start("/nhiem-vu");
+    await userEvent.click(page.getByRole("button", { name: "Mở bảng từ việc" }));
+    await expect.poll(where).toBe("/ke-hoach?bang=b1");
+    await userEvent.click(page.getByRole("button", { name: "Mở hạng mục" }));
+    await expect.poll(where).toBe("/ke-hoach?bang=b1&hm=h1");
+    await hold(backButton(), w < 768 ? "touch" : "mouse");
+    await staysAt("/ke-hoach");
+  });
+
+  it("N.18 · Kết nối 1-1 → Nhóm → Dự án → nút lùi trình duyệt → ra trước Kết nối", async () => {
+    await start("/tong-quan");
+    await userEvent.click(tabLink("/tin-nhan"));
+    await expect.poll(where).toBe("/tin-nhan");
+    await userEvent.click(page.getByRole("button", { name: "Ngăn Nhóm" }));
+    await expect.poll(where).toBe("/tin-nhan?tab=nhom");
+    await userEvent.click(page.getByRole("button", { name: "Ngăn Dự án" }));
+    await expect.poll(where).toBe("/tin-nhan?tab=du-an");
+    window.history.back();
+    await staysAt("/tong-quan");
   });
 });

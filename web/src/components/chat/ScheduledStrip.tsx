@@ -10,10 +10,6 @@ import { cn } from "@/lib/utils";
  * "🕒 2 tin hẹn giờ · gần nhất 20:00 hôm nay" above the composer — the sender's only. Opens the
  * list: Sửa · Gửi ngay · Huỷ; a failed one says why, with Sửa & hẹn lại · Xoá.
  */
-/** Scheduled messages still waiting or failed — the chip row's count (AVORA-49 · 2.1). */
-export function waitingScheduled(items: readonly ScheduledMessage[]): ScheduledMessage[] {
-  return items.filter((item) => item.status === "pending" || item.status === "failed");
-}
 
 export function ScheduledStrip({
   conversationId,

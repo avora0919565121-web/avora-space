@@ -15,7 +15,7 @@ import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 
 import { readReturn } from "@/lib/return-to";
 import { useBack } from "@/lib/go-back";
-import { useBackPress } from "@/components/nav/BackButton";
+import { useBackPress } from "@/hooks/use-back-press";
 
 import { ContactCallSection } from "@/components/contacts/ContactCallSection";
 import { BusinessFields, IndividualFields } from "@/components/contacts/ContactForms";

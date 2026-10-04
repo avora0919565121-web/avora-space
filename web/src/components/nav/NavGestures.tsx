@@ -1,14 +1,14 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 
-import { goBack, isAreaRoot } from "@/lib/go-back";
+import { goBack, isAreaRoot, TAB_ROOT_EVENT, tabRootOf } from "@/lib/go-back";
 import { closeTopOverlay } from "@/lib/use-back-closes";
 
 /** Left edge width that starts a back swipe, and the travel that completes it (AVORA-94B · A5). */
 export const EDGE_PX = 20;
 export const EDGE_TRAVEL_PX = 60;
 export const EDGE_DRIFT_PX = 30;
-const HINT_KEY = "avora.nav.hold-back-hint-seen";
+const HINT_KEY = "avora.nav.hold-back-hint-seen.v2";
 
 function isStandalone(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches;
@@ -22,12 +22,30 @@ function isPhone(): boolean {
  * AVORA-94B · luật 1 / 3 / 5 (ADR-062), mounted once in the signed-in shell:
  * - installed app only (Safari / Chrome keep their own gesture): a swipe from the left 20 px is `‹`
  *   — it closes the top overlay first, else steps back one screen;
- * - the first time a phone reaches a screen without the logo, one quiet line: `Giữ ‹ để mở các tab`.
+ * - the first time a phone reaches a screen without the logo, one quiet line (AVORA-100 · C mục 4.4):
+ *   `Chạm ‹ để lùi · Giữ ‹ để về đầu {tên tab}`;
+ * - a held `‹` (goToTabRoot) says `Về đầu {tab}` for 1.5 s.
  */
 export function NavGestures() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isHintShown, setIsHintShown] = useState<boolean>(false);
+  const [rootNotice, setRootNotice] = useState<string | null>(null);
+
+  useEffect(() => {
+    let timer: number | null = null;
+    const onRoot = (event: Event): void => {
+      const label = (event as CustomEvent<string>).detail;
+      setRootNotice(label);
+      if (timer !== null) window.clearTimeout(timer);
+      timer = window.setTimeout(() => setRootNotice(null), 1500);
+    };
+    window.addEventListener(TAB_ROOT_EVENT, onRoot);
+    return () => {
+      window.removeEventListener(TAB_ROOT_EVENT, onRoot);
+      if (timer !== null) window.clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isStandalone()) return;
@@ -55,6 +73,7 @@ export function NavGestures() {
   }, [navigate]);
 
   const isInside = !isAreaRoot(location);
+  const rootLabel = tabRootOf(location).label;
   useEffect(() => {
     if (!isInside || !isPhone()) return;
     try {
@@ -79,7 +98,17 @@ export function NavGestures() {
           className="animate-rise-in pointer-events-none fixed inset-x-0 z-[70] mx-auto w-fit rounded-full bg-foreground/85 px-3.5 py-1.5 text-[12.5px] font-medium text-background shadow-md"
           style={{ top: "calc(env(safe-area-inset-top) + 60px)" }}
         >
-          Giữ ‹ để mở các tab
+          Chạm ‹ để lùi · Giữ ‹ để về đầu {rootLabel}
+        </p>
+      ) : null}
+      {rootNotice !== null ? (
+        <p
+          role="status"
+          data-tab-root-notice=""
+          className="animate-rise-in pointer-events-none fixed inset-x-0 z-[70] mx-auto w-fit rounded-full bg-foreground/85 px-3.5 py-1.5 text-[12.5px] font-medium text-background shadow-md"
+          style={{ top: "calc(env(safe-area-inset-top) + 60px)" }}
+        >
+          Về đầu {rootNotice}
         </p>
       ) : null}
     </>

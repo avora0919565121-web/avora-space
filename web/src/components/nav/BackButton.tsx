@@ -1,19 +1,11 @@
 import { ChevronLeft } from "lucide-react";
-
-import { openAppMap } from "@/components/nav/app-map-event";
-import { useLongPress } from "@/hooks/use-long-press";
+import { useBackPress } from "@/hooks/use-back-press";
 import { useBack, type BackPlace } from "@/lib/go-back";
-import { LOGO_HOLD_MS } from "@/lib/navigation";
 import { cn } from "@/lib/utils";
 
-/** Tap = luật 1 (lùi một bước); hold 450 ms = luật 3 (Toàn bộ AVORA). For a `‹` that has its own look. */
-export function useBackPress(onBack: () => void) {
-  return useLongPress({ onTap: onBack, onHold: openAppMap, holdMs: LOGO_HOLD_MS });
-}
-
 /**
- * AVORA-94B (ADR-062) — the one `‹` in AVORA: tap steps back one screen, hold opens Toàn bộ AVORA.
- * `showLabel` puts the name of the place behind beside it (`‹ Kế hoạch`).
+ * The one `‹` in AVORA. `showLabel` puts the name of the place it goes to beside it (`‹ Avora Space`);
+ * the label is always the real destination.
  */
 export function BackButton({
   parent,
@@ -28,14 +20,15 @@ export function BackButton({
   showLabel?: boolean;
   className?: string;
 }) {
-  const { back, label } = useBack(parent);
-  const press = useBackPress(onBack ?? back);
+  const { back, label, toRoot, rootLabel } = useBack(parent);
+  const press = useBackPress(onBack ?? back, toRoot);
   return (
     <button
       type="button"
       {...press}
-      aria-label={`Quay lại ${label}. Giữ để mở các tab`}
+      aria-label={`Quay lại ${label}. Giữ để về đầu ${rootLabel}`}
       data-back=""
+      data-back-label={label}
       className={cn(
         "press no-callout flex min-h-11 min-w-11 shrink-0 select-none items-center gap-0.5 rounded-md text-muted-foreground transition-colors [touch-action:manipulation] hover:bg-accent/50 hover:text-foreground",
         showLabel ? "pl-1 pr-2" : "justify-center",

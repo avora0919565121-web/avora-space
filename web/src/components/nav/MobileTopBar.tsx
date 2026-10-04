@@ -2,7 +2,8 @@ import { ChevronLeft } from "lucide-react";
 import { useLocation, useSearchParams } from "react-router-dom";
 
 import { openAppMap } from "@/components/nav/app-map-event";
-import { BackButton, useBackPress } from "@/components/nav/BackButton";
+import { BackButton } from "@/components/nav/BackButton";
+import { useBackPress } from "@/hooks/use-back-press";
 import { readReturn } from "@/lib/return-to";
 import { useLogoTap } from "@/components/nav/use-logo-tap";
 import { useLongPress } from "@/hooks/use-long-press";
@@ -14,8 +15,8 @@ import { useFocusHeaderValue } from "@/lib/focus-header";
  * The phone's top bar: the AVORA mark on the left, the quick-action bubble floating on the right.
  *
  * AVORA-94B (ADR-062): tapping the mark goes home to Avora Space; tapped again there it returns to
- * the place just left (luật 2). Holding it opens Toàn bộ AVORA (luật 3), the same sheet a held `‹`
- * opens on screens without the mark.
+ * the place just left (luật 2). Holding it opens Toàn bộ AVORA (luật 4). A held `‹` goes to the top of
+ * its tab instead (AVORA-100 · C), where this mark is back.
  */
 export function MobileTopBar() {
   const location = useLocation();
@@ -33,7 +34,7 @@ export function MobileTopBar() {
     isEnabled: () => true,
   });
   const logoTap = useLogoTap();
-  // AVORA-94B · luật 1 + 3: the focused screen's `‹` steps back on tap, opens Toàn bộ AVORA on hold.
+  // AVORA-100 · C: the focused screen's `‹` steps back on tap, goes to the top of Kế hoạch on hold.
   const focusPress = useBackPress(focus?.onBack ?? (() => undefined));
 
   return (
@@ -42,7 +43,7 @@ export function MobileTopBar() {
         <div className="flex h-[52px] items-center gap-1 pl-2 pr-[60px]" data-mobile-top-row="">
           {focus !== null ? (
             <>
-              <button type="button" {...focusPress} aria-label="Quay lại. Giữ để mở các tab" data-focus-back="" data-back="" className="press no-callout -ml-1 flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full text-foreground [touch-action:manipulation]">
+              <button type="button" {...focusPress} aria-label="Quay lại. Giữ để về đầu Kế hoạch" data-focus-back="" data-back="" className="press no-callout -ml-1 flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full text-foreground [touch-action:manipulation]">
                 <ChevronLeft className="h-6 w-6" strokeWidth={2} aria-hidden="true" />
               </button>
               <div className="min-w-0 flex-1" data-focus-title="">

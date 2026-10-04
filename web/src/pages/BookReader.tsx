@@ -44,7 +44,7 @@ import {
 } from "@/lib/reader-settings";
 import { withReturn } from "@/lib/return-to";
 import { useBack } from "@/lib/go-back";
-import { useBackPress } from "@/components/nav/BackButton";
+import { useBackPress } from "@/hooks/use-back-press";
 import {
   BookTextError,
   clipExcerpt,
@@ -750,7 +750,7 @@ const BookReader = () => {
 
   const stuckBar = (
     <header className="flex items-center gap-1 px-1.5 pt-[max(env(safe-area-inset-top),0.25rem)]">
-      <button type="button" {...backPress} aria-label="Quay lại. Giữ để mở các tab" data-back="" className="icon-btn no-callout h-11 w-11 select-none [touch-action:manipulation]">
+      <button type="button" {...backPress} aria-label="Quay lại. Giữ để về đầu Kế hoạch" data-back="" className="icon-btn no-callout h-11 w-11 select-none [touch-action:manipulation]">
         <ChevronLeft className="h-5 w-5" aria-hidden="true" />
       </button>
     </header>
@@ -833,7 +833,7 @@ const BookReader = () => {
     >
       {toolsOpen ? (
         <header className="absolute inset-x-0 top-0 z-30 flex items-center gap-0.5 border-b px-1.5 pb-1 pt-[max(env(safe-area-inset-top),0.25rem)] shadow-sm" style={{ backgroundColor: theme.paper, borderColor: `${theme.muted}33` }} data-reader-tools="">
-          <button type="button" {...backPress} aria-label={`Quay lại ${readerBack.label}. Giữ để mở các tab`} data-back="" className="icon-btn no-callout h-11 w-11 select-none [touch-action:manipulation]">
+          <button type="button" {...backPress} aria-label={`Quay lại ${readerBack.label}. Giữ để về đầu Kế hoạch`} data-back="" className="icon-btn no-callout h-11 w-11 select-none [touch-action:manipulation]">
             <ChevronLeft className="h-5 w-5" aria-hidden="true" />
           </button>
           <p className="min-w-0 flex-1 truncate px-1 text-[14px] font-semibold">{book.title}</p>

@@ -80,7 +80,7 @@ import { MessageComposer } from "@/components/chat/MessageComposer";
 import { MobileTopActions } from "@/components/nav/HubTitle";
 import { connectTabSlug } from "@/lib/resume-place";
 import { useBack } from "@/lib/go-back";
-import { useBackPress } from "@/components/nav/BackButton";
+import { useBackPress } from "@/hooks/use-back-press";
 import { ContactCardBubble, MessageRefChips } from "@/components/chat/ContactCardBubble";
 import { refsInText, shareContactCard, type RefChoice, type RefContext } from "@/lib/context-refs";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
@@ -88,7 +88,8 @@ import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import { ForwardDialog } from "@/components/chat/ForwardDialog";
 import { ForwardBundleCard } from "@/components/chat/ForwardBundleCard";
 import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
-import { ScheduledStrip, waitingScheduled } from "@/components/chat/ScheduledStrip";
+import { ScheduledStrip } from "@/components/chat/ScheduledStrip";
+import { waitingScheduled } from "@/lib/scheduled-waiting";
 import { ProposalCard } from "@/components/chat/ProposalCard";
 import { useProposals } from "@/lib/use-think-hub-shelf";
 import { sendAtLine, useMyScheduled, useScheduleActions } from "@/lib/scheduled-messages";
@@ -590,7 +591,7 @@ const Messages = () => {
   const isProjectThread: boolean = activeKind === "group" && [...projectByIdMap.values()].some((project) => project.conversationId === conversationId);
   // Nhật ký (every view) → Kết nối › 1-1, never `?tab=nhat-ky` (that would reopen Nhật ký: the old loop).
   const threadBack = useBack({ path: `/tin-nhan?tab=${activeKind === "personal" ? "1-1" : connectTabSlug(isProjectThread ? "project" : activeKind)}`, label: "Kết nối" });
-  const threadBackPress = useBackPress(threadBack.back);
+  const threadBackPress = useBackPress(threadBack.back, threadBack.toRoot);
   /**
    * AVORA-52 · C: a panel opened from `⋯` sits over it. `‹ {tên cuộc}` closes only the panel (⋯ is
    * still there, at its scroll); `✕` closes both and leaves the conversation on screen.
@@ -2377,7 +2378,7 @@ const Messages = () => {
     mutationFn: () => ensureJournalConversation(),
     onSuccess: (journalId: string) => {
       void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
-      navigate(`/tin-nhan/${journalId}`, { replace: true });
+      navigate(`/tin-nhan/${journalId}`);
     },
     onError: (error: Error) => toast.error(error.message),
   });
@@ -2398,20 +2399,23 @@ const Messages = () => {
 
       // Dự án reads its own list and opens onto /du-an/:id, so it leaves any thread in the
       // URL alone rather than navigating away from what the reader was looking at.
-      if (isProjectTab(tab)) return;
+      if (isProjectTab(tab)) {
+        if (conversationId === undefined) navigate("/tin-nhan?tab=du-an", { replace: true });
+        return;
+      }
 
       // A phone rests on the three-row Diary list, which lives at the bare inbox address so the
       // tool-belt stays; a computer opens the journal beside that list at once.
+      // AVORA-100 · C mục 6: changing section is a replace (Back leaves Kết nối, not section by section).
       if (tab !== "journal") {
-        navigate("/tin-nhan");
+        navigate(`/tin-nhan?tab=${tab === "group" ? "nhom" : "1-1"}`, { replace: true });
         return;
       }
 
       const existing = conversations.find((item) => item.kind === "personal");
       if (existing) {
-        // From the bare list the journal takes that step's place, so "back" never lands on a
-        // one-row list that would only send the reader straight back in.
-        navigate(`/tin-nhan/${existing.conversationId}`, { replace: conversationId === undefined });
+        // AVORA-100 · C mục 3: Nhật ký opens deeper (push), so `‹` and a held `‹` both come back to Kết nối › 1-1.
+        navigate(`/tin-nhan/${existing.conversationId}`);
         return;
       }
       // First visit on this account: the journal is created on demand.
@@ -2422,15 +2426,15 @@ const Messages = () => {
 
   /**
    * AVORA-94B (ADR-062): only a tap on the Nhật ký section opens the journal (`handleSelectTab`).
-   * `?tab=nhat-ky` arriving from an address opens it once with `replace` — never again on a step
-   * back, which is what used to trap `‹` in Nhật ký.
+   * `?tab=nhat-ky` arriving from an address opens it once (push, AVORA-100 · C) — never again on a
+   * step back, which is what used to trap `‹` in Nhật ký.
    */
   const journalFromAddressRef = useRef<boolean>(false);
   useEffect(() => {
     if (journalFromAddressRef.current || conversationId !== undefined || searchParams.get("tab") !== "nhat-ky") return;
     if (!conversationsQuery.isSuccess) return;
     journalFromAddressRef.current = true;
-    if (journalSummary !== undefined) navigate(`/tin-nhan/${journalSummary.conversationId}`, { replace: true });
+    if (journalSummary !== undefined) navigate(`/tin-nhan/${journalSummary.conversationId}`);
     else journalMutation.mutate();
     // journalMutation is a fresh object each render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2607,7 +2611,7 @@ const Messages = () => {
                           icon: FolderKanban,
                           onSelect: () => {
                             setActiveTab("group");
-                            navigate("/tin-nhan");
+                            navigate("/tin-nhan?tab=nhom", { replace: true });
                             toast.info("Dự án mở trong một nhóm: chọn nhóm, rồi ⋯ › Dự án › Tạo dự án.");
                           },
                         },
@@ -3063,7 +3067,7 @@ const Messages = () => {
               <header className="flex items-center gap-2 border-b border-border bg-card px-3 pb-2.5 pt-[max(env(safe-area-inset-top),0.625rem)] md:gap-3 md:px-5 md:py-3.5 md:pr-[4.25rem]">
                 <button
                   type="button"
-                  aria-label={`Quay lại ${threadBack.label}`}
+                  aria-label={`Quay lại ${threadBack.label}. Giữ để về đầu Kết nối`}
                   data-back=""
                   {...threadBackPress}
                   className="press no-callout flex h-11 min-w-11 shrink-0 select-none items-center justify-center gap-0.5 rounded-md text-muted-foreground transition-colors [touch-action:manipulation] hover:bg-accent/50 hover:text-foreground md:hidden"
@@ -4602,7 +4606,7 @@ activeKind === "personal" ? (
               : null
           }
           onOpenConversation={openConversation}
-          onLeft={() => navigate("/tin-nhan")}
+          onLeft={() => navigate("/tin-nhan", { replace: true })}
           kind={activeKind === "personal" ? "personal" : activeKind === "group" ? "group" : "direct"}
           onOpenDiary={activeKind === "personal" ? undefined : () => setIsConversationDiaryOpen(true)}
           onSearch={() => {

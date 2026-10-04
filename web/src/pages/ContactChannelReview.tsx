@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { carryReturn, readReturn } from "@/lib/return-to";
 import { useBack } from "@/lib/go-back";
-import { useBackPress } from "@/components/nav/BackButton";
+import { useBackPress } from "@/hooks/use-back-press";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { SharedChannelCard } from "@/components/contacts/SharedChannelCard";

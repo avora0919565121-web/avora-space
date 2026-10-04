@@ -39,6 +39,11 @@ export function previousEntryPath(): string | null {
   return hasInAppPrevious() ? (stack[stack.length - 2]?.path ?? null) : null;
 }
 
+/** AVORA-100 · C: the walked screens, oldest first (for `goToTabRoot`). */
+export function walkedEntries(): readonly { path: string; noBack: boolean }[] {
+  return stack.map((item) => ({ path: item.path, noBack: item.noBack }));
+}
+
 /** Whether the screen just behind is exactly `path` (compared without the way-back params). */
 export function isPreviousEntry(path: string): boolean {
   return previousEntryPath() === stripReturn(path);

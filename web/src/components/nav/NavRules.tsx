@@ -1,16 +1,9 @@
-import { ChevronLeft, Hand, Home, LayoutGrid, X } from "lucide-react";
 import { useState } from "react";
+
+import { NAV_RULES } from "@/lib/nav-rules";
 
 import { useAuth } from "@/lib/auth";
 
-/** AVORA-94B · mục 0 (ADR-062): the five rules, said once, the same words everywhere. */
-export const NAV_RULES: readonly { icon: typeof ChevronLeft; title: string; line: string }[] = [
-  { icon: ChevronLeft, title: "Muốn lùi: ‹", line: "‹ ở góc trên bên trái lùi một bước. Nút lùi của máy và vuốt từ mép trái cũng vậy." },
-  { icon: Home, title: "Về nhà: chạm A", line: "Chạm logo A về Avora Space. Chạm lần nữa: quay lại đúng chỗ vừa rời." },
-  { icon: Hand, title: "Lạc: giữ góc trái trên", line: "Giữ logo A hoặc giữ ‹ để mở Toàn bộ AVORA — ở mọi màn." },
-  { icon: LayoutGrid, title: "Đổi khu: thanh dưới", line: "Chạm một tab về chỗ đang dở. Chạm lại tab đang đứng về đầu tab." },
-  { icon: X, title: "Đóng: ✕ hoặc lùi", line: "Tấm, lớp phủ, ảnh phóng to đóng trước, màn bên dưới giữ nguyên." },
-];
 
 /** Cài đặt › Hướng dẫn · `Cách đi trong AVORA` — the first card. */
 export function NavRulesCard() {
@@ -51,7 +44,7 @@ export function NavRulesIntro() {
   return (
     <section aria-label="Cách đi trong AVORA" data-nav-rules-intro="" className="mt-2 rounded-[14px] border border-primary/25 bg-card p-4">
       <p className="text-[14.5px] leading-relaxed text-foreground">
-        <b>‹</b> lùi một bước · Chạm <b>A</b> về nhà · Giữ góc trái trên khi lạc
+        Chạm <b>‹</b> lùi một bước · Giữ <b>‹</b> về đầu tab · Giữ <b>A</b> xem toàn bộ AVORA
       </p>
       <button
         type="button"
