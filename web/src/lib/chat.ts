@@ -246,6 +246,7 @@ export async function markMessagesDelivered(messageIds: readonly string[]): Prom
 export async function fetchDeliveries(messageIds: readonly string[]): Promise<Map<string, string>> {
   const map = new Map<string, string>();
   if (messageIds.length === 0) return map;
+  // rows-bounded: only the messages on screen (≤ a page)
   const { data, error } = await supabase
     .from("message_deliveries")
     .select("message_id, delivered_at")
@@ -353,6 +354,7 @@ function toChatMessageRow(row: MessageRowShape): ChatMessage {
  * scrolled back through: a refresh re-reads from that oldest message on instead of one page.
  */
 export async function fetchMessages(conversationId: string, since: string | null = null): Promise<ChatMessage[]> {
+  // rows-bounded: one page (MESSAGE_PAGE_SIZE) or the newest 1 000 since a point; older pages via fetchOlderMessages.
   const base = supabase
     .from("messages")
     .select(MESSAGE_COLUMNS)
@@ -362,7 +364,8 @@ export async function fetchMessages(conversationId: string, since: string | null
     .order("id", { ascending: false });
   const { data, error } = await (since === null
     ? base.limit(MESSAGE_PAGE_SIZE)
-    : base.gte("created_at", since).limit(1000));
+    : // rows-bounded: newest first; a window larger than 1 000 messages keeps the newest 1 000 (K3 replaces this with open_thread).
+      base.gte("created_at", since).limit(1000));
   if (error) throw fail(error.code, error.message);
   return (data ?? []).map(toChatMessageRow).reverse();
 }
@@ -388,6 +391,7 @@ export async function fetchTrashedJournal(conversationId: string): Promise<Trash
 
 /** The page just before `before` (older), oldest first. Fewer than a page means the start was reached. */
 export async function fetchOlderMessages(conversationId: string, before: string): Promise<ChatMessage[]> {
+  // rows-bounded: one page (MESSAGE_PAGE_SIZE) per scroll.
   const { data, error } = await supabase
     .from("messages")
     .select(MESSAGE_COLUMNS)
@@ -431,6 +435,7 @@ export async function searchMessages(
   // `%` and `_` are wildcards in LIKE; someone searching for "50%" means the characters.
   const escaped = needle.replace(/[\\%_]/g, (match) => `\\${match}`);
 
+  // rows-bounded: search results capped by `limit`.
   const { data, error } = await supabase
     .from("messages")
     .select(MESSAGE_COLUMNS)

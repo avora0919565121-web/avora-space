@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import {
   isInvitationStatus,
   toVietnameseCollabError,
@@ -37,12 +38,21 @@ function toParticipant(row: ParticipantRow): TaskParticipant {
 
 /** Every participant row the caller may see: their own invitations and those on tasks they see. */
 export async function fetchTaskParticipants(): Promise<TaskParticipant[]> {
-  const { data, error } = await supabase
-    .from("task_participants")
-    .select("id, task_id, user_id, invitation_status, invited_by, invited_at, responded_at")
-    .order("invited_at", { ascending: false });
-  if (error) throw fail("task-participants", error.code, error.message);
-  return (data ?? []).map((row) => toParticipant(row as ParticipantRow));
+  let data: unknown[];
+  try {
+    data = await fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from("task_participants")
+        .select("id, task_id, user_id, invitation_status, invited_by, invited_at, responded_at")
+        .order("invited_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }>,
+    );
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail("task-participants", e.code, e.message ?? "");
+  }
+  return data.map((row) => toParticipant(row as ParticipantRow));
 }
 
 export async function inviteTaskParticipant(taskId: string, userId: string): Promise<TaskParticipant> {
@@ -93,6 +103,7 @@ function toChecklistItem(row: ChecklistRow): ChecklistItem {
 const CHECKLIST_COLUMNS = "item_id, task_id, content, position, completed, completed_at";
 
 export async function fetchChecklist(taskId: string): Promise<ChecklistItem[]> {
+  // rows-bounded: one task
   const { data, error } = await supabase
     .from("checklist_items")
     .select(CHECKLIST_COLUMNS)
@@ -145,6 +156,7 @@ function toResource(row: ResourceRow): TaskResource {
 }
 
 export async function fetchResources(taskId: string): Promise<TaskResource[]> {
+  // rows-bounded: one task
   const { data, error } = await supabase
     .from("task_resources")
     .select(RESOURCE_COLUMNS)

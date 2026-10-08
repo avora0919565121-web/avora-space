@@ -1,6 +1,8 @@
-import { ChevronLeft, Loader2, Lock, LockKeyhole, Mail, Smartphone } from "lucide-react";
+import { ChevronLeft, Loader2, Lock, LockKeyhole, Mail, MonitorSmartphone, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Link } from "react-router-dom";
 
+import { ClaimMainDeviceButton } from "@/components/DeviceSecurity";
 import { CodePad } from "@/components/vault/CodePad";
 import { VaultForgotEncrypted } from "@/components/vault/VaultForgot";
 import { VaultAboutText } from "@/components/vault/VaultAbout";
@@ -9,6 +11,7 @@ import { maskEmail } from "@/lib/mask";
 import { useVaultLock } from "@/lib/use-vault-lock";
 import { requestVaultReset } from "@/lib/vault-api";
 import {
+  VAULT_MAIN_ONLY,
   VAULT_SET_HINT,
   readIntroSeen,
   vaultErrorMessage,
@@ -202,6 +205,35 @@ export function VaultGate() {
     );
   };
 
+  // AVORA-102 · A1.2: told before, never set-then-refused. No code pad, no `Quên mã` here.
+  if (status?.deviceAllowed === false) {
+    return (
+      <Shell icon={<MonitorSmartphone className="h-6 w-6" strokeWidth={1.6} />} title="Két sắt">
+        <div data-vault-main-only="" className="contents">
+          <p className="mt-2 text-[15px] leading-relaxed text-foreground">{VAULT_MAIN_ONLY}</p>
+          {status.deviceBound ? null : (
+            <p className="mt-3 rounded-lg bg-secondary/60 px-3 py-2 text-[13.5px] leading-snug text-foreground" data-vault-unbound="">
+              Máy này chưa được nhận ra — đặt lại máy chính.
+            </p>
+          )}
+          <div className="mt-6 flex w-full flex-col gap-2">
+            <ClaimMainDeviceButton
+              onDone={() => void vault.refresh()}
+              className="press flex h-12 w-full items-center justify-center rounded-md bg-primary text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
+            />
+            <Link
+              to="/cai-dat#bao-mat"
+              className="press flex h-12 w-full items-center justify-center rounded-md border border-border bg-card text-[14.5px] font-medium text-foreground hover:bg-secondary"
+            >
+              Cho phép mở trên máy khác
+            </Link>
+          </div>
+          <p className="mt-4 text-[12.5px] leading-snug text-muted-foreground">Đổi ở Cài đặt › Hồ sơ › Bảo mật. Cần mật khẩu tài khoản.</p>
+        </div>
+      </Shell>
+    );
+  }
+
   if (step.kind === "intro") {
     return (
       <Shell icon={<LockKeyhole className="h-6 w-6" strokeWidth={1.6} />} title="Trước khi đặt mã Két sắt">
@@ -321,7 +353,7 @@ export function VaultGate() {
 
   return (
     <Shell icon={<Lock className="h-6 w-6" strokeWidth={1.6} />} title="Két sắt đang khoá">
-      {line(status?.deviceAllowed === false ? "Két sắt chỉ mở trên điện thoại và máy tính chính của bạn. Đặt máy này làm máy chính ở Cài đặt › Hồ sơ › Bảo mật." : "Nhập mã Két sắt để mở.")}
+      {line("Nhập mã Két sắt 6 số")}
       <CodePad
         label="Mã Két sắt"
         value={code}
@@ -335,7 +367,7 @@ export function VaultGate() {
         onClick={() => go({ kind: "forgot" })}
         className="press mt-6 min-h-11 px-3 text-[14px] font-medium text-primary hover:underline"
       >
-        Quên mã?
+        Quên mã 6 số?
       </button>
     </Shell>
   );

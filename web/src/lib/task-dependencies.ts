@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { toVietnameseTaskError, type TaskItem } from "@/lib/tasks";
 
 /**
@@ -65,9 +66,14 @@ function toDependency(row: DependencyRow): TaskDependency {
  * private task is not theirs to leak.
  */
 export async function fetchTaskDependencies(): Promise<TaskDependency[]> {
-  const { data, error } = await supabase.from("task_dependencies").select(DEPENDENCY_COLUMNS);
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toDependency(row as DependencyRow));
+  let data: unknown[];
+  try {
+    data = await fetchAllRows<unknown>((from, to) => supabase.from("task_dependencies").select(DEPENDENCY_COLUMNS).order("id" as never).range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }>);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
+  return data.map((row) => toDependency(row as DependencyRow));
 }
 
 export async function linkTaskDependency(

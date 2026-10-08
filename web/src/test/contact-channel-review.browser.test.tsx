@@ -39,6 +39,7 @@ vi.mock("@/lib/contact-channels", async () => {
   return {
     ...actual,
     fetchContactChannels: async () => state.channels,
+    fetchDuplicatePairs: async () => [],
     markChannelReviewed: async (channelId: string) => {
       if (state.actionError !== null) throw new Error(state.actionError);
       state.confirmed.push(channelId);

@@ -200,6 +200,38 @@ export function DeviceRankPrompt() {
   );
 }
 
+/**
+ * AVORA-102 · A1.2 — `Đặt máy này là máy chính` from the Két sắt "main devices only" screen.
+ * Only offered while the suggested rank (phone → 1, computer → 2) is free (the 67 flow); a held
+ * rank goes through Hồ sơ › Bảo mật where the email code is asked.
+ */
+export function ClaimMainDeviceButton({ className, onDone }: { className?: string; onDone?: () => void }) {
+  const { status } = useDeviceStatus();
+  const setRank = useSetRank();
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const { kind } = deviceLabelOf(navigator.userAgent, navigator.maxTouchPoints ?? 0);
+  const free: 1 | 2 | null = status === undefined ? null : kind === "phone" ? (status.rankTaken[1] ? (status.rankTaken[2] ? null : 2) : 1) : status.rankTaken[2] ? (status.rankTaken[1] ? null : 1) : 2;
+  if (status === undefined || status.device === null || status.guest || isGuestMachine() || free === null) return null;
+  return (
+    <>
+      <button type="button" onClick={() => setIsOpen(true)} className={className} data-claim-main="">
+        Đặt máy này là máy chính
+      </button>
+      <PasswordDialog
+        open={isOpen}
+        title={`Đặt Ưu tiên ${free}`}
+        body="Nhập mật khẩu tài khoản để xác nhận đây là máy của bạn."
+        confirmLabel={`Đặt Ưu tiên ${free}`}
+        onSubmit={async (password) => {
+          await setRank(free, password, null);
+          onDone?.();
+        }}
+        onClose={() => setIsOpen(false)}
+      />
+    </>
+  );
+}
+
 const KIND_ICON = { phone: Smartphone, tablet: Tablet, computer: Laptop, unknown: Laptop } as const;
 
 type Pending =

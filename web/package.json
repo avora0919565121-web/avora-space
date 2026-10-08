@@ -13,7 +13,8 @@
     "test:browser": "vitest --config vitest.browser.config.ts",
     "test:browser:run": "vitest run --config vitest.browser.config.ts",
     "test:nav-smoke": "vitest run --config vitest.browser.config.ts src/test/resume-place.browser.test.tsx",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:sql": "bash scripts/test-sql.sh"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

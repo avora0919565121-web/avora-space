@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import type { Database } from "@/integrations/supabase/types";
 import { buildContextSnapshot, snapshotToJson } from "@/lib/task-context";
 import { browserTimezone } from "@/lib/task-schedule";
@@ -426,6 +427,7 @@ export async function fetchProjectDetail(projectId: string): Promise<ProjectDeta
       .eq("project_id", projectId)
       .is("deleted_at", null)
       .order("created_at", { ascending: true }),
+    // rows-bounded: one project
     supabase.from("project_tasks").select("task_id, project_id, record_id, linked_by").eq("project_id", projectId),
   ]);
   if (criteriaResult.error) throw fail(criteriaResult.error.code, criteriaResult.error.message);
@@ -440,9 +442,14 @@ export async function fetchProjectDetail(projectId: string): Promise<ProjectDeta
 
 /** Which project each task belongs to, so a task row can point back at its project. */
 export async function fetchTaskProjectLinks(): Promise<ProjectTaskLink[]> {
-  const { data, error } = await supabase.from("project_tasks").select("task_id, project_id, record_id, linked_by");
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toProjectTaskLink(row as ProjectTaskRow));
+  let data: unknown[];
+  try {
+    data = await fetchAllRows<unknown>((from, to) => supabase.from("project_tasks").select("task_id, project_id, record_id, linked_by").order("task_id").order("project_id").range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }>);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
+  return data.map((row) => toProjectTaskLink(row as ProjectTaskRow));
 }
 
 // ------------------------------------------------------------------ writing

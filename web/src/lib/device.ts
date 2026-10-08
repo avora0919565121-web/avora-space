@@ -149,6 +149,33 @@ function b64(bytes: ArrayBuffer): string {
 
 const proveOnce = new Map<string, Promise<void>>();
 
+/**
+ * AVORA-102 · A1.3 — every Két sắt call waits for this session to be tied to this device first.
+ * Without it a fresh sign-in (or the installed app opening) asked `vault_status` before
+ * `device-prove` landed, and the server saw "no device" — a main device read as a stranger.
+ * Resolves `false` (never throws) when the device could not be proven; the caller says so.
+ */
+export async function ensureDeviceProven(): Promise<boolean> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const session = data.session;
+    if (session === null) return false;
+    const token = session.access_token;
+    let sessionKey = "none";
+    try {
+      const payload = JSON.parse(atob(token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/"))) as { session_id?: unknown };
+      if (typeof payload.session_id === "string") sessionKey = payload.session_id;
+    } catch {
+      // A token without a session id cannot be bound; the server treats it as unbound.
+    }
+    await proveDevice(session.user.id, token, sessionKey);
+    return true;
+  } catch (caught: unknown) {
+    logError("device", { step: "ensure_proven", message: caught instanceof Error ? caught.message.slice(0, 60) : "unknown" });
+    return false;
+  }
+}
+
 /** Signs the server's nonce and binds this device to the current session. Once per session. */
 export async function proveDevice(userId: string, accessToken: string, sessionKey: string): Promise<void> {
   const existing = proveOnce.get(sessionKey);

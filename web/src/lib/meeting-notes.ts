@@ -489,6 +489,7 @@ export async function fetchMeetingNoteFiles(
 ): Promise<Map<string, MeetingNoteFile>> {
   const index = new Map<string, MeetingNoteFile>();
   if (decisionIds.length === 0) return index;
+  // rows-bounded: only the decisions on screen
   const { data, error } = await supabase
     .from("meeting_note_files")
     .select("decision_id, storage_path, file_name, mime_type, byte_size, uploaded_by, created_at")

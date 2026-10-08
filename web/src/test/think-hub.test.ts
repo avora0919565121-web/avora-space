@@ -437,7 +437,7 @@ describe("turning the database's refusals into something actionable", () => {
   /** The one a person is most likely to meet, and the only one that tells them what to do. */
   it("explains a full table with the number and the way out", () => {
     expect(toVietnameseHubError("P0001", "avora_think_hub_record_limit")).toBe(
-      "Bảng đã đầy 1.000 mục, hãy dọn bớt trước khi thêm.",
+      "Bảng đã đủ 1.000 Hạng mục — tạo bảng con hoặc bảng mới.",
     );
   });
 

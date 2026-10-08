@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
+import { ensureDeviceProven } from "@/lib/device";
 import { financeKeys } from "@/lib/finance-api";
 import { logError } from "@/lib/log";
 import { useDocumentVisible } from "@/lib/use-document-visible";
@@ -47,6 +48,8 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
     queryKey: vaultKeys.status(userId),
     enabled: Boolean(userId),
     queryFn: async () => {
+      // AVORA-102 · A1.3: tie this session to this device before the server is asked anything.
+      await ensureDeviceProven();
       // The first look in this app start locks whatever an earlier tab of this session left open.
       if (startedFor.current !== userId) {
         startedFor.current = userId ?? null;

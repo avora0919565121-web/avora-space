@@ -4,6 +4,7 @@ import { useCallback, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { countIssues, findNameIssues, type NameIssue, type NameIssueKind } from "@/lib/contact-name-repair";
 import { contactKeys } from "@/lib/contacts";
+import { inBatches } from "@/lib/fetch-all-rows";
 import { logError } from "@/lib/log";
 import { useConnections } from "@/lib/use-connections";
 import { useContacts } from "@/lib/use-contacts";
@@ -13,12 +14,18 @@ export type AppliedRename = { id: string; previous: string; name: string };
 
 /** Applies ticked names to my own contacts in one call (the server ignores anyone else's). */
 export async function renameContactsBulk(changes: readonly { id: string; name: string }[]): Promise<AppliedRename[]> {
-  const { data, error } = await supabase.rpc("rename_contacts_bulk", { p_changes: changes.map((change) => ({ ...change })) });
-  if (error) {
-    logError("contact-rename", { code: error.code, message: error.message });
-    throw new Error("Chưa sửa được tên. Vui lòng thử lại.");
+  // AVORA-102 · B1.4: the server takes ≤ 1 000 per call; send ≤ 500 and keep every applied rename for undo.
+  const applied: AppliedRename[] = [];
+  for (const batch of inBatches(changes, 500)) {
+    const { data, error } = await supabase.rpc("rename_contacts_bulk", { p_changes: batch.map((change) => ({ ...change })) });
+    if (error) {
+      logError("contact-rename", { code: error.code, message: error.message });
+      if (applied.length > 0) throw Object.assign(new Error(`Đã sửa ${applied.length} tên, phần còn lại chưa sửa được. Vui lòng thử lại.`), { applied });
+      throw new Error("Chưa sửa được tên. Vui lòng thử lại.");
+    }
+    if (Array.isArray(data)) applied.push(...(data as AppliedRename[]));
   }
-  return Array.isArray(data) ? (data as AppliedRename[]) : [];
+  return applied;
 }
 
 /** Every name that may need fixing, grouped, from the contacts already loaded (AVORA-63). */

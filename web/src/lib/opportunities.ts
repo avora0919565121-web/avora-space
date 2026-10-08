@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 /**
  * A contact someone is actively trying to turn into business.
@@ -144,15 +145,22 @@ function fail(code: string | undefined, message: string): Error {
 
 /** Every opportunity the viewer owns. RLS returns nobody else's. */
 export async function fetchOpportunities(): Promise<Opportunity[]> {
-  const { data, error } = await supabase
-    .from("crm_opportunity")
-    .select("*")
-    // AVORA-72: `Bỏ cơ hội` is soft — removed ones live only in the board's trash.
-    .is("removed_at" as never, null)
-    .order("created_at", { ascending: false });
-
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toOpportunity(row as OpportunityRow));
+  try {
+    const rows = await fetchAllRows<OpportunityRow>((from, to) =>
+      supabase
+        .from("crm_opportunity")
+        .select("*")
+        // AVORA-72: `Bỏ cơ hội` is soft — removed ones live only in the board's trash.
+        .is("removed_at" as never, null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: OpportunityRow[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toOpportunity);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 /** The opportunities on one contact, newest first. */
@@ -374,13 +382,23 @@ type BoardRowRaw = {
 
 /** Opportunities joined with their contact, read live (ADR-045: nothing is copied). */
 export async function fetchOpportunityBoardRows(): Promise<OpportunityBoardRow[]> {
-  const { data, error } = await supabase
-    .from("crm_opportunity")
-    .select(
-      "id, contact_id, title, stage, estimated_value, next_action_date, next_action_note, last_contact_at, conversation_id, removed_at, contact_snapshot, contact:contact_id(name, phone, email, contact_type, representative_name, representative_phone, industry, business_address, tax_code, relationship_tag, note, needs_details, employer:employer_contact_id(name))" as never,
+  // AVORA-102 · B1.6: the Danh bạ | Danh sách cơ hội board reads every opportunity, not the first 1 000.
+  let data: BoardRowRaw[];
+  try {
+    data = await fetchAllRows<BoardRowRaw>((from, to) =>
+      supabase
+        .from("crm_opportunity")
+        .select(
+          "id, contact_id, title, stage, estimated_value, next_action_date, next_action_note, last_contact_at, conversation_id, removed_at, contact_snapshot, contact:contact_id(name, phone, email, contact_type, representative_name, representative_phone, industry, business_address, tax_code, relationship_tag, note, needs_details, employer:employer_contact_id(name))" as never,
+        )
+        .order("id")
+        .range(from, to) as unknown as PromiseLike<{ data: BoardRowRaw[] | null; error: { code?: string; message: string } | null }>,
     );
-  if (error) throw fail(error.code, error.message);
-  return ((data ?? []) as unknown as BoardRowRaw[]).map((row) => ({
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
+  return data.map((row) => ({
     id: row.id,
     contactId: row.contact_id,
     title: row.title,

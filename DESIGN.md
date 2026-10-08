@@ -2058,6 +2058,42 @@ Học một lần, áp cho mọi màn, điện thoại và máy tính. **Chạm 
 - **Trong một Bảng:** giữ một Hạng mục → tấm chọn nhiều `Cất · Xoá · Huỷ`; cuối bảng `Đã cất n mục · Xem` → `Lấy ra`.
 - **Cài đặt › Dung lượng** (sau `Thông báo`): số tổng lớn, dòng mờ `Hạn mức gói và kho chung sẽ hiện ở đây.`, 4 thanh theo nơi chứa; `DỌN DẸP`: 20 file lớn nhất · Thùng rác chung · Dọn kệ Kế hoạch · Bộ nhớ trên máy này. Đơn vị KB / MB / GB một chữ số lẻ, dấu phẩy thập phân. **Không màu đỏ** — đây là thông tin, không phải cảnh báo.
 
+## Đọc danh sách không bao giờ dừng ở 1.000 (AVORA-102 · ADR-064)
+
+Luật: không màn nào được "mất" dòng thứ 1.001. Đọc danh sách = `fetchAllRows` / `.range()` / chia trang theo cuộn; `.limit(5000)` **không** đủ (API vẫn cắt ở 1.000).
+
+| Bảng | Nơi đọc | Có thể > 1.000? | Cách xử lý |
+|---|---|---|---|
+| `contact` | `fetchContacts` | Có (VMT ~3.757) | `fetchAllRows` + danh sách ảo |
+| `contact_channel` | `fetchContactChannels` | Có | `fetchAllRows` |
+| `crm_opportunity` | `fetchOpportunities`, `fetchOpportunityBoardRows` | Có | `fetchAllRows` |
+| `tasks` | `fetchTasks`, `fetchTasksInRange`, `fetchObligationReminders` | Có | `fetchAllRows` |
+| `transactions` | `fetchTransactions` (trước `.limit(5000)` = 1.000) | Có | `fetchAllRows`; Thùng rác `.limit(1000)` + `rows-bounded` (30 ngày) |
+| `messages` | `fetchMessages`, `fetchOlderMessages`, tìm trong cuộc | Có | Trang + cuộn lên (`rows-bounded`); `fetchRecallRequests` thôi đọc mọi id tin, lọc qua join |
+| `message_attachments` | `fetchThreadAttachments` (File của tôi) | Có | `fetchAllRows` |
+| `message_reactions`, `message_deliveries`, `task_suggestions` (theo tin) | theo id tin đang hiện | Không (≤ 1 trang) | `rows-bounded` |
+| `notes`, `note_folders`, `note_attachments` | `fetchNotes` (trước `.limit(2000)` = 1.000)… | Có | `fetchAllRows` |
+| `task_reminders`, `task_flags`, `task_participants`, `task_dependencies`, `task_suggestions` (tất cả) | | Có | `fetchAllRows` |
+| `think_hub_record`, `think_hub_record_reminders`, `think_hub_record_stars`, `think_hub_record_tasks`, `project_tasks` (tất cả) | | Có | `fetchAllRows` |
+| `think_hub_cell_files` | `fetchBoardFiles` (một Bảng) | Có | `fetchAllRows` |
+| `checklist_items`, `task_resources` (một việc), `message_pins`, `task_celebrations` (một cuộc), `project_tasks` (một dự án), `meeting_note_files` (các quyết định đang hiện), `think_hub_view_row_meta`, `think_hub_board_opened` | | Không | `rows-bounded` |
+
+- **Nhập danh bạ:** tiến độ `Đã nhập 1.200 / 3.756`; kết thúc `Đã nhập n liên hệ mới · m đã có`.
+- **Cần xem lại › Có thể trùng (n):** mỗi cặp hai tên + `Cùng số …`; `Gộp` (nút chính) · `Không phải trùng`; toast `Đã gộp … · Hoàn tác` 10 giây; 30 cặp mỗi lần, `Xem thêm`.
+- **Bảng đủ 1.000 Hạng mục:** `Bảng đã đủ 1.000 Hạng mục — tạo bảng con hoặc bảng mới.` (bảng đồng bộ: cơ hội từ Danh bạ vẫn lưu và vẫn lên bảng).
+
+## Két sắt · máy chính (AVORA-102 · ADR-042)
+
+- Máy không phải Ưu tiên 1 – 2 (khi tài khoản đã có máy chính và chưa bật "mở trên máy khác"): màn `Két sắt` chỉ có câu `Két sắt chỉ mở trên điện thoại và máy tính chính của bạn.`, nút chính `Đặt máy này là máy chính` (khi bậc còn trống) và `Cho phép mở trên máy khác` (→ Cài đặt › Hồ sơ › Bảo mật). **Không** ô mã, **không** `Quên mã`. Phiên chưa gắn máy: thêm dòng `Máy này chưa được nhận ra — đặt lại máy chính.`
+- Hai thứ khác nhau, ghi khác nhau: màn khoá hằng ngày `Nhập mã Két sắt 6 số` (link `Quên mã 6 số?`); màn máy mới `Nhập Mật khẩu Két sắt (cụm dài bạn đặt khi mã hoá)` (link `Dùng Bộ khôi phục`), ô có 👁, tắt tự sửa / viết hoa.
+- Lỗi máy (WebCrypto / Argon2 / IndexedDB) không bao giờ hiện nguyên tiếng Anh: `Chưa mở được trên máy này. Thử lại, hoặc dùng Bộ khôi phục.`
+- Mã hoá xong mà gắn máy lỗi = vẫn xong: `Két sắt đã mã hoá. Máy này chưa gắn — lần sau mở bằng Mật khẩu Két sắt.`
+
+## Lớp nổi chồng nhau (AVORA-104 · 1 · ADR-065)
+
+- Chọn ngày / giờ trong một form đang mở (Sheet, hộp thoại) chỉ đóng **đúng** bảng lịch. Form bên dưới không đóng, không mở lại, địa chỉ không đổi.
+- Một lớp nổi = một bước lịch sử, dù nó đổi dạng (popover ↔ hộp giữa màn) lúc đang mở.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

@@ -1,5 +1,7 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
+import { normalizeSearch } from "@/lib/normalize-search";
 import { cleanContactName, storedEmailOrNull, storedPhoneOrNull } from "@/lib/contact-clean";
 
 /**
@@ -392,7 +394,8 @@ export function splitContacts(contacts: readonly Contact[]): {
  * not contain what was typed, which reads as a bug.
  */
 export function matchesContactQuery(contact: Contact, query: string): boolean {
-  const needle = query.trim().toLowerCase();
+  // AVORA-102 · B1.5: accent-insensitive ("nguyen" finds "Nguyễn"), on data already loaded.
+  const needle = normalizeSearch(query);
   if (needle.length === 0) return true;
 
   const fields: (string | null)[] =
@@ -400,7 +403,7 @@ export function matchesContactQuery(contact: Contact, query: string): boolean {
       ? [contact.name, contact.phone, contact.email]
       : [contact.name, contact.taxCode];
 
-  return fields.some((field) => (field ?? "").toLowerCase().includes(needle));
+  return fields.some((field) => normalizeSearch(field).includes(needle));
 }
 
 export function filterContacts(contacts: readonly Contact[], query: string): Contact[] {
@@ -520,9 +523,16 @@ export function pendingInviteLabel(invite: ContactInvite): string {
 
 /** Every contact the viewer owns. RLS returns nobody else's, so there is no filter to forget. */
 export async function fetchContacts(): Promise<Contact[]> {
-  const { data, error } = await supabase.from("contact").select("*").order("name", { ascending: true });
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toContact(row as ContactRow));
+  // AVORA-102 · B: page through — a single read stops at 1 000 rows.
+  try {
+    const rows = await fetchAllRows<ContactRow>((from, to) =>
+      supabase.from("contact").select("*").order("name", { ascending: true }).order("id", { ascending: true }).range(from, to),
+    );
+    return rows.map(toContact);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 /** The invitations sent for one contact, newest first. Only the sender's own are visible. */
@@ -723,4 +733,45 @@ export function toBusinessDraft(contact: Contact): BusinessDraft {
     industry: contact.industry ?? "",
     note: contact.note ?? "",
   };
+}
+
+
+// ------------------------------------------------------------------ AVORA-102 · B · batch import
+
+export type BulkContactRow = {
+  type: ContactType;
+  name: string;
+  phone: string;
+  email: string;
+  note: string;
+  date_of_birth: string;
+  relationship_tag: string;
+  tax_code: string;
+  business_address: string;
+  representative_name: string;
+  representative_phone: string;
+  representative_email: string;
+  industry: string;
+  source: string;
+  channels: { kind: "phone" | "email"; value: string; label: string | null; needs_review: boolean }[];
+};
+
+export type BulkContactResult = { i: number; status: "created" | "exists" | "failed"; id?: string; error?: string; channels?: number };
+
+/** ≤ 500 contacts in one call; a row whose phone / email is already in my book is not created. */
+export async function createContactsBulk(rows: readonly BulkContactRow[]): Promise<BulkContactResult[]> {
+  const { data, error } = await supabase.rpc("create_contacts_bulk" as never, { p_rows: rows } as never);
+  if (error) throw fail(error.code, error.message);
+  return (data ?? []) as unknown as BulkContactResult[];
+}
+
+/** Several contacts by id (≤ 100 per request), for what a batch import just wrote. */
+export async function fetchContactsByIds(ids: readonly string[]): Promise<Contact[]> {
+  const out: Contact[] = [];
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await supabase.from("contact").select("*").in("id", ids.slice(i, i + 100)); // rows-bounded: ≤ 100 ids
+    if (error) throw fail(error.code, error.message);
+    out.push(...(data ?? []).map((row) => toContact(row as ContactRow)));
+  }
+  return out;
 }

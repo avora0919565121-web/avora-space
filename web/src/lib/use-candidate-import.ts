@@ -1,5 +1,8 @@
-import { logError } from "@/lib/log";
+import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useState } from "react";
+
+import { logError } from "@/lib/log";
+import { inBatches } from "@/lib/fetch-all-rows";
 
 import {
   candidateToBusinessDraft,
@@ -19,7 +22,15 @@ import {
   type TypeDecision,
 } from "@/lib/contact-candidates";
 import { addContactChannel } from "@/lib/contact-channels";
-import { contactById, type Contact, type InviteMethod } from "@/lib/contacts";
+import {
+  contactById,
+  contactKeys,
+  createContactsBulk,
+  fetchContactsByIds,
+  type BulkContactRow,
+  type Contact,
+  type InviteMethod,
+} from "@/lib/contacts";
 import { useContactActions } from "@/lib/use-contacts";
 
 /** How far a run has got, so the button can say something truthful while it works. */
@@ -34,6 +45,8 @@ export type CandidateOutcome = {
   failed: CandidateFailure[];
   /** Contacts whose channels a person now has to choose between. Drives the closing banner. */
   needsReviewCount: number;
+  /** AVORA-102: rows the server found already in the book during a batch write. */
+  alreadyThere: number;
 };
 
 /**
@@ -45,6 +58,39 @@ export type CandidateOutcome = {
  * something to rate-limit.
  */
 const IMPORT_CONCURRENCY = 12;
+
+/** AVORA-102 · B1.2: above this many rows, new contacts are written in batches of 500, not one call each. */
+export const BULK_IMPORT_THRESHOLD = 200;
+
+function toBulkRow(row: CandidateRow, decision: TypeDecision): BulkContactRow {
+  const type = resolvedType(row, decision);
+  const { candidate } = row;
+  const reviewable = candidateNeedsReview(candidate);
+  const ind = type === "individual" ? candidateToIndividualDraft(candidate) : null;
+  const biz = type === "business" ? candidateToBusinessDraft(candidate, decision) : null;
+  return {
+    type,
+    name: candidate.name.trim(),
+    phone: (ind?.phone ?? biz?.phone ?? "").trim(),
+    email: (ind?.email ?? biz?.email ?? "").trim(),
+    note: ind?.note ?? biz?.note ?? "",
+    date_of_birth: ind?.dateOfBirth ?? "",
+    relationship_tag: ind?.relationshipTag ?? "",
+    tax_code: biz?.taxCode ?? "",
+    business_address: biz?.businessAddress ?? "",
+    representative_name: biz?.representativeName ?? "",
+    representative_phone: biz?.representativePhone ?? "",
+    representative_email: biz?.representativeEmail ?? "",
+    industry: biz?.industry ?? "",
+    source: candidate.source,
+    channels: extraChannelsOf(candidate).map((channel) => ({
+      kind: channel.kind,
+      value: channel.value,
+      label: channel.label,
+      needs_review: reviewable && channel.needsReview === true,
+    })),
+  };
+}
 
 /** One ticked row, paired with everything already decided about it. */
 type PlannedWrite = {
@@ -100,6 +146,7 @@ export function useCandidateImport(): {
   isRunning: boolean;
 } {
   const { addIndividual, addBusiness, saveIndividual, saveBusiness } = useContactActions();
+  const queryClient = useQueryClient();
   const [progress, setProgress] = useState<ImportProgress>(null);
   const [isRunning, setIsRunning] = useState<boolean>(false);
 
@@ -115,6 +162,7 @@ export function useCandidateImport(): {
         merged: [],
         failed: [],
         needsReviewCount: 0,
+        alreadyThere: 0,
       };
 
       const decisionOf = (row: CandidateRow): TypeDecision =>
@@ -220,8 +268,46 @@ export function useCandidateImport(): {
         }
       };
 
+      // AVORA-102 · B1.2: a big file writes its new people 500 at a time (the server refuses any
+      // whose number is already in the book, so a re-import adds nobody). Merges stay one by one.
+      let laneTasks: PlannedWrite[] = tasks;
+      let alreadyThere = 0;
+      if (total > BULK_IMPORT_THRESHOLD) {
+        const creates = tasks.filter((task) => task.choice === "create");
+        laneTasks = tasks.filter((task) => task.choice !== "create");
+        try {
+          for (const batch of inBatches(creates, 500)) {
+            const answers = await createContactsBulk(batch.map((task) => toBulkRow(task.row, task.decision)));
+            const createdIds = answers.filter((a) => a.status === "created" && a.id !== undefined).map((a) => a.id as string);
+            const fetched = new Map((await fetchContactsByIds(createdIds)).map((contact) => [contact.id, contact]));
+            for (const answer of answers) {
+              const task = batch[answer.i];
+              if (task === undefined) continue;
+              if (answer.status === "created" && answer.id !== undefined && fetched.has(answer.id)) {
+                results[task.index] = { kind: "created", contact: fetched.get(answer.id) as Contact, reviewable: candidateNeedsReview(task.row.candidate) && (answer.channels ?? 0) > 0 };
+              } else if (answer.status === "exists") {
+                alreadyThere += 1;
+                results[task.index] = { kind: "skipped" };
+              } else {
+                results[task.index] = { kind: "failed", failure: { origin: task.row.origin, name: task.row.candidate.name, reason: answer.error ?? "Chưa lưu được." } };
+              }
+              done += 1;
+            }
+            setProgress({ done, total });
+          }
+        } catch (error) {
+          for (const task of creates) {
+            if (results[task.index] === undefined) {
+              results[task.index] = { kind: "failed", failure: { origin: task.row.origin, name: task.row.candidate.name, reason: (error as Error).message } };
+            }
+          }
+        }
+        void queryClient.invalidateQueries({ queryKey: contactKeys.all });
+      }
+      outcome.alreadyThere = alreadyThere;
+
       const lanes = new Map<string, PlannedWrite[]>();
-      for (const task of tasks) {
+      for (const task of laneTasks) {
         const key = laneKeyOf(task);
         const lane = lanes.get(key);
         if (lane === undefined) lanes.set(key, [task]);
@@ -266,7 +352,7 @@ export function useCandidateImport(): {
 
       return outcome;
     },
-    [addIndividual, addBusiness, saveIndividual, saveBusiness],
+    [addIndividual, addBusiness, saveIndividual, saveBusiness, queryClient],
   );
 
   return { run, progress, isRunning };

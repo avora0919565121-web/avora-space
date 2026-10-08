@@ -1,6 +1,7 @@
 import { logError } from "@/lib/log";
 import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import type { Database } from "@/integrations/supabase/types";
 import { toIsoTimestamp } from "@/lib/chat";
 import {
@@ -193,13 +194,16 @@ function fail(code: string | undefined, message: string): Error {
 
 /** Every suggestion in every conversation this person is in. RLS decides what that means. */
 export async function fetchTaskSuggestions(): Promise<TaskSuggestion[]> {
-  const { data, error } = await supabase
-    .from("task_suggestions")
-    .select(SUGGESTION_COLUMNS)
-    .order("created_at", { ascending: true });
-
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toSuggestion(row as SuggestionRow));
+  let data: unknown[];
+  try {
+    data = await fetchAllRows<unknown>((from, to) =>
+      supabase.from("task_suggestions").select(SUGGESTION_COLUMNS).order("created_at", { ascending: true }).order("id", { ascending: true }).range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }>,
+    );
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
+  return data.map((row) => toSuggestion(row as SuggestionRow));
 }
 
 /** Where a suggestion is being raised, and who is being asked. */

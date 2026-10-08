@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import type { Database } from "@/integrations/supabase/types";
 import { normalizeSearch } from "@/lib/normalize-search";
 import {
@@ -493,9 +494,14 @@ export function rememberLastTable(userId: string | undefined, tableId: string): 
 // ------------------------------------------------------------------ stars (C8)
 
 export async function fetchStars(): Promise<Set<string>> {
-  const { data, error } = await supabase.from("think_hub_record_stars").select("record_id");
-  if (error) throw hubFail(error.code, error.message);
-  return new Set((data ?? []).map((row) => row.record_id));
+  let data: { record_id: string }[];
+  try {
+    data = await fetchAllRows((from, to) => supabase.from("think_hub_record_stars").select("record_id").order("record_id").range(from, to));
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw hubFail(e.code, e.message ?? "");
+  }
+  return new Set(data.map((row) => row.record_id));
 }
 
 export async function toggleStar(recordId: string): Promise<boolean> {

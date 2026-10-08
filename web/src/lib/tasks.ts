@@ -1,6 +1,7 @@
 import { logError } from "@/lib/log";
 import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import type { Database } from "@/integrations/supabase/types";
 import { toIsoTimestamp } from "@/lib/chat";
 import {
@@ -1636,29 +1637,37 @@ export async function fetchTasksInRange(
   startIso: string,
   endIso: string,
 ): Promise<TaskItem[]> {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select(TASK_COLUMNS)
-    .or(
-      `and(deadline_date.gte.${from},deadline_date.lte.${to}),and(requires_presence.eq.true,start_at.gte."${startIso}",start_at.lt."${endIso}")`,
-    )
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toTaskItem(row as TaskRow));
+  try {
+    const rows = await fetchAllRows<TaskRow>((first, last) =>
+      supabase
+        .from("tasks")
+        .select(TASK_COLUMNS)
+        .or(
+          `and(deadline_date.gte.${from},deadline_date.lte.${to}),and(requires_presence.eq.true,start_at.gte."${startIso}",start_at.lt."${endIso}")`,
+        )
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(first, last) as unknown as PromiseLike<{ data: TaskRow[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toTaskItem);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 /** Every task visible to the caller: their personal ones plus shared ones from their 1-1s. */
 export async function fetchTasks(): Promise<TaskItem[]> {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select(TASK_COLUMNS)
-    .order("created_at", { ascending: true })
-    .order("id", { ascending: true });
-
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toTaskItem(row as TaskRow));
+  // AVORA-102 · C: paged — someone with 1 000+ tasks must not lose the newest ones.
+  try {
+    const rows = await fetchAllRows<TaskRow>((first, last) =>
+      supabase.from("tasks").select(TASK_COLUMNS).order("created_at", { ascending: true }).order("id", { ascending: true }).range(first, last) as unknown as PromiseLike<{ data: TaskRow[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toTaskItem);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 /**

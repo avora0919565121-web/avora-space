@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { MAX_ATTACHMENT_BYTES } from "@/lib/attachments";
 import { logError } from "@/lib/log";
 
@@ -63,9 +64,15 @@ function fail(code: string | undefined, message: string): Error {
 
 /** Every file of one Bảng, for counting and listing per cell. */
 export async function fetchBoardFiles(tableId: string): Promise<BoardCellFile[]> {
-  const { data, error } = await supabase.from("think_hub_cell_files").select(COLUMNS).eq("table_id", tableId).order("created_at");
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toFile(row as Row));
+  try {
+    const rows = await fetchAllRows<Row>((from, to) =>
+      supabase.from("think_hub_cell_files").select(COLUMNS).eq("table_id", tableId).order("created_at").order("id").range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toFile);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 /** Uploads into `<table>/<record>/…` then records the row; the bucket and the row both check the board. */

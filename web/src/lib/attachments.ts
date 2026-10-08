@@ -1,6 +1,7 @@
 import { logError } from "@/lib/log";
 import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 
 /**
  * Files carried by a chat message: a photo, a document, or a recorded voice note.
@@ -394,15 +395,24 @@ const ATTACHMENT_COLUMNS =
 
 /** Every file in one thread. RLS returns nothing for a conversation you are not in. */
 export async function fetchThreadAttachments(conversationId: string): Promise<MessageAttachment[]> {
-  const { data, error } = await supabase
-    .from("message_attachments")
-    // A journal entry in the bin keeps its files, but they are not shown until it comes back.
-    .select(`${ATTACHMENT_COLUMNS}, entry:messages!message_attachments_message_id_fkey!inner(trashed_at)`)
-    .eq("conversation_id", conversationId)
-    .is("entry.trashed_at", null)
-    .order("created_at", { ascending: true });
-
-  if (error) throw fail(error.code, error.message);
+  // AVORA-102 · C: a long thread (or Nhật ký › File) can hold 1 000+ files — paged.
+  let data: unknown[];
+  try {
+    data = await fetchAllRows<unknown>((from, to) =>
+      supabase
+        .from("message_attachments")
+        // A journal entry in the bin keeps its files, but they are not shown until it comes back.
+        .select(`${ATTACHMENT_COLUMNS}, entry:messages!message_attachments_message_id_fkey!inner(trashed_at)`)
+        .eq("conversation_id", conversationId)
+        .is("entry.trashed_at", null)
+        .order("created_at", { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }>,
+    );
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
   return (data ?? []).map((row) => toMessageAttachment(row as AttachmentRow));
 }
 

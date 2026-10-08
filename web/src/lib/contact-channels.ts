@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows, inBatches } from "@/lib/fetch-all-rows";
 import { toVietnameseContactError, type Contact, type ContactType } from "@/lib/contacts";
 import { cleanContactEmail, toStoredPhone } from "@/lib/contact-clean";
 
@@ -134,13 +135,16 @@ export function channelSourceLabel(source: ChannelSource): string {
 
 /** Every extra channel the viewer owns. RLS returns nobody else's. */
 export async function fetchContactChannels(): Promise<ContactChannel[]> {
-  const { data, error } = await supabase
-    .from("contact_channel")
-    .select("*")
-    .order("created_at", { ascending: true });
-
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toChannel(row as ContactChannelRow));
+  // AVORA-102 · B: paged — a contact near the end of the alphabet must not lose its numbers.
+  try {
+    const rows = await fetchAllRows<ContactChannelRow>((from, to) =>
+      supabase.from("contact_channel").select("*").order("created_at", { ascending: true }).order("id", { ascending: true }).range(from, to),
+    );
+    return rows.map(toChannel);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 /** The extra channels of one contact, phones before emails. */
@@ -641,14 +645,8 @@ const BULK_CHUNK = 100;
  * limits the update to the viewer's own contacts.
  */
 export async function markAllChannelsReviewed(): Promise<string[]> {
-  const { data, error } = await supabase
-    .from("contact_channel")
-    .update({ needs_review: false })
-    .eq("needs_review", true)
-    .select("id");
-
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => (row as { id: string }).id);
+  // AVORA-102 · B1.4: one update could only return 1 000 ids, leaving `Hoàn tác` short.
+  return clearAllReviewFlagsInBatches();
 }
 
 /** Puts the review flag back on the given channels (the undo of `markAllChannelsReviewed`). */
@@ -705,5 +703,79 @@ export async function detachContactChannel(input: {
 /** AVORA-57 · J — `Số chính`: this channel becomes the contact's own phone / email (one RPC, atomic). */
 export async function promoteContactChannel(channelId: string): Promise<void> {
   const { error } = await supabase.rpc("promote_contact_channel", { p_channel_id: channelId });
+  if (error) throw fail(error.code, error.message);
+}
+
+
+// ------------------------------------------------------------------ AVORA-102 · B
+
+/**
+ * Asks the server which of these phones / emails already belong to one of my contacts — the whole
+ * address book, not just what this device has loaded. Batches of 500 values.
+ */
+export async function matchChannelsOnServer(phones: readonly string[], emails: readonly string[]): Promise<Map<string, ChannelMatch>> {
+  const found = new Map<string, ChannelMatch>();
+  const values: { kind: ChannelKind; value: string }[] = [
+    ...[...new Set(phones.map(normalizePhone).filter((v) => v.length > 0))].map((value) => ({ kind: "phone" as const, value })),
+    ...[...new Set(emails.map((v) => v.trim().toLowerCase()).filter((v) => v.length > 0))].map((value) => ({ kind: "email" as const, value })),
+  ];
+  for (const batch of inBatches(values, 500)) {
+    const { data, error } = await supabase.rpc("contact_match_channels" as never, {
+      p_phones: batch.filter((v) => v.kind === "phone").map((v) => v.value),
+      p_emails: batch.filter((v) => v.kind === "email").map((v) => v.value),
+    } as never);
+    if (error) throw fail(error.code, error.message);
+    for (const row of (data ?? []) as { kind: ChannelKind; value_normalized: string; contact_id: string; contact_name: string; contact_type: ContactType }[]) {
+      found.set(`${row.kind}:${row.value_normalized}`, {
+        contactId: row.contact_id,
+        contactName: row.contact_name,
+        kind: row.kind,
+        value: row.value_normalized,
+        contactType: row.contact_type,
+      });
+    }
+  }
+  return found;
+}
+
+/** `Giữ tất cả` in batches of ≤ 500 — every cleared id comes back for `Hoàn tác`. */
+export async function clearAllReviewFlagsInBatches(): Promise<string[]> {
+  const cleared: string[] = [];
+  for (let round = 0; round < 200; round += 1) {
+    const { data, error } = await supabase.rpc("clear_channel_review_batch" as never, { p_limit: 500 } as never);
+    if (error) throw fail(error.code, error.message);
+    const ids = (data ?? []) as string[];
+    cleared.push(...ids);
+    if (ids.length < 500) break;
+  }
+  return cleared;
+}
+
+export type DuplicatePair = { keepId: string; keepName: string; dropId: string; dropName: string; kind: ChannelKind; value: string };
+
+/** `Có thể trùng`: pairs of my contacts sharing a phone / email. Never merged on their own. */
+export async function fetchDuplicatePairs(): Promise<DuplicatePair[]> {
+  const rows = await fetchAllRows<{ keep_id: string; keep_name: string; drop_id: string; drop_name: string; kind: ChannelKind; value_normalized: string }>(
+    (from, to) => supabase.rpc("contact_duplicate_pairs" as never).range(from, to) as never,
+  ).catch((caught: { code?: string; message?: string }) => {
+    throw fail(caught.code, caught.message ?? "");
+  });
+  return rows.map((row) => ({ keepId: row.keep_id, keepName: row.keep_name, dropId: row.drop_id, dropName: row.drop_name, kind: row.kind, value: row.value_normalized }));
+}
+
+/** Merges `dropId` into `keepId`; returns the id `undoMerge` needs. */
+export async function mergeContacts(keepId: string, dropId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("merge_contacts" as never, { p_keep: keepId, p_drop: dropId } as never);
+  if (error) throw fail(error.code, error.message);
+  return data as unknown as string;
+}
+
+export async function undoMerge(mergeId: string): Promise<void> {
+  const { error } = await supabase.rpc("undo_contact_merge" as never, { p_merge_id: mergeId } as never);
+  if (error) throw fail(error.code, error.message);
+}
+
+export async function dismissDuplicate(a: string, b: string): Promise<void> {
+  const { error } = await supabase.rpc("dismiss_contact_duplicate" as never, { p_a: a, p_b: b } as never);
   if (error) throw fail(error.code, error.message);
 }

@@ -8,7 +8,8 @@ import { KIT_WARNING, printKit, saveKitPdf } from "@/lib/recovery-kit-pdf";
 import { vaultE2eeKeys } from "@/lib/use-vault-e2ee";
 import { useVaultLock } from "@/lib/use-vault-lock";
 import { entropyToWords, isKitWord, newRecoveryEntropy, passphraseStrength, pickCheckPositions, wordsToEntropy } from "@/lib/vault-crypto";
-import { openWithPassphrase, openWithRecovery, setupVault, type Keyring } from "@/lib/vault-keys";
+import { logError } from "@/lib/log";
+import { VaultUserError, openWithPassphrase, openWithRecovery, setupVault, type Keyring } from "@/lib/vault-keys";
 import { suggestPassphrase } from "@/lib/vault-templates";
 import { cn } from "@/lib/utils";
 
@@ -81,7 +82,7 @@ export function E2eeAboutText({ className }: { className?: string }) {
  * A secret field: hidden by default (people nearby, Android keyboards that learn `text`
  * fields), `autoComplete="off"` so no browser or iCloud offers to keep it.
  */
-function SecretInput({ value, onChange, isShown, onToggle, label, ...rest }: { value: string; onChange: (v: string) => void; isShown: boolean; onToggle: () => void; label: string; "data-passphrase"?: string; "data-passphrase-again"?: string }) {
+export function SecretInput({ value, onChange, isShown, onToggle, label, ...rest }: { value: string; onChange: (v: string) => void; isShown: boolean; onToggle: () => void; label: string; "data-passphrase"?: string; "data-passphrase-again"?: string; "data-open-passphrase"?: string }) {
   return (
     <label className="block">
       <span className="text-[13px] font-medium">{label}</span>
@@ -192,6 +193,12 @@ export function KitCheck({ words, onPassed }: { words: readonly string[]; onPass
 
 type Step = "intro" | "pass" | "kit" | "check" | "saving";
 
+/** AVORA-102 · A0.3 — the keyring was written but this device could not be tied. */
+export const SETUP_UNBOUND_LINE = "Két sắt đã mã hoá. Máy này chưa gắn — lần sau mở bằng Mật khẩu Két sắt.";
+
+/** AVORA-102 · A0.4 — any failure that is not "wrong passphrase / wrong kit" reads the same. */
+export const OPEN_HERE_FAILED = "Chưa mở được trên máy này. Thử lại, hoặc dùng Bộ khôi phục.";
+
 /** 4.1 — first time in Chứng chỉ / Tài liệu / Tài sản. No keyring exists until the kit is confirmed. */
 export function VaultSetupFlow() {
   const { user } = useAuth();
@@ -214,13 +221,15 @@ export function VaultSetupFlow() {
     if (user === null) return;
     setStep("saving");
     try {
-      await setupVault(user.id, pass, entropy);
+      const result = await setupVault(user.id, pass, entropy);
       setPass("");
       setAgain("");
       await queryClient.invalidateQueries({ queryKey: vaultE2eeKeys.keyring(user.id) });
-      toast.success("Két sắt đã được mã hoá trên máy này.");
+      // AVORA-102 · A0.3: the keyring exists — done, even when this device could not be tied.
+      if (result.deviceBound) toast.success("Két sắt đã được mã hoá trên máy này.");
+      else toast.success(SETUP_UNBOUND_LINE, { duration: 8000 });
     } catch (caught: unknown) {
-      toast.error(caught instanceof Error ? caught.message : "Chưa làm được.");
+      toast.error(caught instanceof VaultUserError ? caught.message : "Chưa làm được. Thử lại nhé.");
       setStep("check");
     }
   };
@@ -269,6 +278,7 @@ export function VaultOpenHere({ ring, onRecovered }: { ring: Keyring; onRecovere
   const [pass, setPass] = useState<string>("");
   const [kit, setKit] = useState<string>("");
   const [isWorking, setIsWorking] = useState<boolean>(false);
+  const [isShown, setIsShown] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const run = async (): Promise<void> => {
     if (user === null) return;
@@ -286,7 +296,13 @@ export function VaultOpenHere({ ring, onRecovered }: { ring: Keyring; onRecovere
       setPass("");
       setKit("");
     } catch (caught: unknown) {
-      setError(caught instanceof Error ? caught.message : "Chưa mở được.");
+      if (caught instanceof VaultUserError) {
+        setError(caught.message);
+      } else {
+        // WebCrypto / Argon2 / IndexedDB said something in English: log its name, say one plain line.
+        logError("vault-open-here", { mode, name: caught instanceof Error ? caught.name : "unknown", message: caught instanceof Error ? caught.message.slice(0, 60) : "" });
+        setError(OPEN_HERE_FAILED);
+      }
     } finally {
       setIsWorking(false);
     }
@@ -295,11 +311,14 @@ export function VaultOpenHere({ ring, onRecovered }: { ring: Keyring; onRecovere
   return (
     <Frame title="Mở Két sắt trên máy này">
       <p className="mt-2 text-[14.5px] leading-relaxed text-muted-foreground">
-        Máy này chưa giữ chìa Két sắt. {mode === "pass" ? "Nhập Mật khẩu Két sắt một lần — lần sau chỉ cần mã 6 số." : "Gõ đủ 24 từ, cách nhau bằng dấu cách. Sau đó bạn đặt Mật khẩu Két sắt mới và Bộ khôi phục mới."}
+        Máy này chưa giữ chìa Két sắt. {mode === "pass" ? "Lần sau trên máy này chỉ cần mã 6 số." : "Gõ đủ 24 từ, cách nhau bằng dấu cách. Sau đó bạn đặt Mật khẩu Két sắt mới và Bộ khôi phục mới."}
       </p>
+      {mode === "pass" ? (
+        <p className="mt-3 text-[15px] font-medium text-foreground" data-open-here-ask="">Nhập Mật khẩu Két sắt (cụm dài bạn đặt khi mã hoá)</p>
+      ) : null}
       <form className="mt-5 space-y-3" onSubmit={(e) => { e.preventDefault(); void run(); }}>
         {mode === "pass" ? (
-          <input type="password" autoComplete="off" value={pass} onChange={(e) => setPass(e.target.value)} aria-label="Mật khẩu Két sắt" placeholder="Mật khẩu Két sắt" className="h-12 w-full rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-personal" />
+          <SecretInput label="Mật khẩu Két sắt" value={pass} onChange={setPass} isShown={isShown} onToggle={() => setIsShown((v) => !v)} data-open-passphrase="" />
         ) : (
           <textarea rows={4} autoCapitalize="none" spellCheck={false} value={kit} onChange={(e) => setKit(e.target.value)} aria-label="24 từ" className="w-full rounded-xl border border-input bg-card px-3 py-2 font-mono text-[16px] outline-none focus:border-personal" />
         )}

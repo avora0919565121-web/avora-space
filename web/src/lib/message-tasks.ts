@@ -43,6 +43,7 @@ export async function fetchMessageTaskMarks(
   messageIds: readonly string[],
 ): Promise<MessageTaskMark[]> {
   if (messageIds.length === 0) return [];
+  // rows-bounded: only the messages on screen (≤ a page)
   const { data, error } = await supabase
     .from("task_suggestions")
     .select("id, message_id, assignee_id, accepted_task_id")

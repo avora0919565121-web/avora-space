@@ -860,7 +860,7 @@ const ThinkHub = () => {
       return;
     }
     if (isTableFull(records, active.id)) {
-      toast.error(`Bảng đã đầy ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục, hãy dọn bớt trước khi thêm.`);
+      toast.error(`Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục — tạo bảng con hoặc bảng mới.`);
       return;
     }
     setTargetTableId(active.id);
@@ -972,7 +972,7 @@ const ThinkHub = () => {
       }
       if (targetTable === null) return;
       if (isTableFull(records, targetTable.id)) {
-        throw new Error(`Bảng đã đầy ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục, hãy dọn bớt trước khi thêm.`);
+        throw new Error(`Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục — tạo bảng con hoặc bảng mới.`);
       }
 
       await actions.createRecord({
@@ -2172,7 +2172,9 @@ const ThinkHub = () => {
               </div>
               {isTableFull(records, active.id) ? (
                 <p role="status" className="w-full text-[13.5px] text-destructive">
-                  Bảng đã đầy {RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục, hãy dọn bớt trước khi thêm.
+                  {active.syncSource === "contact_opportunities"
+                    ? `Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục. Cơ hội tạo từ Danh bạ vẫn được lưu và vẫn lên bảng này; chỉ thêm tay ở đây là bị chặn.`
+                    : `Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục — tạo bảng con hoặc bảng mới.`}
                 </p>
               ) : null}
             </div>

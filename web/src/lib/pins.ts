@@ -74,6 +74,7 @@ type PinRow = {
  * here to forget.
  */
 export async function fetchPins(conversationId: string): Promise<MessagePin[]> {
+  // rows-bounded: one conversation; pins are capped per conversation
   const { data, error } = await supabase
     .from("message_pins")
     .select("id, message_id, conversation_id, pinned_by, scope, pinned_at")

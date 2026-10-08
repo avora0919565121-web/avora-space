@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import {
   HEAVY_TASK_MINUTES,
   type TaskFlagIndex,
@@ -99,9 +100,14 @@ type FlagRow = {
  * there is no filter here to forget — the query cannot return anyone else's reading.
  */
 export async function fetchTaskFlags(): Promise<TaskFlagRow[]> {
-  const { data, error } = await supabase.from("task_flags").select(FLAG_COLUMNS);
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => {
+  let data: unknown[];
+  try {
+    data = await fetchAllRows<unknown>((from, to) => supabase.from("task_flags").select(FLAG_COLUMNS).order("task_id").range(from, to) as unknown as PromiseLike<{ data: unknown[] | null; error: { code?: string; message: string } | null }>);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
+  return data.map((row) => {
     const flag = row as FlagRow;
     return {
       taskId: flag.task_id,

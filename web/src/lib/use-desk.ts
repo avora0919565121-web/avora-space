@@ -79,6 +79,7 @@ export function useBoardOpened(): { openedAt: ReadonlyMap<string, string>; markO
     enabled: Boolean(user?.id),
     staleTime: 60_000,
     queryFn: async () => {
+      // rows-bounded: one row per board I own
       const { data, error } = await supabase.from("think_hub_board_opened").select("board_key, opened_at");
       if (error) throw new Error("Không tải được lần mở.");
       return new Map((data ?? []).map((row) => [row.board_key, row.opened_at] as const));

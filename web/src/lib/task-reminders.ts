@@ -1,5 +1,6 @@
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import { deadlineInstant, reminderInstant, reminderOffsetMinutes, type ReminderPreset } from "@/lib/task-schedule";
 
 /**
@@ -71,12 +72,15 @@ function fail(code: string | undefined, message: string): Error {
 }
 
 export async function fetchTaskReminders(): Promise<TaskReminder[]> {
-  const { data, error } = await supabase
-    .from("task_reminders")
-    .select(COLUMNS)
-    .order("reminder_time", { ascending: true });
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toReminder(row as Row));
+  try {
+    const rows = await fetchAllRows<Row>((from, to) =>
+      supabase.from("task_reminders").select(COLUMNS).order("reminder_time", { ascending: true }).order("id", { ascending: true }).range(from, to) as unknown as PromiseLike<{ data: Row[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toReminder);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 export async function createTaskReminder(

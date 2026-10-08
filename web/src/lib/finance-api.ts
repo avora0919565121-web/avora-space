@@ -1,6 +1,7 @@
 import { logError } from "@/lib/log";
 import { announceVaultLocked } from "@/lib/vault-api";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import type { Database } from "@/integrations/supabase/types";
 import {
   centsToDecimalString,
@@ -325,15 +326,23 @@ export async function deleteCategory(categoryId: string): Promise<{ retired: boo
 // ---------------------------------------------------------------- transactions
 
 export async function fetchTransactions(): Promise<Transaction[]> {
-  const { data, error } = await supabase
-    .from("transactions")
-    .select("*")
-    .is("removed_at", null)
-    .order("transaction_date", { ascending: false })
-    .order("created_at", { ascending: false })
-    .limit(5000);
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map(toTransaction);
+  // AVORA-102 · C: `.limit(5000)` still stopped at 1 000 (the API cap) — page through instead.
+  try {
+    const rows = await fetchAllRows((from, to) =>
+      supabase
+        .from("transactions")
+        .select("*")
+        .is("removed_at", null)
+        .order("transaction_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: false })
+        .range(from, to),
+    );
+    return rows.map(toTransaction);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 // ---------------------------------------------------------------- trash (Đợt gộp 2 · D2)
@@ -347,7 +356,8 @@ export type FinanceTrash = {
 export async function fetchFinanceTrash(): Promise<FinanceTrash> {
   const [accounts, transactions] = await Promise.all([
     supabase.from("accounts").select("*").not("removed_at", "is", null).order("removed_at", { ascending: false }),
-    supabase.from("transactions").select("*").not("removed_at", "is", null).order("removed_at", { ascending: false }).limit(2000),
+    // rows-bounded: Thùng rác keeps 30 days; the newest 1 000 removed transactions are shown.
+    supabase.from("transactions").select("*").not("removed_at", "is", null).order("removed_at", { ascending: false }).limit(1000),
   ]);
   if (accounts.error) throw fail(accounts.error.code, accounts.error.message);
   if (transactions.error) throw fail(transactions.error.code, transactions.error.message);
@@ -530,13 +540,17 @@ export async function createObligationReminderTask(transactionId: string, title:
 
 /** Which obligations already have a reminder task, and whether that task is done. */
 export async function fetchObligationReminders(): Promise<Map<string, { taskId: string; done: boolean }>> {
-  const { data, error } = await supabase
-    .from("tasks")
-    .select("id, status, source_transaction_id")
-    .not("source_transaction_id", "is", null);
-  if (error) throw fail(error.code, error.message);
+  let data: { id: string; status: string; source_transaction_id: string | null }[];
+  try {
+    data = await fetchAllRows((from, to) =>
+      supabase.from("tasks").select("id, status, source_transaction_id").not("source_transaction_id", "is", null).order("id").range(from, to),
+    );
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
   const index = new Map<string, { taskId: string; done: boolean }>();
-  for (const row of data ?? []) {
+  for (const row of data) {
     if (row.source_transaction_id === null) continue;
     index.set(row.source_transaction_id, { taskId: row.id, done: row.status === "done" });
   }

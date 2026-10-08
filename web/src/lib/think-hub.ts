@@ -1,6 +1,7 @@
 import { logError } from "@/lib/log";
 import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import type { Database, Json } from "@/integrations/supabase/types";
 
 /**
@@ -902,7 +903,7 @@ export function toVietnameseHubError(code: string | undefined, message: string):
   if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
 
   if (normalized.includes("avora_think_hub_record_limit"))
-    return `Bảng đã đầy ${RECORD_LIMIT.toLocaleString("vi-VN")} mục, hãy dọn bớt trước khi thêm.`;
+    return `Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục — tạo bảng con hoặc bảng mới.`;
   if (normalized.includes("avora_think_hub_table_name_required"))
     return "Bảng cần một cái tên.";
   if (normalized.includes("avora_think_hub_record_title_required"))
@@ -1058,19 +1059,30 @@ export async function fetchThinkTables(): Promise<ThinkTable[]> {
 
 /** Every live record in every table the viewer can read. */
 export async function fetchThinkRecords(): Promise<ThinkRecord[]> {
-  const { data, error } = await supabase
-    .from("think_hub_record")
-    .select("*")
-    .is("deleted_at", null)
-    // AVORA-100 · V·3.2: put-away Hạng mục are not part of a board's views, counts or kệ 2.
-    .is("archived_at", null)
-    .order("created_at", { ascending: false });
-
-  if (error) throw fail(error.code, error.message);
+  // AVORA-102 · C: every board together can pass 1 000 Hạng mục — paged.
+  let data: Record<string, unknown>[];
+  try {
+    data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from("think_hub_record")
+        .select("*")
+        .is("deleted_at", null)
+        // AVORA-100 · V·3.2: put-away Hạng mục are not part of a board's views, counts or kệ 2.
+        .is("archived_at", null)
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: Record<string, unknown>[] | null; error: { code?: string; message: string } | null }>,
+    );
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
   // AVORA-69: `Nhắc tôi xem lại` is each person's own (RLS returns only mine).
-  const reminders = await supabase.from("think_hub_record_reminders" as never).select("record_id, remind_at");
-  const mine = new Map(((reminders.data ?? []) as { record_id: string; remind_at: string }[]).map((row) => [row.record_id, row.remind_at] as const));
-  return (data ?? []).map((row) => {
+  const reminders = await fetchAllRows<{ record_id: string; remind_at: string }>((from, to) =>
+    supabase.from("think_hub_record_reminders" as never).select("record_id, remind_at").order("record_id" as never).range(from, to) as unknown as PromiseLike<{ data: { record_id: string; remind_at: string }[] | null; error: { code?: string; message: string } | null }>,
+  ).catch(() => [] as { record_id: string; remind_at: string }[]);
+  const mine = new Map(reminders.map((row) => [row.record_id, row.remind_at] as const));
+  return data.map((row) => {
     const record = toRecord(row as RecordRow);
     return { ...record, remindAt: mine.get(record.id) ?? null };
   });
@@ -1167,9 +1179,14 @@ export async function setThinkColumnHidden(input: {
 export type RecordTaskLink = { taskId: string; recordId: string };
 
 export async function fetchRecordTaskLinks(): Promise<RecordTaskLink[]> {
-  const { data, error } = await supabase.from("think_hub_record_tasks").select("task_id, record_id");
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => ({ taskId: row.task_id, recordId: row.record_id }));
+  let data: { task_id: string; record_id: string }[];
+  try {
+    data = await fetchAllRows((from, to) => supabase.from("think_hub_record_tasks").select("task_id, record_id").order("task_id").order("record_id").range(from, to));
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
+  return data.map((row) => ({ taskId: row.task_id, recordId: row.record_id }));
 }
 
 /**

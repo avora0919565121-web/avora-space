@@ -144,7 +144,7 @@ function PeekBody({
     const title = newTitle.trim();
     if (title.length === 0) return;
     if (isTableFull(allRecords, table.id)) {
-      toast.error(`Bảng đã đầy ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục, hãy dọn bớt trước khi thêm.`);
+      toast.error(`Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục — tạo bảng con hoặc bảng mới.`);
       return;
     }
     await guard(async () => {

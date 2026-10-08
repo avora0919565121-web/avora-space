@@ -70,6 +70,7 @@ export async function fetchPendingCelebrations(
   conversationId: string,
   userId: string,
 ): Promise<PendingCelebration[]> {
+  // rows-bounded: one conversation
   const { data: celebrations, error } = await supabase
     .from("task_celebrations")
     .select("task_id, conversation_id, burst_count, triggered_at")

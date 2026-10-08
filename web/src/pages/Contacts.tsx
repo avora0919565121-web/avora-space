@@ -10,7 +10,8 @@ import {
   UserRound,
   Users,
 } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import { carryReturn } from "@/lib/return-to";
@@ -72,6 +73,7 @@ const Contacts = () => {
   const shared = useSharedChannels();
   // Only the ones still in play: a deal won or lost is not something the book needs to flag.
   const openOpportunities = useOpenOpportunityContacts();
+  const [scrollEl, setScrollEl] = useState<HTMLDivElement | null>(null);
   const { connections } = useConnections();
 
   // One number, because the banner is one sentence. Someone with two unconfirmed numbers and one
@@ -100,7 +102,7 @@ const Contacts = () => {
   );
 
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
+    <div ref={setScrollEl} className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="animate-rise-in mx-auto max-w-3xl px-6 py-10 md:px-10">
         <InlineBack className="-mt-6 mb-2" />
         <header className="flex flex-wrap items-center justify-between gap-4">
@@ -278,51 +280,7 @@ const Contacts = () => {
           ) : visible.length === 0 ? (
             <EmptyState group={group} hasAny={total > 0} onAdd={() => setIsNewOpen(true)} />
           ) : (
-            <ul>
-              {visible.map((entry) => (
-                <li key={entry.id} className="border-b border-border last:border-b-0">
-                  <button
-                    type="button"
-                    onClick={() => openContact(entry.id)}
-                    className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent/35"
-                  >
-                    {entry.contactType === "individual" ? (
-                      <InitialsAvatar name={entry.name} size="sm" />
-                    ) : (
-                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground/75">
-                        <Building2 className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
-                      </span>
-                    )}
-                    <span className="min-w-0 flex-1">
-                      <span className="flex items-center gap-2">
-                        <span className="truncate text-[15px] font-semibold text-foreground">{entry.name}</span>
-                        {entry.contactType === "individual" && entry.linkedUserId !== null ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/60 px-2 py-0.5 text-[11.5px] font-medium text-accent-foreground">
-                            <CheckCircle2
-                              className="h-3 w-3 text-money-in"
-                              strokeWidth={2.2}
-                              aria-hidden="true"
-                            />
-                            Đã dùng AVORA
-                          </span>
-                        ) : null}
-                        {openOpportunities.has(entry.id) ? (
-                          <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground">
-                            <Briefcase className="h-3 w-3" strokeWidth={1.9} aria-hidden="true" />
-                            Cơ hội
-                          </span>
-                        ) : null}
-                      </span>
-                      <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
-                        {entry.contactType === "individual"
-                          ? individualSubtitle(entry)
-                          : shortTaxCode(entry.taxCode)}
-                      </span>
-                    </span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+            <VirtualContactList rows={visible} scrollEl={scrollEl} openOpportunities={openOpportunities} onOpen={openContact} />
           )}
         </div>
         )}
@@ -407,3 +365,94 @@ function EmptyState({
 }
 
 export default Contacts;
+
+/** One row of the address book — memoised so scrolling 5 000 people redraws only what enters view. */
+const ContactRowButton = memo(function ContactRowButton({ entry, hasOpportunity, onOpen }: { entry: Contact; hasOpportunity: boolean; onOpen: (contactId: string) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onOpen(entry.id)}
+      className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent/35"
+    >
+      {entry.contactType === "individual" ? (
+        <InitialsAvatar name={entry.name} size="sm" />
+      ) : (
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground/75">
+          <Building2 className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
+        </span>
+      )}
+      <span className="min-w-0 flex-1">
+        <span className="flex items-center gap-2">
+          <span className="truncate text-[15px] font-semibold text-foreground">{entry.name}</span>
+          {entry.contactType === "individual" && entry.linkedUserId !== null ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-accent/60 px-2 py-0.5 text-[11.5px] font-medium text-accent-foreground">
+              <CheckCircle2
+                className="h-3 w-3 text-money-in"
+                strokeWidth={2.2}
+                aria-hidden="true"
+              />
+              Đã dùng AVORA
+            </span>
+          ) : null}
+          {hasOpportunity ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-border px-2 py-0.5 text-[11.5px] font-medium text-muted-foreground">
+              <Briefcase className="h-3 w-3" strokeWidth={1.9} aria-hidden="true" />
+              Cơ hội
+            </span>
+          ) : null}
+        </span>
+        <span className="mt-0.5 block truncate text-[13px] text-muted-foreground">
+          {entry.contactType === "individual"
+            ? individualSubtitle(entry)
+            : shortTaxCode(entry.taxCode)}
+        </span>
+      </span>
+    </button>
+  );
+});
+
+/**
+ * AVORA-102 · B1.5 — the address book draws only the rows on screen (4 000+ people stay smooth).
+ * The page itself scrolls, so the virtualizer measures against that element.
+ */
+function VirtualContactList({ rows, scrollEl, openOpportunities, onOpen }: { rows: readonly Contact[]; scrollEl: HTMLElement | null; openOpportunities: ReadonlySet<string>; onOpen: (contactId: string) => void }) {
+  const listRef = useRef<HTMLUListElement>(null);
+  const [margin, setMargin] = useState<number>(0);
+  useLayoutEffect(() => {
+    if (scrollEl === null || listRef.current === null) return;
+    const measure = (): void => {
+      if (scrollEl === null || listRef.current === null) return;
+      setMargin(listRef.current.getBoundingClientRect().top - scrollEl.getBoundingClientRect().top + scrollEl.scrollTop);
+    };
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(scrollEl);
+    return () => observer.disconnect();
+  }, [scrollEl]);
+  const virtualizer = useVirtualizer({
+    count: rows.length,
+    getScrollElement: () => scrollEl,
+    estimateSize: () => 66,
+    overscan: 10,
+    scrollMargin: margin,
+    getItemKey: useCallback((index: number) => rows[index].id, [rows]),
+  });
+  return (
+    <ul ref={listRef} data-contact-list="" data-count={rows.length} style={{ height: virtualizer.getTotalSize(), position: "relative" }}>
+      {virtualizer.getVirtualItems().map((item) => {
+        const entry = rows[item.index];
+        return (
+          <li
+            key={item.key}
+            data-index={item.index}
+            ref={virtualizer.measureElement}
+            className="absolute left-0 top-0 w-full border-b border-border"
+            style={{ transform: `translateY(${item.start - margin}px)` }}
+          >
+            <ContactRowButton entry={entry} hasOpportunity={openOpportunities.has(entry.id)} onOpen={onOpen} />
+          </li>
+        );
+      })}
+    </ul>
+  );
+}

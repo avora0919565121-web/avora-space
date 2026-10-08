@@ -1,6 +1,6 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import * as PopoverPrimitive from "@radix-ui/react-popover";
-import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { cn } from "@/lib/utils";
@@ -80,6 +80,15 @@ export function FloatingPanel({
     );
   }, [open, isDesktop, height]);
 
+  // AVORA-104 · 1: one Back binding for the panel's whole life. It used to live inside each branch,
+  // so the first paint as a popover and the switch to a centred dialog bound Back twice and left an
+  // orphan history entry; closing the calendar then stepped onto it and the form underneath (Sửa
+  // nhiệm vụ) read that as Back and closed — the picked day was lost without a word.
+  const onOpenChangeRef = useRef(onOpenChange);
+  onOpenChangeRef.current = onOpenChange;
+  const closeOnBack = useCallback((): void => onOpenChangeRef.current(false), []);
+  const backBinding = open ? <BackClosesBinding close={closeOnBack} /> : null;
+
   const panelClass = cn("flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-lg outline-none", className);
   const anchorNode = (
     <span ref={anchorRef} className="flex min-w-0 flex-1">
@@ -89,8 +98,9 @@ export function FloatingPanel({
 
   if (isDesktop && placement !== "center") {
     return (
+      <>
+      {backBinding}
       <PopoverPrimitive.Root open={open} onOpenChange={onOpenChange}>
-        {open ? <BackClosesBinding close={() => onOpenChange(false)} /> : null}
         <PopoverPrimitive.Anchor asChild>{anchorNode}</PopoverPrimitive.Anchor>
         <PopoverPrimitive.Portal>
           <PopoverPrimitive.Content
@@ -110,14 +120,15 @@ export function FloatingPanel({
           </PopoverPrimitive.Content>
         </PopoverPrimitive.Portal>
       </PopoverPrimitive.Root>
+      </>
     );
   }
 
   return (
     <>
+      {backBinding}
       {anchorNode}
       <DialogPrimitive.Root open={open} onOpenChange={onOpenChange}>
-        {open ? <BackClosesBinding close={() => onOpenChange(false)} /> : null}
         <DialogPrimitive.Portal>
           <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/20 data-[state=open]:animate-in data-[state=open]:fade-in-0" />
           <DialogPrimitive.Content

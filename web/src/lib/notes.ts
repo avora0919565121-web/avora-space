@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import { fetchAllRows } from "@/lib/fetch-all-rows";
 import type { Json } from "@/integrations/supabase/types";
 import { logError } from "@/lib/log";
 import { normalizeSearch } from "@/lib/normalize-search";
@@ -726,24 +727,45 @@ const NOTE_COLUMNS = "id, folder_id, title, blocks, tags, pinned_at, book_record
 export async function fetchFolders(): Promise<NoteFolder[]> {
   const { error: ensureError } = await supabase.rpc("ensure_reading_folder");
   if (ensureError) throw fail(ensureError.code, ensureError.message);
-  const { data, error } = await supabase.from("note_folders").select(FOLDER_COLUMNS).order("position");
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toFolder(row as FolderRow));
+  try {
+    const rows = await fetchAllRows<FolderRow>((from, to) =>
+      supabase.from("note_folders").select(FOLDER_COLUMNS).order("position").order("id").range(from, to) as unknown as PromiseLike<{ data: FolderRow[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toFolder);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 export async function fetchNotes(): Promise<Note[]> {
-  const { data, error } = await supabase.from("notes").select(NOTE_COLUMNS).order("updated_at", { ascending: false }).limit(2000);
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toNote(row as NoteRow));
+  // AVORA-102 · C: `.limit(2000)` was silently 1 000.
+  try {
+    const rows = await fetchAllRows<NoteRow>((from, to) =>
+      supabase.from("notes").select(NOTE_COLUMNS).order("updated_at", { ascending: false }).order("id", { ascending: true }).range(from, to) as unknown as PromiseLike<{ data: NoteRow[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toNote);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 export async function fetchNoteAttachments(): Promise<NoteAttachment[]> {
-  const { data, error } = await supabase
-    .from("note_attachments")
-    .select("id, note_id, kind, storage_path, file_name, mime_type, byte_size, duration_seconds, anchor_block_id, created_at")
-    .order("created_at", { ascending: false });
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => toAttachment(row as AttachmentRow));
+  try {
+    const rows = await fetchAllRows<AttachmentRow>((from, to) =>
+      supabase
+        .from("note_attachments")
+        .select("id, note_id, kind, storage_path, file_name, mime_type, byte_size, duration_seconds, anchor_block_id, created_at")
+        .order("created_at", { ascending: false })
+        .order("id", { ascending: true })
+        .range(from, to) as unknown as PromiseLike<{ data: AttachmentRow[] | null; error: { code?: string; message: string } | null }>,
+    );
+    return rows.map(toAttachment);
+  } catch (caught: unknown) {
+    const e = caught as { code?: string; message?: string };
+    throw fail(e.code, e.message ?? "");
+  }
 }
 
 export async function createFolder(

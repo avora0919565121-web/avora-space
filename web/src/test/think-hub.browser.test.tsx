@@ -446,7 +446,7 @@ test("a full table says so instead of opening the form", async () => {
 
   const screen = await open();
   await expect
-    .element(screen.getByText(/Bảng đã đầy 1\.000 Hạng mục, hãy dọn bớt trước khi thêm\./))
+    .element(screen.getByText(/Bảng đã đủ 1\.000 Hạng mục — tạo bảng con hoặc bảng mới\./))
     .toBeInTheDocument();
 
   await userEvent.click(screen.getByRole("button", { name: "Hạng mục", exact: true }));

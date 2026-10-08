@@ -29,6 +29,10 @@ export type VaultStatus = {
   deviceShare: boolean;
   /** AVORA-67 · 3.5: Két sắt may open on this device (Ưu tiên 1 – 2, or allowed elsewhere). */
   deviceAllowed: boolean;
+  /** AVORA-102 · A1.3: this session is tied to a device (false = the device was never recognised). */
+  deviceBound: boolean;
+  /** AVORA-102: the account has an Ưu tiên 1 – 2 somewhere. */
+  hasMainDevice: boolean;
 };
 
 export type VaultAttempt =
@@ -58,6 +62,8 @@ export function parseVaultStatus(raw: unknown): VaultStatus {
     hasKeyring: row.has_keyring === true,
     deviceShare: row.device_share === true,
     deviceAllowed: row.device_allowed !== false,
+    deviceBound: row.device_bound !== false,
+    hasMainDevice: row.has_main_device === true,
   };
 }
 
@@ -108,7 +114,7 @@ export function vaultErrorMessage(message: string): string {
   if (m.includes("avora_vault_device_not_allowed")) return "Két sắt chỉ mở trên điện thoại và máy tính chính của bạn.";
   if (m.includes("avora_session_not_allowed")) return "Phiên này không còn được dùng.";
   if (m.includes("avora_vault_code_format")) return "Mã Két sắt gồm đúng 6 chữ số.";
-  if (m.includes("avora_vault_code_exists")) return "Két sắt đã có mã. Mở bằng mã đó, hoặc chọn Quên mã?";
+  if (m.includes("avora_vault_code_exists")) return "Két sắt đã có mã. Mở bằng mã đó, hoặc chọn Quên mã 6 số?";
   if (m.includes("avora_vault_no_code")) return "Két sắt chưa có mã. Đặt mã trước nhé.";
   if (m.includes("avora_vault_reset_rate")) return "Bạn đã xin mã 3 lần trong một giờ qua. Thử lại sau nhé.";
   if (m.includes("avora_vault_no_email")) return "Tài khoản chưa có email để gửi mã xác nhận.";
@@ -117,6 +123,9 @@ export function vaultErrorMessage(message: string): string {
   if (m.includes("failed to fetch") || m.includes("network")) return "Không kết nối được. Kiểm tra mạng rồi thử lại.";
   return "Chưa làm được. Thử lại nhé.";
 }
+
+/** AVORA-102 · A1.2: the one sentence of the "main devices only" screen. */
+export const VAULT_MAIN_ONLY = "Két sắt chỉ mở trên điện thoại và máy tính chính của bạn.";
 
 /** The sentence under "Đặt mã Két sắt" (AVORA-51 · B). */
 export const VAULT_SET_HINT = "Mã này khoá Két sắt trên máy này và mọi máy khác. Quên mã thì đặt lại được qua email.";

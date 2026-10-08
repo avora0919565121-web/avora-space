@@ -70,22 +70,15 @@ function toRecallRequest(row: RecallRequestRow): RecallRequest {
  * audience a second time.
  */
 export async function fetchRecallRequests(conversationId: string): Promise<RecallRequest[]> {
-  const { data: messageRows, error: messageError } = await supabase
-    .from("messages")
-    .select("id")
-    .eq("conversation_id", conversationId);
-
-  if (messageError) throw fail(messageError.code, messageError.message);
-
-  const ids = (messageRows ?? []).map((row) => row.id);
-  if (ids.length === 0) return [];
-
+  // AVORA-102 · C: was "read every message id of the thread, then `.in(ids)`" — capped at 1 000
+  // ids and a URL that grew with the thread. Now one filtered read through the message join.
   const { data, error } = await supabase
     .from("message_recall_request")
-    .select("id, message_id, requested_by, created_at")
-    .in("message_id", ids)
+    .select("id, message_id, requested_by, created_at, message:messages!inner(conversation_id)")
+    .eq("message.conversation_id", conversationId)
     .is("resolved_at", null)
-    .order("created_at", { ascending: true });
+    .order("created_at", { ascending: true })
+    .limit(500); // rows-bounded: open asks live 24 h, a handful per thread
 
   if (error) throw fail(error.code, error.message);
   const now = new Date();

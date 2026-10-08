@@ -134,6 +134,7 @@ export function useRowMeta(board: ViewBoardKey) {
     enabled: Boolean(user?.id) && (!vault || hasKey),
     gcTime: vault ? 0 : undefined,
     queryFn: async () => {
+      // rows-bounded: one default board (≤ its rows, which are capped at 1 000)
       const { data, error } = await supabase.from("think_hub_view_row_meta").select("source_key, starred, note, note_sealed").eq("board_key", board);
       if (error) throw new Error("Không tải được ghi chú.");
       const map = new Map<string, RowMeta>();

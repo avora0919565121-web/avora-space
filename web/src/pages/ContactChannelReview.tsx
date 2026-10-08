@@ -9,6 +9,10 @@ import { useBackPress } from "@/hooks/use-back-press";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
 import { SharedChannelCard } from "@/components/contacts/SharedChannelCard";
+import { DuplicatePairsSection } from "@/components/contacts/DuplicatePairsSection";
+import { duplicateKeys } from "@/lib/duplicate-keys";
+import { useQuery } from "@tanstack/react-query";
+import { fetchDuplicatePairs } from "@/lib/contact-channels";
 import { Button } from "@/components/ui/button";
 import {
   channelSourceLabel,
@@ -53,6 +57,8 @@ const ContactChannelReview = () => {
   const { confirm, remove, promote, keepAll, restoreFlags, isWorking } = useContactChannelActions();
   const { apply, isWorking: isFixing } = useSharedChannelFix();
   const [notice, setNotice] = useState<string | null>(null);
+  const duplicates = useQuery({ queryKey: duplicateKeys.pairs, queryFn: fetchDuplicatePairs, staleTime: 30_000 });
+  const duplicateCount = duplicates.data?.length ?? 0;
 
   const act = useCallback(async (run: () => Promise<void>): Promise<void> => {
     setNotice(null);
@@ -146,7 +152,7 @@ const ContactChannelReview = () => {
    * An empty list here is a finished job, not a missing feature, so it says so and points back
    * to the address book instead of leaving a blank page with nothing to do.
    */
-  if (groups.length === 0 && shared.groups.length === 0) {
+  if (groups.length === 0 && shared.groups.length === 0 && duplicateCount === 0) {
     return (
       <Shell backLabel={back.label} onBack={back.back}>
         <div className="rounded-xl border border-border bg-card px-6 py-14 text-center">
@@ -243,6 +249,8 @@ const ContactChannelReview = () => {
           </ul>
         </section>
       ) : null}
+
+      <DuplicatePairsSection onOpenContact={openContact} />
     </Shell>
   );
 };

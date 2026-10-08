@@ -61,6 +61,7 @@ import { CHANNEL_REVIEW_ROUTE, NAME_REPAIR_ROUTE } from "@/lib/navigation";
 import { useContactNameIssues } from "@/lib/use-contact-name-repair";
 import { useCandidateImport, type CandidateOutcome } from "@/lib/use-candidate-import";
 import { useChannelIndex } from "@/lib/use-contact-channels";
+import { matchChannelsOnServer, type ChannelMatch } from "@/lib/contact-channels";
 import { useContacts } from "@/lib/use-contacts";
 
 type ImportContactsDialogProps = {
@@ -177,13 +178,29 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
 
   /** Both sources end here: candidates in, preview out. */
   const startPreview = useCallback(
-    (
+    async (
       candidates: readonly ImportedContactCandidate[],
       origins: readonly string[],
       label: string,
       problems: FileProblems,
-    ): void => {
-      const built = buildCandidateRows(candidates, index, origins);
+    ): Promise<void> => {
+      // AVORA-102 · B1.2: the device index is a hint; the server checks the WHOLE book, so
+      // nobody past the first 1 000 loaded contacts is created twice.
+      let merged: ReadonlyMap<string, ChannelMatch> = index;
+      try {
+        const server = await matchChannelsOnServer(
+          candidates.flatMap((c) => c.phones),
+          candidates.flatMap((c) => c.emails),
+        );
+        if (server.size > 0) {
+          const both = new Map(index);
+          for (const [key, hit] of server) if (!both.has(key)) both.set(key, hit);
+          merged = both;
+        }
+      } catch {
+        // Offline / refused: the batch write itself still refuses existing numbers server-side.
+      }
+      const built = buildCandidateRows(candidates, merged, origins);
 
       if (built.length === 0) {
         setNotice(
@@ -224,7 +241,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
       const counts = summarizeRows(result.rows);
       const usable: ImportRow[] = result.rows.filter((row) => canImportRow(row));
 
-      startPreview(
+      void startPreview(
         usable.map(rowToCandidate),
         usable.map((row) => `Dòng ${row.lineNumber}`),
         fileName,
@@ -251,7 +268,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
             );
             return;
           }
-          startPreview(read.candidates, read.origins, file.name, read.problems);
+          await startPreview(read.candidates, read.origins, file.name, read.problems);
           return;
         }
 
@@ -314,7 +331,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
         setNotice("Bạn chưa chọn liên hệ nào từ danh bạ máy.");
         return;
       }
-      startPreview(
+      await startPreview(
         candidates,
         candidates.map((entry, position) => `Danh bạ ${position + 1}`),
         "Danh bạ trên máy này",
@@ -534,7 +551,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
               onClick={() => void startImport()}
             >
               {isRunning && progress !== null
-                ? `Đang nhập ${progress.done}/${progress.total}…`
+                ? `Đã nhập ${progress.done.toLocaleString("vi-VN")} / ${progress.total.toLocaleString("vi-VN")}`
                 : `Nhập ${picked.size} liên hệ đã chọn`}
             </Button>
           </div>
@@ -675,6 +692,7 @@ function InviteStep({
           <p className="text-[14.5px] font-semibold text-foreground">
             Đã nhập {outcome?.created.length ?? 0} liên hệ mới
             {(outcome?.merged.length ?? 0) > 0 ? `, gộp ${outcome?.merged.length} liên hệ` : ""}
+            {(outcome?.alreadyThere ?? 0) > 0 ? ` · ${(outcome?.alreadyThere ?? 0).toLocaleString("vi-VN")} đã có` : ""}
           </p>
           {(outcome?.failed.length ?? 0) > 0 ? (
             <p className="mt-1 text-[13px] leading-relaxed text-primary">

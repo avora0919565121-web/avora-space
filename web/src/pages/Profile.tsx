@@ -1,6 +1,6 @@
 import { Check, Loader2, LogOut, MonitorX } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
@@ -18,10 +18,18 @@ const Profile = () => {
   const { user, profile, profileError, updateDisplayName, signOut, signOutOthers } = useAuth();
   const displayName = useDisplayName();
   const navigate = useNavigate();
+  const location = useLocation();
   const pinQuery = usePinStatus();
   const myPin: string | null = pinQuery.data?.pin ?? null;
   const daysLeft: number | null = pinDaysLeft(pinQuery.data?.requiredAt ?? null);
   const reveal = useReveal();
+
+  // AVORA-102: `Cho phép mở trên máy khác` from Két sắt lands on Bảo mật (#bao-mat).
+  useEffect(() => {
+    if (location.hash !== "#bao-mat") return;
+    const id = window.setTimeout(() => document.getElementById("bao-mat")?.scrollIntoView({ block: "start" }), 120);
+    return () => window.clearTimeout(id);
+  }, [location.hash]);
 
   const [nameDraft, setNameDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -196,7 +204,7 @@ const Profile = () => {
         </div>
 
         {/* AVORA-54 · C: sign out everywhere else, right where the account lives. */}
-        <section aria-labelledby="security-heading" className="mt-6 rounded-xl border border-border bg-card p-6">
+        <section id="bao-mat" aria-labelledby="security-heading" className="mt-6 scroll-mt-4 rounded-xl border border-border bg-card p-6">
           <h2 id="security-heading" className="text-[17px] font-semibold text-foreground">Bảo mật</h2>
           {/* AVORA-67 · 3.1: lock strip · Thiết bị · Đăng xuất mọi thiết bị khác · Khoá thiết bị · Két sắt. */}
           <DeviceSecuritySection

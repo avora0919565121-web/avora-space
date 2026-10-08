@@ -78,21 +78,30 @@ async function holdMasterKey(raw: Uint8Array): Promise<void> {
   emit();
 }
 
+/** AVORA-102 · A0.4: an error whose words are meant for the person (anything else is said generically). */
+export class VaultUserError extends Error {
+  /** The server's `avora_*` code (or the Postgres code) — for the log only, never shown. */
+  code: string | null = null;
+}
+
 function vaultError(message: string): Error {
-  if (message.includes("avora_vault_proof_rate")) return new Error("Thử sai nhiều lần. Đợi 15 phút rồi thử lại.");
-  if (message.includes("avora_vault_pass_required")) return new Error("Nhập Mật khẩu Két sắt trước.");
-  if (message.includes("avora_vault_locked")) return new Error("Két sắt đã khoá. Mở lại để tiếp tục.");
-  if (message.includes("avora_device_password")) return new Error("Mật khẩu tài khoản chưa đúng.");
-  if (message.includes("avora_device_code")) return new Error("Mã email chưa đúng hoặc đã hết hạn.");
-  if (message.includes("avora_vault_ring_exists")) return new Error("Két sắt đã được mã hoá trên tài khoản này.");
-  return new Error("Chưa làm được. Thử lại nhé.");
+  if (message.includes("avora_vault_device_not_allowed")) return new VaultUserError("Két sắt chỉ mở trên điện thoại và máy tính chính của bạn.");
+  if (message.includes("avora_vault_proof_rate")) return new VaultUserError("Thử sai nhiều lần. Đợi 15 phút rồi thử lại.");
+  if (message.includes("avora_vault_pass_required")) return new VaultUserError("Nhập Mật khẩu Két sắt trước.");
+  if (message.includes("avora_vault_locked")) return new VaultUserError("Két sắt đã khoá. Mở lại để tiếp tục.");
+  if (message.includes("avora_device_password")) return new VaultUserError("Mật khẩu tài khoản chưa đúng.");
+  if (message.includes("avora_device_code")) return new VaultUserError("Mã email chưa đúng hoặc đã hết hạn.");
+  if (message.includes("avora_vault_ring_exists")) return new VaultUserError("Két sắt đã được mã hoá trên tài khoản này.");
+  return new VaultUserError("Chưa làm được. Thử lại nhé.");
 }
 
 async function rpc<T>(name: string, args: Record<string, unknown> = {}): Promise<T> {
   const { data, error } = await supabase.rpc(name as never, args as never);
   if (error) {
     logError("vault-e2ee", { code: error.code, message: error.message.slice(0, 80) });
-    throw vaultError(error.message);
+    const wrapped = vaultError(error.message);
+    if (wrapped instanceof VaultUserError) wrapped.code = /avora_[a-z_]+/.exec(error.message)?.[0] ?? error.code ?? null;
+    throw wrapped;
   }
   return data as T;
 }
@@ -142,18 +151,32 @@ export async function hasDeviceWrap(userId: string): Promise<boolean> {
 }
 
 /** Creates the keyring (after the kit was asked back) and binds this device. */
-export async function setupVault(userId: string, passphrase: string, entropy: Uint8Array, params: KdfParams = DEFAULT_KDF): Promise<void> {
+export async function setupVault(
+  userId: string,
+  passphrase: string,
+  entropy: Uint8Array,
+  params: KdfParams = DEFAULT_KDF,
+): Promise<{ deviceBound: true } | { deviceBound: false; code: string }> {
   const ring = await createKeyring(userId, passphrase, entropy, params);
   await rpc<null>("vault_setup", { p_ring: ring.wire, p_pass_proof: ring.passProof, p_rec_proof: ring.recProof });
   await holdMasterKey(ring.mk);
-  await registerThisDevice(userId);
+  // AVORA-102 · A0.3: the keyring is written — that is "done". A failed bind only means the next
+  // open on this device asks for the Mật khẩu Két sắt once; it must never send the person back.
+  try {
+    await registerThisDevice(userId);
+    return { deviceBound: true };
+  } catch (caught: unknown) {
+    const code = caught instanceof VaultUserError && caught.code !== null ? caught.code : caught instanceof Error ? caught.name : "unknown";
+    logError("vault-e2ee", { step: "register_device_share", code });
+    return { deviceBound: false, code };
+  }
 }
 
 /** `Mở Két sắt trên máy này` with the passphrase. */
 export async function openWithPassphrase(userId: string, ring: Keyring, passphrase: string): Promise<void> {
   const proof = await passProofFor(passphrase, ring.salt_pass, ring.kdf_params);
   const ok = await rpc<boolean>("vault_prove", { p_kind: "pass", p_proof: proof });
-  if (!ok) throw new Error("Mật khẩu Két sắt chưa đúng.");
+  if (!ok) throw new VaultUserError("Mật khẩu Két sắt chưa đúng.");
   await holdMasterKey(await unwrapWithPassphrase(userId, passphrase, ring.salt_pass, ring.kdf_params, ring.mk_wrapped_pass));
   await registerThisDevice(userId).catch((error: unknown) => logError("vault-e2ee", error));
 }
@@ -161,16 +184,16 @@ export async function openWithPassphrase(userId: string, ring: Keyring, passphra
 /** The 24 words open MK; the caller then sets a new passphrase and a new kit (4.3). */
 export async function openWithRecovery(userId: string, ring: Keyring, entropy: Uint8Array): Promise<void> {
   const { proof, check } = await recProofFor(entropy, ring.salt_rec);
-  if (check !== ring.rec_check) throw new Error("Bộ khôi phục chưa đúng — đây là một bộ khác.");
+  if (check !== ring.rec_check) throw new VaultUserError("Bộ khôi phục chưa đúng — đây là một bộ khác.");
   const ok = await rpc<boolean>("vault_prove", { p_kind: "rec", p_proof: proof });
-  if (!ok) throw new Error("Bộ khôi phục chưa đúng.");
+  if (!ok) throw new VaultUserError("Bộ khôi phục chưa đúng.");
   await holdMasterKey(await unwrapWithRecovery(userId, entropy, ring.salt_rec, ring.mk_wrapped_rec));
 }
 
 /** Proves the passphrase only (Quên mã 6 số on an encrypted account). */
 export async function provePassphrase(ring: Keyring, passphrase: string): Promise<void> {
   const ok = await rpc<boolean>("vault_prove", { p_kind: "pass", p_proof: await passProofFor(passphrase, ring.salt_pass, ring.kdf_params) });
-  if (!ok) throw new Error("Mật khẩu Két sắt chưa đúng.");
+  if (!ok) throw new VaultUserError("Mật khẩu Két sắt chưa đúng.");
 }
 
 export async function changePassphrase(userId: string, passphrase: string): Promise<void> {

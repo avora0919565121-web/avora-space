@@ -77,6 +77,7 @@ type ReactionRow = { message_id: string; user_id: string; emoji: string };
  */
 export async function fetchReactions(messageIds: readonly string[]): Promise<MessageReaction[]> {
   if (messageIds.length === 0) return [];
+  // rows-bounded: only the messages on screen (≤ a page); K3 moves this into open_thread
   const { data, error } = await supabase
     .from("message_reactions")
     .select("message_id, user_id, emoji")
