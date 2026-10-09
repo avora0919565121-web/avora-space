@@ -2,7 +2,7 @@
   "$schema": "https://rork.com/schema/rork.json",
   "apps": [
     {
-      "name": "AVORA",
+      "name": "AVORA Space",
       "path": "web",
       "framework": "web"
     },
