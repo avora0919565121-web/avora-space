@@ -8,6 +8,8 @@ import type {
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
+import { outboxStore } from "@/lib/outbox";
+import { forgetThreadCache } from "@/lib/thread-cache";
 import { INCOMING_MESSAGE_EVENT, type IncomingMessageSignal } from "@/lib/in-app-alerts";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +24,9 @@ import {
   clearUnread,
   markMessagesDelivered,
   mergeIncomingMessage,
+  toChatMessageRow,
   toIsoTimestamp,
+  type MessageRowShape,
   type ChatMessage,
   type ConversationSummary,
 } from "@/lib/chat";
@@ -150,21 +154,16 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       void queryClient.invalidateQueries({ queryKey: messageTaskKeys.all });
     };
 
-    /** One realtime row to a message, with the three after-the-fact fields carried through. */
-    const toChatMessage = (row: MessageRow): ChatMessage => ({
-      id: row.id,
-      conversationId: row.conversation_id,
-      senderId: row.sender_id,
-      content: row.content,
-      createdAt: toIsoTimestamp(row.created_at),
-      editedAt: row.edited_at === null ? null : toIsoTimestamp(row.edited_at),
-      deletedAt: row.deleted_at === null ? null : toIsoTimestamp(row.deleted_at),
-      replyToMessageId: row.reply_to_message_id,
-      originGroupId: row.origin_group_id,
-      attachmentCount: row.attachment_count ?? 0,
-      originContentId: row.origin_content_id,
-      originSenderId: row.origin_sender_id,
-    });
+    /** K2 · C4: the same mapping as every read — a live message is never thinner than a fetched one. */
+    const toChatMessage = (row: MessageRow): ChatMessage => {
+      const message = toChatMessageRow(row as unknown as MessageRowShape);
+      return {
+        ...message,
+        createdAt: toIsoTimestamp(row.created_at),
+        editedAt: row.edited_at === null ? null : toIsoTimestamp(row.edited_at),
+        deletedAt: row.deleted_at === null ? null : toIsoTimestamp(row.deleted_at),
+      };
+    };
 
     /**
      * An edit or a recall, delivered to everyone in the room.
@@ -400,12 +399,6 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
 
       channel = supabase
         .channel(`avora-chat-${userId}`)
-        .on<MessageRow>("postgres_changes", { event: "INSERT", schema: "public", table: "messages" }, handleMessage)
-        .on<MessageRow>(
-          "postgres_changes",
-          { event: "UPDATE", schema: "public", table: "messages" },
-          handleMessageUpdate,
-        )
         .on(
           "postgres_changes",
           { event: "INSERT", schema: "public", table: "conversation_participants" },
@@ -442,11 +435,74 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
         });
     };
 
-    void start();
+    const startedRef: Promise<void> = start();
+
+    /**
+     * K2 · C11: the server tells this person's own topic (`user-<id>`, private) when they leave or
+     * are removed. Every device drops the room from the list, forgets its cache and outbox, and
+     * says so once.
+     */
+    let personal: RealtimeChannel | null = null;
+    const startPersonal = (): void => {
+      personal = supabase
+        .channel(`user-${userId}`, { config: { private: true } })
+        // K3 · N1: messages arrive as a broadcast on this person's own private topic (one row per
+        // member, sent by the server) — the database no longer evaluates every message for everyone.
+        .on("broadcast", { event: "message" }, (message) => {
+          const row = (message as { payload?: { message?: MessageRow } }).payload?.message;
+          if (row !== undefined) handleMessage({ new: row } as RealtimePostgresInsertPayload<MessageRow>);
+        })
+        .on("broadcast", { event: "message_update" }, (message) => {
+          const row = (message as { payload?: { message?: MessageRow } }).payload?.message;
+          if (row !== undefined) handleMessageUpdate({ new: row } as RealtimePostgresUpdatePayload<MessageRow>);
+        })
+        .on("broadcast", { event: "removed" }, (message) => {
+          const payload = (message as { payload?: { conversation_id?: string; name?: string | null } }).payload;
+          const removedId = payload?.conversation_id;
+          if (typeof removedId !== "string") return;
+          const inbox = queryClient.getQueryData<ConversationSummary[]>(chatKeys.conversations);
+          const wasGroup = inbox?.find((entry) => entry.conversationId === removedId)?.kind === "group";
+          if (inbox) {
+            queryClient.setQueryData<ConversationSummary[]>(
+              chatKeys.conversations,
+              inbox.filter((entry) => entry.conversationId !== removedId),
+            );
+          }
+          queryClient.removeQueries({ queryKey: chatKeys.messages(removedId) });
+          queryClient.removeQueries({ queryKey: attachmentKeys.thread(removedId) });
+          void outboxStore.removeConversation(userId, removedId);
+          void forgetThreadCache(userId, removedId);
+          if (wasGroup && payload?.name) toast(`Bạn không còn trong nhóm ${payload.name}`);
+        })
+        .subscribe();
+    };
+    // Joined after start() has set the access token (private topic → RLS on realtime.messages).
+    void startedRef.then(() => {
+      if (!isCancelled) startPersonal();
+    });
+
+    /**
+     * K2 · C13: a socket can say "connected" and still receive nothing. Every 30 s the client
+     * checks the connection; when it is not open, it reconnects and the backfill on SUBSCRIBED
+     * re-reads what was missed.
+     */
+    const ping = window.setInterval(() => {
+      if (isCancelled || document.visibilityState !== "visible") return;
+      const open = supabase.realtime.isConnected();
+      if (!open || (channel !== null && channel.state !== "joined")) {
+        logError("realtime", { code: "zombie_reconnect" });
+        setStatus("offline");
+        if (channel) void supabase.removeChannel(channel);
+        channel = null;
+        void start();
+      }
+    }, 30_000);
 
     return () => {
       isCancelled = true;
+      window.clearInterval(ping);
       if (channel) void supabase.removeChannel(channel);
+      if (personal) void supabase.removeChannel(personal);
     };
   }, [userId, queryClient]);
 

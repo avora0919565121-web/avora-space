@@ -1,3 +1,4 @@
+import { APP_ORIGIN } from "@/lib/app-origin";
 import { Check, Clock, Link2, Mail, MessageSquare } from "lucide-react";
 import { useCallback, useState } from "react";
 
@@ -45,7 +46,7 @@ export function InvitePanel({ contact, inviterName }: { contact: Contact; invite
       setCopied(false);
       try {
         const token = await invite(contact.id, method);
-        const link = buildContactInviteLink(window.location.origin, token);
+        const link = buildContactInviteLink(APP_ORIGIN, token);
         const body = inviteMessage(inviterName, link);
 
         if (method === "link") {

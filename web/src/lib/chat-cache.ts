@@ -235,6 +235,8 @@ export type ChatMessage = {
    * paired with `pending`, so every guard that refuses an unsent message refuses this one too.
    */
   failed?: boolean;
+  /** K2 · C2: where an outbox message stands ("Đang chờ mạng" / "Chưa gửi được · Gửi lại"). */
+  outboxState?: "queued" | "sending" | "waiting_network" | "failed";
 };
 
 /**
@@ -276,6 +278,22 @@ export function failedSendToMessage(send: FailedSend): ChatMessage {
  * The thread as it should read: what the server has, plus this conversation's failed sends in
  * the places they were written. Returns the same array when there is nothing to add.
  */
+/**
+ * K2 · C5: a page fetched while live messages kept arriving. Everything is merged by id, the
+ * server copy wins over a waiting bubble with the same id, and nothing already shown is dropped.
+ */
+export function mergeThreadPage(current: readonly ChatMessage[], page: readonly ChatMessage[]): ChatMessage[] {
+  const byId = new Map<string, ChatMessage>();
+  for (const message of current) byId.set(message.id, message);
+  for (const message of page) {
+    const existing = byId.get(message.id);
+    if (existing === undefined || existing.pending === true || existing.editedAt !== message.editedAt || existing.deletedAt !== message.deletedAt) {
+      byId.set(message.id, message);
+    }
+  }
+  return [...byId.values()].sort(compareMessages);
+}
+
 export function withFailedSends(
   thread: ChatMessage[],
   failed: readonly FailedSend[],
@@ -453,7 +471,15 @@ function compareMessages(left: ChatMessage, right: ChatMessage): number {
  * (one bubble only, so sending the same word twice keeps both).
  */
 export function mergeIncomingMessage(thread: ChatMessage[], incoming: ChatMessage): ChatMessage[] {
-  if (thread.some((message) => message.id === incoming.id)) return thread;
+  // K2 · C1: the outbox gives a message its id before sending, so the waiting bubble and the
+  // server's row share one id — the row replaces the bubble in place, never a second copy.
+  const sameId = thread.findIndex((message) => message.id === incoming.id);
+  if (sameId !== -1) {
+    if (thread[sameId].pending !== true) return thread;
+    const next = [...thread];
+    next[sameId] = incoming;
+    return next.sort(compareMessages);
+  }
 
   const pendingIndex = thread.findIndex(
     (message) =>

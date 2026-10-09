@@ -1,3 +1,4 @@
+import { MISSING_URL } from "@/lib/attachments";
 import { useCallback, useEffect, useRef, useState, type PointerEvent } from "react";
 import { ChevronLeft, ChevronRight, Download, Forward, Lock, Mic, X } from "lucide-react";
 import { toast } from "sonner";
@@ -65,8 +66,12 @@ async function download(attachment: MessageAttachment): Promise<void> {
   anchor.remove();
 }
 
+/** K2 · C9: a file that no longer exists says so, instead of "Đang tải ảnh…" forever. */
+export const MISSING_FILE_NOTE = "Tệp không còn";
+
 function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
+  const [isBroken, setIsBroken] = useState<boolean>(false);
   const canSave = canExportAttachment(attachment.permission);
 
   return (
@@ -78,7 +83,11 @@ function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
         className="press group relative block overflow-hidden rounded-[12px] border border-border bg-secondary/40"
         style={{ width: IMAGE_MAX_WIDTH_PX, aspectRatio: aspectRatio(attachment) }}
       >
-        {url === null ? (
+        {isBroken || url === MISSING_URL ? (
+          <span data-missing-file="" className="flex h-full w-full items-center justify-center text-[12.5px] text-muted-foreground">
+            {MISSING_FILE_NOTE}
+          </span>
+        ) : url === null ? (
           <span className="flex h-full w-full items-center justify-center text-[12.5px] text-muted-foreground">
             Đang tải ảnh…
           </span>
@@ -88,6 +97,7 @@ function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
             alt={attachment.fileName}
             draggable={false}
             loading="lazy"
+            onError={() => setIsBroken(true)}
             className="h-full w-full object-cover"
           />
         )}

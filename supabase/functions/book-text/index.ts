@@ -11,7 +11,7 @@ const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const MIRROR = "https://gutenberg.pglaf.org";
 const WIKI_API = "https://vi.wikisource.org/w/api.php";
-const UA = "AvoraReader/1.0 (https://avora.rork.app; public-domain reader)";
+const UA = "AvoraReader/1.0 (https://avorachat.com; public-domain reader)";
 const BUCKET = "public-domain-books";
 const HOURLY_LIMIT = 30;
 const CACHE_VERSION = "v1";

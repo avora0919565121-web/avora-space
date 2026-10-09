@@ -1,3 +1,4 @@
+import { APP_ORIGIN, hostRoleOf } from "@/lib/app-origin";
 import { supabase } from "@/integrations/supabase/client";
 import { isGuestMachine } from "@/lib/guest-machine";
 import { logError } from "@/lib/log";
@@ -278,7 +279,8 @@ async function call<T>(name: string, args: Record<string, unknown> = {}): Promis
   return data as T;
 }
 
-const origin = (): string => window.location.origin;
+// KHỐI 0: links in device emails always lead to the one address (the server keeps only the Rork preview).
+const origin = (): string => (hostRoleOf(window.location.hostname) === "dev" ? window.location.origin : APP_ORIGIN);
 
 export const deviceApi = {
   status: async (): Promise<DeviceStatus> => parseDeviceStatus(await call<unknown>("device_status")),

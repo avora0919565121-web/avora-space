@@ -1,10 +1,12 @@
 import { GroupCardHost } from "@/components/GroupCard";
 
+import { Suspense } from "react";
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { DeviceGuard } from "@/components/DeviceGuard";
 import { DeviceRankPrompt } from "@/components/DeviceSecurity";
+import { NewAddressNotice } from "@/components/NewAddressNotice";
 import { GuestMachineBanner } from "@/components/GuestMachineBanner";
 import { PinGate, PinReminderBanner } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
@@ -93,7 +95,10 @@ export function RequireAuth() {
         <PinReminderBanner />
         {/* A fault in one screen stays in that screen; bars and bubble live outside (A6). */}
         <RouteErrorBoundary resetKey={location.pathname}>
-          <Outlet />
+          {/* K3: a tab whose code is still arriving keeps the app frame around it. */}
+          <Suspense fallback={<LoadingOrRetry />}>
+            <Outlet />
+          </Suspense>
         </RouteErrorBoundary>
       </main>
       {inThread || inReader || isFocused ? null : <ToolBelt />}
@@ -111,6 +116,7 @@ export function RequireAuth() {
       <AppMapHost />
       <NavGestures />
       <DeviceRankPrompt />
+      <NewAddressNotice />
     </div>
     </VaultLockProvider>
     </PinGate>

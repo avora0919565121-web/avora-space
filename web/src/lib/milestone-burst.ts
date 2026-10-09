@@ -7,11 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
  * The moment a milestone closes, everyone in the room hears it — carried by a realtime
  * broadcast, not the database.
  *
- * Nothing about the burst is persisted: there is no table, no unread counter, no history.
- * It exists for the few seconds it takes to play, exactly like the confetti on the other
- * side of the screen. The broadcast payload carries only opaque ids — no titles, no names —
- * because the topic itself is not access-controlled; whoever receives it reconstructs the
- * meaning from their own caches, and a non-participant reconstructs nothing.
+ * AVORA-106 · K1 (M4): the old system-wide `avora-milestone` topic is gone. A burst rides the
+ * conversation's own private topic `conv-<id>`, which `realtime.messages` only lets members join
+ * (`private.realtime_topic_ok` → `can_act_in(…, 'read')`). Someone outside the room never
+ * receives it, so nothing has to be filtered on the device.
  */
 export type MilestoneBurstEvent = {
   conversationId: string;
@@ -36,52 +35,63 @@ function deliverLocally(event: MilestoneBurstEvent): void {
   for (const subscriber of subscribers) subscriber(event);
 }
 
-let channelPromise: Promise<RealtimeChannel> | null = null;
+/** The per-conversation topic. Shared with K3's broadcast of messages. */
+export function conversationTopic(conversationId: string): string {
+  return `conv-${conversationId}`;
+}
 
-/**
- * Joins the burst topic once per page. The broadcast handler fans out to local subscribers,
- * so both the sender's own action and the network echo arrive through the same door.
- */
-function burstChannel(): Promise<RealtimeChannel> {
-  if (channelPromise === null) {
-    channelPromise = new Promise((resolve) => {
-      // S2: private — only signed-in, allowed sessions may join (realtime.messages policy).
-      const channel = supabase.channel("avora-milestone", {
-        config: { private: true, broadcast: { self: false } },
-      });
-      channel.on("broadcast", { event: "milestone_done" }, (message) => {
-        const payload = (message as { payload?: MilestoneBurstEvent }).payload;
-        if (payload && typeof payload.conversationId === "string" && typeof payload.taskId === "string") {
-          deliverLocally(payload);
-        }
-      });
-      channel.subscribe((state) => {
-        if (state === "SUBSCRIBED") resolve(channel);
-      });
+const channels = new Map<string, Promise<RealtimeChannel>>();
+
+function burstChannel(conversationId: string): Promise<RealtimeChannel> {
+  const existing = channels.get(conversationId);
+  if (existing !== undefined) return existing;
+  const created = new Promise<RealtimeChannel>((resolve, reject) => {
+    const channel = supabase.channel(`${conversationTopic(conversationId)}`, {
+      config: { private: true, broadcast: { self: false } },
     });
-  }
-  return channelPromise;
+    channel.on("broadcast", { event: "milestone_done" }, (message) => {
+      const payload = (message as { payload?: MilestoneBurstEvent }).payload;
+      if (payload && payload.conversationId === conversationId && typeof payload.taskId === "string") {
+        deliverLocally(payload);
+      }
+    });
+    channel.subscribe((state) => {
+      if (state === "SUBSCRIBED") resolve(channel);
+      if (state === "CHANNEL_ERROR" || state === "TIMED_OUT") {
+        channels.delete(conversationId);
+        reject(new Error(`milestone channel ${state}`));
+      }
+    });
+  });
+  channels.set(conversationId, created);
+  return created;
 }
 
 /**
  * Announces a closed milestone: plays locally for the person who just closed it, and
- * broadcasts to everyone else in the room. Fire-and-forget — a failed broadcast must never
- * look like a failed completion.
+ * broadcasts to the room. Fire-and-forget — a failed broadcast must never look like a failed completion.
  */
 export function fireMilestoneBurst(event: MilestoneBurstEvent): void {
   deliverLocally(event);
-  void burstChannel()
-    .then((channel) =>
-      channel.send({ type: "broadcast", event: "milestone_done", payload: event }),
-    )
+  void burstChannel(event.conversationId)
+    .then((channel) => channel.send({ type: "broadcast", event: "milestone_done", payload: event }))
     .catch((error: unknown) => {
       logError("milestone-burst", error);
     });
 }
 
-/** Prepares the receive path. Called once the signed-in app mounts its burst layer. */
-export function warmMilestoneChannel(): void {
-  void burstChannel().catch((error: unknown) => {
-    logError("milestone-burst", error);
-  });
+/**
+ * Listens on the rooms the viewer is in (group / project rooms only — milestones live there).
+ * Rooms that left the list are closed, so a removed member stops hearing at once.
+ */
+export function syncMilestoneChannels(conversationIds: readonly string[]): void {
+  const wanted = new Set(conversationIds.slice(0, 50));
+  for (const [id, promise] of channels) {
+    if (wanted.has(id)) continue;
+    channels.delete(id);
+    void promise.then((channel) => supabase.removeChannel(channel)).catch(() => undefined);
+  }
+  for (const id of wanted) {
+    void burstChannel(id).catch((error: unknown) => logError("milestone-burst", error));
+  }
 }

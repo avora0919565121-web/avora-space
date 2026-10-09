@@ -183,6 +183,8 @@ import {
   type MessageAttachment,
   type StagedAttachment,
 } from "@/lib/attachments";
+import { stagedToOutboxFile, useOutboxRunner } from "@/lib/use-outbox";
+import { readThreadCache, writeThreadCache } from "@/lib/thread-cache";
 import { useThreadAttachments } from "@/lib/use-attachments";
 import {
   cancelRecording,
@@ -233,6 +235,8 @@ import {
   lastOutgoingId,
   ORIGIN_GROUP_PARAM,
   markConversationRead,
+  markConversationDelivered,
+  mergeThreadPage,
   archiveConversation,
   markUnreadFrom,
   fetchDeliveries,
@@ -569,16 +573,66 @@ const Messages = () => {
     enabled: Boolean(conversationId) && Boolean(userId) && activeSummary === undefined,
   });
 
+  /** K3 · N2: start loading a thread before it opens (pointerdown, idle prefetch of the top 3). */
+  const prefetchThread = useCallback(
+    (id: string): void => {
+      if (!userId || queryClient.getQueryData(chatKeys.messages(id)) !== undefined) return;
+      void queryClient.prefetchQuery({ queryKey: chatKeys.messages(id), queryFn: () => fetchMessages(id, null), staleTime: 30_000 });
+    },
+    [queryClient, userId],
+  );
+
+  // K3 · N2: on Wi-Fi and idle, the first three conversations of the list are ready before a tap.
+  const topThreeKey: string = (conversationsQuery.data ?? []).slice(0, 3).map((entry) => entry.conversationId).join(",");
+  useEffect(() => {
+    if (topThreeKey === "") return;
+    const connection = (navigator as Navigator & { connection?: { type?: string; saveData?: boolean; effectiveType?: string } }).connection;
+    if (connection?.saveData === true || (connection?.type !== undefined && connection.type !== "wifi" && connection.type !== "ethernet")) return;
+    const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+    const run = (): void => topThreeKey.split(",").forEach(prefetchThread);
+    const handle = idle !== undefined ? idle(run, { timeout: 4000 }) : window.setTimeout(run, 2000);
+    return () => {
+      const cancel = (window as Window & { cancelIdleCallback?: (h: number) => void }).cancelIdleCallback;
+      if (idle !== undefined && cancel !== undefined) cancel(handle);
+      else window.clearTimeout(handle);
+    };
+  }, [topThreeKey, prefetchThread]);
+
+  // K3 · N2 bước 0: the device copy of this thread, read once per open.
+  const threadCacheRef = useRef<Map<string, ChatMessage[]>>(new Map());
+  const [, setCacheTick] = useState<number>(0);
+  useEffect(() => {
+    if (!conversationId || !userId || threadCacheRef.current.has(conversationId)) return;
+    let cancelled = false;
+    void readThreadCache(userId, conversationId).then((cached) => {
+      if (cancelled || cached === null) return;
+      threadCacheRef.current.set(conversationId, cached);
+      setCacheTick((tick) => tick + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [conversationId, userId]);
+
   const messagesQuery = useQuery<ChatMessage[]>({
     queryKey: chatKeys.messages(conversationId ?? ""),
-    queryFn: async () => {
+    queryFn: async ({ signal }) => {
       const id = conversationId as string;
       const since = windowSinceRef.current.get(id) ?? null;
       const rows = await fetchMessages(id, since);
+      if (signal.aborted) throw new Error("aborted");
       // A first page shorter than a page is the whole conversation.
       if (since === null && rows.length < MESSAGE_PAGE_SIZE) setReachedStart((current) => ({ ...current, [id]: true }));
-      return rows;
+      // K2 · C5: messages that arrived live while this page was loading (and outbox bubbles) are
+      // merged by id, never overwritten.
+      const current = queryClient.getQueryData<ChatMessage[]>(chatKeys.messages(id)) ?? [];
+      const live = current.filter((message) => message.pending === true || (rows.length > 0 && message.createdAt >= rows[rows.length - 1].createdAt));
+      const merged = mergeThreadPage(live, rows);
+      if (userId) void writeThreadCache(userId, id, merged);
+      return merged;
     },
+    // K3 · N2 bước 0: paint from this device's copy at once; the network fills in.
+    placeholderData: () => (conversationId ? threadCacheRef.current.get(conversationId) : undefined),
     enabled: Boolean(conversationId) && Boolean(userId),
     refetchInterval: isLive ? false : OFFLINE_THREAD_POLL_MS,
   });
@@ -1658,8 +1712,10 @@ const Messages = () => {
     };
   }, [conversationId]);
 
+  const newestShownIdRef = useRef<string | null>(null);
   const { mutate: markRead } = useMutation({
-    mutationFn: (id: string) => markConversationRead(id),
+    // K2 · C7: up to the newest message actually on screen, never past it.
+    mutationFn: (id: string) => markConversationRead(id, newestShownIdRef.current),
     // Read here → its notification on this device goes away (same tag, AVORA-46 · D).
     onSuccess: (_data: string | null, id: string) => void closeNotificationsFor(id),
     onError: (error: Error, id: string) => {
@@ -1700,13 +1756,25 @@ const Messages = () => {
    * Newest stored message from the peer — the only kind that can ever be unread.
    * Keying on this means replying does not fire a redundant mark-read round trip.
    */
-  const newestPeerMessageAt: string | null = useMemo(() => {
+  const newestPeerMessage: ChatMessage | null = useMemo(() => {
     for (let index = messages.length - 1; index >= 0; index -= 1) {
       const message = messages[index];
-      if (message.pending !== true && message.senderId !== userId) return message.createdAt;
+      if (message.pending !== true && message.senderId !== userId) return message;
     }
     return null;
   }, [messages, userId]);
+  const newestPeerMessageAt: string | null = newestPeerMessage?.createdAt ?? null;
+  useEffect(() => {
+    newestShownIdRef.current = newestPeerMessage?.id ?? null;
+  }, [newestPeerMessage]);
+
+  // K2 · C8: opening a 1-1 marks everything from the peer delivered in one call (ADR-028: no "Đã xem").
+  const deliveredOpenRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!conversationId || activeKind !== "direct" || deliveredOpenRef.current === conversationId) return;
+    deliveredOpenRef.current = conversationId;
+    void markConversationDelivered(conversationId);
+  }, [conversationId, activeKind]);
 
   useEffect(() => {
     if (!conversationId || !userId || !isTabVisible || newestPeerMessageAt === null) return;
@@ -1736,146 +1804,42 @@ const Messages = () => {
     isUrgent?: boolean;
   };
 
+  // AVORA-106 · K2: every message goes through the outbox on this device — the id is made here,
+  // the message waits in IndexedDB until the server has it, and resends on the network coming back.
+  const outbox = useOutboxRunner(userId);
+
   const sendMutation = useMutation({
     mutationFn: async (payload: SendPayload): Promise<void> => {
       if (!userId) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
       // AVORA-46: after a first message the push card may offer itself (it decides; never on app open).
       offerPushSoon();
+      if (payload.retryOf !== null) {
+        await outbox.retry(payload.retryOf);
+        return;
+      }
       // Read off the finished text rather than tracked as chips: deleting part of a name
       // un-names that person, which is what someone editing the sentence expects.
       const mentioned = extractMentionedIds(payload.content, mentionable);
       const refs = refsInText(payload.content, chosenRefsRef.current).map((ref) => ({ type: ref.kind, id: ref.id }));
       chosenRefsRef.current = [];
-
-      if (payload.files.length === 0) {
-        await sendMessage(
-          payload.conversationId,
-          userId,
-          payload.content,
-          payload.replyToMessageId,
-          mentioned,
-          originGroupId,
-          null,
-          payload.isUrgent === true,
-          refs,
-        );
-        if (payload.isUrgent === true) void queryClient.invalidateQueries({ queryKey: ["chat", "urgent", payload.conversationId] });
-        return;
-      }
-
-      // Files go up first, then the message and its pointers land together in one statement.
-      // A message that mentions a file nobody uploaded would be worse than a failed send.
-      setIsUploading(true);
-      try {
-        const uploaded = [];
-        for (const item of payload.files) {
-          uploaded.push(await uploadStagedAttachment(payload.conversationId, item));
-        }
-        await sendMessageWithAttachments({
-          conversationId: payload.conversationId,
-          content: payload.content,
-          replyToMessageId: payload.replyToMessageId,
-          mentionedUserIds: mentioned,
-          originGroupId,
-          attachments: uploaded,
-        });
-      } finally {
-        setIsUploading(false);
-      }
-    },
-    onMutate: async (payload: SendPayload) => {
-      if (!userId) return { previous: undefined, createdAt: new Date().toISOString() };
-      if (payload.retryOf !== null) {
-        const retryId = payload.retryOf;
-        setFailedSends((current) =>
-          current.map((send) => (send.localId === retryId ? { ...send, isRetrying: true } : send)),
-        );
-        return { previous: undefined, createdAt: new Date().toISOString() };
-      }
-      const key = chatKeys.messages(payload.conversationId);
-      await queryClient.cancelQueries({ queryKey: key });
-      const previous = queryClient.getQueryData<ChatMessage[]>(key);
-      const createdAt = new Date().toISOString();
-      const optimistic: ChatMessage = {
-        id: `pending-${Date.now()}`,
+      await outbox.enqueue({
+        id: crypto.randomUUID(),
         conversationId: payload.conversationId,
-        senderId: userId,
         content: payload.content.trim(),
-        createdAt,
         replyToMessageId: payload.replyToMessageId,
-        // Keeps a caption-less photo from rendering as an empty bubble while it uploads.
-        attachmentCount: payload.files.length,
+        mentionedUserIds: [...mentioned],
+        refs,
+        originGroupId,
         isUrgent: payload.isUrgent === true,
-        pending: true,
-      };
-      queryClient.setQueryData<ChatMessage[]>(key, [...(previous ?? []), optimistic]);
-      return { previous, createdAt };
-    },
-    onError: (error: Error, payload, context) => {
-      // Take the in-flight bubble back out of the cache — but not the message: it stays on
-      // screen, in the same place, marked "Gửi lỗi", until it is sent again.
-      if (context?.previous) {
-        queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(payload.conversationId), context.previous);
-      }
-      // Refused because of a block (AVORA-37): no failed bubble and no toast. The words and
-      // files go back into the composer untouched, with one neutral line beneath it.
-      if (error.message === BLOCKED_SEND_NOTICE) {
-        if (payload.retryOf !== null) {
-          const retryId = payload.retryOf;
-          setFailedSends((current) =>
-            current.map((send) => (send.localId === retryId ? { ...send, isRetrying: false } : send)),
-          );
-        } else {
-          if (payload.conversationId === activeConversationRef.current) {
-            setDraft((current) => (current.trim() === "" ? payload.content : current));
-            setStaged((current) => (current.length === 0 ? payload.files : current));
-          } else if (readDraft(userId, payload.conversationId).trim() === "") {
-            // Refused after the person moved on: the words wait in their own thread's draft.
-            writeDraft(userId, payload.conversationId, payload.content);
-          }
-        }
-        setRefusedSendConversationId(payload.conversationId);
-        return;
-      }
-      if (payload.retryOf !== null) {
-        const retryId = payload.retryOf;
-        setFailedSends((current) =>
-          current.map((send) => (send.localId === retryId ? { ...send, isRetrying: false } : send)),
-        );
-      } else if (userId) {
-        const localId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-        if (payload.files.length > 0) failedFilesRef.current.set(localId, payload.files);
-        setFailedSends((current) => [
-          ...current,
-          {
-            localId,
-            conversationId: payload.conversationId,
-            senderId: userId,
-            content: payload.content.trim(),
-            createdAt: context?.createdAt ?? new Date().toISOString(),
-            replyToMessageId: payload.replyToMessageId,
-            attachmentCount: payload.files.length,
-          },
-        ]);
-      }
-      // Said once, quietly; the bubble itself carries the state from here on.
-      toast.error(error.message || "Tin chưa gửi được. Chạm vào tin để gửi lại.");
-    },
-    onSuccess: (_result, payload) => {
-      setRefusedSendConversationId(null);
-      if (payload.retryOf !== null) {
-        const retryId = payload.retryOf;
-        failedFilesRef.current.delete(retryId);
-        setFailedSends((current) => current.filter((send) => send.localId !== retryId));
-      }
-      payload.files.forEach((item) => {
-        if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
+        files: payload.files.map(stagedToOutboxFile),
       });
+      if (payload.isUrgent === true) void queryClient.invalidateQueries({ queryKey: ["chat", "urgent", payload.conversationId] });
     },
-    onSettled: (_result, _error, payload) => {
-      void queryClient.invalidateQueries({ queryKey: chatKeys.messages(payload.conversationId) });
-      void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(payload.conversationId) });
-      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+    onSuccess: () => {
+      setRefusedSendConversationId(null);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Tin chưa gửi được. Chạm vào tin để gửi lại.");
     },
   });
 
@@ -1945,30 +1909,21 @@ const Messages = () => {
     [sendMutation, clearTyping, staged.length, conversationId, replyTarget, setDraft],
   );
 
-  /** Tapping a failed bubble sends the very same message again, from where it sits. */
+  /** Tapping a failed bubble sends the very same message again (same id), from where it sits. */
   const retryFailedSend = useCallback(
     (localId: string): void => {
-      const send = failedSends.find((entry) => entry.localId === localId);
-      if (send === undefined || send.isRetrying === true || sendMutation.isPending) return;
-      sendMutation.mutate({
-        conversationId: send.conversationId,
-        content: send.content,
-        replyToMessageId: send.replyToMessageId,
-        files: failedFilesRef.current.get(localId) ?? [],
-        retryOf: localId,
-      });
+      void outbox.retry(localId);
     },
-    [failedSends, sendMutation],
+    [outbox],
   );
 
   /** Letting a failed message go. Only ever offered on the person's own unsent bubble. */
-  const discardFailedSend = useCallback((localId: string): void => {
-    failedFilesRef.current.get(localId)?.forEach((item) => {
-      if (item.previewUrl !== null) URL.revokeObjectURL(item.previewUrl);
-    });
-    failedFilesRef.current.delete(localId);
-    setFailedSends((current) => current.filter((send) => send.localId !== localId));
-  }, []);
+  const discardFailedSend = useCallback(
+    (localId: string): void => {
+      void outbox.drop(localId);
+    },
+    [outbox],
+  );
 
   /**
    * Sends one ordinary message that did not come from the composer.
@@ -2897,6 +2852,8 @@ const Messages = () => {
                     <Link
                       to={`/tin-nhan/${item.conversationId}`}
                       aria-current={isActive ? "page" : undefined}
+                      // K3 · N2: pressing the row starts the fetch; lifting the finger only shows it.
+                      onPointerDown={() => prefetchThread(item.conversationId)}
                       data-conversation-row=""
                       className={cn(
                         // AVORA-93 · 3.1: phone rows have no card — a hairline between them, ≥ 8 fit on 390×844.
@@ -3837,7 +3794,7 @@ const Messages = () => {
                                         onClick={
                                           message.failed === true
                                             ? () => {
-                                                const localId = failedSendIdOf(message);
+                                                const localId = failedSendIdOf(message) ?? (message.outboxState !== undefined ? message.id : null);
                                                 if (localId !== null) retryFailedSend(localId);
                                               }
                                             : undefined
@@ -3984,19 +3941,19 @@ const Messages = () => {
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const localId = failedSendIdOf(message);
+                                            const localId = failedSendIdOf(message) ?? (message.outboxState !== undefined ? message.id : null);
                                             if (localId !== null) retryFailedSend(localId);
                                           }}
                                           aria-label="Gửi lỗi. Chạm để gửi lại tin này"
                                           className="press inline-flex min-h-8 items-center gap-1 rounded-[6px] px-1 text-muted-foreground hover:text-foreground"
                                         >
                                           <CircleAlert className="h-3.5 w-3.5 text-task-due-soon" strokeWidth={1.9} aria-hidden="true" />
-                                          Gửi lỗi · Chạm để gửi lại
+                                          Chưa gửi được · Gửi lại
                                         </button>
                                         <button
                                           type="button"
                                           onClick={() => {
-                                            const localId = failedSendIdOf(message);
+                                            const localId = failedSendIdOf(message) ?? (message.outboxState !== undefined ? message.id : null);
                                             if (localId !== null) discardFailedSend(localId);
                                           }}
                                           aria-label="Bỏ tin chưa gửi được này"
@@ -4006,7 +3963,7 @@ const Messages = () => {
                                         </button>
                                       </>
                                     ) : message.pending ? (
-                                      "Chờ gửi…"
+                                      message.outboxState === "waiting_network" ? "Đang chờ mạng" : "Chờ gửi…"
                                     ) : (
                                       formatClock(message.createdAt)
                                     )}

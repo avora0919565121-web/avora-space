@@ -1,5 +1,5 @@
 import { Info, KeyRound, Lock, MoreHorizontal, Plus } from "lucide-react";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 
 import { InlineBack } from "@/components/nav/InlineBack";
@@ -93,7 +93,9 @@ const Vault = () => {
     body = (
       <>
         <VaultBar />
-        <Outlet />
+        <Suspense fallback={null}>
+          <Outlet />
+        </Suspense>
       </>
     );
   }

@@ -1,3 +1,4 @@
+import { APP_ORIGIN } from "@/lib/app-origin";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Ban,
@@ -332,7 +333,7 @@ export function GroupInfoSheet({
   });
   const canManageInvite: boolean = Boolean(myRole) && canManageGroupInvite(myRole as GroupRole);
   const inviteLink: string | null = activeInvite
-    ? buildInviteLink(window.location.origin, activeInvite.token)
+    ? buildInviteLink(APP_ORIGIN, activeInvite.token)
     : null;
 
   const invalidateGroup = (): void => {

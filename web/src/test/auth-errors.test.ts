@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
+import { WRONG_PASSWORD_MESSAGE, isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
 
 /**
  * Every string below was captured from the live Supabase project, not invented — so these
@@ -8,7 +8,7 @@ import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from 
  */
 describe("toVietnameseError", () => {
   it("explains a wrong password", () => {
-    expect(toVietnameseError("Invalid login credentials")).toBe("Email hoặc mật khẩu không đúng.");
+    expect(toVietnameseError("Invalid login credentials")).toBe(WRONG_PASSWORD_MESSAGE);
   });
 
   it("explains an account that has not confirmed its email", () => {

@@ -2094,6 +2094,19 @@ Luật: không màn nào được "mất" dòng thứ 1.001. Đọc danh sách =
 - Chọn ngày / giờ trong một form đang mở (Sheet, hộp thoại) chỉ đóng **đúng** bảng lịch. Form bên dưới không đóng, không mở lại, địa chỉ không đổi.
 - Một lớp nổi = một bước lịch sử, dù nó đổi dạng (popover ↔ hộp giữa màn) lúc đang mở.
 
+## Một địa chỉ (KHỐI 0 · ADR-066)
+- Địa chỉ duy nhất: `https://avorachat.com` (`lib/app-origin.ts` · `private.app_origin_primary()`). Mọi email / link / QR đều dùng địa chỉ này.
+- `www.avorachat.com` → chuyển ngay sang địa chỉ chính, giữ đường dẫn. Địa chỉ cũ (`avoraspace.rork.app`, `myavora.rork.app`) → màn `Avora đã chuyển sang avorachat.com · Mở địa chỉ mới`: logo, một câu giải thích, một nút; không đăng nhập, không chạy app.
+- Lần đầu ở địa chỉ mới mà tài khoản đã có máy chính ở nơi khác: tấm `Đây là địa chỉ mới của Avora` → `Đặt máy chính` (luồng 67). Không tự chuyển bậc.
+- Lỗi đăng nhập: `Sai email hoặc mật khẩu. Nếu trình duyệt tự điền, hãy gõ lại — mật khẩu đã lưu có thể là mật khẩu cũ.`; máy bị khoá (sau đăng nhập): `Máy này đang bị chặn bởi Khoá thiết bị`.
+
+## Kết nối · an toàn · chính xác · nhanh (AVORA-106 · K1–K3 · ADR-067…069)
+- **Không còn trong cuộc = không có gì.** Rời / bị mời ra: biến khỏi danh sách trên mọi máy ngay, một dòng `Bạn không còn trong nhóm <tên>`; tin, tệp, cảm xúc, ghim, realtime, push của cuộc đó đều dừng. Việc đang được giao trả về người giao, kèm dòng hệ thống trong nhóm.
+- **Gửi:** bong bóng hiện ngay (mờ 70%), chữ nhỏ dưới bong bóng: `Chờ gửi…` → giờ gửi; mất mạng: `Đang chờ mạng`; hỏng hẳn: `Chưa gửi được · Gửi lại` + `Bỏ`. Gửi liên tiếp không phải chờ. Tải lại trang vẫn còn tin chờ.
+- **Giới hạn:** `Bạn gửi hơi nhanh — đợi vài giây nhé` (5 tin / giây, 30 / phút); tệp bị cấm `Avora không gửi loại tệp này (tệp chạy được hoặc trang web).`; tệp quá cỡ `Tệp quá lớn: ảnh / tài liệu tối đa 25 MB, video tối đa 50 MB.`; `Video tối đa 3 phút.`; `Một tin gửi tối đa 100 MB tệp.`; `Một tin nhắc tối đa 20 người.`
+- **Tệp mất:** `Tệp không còn` thay cho `Đang tải ảnh…`.
+- **Mở nhanh:** cuộc đã mở trên máy vẽ ngay từ bản trên máy; ấn xuống một dòng là bắt đầu tải; tab khác Kết nối / Avora Space tải mã khi mở (khung app giữ nguyên, chỉ vùng nội dung hiện vòng tải ≤ 10 giây rồi `Chưa tải được · Thử lại`).
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

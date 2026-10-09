@@ -79,7 +79,7 @@ export function BlockScreen({ status }: { status: DeviceStatus }) {
   };
 
   const Icon = status.reason === "locked" ? ShieldAlert : status.reason === "lost" ? Smartphone : ShieldOff;
-  const title = status.reason === "locked" ? "Tài khoản đang khoá thiết bị" : status.reason === "lost" ? "Máy này đã được báo mất" : "Máy này đã được gỡ";
+  const title = status.reason === "locked" ? "Máy này đang bị chặn bởi Khoá thiết bị" : status.reason === "lost" ? "Máy này đã được báo mất" : "Máy này đã được gỡ";
   const body =
     status.reason === "locked"
       ? "Tài khoản đang được khoá thiết bị. Hãy tắt khoá trên điện thoại hoặc máy tính chính của bạn."

@@ -1,6 +1,4 @@
 import { Camera, Copy, QrCode, X } from "lucide-react";
-import jsQR from "jsqr";
-import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { usePinStatus } from "@/components/PinGate";
@@ -88,7 +86,11 @@ function MyCode({ pin }: { pin: string | null }) {
   useEffect(() => {
     if (pin === null) return;
     let isActive = true;
-    QRCode.toDataURL(connectLink(pin), { margin: 1, width: 480, color: { dark: "#1f1a16", light: "#ffffff" } })
+    // K3: the QR libraries load only when this dialog opens.
+    import("qrcode")
+      .then(({ default: QRCode }) =>
+        QRCode.toDataURL(connectLink(pin), { margin: 1, width: 480, color: { dark: "#1f1a16", light: "#ffffff" } }),
+      )
       .then((url) => {
         if (isActive) setDataUrl(url);
       })
@@ -147,6 +149,10 @@ function Scanner({ onScanned }: { onScanned: (pin: string) => void }) {
     let stream: MediaStream | null = null;
     let frame = 0;
     let isActive = true;
+    let jsQR: typeof import("jsqr").default | null = null;
+    void import("jsqr").then((module) => {
+      jsQR = module.default;
+    });
 
     const tick = (): void => {
       if (!isActive || doneRef.current) return;
@@ -159,7 +165,7 @@ function Scanner({ onScanned }: { onScanned: (pin: string) => void }) {
         if (context) {
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
           const image = context.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(image.data, image.width, image.height, { inversionAttempts: "dontInvert" });
+          const code = jsQR === null ? null : jsQR(image.data, image.width, image.height, { inversionAttempts: "dontInvert" });
           if (code !== null && code.data.length > 0) {
             const pin = pinFromScan(code.data);
             if (pin !== null) {

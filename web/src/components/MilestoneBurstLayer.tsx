@@ -4,7 +4,7 @@ import { toast } from "sonner";
 
 import { celebrate } from "@/lib/confetti";
 import { currentRhythm, motionFor } from "@/lib/motion";
-import { onMilestoneBurst, warmMilestoneChannel, type MilestoneBurstEvent } from "@/lib/milestone-burst";
+import { onMilestoneBurst, syncMilestoneChannels, type MilestoneBurstEvent } from "@/lib/milestone-burst";
 import { useConversations } from "@/lib/use-conversations";
 import { useTasks } from "@/lib/use-tasks";
 import { useAuth } from "@/lib/auth";
@@ -20,9 +20,8 @@ type BurstView = {
 /**
  * The receiving end of a closed milestone: a brief overlay and a toast, then nothing.
  *
- * The broadcast topic itself is not access-controlled, so participation is re-checked here
- * against the viewer's own caches — a burst for a room this person is not in is dropped
- * before anything renders. The task's title is read from the task cache; if it has not
+ * Bursts arrive on each room's private `conv-<id>` topic (members only, K1 · M4); the list
+ * check below stays as a second guard. The task's title is read from the task cache; if it has not
  * arrived yet the burst still plays, unnamed rather than wrong.
  */
 export function MilestoneBurstLayer() {
@@ -34,9 +33,17 @@ export function MilestoneBurstLayer() {
   const clearRef = useRef<number | null>(null);
   const fadeRef = useRef<number | null>(null);
 
+  const roomKey: string = (conversations ?? [])
+    .filter((entry) => entry.kind === "group")
+    .map((entry) => entry.conversationId)
+    .join(",");
   useEffect(() => {
     if (!user?.id) return;
-    warmMilestoneChannel();
+    syncMilestoneChannels(roomKey === "" ? [] : roomKey.split(","));
+  }, [user?.id, roomKey]);
+
+  useEffect(() => {
+    if (!user?.id) return;
 
     return onMilestoneBurst((event: MilestoneBurstEvent) => {
       if (event.actorId === user.id) return;

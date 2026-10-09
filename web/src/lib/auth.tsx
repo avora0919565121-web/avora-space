@@ -5,6 +5,9 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 
 import { supabase } from "@/integrations/supabase/client";
 import { clearAllDrafts } from "@/lib/chat-drafts";
+import { APP_ORIGIN } from "@/lib/app-origin";
+import { outboxStore } from "@/lib/outbox";
+import { clearThreadCache } from "@/lib/thread-cache";
 import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { isSafeReturnPath } from "@/lib/return-to";
@@ -64,7 +67,7 @@ const RECOVERY_FLAG_KEY = "avora.password-recovery";
  * AVORA-53 · 1.2 — the confirmation email lands back on the page that was waiting (an invite
  * link), not on the bare origin. Only a safe in-app path is ever appended.
  */
-export function confirmationRedirect(redirectPath: string | undefined, origin: string = window.location.origin): string {
+export function confirmationRedirect(redirectPath: string | undefined, origin: string = APP_ORIGIN): string {
   if (redirectPath === undefined || !isSafeReturnPath(redirectPath) || redirectPath.startsWith("/dang-nhap")) return origin;
   return `${origin}${redirectPath}`;
 }
@@ -306,6 +309,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.auth.signOut();
     // Half-typed messages stay on this device only while signed in (Đợt gộp 2 · A8).
     clearAllDrafts();
+    // AVORA-106 · K2/K3: the outbox and the thread copies belong to this account only.
+    await Promise.all([outboxStore.clear(), clearThreadCache()]).catch(() => undefined);
     // AVORA-77 · G: where each tab stood is forgotten on sign-out.
     clearTabMemory();
     writeRecoveryFlag(false);
@@ -321,7 +326,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return { ok: false, message: (error as Error).message };
     }
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
-      redirectTo: `${window.location.origin}/dat-lai-mat-khau`,
+      redirectTo: `${APP_ORIGIN}/dat-lai-mat-khau`,
       captchaToken,
     });
 

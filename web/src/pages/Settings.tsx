@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
 
 import { InlineBack } from "@/components/nav/InlineBack";
@@ -14,7 +15,9 @@ const Settings = () => (
   <div className="flex min-h-0 flex-1 flex-col">
     <SectionTabs section="Cài đặt" tabs={SETTINGS_TABS} />
     <InlineBack className="mx-auto w-full max-w-2xl px-6 md:px-10" />
-    <Outlet />
+    <Suspense fallback={null}>
+          <Outlet />
+        </Suspense>
   </div>
 );
 

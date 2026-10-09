@@ -1,7 +1,9 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
 import { LegacyRedirect, ShelfRedirect } from "@/components/LegacyRedirect";
+import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 import { LookSync } from "@/components/LookSync";
 import { KeyboardSync } from "@/components/KeyboardSync";
 import { NotchSync } from "@/components/NotchSync";
@@ -13,44 +15,72 @@ import { AuthProvider } from "@/lib/auth";
 import { HOME_ROUTE } from "@/lib/navigation";
 import { ChatRealtimeProvider } from "@/lib/realtime";
 
-import AcceptContactInvite from "./pages/AcceptContactInvite";
-import ArgonBench from "./pages/ArgonBench";
-import PublicPolicy from "./pages/PublicPolicy";
-import SettingsPolicy from "./pages/SettingsPolicy";
-import DeviceConfirm from "./pages/DeviceConfirm";
+const AcceptContactInvite = lazy(() => import("./pages/AcceptContactInvite"));
+const ArgonBench = lazy(() => import("./pages/ArgonBench"));
+const PublicPolicy = lazy(() => import("./pages/PublicPolicy"));
+const SettingsPolicy = lazy(() => import("./pages/SettingsPolicy"));
+const DeviceConfirm = lazy(() => import("./pages/DeviceConfirm"));
 import Auth from "./pages/Auth";
-import ThinkHub from "./pages/ThinkHub";
-import ConnectByPin from "./pages/ConnectByPin";
-import ContactNameRepair from "./pages/ContactNameRepair";
-import ContactChannelReview from "./pages/ContactChannelReview";
-import ContactDetail from "./pages/ContactDetail";
-import Contacts from "./pages/Contacts";
+const ThinkHub = lazy(() => import("./pages/ThinkHub"));
+const ConnectByPin = lazy(() => import("./pages/ConnectByPin"));
+const ContactNameRepair = lazy(() => import("./pages/ContactNameRepair"));
+const ContactChannelReview = lazy(() => import("./pages/ContactChannelReview"));
+const ContactDetail = lazy(() => import("./pages/ContactDetail"));
+const Contacts = lazy(() => import("./pages/Contacts"));
 import Dashboard from "./pages/Dashboard";
-import Finance from "./pages/Finance";
-import FinanceAccounts from "./pages/FinanceAccounts";
-import FinanceReports from "./pages/FinanceReports";
-import FinanceTransactions from "./pages/FinanceTransactions";
-import JoinGroup from "./pages/JoinGroup";
-import Messages from "./pages/Messages";
-import BookReader from "./pages/BookReader";
-import NotFound from "./pages/NotFound";
-import Profile from "./pages/Profile";
-import ProjectDetail from "./pages/ProjectDetail";
-import ResetPassword from "./pages/ResetPassword";
-import Settings from "./pages/Settings";
-import SettingsAssistant from "./pages/SettingsAssistant";
-import SettingsGuide from "./pages/SettingsGuide";
-import SettingsNotifications from "./pages/SettingsNotifications";
-import SettingsStorage from "./pages/SettingsStorage";
-import SettingsPreferences from "./pages/SettingsPreferences";
-import Tasks from "./pages/Tasks";
-import Vault from "./pages/Vault";
-import VaultAssets from "./pages/VaultAssets";
-import VaultCertificates from "./pages/VaultCertificates";
-import VaultDocuments from "./pages/VaultDocuments";
-import VaultPasswords from "./pages/VaultPasswords";
+const Finance = lazy(() => import("./pages/Finance"));
+const FinanceAccounts = lazy(() => import("./pages/FinanceAccounts"));
+const FinanceReports = lazy(() => import("./pages/FinanceReports"));
+const FinanceTransactions = lazy(() => import("./pages/FinanceTransactions"));
+const JoinGroup = lazy(() => import("./pages/JoinGroup"));
+const loadMessages = () => import("./pages/Messages");
+const Messages = lazy(loadMessages);
 
-const queryClient = new QueryClient();
+/**
+ * K3 · 1: Kết nối + the chat thread are one bundle, fetched as soon as the first screen is up
+ * and the device is idle — so opening Kết nối (or a conversation from a notification) is instant.
+ */
+if (typeof window !== "undefined") {
+  const warm = (): void => void loadMessages().catch(() => undefined);
+  const idle = (window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number }).requestIdleCallback;
+  if (idle !== undefined) idle(warm, { timeout: 3000 });
+  else window.setTimeout(warm, 1500);
+}
+const BookReader = lazy(() => import("./pages/BookReader"));
+import NotFound from "./pages/NotFound";
+const Profile = lazy(() => import("./pages/Profile"));
+const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
+const ResetPassword = lazy(() => import("./pages/ResetPassword"));
+const Settings = lazy(() => import("./pages/Settings"));
+const SettingsAssistant = lazy(() => import("./pages/SettingsAssistant"));
+const SettingsGuide = lazy(() => import("./pages/SettingsGuide"));
+const SettingsNotifications = lazy(() => import("./pages/SettingsNotifications"));
+const SettingsStorage = lazy(() => import("./pages/SettingsStorage"));
+const SettingsPreferences = lazy(() => import("./pages/SettingsPreferences"));
+const Tasks = lazy(() => import("./pages/Tasks"));
+const Vault = lazy(() => import("./pages/Vault"));
+const VaultAssets = lazy(() => import("./pages/VaultAssets"));
+const VaultCertificates = lazy(() => import("./pages/VaultCertificates"));
+const VaultDocuments = lazy(() => import("./pages/VaultDocuments"));
+const VaultPasswords = lazy(() => import("./pages/VaultPasswords"));
+
+// K3 · N8: lists stay fresh for 30 s and heavy reads do not refetch on every tab focus.
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, refetchOnWindowFocus: false } },
+});
+
+/**
+ * K3 · 1: the first bundle is the app frame + Avora Space + Kết nối (eager above). Every other tab
+ * loads when opened; the chat thread is part of Kết nối. While a tab's code arrives, the same calm
+ * loader as everywhere (never a blank screen, never a spinner forever).
+ */
+function RouteLoading() {
+  return (
+    <div className="paper flex min-h-[100dvh] flex-col">
+      <LoadingOrRetry />
+    </div>
+  );
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -63,6 +93,7 @@ const App = () => (
           <KeyboardSync />
           <NotchSync />
           <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
+            <Suspense fallback={<RouteLoading />}>
             <Routes>
               <Route path="/" element={<Navigate to={HOME_ROUTE} replace />} />
               <Route path="/dang-nhap" element={<Auth />} />
@@ -127,6 +158,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </Suspense>
           </BrowserRouter>
         </TooltipProvider>
       </ChatRealtimeProvider>

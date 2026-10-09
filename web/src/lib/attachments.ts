@@ -107,8 +107,13 @@ function fail(code: string | undefined, message: string): Error {
     return new Error("Bạn không có quyền trong cuộc trò chuyện này.");
   if (normalized.includes("messages_content_not_blank"))
     return new Error("Tin nhắn không được để trống.");
-  if (normalized.includes("exceeded the maximum allowed size") || normalized.includes("payload too large"))
-    return new Error("Tệp vượt quá 25MB.");
+  if (normalized.includes("exceeded the maximum allowed size") || normalized.includes("payload too large") || normalized.includes("avora_attachment_too_large"))
+    return new Error("Tệp quá lớn: ảnh / tài liệu tối đa 25 MB, video tối đa 50 MB.");
+  if (normalized.includes("avora_attachment_total_too_large")) return new Error("Một tin gửi tối đa 100 MB tệp.");
+  if (normalized.includes("avora_video_too_long")) return new Error("Video tối đa 3 phút.");
+  if (normalized.includes("avora_attachment_type_blocked") || normalized.includes("row-level security policy") && normalized.includes("objects"))
+    return new Error("Avora không gửi loại tệp này (tệp chạy được hoặc trang web).");
+  if (normalized.includes("avora_rate_limited")) return new Error("Bạn gửi hơi nhanh — đợi vài giây nhé");
   if (code === "42501" || normalized.includes("permission denied") || normalized.includes("row-level"))
     return new Error("Bạn không có quyền gửi tệp ở đây.");
   if (normalized.includes("failed to fetch"))
@@ -330,7 +335,8 @@ export async function uploadStagedAttachment(
 ): Promise<AttachmentInput> {
   const path = attachmentStoragePath(conversationId, staged.fileName);
   const { error } = await supabase.storage.from(ATTACHMENT_BUCKET).upload(path, staged.blob, {
-    cacheControl: "3600",
+    // K3 · N7: the path holds a fresh uuid and never changes, so the bytes may be cached a year.
+    cacheControl: "31536000",
     upsert: false,
     contentType: staged.mimeType === "" ? "application/octet-stream" : staged.mimeType,
   });
@@ -392,6 +398,9 @@ export function toMessageAttachment(row: AttachmentRow): MessageAttachment {
 
 const ATTACHMENT_COLUMNS =
   "id, message_id, conversation_id, attached_by, kind, storage_path, file_name, mime_type, byte_size, width, height, duration_seconds, permission, origin_message_id, created_at, capture_source";
+
+/** K2 · C9: stands in for a link that could not be made because the file no longer exists. */
+export const MISSING_URL = "about:blank#avora-missing-file";
 
 /** Every file in one thread. RLS returns nothing for a conversation you are not in. */
 export async function fetchThreadAttachments(conversationId: string): Promise<MessageAttachment[]> {
@@ -463,17 +472,21 @@ export async function sendMessageWithAttachments(params: {
   mentionedUserIds?: readonly string[];
   originGroupId?: string | null;
   attachments: readonly AttachmentInput[];
+  /** K2 · C1: device-made id, kept across retries. */
+  messageId?: string;
 }): Promise<{ id: string; createdAt: string }> {
-  const { data, error } = await supabase.rpc("send_message_with_attachments", {
-    p_conversation_id: params.conversationId,
+  // AVORA-106 · K1: the one send RPC. Size / type are read from storage by the server.
+  const { data, error } = await supabase.rpc("send_message" as never, {
+    p_id: params.messageId ?? crypto.randomUUID(),
+    p_conversation: params.conversationId,
     p_content: params.content.trim(),
-    p_reply_to_message_id: params.replyToMessageId ?? undefined,
-    p_mentioned_user_ids: [...(params.mentionedUserIds ?? [])],
-    p_origin_group_id: params.originGroupId ?? undefined,
-    p_attachments: params.attachments as unknown as never,
-  });
+    p_reply_to: params.replyToMessageId ?? null,
+    p_attachments: params.attachments,
+    p_mentioned: [...(params.mentionedUserIds ?? [])],
+    p_origin_group: params.originGroupId ?? null,
+  } as never);
 
-  if (error) throw fail(error.code, error.message);
+  if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);
   const row = data as unknown as { id: string; created_at: string };
   return { id: row.id, createdAt: row.created_at };
 }

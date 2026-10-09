@@ -4,10 +4,17 @@
  * The matched fragments are the exact wording GoTrue returns, captured from the live
  * project rather than guessed — see the sibling tests for the recorded responses.
  */
+/**
+ * KHỐI 0 — a wrong password must never read like a blocked device (that one is DeviceGuard's
+ * "Máy này đang bị chặn bởi Khoá thiết bị", shown after sign-in). Each address keeps its own saved
+ * passwords in the browser, so an autofilled one may be an old one.
+ */
+export const WRONG_PASSWORD_MESSAGE = "Sai email hoặc mật khẩu. Nếu trình duyệt tự điền, hãy gõ lại — mật khẩu đã lưu có thể là mật khẩu cũ.";
+
 export function toVietnameseError(message: string): string {
   const normalized = message.toLowerCase();
 
-  if (normalized.includes("invalid login credentials")) return "Email hoặc mật khẩu không đúng.";
+  if (normalized.includes("invalid login credentials")) return WRONG_PASSWORD_MESSAGE;
   if (normalized.includes("email not confirmed")) return "Email chưa được xác nhận. Kiểm tra hộp thư của bạn.";
   if (normalized.includes("user already registered") || normalized.includes("already been registered"))
     return "Email này đã được đăng ký. Hãy đăng nhập.";

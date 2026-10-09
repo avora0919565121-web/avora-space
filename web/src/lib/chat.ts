@@ -46,6 +46,7 @@ export {
   lastOutgoingId,
   matchesConversationQuery,
   mergeIncomingMessage,
+  mergeThreadPage,
   messageBodyText,
   MESSAGE_EDIT_WINDOW_MS,
   MESSAGE_TABS,
@@ -96,6 +97,9 @@ export function toVietnameseChatError(code: string | undefined, message: string)
   const normalized = message.toLowerCase();
   if (isContactUnavailable(normalized)) return BLOCKED_SEND_NOTICE;
   if (normalized.includes("avora_not_connected")) return NOT_CONNECTED_NOTICE;
+  if (normalized.includes("avora_rate_limited")) return "Bạn gửi hơi nhanh — đợi vài giây nhé";
+  if (normalized.includes("avora_mentions_too_many")) return "Một tin nhắc tối đa 20 người.";
+  if (normalized.includes("avora_reply_out_of_scope")) return "Tin được trả lời không thuộc cuộc này.";
   if (normalized.includes("avora_verification_text_only")) return "Chỉ gửi được chữ khi chưa kết bạn.";
   if (normalized.includes("avora_verification_quota")) return VERIFICATION_QUOTA_NOTICE;
   if (normalized.includes("avora_group_min_three"))
@@ -175,10 +179,20 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
  * Moves the caller's read watermark to the newest message in the thread.
  * The server decides the watermark, so this can never mark unseen messages read.
  */
-export async function markConversationRead(conversationId: string): Promise<string | null> {
-  const { data, error } = await supabase.rpc("mark_conversation_read", { p_conversation_id: conversationId });
-  if (error) throw fail(error.code, error.message);
-  return data ?? null;
+export async function markConversationRead(conversationId: string, upToMessageId: string | null = null): Promise<string | null> {
+  // K2 · C7: only up to the last message this screen actually showed.
+  const { data, error } = await supabase.rpc("mark_conversation_read" as never, {
+    p_conversation_id: conversationId,
+    p_up_to: upToMessageId,
+  } as never);
+  if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);
+  return (data as unknown as string | null) ?? null;
+}
+
+/** K2 · C8: on opening a 1-1, everything from the peer is marked delivered in one call (no "Đã xem"). */
+export async function markConversationDelivered(conversationId: string): Promise<void> {
+  const { error } = await supabase.rpc("mark_conversation_delivered" as never, { p_conversation: conversationId } as never);
+  if (error) logError("chat", { code: error.code, message: error.message.slice(0, 80) });
 }
 
 /**
@@ -302,7 +316,8 @@ const MESSAGE_COLUMNS =
 /** How many messages one page holds (Đợt gộp 2 · A7). */
 export const MESSAGE_PAGE_SIZE = 50;
 
-type MessageRowShape = {
+/** A `messages` row as the server sends it (select, RPC or realtime). */
+export type MessageRowShape = {
   id: string;
   conversation_id: string;
   sender_id: string;
@@ -323,7 +338,11 @@ type MessageRowShape = {
   contact_card_user_id?: string | null;
 };
 
-function toChatMessageRow(row: MessageRowShape): ChatMessage {
+/**
+ * K2 · C4: the ONE mapping from a server row to a ChatMessage — used by reads, RPC replies and the
+ * realtime stream alike, so a live message never arrives with fewer fields than a fetched one.
+ */
+export function toChatMessageRow(row: MessageRowShape): ChatMessage {
   return {
     id: row.id,
     conversationId: row.conversation_id,
@@ -389,20 +408,24 @@ export async function fetchTrashedJournal(conversationId: string): Promise<Trash
   }));
 }
 
-/** The page just before `before` (older), oldest first. Fewer than a page means the start was reached. */
-export async function fetchOlderMessages(conversationId: string, before: string): Promise<ChatMessage[]> {
+/**
+ * The page just before a message (older), oldest first. Fewer than a page means the start was reached.
+ * K2 · C6: the cursor is (created_at, id), so messages sharing one timestamp are never skipped.
+ */
+export async function fetchOlderMessages(
+  conversationId: string,
+  before: string | { createdAt: string; id: string },
+): Promise<ChatMessage[]> {
+  const cursor = typeof before === "string" ? { createdAt: before, id: null } : before;
   // rows-bounded: one page (MESSAGE_PAGE_SIZE) per scroll.
-  const { data, error } = await supabase
-    .from("messages")
-    .select(MESSAGE_COLUMNS)
-    .eq("conversation_id", conversationId)
-    .lt("created_at", before)
-    .is("trashed_at", null)
-    .order("created_at", { ascending: false })
-    .order("id", { ascending: false })
-    .limit(MESSAGE_PAGE_SIZE);
-  if (error) throw fail(error.code, error.message);
-  return (data ?? []).map(toChatMessageRow).reverse();
+  const { data, error } = await supabase.rpc("messages_page" as never, {
+    p_conversation: conversationId,
+    p_before_at: cursor.createdAt,
+    p_before_id: cursor.id,
+    p_limit: MESSAGE_PAGE_SIZE,
+  } as never);
+  if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);
+  return ((data as unknown as MessageRowShape[] | null) ?? []).map(toChatMessageRow).reverse();
 }
 
 /** Where one message sits in time, so the window can be widened back to it. Null if unreadable. */
@@ -563,27 +586,29 @@ export async function sendMessage(
   isUrgent: boolean = false,
   /** AVORA-89 · `#` chips; the server refuses any ref outside this conversation (`avora_ref_out_of_scope`). */
   refs: readonly { type: string; id: string }[] = [],
+  /** K2 · C1: the device-made id of this message (outbox keeps it across retries). */
+  messageId: string | null = null,
 ): Promise<ChatMessage> {
   const trimmed = content.trim();
-  const { data, error } = await supabase
-    .from("messages")
-    .insert({
-      conversation_id: conversationId,
-      sender_id: senderId,
-      content: trimmed,
-      reply_to_message_id: replyToMessageId,
-      mentioned_user_ids: [...mentionedUserIds],
-      origin_group_id: originGroupId,
-      reply_to_daily_thought_id: replyToDailyThoughtId,
-      ...(isUrgent ? { is_urgent: true } : {}),
-      ...(refs.length > 0 ? { refs: refs.map((ref) => ({ type: ref.type, id: ref.id })) } : {}),
-    })
-    .select(MESSAGE_COLUMNS)
-    .single();
+  // AVORA-106 · K1 (M3): one send RPC; the server sets sender / created_at. The id is made here so
+  // a retry returns the same message instead of a second one (K2 · C1).
+  const { data, error } = await supabase.rpc("send_message" as never, {
+    p_id: messageId ?? crypto.randomUUID(),
+    p_conversation: conversationId,
+    p_content: trimmed,
+    p_reply_to: replyToMessageId,
+    p_attachments: [],
+    p_refs: refs.length > 0 ? refs.map((ref) => ({ type: ref.type, id: ref.id })) : null,
+    p_mentioned: [...mentionedUserIds],
+    p_origin_group: originGroupId,
+    p_daily_thought: replyToDailyThoughtId,
+    p_urgent: isUrgent,
+  } as never);
 
-  if (error) throw fail(error.code, error.message);
+  if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);
+  void senderId;
 
-  return toChatMessageRow(data);
+  return toChatMessageRow(data as unknown as MessageRowShape);
 }
 
 /** Exact-email lookup. AVORA has no browsable member list by design. */

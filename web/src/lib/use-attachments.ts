@@ -1,3 +1,4 @@
+import { MISSING_URL } from "@/lib/attachments";
 import { useCallback, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -37,7 +38,7 @@ export function useThreadAttachments(conversationId: string | undefined): {
     [attachments],
   );
 
-  const { data: urls } = useQuery<Map<string, string>, Error>({
+  const { data: urls, isSuccess: hasUrls } = useQuery<Map<string, string>, Error>({
     queryKey: attachmentKeys.urls(paths),
     queryFn: () => signedUrlsFor(paths),
     enabled: paths.length > 0,
@@ -49,7 +50,11 @@ export function useThreadAttachments(conversationId: string | undefined): {
   return {
     attachments,
     attachmentsOf: useCallback((messageId: string) => grouped.get(messageId) ?? [], [grouped]),
-    urlOf: useCallback((storagePath: string) => urls?.get(storagePath) ?? null, [urls]),
+    // K2 · C9: links came back and this file had none → it is gone (MISSING_URL), not loading.
+    urlOf: useCallback(
+      (storagePath: string) => urls?.get(storagePath) ?? (hasUrls ? MISSING_URL : null),
+      [urls, hasUrls],
+    ),
     isLoading,
   };
 }

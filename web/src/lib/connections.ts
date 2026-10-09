@@ -1,3 +1,4 @@
+import { APP_ORIGIN } from "@/lib/app-origin";
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { CONTACT_UNAVAILABLE_MESSAGE } from "@/lib/blocks";
@@ -67,7 +68,7 @@ export function looksLikePin(value: string): boolean {
 }
 
 /** The link a QR code carries: `${origin}/ket-noi/A-XXXXXXXX`. */
-export function connectLink(pin: string, origin: string = typeof window === "undefined" ? "" : window.location.origin): string {
+export function connectLink(pin: string, origin: string = APP_ORIGIN): string {
   return `${origin}${CONNECT_PATH}/${encodeURIComponent(pin)}`;
 }
 

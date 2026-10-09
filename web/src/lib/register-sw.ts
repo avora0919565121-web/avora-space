@@ -18,3 +18,17 @@ export function registerServiceWorker(): void {
     });
   });
 }
+
+/**
+ * KHỐI 0 — an old address keeps no worker (and so no push subscription): pushes arrive only on the
+ * real address once the person turns them on there.
+ */
+export async function unregisterServiceWorkers(): Promise<void> {
+  if (typeof navigator === "undefined" || !("serviceWorker" in navigator)) return;
+  try {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((r) => r.unregister()));
+  } catch {
+    logError("service-worker", { code: "unregister_failed" });
+  }
+}
