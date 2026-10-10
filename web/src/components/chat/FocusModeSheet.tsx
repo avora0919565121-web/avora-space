@@ -32,7 +32,7 @@ export function FocusModeSheet({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-2xl px-4 pb-6 pt-5">
+      <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-card px-4 pb-6 pt-5">
         <SheetTitle className="flex items-center gap-2 text-[17px]">
           <Moon className="h-4 w-4 text-primary" strokeWidth={1.8} aria-hidden="true" /> Chế độ tập trung
         </SheetTitle>
@@ -52,7 +52,7 @@ export function FocusModeSheet({
                 aria-checked={isOn}
                 onClick={() => setMode(level.id)}
                 className={cn(
-                  "press flex w-full items-start gap-3 rounded-xl border px-3.5 py-3 text-left transition-colors",
+                  "press flex w-full items-start gap-3 rounded-card border px-3.5 py-3 text-left transition-colors",
                   isOn ? "border-primary bg-primary/5" : "border-border bg-card hover:bg-accent/30",
                 )}
               >
@@ -76,7 +76,7 @@ export function FocusModeSheet({
                 onStart(mode, option);
                 onOpenChange(false);
               }}
-              className="press h-12 rounded-xl border border-border bg-card text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40"
+              className="press h-12 rounded-control border border-border bg-card text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40"
             >
               {option.label}
             </button>
@@ -90,7 +90,7 @@ export function FocusModeSheet({
               onStop();
               onOpenChange(false);
             }}
-            className="press mt-4 h-11 w-full rounded-xl text-[14px] font-medium text-destructive hover:bg-destructive/5"
+            className="press mt-4 h-11 w-full rounded-control text-[14px] font-medium text-destructive hover:bg-destructive/5"
           >
             Tắt Chế độ tập trung
           </button>

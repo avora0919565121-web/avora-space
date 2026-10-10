@@ -79,7 +79,7 @@ export function InvitePanel({ contact, inviterName }: { contact: Contact; invite
 
   if (waiting !== null) {
     return (
-      <section className="rounded-xl border border-border bg-card p-5">
+      <section className="rounded-card border border-border bg-card p-5">
         <div className="flex items-start gap-3">
           <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent/50 text-muted-foreground">
             <Clock className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
@@ -96,7 +96,7 @@ export function InvitePanel({ contact, inviterName }: { contact: Contact; invite
   }
 
   return (
-    <section className="rounded-xl border border-border bg-card p-5">
+    <section className="rounded-card border border-border bg-card p-5">
       <p className="text-[15px] font-semibold text-foreground">Mời {contact.name} dùng AVORA</p>
       <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
         AVORA soạn sẵn lời mời, bạn là người bấm gửi.

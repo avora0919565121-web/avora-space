@@ -36,9 +36,9 @@ export function OpportunityBoardBar({
         <Link2 className="h-3.5 w-3.5 text-primary" aria-hidden="true" /> Bảng Avora mặc định · đồng bộ từ Danh bạ
       </p>
       {isEmpty ? (
-        <div className="mt-3 rounded-xl border border-dashed border-border px-5 py-6 text-center" data-opportunity-empty="">
+        <div className="mt-3 rounded-card border border-dashed border-border px-5 py-6 text-center" data-opportunity-empty="">
           <p className="text-[15px] font-medium text-foreground">Gán Cơ hội cho một liên hệ để bắt đầu</p>
-          <button type="button" onClick={onNew} className="press mx-auto mt-3 inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-[14px] font-semibold text-primary-foreground">
+          <button type="button" onClick={onNew} className="press mx-auto mt-3 inline-flex h-11 items-center gap-2 rounded-control bg-primary px-5 text-[14px] font-semibold text-primary-foreground">
             <Plus className="h-4 w-4" aria-hidden="true" /> Cơ hội mới
           </button>
         </div>
@@ -153,7 +153,7 @@ export function DefaultBoardsGroup({ boards, activeId, onOpen }: { boards: reado
     { id: "ket-sat", label: "Két sắt", boards: [] },
   ];
   return (
-    <section className="mb-3 rounded-xl border border-border bg-card" data-default-boards="">
+    <section className="mb-3 rounded-card border border-border bg-card" data-default-boards="">
       <button
         type="button"
         aria-expanded={isOpen}

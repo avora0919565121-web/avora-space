@@ -178,7 +178,7 @@ function CheckAdjustPanel({
   if (query.data === null || query.data === undefined) return null;
 
   return (
-    <section aria-label="Nhìn lại riêng tư" className="mt-8 rounded-xl border border-dashed border-border bg-card px-5 py-4">
+    <section aria-label="Nhìn lại riêng tư" className="mt-8 rounded-card border border-dashed border-border bg-card px-5 py-4">
       <h2 className="text-[15px] font-semibold text-foreground">Nhìn lại — chỉ mình bạn thấy</h2>
       <dl className="mt-3 space-y-3 text-[14px]">
         <div>

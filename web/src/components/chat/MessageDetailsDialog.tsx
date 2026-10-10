@@ -37,7 +37,7 @@ export function MessageDetailsDialog({
 
   return (
     <Dialog open={message !== null} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[380px] gap-0 rounded-xl border-border bg-card p-5">
+      <DialogContent className="max-w-[380px] gap-0 rounded-card border-border bg-card p-5">
         <DialogTitle className="text-[17px] font-semibold tracking-tight">Chi tiết</DialogTitle>
         <DialogDescription className="sr-only">Thời gian của tin nhắn này</DialogDescription>
         {message !== null ? (

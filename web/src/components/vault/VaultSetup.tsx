@@ -27,8 +27,8 @@ export const E2EE_ABOUT = {
   ],
 } as const;
 
-const primary = "press flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50";
-const quiet = "press flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card px-4 text-[14px] font-medium";
+const primary = "press flex h-12 w-full items-center justify-center gap-2 rounded-control bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-50";
+const quiet = "press flex h-11 items-center justify-center gap-2 rounded-control border border-border bg-card px-4 text-[14px] font-medium";
 
 function Frame({ step, total, title, onBack, children }: { step?: number; total?: number; title: string; onBack?: () => void; children: ReactNode }) {
   return (
@@ -97,7 +97,7 @@ export function SecretInput({ value, onChange, isShown, onToggle, label, ...rest
           data-1p-ignore="true"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="h-12 w-full rounded-xl border border-input bg-card pl-3 pr-12 font-mono text-[16px] outline-none focus:border-personal"
+          className="h-12 w-full rounded-control border border-input bg-card pl-3 pr-12 font-mono text-[16px] outline-none focus:border-personal"
           {...rest}
         />
         <button type="button" onClick={onToggle} aria-label={isShown ? `Ẩn ${label.toLowerCase()}` : `Hiện ${label.toLowerCase()}`} aria-pressed={isShown} className="press absolute inset-y-0 right-0 flex w-12 items-center justify-center text-muted-foreground" data-secret-toggle="">
@@ -139,10 +139,10 @@ export function KitWords({ words }: { words: readonly string[] }) {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   return (
     <>
-      <p className="mt-3 rounded-xl border border-[hsl(32_70%_70%)] bg-[hsl(38_90%_95%)] px-4 py-3 text-[14px] font-medium leading-relaxed text-[hsl(28_60%_25%)] dark:bg-[hsl(32_30%_16%)] dark:text-[hsl(38_80%_82%)]" data-kit-warning="">
+      <p className="mt-3 rounded-card border border-[hsl(32_70%_70%)] bg-[hsl(38_90%_95%)] px-4 py-3 text-[14px] font-medium leading-relaxed text-[hsl(28_60%_25%)] dark:bg-[hsl(32_30%_16%)] dark:text-[hsl(38_80%_82%)]" data-kit-warning="">
         {KIT_WARNING}
       </p>
-      <ol className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-xl border border-border bg-card p-4 sm:grid-cols-3" data-kit-words="">
+      <ol className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 rounded-card border border-border bg-card p-4 sm:grid-cols-3" data-kit-words="">
         {words.map((word, i) => (
           <li key={i} className="flex items-baseline gap-2 font-mono text-[15px]">
             <span className="w-6 text-right text-[12px] tabular-nums text-muted-foreground">{i + 1}</span>
@@ -182,7 +182,7 @@ export function KitCheck({ words, onPassed }: { words: readonly string[]; onPass
       {positions.map((p, i) => (
         <label key={p} className="flex items-center gap-3">
           <span className="w-16 shrink-0 text-[14px] text-muted-foreground">Từ số {p + 1}</span>
-          <input autoCapitalize="none" autoComplete="off" spellCheck={false} value={answers[i]} onChange={(e) => setAnswers((a) => a.map((v, j) => (j === i ? e.target.value : v)))} className="h-12 min-w-0 flex-1 rounded-xl border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-personal" data-kit-check={p} />
+          <input autoCapitalize="none" autoComplete="off" spellCheck={false} value={answers[i]} onChange={(e) => setAnswers((a) => a.map((v, j) => (j === i ? e.target.value : v)))} className="h-12 min-w-0 flex-1 rounded-control border border-input bg-card px-3 font-mono text-[16px] outline-none focus:border-personal" data-kit-check={p} />
         </label>
       ))}
       {error ? <p className="text-[13.5px] text-destructive" role="alert">Chưa đúng. Xem lại tờ đã cất nhé.</p> : null}
@@ -320,7 +320,7 @@ export function VaultOpenHere({ ring, onRecovered }: { ring: Keyring; onRecovere
         {mode === "pass" ? (
           <SecretInput label="Mật khẩu Két sắt" value={pass} onChange={setPass} isShown={isShown} onToggle={() => setIsShown((v) => !v)} data-open-passphrase="" />
         ) : (
-          <textarea rows={4} autoCapitalize="none" spellCheck={false} value={kit} onChange={(e) => setKit(e.target.value)} aria-label="24 từ" className="w-full rounded-xl border border-input bg-card px-3 py-2 font-mono text-[16px] outline-none focus:border-personal" />
+          <textarea rows={4} autoCapitalize="none" spellCheck={false} value={kit} onChange={(e) => setKit(e.target.value)} aria-label="24 từ" className="w-full rounded-card border border-input bg-card px-3 py-2 font-mono text-[16px] outline-none focus:border-personal" />
         )}
         {badWords.length > 0 ? <p className="text-[13px] text-destructive">Từ không có trong danh sách: {badWords.slice(0, 3).join(", ")}</p> : null}
         {error !== null ? <p className="text-[13.5px] text-destructive" role="alert">{error}</p> : null}

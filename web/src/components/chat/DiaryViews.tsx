@@ -261,7 +261,7 @@ function stamp(iso: string): string {
 function EmptyView({ icon: Icon, title, body }: { icon: typeof FileText; title: string; body: string }) {
   return (
     <div className="mx-auto flex max-w-sm flex-col items-center py-14 text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-card text-muted-foreground">
+      <span className="flex h-12 w-12 items-center justify-center rounded-card border border-border bg-card text-muted-foreground">
         <Icon className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
       </span>
       <p className="mt-4 text-[15px] font-semibold text-foreground">{title}</p>

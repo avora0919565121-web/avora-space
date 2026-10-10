@@ -131,7 +131,7 @@ const Contacts = () => {
         </header>
 
         {/* AVORA-72 · A: always shown, `· 0` included — the board exists for everyone. */}
-        <a href="/ke-hoach?danh-sach-co-hoi=1" className="press mt-6 flex min-h-12 items-center gap-2 rounded-xl border border-border bg-card px-4 text-[15px] font-medium text-foreground hover:bg-accent/40" data-opportunity-entry="">
+        <a href="/ke-hoach?danh-sach-co-hoi=1" className="press mt-6 flex min-h-12 items-center gap-2 rounded-card border border-border bg-card px-4 text-[15px] font-medium text-foreground hover:bg-accent/40" data-opportunity-entry="">
           <span className="min-w-0 flex-1">Danh sách cơ hội · <span className="tabular-nums">{openOpportunities.size}</span> đang mở</span>
           <span aria-hidden="true" className="text-muted-foreground">›</span>
         </a>
@@ -139,7 +139,7 @@ const Contacts = () => {
         {/* AVORA-58 · 2: Cần xem lại is optional — no count, no badge, only this one quiet line
             for the channel review. The "missing details" chips stay because each is one tap. */}
         {missingDetails.length > 0 ? (
-          <section aria-labelledby="contacts-review" className="mt-6 rounded-xl border border-border bg-card px-5 py-4">
+          <section aria-labelledby="contacts-review" className="mt-6 rounded-card border border-border bg-card px-5 py-4">
             <h2 id="contacts-review" className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
               <AlertCircle className="h-[18px] w-[18px] text-accent-foreground" strokeWidth={1.8} aria-hidden="true" />
               Thiếu thông tin
@@ -253,7 +253,7 @@ const Contacts = () => {
             <FriendsPanel query={query} />
           </div>
         ) : (
-        <div className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+        <div className="mt-5 overflow-hidden rounded-card border border-border bg-card">
           {contactsQuery.isPending ? (
             <ul aria-hidden="true">
               {[0, 1, 2].map((row) => (

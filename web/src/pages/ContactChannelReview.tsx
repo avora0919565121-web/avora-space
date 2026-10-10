@@ -129,8 +129,8 @@ const ContactChannelReview = () => {
     return (
       <Shell backLabel={back.label} onBack={back.back}>
         <div className="space-y-3" aria-hidden="true">
-          <div className="h-[92px] animate-pulse rounded-xl bg-secondary/70" />
-          <div className="h-[92px] animate-pulse rounded-xl bg-secondary/50" />
+          <div className="h-[92px] animate-pulse rounded-card bg-secondary/70" />
+          <div className="h-[92px] animate-pulse rounded-card bg-secondary/50" />
         </div>
       </Shell>
     );
@@ -139,7 +139,7 @@ const ContactChannelReview = () => {
   if (isError || shared.isError) {
     return (
       <Shell backLabel={back.label} onBack={back.back}>
-        <div className="rounded-xl border border-border bg-card px-6 py-10 text-center">
+        <div className="rounded-card border border-border bg-card px-6 py-10 text-center">
           <p className="text-[14px] text-muted-foreground">
             {error?.message ?? shared.error?.message ?? "Không đọc được danh sách cần xem lại."}
           </p>
@@ -155,7 +155,7 @@ const ContactChannelReview = () => {
   if (groups.length === 0 && shared.groups.length === 0 && duplicateCount === 0) {
     return (
       <Shell backLabel={back.label} onBack={back.back}>
-        <div className="rounded-xl border border-border bg-card px-6 py-14 text-center">
+        <div className="rounded-card border border-border bg-card px-6 py-14 text-center">
           <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-accent/50">
             <Check className="h-6 w-6 text-money-in" strokeWidth={2} aria-hidden="true" />
           </span>
@@ -287,7 +287,7 @@ function ReviewCard({
 }) {
   const kinds: ChannelKind[] = (["phone", "email"] as const).filter((kind) => channels.some((channel) => channel.kind === kind));
   return (
-    <li className="overflow-hidden rounded-xl border border-border bg-card">
+    <li className="overflow-hidden rounded-card border border-border bg-card">
       <button
         type="button"
         onClick={onOpen}

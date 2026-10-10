@@ -111,7 +111,7 @@ export function ColumnMapStep({
 
   return (
     <div>
-      <div className="flex items-start gap-3 rounded-xl border border-border bg-accent/20 p-4">
+      <div className="flex items-start gap-3 rounded-card border border-border bg-accent/20 p-4">
         {wasRemembered ? (
           <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={1.9} aria-hidden="true" />
         ) : null}
@@ -146,7 +146,7 @@ export function ColumnMapStep({
       {/* A file whose rows never say what they are still has to say it once, or every row
           would fail validation for a reason the file cannot fix. */}
       {!hasTypeColumn ? (
-        <div className="mt-4 rounded-xl border border-border p-4">
+        <div className="mt-4 rounded-card border border-border p-4">
           <label htmlFor="map-fallback-type" className="text-[13.5px] font-medium text-foreground">
             File không có cột loại — cả file này là
           </label>
@@ -166,7 +166,7 @@ export function ColumnMapStep({
         </div>
       ) : null}
 
-      <details className="mt-4 rounded-xl border border-border p-4">
+      <details className="mt-4 rounded-card border border-border p-4">
         <summary className="cursor-pointer text-[13.5px] font-medium text-foreground">
           Cột dành cho doanh nghiệp
         </summary>

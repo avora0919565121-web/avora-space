@@ -247,7 +247,7 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
   return (
     <div data-shelf-panel="ke-sach">
       {continueBook !== null ? (
-        <section aria-label="Đọc tiếp" data-continue-reading="" className="mb-6 flex gap-4 rounded-2xl border border-border bg-card p-4">
+        <section aria-label="Đọc tiếp" data-continue-reading="" className="mb-6 flex gap-4 rounded-card border border-border bg-card p-4">
           <span className="relative flex aspect-[2/3] w-[78px] shrink-0 flex-col justify-end overflow-hidden rounded-md p-2 shadow-sm ring-1 ring-black/10" style={{ backgroundColor: coverColor(continueBook.title) }}>
             <span className="line-clamp-3 text-[11px] font-semibold leading-tight text-white">{continueBook.title}</span>
           </span>
@@ -509,7 +509,7 @@ function OnDeviceLine() {
         <Download className="h-4 w-4" aria-hidden="true" /> {whole.length} cuốn trên máy · {mb.toFixed(1)} MB
       </button>
       {open ? (
-        <ul className="mt-1 overflow-hidden rounded-xl border border-border bg-card">
+        <ul className="mt-1 overflow-hidden rounded-card border border-border bg-card">
           {whole.map((item) => (
             <li key={item.key} className="flex items-center gap-3 border-b border-border/60 px-3 py-2 last:border-b-0">
               <span className="min-w-0 flex-1 truncate text-[14px]">✓ {item.title}</span>
@@ -597,7 +597,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
         ))}
       </div>
       {isSearchOpen || text !== "" ? (
-      <label className="mt-3 flex h-11 items-center gap-2 rounded-xl border border-border bg-card px-3" data-library-search="">
+      <label className="mt-3 flex h-11 items-center gap-2 rounded-control border border-border bg-card px-3" data-library-search="">
         <Search className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
         <input autoFocus={isSearchOpen} value={text} onChange={(event) => setText(event.target.value)} placeholder="Tìm tên sách, tác giả" aria-label="Tìm trong Thư viện mở" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]" />
       </label>
@@ -634,7 +634,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
             const key = `${item.source}:${item.sourceId}`;
             const isOn = onShelf.has(key);
             return (
-              <li key={key} className="flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+              <li key={key} className="flex min-w-0 items-center gap-3 rounded-card border border-border bg-card px-3 py-2.5">
                 <span className="h-12 w-8 shrink-0 rounded-sm ring-1 ring-black/10" style={{ backgroundColor: coverColor(item.title) }} aria-hidden="true" />
                 <span className="min-w-0 flex-1">
                   {(() => {

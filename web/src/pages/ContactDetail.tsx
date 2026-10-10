@@ -163,8 +163,8 @@ const ContactDetail = () => {
     return (
       <Shell backLabel={back.label} onBack={back.back}>
         <div className="space-y-3" aria-hidden="true">
-          <div className="h-[72px] animate-pulse rounded-xl bg-secondary/70" />
-          <div className="h-[180px] animate-pulse rounded-xl bg-secondary/50" />
+          <div className="h-[72px] animate-pulse rounded-card bg-secondary/70" />
+          <div className="h-[180px] animate-pulse rounded-card bg-secondary/50" />
         </div>
       </Shell>
     );
@@ -173,7 +173,7 @@ const ContactDetail = () => {
   if (contactsQuery.isError) {
     return (
       <Shell backLabel={back.label} onBack={back.back}>
-        <div className="rounded-xl border border-border bg-card px-6 py-10 text-center">
+        <div className="rounded-card border border-border bg-card px-6 py-10 text-center">
           <p className="text-[14px] text-muted-foreground">{(contactsQuery.error as Error).message}</p>
           <Button
             variant="outline"
@@ -190,7 +190,7 @@ const ContactDetail = () => {
   if (contact === null) {
     return (
       <Shell backLabel={back.label} onBack={back.back}>
-        <div className="rounded-xl border border-border bg-card px-6 py-12 text-center">
+        <div className="rounded-card border border-border bg-card px-6 py-12 text-center">
           <p className="text-[15px] font-medium text-foreground">Không tìm thấy liên hệ này</p>
           <p className="mt-1.5 text-[13.5px] text-muted-foreground">
             Có thể liên hệ đã bị xoá, hoặc đường dẫn không còn đúng.
@@ -256,7 +256,7 @@ const ContactDetail = () => {
       </header>
 
       {isEditing ? (
-        <section className="mt-7 rounded-xl border border-border bg-card p-5">
+        <section className="mt-7 rounded-card border border-border bg-card p-5">
           {isPerson && individual !== null ? (
             <IndividualFields
               draft={individual}
@@ -296,7 +296,7 @@ const ContactDetail = () => {
         <>
           <ContactLinkBanner contact={contact} />
 
-          <section className="mt-7 overflow-hidden rounded-xl border border-border bg-card">
+          <section className="mt-7 overflow-hidden rounded-card border border-border bg-card">
             <dl>
               {isPerson ? (
                 <>
@@ -407,7 +407,7 @@ function StaffSection({ staff }: { staff: readonly Contact[] }) {
   const navigate = useNavigate();
 
   return (
-    <section className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+    <section className="mt-5 overflow-hidden rounded-card border border-border bg-card">
       <header className="border-b border-border px-5 py-3.5">
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Nhân sự liên quan</h2>
       </header>
@@ -456,7 +456,7 @@ function StaffSection({ staff }: { staff: readonly Contact[] }) {
  */
 function ChannelsSection({ channels }: { channels: readonly ContactChannel[] }) {
   return (
-    <section className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+    <section className="mt-5 overflow-hidden rounded-card border border-border bg-card">
       <header className="border-b border-border px-5 py-3.5">
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Kênh liên hệ khác</h2>
       </header>

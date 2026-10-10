@@ -85,7 +85,7 @@ export function JournalTrashSheet({
             </div>
           ) : entries.length === 0 ? (
             <div className="flex flex-col items-center px-6 py-14 text-center">
-              <span className="flex h-12 w-12 items-center justify-center rounded-2xl border border-border bg-background text-muted-foreground">
+              <span className="flex h-12 w-12 items-center justify-center rounded-card border border-border bg-background text-muted-foreground">
                 <Trash2 className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
               </span>
               <p className="mt-4 text-[15px] font-semibold text-foreground">Thùng rác trống</p>

@@ -52,7 +52,7 @@ export function ProposalCard({
   };
 
   return (
-    <div className="mx-auto w-full max-w-md rounded-xl border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-[13px]">
+    <div className="mx-auto w-full max-w-md rounded-card border border-amber-500/30 bg-amber-500/5 px-4 py-3 text-[13px]">
       <p className="text-foreground">{content}</p>
       <p className={cn("mt-1.5 text-[12px]", proposal.status === "open" ? "text-muted-foreground" : "font-medium text-foreground")}>
         {proposal.status === "open" ? proposalProgress(proposal, nameOf) : STATUS_LINE[proposal.status]}

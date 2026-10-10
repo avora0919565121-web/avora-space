@@ -1676,7 +1676,7 @@ const ThinkHub = () => {
       {isSearchOpen && !isFullscreen ? (
         <div className="sticky top-0 z-20 border-b border-border bg-background/95 px-4 py-2 backdrop-blur md:px-10" data-plan-search="">
           <div className="mx-auto flex max-w-6xl items-center gap-2">
-            <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-xl border border-border bg-card px-3 focus-within:border-personal">
+            <label className="flex h-11 min-w-0 flex-1 items-center gap-2 rounded-control border border-border bg-card px-3 focus-within:border-personal">
               <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
               <input
                 autoFocus
@@ -1696,7 +1696,7 @@ const ThinkHub = () => {
             <button type="button" onClick={() => { setLibraryQuery(""); setIsSearchOpen(false); }} className="press h-11 px-2 text-[15px] font-medium text-personal">Huỷ</button>
           </div>
           {libraryQuery.trim() !== "" ? (
-            <ul className="mx-auto mt-2 max-h-[60vh] max-w-6xl overflow-y-auto rounded-xl border border-border bg-card" data-library-results="">
+            <ul className="mx-auto mt-2 max-h-[60vh] max-w-6xl overflow-y-auto rounded-card border border-border bg-card" data-library-results="">
               {searchViewBoards(libraryQuery).map((def) => (
                 <li key={`v-${def.key}`} className="border-b border-border/60">
                   <button type="button" onClick={() => { setLibraryQuery(""); setIsSearchOpen(false); openView(def.key); }} className="press flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/25">
@@ -1738,7 +1738,6 @@ const ThinkHub = () => {
       {isFullscreen || isSearchOpen ? null : (
       <HubTitle
         title="Kế hoạch"
-        className="max-w-6xl"
         action={
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Tìm trong Kế hoạch" data-plan-search-button="" className="icon-btn h-11 w-11 text-foreground">
@@ -2014,7 +2013,7 @@ const ThinkHub = () => {
         ) : (
           <div
             data-overview-desk={overview.isOn ? "" : undefined}
-            className={cn(overview.isOn && "mt-3 grid grid-cols-[300px_minmax(0,1fr)_420px] items-start gap-0 overflow-hidden rounded-2xl border border-border bg-card/40")}
+            className={cn(overview.isOn && "mt-3 grid grid-cols-[300px_minmax(0,1fr)_420px] items-start gap-0 overflow-hidden rounded-card border border-border bg-card/40")}
           >
           {overview.isOn && overview.tree !== null ? (
             <aside className="sticky top-2 max-h-[calc(100dvh-7rem)] overflow-y-auto border-r border-border/70 bg-secondary/30 px-2 py-3">
@@ -2285,7 +2284,7 @@ const ThinkHub = () => {
             </div>
 
             {visibleRecords.length === 0 && !onlyStarred && (active.purpose !== null || active.sourceTemplateKey !== null) ? (
-              <div className="mt-4 rounded-xl border border-dashed border-border px-5 py-5 text-center">
+              <div className="mt-4 rounded-card border border-dashed border-border px-5 py-5 text-center">
                 {active.purpose !== null ? <p className="text-[15px] font-medium text-foreground">{active.purpose}</p> : null}
                 {isOwner && !isReadOnly && active.sourceTemplateKey === null && active.columns.length === 0 ? (
                   <ApplyTemplateRow tableId={active.id} templates={templatesQuery.data ?? []} onApply={(template) => shelfActions.apply.mutateAsync({ tableId: active.id, template }).then(() => toast.success("Đã áp mẫu."), (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không áp được mẫu."))} />

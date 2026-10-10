@@ -105,7 +105,7 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent showCloseButton={false} className="max-w-[540px] gap-0 overflow-hidden rounded-xl border-border bg-card p-0">
+        <DialogContent showCloseButton={false} className="max-w-[540px] gap-0 overflow-hidden rounded-card border-border bg-card p-0">
           <div className="flex items-start justify-between px-6 pb-4 pt-6">
             <div>
               <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">Trò chuyện mới</DialogTitle>

@@ -170,7 +170,7 @@ export function DeviceRankPrompt() {
   if (status.myRank !== 3 || status.rankTaken[suggested] || kind === "unknown") return null;
   return (
     <>
-      <div role="dialog" aria-labelledby="rank-prompt-title" data-rank-prompt="" className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-50 mx-auto max-w-md rounded-2xl border border-border bg-card p-5 shadow-xl md:bottom-6">
+      <div role="dialog" aria-labelledby="rank-prompt-title" data-rank-prompt="" className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-50 mx-auto max-w-md rounded-card border border-border bg-card p-5 shadow-xl md:bottom-6">
         <h2 id="rank-prompt-title" className="text-[17px] font-semibold text-foreground">Đặt máy này là máy chính?</h2>
         <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">
           Điện thoại nên là <strong className="text-foreground">Ưu tiên 1</strong>, máy tính là <strong className="text-foreground">Ưu tiên 2</strong>. Máy chính quản lý được các máy khác và mở được Két sắt.

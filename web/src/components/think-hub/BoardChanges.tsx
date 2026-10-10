@@ -428,7 +428,7 @@ export function NudgeLines({ onOpen }: { onOpen: (nudge: BoardNudge) => void }) 
 export function BoardUpdateCard({ content, onView, viewLabel = "Xem thay đổi" }: { content: string; onView?: () => void; viewLabel?: string }) {
   const [head, ...rest] = content.split(" · ");
   return (
-    <div data-board-update-card="" className="mx-auto w-full max-w-md rounded-xl border border-border border-l-[3px] border-l-primary bg-card px-3.5 py-3 shadow-[0_1px_0_hsl(var(--border))]">
+    <div data-board-update-card="" className="mx-auto w-full max-w-md rounded-card border border-border border-l-[3px] border-l-primary bg-card px-3.5 py-3 shadow-[0_1px_0_hsl(var(--border))]">
       <p className="flex items-start gap-2 text-[14px] font-semibold leading-snug text-foreground">
         <Table2 className="mt-0.5 h-4 w-4 shrink-0 text-primary" strokeWidth={1.8} aria-hidden="true" />
         <span className="min-w-0">{head}</span>

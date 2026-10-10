@@ -82,15 +82,15 @@ export function AppearanceCard() {
   }
 
   return (
-    <section aria-labelledby="appearance-heading" className="rounded-xl border border-border bg-card p-5" data-appearance="">
+    <section aria-labelledby="appearance-heading" className="rounded-card border border-border bg-card p-s-4" data-appearance="">
       <h2 id="appearance-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
         <Palette className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
         Giao diện
       </h2>
 
-      <h3 className="mt-4 text-[14px] font-semibold text-foreground">Sắc màu</h3>
+      <h3 className="mt-s-2 text-[14px] font-semibold text-foreground">Sắc màu</h3>
       <p className="mt-0.5 text-[13px] leading-5 text-muted-foreground">Độ sáng của nền. Theo thiết bị đổi cùng máy khi máy chuyển sáng / tối.</p>
-      <div role="radiogroup" aria-label="Sắc màu" className="mt-3 grid grid-cols-3 gap-2">
+      <div role="radiogroup" aria-label="Sắc màu" className="mt-s-2 grid grid-cols-3 gap-2">
         {COLOR_SCHEMES.map((scheme) => {
           const Icon = SCHEME_ICON[scheme];
           const isOn = saved.scheme === scheme;
@@ -103,7 +103,7 @@ export function AppearanceCard() {
               onClick={() => pickScheme(scheme)}
               data-scheme-option={scheme}
               className={cn(
-                "press flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-xl border text-[13.5px] font-medium transition-colors",
+                "press flex min-h-[72px] flex-col items-center justify-center gap-1.5 rounded-card border text-[13.5px] font-medium transition-colors",
                 isOn ? "border-personal bg-personal-soft text-personal-soft-foreground" : "border-border bg-background text-foreground hover:bg-accent/30",
               )}
             >
@@ -114,11 +114,11 @@ export function AppearanceCard() {
         })}
       </div>
 
-      <h3 className="mt-6 text-[14px] font-semibold text-foreground">Tông màu</h3>
+      <h3 className="mt-s-4 text-[14px] font-semibold text-foreground">Tông màu</h3>
       <p className="mt-0.5 text-[13px] leading-5 text-muted-foreground">
         Màu cho những gì của bạn: tin bạn gửi, tab đang chọn, việc của bạn. Logo và nút <span className="font-semibold text-primary">+</span> luôn là cam Avora.
       </p>
-      <div role="radiogroup" aria-label="Tông màu" className="mt-3 grid grid-cols-3 gap-x-2 gap-y-3 sm:grid-cols-6">
+      <div role="radiogroup" aria-label="Tông màu" className="mt-s-2 grid grid-cols-3 gap-x-2 gap-y-3 sm:grid-cols-6">
         {TONE_IDS.map((tone) => {
           const isOn = shownTone === tone;
           return (
@@ -129,7 +129,7 @@ export function AppearanceCard() {
               aria-checked={isOn}
               onClick={() => pickTone(tone)}
               data-tone-option={tone}
-              className="press flex min-h-[84px] flex-col items-center justify-start gap-1.5 rounded-xl px-1 pt-1 text-[13px] font-medium text-foreground"
+              className="press flex min-h-[84px] flex-col items-center justify-start gap-1.5 rounded-card px-1 pt-1 text-[13px] font-medium text-foreground"
             >
               <span
                 className={cn("relative flex h-12 w-12 items-center justify-center rounded-full ring-offset-2 ring-offset-card transition-shadow", isOn ? "ring-2 ring-foreground" : "ring-1 ring-border")}
@@ -148,7 +148,7 @@ export function AppearanceCard() {
 
       {look.preview !== null ? (
         <div className="fixed inset-x-0 bottom-0 z-50 flex justify-center px-3 pb-[max(env(safe-area-inset-bottom),12px)] pt-2" data-tone-preview-bar="">
-          <div className="animate-rise-in flex w-full max-w-md items-center gap-2 rounded-2xl border border-border bg-card px-3 py-2.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.35)]">
+          <div className="animate-rise-in flex w-full max-w-md items-center gap-2 rounded-card border border-border bg-card px-3 py-2.5 shadow-[0_10px_40px_-12px_rgba(0,0,0,0.35)]">
             <span className="h-6 w-6 shrink-0 rounded-full" style={{ background: swatch(look.preview) }} aria-hidden="true" />
             <p className="min-w-0 flex-1 truncate text-[13.5px] text-foreground">
               Đang xem tông <strong className="font-semibold">{TONE_LABEL[look.preview]}</strong>

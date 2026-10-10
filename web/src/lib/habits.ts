@@ -9,6 +9,13 @@ import { normalizeSearch } from "@/lib/normalize-search";
  */
 export type HabitKind = "timed" | "check";
 export type HabitWindow = { time: string; remind: boolean };
+/**
+ * "Khi rời Avora" (VMT 10/10 21:11, sửa đặc tả mục 5 + 10.2): `keep` = the clock keeps running while
+ * the screen is locked, another app is open or the tab is closed; `stop` = leaving stops it (PHẦN 2).
+ */
+export type HabitWhenAway = "keep" | "stop";
+export const DEFAULT_WHEN_AWAY: HabitWhenAway = "keep";
+export const WHEN_AWAY_LABEL: Readonly<Record<HabitWhenAway, string>> = { keep: "Cứ chạy", stop: "Dừng khi rời" };
 
 export type Habit = {
   id: string;
@@ -19,6 +26,8 @@ export type Habit = {
   weekdays: number[];
   windows: HabitWindow[];
   remindersOn: boolean;
+  /** Only read for `timed` habits. */
+  whenAway: HabitWhenAway;
   pausedAt: string | null;
   archivedAt: string | null;
   version: number;
@@ -44,6 +53,7 @@ export type HabitDraft = {
   weekdays: number[];
   windows: HabitWindow[];
   remindersOn: boolean;
+  whenAway: HabitWhenAway;
 };
 
 /** `?thoi-quen=<id>` opens one habit's detail in Nhiệm vụ › Thói quen (search, Avora Space, bảng). */
@@ -59,7 +69,7 @@ export const HABIT_NAME_MAX = 80;
 export type HabitSuggestion = { id: string; draft: HabitDraft; hint: string };
 
 export const HABIT_SUGGESTIONS: readonly HabitSuggestion[] = [
-  { id: "day-som", hint: "Đúng giờ là đủ", draft: { name: "Dậy sớm", kind: "check", targetMinutes: null, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "06:00", remind: true }], remindersOn: true } },
+  { id: "day-som", hint: "Đúng giờ là đủ", draft: { name: "Dậy sớm", kind: "check", targetMinutes: null, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "06:00", remind: true }], remindersOn: true, whenAway: "keep" } },
   {
     id: "uong-nuoc",
     hint: "Nhiều khung trong ngày",
@@ -70,14 +80,15 @@ export const HABIT_SUGGESTIONS: readonly HabitSuggestion[] = [
       weekdays: [...ALL_WEEKDAYS],
       windows: [{ time: "08:00", remind: true }, { time: "11:00", remind: true }, { time: "14:00", remind: true }, { time: "17:00", remind: true }],
       remindersOn: true,
+      whenAway: "keep",
     },
   },
-  { id: "van-dong", hint: "Bắt đầu nhỏ: 15 phút", draft: { name: "Vận động", kind: "timed", targetMinutes: 15, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "06:30", remind: true }], remindersOn: true } },
-  { id: "doc-sach", hint: "Bắt đầu nhỏ: 15 phút", draft: { name: "Đọc sách", kind: "timed", targetMinutes: 15, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "21:00", remind: true }], remindersOn: true } },
-  { id: "ngu-dung-gio", hint: "Đúng giờ là đủ", draft: { name: "Ngủ đúng giờ", kind: "check", targetMinutes: null, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "22:30", remind: true }], remindersOn: true } },
+  { id: "van-dong", hint: "Bắt đầu nhỏ: 15 phút", draft: { name: "Vận động", kind: "timed", targetMinutes: 15, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "06:30", remind: true }], remindersOn: true, whenAway: "keep" } },
+  { id: "doc-sach", hint: "Bắt đầu nhỏ: 15 phút", draft: { name: "Đọc sách", kind: "timed", targetMinutes: 15, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "21:00", remind: true }], remindersOn: true, whenAway: "keep" } },
+  { id: "ngu-dung-gio", hint: "Đúng giờ là đủ", draft: { name: "Ngủ đúng giờ", kind: "check", targetMinutes: null, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "22:30", remind: true }], remindersOn: true, whenAway: "keep" } },
 ];
 
-export const CUSTOM_DRAFT: HabitDraft = { name: "", kind: "check", targetMinutes: null, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "08:00", remind: true }], remindersOn: true };
+export const CUSTOM_DRAFT: HabitDraft = { name: "", kind: "check", targetMinutes: null, weekdays: [...ALL_WEEKDAYS], windows: [{ time: "08:00", remind: true }], remindersOn: true, whenAway: "keep" };
 
 // ------------------------------------------------------------------ days
 
@@ -282,7 +293,7 @@ export function cleanWindows(windows: readonly HabitWindow[]): HabitWindow[] {
 }
 
 export function draftOf(habit: Habit): HabitDraft {
-  return { name: habit.name, kind: habit.kind, targetMinutes: habit.targetMinutes, weekdays: [...habit.weekdays], windows: habit.windows.map((window) => ({ ...window })), remindersOn: habit.remindersOn };
+  return { name: habit.name, kind: habit.kind, targetMinutes: habit.targetMinutes, weekdays: [...habit.weekdays], windows: habit.windows.map((window) => ({ ...window })), remindersOn: habit.remindersOn, whenAway: habit.whenAway ?? DEFAULT_WHEN_AWAY };
 }
 
 // ------------------------------------------------------------------ reminders (this device)

@@ -138,7 +138,7 @@ export function AddMembersSheet({
             type="button"
             disabled={picked.length === 0 || addMutation.isPending}
             onClick={() => addMutation.mutate()}
-            className="press h-12 w-full rounded-xl bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-45"
+            className="press h-12 w-full rounded-control bg-primary text-[15px] font-semibold text-primary-foreground disabled:opacity-45"
           >
             {addMutation.isPending ? "Đang thêm…" : picked.length > 0 ? `Thêm ${picked.length} người` : "Chọn người để thêm"}
           </button>

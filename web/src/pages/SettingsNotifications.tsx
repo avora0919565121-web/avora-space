@@ -27,9 +27,9 @@ const SettingsNotifications = () => {
 
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
-      <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-6 px-6 pb-12 pt-4 md:px-10">
+      <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-s-4 px-6 pb-12 pt-4 md:px-10">
         {/* AVORA-47 · C: the easy-to-find way in; holding Kết nối opens the same sheet. */}
-        <section aria-labelledby="focus-heading" className="rounded-xl border border-border bg-card p-5">
+        <section aria-labelledby="focus-heading" className="rounded-card border border-border bg-card p-s-4">
           <div className="flex items-start gap-3">
             <Moon className="mt-0.5 h-5 w-5 shrink-0 text-primary" strokeWidth={1.7} aria-hidden="true" />
             <div className="min-w-0 flex-1">
@@ -53,14 +53,14 @@ const SettingsNotifications = () => {
         </section>
         {/* AVORA-57 · A: Chế độ tập trung first, then the "Tắt trong…" layers, then sounds. */}
         <MuteSettingsCard />
-        <section aria-labelledby="sound-heading" className="rounded-xl border border-border bg-card p-5">
+        <section aria-labelledby="sound-heading" className="rounded-card border border-border bg-card p-s-4">
           <h2 id="sound-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
             Âm báo khi đang mở AVORA
           </h2>
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Một âm ngắn, nhẹ. Theo đúng các tầng Tắt thông báo ở trên.
           </p>
-          <div className="mt-4 divide-y divide-border">
+          <div className="mt-s-2 divide-y divide-border">
             <label className="flex min-h-12 items-center justify-between gap-3 text-[14.5px] text-foreground">
               Âm báo tin nhắn
               <Switch

@@ -103,7 +103,9 @@ const WATER = habitRow({
   name: "Uống đủ nước",
   windows: [{ time: "08:00", remind: true }, { time: "11:00", remind: true }, { time: "14:00", remind: true }, { time: "17:00", remind: true }],
 });
-const READ = habitRow({ id: "h-read", name: "Đọc sách", kind: "timed", target_minutes: 15, windows: [{ time: "21:00", remind: true }] });
+// PHẦN 2 rules = `Dừng khi rời`; `Cứ chạy` (VMT 10/10 21:11, the default) is `h-run`.
+const READ = habitRow({ id: "h-read", name: "Đọc sách", kind: "timed", target_minutes: 15, windows: [{ time: "21:00", remind: true }], when_away: "stop" });
+const RUN = habitRow({ id: "h-run", name: "Chạy bộ", kind: "timed", target_minutes: 10, windows: [{ time: "19:00", remind: true }], when_away: "keep" });
 const EARLY = habitRow({ id: "h-early", name: "Dậy sớm", windows: [{ time: "06:00", remind: true }] });
 const REST = habitRow({ id: "h-rest", name: "Vận động", kind: "timed", target_minutes: 20, paused_at: created, windows: [{ time: "06:30", remind: true }] });
 
@@ -302,7 +304,7 @@ test("đồng hồ · hết giờ tự ghi Đã làm (mục tiêu đủ phút)",
   await page.viewport(390, 844);
   await screen("/nhiem-vu?muc=thoi-quen");
   await expect.poll(() => q('[data-habit-id="h-read"] [data-habit-start]')).not.toBeNull();
-  openHabitTimer({ id: "h-read", name: "Đọc sách", targetMinutes: 15, windows: [{ time: "21:00", remind: true }] }, 0, today);
+  openHabitTimer({ id: "h-read", name: "Đọc sách", targetMinutes: 15, windows: [{ time: "21:00", remind: true }], whenAway: "stop" }, 0, today);
   // Started 14 min 59 s ago (marks, not ticks): it ends on its own a moment later.
   beginHabitTimer(Date.now() - 899_400);
   await expect.poll(timer, { timeout: 4000 }).toBe("done");
@@ -344,3 +346,120 @@ for (const [w, h] of [[844, 390], [1280, 800]] as const) {
     await page.screenshot({ path: `${OUT}/107-P2-chip-goc-${w}.png` });
   });
 }
+
+const hide = (): void => {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "hidden" });
+  document.dispatchEvent(new Event("visibilitychange"));
+};
+const show = (): void => {
+  Object.defineProperty(document, "visibilityState", { configurable: true, get: () => "visible" });
+  document.dispatchEvent(new Event("visibilitychange"));
+};
+
+test("Cứ chạy · rời Avora 2 phút không dừng; quay lại thấy ~2 phút + thẻ xác nhận, không tự ghi; chip đang đếm", async () => {
+  seed(true);
+  db.tables.habits = [...(db.tables.habits as unknown[]), RUN];
+  await page.viewport(390, 844);
+  await screen("/nhiem-vu?muc=thoi-quen");
+  await expect.poll(() => q('[data-habit-id="h-run"] [data-habit-start]')).not.toBeNull();
+  await userEvent.click(q('[data-habit-id="h-run"] [data-habit-start]') as HTMLElement);
+  await expect.poll(timer).toBe("ready");
+  expect(q("[data-habit-timer-line]")?.textContent).toBe("Khung 19:00 · Khi rời Avora: cứ chạy");
+  await userEvent.click(q("[data-habit-timer-start]") as HTMLElement);
+  await expect.poll(timer).toBe("running");
+  expect(q("[data-habit-timer-line]")?.textContent).toBe("Khung 19:00 · rời Avora đồng hồ vẫn chạy");
+  // The server keeps the moment to ring if Avora is closed.
+  await expect.poll(() => db.calls.find((call) => call.name === "set_habit_alarm")?.args).toMatchObject({ p_habit: "h-run", p_window: 0 });
+  expect((db.calls.find((call) => call.name === "set_habit_alarm")?.args as { p_at: string | null }).p_at).not.toBeNull();
+
+  // Focus lost / tab hidden: still running.
+  window.dispatchEvent(new Event("blur"));
+  await settle(200);
+  expect(timer()).toBe("running");
+
+  // Minimise: the chip counts.
+  await userEvent.click(q("[data-habit-timer-close]") as HTMLElement);
+  await expect.poll(() => q("[data-habit-timer-chip]")?.getAttribute("data-habit-timer-chip")).toBe("running");
+  const before = q("[data-habit-timer-chip-clock]")?.textContent;
+  await settle(1300);
+  expect(q("[data-habit-timer-chip-clock]")?.textContent).not.toBe(before);
+  await page.screenshot({ path: `${OUT}/107-WA-chip-dang-dem-390.png` });
+
+  // Two minutes away (the clock is marks: began 2 min ago = 2 min gathered).
+  await userEvent.click(q("[data-habit-timer-chip]") as HTMLElement);
+  await userEvent.click(q("[data-habit-timer-abandon]") as HTMLElement);
+  await userEvent.click(q("[data-habit-abandon-confirm]") as HTMLElement);
+  await expect.poll(timer).toBeNull();
+  db.calls = [];
+  openHabitTimer({ id: "h-run", name: "Chạy bộ", targetMinutes: 10, windows: [{ time: "19:00", remind: true }], whenAway: "keep" }, 0, today);
+  beginHabitTimer(Date.now() - 120_000);
+  hide();
+  await settle(300);
+  show();
+  await expect.poll(timer).toBe("back");
+  expect(q("[data-habit-back-line]")?.textContent).toBe("Đã trôi qua 2 phút");
+  expect(q("[data-habit-back-log]")?.textContent).toBe("Ghi Đã làm (2 phút)");
+  expect(db.calls.some((call) => call.name === "log_habit")).toBe(false);
+  await page.screenshot({ path: `${OUT}/107-WA-quay-lai-390.png` });
+  await userEvent.click(q("[data-habit-back-log]") as HTMLElement);
+  await expect.poll(timer).toBe("done");
+  await expect.poll(() => db.calls.find((call) => call.name === "log_habit")?.args).toMatchObject({ p_habit: "h-run", p_source: "timer" });
+  const seconds = (db.calls.find((call) => call.name === "log_habit")?.args as { p_duration_seconds: number }).p_duration_seconds;
+  expect(seconds).toBeGreaterThanOrEqual(120);
+  expect(seconds).toBeLessThan(130);
+  // The ring at the end is called off.
+  await expect.poll(() => db.calls.filter((call) => call.name === "set_habit_alarm").slice(-1)[0]?.args).toMatchObject({ p_at: null });
+});
+
+test("Cứ chạy · vắng quá mục tiêu: thẻ `Đủ 10 phút`, ghi n thật (không cắt trần); Bỏ phiên cũng từ thẻ", async () => {
+  seed(true);
+  db.tables.habits = [...(db.tables.habits as unknown[]), RUN];
+  await page.viewport(390, 844);
+  await screen("/nhiem-vu?muc=thoi-quen");
+  await expect.poll(() => q('[data-habit-id="h-run"] [data-habit-start]')).not.toBeNull();
+  openHabitTimer({ id: "h-run", name: "Chạy bộ", targetMinutes: 10, windows: [{ time: "19:00", remind: true }], whenAway: "keep" }, 0, today);
+  beginHabitTimer(Date.now() - 754_000);
+  hide();
+  await settle(1200);
+  show();
+  await expect.poll(timer).toBe("back");
+  expect(q("[data-habit-back-line]")?.textContent).toBe("Đủ 10 phút");
+  expect(q("[data-habit-back-log]")?.textContent).toBe("Ghi Đã làm (13 phút)");
+  expect(db.calls.some((call) => call.name === "log_habit")).toBe(false);
+  await page.screenshot({ path: `${OUT}/107-WA-du-gio-390.png` });
+  // Closing the card leaves the clock running in the corner.
+  await userEvent.click(q("[data-habit-back-close]") as HTMLElement);
+  await expect.poll(() => q("[data-habit-timer-chip]")?.textContent).toContain("Đủ ·");
+  await userEvent.click(q("[data-habit-timer-chip]") as HTMLElement);
+  await expect.poll(timer).toBe("running");
+  // Opened after the target passed unwatched: no automatic `Đã làm`.
+  await settle(600);
+  expect(timer()).toBe("running");
+  expect(q("[data-habit-timer-clock]")?.textContent).toMatch(/^12:3\d$/);
+  await userEvent.click(q("[data-habit-timer-complete]") as HTMLElement);
+  await expect.poll(() => db.calls.find((call) => call.name === "log_habit")?.args).toMatchObject({ p_habit: "h-run" });
+  expect((db.calls.find((call) => call.name === "log_habit")?.args as { p_duration_seconds: number }).p_duration_seconds).toBeGreaterThan(750);
+});
+
+test("Khi rời Avora · trong Tạo thói quen, mặc định Cứ chạy, đổi được, gửi lên máy chủ", async () => {
+  seed(false);
+  await page.viewport(390, 844);
+  await screen("/nhiem-vu?muc=thoi-quen");
+  await expect.poll(() => q("[data-habits-empty]")).not.toBeNull();
+  await userEvent.click(page.getByRole("button", { name: "Tạo thói quen" }).first());
+  await expect.poll(() => q("[data-habit-editor]")).not.toBeNull();
+  await userEvent.click(page.getByRole("button", { name: "Đọc sách" }));
+  await expect.poll(() => q("[data-habit-when-away]")).not.toBeNull();
+  expect(q('[data-when-away="keep"]')?.getAttribute("aria-checked")).toBe("true");
+  expect(q("[data-habit-when-away]")?.textContent).toContain("Khi rời Avora");
+  await page.screenshot({ path: `${OUT}/107-WA-tao-390.png` });
+  await userEvent.click(q('[data-when-away="stop"]') as HTMLElement);
+  expect(q('[data-when-away="stop"]')?.getAttribute("aria-checked")).toBe("true");
+  // `Chỉ đánh dấu` has no clock: the choice is not shown.
+  await userEvent.click(page.getByRole("radio", { name: "Chỉ đánh dấu" }));
+  expect(q("[data-habit-when-away]")).toBeNull();
+  await userEvent.click(page.getByRole("radio", { name: "Có đồng hồ" }));
+  await userEvent.click(q('[data-when-away="stop"]') as HTMLElement);
+  await userEvent.click(page.getByRole("button", { name: "Tạo thói quen" }).last());
+  await expect.poll(() => db.calls.find((call) => call.name === "create_habit")?.args).toMatchObject({ p_kind: "timed", p_when_away: "stop" });
+});

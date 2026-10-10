@@ -171,7 +171,7 @@ export function DayLineList({
       {fullLine !== undefined ? (
         <div role="dialog" aria-modal="true" aria-label={fullLine.title} className="fixed inset-0 z-50 flex flex-col bg-background md:bg-black/30 md:p-8">
           <BackClosesBinding close={closeFull} />
-          <div className="flex min-h-0 flex-1 flex-col bg-background md:mx-auto md:w-full md:max-w-3xl md:rounded-xl md:border md:border-border md:shadow-xl">
+          <div className="flex min-h-0 flex-1 flex-col bg-background md:mx-auto md:w-full md:max-w-3xl md:rounded-card md:border md:border-border md:shadow-xl">
             <header className="flex items-center gap-2 border-b border-border px-2 pb-2 pt-[max(env(safe-area-inset-top),0.5rem)] md:pt-2">
               <button type="button" onClick={closeFull} aria-label="Quay lại" className="icon-btn h-11 w-11">
                 <ChevronLeft className="h-5 w-5" aria-hidden="true" />

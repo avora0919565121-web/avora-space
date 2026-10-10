@@ -98,7 +98,7 @@ export function SubTabs({
   return (
     <div data-sub-tabs="" className="relative flex h-10 w-full shrink-0 items-stretch border-b border-border bg-background">
       {leading !== undefined ? (
-        <div data-sub-tabs-leading="" className="flex shrink-0 items-stretch pl-5">
+        <div data-sub-tabs-leading="" className="flex shrink-0 items-stretch pl-tab">
           {leading}
         </div>
       ) : null}
@@ -109,8 +109,8 @@ export function SubTabs({
         onKeyDown={onKeyDown}
         data-h-scroll={scrolls ? "" : undefined}
         className={cn(
-          "no-scrollbar relative flex min-w-0 flex-1 items-stretch gap-5 overflow-x-auto pr-5 [scroll-padding-inline:20px]",
-          leading !== undefined ? "pl-4" : "pl-5",
+          "no-scrollbar relative flex min-w-0 flex-1 items-stretch gap-5 overflow-x-auto pr-tab [scroll-padding-inline:var(--tab-inset)]",
+          leading !== undefined ? "pl-4" : "pl-tab",
           scrolls && "[mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)]",
         )}
       >

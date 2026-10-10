@@ -59,7 +59,7 @@ export function DuplicatePairsSection({ onOpenContact }: { onOpenContact: (conta
       <p className="mt-1 max-w-xl text-[13.5px] leading-relaxed text-muted-foreground">
         Hai liên hệ có cùng số điện thoại hoặc email. Gộp thì giữ liên hệ cũ và chuyển số, email, cơ hội, việc sang. AVORA không tự gộp.
       </p>
-      <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+      <ul className="mt-4 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
         {pairs.slice(0, shown).map((pair) => (
           <PairRow
             key={`${pair.keepId}:${pair.dropId}`}

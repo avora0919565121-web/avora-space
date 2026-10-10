@@ -45,7 +45,7 @@ export function LookPrefsCard() {
 
   return (
     <>
-      <section aria-labelledby="celebration-heading" className="rounded-xl border border-border bg-card p-5">
+      <section aria-labelledby="celebration-heading" className="rounded-card border border-border bg-card p-s-4">
         <h2 id="celebration-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
           <Sparkles className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
           Hiệu ứng khi hoàn thành
@@ -58,14 +58,14 @@ export function LookPrefsCard() {
             Máy đang bật Giảm chuyển động, nên AVORA luôn dùng Nhẹ nhàng tinh tế.
           </p>
         ) : null}
-        <div role="radiogroup" aria-label="Hiệu ứng khi hoàn thành" className="mt-4 space-y-2">
+        <div role="radiogroup" aria-label="Hiệu ứng khi hoàn thành" className="mt-s-2 space-y-2">
           {CELEBRATION_OPTIONS.map((option) => {
             const isOn = option.value === celebration;
             return (
               <div
                 key={option.value}
                 className={cn(
-                  "flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors",
+                  "flex items-center gap-3 rounded-card border px-3 py-2.5 transition-colors",
                   isOn ? "border-primary/50 bg-primary/[0.05]" : "border-border",
                 )}
               >
@@ -107,14 +107,14 @@ export function LookPrefsCard() {
         </div>
       </section>
 
-      <section aria-labelledby="button-style-heading" className="rounded-xl border border-border bg-card p-5">
+      <section aria-labelledby="button-style-heading" className="rounded-card border border-border bg-card p-s-4">
         <h2 id="button-style-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
           Kiểu nút
         </h2>
         <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
           Một kiểu cho mọi nút biểu tượng: tìm kiếm, +, lịch nổi, ⋯ và nút Gửi.
         </p>
-        <div role="radiogroup" aria-label="Kiểu nút" className="mt-4 grid grid-cols-3 gap-2">
+        <div role="radiogroup" aria-label="Kiểu nút" className="mt-s-2 grid grid-cols-3 gap-2">
           {BUTTON_OPTIONS.map((option) => {
             const isOn = option.value === button;
             return (
@@ -125,7 +125,7 @@ export function LookPrefsCard() {
                 aria-checked={isOn}
                 onClick={() => save({ buttonStyle: option.value })}
                 className={cn(
-                  "press flex flex-col items-center gap-2.5 rounded-xl border px-2 pb-2.5 pt-3 transition-colors",
+                  "press flex flex-col items-center gap-2.5 rounded-card border px-2 pb-2.5 pt-3 transition-colors",
                   isOn ? "border-primary/60 bg-primary/[0.05]" : "border-border hover:bg-accent/30",
                 )}
               >

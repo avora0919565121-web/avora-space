@@ -1706,7 +1706,7 @@ export default function Tasks() {
     <div className="paper flex min-h-0 flex-1 flex-col">
       <HubTitle
         title="Nhiệm vụ"
-        className="max-w-[720px] md:px-6"
+        className="max-w-[720px]"
         action={
           // AVORA-57 · E: Tìm kiếm first, the main `+` outermost on the right.
           <div className="flex items-center gap-1.5">

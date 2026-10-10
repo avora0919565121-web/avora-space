@@ -64,7 +64,7 @@ export function ReportDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[92dvh] max-w-[460px] gap-0 overflow-y-auto rounded-xl border-border bg-card p-0">
+      <DialogContent className="max-h-[92dvh] max-w-[460px] gap-0 overflow-y-auto rounded-card border-border bg-card p-0">
         <div className="px-5 pb-3 pt-5">
           <DialogTitle className="text-[18px] font-semibold tracking-tight text-foreground">
             {target.message !== null ? "Báo cáo tin nhắn" : `Báo cáo ${target.name}`}

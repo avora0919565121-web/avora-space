@@ -72,7 +72,7 @@ export function StatCard({
   tone?: "ink" | "in" | "out";
 }) {
   return (
-    <div className="rounded-xl border border-border bg-card px-5 py-4">
+    <div className="rounded-card border border-border bg-card px-5 py-4">
       <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
       <p
         className={cn(
@@ -101,7 +101,7 @@ export function Panel({
   className?: string;
 }) {
   return (
-    <section className={cn("rounded-xl border border-border bg-card", className)}>
+    <section className={cn("rounded-card border border-border bg-card", className)}>
       {title !== undefined ? (
         <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
           <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>

@@ -124,7 +124,7 @@ export function BoardHead({
   };
 
   return (
-    <section aria-label="Câu hỏi của Bảng" data-board-head="" className="mt-3 rounded-xl border border-border bg-card px-4 py-3">
+    <section aria-label="Câu hỏi của Bảng" data-board-head="" className="mt-3 rounded-card border border-border bg-card px-4 py-3">
       <p className="text-[12px] font-medium text-muted-foreground">{scopeLabel}</p>
 
       {projectLines != null ? (

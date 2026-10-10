@@ -109,7 +109,7 @@ function RequestCard({ request }: { request: ConnectionRequest }) {
   const Via = request.viaGroupName !== null ? Users : KeyRound;
 
   return (
-    <li className="rounded-xl border border-border bg-card p-4">
+    <li className="rounded-card border border-border bg-card p-4">
       <div className="flex items-center gap-3">
         <InitialsAvatar name={title} size="sm" />
         <span className="min-w-0 flex-1">

@@ -89,7 +89,7 @@ export function FloatingPanel({
   const closeOnBack = useCallback((): void => onOpenChangeRef.current(false), []);
   const backBinding = open ? <BackClosesBinding close={closeOnBack} /> : null;
 
-  const panelClass = cn("flex flex-col overflow-hidden rounded-xl border border-border bg-background shadow-lg outline-none", className);
+  const panelClass = cn("flex flex-col overflow-hidden rounded-card border border-border bg-background shadow-lg outline-none", className);
   const anchorNode = (
     <span ref={anchorRef} className="flex min-w-0 flex-1">
       {anchor}

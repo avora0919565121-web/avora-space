@@ -49,7 +49,7 @@ export function KanbanView({ records, onOpenRecord, today, statusOptions = null,
           onDragLeave={canDrag ? (event) => { if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOverStatus(null); } : undefined}
           onDrop={canDrag ? (event) => dropOn(event, column.status) : undefined}
           className={cn(
-            "flex w-[264px] shrink-0 flex-col rounded-xl border bg-card transition-colors",
+            "flex w-[264px] shrink-0 flex-col rounded-card border bg-card transition-colors",
             overStatus === column.status && draggingId !== null ? "border-primary bg-accent/40" : "border-border",
           )}
         >

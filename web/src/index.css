@@ -53,6 +53,18 @@
 
     --radius: 0.625rem;
 
+    /* AVORA-101B · KHỐI 2E (ADR-079) — the spacing scale between blocks of text on the five tabs,
+       the two radii, the one font, and the one inset every tab's title and strip start from. */
+    --space-1: 4px;
+    --space-2: 8px;
+    --space-3: 12px;
+    --space-4: 16px;
+    --radius-card: 16px;
+    /* Kiểu nút (ADR-037) shapes every control; a tall field never turns into an oval. */
+    --radius-control: min(var(--btn-radius, 10px), 24px);
+    --tab-inset: 20px;
+    --font-sans: "Inter Tight", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+
     /* Presence #3F8F6B */
     --online: 153 39% 40%;
 
@@ -187,6 +199,10 @@
     --btn-primary-bg: transparent;
     --btn-primary-fg: hsl(var(--primary));
   }
+  /* KHỐI 2E: re-read where a preview tile carries its own Kiểu nút. */
+  [data-button-style] {
+    --radius-control: min(var(--btn-radius), 24px);
+  }
 
   /* AVORA-74: a primary icon button that belongs to the person (Gửi), not to Avora (+). */
   .icon-btn-personal {
@@ -233,13 +249,7 @@
   body {
     @apply bg-background text-foreground;
     overflow-x: hidden;
-    font-family:
-      "Inter Tight",
-      ui-sans-serif,
-      system-ui,
-      -apple-system,
-      "Segoe UI",
-      sans-serif;
+    font-family: var(--font-sans);
     font-feature-settings:
       "cv05" 1,
       "ss03" 1;

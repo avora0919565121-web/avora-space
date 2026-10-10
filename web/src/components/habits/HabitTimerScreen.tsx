@@ -22,8 +22,8 @@ const CIRCLE = 2 * Math.PI * RADIUS;
 
 /**
  * AVORA-107 · PHẦN 2 — the countdown, full screen (đặc tả mục 5). Nothing else on screen: the
- * habit's name, one ring, the minutes left. Leaving (✕, Esc, another tab, the screen going dark)
- * stops the clock; `Hoàn thành` writes `Đã làm` with the real time; reaching 00:00 writes `Đã làm`
+ * habit's name, one ring, the minutes left. `Dừng khi rời`: leaving (✕, Esc, another tab, the
+ * screen going dark) stops the clock; `Cứ chạy` (VMT 10/10 21:11): it runs on in the corner chip; `Hoàn thành` writes `Đã làm` with the real time; reaching 00:00 writes `Đã làm`
  * on its own; `Bỏ phiên` asks for an optional note. With reduced motion / Space Rhythm Tĩnh the
  * ring steps once a second and nothing breathes.
  */
@@ -70,6 +70,9 @@ export function HabitTimerScreen({ screen, session, today, onFinished }: { scree
   // Tĩnh: the ring moves in whole seconds, never in a sweep.
   const shown = isCalm ? Math.floor(progress * (targetMs / 1000)) / Math.max(1, targetMs / 1000) : progress;
   const windowTime = screen.mode === "ready" ? screen.windowTime : (session?.windowTime ?? "");
+  const keeps = screen.mode === "ready" ? screen.whenAway === "keep" : session?.whenAway === "keep";
+  // `Cứ chạy` opened after the target passed unwatched: the clock shows the time gathered.
+  const isOver = screen.mode === "session" && session !== null && keeps && left <= 0;
 
   return createPortal(
     <div
@@ -91,7 +94,7 @@ export function HabitTimerScreen({ screen, session, today, onFinished }: { scree
         {screen.mode === "done" ? (
           <span className="h-11 w-11" />
         ) : (
-          <button type="button" onClick={() => closeHabitTimer()} aria-label="Thu nhỏ — đồng hồ sẽ dừng" data-habit-timer-close="" className="icon-btn h-11 w-11 text-foreground">
+          <button type="button" onClick={() => closeHabitTimer()} aria-label={keeps ? "Thu nhỏ — đồng hồ vẫn chạy" : "Thu nhỏ — đồng hồ sẽ dừng"} data-habit-timer-close="" className="icon-btn h-11 w-11 text-foreground">
             <Minimize2 className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
         )}
@@ -135,10 +138,10 @@ export function HabitTimerScreen({ screen, session, today, onFinished }: { scree
             ) : (
               <>
                 <span className="tabular text-[56px] font-semibold leading-none tracking-tight text-foreground short:text-[44px]" data-habit-timer-clock="">
-                  {clockText(left)}
+                  {isOver ? clockText(gathered) : clockText(left)}
                 </span>
                 <span className="mt-2 text-[13px] text-muted-foreground">
-                  còn lại · mục tiêu {Math.round(targetMs / 60_000)} phút
+                  {isOver ? `đã trôi qua · đủ ${Math.round(targetMs / 60_000)} phút` : `còn lại · mục tiêu ${Math.round(targetMs / 60_000)} phút`}
                 </span>
               </>
             )}
@@ -146,20 +149,20 @@ export function HabitTimerScreen({ screen, session, today, onFinished }: { scree
         </div>
         <p className="mt-6 min-h-5 text-center short:mt-3 text-[13px] text-muted-foreground" data-habit-timer-line="" aria-live="polite">
           {screen.mode === "ready"
-            ? windowTime !== ""
-              ? `Khung ${windowTime}`
-              : ""
+            ? `${windowTime !== "" ? `Khung ${windowTime} · ` : ""}Khi rời Avora: ${keeps ? "cứ chạy" : "dừng"}`
             : screen.mode === "done"
               ? "Đã ghi vào Thói quen."
               : isRunning
-                ? `Khung ${windowTime} · rời màn này là đồng hồ dừng`
+                ? keeps
+                  ? `Khung ${windowTime} · rời Avora đồng hồ vẫn chạy`
+                  : `Khung ${windowTime} · rời màn này là đồng hồ dừng`
                 : stoppedLine(session?.stoppedBy ?? null)}
         </p>
       </div>
 
       <div className="relative mx-auto w-full max-w-[420px] shrink-0 px-5 short:mx-0 short:w-[360px]">
         {isAbandoning ? (
-          <div data-habit-abandon="" className="rounded-2xl border border-border bg-card p-4 shadow-sm">
+          <div data-habit-abandon="" className="rounded-card border border-border bg-card p-4 shadow-sm">
             <p className="text-[15px] font-semibold text-foreground">Bỏ phiên này?</p>
             <p className="mt-0.5 text-[13px] text-muted-foreground">
               Lịch sử ghi “Đã bỏ phiên · {minutesText(Math.round(gathered / 1000))}”. Khung giờ vẫn còn trong hôm nay.

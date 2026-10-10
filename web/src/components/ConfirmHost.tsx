@@ -119,7 +119,7 @@ export function ConfirmHost() {
 
   return (
     <AlertDialog open={request !== null} onOpenChange={(open) => !open && close(false)}>
-      <AlertDialogContent className="max-w-[420px] rounded-xl border-border bg-card">
+      <AlertDialogContent className="max-w-[420px] rounded-card border-border bg-card">
         <AlertDialogTitle className="text-[18px] font-semibold tracking-tight text-foreground">{request?.title ?? ""}</AlertDialogTitle>
         {request?.body !== undefined ? (
           <AlertDialogDescription className="text-[13.5px] leading-6 text-muted-foreground">{request.body}</AlertDialogDescription>

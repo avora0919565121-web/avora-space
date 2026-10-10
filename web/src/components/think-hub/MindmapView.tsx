@@ -107,5 +107,5 @@ export function MindmapView({ table, tables, records, taskCountByRecord, onOpenR
     );
   };
 
-  return <div className="mt-5 rounded-xl border border-border bg-card px-3 py-3">{renderTable(table, 0)}</div>;
+  return <div className="mt-5 rounded-card border border-border bg-card px-3 py-3">{renderTable(table, 0)}</div>;
 }

@@ -77,7 +77,7 @@ export function TemplateGallery({
         type="button"
         onClick={() => choose(template)}
         className={cn(
-          "press flex w-full flex-col items-start rounded-xl border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/30",
+          "press flex w-full flex-col items-start rounded-card border border-border bg-card px-4 py-3 text-left transition-colors hover:border-primary/50 hover:bg-accent/30",
           faded && "opacity-60",
         )}
       >

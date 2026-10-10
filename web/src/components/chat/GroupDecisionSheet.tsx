@@ -1043,7 +1043,7 @@ export function GroupDecisionSheet({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent
           showCloseButton={false}
-          className="flex max-h-[90vh] w-full max-w-4xl flex-col gap-0 overflow-hidden rounded-xl border-border bg-card p-0"
+          className="flex max-h-[90vh] w-full max-w-4xl flex-col gap-0 overflow-hidden rounded-card border-border bg-card p-0"
         >
           {/* Stays put while the log scrolls underneath, so a long note never leaves the
               reader wondering which group they are looking at. */}

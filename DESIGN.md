@@ -2142,9 +2142,25 @@ Thân trang  : lề ngang 16 px, nhịp dọc 8 / 12 / 16
 Thanh dưới  : ToolBelt (ẩn trong thread)
 ```
 - **SubTabs** (`components/nav/SubTabs.tsx`) là dải duy nhất: Kết nối, Nhiệm vụ, Két sắt, Cài đặt, Kế hoạch. **Một kiểu (VMT 10/10 19:39 · ADR-078):** đặt sát dưới đường kẻ tiêu đề, tràn hết bề ngang cột (không margin / padding ngoài); chữ dồn trái, lề đầu 20 px, cách đều 20 px — không chia ô; quá bề ngang thì cuộn ngang (mép phải mờ 20 px), không rút gọn nhãn, mục đang chọn tự vào giữa. 40 px; chữ 13 px — đang chọn đậm 600 màu chữ chính, còn lại 500 màu mờ; gạch chân 2 px tông cá nhân **rộng bằng chữ**; vùng chạm ≥ 44 px. `⋯` cho mục phụ (lề phải 16 px). Kế hoạch: `[Kệ | Bàn]` bắt đầu ở 20 px, các kệ sau 16 px, nút bản đồ bên phải. Trang không thêm CSS riêng cho dải.
+- **Một lề cho mọi tab (VMT 10/10 21:11 · ADR-079):** `--tab-inset` = 20 px. Chữ đầu của dải, tên tab lớn (máy tính / điện thoại nằm ngang) và mép logo ở hàng đầu điện thoại đều ở lề này. Trên điện thoại đứng tên tab đứng sau logo (một hàng, ADR-059) nên chữ tên tab ở 66 px.
 - **Dưới dải:** thân trang bắt đầu 16 px dưới dải ở mọi tab (`data-under-tabs`, `pt-4`); danh sách Kết nối: chữ / avatar dòng đầu cũng ở 16 px. Màn khoá Két sắt và màn `Sắp có` canh giữa như cũ.
 - **Nút hàng đầu:** Tìm · Người (nếu có) · `+`, cùng 38 px kiểu `.icon-btn` (theo Kiểu nút, ADR-037). `+` tông cá nhân. Cam Avora chỉ cho logo và huy hiệu.
 - **Bubble lịch:** cùng vị trí / cỡ / biểu tượng ở mọi tab; ẩn trong thread và màn tập trung.
+
+## Thang khoảng cách · bo góc · phông (AVORA-101B · KHỐI 2E · ADR-079)
+| Token | Giá trị | Dùng cho |
+|---|---|---|
+| `--space-1` · `s-1` | 4 px | trong một dòng (icon ↔ chữ nhỏ) |
+| `--space-2` · `s-2` | 8 px | giữa hai khối chữ liền kề |
+| `--space-3` · `s-3` | 12 px | trong thẻ, giữa nhóm |
+| `--space-4` · `s-4` | 16 px | giữa các thẻ / mục; lề trong thẻ |
+| `--radius-card` · `rounded-card` | 16 px | thẻ, tấm, bong bóng chat |
+| `--radius-control` · `rounded-control` | `min(--btn-radius, 24px)` | nút, ô nhập, chip — theo Kiểu nút |
+| `--tab-inset` · `pl-tab` | 20 px | lề tên tab + chữ đầu dải mục con |
+| `--font-sans` | Inter Tight | phông duy nhất, đặt ở `body` |
+- Chỉ bốn bậc khoảng cách giữa các khối chữ ở 5 tab; không `rounded-xl/2xl/3xl` lẻ (test chặn).
+- **Phông:** chọn duy nhất ở Cài đặt › Tuỳ chọn chung › `Phông chữ`: `Inter Tight` (mặc định) · `Chữ của máy` · `Be Vietnam Pro`; đổi là đổi cả 5 tab + cuộc trò chuyện; lưu trên máy. Không phông có chân cho tiêu đề (trình đọc sách giữ chữ đọc riêng).
+- **Mật độ 390×844 (dữ liệu thường ngày):** Kết nối, Nhiệm vụ, Kế hoạch, Két sắt vừa một màn; Cài đặt › Hồ sơ còn cuộn (hồ sơ + thông tin + Tạo PIN + Bảo mật — nội dung dài, không phải khoảng trống).
 
 ## Kế hoạch trong khung chuẩn (AVORA-101C · ADR-074)
 ```
@@ -2208,6 +2224,21 @@ Tạo 08/10 bởi bạn · từ Hạng mục                 🗑
 - Bảng `Thói quen` (Kế hoạch › Avora lập sẵn › Nhiệm vụ): cột Thói quen · Loại · Lịch · Hôm nay · Tuần này · 4 tuần gần nhất · Tổng số lần; `⋯` dòng: Ghi chú riêng · Lưu trữ thói quen (không có Tạo việc).
 - Nhìn lại tuần / hôm nay: khối `↻ Thói quen  Đã giữ X · Chưa làm Y`, từng thói quen một dòng; không thêm câu hỏi.
 - Không mạng: dòng nhỏ `☁̸ Đã lưu trên máy · gửi khi có mạng`.
+
+### Khi rời Avora (VMT 10/10 21:11 · ADR-077)
+Trong Tạo / Sửa thói quen có đồng hồ, dưới số phút: `Khi rời Avora` — `[Cứ chạy | Dừng khi rời]`, mặc định **Cứ chạy**, một dòng giải thích dưới.
+- **Cứ chạy:** khoá màn, mở app khác, đóng Avora — đồng hồ vẫn chạy (đếm theo mốc). Chip góc đang đếm (`⏱• Chạy bộ 07:12`, quá mục tiêu: `Đủ · 12:31` màu tông cá nhân). Quay lại Avora:
+```
+┌──────────────────────────────┐
+│ ⏱ Chạy bộ                  ✕ │
+│ Đủ 10 phút                   │   (chưa đủ: "Đã trôi qua 6 phút")
+│ Đã trôi qua 13 phút · mục tiêu 10 phút. Chưa ghi gì.
+│ [ ✓ Ghi Đã làm (13 phút) ]   │
+│ [       Bỏ phiên         ]   │
+└──────────────────────────────┘
+```
+  ✕ / chạm nền = đóng thẻ, đồng hồ vẫn chạy. Ghi n thật, không cắt trần. Khi app đóng: thông báo `Đồng hồ thói quen đã đủ giờ` (theo chế độ yên lặng).
+- **Dừng khi rời:** như mục dưới (PHẦN 2).
 
 ### Đồng hồ đếm ngược (AVORA-107 · PHẦN 2 · ADR-077)
 ```

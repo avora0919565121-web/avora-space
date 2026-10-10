@@ -78,7 +78,7 @@ export function TemplateLibrary({
       <h3 className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         Nền tảng · ai cũng dùng <span className="tabular">{foundation.length}</span>
       </h3>
-      <ul className="mt-1.5 overflow-hidden rounded-xl border border-border bg-card" data-foundation="">
+      <ul className="mt-1.5 overflow-hidden rounded-card border border-border bg-card" data-foundation="">
         {foundation.map((template) => row(template, { "data-foundation-card": template.id }))}
       </ul>
       {groups.length > 0 ? (
@@ -86,7 +86,7 @@ export function TemplateLibrary({
           <h3 className="mt-5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
             Hợp với vai trò của bạn <span className="tabular">{groupCount}</span>
           </h3>
-          <div className="mt-1.5 overflow-hidden rounded-xl border border-border bg-card" data-role-groups="">
+          <div className="mt-1.5 overflow-hidden rounded-card border border-border bg-card" data-role-groups="">
             {groups.map((group) => (
               <section key={group.role} data-role-group={group.role}>
                 <p className="px-3 pt-2.5 text-[12.5px] font-semibold text-personal">{audienceLabel(group.role)}</p>
@@ -96,7 +96,7 @@ export function TemplateLibrary({
           </div>
         </>
       ) : (
-        <button type="button" onClick={onChangeRoles} data-pick-roles-hint="" className="press mt-4 flex min-h-11 w-full items-center justify-between rounded-xl border border-dashed border-border px-3 text-left text-[13.5px] text-muted-foreground">
+        <button type="button" onClick={onChangeRoles} data-pick-roles-hint="" className="press mt-4 flex min-h-11 w-full items-center justify-between rounded-card border border-dashed border-border px-3 text-left text-[13.5px] text-muted-foreground">
           Chọn vai trò để thấy mẫu hợp với bạn <ChevronRight className="h-4 w-4" aria-hidden="true" />
         </button>
       )}
@@ -112,7 +112,7 @@ export function TemplateLibrary({
       {isAllOpen ? (
       <div className="mt-2" data-all-templates-body="">
       {isSearching ? (
-        <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mẫu…" aria-label="Tìm mẫu" className="mb-3 h-11 w-full rounded-xl border border-border bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]" />
+        <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Tìm mẫu…" aria-label="Tìm mẫu" className="mb-3 h-11 w-full rounded-control border border-border bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]" />
       ) : (
         <button type="button" onClick={() => setIsSearching(true)} aria-label="Tìm mẫu" className="press mb-2 flex h-10 items-center gap-1.5 text-[13px] text-muted-foreground">
           <Search className="h-4 w-4" aria-hidden="true" /> Tìm mẫu
@@ -142,7 +142,7 @@ export function TemplateLibrary({
       </p>
 
       {blank !== undefined ? (
-        <button type="button" onClick={() => setPlacing(blank)} data-template-blank="" className="press mt-3 flex h-12 w-full items-center justify-center rounded-xl border border-dashed border-border text-[14.5px] text-foreground">
+        <button type="button" onClick={() => setPlacing(blank)} data-template-blank="" className="press mt-3 flex h-12 w-full items-center justify-center rounded-control border border-dashed border-border text-[14.5px] text-foreground">
           + Bảng trống — tự đặt cột
         </button>
       ) : null}
@@ -152,7 +152,7 @@ export function TemplateLibrary({
           <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2 md:grid-cols-[repeat(2,minmax(0,1fr))]">
             {ownTemplates.map((template) => (
               <li key={template.id} className="min-w-0">
-                <button type="button" onClick={() => setPlacing(template)} className="press w-full rounded-xl border border-border bg-card px-4 py-3 text-left">
+                <button type="button" onClick={() => setPlacing(template)} className="press w-full rounded-card border border-border bg-card px-4 py-3 text-left">
                   <span className="block truncate text-[15px] font-semibold">{template.name}</span>
                   <span className="block truncate text-[12.5px] text-muted-foreground">Cột: {template.columns.map((column) => column.label).join(" · ")}</span>
                 </button>
@@ -165,7 +165,7 @@ export function TemplateLibrary({
       <ul className="mt-3 grid grid-cols-[minmax(0,1fr)] gap-2.5 md:grid-cols-[repeat(2,minmax(0,1fr))]">
         {list.map((template) => (
           <li key={template.id} className="min-w-0">
-            <button type="button" onClick={() => setPreview(template)} data-template-card={template.id} className="press w-full rounded-2xl border border-border bg-card px-4 py-3 text-left">
+            <button type="button" onClick={() => setPreview(template)} data-template-card={template.id} className="press w-full rounded-card border border-border bg-card px-4 py-3 text-left">
               <span className="flex items-baseline gap-2">
                 <span className="min-w-0 flex-1 truncate text-[16px] font-semibold text-foreground">{template.name}</span>
                 <span className="shrink-0 text-[12.5px] font-semibold text-personal">{THINKING_TYPES.find((item) => item.id === template.thinkingType)?.label}</span>
@@ -186,13 +186,13 @@ export function TemplateLibrary({
       ) : null}
 
       <Sheet open={preview !== null} onOpenChange={(open) => !open && setPreview(null)}>
-        <SheetContent side="bottom" className="mx-auto max-h-[85dvh] max-w-xl overflow-y-auto rounded-t-2xl" data-template-preview="">
+        <SheetContent side="bottom" className="mx-auto max-h-[85dvh] max-w-xl overflow-y-auto rounded-t-card" data-template-preview="">
           {preview !== null ? (
             <>
               <SheetTitle className="text-[18px]">{preview.name}</SheetTitle>
               <SheetDescription className="text-[13.5px] italic">“{preview.guidingQuestion ?? "Tự đặt cột và trạng thái."}”</SheetDescription>
               <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Ví dụ · chỉ để xem, không lưu</p>
-              <div className="mt-1.5 overflow-x-auto rounded-xl border border-border" data-no-room-swipe="">
+              <div className="mt-1.5 overflow-x-auto rounded-card border border-border" data-no-room-swipe="">
                 <table className="w-full min-w-[420px] text-left text-[13px]">
                   <thead className="bg-secondary/60 text-[12px] text-muted-foreground">
                     <tr>
@@ -216,7 +216,7 @@ export function TemplateLibrary({
                   setPlacing(preview);
                   setPreview(null);
                 }}
-                className="press mt-4 h-11 w-full rounded-xl bg-personal text-[14.5px] font-semibold text-personal-foreground"
+                className="press mt-4 h-11 w-full rounded-control bg-personal text-[14.5px] font-semibold text-personal-foreground"
               >
                 Dùng mẫu này
               </button>
@@ -250,7 +250,7 @@ export function PlacePicker({ template, places, onClose, onCreated }: { template
   };
   return (
     <Sheet open={template !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="mx-auto max-h-[70dvh] max-w-lg overflow-y-auto rounded-t-2xl" data-place-picker="">
+      <SheetContent side="bottom" className="mx-auto max-h-[70dvh] max-w-lg overflow-y-auto rounded-t-card" data-place-picker="">
         <SheetTitle className="text-[17px]">{template?.id === "blank" ? "Bảng trống" : `“${template?.name ?? ""}”`} — đặt ở đâu?</SheetTitle>
         <SheetDescription className="text-[13px]">Cá nhân · 1-1 · Nhóm · Dự án — chỉ nơi bạn có quyền tạo.</SheetDescription>
         <label className="mt-2 block">
@@ -289,7 +289,7 @@ export function AudienceAsk({ open, initial = [], onDone }: { open: boolean; ini
   }
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onDone(null)}>
-      <SheetContent side="bottom" className="mx-auto max-h-[92dvh] max-w-lg overflow-y-auto rounded-t-2xl" data-audience-ask="">
+      <SheetContent side="bottom" className="mx-auto max-h-[92dvh] max-w-lg overflow-y-auto rounded-t-card" data-audience-ask="">
         <SheetTitle className="text-[20px] tracking-tight">Bạn đang ở những vai trò nào?</SheetTitle>
         <SheetDescription className="text-[13.5px] leading-snug">
           Chọn bao nhiêu cũng được. Avora đưa vài mẫu hợp với từng vai lên trước — bảng nền tảng thì ai cũng có.
@@ -305,7 +305,7 @@ export function AudienceAsk({ open, initial = [], onDone }: { open: boolean; ini
                 data-role={item.id}
                 onClick={() => setPicked((current) => (current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id]))}
                 className={cn(
-                  "press inline-flex min-h-11 max-w-full items-center gap-1 rounded-xl border px-3.5 text-left text-[14.5px]",
+                  "press inline-flex min-h-11 max-w-full items-center gap-1 rounded-card border px-3.5 text-left text-[14.5px]",
                   isOn ? "border-personal bg-personal-soft font-semibold text-personal-soft-foreground" : "border-border bg-card text-foreground",
                 )}
               >
@@ -319,8 +319,8 @@ export function AudienceAsk({ open, initial = [], onDone }: { open: boolean; ini
           Đã chọn <span className="tabular">{picked.length}</span> · đổi lúc nào cũng được ở Mẫu bảng › Vai trò của tôi
         </p>
         <div className="mt-3 grid grid-cols-[1fr_2fr] gap-2">
-          <button type="button" onClick={() => onDone(initial.length > 0 ? null : [])} className="press h-12 rounded-xl border border-border text-[15px]">Bỏ qua</button>
-          <button type="button" onClick={() => onDone(picked)} className="press h-12 rounded-xl bg-personal text-[15px] font-semibold text-personal-foreground">Xem mẫu hợp với tôi</button>
+          <button type="button" onClick={() => onDone(initial.length > 0 ? null : [])} className="press h-12 rounded-control border border-border text-[15px]">Bỏ qua</button>
+          <button type="button" onClick={() => onDone(picked)} className="press h-12 rounded-control bg-personal text-[15px] font-semibold text-personal-foreground">Xem mẫu hợp với tôi</button>
         </div>
       </SheetContent>
     </Sheet>

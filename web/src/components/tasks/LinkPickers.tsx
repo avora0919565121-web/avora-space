@@ -87,7 +87,7 @@ function PickerFrame({
   }
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="flex h-[min(560px,80vh)] max-w-[440px] flex-col gap-0 rounded-xl border-border bg-background p-0">
+      <DialogContent showCloseButton={false} className="flex h-[min(560px,80vh)] max-w-[440px] flex-col gap-0 rounded-card border-border bg-background p-0">
         {body}
       </DialogContent>
     </Dialog>

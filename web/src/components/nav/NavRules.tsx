@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth";
 /** Cài đặt › Hướng dẫn · `Cách đi trong AVORA` — the first card. */
 export function NavRulesCard() {
   return (
-    <section aria-labelledby="guide-nav" data-nav-rules="" className="rounded-xl border border-border bg-card p-5">
+    <section aria-labelledby="guide-nav" data-nav-rules="" className="rounded-card border border-border bg-card p-5">
       <h2 id="guide-nav" className="text-[17px] font-semibold tracking-tight text-foreground">Cách đi trong AVORA</h2>
       <ul className="mt-3 space-y-3">
         {NAV_RULES.map((rule) => (

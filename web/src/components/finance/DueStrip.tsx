@@ -63,7 +63,7 @@ export function DueStrip({
   return (
     <section
       aria-labelledby="due-strip-title"
-      className="mt-6 rounded-xl border border-border bg-card px-5 py-4"
+      className="mt-6 rounded-card border border-border bg-card px-5 py-4"
     >
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <h2 id="due-strip-title" className="text-[15px] font-semibold tracking-tight text-foreground">

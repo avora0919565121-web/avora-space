@@ -20,6 +20,14 @@ export default {
         // AVORA-57 · I: a phone on its side — judged by height, not width.
         short: { raw: "(max-height: 500px) and (orientation: landscape)" },
       },
+      // AVORA-101B · KHỐI 2E (ADR-079): one inset for every tab's title and strip; four spacing steps.
+      spacing: {
+        tab: "var(--tab-inset)",
+        "s-1": "var(--space-1)",
+        "s-2": "var(--space-2)",
+        "s-3": "var(--space-3)",
+        "s-4": "var(--space-4)",
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -89,7 +97,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Inter Tight", "ui-sans-serif", "system-ui", "sans-serif"],
+        // AVORA-101B · KHỐI 2E: one family for the whole app, chosen in Cài đặt (`--font-sans`).
+        sans: ["var(--font-sans)"],
         // AVORA-77 · D3: the reader's serif — system serifs that carry Vietnamese marks well.
         reader: ["Charter", "'Iowan Old Style'", "'Noto Serif'", "Georgia", "'Times New Roman'", "serif"],
       },
@@ -97,7 +106,14 @@ export default {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
-        bubble: "1rem",
+        // AVORA-101B · KHỐI 2E: two radii — controls follow Kiểu nút, cards are 16 px. The old
+        // xl / 2xl / 3xl steps all read the card radius, so no stray corner survives anywhere.
+        control: "var(--radius-control)",
+        card: "var(--radius-card)",
+        xl: "var(--radius-card)",
+        "2xl": "var(--radius-card)",
+        "3xl": "var(--radius-card)",
+        bubble: "var(--radius-card)",
       },
       keyframes: {
         "accordion-down": {

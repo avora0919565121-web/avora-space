@@ -49,7 +49,7 @@ export function CleanupCard({ onLater }: { onLater: () => void }) {
   };
 
   return (
-    <section aria-labelledby="cleanup-card-title" data-cleanup-card="" className="mb-4 rounded-2xl border border-border bg-card p-4 shadow-sm">
+    <section aria-labelledby="cleanup-card-title" data-cleanup-card="" className="mb-4 rounded-card border border-border bg-card p-4 shadow-sm">
       <h2 id="cleanup-card-title" className="text-[17px] font-semibold tracking-tight text-foreground">Dọn kệ tuần này</h2>
       <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">Avora chỉ gợi ý. Không gì bị xoá nếu bạn không chọn.</p>
       <ul className="mt-3">
@@ -88,13 +88,13 @@ export function CleanupCard({ onLater }: { onLater: () => void }) {
         })}
       </ul>
       <div className="mt-3 grid grid-cols-[auto_1fr] gap-2">
-        <button type="button" onClick={onLater} className="press h-11 rounded-xl border border-border px-4 text-[14px]">Để tuần sau</button>
+        <button type="button" onClick={onLater} className="press h-11 rounded-control border border-border px-4 text-[14px]">Để tuần sau</button>
         <button
           type="button"
           disabled={chosenCount === 0 || apply.isPending}
           onClick={run}
           data-cleanup-run=""
-          className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-personal px-4 text-[14px] font-semibold text-personal-foreground disabled:opacity-50"
+          className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-control bg-personal px-4 text-[14px] font-semibold text-personal-foreground disabled:opacity-50"
         >
           {apply.isPending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
           Dọn {chosenCount} việc đã chọn

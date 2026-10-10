@@ -39,7 +39,7 @@ export function CallMenu({ peerId, peerName }: { peerId: string | null; peerName
           <Phone className="h-[19px] w-[19px]" strokeWidth={1.6} />
         </button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" sideOffset={6} className="w-[256px] rounded-xl p-1.5">
+      <DropdownMenuContent align="end" sideOffset={6} className="w-[256px] rounded-card p-1.5">
         <DropdownMenuLabel className="px-2.5 pb-1 pt-1.5">
           <span className="block text-[13px] font-semibold text-foreground">Gọi {peerName}</span>
           <span className="block text-[12px] font-normal text-muted-foreground">

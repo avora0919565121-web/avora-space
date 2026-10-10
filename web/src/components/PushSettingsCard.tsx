@@ -57,7 +57,7 @@ export function PushSettingsCard() {
     setPushPrefs.mutate(patch, { onError: (error: Error) => toast.error(error.message) });
 
   return (
-    <section aria-labelledby="push-heading" className="rounded-xl border border-border bg-card p-5">
+    <section aria-labelledby="push-heading" className="rounded-card border border-border bg-card p-5">
       <h2 id="push-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
         <BellRing className="h-[18px] w-[18px] text-primary" /> Thông báo khi AVORA đang đóng
       </h2>

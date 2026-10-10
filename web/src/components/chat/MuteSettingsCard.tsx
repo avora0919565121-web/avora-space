@@ -177,7 +177,7 @@ export function MuteSettingsCard() {
   const { isWorking } = useMuteSettings();
 
   return (
-    <div className="mt-6 rounded-xl border border-border bg-card p-6">
+    <div className="mt-6 rounded-card border border-border bg-card p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-[17px] font-semibold text-foreground">Tắt thông báo</h2>

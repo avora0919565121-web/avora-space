@@ -53,7 +53,7 @@ export function DefaultShelf({
   return (
     <div className="grid gap-3 md:grid-cols-3" data-shelf-panel="mac-dinh">
       {ZONES.map((zone) => (
-        <section key={zone.id} aria-label={zone.label} data-zone={zone.id} className="rounded-xl border border-border bg-card">
+        <section key={zone.id} aria-label={zone.label} data-zone={zone.id} className="rounded-card border border-border bg-card">
           <h3 className="border-b border-border/70 px-4 py-2 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{zone.label}</h3>
           {zone.id === "ket-sat" && !isVaultOpen ? (
             <p data-vault-locked="" className="flex items-center gap-2 border-b border-border/50 px-4 py-2 text-[12.5px] text-muted-foreground">
@@ -152,7 +152,7 @@ export function PlannedShelf({
           </button>
         ))}
       </div>
-      <ul className="overflow-hidden rounded-xl border border-border bg-card">
+      <ul className="overflow-hidden rounded-card border border-border bg-card">
         {shown.map((board) => {
           const place = placeOf(board);
           const isMine = board.ownerUserId === user?.id && !(board.projectId !== null && board.parentRecordId === null);
@@ -241,7 +241,7 @@ export function LifecycleShelf({ boards, placeOf, onOpen }: { boards: readonly T
             if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(null);
           }}
           onDrop={(event) => drop(event, lane.id)}
-          className={cn("min-h-[140px] rounded-xl border bg-secondary/40 p-2 transition-colors", over === lane.id ? "border-personal bg-personal-soft/50" : "border-border")}
+          className={cn("min-h-[140px] rounded-card border bg-secondary/40 p-2 transition-colors", over === lane.id ? "border-personal bg-personal-soft/50" : "border-border")}
         >
           <h3 className="flex items-center justify-between px-2 pb-2 pt-1 text-[12.5px] font-semibold text-foreground">
             {lane.label}
@@ -320,7 +320,7 @@ export function DiaryShelf() {
           const Icon = DIARY_ICONS[view.id];
           const count = countOf(view.id);
           return (
-            <button key={view.id} type="button" onClick={() => void open(view.id)} data-diary-door={view.id} className="press flex items-start gap-3 rounded-xl border border-border bg-card px-4 py-3 text-left hover:bg-accent/25">
+            <button key={view.id} type="button" onClick={() => void open(view.id)} data-diary-door={view.id} className="press flex items-start gap-3 rounded-card border border-border bg-card px-4 py-3 text-left hover:bg-accent/25">
               <Icon className="mt-0.5 h-5 w-5 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
               <span className="min-w-0 flex-1">
                 <span className="flex items-baseline gap-2">
@@ -333,7 +333,7 @@ export function DiaryShelf() {
           );
         })}
       </div>
-      <button type="button" onClick={() => void open(null)} className="press mt-3 inline-flex h-11 items-center gap-2 rounded-xl bg-personal px-5 text-[14px] font-semibold text-personal-foreground">
+      <button type="button" onClick={() => void open(null)} className="press mt-3 inline-flex h-11 items-center gap-2 rounded-control bg-personal px-5 text-[14px] font-semibold text-personal-foreground">
         <NotebookText className="h-4 w-4" aria-hidden="true" /> Mở Nhật ký ›
       </button>
     </div>
@@ -382,7 +382,7 @@ export function OtherShelf({
   return (
     <div data-shelf-panel="khac">
       {nothing ? <p className="mb-2 text-[13.5px] text-muted-foreground" data-nothing-to-file="">Không có gì cần xếp.</p> : null}
-      <ul className="overflow-hidden rounded-xl border border-border bg-card">
+      <ul className="overflow-hidden rounded-card border border-border bg-card">
         {group("question", "Bảng chưa có câu hỏi", HelpCircle, noQuestion)}
         {group("archived", "Đã lưu trữ", Archive, archived)}
         <li>

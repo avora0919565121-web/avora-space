@@ -217,7 +217,7 @@ export function AvoraSearchHost() {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="flex h-[100dvh] max-w-none flex-col gap-0 rounded-none p-0 sm:h-auto sm:max-h-[86dvh] sm:max-w-[680px] sm:rounded-xl [&>button:last-child]:hidden">
+      <DialogContent className="flex h-[100dvh] max-w-none flex-col gap-0 rounded-none p-0 sm:h-auto sm:max-h-[86dvh] sm:max-w-[680px] sm:rounded-card [&>button:last-child]:hidden">
         <DialogTitle className="sr-only">Tìm trong toàn AVORA</DialogTitle>
         <DialogDescription className="sr-only">Không tìm trong Két sắt.</DialogDescription>
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">

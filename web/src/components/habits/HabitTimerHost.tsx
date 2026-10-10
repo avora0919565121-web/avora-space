@@ -2,21 +2,23 @@ import { useCallback, useEffect, useRef } from "react";
 import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 
+import { HabitTimerBackCard } from "@/components/habits/HabitTimerBackCard";
 import { HabitTimerChip } from "@/components/habits/HabitTimerChip";
 import { HabitTimerScreen } from "@/components/habits/HabitTimerScreen";
 import { useAuth } from "@/lib/auth";
 import { playSoftTone } from "@/lib/habit-chime";
 import { habitChimeAllowed } from "@/lib/habits";
 import { activeFocus } from "@/lib/mute";
-import { checkHabitTimer, clearHabitTimerNotice, closeHabitTimer, loadHabitTimer, stopHabitTimer, useHabitTimer } from "@/lib/use-habit-timer";
+import { checkHabitTimer, clearHabitTimerNotice, closeHabitTimer, leaveHabitTimer, loadHabitTimer, returnToHabitTimer, useHabitTimer } from "@/lib/use-habit-timer";
 import { useLocalDay } from "@/lib/use-habits";
 import { useMuteSettings } from "@/lib/use-mute";
 import { useProfileSettings } from "@/lib/use-settings";
 
 /**
  * AVORA-107 · PHẦN 2 — the habit clock's home on every screen: the full-screen countdown when open,
- * the corner chip while a session waits. Whatever takes the person away stops the clock: another
- * route, the page hidden (screen locked, app switched), the window losing focus.
+ * the corner chip while a session waits or runs. `Dừng khi rời`: whatever takes the person away
+ * stops the clock (another route, the page hidden, the window losing focus). `Cứ chạy` (VMT 10/10
+ * 21:11): nothing stops it; coming back to a hidden page asks what to write.
  */
 export function HabitTimerHost() {
   const { user } = useAuth();
@@ -37,17 +39,21 @@ export function HabitTimerHost() {
   }, [today]);
 
   useEffect(() => {
-    const onHidden = (): void => {
-      if (document.visibilityState === "hidden") stopHabitTimer("hidden");
+    const onVisibility = (): void => {
+      if (document.visibilityState === "hidden") leaveHabitTimer("hidden");
+      else returnToHabitTimer();
     };
-    const onBlur = (): void => stopHabitTimer("hidden");
-    document.addEventListener("visibilitychange", onHidden);
-    window.addEventListener("pagehide", onBlur);
+    const onHide = (): void => leaveHabitTimer("hidden");
+    const onBlur = (): void => leaveHabitTimer("blur");
+    document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("pagehide", onHide);
     window.addEventListener("blur", onBlur);
+    window.addEventListener("pageshow", returnToHabitTimer);
     return () => {
-      document.removeEventListener("visibilitychange", onHidden);
-      window.removeEventListener("pagehide", onBlur);
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("pagehide", onHide);
       window.removeEventListener("blur", onBlur);
+      window.removeEventListener("pageshow", returnToHabitTimer);
     };
   }, []);
 
@@ -81,7 +87,8 @@ export function HabitTimerHost() {
     if (allowed) playSoftTone();
   }, []);
 
-  if (screen !== null) return <HabitTimerScreen screen={screen} session={session} today={today} onFinished={onFinished} />;
-  if (session !== null) return <HabitTimerChip session={session} />;
+  if (screen?.mode === "back" && session !== null) return <HabitTimerBackCard session={session} today={today} />;
+  if (screen !== null && screen.mode !== "back") return <HabitTimerScreen screen={screen} session={session} today={today} onFinished={onFinished} />;
+  if (session !== null) return <HabitTimerChip session={session} today={today} onReached={onFinished} />;
   return null;
 }

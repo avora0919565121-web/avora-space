@@ -14,6 +14,7 @@ import {
   HABIT_SUGGESTIONS,
   MAX_WINDOWS,
   WEEKDAY_SHORT,
+  WHEN_AWAY_LABEL,
   draftOf,
   validateDraft,
   type Habit,
@@ -177,6 +178,31 @@ export function HabitEditor({ open, onOpenChange, habit, initial, onSaved }: { o
                 />
                 <span className="text-[14px] text-muted-foreground">phút</span>
               </label>
+            ) : null}
+            {draft.kind === "timed" ? (
+              <div className="mt-3" data-habit-when-away="">
+                <span id="habit-when-away" className="mb-1.5 block text-[13px] font-semibold text-foreground">Khi rời Avora</span>
+                <div role="radiogroup" aria-labelledby="habit-when-away" className="grid grid-cols-2 gap-1 rounded-[12px] bg-secondary p-1">
+                  {(["keep", "stop"] as const).map((value) => (
+                    <button
+                      key={value}
+                      type="button"
+                      role="radio"
+                      aria-checked={draft.whenAway === value}
+                      data-when-away={value}
+                      onClick={() => patch({ whenAway: value })}
+                      className={cn("press h-11 rounded-[9px] text-[14px] font-medium transition-colors", draft.whenAway === value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground")}
+                    >
+                      {WHEN_AWAY_LABEL[value]}
+                    </button>
+                  ))}
+                </div>
+                <p className="mt-1.5 text-[12px] text-muted-foreground">
+                  {draft.whenAway === "keep"
+                    ? "Khoá màn hình, mở app khác hay đóng Avora, đồng hồ vẫn chạy. Quay lại, bạn chọn ghi Đã làm hay bỏ phiên."
+                    : "Rời màn đồng hồ, khoá màn hình hay chuyển app là đồng hồ dừng."}
+                </p>
+              </div>
             ) : null}
           </section>
 

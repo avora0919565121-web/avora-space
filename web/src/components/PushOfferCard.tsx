@@ -34,7 +34,7 @@ export function PushOfferCard() {
     setVisible(false);
   };
   return (
-    <div role="dialog" aria-label="Bật thông báo" className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-sm animate-rise-in rounded-2xl border border-border bg-card p-4 shadow-xl md:bottom-6 md:right-6 md:left-auto">
+    <div role="dialog" aria-label="Bật thông báo" className="fixed inset-x-3 bottom-24 z-50 mx-auto max-w-sm animate-rise-in rounded-card border border-border bg-card p-4 shadow-xl md:bottom-6 md:right-6 md:left-auto">
       <div className="flex items-start gap-3">
         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
           <BellRing className="h-5 w-5" />

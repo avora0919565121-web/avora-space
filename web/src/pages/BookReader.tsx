@@ -886,7 +886,7 @@ const BookReader = () => {
       ) : null}
 
       {strip !== null && !quiet.quiet ? (
-        <div className="absolute inset-x-2 top-[max(env(safe-area-inset-top),0.5rem)] z-40 mx-auto flex max-w-md items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-foreground shadow-lg" data-message-strip="" role="status">
+        <div className="absolute inset-x-2 top-[max(env(safe-area-inset-top),0.5rem)] z-40 mx-auto flex max-w-md items-center gap-2 rounded-card border border-border bg-card px-3 py-2 text-foreground shadow-lg" data-message-strip="" role="status">
           <span className="min-w-0 flex-1">
             <span className="block truncate text-[13.5px] font-semibold">{strip.name}</span>
             <span className="block truncate text-[12.5px] text-muted-foreground">{strip.line}</span>
@@ -1015,7 +1015,7 @@ const BookReader = () => {
       </footer>
 
       {selection !== null ? (
-        <div role="toolbar" aria-label="Đoạn đang chọn" data-selection-bar="" className="fixed z-50 flex w-[280px] items-center gap-1 rounded-xl border border-border bg-card p-1 text-foreground shadow-lg" style={{ top: selection.top, left: selection.left }}>
+        <div role="toolbar" aria-label="Đoạn đang chọn" data-selection-bar="" className="fixed z-50 flex w-[280px] items-center gap-1 rounded-card border border-border bg-card p-1 text-foreground shadow-lg" style={{ top: selection.top, left: selection.left }}>
           {/* AVORA-93 · 2.6: Dịch · Ghi chú · Chép. Lookups stay on this device. */}
           <button type="button" onMouseDown={(event) => event.preventDefault()} onClick={() => void runLookup()} className="press flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[13px] font-semibold text-personal hover:bg-accent/40">
             <Languages className="h-4 w-4" aria-hidden="true" /> Dịch
@@ -1057,7 +1057,7 @@ const BookReader = () => {
 
       {/* Aa */}
       <Sheet open={panel === "aa"} onOpenChange={(open) => !open && setPanel(null)}>
-        <SheetContent side="bottom" className="mx-auto max-h-[80dvh] max-w-lg overflow-y-auto rounded-t-2xl" data-reader-aa="">
+        <SheetContent side="bottom" className="mx-auto max-h-[80dvh] max-w-lg overflow-y-auto rounded-t-card" data-reader-aa="">
           <SheetTitle className="text-[17px]">Chữ và giao diện</SheetTitle>
           <SheetDescription className="sr-only">Cỡ chữ, kiểu chữ, giao diện, lề, giãn dòng, cách sang trang</SheetDescription>
           <div className="mt-3 flex items-center gap-3">
@@ -1098,12 +1098,12 @@ const BookReader = () => {
 
       {/* Dịch */}
       <Sheet open={panel === "translate"} onOpenChange={(open) => !open && setPanel(null)}>
-        <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl" data-reader-dich="">
+        <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-card" data-reader-dich="">
           <SheetTitle className="text-[17px]">Dịch sách {LANGUAGE_NAMES[language] ?? ""}</SheetTitle>
           <SheetDescription className="text-[13px]">Dịch trên máy — chữ sách không rời máy, bản dịch không lưu ở máy chủ.</SheetDescription>
           {canTranslateChapter ? (
             <div className="mt-3 space-y-2">
-              <button type="button" onClick={() => void startTranslate("vi")} className="press flex h-12 w-full items-center justify-center rounded-xl bg-personal text-[15px] font-semibold text-personal-foreground">
+              <button type="button" onClick={() => void startTranslate("vi")} className="press flex h-12 w-full items-center justify-center rounded-control bg-personal text-[15px] font-semibold text-personal-foreground">
                 Dịch cả chương sang Tiếng Việt
               </button>
               {translating?.progress != null ? <p className="text-center text-[13px] text-muted-foreground">{translating.progress}</p> : null}
@@ -1111,7 +1111,7 @@ const BookReader = () => {
           ) : (
             <div className="mt-3 space-y-2" data-translate-help="">
               {/* AVORA-93 · 2.4 (3): honest — no whole-chapter machine translation until it reads well. */}
-              <p className="rounded-xl bg-secondary/60 px-4 py-3 text-[14.5px]">Sách này chưa có bản dịch tiếng Việt đủ hay để đọc liền mạch. Giữ ngón tay lên chữ để tra từ hoặc đoạn.</p>
+              <p className="rounded-card bg-secondary/60 px-4 py-3 text-[14.5px]">Sách này chưa có bản dịch tiếng Việt đủ hay để đọc liền mạch. Giữ ngón tay lên chữ để tra từ hoặc đoạn.</p>
               {engine === null ? <p className="text-[13px] text-muted-foreground">{NO_DEVICE_TRANSLATION}</p> : null}
             </div>
           )}
@@ -1119,7 +1119,7 @@ const BookReader = () => {
       </Sheet>
 
       {lookup !== null ? (
-        <div role="dialog" aria-label="Tra nghĩa" data-lookup-card="" className="fixed inset-x-3 z-50 mx-auto max-h-[45vh] max-w-md overflow-y-auto rounded-2xl border border-border bg-card p-3 text-foreground shadow-xl" style={{ top: lookup.top }}>
+        <div role="dialog" aria-label="Tra nghĩa" data-lookup-card="" className="fixed inset-x-3 z-50 mx-auto max-h-[45vh] max-w-md overflow-y-auto rounded-card border border-border bg-card p-3 text-foreground shadow-xl" style={{ top: lookup.top }}>
           <BackClosesBinding close={() => setLookup(null)} />
           <div className="flex items-start gap-2">
             <p className="line-clamp-2 min-w-0 flex-1 text-[13px] text-muted-foreground" lang={language}>{lookup.source}</p>
@@ -1194,7 +1194,7 @@ function Choice<T extends string>({ label, value, options, onPick }: { label: st
 
 function AboutEdition({ text, epub }: { text: BookText; epub: string | null }) {
   return (
-    <section aria-label="Về bản này" data-about-edition="" className="mt-10 break-before-column rounded-xl border border-border bg-card/70 p-5 font-sans text-[13px] leading-relaxed text-muted-foreground" style={{ textAlign: "start" }}>
+    <section aria-label="Về bản này" data-about-edition="" className="mt-10 break-before-column rounded-card border border-border bg-card/70 p-5 font-sans text-[13px] leading-relaxed text-muted-foreground" style={{ textAlign: "start" }}>
       <h2 className="text-[15px] font-semibold text-foreground">Về bản này</h2>
       <p className="mt-1">
         Nguồn: {text.source === "gutenberg" ? "Project Gutenberg" : "Wikisource tiếng Việt"} ·{" "}
@@ -1227,7 +1227,7 @@ function PinFullSheet({ open, onClose, books, states, wanted }: { open: boolean;
   const pinned = states.filter((state) => state.pinnedAt != null).map((state) => books.find((book) => book.id === state.recordId)).filter((book): book is { id: string; title: string } => book !== undefined);
   return (
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
-      <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl" data-pin-full="">
+      <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-card" data-pin-full="">
         <SheetTitle className="text-[17px]">Đã ghim 3 cuốn</SheetTitle>
         <SheetDescription className="text-[13.5px]">Bỏ ghim cuốn nào để ghim cuốn này?</SheetDescription>
         <ul className="mt-2">
@@ -1284,12 +1284,12 @@ function QuickPeek({ conversationId, page, onClose }: { conversationId: string |
   };
   return (
     <Sheet open={conversationId !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="mx-auto flex h-[55dvh] max-w-lg flex-col rounded-t-2xl" data-quick-peek="">
+      <SheetContent side="bottom" className="mx-auto flex h-[55dvh] max-w-lg flex-col rounded-t-card" data-quick-peek="">
         <SheetTitle className="text-[16px]">{summary === undefined ? "Tin nhắn" : conversationTitle(summary)}</SheetTitle>
         <SheetDescription className="sr-only">Vài tin gần nhất</SheetDescription>
         <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto">
           {(messages.data ?? []).slice(-8).map((message) => (
-            <li key={message.id} className={cn("max-w-[86%] rounded-2xl px-3 py-1.5 text-[14.5px]", message.senderId === user?.id ? "ml-auto bg-personal text-personal-foreground" : "bg-secondary")}>
+            <li key={message.id} className={cn("max-w-[86%] rounded-card px-3 py-1.5 text-[14.5px]", message.senderId === user?.id ? "ml-auto bg-personal text-personal-foreground" : "bg-secondary")}>
               {message.content}
             </li>
           ))}
@@ -1301,14 +1301,14 @@ function QuickPeek({ conversationId, page, onClose }: { conversationId: string |
             void send();
           }}
         >
-          <input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Trả lời nhanh…" aria-label="Trả lời nhanh" className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-[16px] outline-none focus:border-personal" />
-          <button type="submit" disabled={reply.trim() === ""} className="press h-11 rounded-xl bg-personal px-4 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">Gửi</button>
+          <input value={reply} onChange={(event) => setReply(event.target.value)} placeholder="Trả lời nhanh…" aria-label="Trả lời nhanh" className="h-11 min-w-0 flex-1 rounded-control border border-border bg-background px-3 text-[16px] outline-none focus:border-personal" />
+          <button type="submit" disabled={reply.trim() === ""} className="press h-11 rounded-control bg-personal px-4 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">Gửi</button>
         </form>
         <div className="mt-2 flex items-center justify-between gap-2">
           <button type="button" onClick={() => conversationId !== null && navigate(`/tin-nhan/${conversationId}`)} className="press min-h-11 text-[14px] font-medium text-personal">
             Mở cuộc trò chuyện ›
           </button>
-          <button type="button" onClick={onClose} data-back-to-page="" className="press inline-flex h-11 items-center gap-1 rounded-xl border border-border px-4 text-[14px] font-semibold">
+          <button type="button" onClick={onClose} data-back-to-page="" className="press inline-flex h-11 items-center gap-1 rounded-control border border-border px-4 text-[14px] font-semibold">
             <X className="h-4 w-4" aria-hidden="true" /> Quay lại trang {page}
           </button>
         </div>

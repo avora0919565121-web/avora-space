@@ -75,7 +75,7 @@ export function NewProjectDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-w-[560px] gap-0 overflow-hidden rounded-xl border-border bg-card p-0"
+        className="max-w-[560px] gap-0 overflow-hidden rounded-card border-border bg-card p-0"
       >
         <div className="px-6 pb-4 pt-6">
           <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">Dự án mới</DialogTitle>

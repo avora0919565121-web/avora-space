@@ -271,11 +271,11 @@ const FinanceAccounts = () => {
       />
 
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-border bg-card px-5 py-4">
+        <div className="rounded-card border border-border bg-card px-5 py-4">
           <p className="text-[13px] font-medium text-muted-foreground">Tài sản</p>
           <Money cents={worth.assetsCents} currency={currency} tone="ink" className="mt-1.5 block text-[22px] font-semibold" />
         </div>
-        <div className="rounded-xl border border-border bg-card px-5 py-4">
+        <div className="rounded-card border border-border bg-card px-5 py-4">
           <p className="text-[13px] font-medium text-muted-foreground">Nợ</p>
           <Money
             cents={worth.liabilitiesCents}
@@ -284,7 +284,7 @@ const FinanceAccounts = () => {
             className="mt-1.5 block text-[22px] font-semibold"
           />
         </div>
-        <div className="rounded-xl border border-border bg-card px-5 py-4">
+        <div className="rounded-card border border-border bg-card px-5 py-4">
           <p className="text-[13px] font-medium text-muted-foreground">Giá trị ròng</p>
           <Money cents={worth.netCents} currency={currency} tone="ink" className="mt-1.5 block text-[22px] font-semibold" />
         </div>

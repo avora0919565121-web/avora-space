@@ -281,7 +281,7 @@ export function MessageActionsMenu({
                 disabled={entry.disabled}
                 onSelect={() => onAction(entry.action)}
                 className={cn(
-                  "flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl px-1 py-2 text-center text-[11.5px] leading-tight",
+                  "flex min-h-[68px] flex-col items-center justify-center gap-1.5 rounded-card px-1 py-2 text-center text-[11.5px] leading-tight",
                   entry.danger ? "text-destructive focus:text-destructive" : "text-foreground",
                 )}
               >

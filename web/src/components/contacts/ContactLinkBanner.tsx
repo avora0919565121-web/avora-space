@@ -59,7 +59,7 @@ export function ContactLinkBanner({ contact }: { contact: Contact }) {
   return (
     <section
       aria-label="Gợi ý liên kết tài khoản AVORA"
-      className="animate-rise-in mt-6 rounded-xl border border-primary/30 bg-primary/[0.06] px-4 py-3.5"
+      className="animate-rise-in mt-6 rounded-card border border-primary/30 bg-primary/[0.06] px-4 py-3.5"
     >
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">

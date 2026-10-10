@@ -21,7 +21,7 @@ export function BlockedPeopleCard() {
   };
 
   return (
-    <section aria-labelledby="blocked-people-title" className="mt-6 rounded-xl border border-border bg-card p-6">
+    <section aria-labelledby="blocked-people-title" className="mt-s-4 rounded-card border border-border bg-card p-s-4">
       <h2 id="blocked-people-title" className="flex items-center gap-2 text-[17px] font-semibold text-foreground">
         <Ban className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
         Người đã chặn
@@ -35,9 +35,9 @@ export function BlockedPeopleCard() {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : blocks.length === 0 ? (
-        <p className="mt-5 text-[14px] text-muted-foreground">Bạn chưa chặn ai.</p>
+        <p className="mt-s-2 text-[14px] text-muted-foreground">Bạn chưa chặn ai.</p>
       ) : (
-        <ul className="mt-4 divide-y divide-border">
+        <ul className="mt-s-2 divide-y divide-border">
           {blocks.map((person) => {
             const label = blockedPersonLabel(person);
             return (

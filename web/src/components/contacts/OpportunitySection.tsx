@@ -73,7 +73,7 @@ export function OpportunitySection({
   // opportunity", which is a statement, and the screen does not know that yet.
   if (isPending) {
     return (
-      <section className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+      <section className="mt-5 overflow-hidden rounded-card border border-border bg-card">
         <div className="px-5 py-5" aria-hidden="true">
           <div className="h-4 w-28 animate-pulse rounded bg-secondary" />
         </div>
@@ -82,7 +82,7 @@ export function OpportunitySection({
   }
 
   return (
-    <section className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+    <section className="mt-5 overflow-hidden rounded-card border border-border bg-card">
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-3.5">
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Cơ hội</h2>
         {opportunities.length > 0 ? (

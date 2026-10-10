@@ -99,7 +99,7 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
       </div>
 
       {board.locked ? (
-        <div data-vault-locked="" className="mt-5 flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-4 text-muted-foreground">
+        <div data-vault-locked="" className="mt-5 flex items-center gap-3 rounded-card border border-border bg-card px-4 py-4 text-muted-foreground">
           <Lock className="h-5 w-5 shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 text-[14.5px]">Đang khoá · Mở Két sắt để xem</span>
           <button type="button" onClick={() => navigate(withReturn("/ket-sat", here))} className="press h-10 rounded-md border border-border px-3 text-[13.5px] text-foreground">
@@ -138,7 +138,7 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
           ) : board.error !== null ? (
             <p role="alert" className="mt-6 text-[14px] text-destructive">{board.error}</p>
           ) : board.rows.length === 0 ? (
-            <div data-view-empty="" className="mt-6 rounded-xl border border-dashed border-border px-4 py-5 text-[14.5px] text-muted-foreground">
+            <div data-view-empty="" className="mt-6 rounded-card border border-dashed border-border px-4 py-5 text-[14.5px] text-muted-foreground">
               <p>{def.empty}</p>
               {boardKey === "habits" ? (
                 <button type="button" onClick={() => navigate(withReturn("/nhiem-vu?muc=thoi-quen", here))} className="press mt-3 h-10 rounded-md border border-border px-3 text-[13.5px] text-foreground">

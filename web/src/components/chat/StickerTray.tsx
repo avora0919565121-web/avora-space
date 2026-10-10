@@ -50,7 +50,7 @@ export function StickerTray({ onPick }: { onPick: (id: string) => void }) {
                 onPick(sticker.id);
               }}
               aria-label={`Gửi sticker ${sticker.label}`}
-              className="press flex aspect-square min-h-11 items-center justify-center rounded-xl hover:bg-accent/40"
+              className="press flex aspect-square min-h-11 items-center justify-center rounded-card hover:bg-accent/40"
             >
               <AvoraSticker id={sticker.id} size={68} />
             </button>

@@ -111,7 +111,7 @@ const ContactNameRepair = () => {
           Tên chỉ đổi khi bạn bấm Áp dụng. Mọi kiểm tra chạy ngay trên máy, không gửi tên đi đâu.
         </p>
         {counts.broken + counts.accents > 0 ? (
-          <div className="mt-4 rounded-xl border border-border bg-card px-4 py-3" data-from-file="">
+          <div className="mt-4 rounded-card border border-border bg-card px-4 py-3" data-from-file="">
             <div className="flex flex-wrap items-center gap-3">
               <p className="min-w-0 flex-1 text-[13.5px] text-muted-foreground">
                 File danh bạ gốc (hoặc bản xuất từ điện thoại) thường vẫn còn tên đúng. AVORA so theo số điện thoại, chỉ đề xuất cho tên bị vỡ / thiếu dấu, không thêm liên hệ mới, không đổi số hay email.
@@ -146,7 +146,7 @@ const ContactNameRepair = () => {
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
           </div>
         ) : issues.length === 0 ? (
-          <p className="mt-10 rounded-xl border border-dashed border-border px-5 py-8 text-center text-[14.5px] text-muted-foreground">
+          <p className="mt-10 rounded-card border border-dashed border-border px-5 py-8 text-center text-[14.5px] text-muted-foreground">
             Không thấy tên nào cần sửa.
           </p>
         ) : (
@@ -155,7 +155,7 @@ const ContactNameRepair = () => {
             const selectable = rows.filter((issue) => proposed(issue).trim() !== "");
             const allOn = selectable.length > 0 && selectable.every((issue) => ticked.has(issue.contactId));
             return (
-              <section key={group.kind} data-name-group={group.kind} className="mt-6 rounded-xl border border-border bg-card">
+              <section key={group.kind} data-name-group={group.kind} className="mt-6 rounded-card border border-border bg-card">
                 <header className="flex flex-wrap items-center gap-2 border-b border-border px-4 py-3">
                   <h2 className="text-[15.5px] font-semibold text-foreground">
                     {group.title} <span className="tabular ml-1 text-[13px] font-medium text-muted-foreground">({rows.length})</span>
@@ -209,7 +209,7 @@ const ContactNameRepair = () => {
         )}
       </div>
       {toApply.length > 0 ? (
-        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur-md md:left-auto md:right-6 md:bottom-6 md:rounded-xl md:border">
+        <div className="fixed inset-x-0 bottom-0 z-30 border-t border-border bg-card/95 px-4 pb-[max(env(safe-area-inset-bottom),12px)] pt-3 backdrop-blur-md md:left-auto md:right-6 md:bottom-6 md:rounded-card md:border">
           <button
             type="button"
             disabled={rename.isPending}

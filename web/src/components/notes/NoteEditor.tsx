@@ -712,7 +712,7 @@ export function NoteEditor({
           ) : null}
 
           {selection !== "" ? (
-            <div role="toolbar" aria-label="Áp dụng đoạn đã chọn" className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-amber-500/40 bg-card p-2 shadow-lg">
+            <div role="toolbar" aria-label="Áp dụng đoạn đã chọn" className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center gap-2 rounded-card border border-amber-500/40 bg-card p-2 shadow-lg">
               <span className="px-1 text-[12.5px] font-medium text-amber-700 dark:text-amber-300">Áp dụng</span>
               <button
                 type="button"

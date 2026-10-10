@@ -58,6 +58,7 @@ const habit = (over: Partial<Habit> = {}): Habit => ({
   weekdays: [1, 2, 3, 4, 5, 6, 7],
   windows: [{ time: "08:00", remind: true }, { time: "11:00", remind: true }, { time: "14:00", remind: true }, { time: "17:00", remind: false }],
   remindersOn: true,
+  whenAway: "keep",
   pausedAt: null,
   archivedAt: null,
   version: 1,
@@ -123,7 +124,7 @@ describe("AVORA-107 · PHẦN 1 · luật", () => {
   });
 
   test("tạo: khung giờ bắt buộc, có đồng hồ cần số phút", () => {
-    const draft = { name: "Vận động", kind: "timed" as const, targetMinutes: 15, weekdays: [1], windows: [{ time: "06:30", remind: true }], remindersOn: true };
+    const draft = { name: "Vận động", kind: "timed" as const, targetMinutes: 15, weekdays: [1], windows: [{ time: "06:30", remind: true }], remindersOn: true, whenAway: "keep" as const };
     expect(validateDraft(draft)).toBeNull();
     expect(validateDraft({ ...draft, windows: [] })).toBe("Thêm ít nhất một khung giờ.");
     expect(validateDraft({ ...draft, targetMinutes: null })).toBe("Số phút từ 1 đến 600.");
@@ -189,7 +190,7 @@ describe("AVORA-107 · PHẦN 1 · offline (107.6)", () => {
   });
 
   test("mất mạng: tạo + đánh dấu chạy trên máy; có mạng thì gửi đúng thứ tự, không trùng", async () => {
-    const id = createHabit({ name: "Uống đủ nước", kind: "check", targetMinutes: null, weekdays: [1, 2, 3, 4, 5, 6, 7], windows: [{ time: "14:00", remind: true }, { time: "08:00", remind: true }], remindersOn: true });
+    const id = createHabit({ name: "Uống đủ nước", kind: "check", targetMinutes: null, weekdays: [1, 2, 3, 4, 5, 6, 7], windows: [{ time: "14:00", remind: true }, { time: "08:00", remind: true }], remindersOn: true, whenAway: "keep" });
     logHabit(id, TODAY, 0);
     logHabit(id, TODAY, 0);
     logHabit(id, TODAY, 1);
@@ -212,7 +213,7 @@ describe("AVORA-107 · PHẦN 1 · offline (107.6)", () => {
   test("bị từ chối (xung đột phiên bản) → bỏ thay đổi đó, không lặp lại mãi", async () => {
     vi.stubGlobal("navigator", { onLine: true });
     rpc.mockImplementation((name: string) => Promise.resolve(name === "create_habit" ? { data: null, error: { code: "40001", message: "avora_habit_conflict" } } : { data: [], error: null }));
-    createHabit({ name: "Dậy sớm", kind: "check", targetMinutes: null, weekdays: [1], windows: [{ time: "06:00", remind: true }], remindersOn: true });
+    createHabit({ name: "Dậy sớm", kind: "check", targetMinutes: null, weekdays: [1], windows: [{ time: "06:00", remind: true }], remindersOn: true, whenAway: "keep" });
     await flush();
     await flush();
     expect(rpc.mock.calls.filter((call) => call[0] === "create_habit")).toHaveLength(1);

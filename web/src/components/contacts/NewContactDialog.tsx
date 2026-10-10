@@ -81,7 +81,7 @@ export function NewContactDialog({ open, onOpenChange, onCreated }: NewContactDi
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[88vh] max-w-[560px] gap-0 overflow-hidden rounded-xl border-border bg-card p-0"
+        className="max-h-[88vh] max-w-[560px] gap-0 overflow-hidden rounded-card border-border bg-card p-0"
       >
         <div className="flex items-start justify-between border-b border-border px-6 pb-4 pt-6">
           <div>
@@ -186,9 +186,9 @@ function ChoiceCard({
     <button
       type="button"
       onClick={onClick}
-      className="press flex flex-col items-start gap-3 rounded-xl border border-border bg-card p-5 text-left transition-colors hover:border-primary/50 hover:bg-accent/30"
+      className="press flex flex-col items-start gap-3 rounded-card border border-border bg-card p-5 text-left transition-colors hover:border-primary/50 hover:bg-accent/30"
     >
-      <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-border bg-accent/40 text-foreground">
+      <span className="flex h-11 w-11 items-center justify-center rounded-card border border-border bg-accent/40 text-foreground">
         <Icon className="h-5 w-5" strokeWidth={1.6} aria-hidden="true" />
       </span>
       <span>

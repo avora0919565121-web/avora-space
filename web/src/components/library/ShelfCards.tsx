@@ -37,7 +37,7 @@ export function ShelfCards({
 }) {
   if (layout === "list") {
     return (
-      <nav aria-label="Sáu kệ" data-shelf-list="" className="overflow-hidden rounded-2xl border border-border bg-card">
+      <nav aria-label="Sáu kệ" data-shelf-list="" className="overflow-hidden rounded-card border border-border bg-card">
         <ul>
           {SHELVES.map((shelf) => {
             const status = statusOf(shelf.id);
@@ -72,7 +72,7 @@ export function ShelfCards({
             data-shelf={shelf.id}
             onClick={() => onPick(shelf.id)}
             className={cn(
-              "press group flex min-h-[132px] flex-col rounded-2xl border bg-card px-3.5 pb-3 pt-3 text-left transition-[border-color,box-shadow,transform] hover:-translate-y-0.5",
+              "press group flex min-h-[132px] flex-col rounded-card border bg-card px-3.5 pb-3 pt-3 text-left transition-[border-color,box-shadow,transform] hover:-translate-y-0.5",
               isOn ? "border-personal shadow-[0_0_0_1px_hsl(var(--personal))]" : "border-border hover:border-foreground/20",
             )}
           >

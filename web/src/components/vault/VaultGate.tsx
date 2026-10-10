@@ -62,7 +62,7 @@ function Shell({ icon, title, children, onBack }: { icon: ReactNode; title: stri
             Quay lại
           </button>
         ) : null}
-        <div className="mt-6 flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card text-foreground shadow-[0_6px_24px_-12px_hsl(30_20%_20%/0.35)]">
+        <div className="mt-6 flex h-14 w-14 items-center justify-center rounded-card border border-border bg-card text-foreground shadow-[0_6px_24px_-12px_hsl(30_20%_20%/0.35)]">
           {icon}
         </div>
         <h2 className="mt-4 text-[22px] font-semibold tracking-tight text-foreground">{title}</h2>
@@ -237,7 +237,7 @@ export function VaultGate() {
   if (step.kind === "intro") {
     return (
       <Shell icon={<LockKeyhole className="h-6 w-6" strokeWidth={1.6} />} title="Trước khi đặt mã Két sắt">
-        <div className="mt-5 rounded-xl border border-border bg-card p-5">
+        <div className="mt-5 rounded-card border border-border bg-card p-5">
           <VaultAboutText />
         </div>
         <button
@@ -265,7 +265,7 @@ export function VaultGate() {
         {line(isSecond ? "Nhập lại đúng 6 số vừa chọn." : VAULT_SET_HINT)}
         <CodePad label="Mã Két sắt" value={code} onChange={setCode} onComplete={handleSet} isDisabled={isBusy} shakeKey={shake} />
         {!isSecond ? (
-          <details className="mt-7 w-full rounded-xl border border-border bg-card px-4 py-3 text-left">
+          <details className="mt-7 w-full rounded-card border border-border bg-card px-4 py-3 text-left">
             <summary className="cursor-pointer text-[13.5px] font-medium text-foreground">Về khoá Két sắt</summary>
             <VaultAboutText className="mt-3" />
           </details>

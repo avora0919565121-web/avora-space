@@ -794,7 +794,7 @@ export function TableView({
     <>
       {hiddenRow}
       {sortNote}
-      <div ref={scrollBoxRef} data-board-grid={depth} className={cn("overflow-x-auto rounded-xl border border-border bg-card", isNested ? "mt-1" : "mt-5")}>
+      <div ref={scrollBoxRef} data-board-grid={depth} className={cn("overflow-x-auto rounded-card border border-border bg-card", isNested ? "mt-1" : "mt-5")}>
         <table className="w-full table-fixed border-collapse" style={{ minWidth: tableWidth }}>
           <thead className="border-b border-border">
             <tr>
@@ -1038,7 +1038,7 @@ function PhoneBoard({
         {switcher}
         {header}
         <ul className={cn("space-y-2", isNested ? "mt-1" : "mt-3")}>
-          {rows.length === 0 ? <li className="rounded-xl border border-dashed border-border px-4 py-6 text-center text-[14px] text-muted-foreground">{emptyText}</li> : null}
+          {rows.length === 0 ? <li className="rounded-card border border-dashed border-border px-4 py-6 text-center text-[14px] text-muted-foreground">{emptyText}</li> : null}
           {rows.map((record) => (
             <li key={record.id}>
               <div
@@ -1049,7 +1049,7 @@ function PhoneBoard({
                 onKeyDown={(event) => {
                   if (event.key === "Enter") onOpenRecord(record);
                 }}
-                className={cn("press block rounded-xl border border-border bg-card px-4 py-3 text-left", rowMark(record), markClass(record, null))}
+                className={cn("press block rounded-card border border-border bg-card px-4 py-3 text-left", rowMark(record), markClass(record, null))}
               >
                 <span className="group/row flex items-start gap-2">
                   {dot(record)}
@@ -1071,7 +1071,7 @@ function PhoneBoard({
               </div>
               {/* Outside the card's own tap target: ▸ opens the sub-table, never the Hạng mục. */}
               {subToggle(record, true) !== null ? (
-                <span className="-mt-1 flex items-center gap-2 rounded-b-xl border border-t-0 border-border bg-card px-4 pb-2 pt-3 text-[13px] text-muted-foreground">
+                <span className="-mt-1 flex items-center gap-2 rounded-b-card border border-t-0 border-border bg-card px-4 pb-2 pt-3 text-[13px] text-muted-foreground">
                   Bảng con · {subToggle(record, true)}
                 </span>
               ) : null}
@@ -1088,9 +1088,9 @@ function PhoneBoard({
     <div data-phone-board="table">
       {switcher}
       {header}
-      <div className={cn("rounded-xl border border-border bg-card", isNested ? "mt-1" : "mt-3")}>
+      <div className={cn("rounded-card border border-border bg-card", isNested ? "mt-1" : "mt-3")}>
         {/* The names row: sticky at the top of the screen's scroll, slides with the cells. */}
-        <div ref={nameRowRef} className="sticky top-0 z-20 rounded-t-xl border-b border-border bg-card">
+        <div ref={nameRowRef} className="sticky top-0 z-20 rounded-t-card border-b border-border bg-card">
           <div ref={register} onScroll={onRowScroll} data-sync-scroll="names" className={cn("no-scrollbar overflow-x-auto", EDGE_FADE)}>
             <div className="flex" style={{ width: totalWidth }}>
               {grid.map((column) => (

@@ -164,7 +164,7 @@ const Finance = () => {
       />
 
       {error !== null ? (
-        <p className="mt-6 rounded-xl border border-border bg-card px-5 py-4 text-[14px] text-money-out">
+        <p className="mt-6 rounded-card border border-border bg-card px-5 py-4 text-[14px] text-money-out">
           {error.message}
         </p>
       ) : null}

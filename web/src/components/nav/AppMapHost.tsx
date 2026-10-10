@@ -61,7 +61,7 @@ export function AppMapHost() {
                     }}
                     aria-current={isActive ? "page" : undefined}
                     className={cn(
-                      "press flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left transition-colors",
+                      "press flex min-h-12 w-full items-center gap-3 rounded-card px-3 text-left transition-colors",
                       isActive ? "bg-personal-soft text-personal-soft-foreground" : "text-foreground hover:bg-accent/40",
                     )}
                   >

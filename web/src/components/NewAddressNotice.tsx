@@ -37,7 +37,7 @@ export function NewAddressNotice() {
   if (status.myRank !== 3 || !status.rankTaken[suggested]) return null;
 
   return (
-    <div role="dialog" aria-labelledby="new-address-title" data-new-address="" className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-50 mx-auto max-w-md rounded-2xl border border-border bg-card p-5 shadow-xl md:bottom-6">
+    <div role="dialog" aria-labelledby="new-address-title" data-new-address="" className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-50 mx-auto max-w-md rounded-card border border-border bg-card p-5 shadow-xl md:bottom-6">
       <h2 id="new-address-title" className="text-[17px] font-semibold text-foreground">Đây là địa chỉ mới của Avora</h2>
       <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">
         Máy này cần đặt lại làm máy chính (mật khẩu + mã email) và mở Két sắt bằng Mật khẩu Két sắt một lần. Nhớ cài lại Avora lên

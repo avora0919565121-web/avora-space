@@ -157,7 +157,18 @@ type Measure = {
   barHeight: number;
   barMatchesWord: boolean;
   touch: number;
+  /** VMT 10/10 21:11: where the title row starts (the logo's edge) and where the tab's name is written. */
+  logoLeft: number;
+  titleLeft: number;
+  below: number;
 };
+
+function textLeft(node: Element | null): number {
+  if (node === null) return Number.NaN;
+  const range = document.createRange();
+  range.selectNodeContents(node);
+  return Math.round(range.getBoundingClientRect().left);
+}
 
 function measure(selector: string): Measure {
   const strip = document.querySelector(selector) as HTMLElement;
@@ -190,6 +201,9 @@ function measure(selector: string): Measure {
     barHeight: Math.round(bar.getBoundingClientRect().height),
     barMatchesWord: Math.abs(bar.getBoundingClientRect().width - word.getBoundingClientRect().width) <= 1 && Math.abs(bar.getBoundingClientRect().left - word.getBoundingClientRect().left) <= 1,
     touch: Math.round(touch),
+    logoLeft: Math.round((document.querySelector("[data-logo] img") as HTMLElement).getBoundingClientRect().left),
+    titleLeft: textLeft(document.querySelector("[data-top-title]")),
+    below: Number.NaN,
   };
 }
 
@@ -232,12 +246,22 @@ for (const width of [360, 390, 430] as const) {
       expect((document.querySelector("main") as HTMLElement).scrollWidth, `${tab.name} main`).toBeLessThanOrEqual(width);
       // 7. The same distance to what lies below: 16 px — the page's own column starts there, and on
       // Kết nối's list the first row's words / avatar begin there. (Két sắt locked = a centred gate.)
-      if (tab.name === "ket-noi") expect(firstBelow(tab.strip), "ket-noi below").toBe(16);
-      else if (tab.name !== "ket-sat") {
+      if (tab.name === "ket-noi") {
+        m.below = firstBelow(tab.strip);
+        expect(m.below, "ket-noi below").toBe(16);
+      } else if (tab.name !== "ket-sat") {
         const under = document.querySelector<HTMLElement>("[data-under-tabs]") as HTMLElement;
         expect(Math.round(under.getBoundingClientRect().top - (document.querySelector(tab.strip) as HTMLElement).getBoundingClientRect().bottom), `${tab.name} under`).toBe(0);
         expect(getComputedStyle(under).paddingTop, `${tab.name} under pad`).toBe("16px");
+        m.below = Math.round(under.getBoundingClientRect().top - (document.querySelector(tab.strip) as HTMLElement).getBoundingClientRect().bottom) + Number.parseFloat(getComputedStyle(under).paddingTop);
+      } else {
+        // Két sắt locked: a centred gate, not a column — its own padding is the same 16 px.
+        const under = document.querySelector<HTMLElement>("[data-under-tabs]");
+        m.below = under === null ? 16 : Math.round(under.getBoundingClientRect().top - (document.querySelector(tab.strip) as HTMLElement).getBoundingClientRect().bottom) + Number.parseFloat(getComputedStyle(under).paddingTop);
       }
+      // VMT 10/10 21:11: one inset (--tab-inset) — the title row's edge and the strip's first word.
+      expect(m.logoLeft, `${tab.name} logo`).toBe(20);
+      expect(getComputedStyle(document.documentElement).getPropertyValue("--tab-inset").trim()).toBe("20px");
       if (width === 390) await page.screenshot({ path: `${OUT}/subtabs-${tab.name}-390.png` });
       await screen.unmount();
     }
@@ -245,9 +269,31 @@ for (const width of [360, 390, 430] as const) {
     for (const [name, m] of Object.entries(all)) {
       expect({ name, ...pick(m) }).toEqual({ name, ...pick(base) });
     }
-    console.log(`subtabs ${width}`, JSON.stringify(all));
+    console.log(`SUBTABS_TABLE ${width} ${JSON.stringify(Object.fromEntries(Object.entries(all).map(([name, m]) => [name, { headerBottom: m.header, top: m.top, height: m.height, logoLeft: m.logoLeft, titleLeft: m.titleLeft, firstLeft: m.firstLeft, gap: m.gaps[0] ?? null, font: m.font, barHeight: m.barHeight, below: m.below }])))}`);
   });
 }
+
+test("máy tính 1280 · tên tab lớn và chữ đầu dải cùng một lề (--tab-inset) ở cả 5 tab", async () => {
+  await page.viewport(1280, 800);
+  await expect.poll(() => window.innerWidth).toBe(1280);
+  const rows: Record<string, { titleLeft: number; firstLeft: number }> = {};
+  for (const tab of TABS) {
+    const screen = await render(<App at={tab.at} />);
+    await settle(900);
+    const strip = document.querySelector(tab.strip) as HTMLElement;
+    const list = strip.querySelector<HTMLElement>('[role="tablist"]') as HTMLElement;
+    list.scrollLeft = 0;
+    await settle(50);
+    const base = strip.getBoundingClientRect().left;
+    const leading = strip.querySelector<HTMLElement>("[data-sub-tabs-leading] > *");
+    const first = leading ?? (strip.querySelector<HTMLElement>("[data-sub-tab]") as HTMLElement);
+    const title = [...document.querySelectorAll<HTMLElement>("main h1")].find((node) => node.getBoundingClientRect().width > 0) ?? null;
+    rows[tab.name] = { titleLeft: textLeft(title) - Math.round(base), firstLeft: Math.round(first.getBoundingClientRect().left - base) };
+    expect(rows[tab.name], tab.name).toEqual({ titleLeft: 20, firstLeft: 20 });
+    await screen.unmount();
+  }
+  console.log(`SUBTABS_TABLE 1280 ${JSON.stringify(rows)}`);
+});
 
 /** How far under the strip the first thing you can see begins (a box with a background / border, or text). */
 function firstBelow(selector: string): number {
@@ -277,7 +323,7 @@ function firstBelow(selector: string): number {
 }
 
 function pick(m: Measure) {
-  return { top: m.top, height: m.height, firstLeft: m.firstLeft, font: m.font, activeWeight: m.activeWeight, idleWeight: m.idleWeight, activeColor: m.activeColor, idleColor: m.idleColor, bar: m.bar, barHeight: m.barHeight };
+  return { top: m.top, height: m.height, firstLeft: m.firstLeft, font: m.font, activeWeight: m.activeWeight, idleWeight: m.idleWeight, activeColor: m.activeColor, idleColor: m.idleColor, bar: m.bar, barHeight: m.barHeight, logoLeft: m.logoLeft, titleLeft: m.titleLeft, below: m.below, gap: m.gaps[0] ?? 20 };
 }
 
 test("Nhiệm vụ: Thói quen · Hôm nay · Sắp tới · Tất cả · ⋯ — mở mặc định ở Hôm nay, ⋯ không còn Thói quen", async () => {

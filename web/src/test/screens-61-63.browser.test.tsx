@@ -711,7 +711,7 @@ test("61.11 · Nhiệm vụ trên điện thoại: bong bóng chat nhỏ ở gó
 
 // ------------------------------------------------------------------ 61.12 phone on its side, both ways
 for (const side of ["left", "right"] as const) {
-  test(`61.12 · nằm ngang, tai thỏ bên ${side === "left" ? "trái" : "phải"}: thanh 56px, bên không tai thỏ chỉ lề 16px`, async () => {
+  test(`61.12 · nằm ngang, tai thỏ bên ${side === "left" ? "trái" : "phải"}: thanh 56px, bên không tai thỏ chỉ lề tab 20px`, async () => {
     await viewport(844, 390);
     // What NotchSync sets on an iPhone reporting 47px on both sides, notch on one.
     document.documentElement.setAttribute("data-notch", side);
@@ -723,7 +723,8 @@ for (const side of ["left", "right"] as const) {
     expect(Math.round(rail.left)).toBe(0);
     expect(Math.round(rail.width)).toBe(side === "left" ? 56 + 47 : 56);
     const title = (document.querySelector("main h1") as HTMLElement).getBoundingClientRect();
-    expect(Math.round(title.left - rail.right)).toBe(16);
+    // VMT 10/10 21:11 (ADR-079): one inset for every title and strip — --tab-inset, 20 px.
+    expect(Math.round(title.left - rail.right)).toBe(20);
     // The right edge keeps the notch inset only when the notch is there.
     const main = document.querySelector("main") as HTMLElement;
     expect(getComputedStyle(main).paddingRight).toBe(side === "right" ? "47px" : "0px");

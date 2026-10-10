@@ -2,6 +2,7 @@ import { createRoot } from "react-dom/client";
 
 import { MovedScreen } from "@/components/MovedScreen";
 import { hostRoleOf, movedUrl } from "@/lib/app-origin";
+import { applyFont, currentFont } from "@/lib/font-pref";
 import { registerServiceWorker, unregisterServiceWorkers } from "@/lib/register-sw";
 
 import App from "./App.tsx";
@@ -10,6 +11,8 @@ import "./index.css";
 // KHỐI 0: one address. Rork serves every host from the same build, so the move happens here,
 // before anything signs in: www. goes straight on; an old address only shows "Avora đã chuyển".
 const role = hostRoleOf(window.location.hostname);
+// KHỐI 2E: the one font chosen on this device (index.html painted it already; this fetches its face).
+applyFont(currentFont());
 const root = createRoot(document.getElementById("root")!);
 
 if (role === "alias") {

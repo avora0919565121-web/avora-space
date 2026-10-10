@@ -2657,7 +2657,7 @@ const Messages = () => {
           label="Độ rộng danh sách"
         />
         {/* VMT 10/10 19:39: on an upright phone nothing sits between the top row and the strip. */}
-        <div className={cn("px-4 md:block md:px-6 md:pb-4 md:pt-7 short:block short:px-4 short:pb-2 short:pt-3", isLive ? "hidden" : "block pb-2 pt-2")}>
+        <div className={cn("pl-tab pr-4 md:block md:pb-4 md:pr-6 md:pt-7 short:block short:pb-2 short:pt-3", isLive ? "hidden" : "block pb-2 pt-2")}>
           <div className={cn("items-center justify-between gap-3 md:flex short:flex", isLive ? "hidden" : "flex")}>
             {/* AVORA-89 · 1.1: on an upright phone the top row already reads `A · Kết nối`. */}
             <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground hidden md:block short:block md:text-[30px]">Kết nối</h1>
@@ -2855,7 +2855,7 @@ const Messages = () => {
           {!isArchiveOpen ? <ConnectionRequestsRow /> : null}
           {/* AVORA-57 · D: what can be done to several conversations at once. No delete, on purpose. */}
           {isPickingRows ? (
-            <div className="sticky top-0 z-10 mx-1 mb-2 rounded-xl border border-primary/30 bg-card/95 p-2 shadow-sm backdrop-blur">
+            <div className="sticky top-0 z-10 mx-1 mb-2 rounded-card border border-primary/30 bg-card/95 p-2 shadow-sm backdrop-blur">
               <div className="flex items-center justify-between px-1.5 pb-1.5">
                 <span className="text-[13px] font-medium text-foreground">Đã chọn {pickedRows.length}</span>
                 <button
@@ -3128,7 +3128,7 @@ const Messages = () => {
           <PlaceholderComingSoon id={activeTab} />
         ) : isProjects && !conversationId ? (
           <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-card text-muted-foreground">
+            <span className="flex h-14 w-14 items-center justify-center rounded-card border border-border bg-card text-muted-foreground">
               <FolderKanban className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
             </span>
             <h2 className="mt-6 text-[22px] font-semibold tracking-tight text-foreground">

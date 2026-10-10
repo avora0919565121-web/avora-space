@@ -503,7 +503,7 @@ const ProjectDetail = () => {
         <div className="mx-auto max-w-3xl px-6 py-10 md:px-10" aria-hidden="true">
           <span className="block h-7 w-2/5 animate-pulse rounded bg-secondary" />
           <span className="mt-4 block h-3 w-3/5 animate-pulse rounded bg-secondary/70" />
-          <span className="mt-8 block h-24 w-full animate-pulse rounded-xl bg-secondary/60" />
+          <span className="mt-8 block h-24 w-full animate-pulse rounded-card bg-secondary/60" />
         </div>
       </div>
     );
@@ -562,7 +562,7 @@ const ProjectDetail = () => {
 
         <header className="mt-5">
           <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-card border border-primary/30 bg-primary/10 text-primary">
               <FolderKanban className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />
             </span>
             <div className="min-w-0 flex-1">
@@ -587,7 +587,7 @@ const ProjectDetail = () => {
           </div>
         </header>
 
-        <section className="mt-7 rounded-xl border border-border bg-card px-5 py-4">
+        <section className="mt-7 rounded-card border border-border bg-card px-5 py-4">
           <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Hiến chương</h2>
           <dl className="mt-3 space-y-3">
             <div>

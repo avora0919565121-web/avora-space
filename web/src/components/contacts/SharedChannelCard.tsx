@@ -37,7 +37,7 @@ export function SharedChannelCard({
   const offerBusiness = canAssignToBusiness(group);
 
   return (
-    <li className="overflow-hidden rounded-xl border border-border bg-card">
+    <li className="overflow-hidden rounded-card border border-border bg-card">
       <div className="flex flex-wrap items-center gap-3 border-b border-border px-5 py-3.5">
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground/70">
           <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />

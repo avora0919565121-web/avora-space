@@ -57,7 +57,7 @@ export function HubShelf({
               }}
               className={cn(
                 "press flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-3.5 py-2 text-left transition-colors disabled:opacity-40",
-                "md:flex-col md:items-start md:gap-0 md:rounded-xl md:px-3 md:py-2.5",
+                "md:flex-col md:items-start md:gap-0 md:rounded-card md:px-3 md:py-2.5",
                 active ? "border-personal bg-personal-soft text-personal-soft-foreground" : "border-border bg-card hover:bg-accent/30",
               )}
             >
@@ -82,7 +82,7 @@ export function HubShelf({
       </div>
 
       {openTile !== null && openTile !== "starred" ? (
-        <ul className="mt-2 overflow-hidden rounded-xl border border-border bg-card">
+        <ul className="mt-2 overflow-hidden rounded-card border border-border bg-card">
           {(showAll ? lines : lines.slice(0, 5)).map((line) => (
             <li key={line.record.id} className="border-b border-border/70 last:border-b-0">
               <button type="button" onClick={() => onPickLine(line)} className="press flex w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-accent/25">
@@ -111,7 +111,7 @@ export function HubShelf({
       {openTile === "starred" ? (
         <div className="mt-2 space-y-2">
           {starredByTable.map((group) => (
-            <div key={group[0].table.id} className="overflow-hidden rounded-xl border border-border bg-card">
+            <div key={group[0].table.id} className="overflow-hidden rounded-card border border-border bg-card">
               <p className="border-b border-border/70 px-4 py-2 text-[12.5px] font-semibold text-muted-foreground">
                 {group[0].table.name} · {drawerLabel(drawerOfLine(group[0]))}
               </p>

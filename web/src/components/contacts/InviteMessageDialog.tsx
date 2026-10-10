@@ -62,7 +62,7 @@ export function InviteMessageDialog({ open, onOpenChange, recipientLabel, onSend
 
   return (
     <Dialog open={open} onOpenChange={(next) => (isSending ? undefined : onOpenChange(next))}>
-      <DialogContent className="max-w-[440px] gap-0 rounded-xl border-border bg-card p-0">
+      <DialogContent className="max-w-[440px] gap-0 rounded-card border-border bg-card p-0">
         <form onSubmit={(event) => void handleSubmit(event)} className="px-5 pb-5 pt-5">
           <DialogTitle className="text-[18px] font-semibold tracking-tight">Lời mời kết bạn</DialogTitle>
           <DialogDescription className="mt-1 text-[13px] leading-relaxed">

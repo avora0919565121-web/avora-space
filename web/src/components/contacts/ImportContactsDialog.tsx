@@ -393,7 +393,7 @@ export function ImportContactsDialog({ open, onOpenChange }: ImportContactsDialo
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="flex max-h-[88vh] max-w-[720px] flex-col gap-0 overflow-hidden rounded-xl border-border bg-card p-0"
+        className="flex max-h-[88vh] max-w-[720px] flex-col gap-0 overflow-hidden rounded-card border-border bg-card p-0"
       >
         <div className="flex items-start justify-between border-b border-border px-6 pb-4 pt-6">
           <div>
@@ -582,7 +582,7 @@ function PickStep({
 
   return (
     <div>
-      <div className="rounded-xl border border-border bg-accent/20 p-5">
+      <div className="rounded-card border border-border bg-accent/20 p-5">
         <h3 className="text-[15px] font-semibold text-foreground">1. Tải file mẫu</h3>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
           File mẫu có sẵn 2 dòng ví dụ — một cá nhân, một doanh nghiệp.{" "}
@@ -603,7 +603,7 @@ function PickStep({
         </Button>
       </div>
 
-      <div className="mt-4 rounded-xl border border-border p-5">
+      <div className="mt-4 rounded-card border border-border p-5">
         <h3 className="text-[15px] font-semibold text-foreground">2. Tải file lên</h3>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
           Tối đa {MAX_IMPORT_ROWS.toLocaleString("vi-VN")} liên hệ mỗi lần. Bạn sẽ xem lại từng
@@ -644,7 +644,7 @@ function PickStep({
       </div>
 
       {hasDevice ? (
-        <div className="mt-4 rounded-xl border border-border p-5">
+        <div className="mt-4 rounded-card border border-border p-5">
           <h3 className="text-[15px] font-semibold text-foreground">Hoặc lấy từ danh bạ máy</h3>
           <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted-foreground">
             Máy sẽ mở danh bạ của bạn để tự chọn ai muốn chia sẻ — AVORA chỉ nhận đúng những người
@@ -682,7 +682,7 @@ function InviteStep({
 
   return (
     <div>
-      <div className="flex items-start gap-3 rounded-xl border border-border bg-accent/20 p-5">
+      <div className="flex items-start gap-3 rounded-card border border-border bg-accent/20 p-5">
         <CheckCircle2
           className="mt-0.5 h-5 w-5 shrink-0 text-money-in"
           strokeWidth={1.9}
@@ -750,7 +750,7 @@ function DoneStep({
 
   if (needsReview > 0) {
     return (
-      <div className="rounded-xl border border-border bg-accent/25 p-5">
+      <div className="rounded-card border border-border bg-accent/25 p-5">
         <p className="text-[14.5px] font-semibold text-foreground">
           {needsReview} liên hệ cần bạn xem lại
         </p>
@@ -768,7 +768,7 @@ function DoneStep({
   }
 
   return (
-    <div className="rounded-xl border border-border bg-accent/20 p-5 text-center">
+    <div className="rounded-card border border-border bg-accent/20 p-5 text-center">
       <span className="mx-auto flex h-11 w-11 items-center justify-center rounded-full bg-card">
         <CheckCircle2 className="h-6 w-6 text-money-in" strokeWidth={1.9} aria-hidden="true" />
       </span>

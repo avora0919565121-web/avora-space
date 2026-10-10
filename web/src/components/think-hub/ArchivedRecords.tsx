@@ -16,13 +16,13 @@ export function ArchivedRecordsRow({ tableId, canEdit }: { tableId: string; canE
   if (list.length === 0) return null;
   return (
     <>
-      <button type="button" onClick={() => setIsOpen(true)} data-archived-row="" className="press mt-3 flex min-h-11 w-full items-center gap-2 rounded-xl border border-dashed border-border px-3 text-left text-[13.5px] text-muted-foreground">
+      <button type="button" onClick={() => setIsOpen(true)} data-archived-row="" className="press mt-3 flex min-h-11 w-full items-center gap-2 rounded-card border border-dashed border-border px-3 text-left text-[13.5px] text-muted-foreground">
         <Archive className="h-4 w-4 shrink-0" aria-hidden="true" />
         <span className="min-w-0 flex-1">Đã cất <span className="tabular">{list.length}</span> mục</span>
         <span className="font-semibold text-personal">Xem</span>
       </button>
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
-        <SheetContent side="bottom" className="mx-auto max-h-[80dvh] max-w-lg overflow-y-auto rounded-t-2xl" data-archived-sheet="">
+        <SheetContent side="bottom" className="mx-auto max-h-[80dvh] max-w-lg overflow-y-auto rounded-t-card" data-archived-sheet="">
           <SheetTitle className="text-[18px]">Đã cất</SheetTitle>
           <SheetDescription className="text-[13px]">Ẩn khỏi bảng và số đếm. Vẫn tìm thấy trong tìm kiếm.</SheetDescription>
           <ul className="mt-2">
@@ -81,7 +81,7 @@ export function RecordSelectSheet({
     });
   return (
     <Sheet open={startId !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-t-2xl" data-record-select="">
+      <SheetContent side="bottom" className="mx-auto max-h-[85dvh] max-w-lg overflow-y-auto rounded-t-card" data-record-select="">
         <SheetTitle className="text-[18px]">Chọn <span className="tabular">{ids.length}</span> mục</SheetTitle>
         <SheetDescription className="text-[13px]">Cất: ẩn khỏi bảng, vẫn tìm thấy. Xoá: vào Thùng rác 30 ngày.</SheetDescription>
         <ul className="mt-2">
@@ -113,7 +113,7 @@ export function RecordSelectSheet({
                 },
               )
             }
-            className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-xl bg-personal text-[14px] font-semibold text-personal-foreground disabled:opacity-50"
+            className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-control bg-personal text-[14px] font-semibold text-personal-foreground disabled:opacity-50"
           >
             {setArchived.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Archive className="h-4 w-4" />} Cất
           </button>
@@ -126,11 +126,11 @@ export function RecordSelectSheet({
                 .then(onClose)
                 .finally(() => setIsBusy(false));
             }}
-            className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-border text-[14px] disabled:opacity-50"
+            className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-control border border-border text-[14px] disabled:opacity-50"
           >
             <Trash2 className="h-4 w-4" /> Xoá
           </button>
-          <button type="button" onClick={onClose} className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-xl border border-border text-[14px]">
+          <button type="button" onClick={onClose} className="press inline-flex h-11 items-center justify-center gap-1.5 rounded-control border border-border text-[14px]">
             <X className="h-4 w-4" /> Huỷ
           </button>
         </div>

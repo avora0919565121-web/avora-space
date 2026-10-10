@@ -50,7 +50,7 @@ export function ConversationNotifySheet({
         </div>
         <div className="min-h-0 flex-1 scroll-y px-4 pb-6 pt-2">
           {mutedUntil !== null ? (
-            <div className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-3.5 py-3">
+            <div className="flex items-center gap-3 rounded-card border border-border bg-background/60 px-3.5 py-3">
               <BellOff className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
               <span className="min-w-0 flex-1 text-[14px] text-foreground">Đã tắt tới {shortUntil(mutedUntil)}</span>
               <button
@@ -70,7 +70,7 @@ export function ConversationNotifySheet({
                     key={option.id}
                     type="button"
                     onClick={() => void rhythm.muteConversation(conversationId, option)}
-                    className="press h-12 rounded-xl border border-border bg-card text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40"
+                    className="press h-12 rounded-control border border-border bg-card text-[14px] font-medium text-foreground transition-colors hover:bg-accent/40"
                   >
                     {option.label}
                   </button>

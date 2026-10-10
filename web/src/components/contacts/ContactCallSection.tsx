@@ -31,7 +31,7 @@ export function ContactCallSection({
   if (phones.length === 0) return null;
 
   return (
-    <section aria-label="Gọi" className="mt-5 overflow-hidden rounded-xl border border-border bg-card">
+    <section aria-label="Gọi" className="mt-5 overflow-hidden rounded-card border border-border bg-card">
       <header className="border-b border-border px-5 py-3.5">
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Gọi</h2>
       </header>

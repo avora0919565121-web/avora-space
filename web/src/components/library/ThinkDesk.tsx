@@ -73,7 +73,7 @@ export function ThinkDesk({
     }
   };
   return (
-    <section aria-label="Bàn nghĩ" data-desk="" className="rounded-2xl border border-border bg-card/80 p-3 shadow-[0_1px_0_hsl(var(--border))] md:p-4">
+    <section aria-label="Bàn nghĩ" data-desk="" className="rounded-card border border-border bg-card/80 p-3 shadow-[0_1px_0_hsl(var(--border))] md:p-4">
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
           Bàn nghĩ <span className="tabular font-normal text-muted-foreground" data-desk-count="">{onDesk.length}/{DESK_LIMIT}</span>
@@ -98,7 +98,7 @@ export function ThinkDesk({
         <ul className="-mx-3 mt-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0" data-desk-cards="">
           {onDesk.map((board) => (
             <li key={board.id} className="w-[64%] shrink-0 snap-start md:w-auto">
-              <button type="button" onClick={() => onOpenBoard(board.id)} data-desk-card={board.id} className="press flex h-full min-h-[104px] w-full flex-col justify-between rounded-xl border border-border bg-background p-3 text-left transition-colors hover:border-personal/60">
+              <button type="button" onClick={() => onOpenBoard(board.id)} data-desk-card={board.id} className="press flex h-full min-h-[104px] w-full flex-col justify-between rounded-card border border-border bg-background p-3 text-left transition-colors hover:border-personal/60">
                 <span className="line-clamp-3 text-[15px] font-semibold leading-snug text-foreground">{boardQuestion(board)}</span>
                 <span className="mt-2 truncate text-[12px] text-muted-foreground">{[placeOf(board) ?? "Của tôi", openedAgo(openedAt.get(board.id) ?? board.updatedAt)].filter((part) => part !== "").join(" · ")}</span>
               </button>
@@ -106,7 +106,7 @@ export function ThinkDesk({
           ))}
           {book !== null ? (
             <li className="w-[64%] shrink-0 snap-start md:w-auto">
-              <button type="button" onClick={() => onOpenBook(book.id)} data-desk-book={book.id} className="press flex h-full min-h-[104px] w-full flex-col justify-between rounded-xl border border-dashed border-border bg-[hsl(var(--reader-paper,40_40%_96%))] p-3 text-left">
+              <button type="button" onClick={() => onOpenBook(book.id)} data-desk-book={book.id} className="press flex h-full min-h-[104px] w-full flex-col justify-between rounded-card border border-dashed border-border bg-[hsl(var(--reader-paper,40_40%_96%))] p-3 text-left">
                 <span className="flex items-start gap-2">
                   <BookOpen className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden="true" />
                   <span className="min-w-0">
@@ -135,9 +135,9 @@ export function ThinkDesk({
           placeholder="Điều gì đang ở trong đầu bạn?"
           aria-label="Điều gì đang ở trong đầu bạn?"
           data-desk-input=""
-          className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-background px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]"
+          className="h-11 min-w-0 flex-1 rounded-control border border-border bg-background px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]"
         />
-        <button type="submit" disabled={text.trim() === "" || isSaving} className="press inline-flex h-11 shrink-0 items-center gap-1 rounded-xl bg-personal px-3.5 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">
+        <button type="submit" disabled={text.trim() === "" || isSaving} className="press inline-flex h-11 shrink-0 items-center gap-1 rounded-control bg-personal px-3.5 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">
           <Plus className="h-4 w-4" aria-hidden="true" /> Đặt lên bàn
         </button>
       </form>
@@ -164,7 +164,7 @@ export function DeskFullSheet({ wanted, boards, placeOf, onClose }: { wanted: st
   };
   return (
     <Sheet open={wanted !== null} onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-2xl" data-desk-full="">
+      <SheetContent side="bottom" className="mx-auto max-w-lg rounded-t-card" data-desk-full="">
         <SheetTitle className="text-[18px]">Bàn đã đủ 5</SheetTitle>
         <SheetDescription className="text-[13.5px]">Chọn một thứ đặt xuống. Bảng của bạn về Đang chờ; Bảng chung chỉ rời bàn của bạn.</SheetDescription>
         <ul className="mt-3">

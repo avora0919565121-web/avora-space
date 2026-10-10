@@ -36,7 +36,7 @@ export function StatsMenu() {
 
 function Card({ children, className, ...rest }: { children: ReactNode; className?: string } & Record<`data-${string}`, string>) {
   return (
-    <section className={cn("rounded-2xl border border-border bg-card px-4 py-3", className)} {...rest}>
+    <section className={cn("rounded-card border border-border bg-card px-4 py-3", className)} {...rest}>
       {children}
     </section>
   );

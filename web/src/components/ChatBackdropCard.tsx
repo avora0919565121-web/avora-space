@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 export function ChatBackdropCard() {
   const current = useChatBackdrop();
   return (
-    <section aria-labelledby="chat-backdrop-heading" className="rounded-xl border border-border bg-card p-5">
+    <section aria-labelledby="chat-backdrop-heading" className="rounded-card border border-border bg-card p-s-4">
       <h2 id="chat-backdrop-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
         <MessageSquare className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
         Nền trò chuyện
@@ -15,7 +15,7 @@ export function ChatBackdropCard() {
       <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
         Áp cho mọi cuộc trò chuyện trên máy này. Cuộc nào đã chọn Không khí riêng thì theo cuộc đó.
       </p>
-      <div role="radiogroup" aria-label="Nền trò chuyện" className="mt-3 grid grid-cols-3 gap-2">
+      <div role="radiogroup" aria-label="Nền trò chuyện" className="mt-s-2 grid grid-cols-3 gap-2">
         {CHAT_BACKDROPS.map((option) => {
           const isActive = option.value === current;
           return (

@@ -40,7 +40,8 @@ export function MobileTopBar() {
   return (
     <>
       <header className="paper relative z-30 shrink-0 border-b border-border pt-[env(safe-area-inset-top)] md:hidden short:hidden">
-        <div className="flex h-[52px] items-center gap-1 pl-2 pr-[60px]" data-mobile-top-row="">
+        {/* VMT 10/10 21:11: the logo's edge (button px-2 = 8 px) sits on the shared tab inset, like the strip's first word. */}
+        <div className="flex h-[52px] items-center gap-1 pl-[calc(var(--tab-inset)-8px)] pr-[60px]" data-mobile-top-row="">
           {focus !== null ? (
             <>
               <button type="button" {...focusPress} aria-label="Quay lại. Giữ để về đầu Kế hoạch" data-focus-back="" data-back="" className="press no-callout -ml-1 flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full text-foreground [touch-action:manipulation]">

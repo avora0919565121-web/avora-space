@@ -28,7 +28,7 @@ export function BlockConfirmDialog({
 }) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
-      <AlertDialogContent className="max-w-[420px] rounded-xl border-border bg-card">
+      <AlertDialogContent className="max-w-[420px] rounded-card border-border bg-card">
         <AlertDialogTitle className="text-[18px] font-semibold tracking-tight text-foreground">
           Chặn {name}?
         </AlertDialogTitle>

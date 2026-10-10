@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import {
   addDays,
+  DEFAULT_WHEN_AWAY,
   cleanWindows,
   doneIndexOf,
   doneKey,
@@ -82,7 +83,8 @@ function restore(userId: string): Pick<State, "habits" | "logs" | "totalsBefore"
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as Partial<State>;
     return {
-      habits: Array.isArray(parsed.habits) ? parsed.habits : [],
+      // Snapshots from before "Khi rời Avora" carry no `whenAway`: they read as the default.
+      habits: Array.isArray(parsed.habits) ? parsed.habits.map((habit) => ({ ...habit, whenAway: habit.whenAway === "stop" ? "stop" : DEFAULT_WHEN_AWAY })) : [],
       logs: Array.isArray(parsed.logs) ? parsed.logs : [],
       totalsBefore: parsed.totalsBefore ?? {},
       ops: Array.isArray(parsed.ops) ? parsed.ops : [],
@@ -96,7 +98,7 @@ function restore(userId: string): Pick<State, "habits" | "logs" | "totalsBefore"
 
 type HabitRow = {
   id: string; name: string; kind: string; target_minutes: number | null; weekdays: number[] | null; windows: unknown;
-  reminders_on: boolean; paused_at: string | null; archived_at: string | null; version: number; created_at: string;
+  reminders_on: boolean; when_away?: string | null; paused_at: string | null; archived_at: string | null; version: number; created_at: string;
 };
 type LogRow = {
   id: string; habit_id: string; local_date: string; window_index: number; status: string; done_at: string; source: string;
@@ -115,6 +117,7 @@ function toHabit(row: HabitRow): Habit {
     weekdays: row.weekdays ?? [],
     windows,
     remindersOn: row.reminders_on,
+    whenAway: row.when_away === "stop" ? "stop" : DEFAULT_WHEN_AWAY,
     pausedAt: row.paused_at,
     archivedAt: row.archived_at,
     version: row.version,
@@ -154,6 +157,7 @@ function execute(op: HabitOp): Promise<RpcError> {
         p_weekdays: op.habit.weekdays,
         p_windows: op.habit.windows,
         p_reminders_on: op.habit.remindersOn,
+        p_when_away: op.habit.whenAway,
       });
     case "update":
       return rpc("update_habit", {
@@ -165,6 +169,7 @@ function execute(op: HabitOp): Promise<RpcError> {
         p_windows: op.draft.windows,
         p_reminders_on: op.draft.remindersOn,
         p_version: op.baseVersion,
+        p_when_away: op.draft.whenAway,
       });
     case "pause":
       return rpc("pause_habit", { p_id: op.id, p_paused: op.paused });
@@ -210,7 +215,7 @@ function permanentMessage(error: { message: string }): string {
 async function fetchServer(userId: string): Promise<Pick<State, "habits" | "logs" | "totalsBefore">> {
   const since = addDays(localDateOf(), -HABIT_LOG_DAYS);
   // rows-bounded: ≤ 50 running habits per person (server cap) + their archived ones.
-  const habitsQuery = supabase.from("habits" as never).select("id, name, kind, target_minutes, weekdays, windows, reminders_on, paused_at, archived_at, version, created_at").eq("user_id", userId);
+  const habitsQuery = supabase.from("habits" as never).select("id, name, kind, target_minutes, weekdays, windows, reminders_on, when_away, paused_at, archived_at, version, created_at").eq("user_id", userId);
   // rows-bounded: 35 days × ≤ 12 windows × the person's habits.
   const logsQuery = supabase.from("habit_logs" as never).select("id, habit_id, local_date, window_index, status, done_at, source, duration_seconds, note").gte("local_date", since).limit(5000);
   const [habitsRes, logsRes, totalsRes] = await Promise.all([habitsQuery, logsQuery, supabase.rpc("my_habit_totals" as never)]);
@@ -329,6 +334,7 @@ export function createHabit(draft: HabitDraft): string {
     weekdays: [...new Set(draft.weekdays)].sort((a, b) => a - b),
     windows: cleanWindows(draft.windows),
     remindersOn: draft.remindersOn,
+    whenAway: draft.whenAway ?? DEFAULT_WHEN_AWAY,
     pausedAt: null,
     archivedAt: null,
     version: 1,

@@ -92,7 +92,7 @@ export function FriendsPanel({ query }: { query: string }) {
 
   return (
     <div className="space-y-4">
-      <form onSubmit={handleSubmit} className="flex gap-2 rounded-xl border border-border bg-card p-3">
+      <form onSubmit={handleSubmit} className="flex gap-2 rounded-card border border-border bg-card p-3">
         <label className="relative block flex-1">
           <span className="sr-only">PIN của người muốn kết bạn</span>
           <KeyRound
@@ -135,7 +135,7 @@ export function FriendsPanel({ query }: { query: string }) {
         </p>
       ) : null}
 
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <div className="overflow-hidden rounded-card border border-border bg-card">
         {visible.map((item) => (
           <div key={item.userId} className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0">
             <PersonAvatarButton person={{ userId: item.userId, name: item.displayName ?? "Người dùng AVORA", pin: item.pin }} size="sm" />
@@ -198,7 +198,7 @@ export function FriendsPanel({ query }: { query: string }) {
         ) : null}
       </div>
 
-      <label className="flex items-start justify-between gap-4 rounded-xl border border-border bg-card px-5 py-4">
+      <label className="flex items-start justify-between gap-4 rounded-card border border-border bg-card px-5 py-4">
         <span className="min-w-0">
           <span className="block text-[14.5px] font-medium text-foreground">Cho phép kết bạn qua nhóm</span>
           <span className="mt-0.5 block text-[13px] text-muted-foreground">

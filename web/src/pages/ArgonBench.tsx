@@ -99,7 +99,7 @@ const ArgonBench = () => {
         </button>
         <ul className="mt-6 space-y-3">
           {rows.map((row) => (
-            <li key={row.profile} data-argon-row={row.profile} className="rounded-xl border border-border bg-card p-4">
+            <li key={row.profile} data-argon-row={row.profile} className="rounded-card border border-border bg-card p-4">
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-[15px] font-semibold text-foreground">{row.label}</span>
                 <span className="font-mono text-[15px] tabular-nums text-foreground">

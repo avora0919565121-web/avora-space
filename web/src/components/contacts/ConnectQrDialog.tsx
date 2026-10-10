@@ -29,7 +29,7 @@ export function ConnectQrDialog({ open, onOpenChange, onScanned }: ConnectQrDial
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-[420px] gap-0 overflow-hidden rounded-xl border-border bg-card p-0">
+      <DialogContent showCloseButton={false} className="max-w-[420px] gap-0 overflow-hidden rounded-card border-border bg-card p-0">
         <div className="flex items-start justify-between px-6 pb-3 pt-6">
           <div>
             <DialogTitle className="text-[20px] font-semibold tracking-tight text-foreground">Kết bạn bằng QR</DialogTitle>
@@ -119,7 +119,7 @@ function MyCode({ pin }: { pin: string | null }) {
 
   return (
     <div className="flex flex-col items-center">
-      <div className="aspect-square w-full max-w-[260px] rounded-2xl border border-border bg-white p-3 shadow-[0_8px_30px_-12px_hsl(30_20%_20%/0.25)]">
+      <div className="aspect-square w-full max-w-[260px] rounded-card border border-border bg-white p-3 shadow-[0_8px_30px_-12px_hsl(30_20%_20%/0.25)]">
         {dataUrl ? <img src={dataUrl} alt={`Mã QR của PIN ${pin}`} className="h-full w-full" /> : null}
       </div>
       <button
@@ -226,9 +226,9 @@ function Scanner({ onScanned }: { onScanned: (pin: string) => void }) {
 
   return (
     <div>
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl bg-foreground/90">
+      <div className="relative aspect-square w-full overflow-hidden rounded-card bg-foreground/90">
         <video ref={videoRef} playsInline muted className="h-full w-full object-cover" />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-[18%] rounded-2xl border-2 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-[18%] rounded-card border-2 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.35)]" />
       </div>
       <canvas ref={canvasRef} className="hidden" />
       <p role="status" className="mt-3 text-center text-[13px] text-muted-foreground">

@@ -2,6 +2,7 @@ import { Clock, Coins, Loader2, PencilLine, Quote } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppearanceCard } from "@/components/AppearanceCard";
+import { FontPrefCard } from "@/components/FontPrefCard";
 import { BlockedPeopleCard } from "@/components/BlockedPeopleCard";
 import { LookPrefsCard } from "@/components/LookPrefsCard";
 import { ChatBackdropCard } from "@/components/ChatBackdropCard";
@@ -98,7 +99,7 @@ const SettingsPreferences = () => {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in px-6 pb-12 pt-4 md:px-10">
-        <div className="rounded-xl border border-border bg-card p-6">
+        <div className="rounded-card border border-border bg-card p-s-4">
           <h2 className="text-[17px] font-semibold text-foreground">Tiền tệ, múi giờ và Góc suy ngẫm</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Loại tiền dùng để cộng gộp báo cáo, múi giờ dùng cho giờ hạn của nhiệm vụ, và câu suy ngẫm
@@ -110,7 +111,7 @@ const SettingsPreferences = () => {
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
             </div>
           ) : (
-            <div className="mt-6 space-y-5">
+            <div className="mt-s-4 space-y-s-4">
               <div className="space-y-2">
                 <label htmlFor="baseCurrency" className="flex items-center gap-2 text-[14px] font-medium text-foreground">
                   <Coins className="h-4 w-4 text-muted-foreground" strokeWidth={1.6} aria-hidden="true" />
@@ -193,7 +194,7 @@ const SettingsPreferences = () => {
                 seeing everyone else's. Making it a trade would turn a privacy choice into a
                 price, and most people would keep it on for the wrong reason.
               */}
-              <div className="space-y-2 border-t border-border pt-5">
+              <div className="space-y-2 border-t border-border pt-s-4">
                 <label
                   htmlFor="hideTyping"
                   className="flex items-start gap-3 text-[14px] font-medium text-foreground"
@@ -225,12 +226,12 @@ const SettingsPreferences = () => {
           )}
         </div>
 
-        <section aria-labelledby="review-heading" className="rounded-xl border border-border bg-card p-5">
+        <section aria-labelledby="review-heading" className="rounded-card border border-border bg-card p-s-4">
           <h2 id="review-heading" className="text-[17px] font-semibold tracking-tight text-foreground">Nhìn lại</h2>
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Thói quen ôn lại điều đã nghĩ, đã đọc, đã làm. Không chấm điểm, không thông báo đẩy.
           </p>
-          <div className="mt-4 space-y-3 text-[14.5px]">
+          <div className="mt-s-2 space-y-s-2 text-[14.5px]">
             <label className="flex min-h-11 items-center justify-between gap-3">
               Ngày nghỉ trong tuần
               <select
@@ -272,6 +273,8 @@ const SettingsPreferences = () => {
         </section>
 
         <AppearanceCard />
+
+        <FontPrefCard />
 
         <LookPrefsCard />
         <ChatBackdropCard />

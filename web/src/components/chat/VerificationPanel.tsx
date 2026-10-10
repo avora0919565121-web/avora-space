@@ -51,7 +51,7 @@ export const VerificationPanel = memo(function VerificationPanel({ conversationI
   const isBusy = confirmMutation.isPending || declineMutation.isPending;
 
   return (
-    <div className="mx-auto mb-2 max-w-2xl rounded-xl border border-primary/25 bg-primary/[0.05] px-4 py-3">
+    <div className="mx-auto mb-2 max-w-2xl rounded-card border border-primary/25 bg-primary/[0.05] px-4 py-3">
       <div className="flex items-start gap-3">
         <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
           <Icon className="h-4 w-4" strokeWidth={2} aria-hidden="true" />

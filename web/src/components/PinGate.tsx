@@ -243,7 +243,7 @@ export function PinSetup({ onClaimed }: { onClaimed?: (pin: string) => void }) {
         />
       </div>
 
-      <div className="mt-4 rounded-2xl border border-border bg-card p-4">
+      <div className="mt-4 rounded-card border border-border bg-card p-4">
         {mode === "generated" ? (
           <div className="flex items-center gap-3">
             <PinCells body={generated} />
@@ -260,7 +260,7 @@ export function PinSetup({ onClaimed }: { onClaimed?: (pin: string) => void }) {
         ) : (
           <label className="block">
             <span className="sr-only">PIN tự chọn</span>
-            <span className="flex h-14 items-center rounded-xl border border-border bg-background px-4 focus-within:border-primary/70">
+            <span className="flex h-14 items-center rounded-card border border-border bg-background px-4 focus-within:border-primary/70">
               <span className="tabular select-none text-[22px] font-semibold tracking-[0.12em] text-muted-foreground">
                 {PIN_PREFIX}
               </span>
@@ -296,7 +296,7 @@ export function PinSetup({ onClaimed }: { onClaimed?: (pin: string) => void }) {
         </ul>
       </div>
 
-      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-xl border border-border bg-card px-4 py-3.5">
+      <label className="mt-4 flex cursor-pointer items-start gap-3 rounded-card border border-border bg-card px-4 py-3.5">
         <input
           type="checkbox"
           checked={understood}
@@ -312,7 +312,7 @@ export function PinSetup({ onClaimed }: { onClaimed?: (pin: string) => void }) {
         type="button"
         disabled={!canSave}
         onClick={() => claimMutation.mutate()}
-        className="press mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-semibold text-primary-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-45"
+        className="press mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-control bg-primary text-[15px] font-semibold text-primary-foreground transition-opacity disabled:cursor-not-allowed disabled:opacity-45"
       >
         {claimMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
         Lưu PIN {localProblem === null ? toPin(body) : ""}
@@ -345,7 +345,7 @@ function ModeButton({
       aria-checked={active}
       onClick={onClick}
       className={cn(
-        "press flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 text-[13.5px] font-medium transition-colors",
+        "press flex min-h-12 items-center justify-center gap-2 rounded-card border px-3 text-[13.5px] font-medium transition-colors",
         active
           ? "border-primary/60 bg-primary/[0.08] text-foreground"
           : "border-border bg-card text-muted-foreground hover:bg-accent/40",

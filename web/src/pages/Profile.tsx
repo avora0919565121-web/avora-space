@@ -100,23 +100,23 @@ const Profile = () => {
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in px-6 pb-12 pt-4 md:px-10">
         {/* AVORA-53 · 6.5: the tab names the page; no second large title, and the email shows once (below). */}
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-s-2">
           <InitialsAvatar name={displayName} size="lg" online />
           <p className="min-w-0 truncate text-[20px] font-semibold tracking-tight text-foreground">{displayName}</p>
         </div>
 
-        <div className="mt-8 rounded-xl border border-border bg-card p-6">
+        <div className="mt-s-4 rounded-card border border-border bg-card p-s-4">
           <h2 className="text-[17px] font-semibold text-foreground">Hồ sơ của bạn</h2>
           {/* AVORA-55 · 3.2 (ADR-020 / ADR-034): never promise more than is true — others still see name and photo. */}
           <p className="mt-1 text-[13px] text-muted-foreground">Chỉ bạn sửa được hồ sơ này.</p>
 
           {profileError ? (
-            <p role="alert" className="mt-4 rounded-md bg-accent/70 px-4 py-3 text-[14px] text-destructive">
+            <p role="alert" className="mt-s-2 rounded-md bg-accent/70 px-4 py-3 text-[14px] text-destructive">
               {profileError}
             </p>
           ) : null}
 
-          <form onSubmit={handleSave} className="mt-6 space-y-4">
+          <form onSubmit={handleSave} className="mt-s-4 space-y-s-2">
             <div className="space-y-2">
               <label htmlFor="profileName" className="block text-[14px] font-medium text-foreground">
                 Tên hiển thị
@@ -154,7 +154,7 @@ const Profile = () => {
             </div>
           </form>
 
-          <dl className="mt-8 grid gap-4 border-t border-border pt-6 sm:grid-cols-2">
+          <dl className="mt-s-4 grid gap-s-2 border-t border-border pt-s-4 sm:grid-cols-2">
             <div>
               <dt className="text-[13px] text-muted-foreground">Email đăng nhập</dt>
               <dd className="mt-1 truncate text-[15px] text-foreground" translate="no">
@@ -189,14 +189,14 @@ const Profile = () => {
 
           {/* No PIN yet: the form sits right here, the natural place to get one early (AVORA 33). */}
           {pinQuery.data !== undefined && myPin === null ? (
-            <section aria-label="Tạo PIN AVORA" className="mt-6 border-t border-border pt-6">
+            <section aria-label="Tạo PIN AVORA" className="mt-s-4 border-t border-border pt-s-4">
               <h3 className="text-[15px] font-semibold text-foreground">Tạo PIN AVORA</h3>
               <p className="mt-1 text-[13px] leading-relaxed text-muted-foreground">
                 PIN là mã định danh riêng của bạn, dùng để người khác mời bạn. Không phải mật khẩu — nhưng đã chọn thì
                 không đổi được.
                 {daysLeft !== null && daysLeft > 0 ? ` Còn ${daysLeft} ngày để tạo.` : ""}
               </p>
-              <div className="mt-4">
+              <div className="mt-s-2">
                 <PinSetup />
               </div>
             </section>
@@ -204,7 +204,7 @@ const Profile = () => {
         </div>
 
         {/* AVORA-54 · C: sign out everywhere else, right where the account lives. */}
-        <section id="bao-mat" aria-labelledby="security-heading" className="mt-6 scroll-mt-4 rounded-xl border border-border bg-card p-6">
+        <section id="bao-mat" aria-labelledby="security-heading" className="mt-s-4 scroll-mt-4 rounded-card border border-border bg-card p-s-4">
           <h2 id="security-heading" className="text-[17px] font-semibold text-foreground">Bảo mật</h2>
           {/* AVORA-67 · 3.1: lock strip · Thiết bị · Đăng xuất mọi thiết bị khác · Khoá thiết bị · Két sắt. */}
           <DeviceSecuritySection
@@ -221,7 +221,7 @@ const Profile = () => {
             }
           />
           {/* AVORA-66: every privacy promise lives in one place. */}
-          <a href="/cai-dat/chinh-sach#bao-mat" className="press mt-5 flex min-h-11 items-center justify-between rounded-md px-1 text-[14px] font-medium text-primary" data-policy-link="">
+          <a href="/cai-dat/chinh-sach#bao-mat" className="press mt-s-2 flex min-h-11 items-center justify-between rounded-md px-1 text-[14px] font-medium text-primary" data-policy-link="">
             Chính sách bảo mật <span aria-hidden="true">›</span>
           </a>
         </section>
@@ -229,7 +229,7 @@ const Profile = () => {
         <button
           type="button"
           onClick={handleSignOut}
-          className="press mt-6 flex items-center gap-2 rounded-md border border-border bg-card px-5 py-3 text-[15px] font-medium text-foreground transition-colors hover:bg-accent/40"
+          className="press mt-s-4 flex items-center gap-2 rounded-md border border-border bg-card px-5 py-3 text-[15px] font-medium text-foreground transition-colors hover:bg-accent/40"
         >
           <LogOut className="h-[18px] w-[18px]" strokeWidth={1.6} />
           Đăng xuất

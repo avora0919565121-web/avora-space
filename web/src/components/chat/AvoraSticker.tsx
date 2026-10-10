@@ -36,7 +36,7 @@ export const AvoraSticker = memo(function AvoraSticker({
       <span
         role="img"
         aria-label="Sticker không còn"
-        className={cn("flex items-center justify-center rounded-2xl bg-secondary/50 text-[12px] text-muted-foreground", className)}
+        className={cn("flex items-center justify-center rounded-card bg-secondary/50 text-[12px] text-muted-foreground", className)}
         style={{ width: size, height: (size * 240) / 220 }}
       >
         Sticker

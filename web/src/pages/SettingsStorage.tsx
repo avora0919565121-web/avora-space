@@ -123,7 +123,7 @@ const SettingsStorage = () => {
   const uploadBytes = useMyUploadUsage();
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto" data-settings-storage="">
-      <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-6 px-4 pb-8 pt-4 md:px-10 md:pb-12">
+      <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-s-4 px-4 pb-8 pt-4 md:px-10 md:pb-12">
         <section aria-labelledby="usage-heading">
           <p id="usage-heading" className="text-[13px] text-muted-foreground">Bạn đang dùng</p>
           {usage.isPending ? (
@@ -136,7 +136,7 @@ const SettingsStorage = () => {
               <p className="text-[12.5px] text-muted-foreground" data-upload-usage="">
                 {`Tệp bạn đã gửi trong trò chuyện: ${formatStorageBytes(uploadBytes ?? 0)} / ${formatStorageBytes(STANDARD_UPLOAD_CAP_BYTES)} (đang đếm, chưa giới hạn). Tệp trong mỗi cuộc giữ 30 ngày — sắp áp dụng.`}
               </p>
-              <ul className="mt-3 rounded-xl border border-border bg-card px-4 py-1">
+              <ul className="mt-s-2 rounded-card border border-border bg-card px-4 py-1">
                 {PLACES.map((place) => {
                   const bytes = data?.byPlace[place.id]?.bytes ?? 0;
                   const share = total > 0 ? Math.max(bytes > 0 ? 2 : 0, Math.round((bytes / total) * 100)) : 0;
@@ -162,7 +162,7 @@ const SettingsStorage = () => {
 
         <section aria-labelledby="cleanup-heading">
           <h2 id="cleanup-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Dọn dẹp</h2>
-          <div className="mt-2 overflow-hidden rounded-xl border border-border bg-card">
+          <div className="mt-2 overflow-hidden rounded-card border border-border bg-card">
             <button type="button" className={row} aria-expanded={open === "largest"} onClick={() => setOpen(open === "largest" ? null : "largest")} data-storage-largest="">
               <span className="min-w-0 flex-1">
                 <span className="block text-[15px] text-foreground">20 file lớn nhất</span>

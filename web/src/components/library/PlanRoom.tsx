@@ -91,7 +91,7 @@ export function RoomStrip({ shelf, onGo, onOpenMap }: { shelf: RoomShelf; onGo: 
 
 export function RoomMapSheet({ open, shelf, summaries, onOpenChange, onGo }: { open: boolean; shelf: RoomShelf; summaries: Record<RoomShelf, string>; onOpenChange: (open: boolean) => void; onGo: (to: RoomShelf) => void }) {
   const row = (kind: "wall" | "desk") => (
-    <div className={cn("grid grid-cols-3 gap-2 rounded-xl p-2", kind === "wall" ? "bg-[hsl(var(--room-wall))]" : "bg-[hsl(var(--room-desk))]")}>
+    <div className={cn("grid grid-cols-3 gap-2 rounded-card p-2", kind === "wall" ? "bg-[hsl(var(--room-wall))]" : "bg-[hsl(var(--room-desk))]")}>
       {ROOM_SHELVES.filter((item) => item.row === kind).map((item) => (
         <button
           key={item.id}
@@ -210,7 +210,7 @@ export function OverviewShelf({
   const heights = [148, 132, 160, 142, 136, 150];
   return (
     <div data-room-shelf="1">
-      <div className="rounded-2xl bg-[linear-gradient(180deg,hsl(var(--room-wood)/0.25),hsl(var(--room-wood)/0.4))] px-3 pt-4 shadow-inner">
+      <div className="rounded-card bg-[linear-gradient(180deg,hsl(var(--room-wood)/0.25),hsl(var(--room-wood)/0.4))] px-3 pt-4 shadow-inner">
         <div className="flex items-end justify-center gap-2 sm:gap-3" role="group" aria-label="Tủ kệ">
           {SPINES.map((spine, index) => {
             const isOpen = open === spine.id;
@@ -240,14 +240,14 @@ export function OverviewShelf({
             );
           })}
         </div>
-        <div className="-mx-3 h-3 rounded-b-xl bg-[hsl(var(--room-wood))]" aria-hidden="true" />
+        <div className="-mx-3 h-3 rounded-b-card bg-[hsl(var(--room-wood))]" aria-hidden="true" />
       </div>
 
       <div ref={previewRef} className="scroll-mb-28" data-spine-preview-anchor="">
       {open === null ? (
         <p className="mt-4 text-center text-[13px] text-muted-foreground" data-spine-hint="">Chạm một gáy để xem bên trong</p>
       ) : open === "templates" ? (
-        <section className="mt-3 animate-rise-in rounded-2xl border border-border bg-card p-4" data-spine-preview="templates">
+        <section className="mt-3 animate-rise-in rounded-card border border-border bg-card p-4" data-spine-preview="templates">
           <div className="flex items-baseline justify-between">
             <h3 className="text-[16px] font-semibold">Mẫu bảng · {templateCount} mẫu</h3>
             <span className="text-[12px] text-muted-foreground">dùng gần đây</span>
@@ -267,7 +267,7 @@ export function OverviewShelf({
             ))}
           </ul>
           <p className="mt-2 text-[12px] leading-snug text-muted-foreground">Chạm một mẫu → chọn nơi → bảng mới mở ngay, tự lên bàn.</p>
-          <button type="button" onClick={onOpenLibrary} data-open-library-full="" className="press mt-3 h-11 w-full rounded-xl bg-personal text-[14.5px] font-semibold text-personal-foreground">
+          <button type="button" onClick={onOpenLibrary} data-open-library-full="" className="press mt-3 h-11 w-full rounded-control bg-personal text-[14.5px] font-semibold text-personal-foreground">
             Xem cả {templateCount} mẫu ›
           </button>
         </section>
@@ -275,7 +275,7 @@ export function OverviewShelf({
         (() => {
           const preview = previewOf(open as Exclude<(typeof SPINES)[number]["id"], "templates">);
           return (
-            <section className="mt-3 animate-rise-in rounded-2xl border border-border bg-card p-4" data-spine-preview={open}>
+            <section className="mt-3 animate-rise-in rounded-card border border-border bg-card p-4" data-spine-preview={open}>
               <h3 className="text-[16px] font-semibold">
                 {preview.title} <span className="font-normal text-muted-foreground">· {preview.count}</span>
               </h3>
@@ -293,11 +293,11 @@ export function OverviewShelf({
                 </ul>
               )}
               <div className="mt-3 flex gap-2">
-                <button type="button" onClick={preview.primary.onPress} data-spine-primary="" className="press h-11 min-w-0 flex-1 rounded-xl bg-personal px-3 text-[14px] font-semibold text-personal-foreground">
+                <button type="button" onClick={preview.primary.onPress} data-spine-primary="" className="press h-11 min-w-0 flex-1 rounded-control bg-personal px-3 text-[14px] font-semibold text-personal-foreground">
                   {preview.primary.label}
                 </button>
                 {preview.secondary !== undefined ? (
-                  <button type="button" onClick={preview.secondary.onPress} className="press h-11 shrink-0 rounded-xl border border-border px-3 text-[14px]">
+                  <button type="button" onClick={preview.secondary.onPress} className="press h-11 shrink-0 rounded-control border border-border px-3 text-[14px]">
                     {preview.secondary.label}
                   </button>
                 ) : null}
@@ -379,13 +379,13 @@ export function ThinkingOverview({
       {/* AVORA-101C: the strip already says where you are; the question stays as one quiet line. */}
       <p className="text-[14px] text-muted-foreground" data-overview-question="">Điều gì còn chưa thông suốt?</p>
       {isEmpty ? (
-        <div className="mt-4 rounded-2xl border border-border bg-card p-4 text-[14px] text-muted-foreground" data-all-clear="">
+        <div className="mt-4 rounded-card border border-border bg-card p-4 text-[14px] text-muted-foreground" data-all-clear="">
           Mọi điều đang nghĩ đều đã thông suốt.{" "}
           <button type="button" onClick={() => onGo(6)} className="press font-medium text-personal">Đặt một điều lên bàn ›</button>
         </div>
       ) : null}
       {thinking.length > 0 ? (
-        <section className="mt-3 rounded-2xl border border-border bg-card px-4 py-2" data-overview="thinking">
+        <section className="mt-3 rounded-card border border-border bg-card px-4 py-2" data-overview="thinking">
           <h3 className="pt-1 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Đang nghĩ {thinking.length}</h3>
           <ul>
             {thinking.slice(0, THINKING_SHOWN).map((board) => {
@@ -401,7 +401,7 @@ export function ThinkingOverview({
         </section>
       ) : null}
       {dusty.length > 0 ? (
-        <section className="mt-3 rounded-2xl border border-border bg-card px-4" data-overview="dusty" data-open={isDustyOpen ? "" : undefined}>
+        <section className="mt-3 rounded-card border border-border bg-card px-4" data-overview="dusty" data-open={isDustyOpen ? "" : undefined}>
           {/* Tầng 1: one counting row; a tap shows the three oldest. */}
           <button type="button" onClick={() => setIsDustyOpen((open) => !open)} aria-expanded={isDustyOpen} data-overview-dusty-toggle="" className="press flex min-h-12 w-full items-center gap-2 text-left">
             <span className="min-w-0 flex-1 text-[14px] text-foreground">
@@ -425,7 +425,7 @@ export function ThinkingOverview({
         </section>
       ) : null}
       {noQuestion.length > 0 ? (
-        <section className="mt-3 flex items-center gap-3 rounded-2xl border border-dashed border-border px-4 py-3" data-overview="no-question">
+        <section className="mt-3 flex items-center gap-3 rounded-card border border-dashed border-border px-4 py-3" data-overview="no-question">
           <span className="min-w-0 flex-1">
             <span className="block text-[14.5px] font-semibold text-foreground">{noQuestion.length} bảng chưa có câu hỏi</span>
             <span className="block text-[12.5px] text-muted-foreground">Một câu hỏi rõ giúp nghĩ rõ</span>
@@ -612,7 +612,7 @@ export function ProgressMatrix({
                     }}
                     onDragLeave={() => setOver(null)}
                     onDrop={(event) => drop(event, lane)}
-                    className={cn("min-h-[44px] space-y-1.5 rounded-xl border p-1.5", over === key ? "border-personal bg-personal-soft/40" : list.length === 0 ? "border-dashed border-border/70" : "border-border bg-secondary/40")}
+                    className={cn("min-h-[44px] space-y-1.5 rounded-card border p-1.5", over === key ? "border-personal bg-personal-soft/40" : list.length === 0 ? "border-dashed border-border/70" : "border-border bg-secondary/40")}
                   >
                     {list.map((board) => card(board, false))}
                   </ul>
@@ -624,10 +624,10 @@ export function ProgressMatrix({
       </div>
 
       <div className="mt-5 grid grid-cols-2 gap-2" data-matrix-store="">
-        <button type="button" onClick={onOpenArchive} className="press flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card text-[14px]">
+        <button type="button" onClick={onOpenArchive} className="press flex h-11 items-center justify-center gap-2 rounded-control border border-border bg-card text-[14px]">
           <Archive className="h-4 w-4" aria-hidden="true" /> Lưu trữ {archivedCount}
         </button>
-        <button type="button" onClick={onOpenTrash} className="press flex h-11 items-center justify-center gap-2 rounded-xl border border-border bg-card text-[14px]">
+        <button type="button" onClick={onOpenTrash} className="press flex h-11 items-center justify-center gap-2 rounded-control border border-border bg-card text-[14px]">
           <Trash2 className="h-4 w-4" aria-hidden="true" /> Thùng rác {binCount}
         </button>
       </div>
@@ -689,7 +689,7 @@ export function WorkDesk({
       </div>
       <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2.5 lg:grid-cols-[repeat(2,minmax(0,1fr))]" data-desk-cards="">
         {onDesk.map((board) => (
-          <li key={board.id} className="flex items-start rounded-2xl border border-border bg-card shadow-sm" data-desk-card={board.id}>
+          <li key={board.id} className="flex items-start rounded-card border border-border bg-card shadow-sm" data-desk-card={board.id}>
             {/* AVORA-101C: two lines — the question (≤ 2 lines), then one quiet line of facts. */}
             <button type="button" onClick={() => onOpen(board.id)} className="press min-w-0 flex-1 px-4 py-2.5 text-left">
               <span className="line-clamp-2 block text-[16px] font-semibold leading-snug text-foreground">{boardQuestion(board)}</span>
@@ -717,7 +717,7 @@ export function WorkDesk({
           </li>
         ))}
         {Array.from({ length: slots }, (_, index) => (
-          <li key={`slot-${index}`} data-desk-slot="" className="flex h-14 items-center justify-center rounded-2xl border border-dashed border-border text-[13px] text-muted-foreground/70">
+          <li key={`slot-${index}`} data-desk-slot="" className="flex h-14 items-center justify-center rounded-card border border-dashed border-border text-[13px] text-muted-foreground/70">
             Chỗ trống
           </li>
         ))}
@@ -736,9 +736,9 @@ export function WorkDesk({
           placeholder="Điều gì đang ở trong đầu bạn?"
           aria-label="Điều gì đang ở trong đầu bạn?"
           data-desk-input=""
-          className="h-11 min-w-0 flex-1 rounded-xl border border-border bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]"
+          className="h-11 min-w-0 flex-1 rounded-control border border-border bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]"
         />
-        <button type="submit" disabled={text.trim() === "" || isSaving} className="press inline-flex h-11 shrink-0 items-center gap-1 rounded-xl bg-personal px-3.5 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">
+        <button type="submit" disabled={text.trim() === "" || isSaving} className="press inline-flex h-11 shrink-0 items-center gap-1 rounded-control bg-personal px-3.5 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">
           <Plus className="h-4 w-4" aria-hidden="true" /> Đặt lên bàn
         </button>
       </form>

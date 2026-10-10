@@ -73,7 +73,7 @@ export function ScheduleCallDialog({
     <Dialog open={open} onOpenChange={(next) => (isSubmitting ? undefined : onOpenChange(next))}>
       <DialogContent
         showCloseButton={false}
-        className="max-h-[92vh] max-w-[480px] gap-0 overflow-y-auto rounded-xl border-border bg-card p-0"
+        className="max-h-[92vh] max-w-[480px] gap-0 overflow-y-auto rounded-card border-border bg-card p-0"
       >
         <div className="flex items-start justify-between gap-3 px-5 pb-3 pt-5 sm:px-6 sm:pt-6">
           <div className="flex min-w-0 items-start gap-3">

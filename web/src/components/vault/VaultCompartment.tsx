@@ -64,17 +64,17 @@ function ItemDetail({ item, section, onBack, onEdit, onTrash }: { item: VaultIte
       <p className="mt-2 text-[12.5px] font-semibold uppercase tracking-wide text-primary">{template.label}</p>
       <h2 className="mt-1 text-[24px] font-semibold tracking-tight">{item.payload.title}</h2>
       <p className="text-[14px] text-muted-foreground">Của {item.payload.owner_label}{left !== null ? ` · ${left >= 0 ? `Còn ${left} ngày` : `Quá ${-left} ngày`}` : ""}</p>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-s-2 grid gap-3 sm:grid-cols-2">
         {pages.map((p) =>
           p.pdf ? (
-            <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="flex h-40 items-center justify-center gap-2 rounded-xl border border-border bg-card text-[14px]"><FileText className="h-5 w-5" /> Mở PDF</a>
+            <a key={p.id} href={p.url} target="_blank" rel="noreferrer" className="flex h-40 items-center justify-center gap-2 rounded-card border border-border bg-card text-[14px]"><FileText className="h-5 w-5" /> Mở PDF</a>
           ) : (
-            <img key={p.id} src={p.url} alt="" className="w-full rounded-xl border border-border object-contain" />
+            <img key={p.id} src={p.url} alt="" className="w-full rounded-card border border-border object-contain" />
           ),
         )}
-        {item.files.length > pages.length ? <div className="flex h-40 items-center justify-center rounded-xl border border-dashed border-border"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> : null}
+        {item.files.length > pages.length ? <div className="flex h-40 items-center justify-center rounded-card border border-dashed border-border"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div> : null}
       </div>
-      <dl className="mt-5 divide-y divide-border rounded-xl border border-border bg-card">
+      <dl className="mt-s-2 divide-y divide-border rounded-card border border-border bg-card">
         {template.fields.filter((f) => (item.payload.fields[f.key] ?? "") !== "").map((f) => (
           <div key={f.key} className="flex min-h-12 items-center gap-3 px-4">
             <dt className="w-32 shrink-0 text-[13px] text-muted-foreground">{f.label}</dt>
@@ -83,7 +83,7 @@ function ItemDetail({ item, section, onBack, onEdit, onTrash }: { item: VaultIte
         ))}
         {item.payload.note !== "" ? <p className="whitespace-pre-wrap px-4 py-3 text-[14.5px]">{item.payload.note}</p> : null}
       </dl>
-      <div className="mt-5 flex flex-wrap gap-2">
+      <div className="mt-s-2 flex flex-wrap gap-2">
         <button type="button" onClick={onEdit} className="press inline-flex h-11 items-center gap-2 rounded-lg border border-border px-4 text-[14px] font-medium"><Pencil className="h-4 w-4" /> Sửa</button>
         {pages.map((p, i) => (
           <button
@@ -122,7 +122,7 @@ function ItemForm({ section, initial, pages, onAddPages, onSave, onCancel, isSav
   const template = templateOf(section, payload.type);
   const set = (patch: Partial<VaultPayload>): void => setPayload((p) => ({ ...p, ...patch }));
   return (
-    <form className="mx-auto w-full max-w-xl space-y-4 px-4 pb-16 pt-3 md:px-8" onSubmit={(e) => { e.preventDefault(); onSave(payload); }} data-vault-form="">
+    <form className="mx-auto w-full max-w-xl space-y-s-2 px-4 pb-16 pt-3 md:px-8" onSubmit={(e) => { e.preventDefault(); onSave(payload); }} data-vault-form="">
       <p className="text-[13px] text-muted-foreground">Điền giúp vài ô chính. Sắp có: tự đọc chữ trên ảnh.</p>
       {pages.length > 0 ? (
         <div className="flex items-center gap-2 text-[13.5px]">
@@ -273,7 +273,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
           <button type="button" onClick={() => setMode({ kind: "list" })} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[14px] text-muted-foreground"><ChevronLeft className="h-4 w-4" /> {SECTION_LABEL[section]}</button>
           <h2 className="mt-2 text-[22px] font-semibold">Thùng rác</h2>
           <p className="text-[13.5px] text-muted-foreground">Tự xoá vĩnh viễn sau 30 ngày.</p>
-          <ul className="mt-4 divide-y divide-border rounded-xl border border-border bg-card">
+          <ul className="mt-s-2 divide-y divide-border rounded-card border border-border bg-card">
             {trashed.length === 0 ? <li className="px-4 py-6 text-center text-[14px] text-muted-foreground">Trống.</li> : null}
             {trashed.map((i) => (
               <li key={i.id} className="flex min-h-14 items-center gap-2 px-4">
@@ -330,28 +330,28 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
         <div className="flex items-center gap-2">
           <div className="relative min-w-0 flex-1">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Tìm trong ${SECTION_LABEL[section]}`} aria-label={`Tìm trong ${SECTION_LABEL[section]}`} className="h-11 w-full rounded-xl border border-input bg-card pl-9 pr-3 text-[16px] outline-none focus:border-personal md:text-[15px]" />
+            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={`Tìm trong ${SECTION_LABEL[section]}`} aria-label={`Tìm trong ${SECTION_LABEL[section]}`} className="h-11 w-full rounded-control border border-input bg-card pl-9 pr-3 text-[16px] outline-none focus:border-personal md:text-[15px]" />
           </div>
           <button type="button" onClick={() => setMode({ kind: "trash" })} aria-label="Thùng rác" className="icon-btn h-11 w-11"><Trash2 className="h-4 w-4" />{trashed.length > 0 ? <span className="sr-only">{trashed.length}</span> : null}</button>
         </div>
         {section === "certificates" ? (
-          <div role="tablist" className="mt-3 inline-flex rounded-full border border-border bg-card p-1">
+          <div role="tablist" className="mt-s-2 inline-flex rounded-full border border-border bg-card p-1">
             {(["group", "life"] as const).map((v) => (
               <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={cn("press h-9 rounded-full px-4 text-[13px] font-medium", view === v ? "bg-foreground text-background" : "text-muted-foreground")}>{v === "group" ? "Theo nhóm" : "Dòng đời"}</button>
             ))}
           </div>
         ) : null}
-        {isPending ? <Loader2 className="mx-auto mt-10 h-5 w-5 animate-spin text-muted-foreground" /> : null}
+        {isPending ? <Loader2 className="mx-auto mt-s-4 h-5 w-5 animate-spin text-muted-foreground" /> : null}
         {!isPending && live.length === 0 ? (
           <div className="mt-14 text-center">
             <p className="text-[17px] font-semibold">Chưa có gì trong {SECTION_LABEL[section]}</p>
             <p className="mt-1 text-[14px] text-muted-foreground">Chụp ảnh, chọn PDF hoặc gõ tay. Mọi thứ được mã hoá ngay trên máy này.</p>
-            <button type="button" onClick={() => setIsAddOpen(true)} className="press mx-auto mt-5 inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-[14.5px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> Thêm</button>
+            <button type="button" onClick={() => setIsAddOpen(true)} className="press mx-auto mt-s-2 inline-flex h-11 items-center gap-2 rounded-control bg-primary px-5 text-[14.5px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> Thêm</button>
           </div>
         ) : null}
         {view === "life" && section === "certificates" ? (
           byOwner.map((owner) => (
-            <section key={owner} className="mt-5">
+            <section key={owner} className="mt-s-2">
               <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{owner}</h3>
               <ol className="mt-2 border-l-2 border-primary/30 pl-4">
                 {shown.filter((i) => i.payload.owner_label === owner).sort((a, b) => (a.payload.fields.issued_on ?? "").localeCompare(b.payload.fields.issued_on ?? "")).map((i) => (
@@ -368,9 +368,9 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
           ))
         ) : (
           groups.map((group) => (
-            <section key={group} className="mt-5">
+            <section key={group} className="mt-s-2">
               <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{group}</h3>
-              <ul className="mt-2 divide-y divide-border overflow-hidden rounded-xl border border-border bg-card">
+              <ul className="mt-2 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
                 {shown.filter((i) => templateOf(section, i.payload.type).group === group).map(row)}
               </ul>
             </section>
@@ -380,12 +380,12 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
       <input ref={cameraRef} type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => e.target.files && void addFiles(e.target.files, true)} />
       <input ref={pickRef} type="file" accept="image/*,application/pdf" multiple className="sr-only" onChange={(e) => e.target.files && void addFiles(e.target.files, true)} />
       <Sheet open={isAddOpen} onOpenChange={setIsAddOpen}>
-        <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-2xl">
+        <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-card">
           <SheetTitle className="text-[17px]">Thêm vào {SECTION_LABEL[section]}</SheetTitle>
-          <div className="mt-4 grid gap-2 pb-[max(env(safe-area-inset-bottom),12px)]">
-            <button type="button" onClick={() => cameraRef.current?.click()} className="press flex min-h-14 items-center gap-3 rounded-xl border border-border px-4 text-left text-[15px] font-medium"><Camera className="h-5 w-5 text-primary" /> Chụp ảnh</button>
-            <button type="button" onClick={() => pickRef.current?.click()} className="press flex min-h-14 items-center gap-3 rounded-xl border border-border px-4 text-left text-[15px] font-medium"><ImagePlus className="h-5 w-5 text-primary" /> Chọn ảnh / PDF</button>
-            <button type="button" onClick={() => { setIsAddOpen(false); setPages([]); setMode({ kind: "form", id: null, startPage: 1 }); }} className="press flex min-h-14 items-center gap-3 rounded-xl border border-border px-4 text-left text-[15px] font-medium"><Keyboard className="h-5 w-5 text-primary" /> Gõ tay</button>
+          <div className="mt-s-2 grid gap-2 pb-[max(env(safe-area-inset-bottom),12px)]">
+            <button type="button" onClick={() => cameraRef.current?.click()} className="press flex min-h-14 items-center gap-3 rounded-card border border-border px-4 text-left text-[15px] font-medium"><Camera className="h-5 w-5 text-primary" /> Chụp ảnh</button>
+            <button type="button" onClick={() => pickRef.current?.click()} className="press flex min-h-14 items-center gap-3 rounded-card border border-border px-4 text-left text-[15px] font-medium"><ImagePlus className="h-5 w-5 text-primary" /> Chọn ảnh / PDF</button>
+            <button type="button" onClick={() => { setIsAddOpen(false); setPages([]); setMode({ kind: "form", id: null, startPage: 1 }); }} className="press flex min-h-14 items-center gap-3 rounded-card border border-border px-4 text-left text-[15px] font-medium"><Keyboard className="h-5 w-5 text-primary" /> Gõ tay</button>
           </div>
         </SheetContent>
       </Sheet>

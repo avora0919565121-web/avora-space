@@ -58,7 +58,7 @@ export function TaskCompleteDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[480px] gap-0 rounded-xl border-border bg-card p-0">
+      <DialogContent className="max-w-[480px] gap-0 rounded-card border-border bg-card p-0">
         <div className="px-5 pb-3 pt-5">
           <DialogTitle className="text-[18px] font-semibold tracking-tight text-foreground">
             Việc này mang lại điều gì?

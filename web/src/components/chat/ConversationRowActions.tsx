@@ -49,7 +49,7 @@ export function ConversationMuteSheet({
 }) {
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-2xl px-4 pb-6 pt-5">
+      <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-card px-4 pb-6 pt-5">
         <SheetTitle className="text-[17px]">Tắt thông báo</SheetTitle>
         <SheetDescription className="mt-1 text-[13px]">
           {title} · luôn có hạn. Gia đình và tin Khẩn vẫn qua được.
@@ -63,7 +63,7 @@ export function ConversationMuteSheet({
                 onPick(option);
                 onOpenChange(false);
               }}
-              className="press h-12 rounded-xl border border-border bg-card text-[14.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
+              className="press h-12 rounded-control border border-border bg-card text-[14.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
             >
               {option.label}
             </button>
@@ -379,7 +379,7 @@ export function ConversationRowActions({
       <ConversationMuteSheet open={isMuteOpen} onOpenChange={setIsMuteOpen} title={title} choices={muteChoices} onPick={onMute} />
       {/* Phone: the held row's menu, as a sheet of large rows. */}
       <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-        <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-2xl px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-4">
+        <SheetContent side="bottom" className="mx-auto max-w-md rounded-t-card px-3 pb-[max(16px,env(safe-area-inset-bottom))] pt-4">
           <SheetTitle className="truncate px-2 text-[16px]">{title}</SheetTitle>
           <SheetDescription className="sr-only">Tuỳ chọn cho cuộc trò chuyện này</SheetDescription>
           <div className="mt-2">
@@ -395,7 +395,7 @@ export function ConversationRowActions({
                     setIsSheetOpen(false);
                     entry.run();
                   }}
-                  className="press flex min-h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-[15px] text-foreground hover:bg-accent/40 disabled:opacity-40"
+                  className="press flex min-h-12 w-full items-center gap-3 rounded-card px-3 text-left text-[15px] text-foreground hover:bg-accent/40 disabled:opacity-40"
                 >
                   <entry.icon className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
                   {entry.label}

@@ -120,7 +120,7 @@ export function QuickActionBubble() {
               </span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" sideOffset={8} className="w-[248px] rounded-xl p-1.5">
+          <DropdownMenuContent align="end" sideOffset={8} className="w-[248px] rounded-card p-1.5">
             {QUICK_ACTIONS.map((action) => {
               const Icon = ICONS[action.id];
               return (
@@ -163,9 +163,9 @@ export function QuickActionBubble() {
 
       {/* A door, not a conversation: nothing is read, sent or answered from here yet. */}
       <Dialog open={openAction === "assistant"} onOpenChange={(next) => setOpenAction(next ? "assistant" : null)}>
-        <DialogContent className="max-w-[400px] rounded-xl border-border bg-card p-0">
+        <DialogContent className="max-w-[400px] rounded-card border-border bg-card p-0">
           <div className="flex flex-col items-center px-6 pb-7 pt-8 text-center">
-            <span className="flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-background text-primary">
+            <span className="flex h-14 w-14 items-center justify-center rounded-card border border-border bg-background text-primary">
               <Sparkles className="h-6 w-6" strokeWidth={1.5} aria-hidden="true" />
             </span>
             <DialogTitle className="mt-5 text-[22px] font-semibold tracking-tight text-foreground">Avora AI</DialogTitle>
