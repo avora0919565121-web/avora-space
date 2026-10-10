@@ -1,17 +1,23 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { BookOpen, Check, Download, ExternalLink, Library, Loader2, NotebookText, Plus, Search, Star, Table2 } from "lucide-react";
+import { BookOpen, Camera, Check, Download, ExternalLink, Library, Loader2, NotebookText, Plus, Search, Star, Table2 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { askText } from "@/components/ConfirmHost";
 import { DateField } from "@/components/calendar/DateField";
+import { BookCover } from "@/components/library/BookCover";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { findJournal } from "@/hooks/use-paste-task";
 import { useAuth } from "@/lib/auth";
 import {
   BOOK_CATEGORIES,
+  borrowKeyOf,
+  borrowLink,
   catalogLink,
+  coverCredit,
+  coverUrl,
+  sourceOf,
   catalogRefOf,
   epubOf,
   LANGUAGE_NAMES,
@@ -24,18 +30,21 @@ import {
   type CatalogBook,
 } from "@/lib/book-catalog";
 import { ensureJournalConversation } from "@/lib/chat";
-import { coverColor } from "@/lib/library";
+import { BANNED_LINK_MESSAGE, isBannedBookLink, NOT_PUBLIC_MESSAGE } from "@/lib/book-sources";
 import { normalizeSearch } from "@/lib/normalize-search";
 import { noteDisplayTitle } from "@/lib/notes";
-import { booksOnDevice, fetchAllReadingStates, removeFromDevice, type ReadingState } from "@/lib/reading-state";
+import { booksOnDevice, fetchAllReadingStates, MAX_ON_DEVICE, type ReadingState } from "@/lib/reading-state";
 import { translateTitleOnDevice } from "@/lib/reader-settings";
 import { hereFrom, withReturn } from "@/lib/return-to";
-import { recordsOf, scopeOfTable, todayIso, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
+import { scopeOfTable, todayIso, type ThinkRecord } from "@/lib/think-hub";
 import { useConversations } from "@/lib/use-conversations";
 import { useNotes } from "@/lib/use-notes";
+import { clearMyCover, saveMyCover, useShelfCatalog } from "@/lib/use-book-covers";
 import { useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
 import { useShelfActions, useStars } from "@/lib/use-think-hub-shelf";
 import { cn } from "@/lib/utils";
+import { useBookshelf, useShelfCovers } from "@/components/library/use-bookshelf";
+import { OnDeviceList } from "@/components/library/OnDeviceList";
 
 /** Shelves in reading order (C6): what is being read first, what was finished last. */
 export const TIERS: readonly { key: string; label: string }[] = [
@@ -56,10 +65,6 @@ export function readingProgress(position: string | null | undefined): number | n
   const pages = position.match(/(\d+)\s*\/\s*(\d+)/);
   if (pages !== null && Number(pages[2]) > 0) return Math.min(1, Number(pages[1]) / Number(pages[2]));
   return null;
-}
-
-function columnKey(table: ThinkTable | null, label: string): string | null {
-  return table?.columns.find((column) => column.label === label)?.key ?? null;
 }
 
 function addDays(days: number): string {
@@ -86,24 +91,6 @@ function markLessonAsked(recordId: string): void {
   }
 }
 
-export function useBookshelf() {
-  const { tables, records, isPending } = useThinkHub();
-  const shelf: ThinkTable | null = useMemo(() => tables.find((table) => table.kind === "bookshelf") ?? null, [tables]);
-  const keys = useMemo(
-    () => ({
-      author: columnKey(shelf, "Tác giả"),
-      source: columnKey(shelf, "Nguồn"),
-      link: columnKey(shelf, "Link"),
-      position: columnKey(shelf, "Đang ở"),
-      lesson: columnKey(shelf, "Bài học chính"),
-    }),
-    [shelf],
-  );
-  const books: ThinkRecord[] = useMemo(() => (shelf === null ? [] : recordsOf(records, shelf.id)), [records, shelf]);
-  const field = (book: ThinkRecord, key: string | null): string => (key === null ? "" : String(book.extensionFields[key] ?? ""));
-  return { shelf, keys, books, field, isPending };
-}
-
 /**
  * Kệ 04 · Kệ sách (AVORA-77 · D1): Đọc tiếp, the four tiers as spines on a shelf line, and the open
  * library (Wikisource in Vietnamese, Project Gutenberg). Books from the open library read inside
@@ -117,6 +104,7 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
   const { bookshelf, star } = useShelfActions();
   const stars = useStars();
   const { shelf, keys, books, field, isPending } = useBookshelf();
+  const { coverOf } = useShelfCovers();
   const askedRef = useRef<boolean>(false);
   const [query, setQuery] = useState<string>("");
   const [isShelfSearchOpen, setIsShelfSearchOpen] = useState<boolean>(false);
@@ -185,6 +173,8 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
     for (const book of books) {
       const ref = catalogRefOf(field(book, keys.link));
       if (ref !== null) set.add(`${ref.source}:${ref.sourceId}`);
+      const borrowed = borrowKeyOf(field(book, keys.link));
+      if (borrowed !== null) set.add(borrowed);
     }
     return set;
     // eslint-disable-next-line react-hooks/exhaustive-deps -- field reads keys
@@ -218,7 +208,8 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
     const extensionFields: Record<string, string> = {};
     if (keys.author !== null && item.authors !== null) extensionFields[keys.author] = item.authors.slice(0, 200);
     if (keys.source !== null) extensionFields[keys.source] = sourceLabel(item.source);
-    if (keys.link !== null) extensionFields[keys.link] = catalogLink(item);
+    // A borrow-only title keeps only its Open Library link (like Kindle) — never read inside Avora.
+    if (keys.link !== null) extensionFields[keys.link] = item.access === "borrow" ? borrowLink(item) : catalogLink(item);
     // C7: the book goes on the shelf under its Vietnamese title when there is one; the original stays in Link.
     await actions.createRecord({ tableId: shelf.id, scope: scopeOfTable(shelf), title: bookTitleLines(item).main.slice(0, 200), status: "muon_doc", extensionFields });
     toast.success("Đã thêm vào tầng Muốn đọc.");
@@ -241,16 +232,20 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
     );
   }
 
-  const continueRef = continueBook === null ? null : catalogRefOf(field(continueBook, keys.link));
+  /** A catalogue book Avora may open: on the list, and public everywhere (AVORA-103 · A). */
+  const readableRef = (book: ThinkRecord) => {
+    const ref = catalogRefOf(field(book, keys.link));
+    const info = coverOf(book).info;
+    return ref !== null && (info === null || (info.pdStatus === "ok" && info.access === "read")) ? ref : null;
+  };
+  const continueRef = continueBook === null ? null : readableRef(continueBook);
   const continueProgress = continueBook === null ? null : readingProgress(field(continueBook, keys.position));
 
   return (
     <div data-shelf-panel="ke-sach">
       {continueBook !== null ? (
         <section aria-label="Đọc tiếp" data-continue-reading="" className="mb-6 flex gap-4 rounded-card border border-border bg-card p-4">
-          <span className="relative flex aspect-[2/3] w-[78px] shrink-0 flex-col justify-end overflow-hidden rounded-md p-2 shadow-sm ring-1 ring-black/10" style={{ backgroundColor: coverColor(continueBook.title) }}>
-            <span className="line-clamp-3 text-[11px] font-semibold leading-tight text-white">{continueBook.title}</span>
-          </span>
+          <BookCover {...coverOf(continueBook)} size="continue" className="w-[78px]" />
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Đọc tiếp</p>
             <p className="mt-0.5 truncate text-[16px] font-semibold text-foreground">{continueBook.title}</p>
@@ -266,7 +261,7 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
                   <BookOpen className="h-4 w-4" aria-hidden="true" /> Đọc tiếp
                 </button>
               ) : field(continueBook, keys.link) !== "" ? (
-                <a href={field(continueBook, keys.link)} target="_blank" rel="noreferrer noopener" className="press inline-flex h-10 items-center gap-1.5 rounded-lg bg-personal px-4 text-[13.5px] font-semibold text-personal-foreground">
+                <a href={field(continueBook, keys.link).replace(/\/borrow$/, "")} target="_blank" rel="noreferrer noopener" className="press inline-flex h-10 items-center gap-1.5 rounded-lg bg-personal px-4 text-[13.5px] font-semibold text-personal-foreground">
                   <ExternalLink className="h-4 w-4" aria-hidden="true" /> Mở link
                 </a>
               ) : null}
@@ -329,12 +324,10 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
                   return (
                     <li key={book.id} className="w-[104px] shrink-0 pb-2 md:w-auto">
                       <button type="button" onClick={() => setOpenId(book.id)} title={lesson === "" ? undefined : lesson} className="press group block w-full text-left">
-                        <span className="relative flex aspect-[2/3] w-full flex-col justify-between overflow-hidden rounded-md p-2.5 shadow-sm ring-1 ring-black/10 transition-transform group-hover:-translate-y-1" style={{ backgroundColor: coverColor(book.title) }}>
-                          <span className="line-clamp-4 text-[13px] font-semibold leading-snug text-white">{book.title}</span>
-                          <span className="line-clamp-2 text-[11px] text-white/75">{field(book, keys.author)}</span>
-                          {stars.data?.has(book.id) === true ? <Star className="absolute right-1.5 top-1.5 h-3.5 w-3.5 fill-amber-300 text-amber-300" aria-label="Quan trọng" /> : null}
+                        <BookCover {...coverOf(book)} className="w-full transition-transform group-hover:-translate-y-1">
+                          {stars.data?.has(book.id) === true ? <Star className="absolute right-1.5 top-1.5 h-3.5 w-3.5 fill-amber-300 text-amber-300 drop-shadow" aria-label="Quan trọng" /> : null}
                           {pinnedAt.has(book.id) ? <span className="absolute left-1.5 top-1.5 text-[12px]" data-book-pinned="" aria-label="Đã ghim">📌</span> : null}
-                        </span>
+                        </BookCover>
                         {deviceKeys.has(catalogKeyOf(book)) ? (
                           <span className="mt-1 block text-[11px] text-muted-foreground" data-book-on-device="">✓ trên máy</span>
                         ) : null}
@@ -409,14 +402,18 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
                   className="mt-1 w-full rounded-md border border-border bg-background px-3 py-2 text-[16px] outline-none focus:border-personal md:text-[14.5px]"
                 />
               </label>
+              <BookPageCover book={opened} cover={coverOf(opened)} />
+              {catalogRefOf(field(opened, keys.link)) !== null && readableRef(opened) === null ? (
+                <p className="text-[12.5px] text-muted-foreground" data-book-not-public="">{NOT_PUBLIC_MESSAGE}</p>
+              ) : null}
               <div className="flex flex-wrap gap-2">
-                {catalogRefOf(field(opened, keys.link)) !== null ? (
+                {readableRef(opened) !== null ? (
                   <button type="button" onClick={() => read(opened)} className="press inline-flex items-center gap-1.5 rounded-md bg-personal px-3 py-2 text-[13.5px] font-semibold text-personal-foreground">
                     <BookOpen className="h-4 w-4" aria-hidden="true" /> Đọc trong Avora
                   </button>
                 ) : field(opened, keys.link) !== "" ? (
-                  <a href={field(opened, keys.link)} target="_blank" rel="noreferrer noopener" className="press inline-flex items-center gap-1.5 rounded-md bg-personal px-3 py-2 text-[13.5px] font-semibold text-personal-foreground">
-                    <ExternalLink className="h-4 w-4" aria-hidden="true" /> Mở link
+                  <a href={field(opened, keys.link).replace(/\/borrow$/, "")} target="_blank" rel="noreferrer noopener" className="press inline-flex items-center gap-1.5 rounded-md bg-personal px-3 py-2 text-[13.5px] font-semibold text-personal-foreground">
+                    <ExternalLink className="h-4 w-4" aria-hidden="true" /> {/^https:\/\/openlibrary\.org\//.test(field(opened, keys.link)) ? "Mở trên Open Library ↗" : "Mở link"}
                   </a>
                 ) : null}
                 <button type="button" onClick={() => star.mutate(opened.id)} className="press inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-2 text-[13.5px]">
@@ -495,38 +492,82 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
   );
 }
 
-/** Thư viện mở: Vietnamese Wikisource first, then Project Gutenberg; search and nine categories. */
-/** C6 · `n cuốn trên máy · x MB` → the list, `Xoá khỏi máy` one by one. Only this device knows. */
+/** AVORA-103 · D · `Trên máy: 3 / 5` → the list, `Bỏ khỏi máy` one by one. Only this device knows. */
 function OnDeviceLine() {
   const [open, setOpen] = useState<boolean>(false);
   const list = useQuery({ queryKey: ["books-on-device"], queryFn: booksOnDevice, staleTime: 10_000 });
-  const whole = (list.data ?? []).filter((item) => item.complete);
+  const whole = list.data ?? [];
   if (whole.length === 0) return null;
   const mb = whole.reduce((sum, item) => sum + item.bytes, 0) / 1_048_576;
   return (
     <div className="mb-3" data-on-device="">
       <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="press inline-flex min-h-10 items-center gap-1.5 text-[13px] text-muted-foreground">
-        <Download className="h-4 w-4" aria-hidden="true" /> {whole.length} cuốn trên máy · {mb.toFixed(1)} MB
+        <Download className="h-4 w-4" aria-hidden="true" /> <span data-on-device-count="">Trên máy: {whole.length} / {MAX_ON_DEVICE}</span> · {mb.toFixed(1)} MB
       </button>
-      {open ? (
-        <ul className="mt-1 overflow-hidden rounded-card border border-border bg-card">
-          {whole.map((item) => (
-            <li key={item.key} className="flex items-center gap-3 border-b border-border/60 px-3 py-2 last:border-b-0">
-              <span className="min-w-0 flex-1 truncate text-[14px]">✓ {item.title}</span>
-              <button
-                type="button"
-                onClick={() => {
-                  const [source, ...rest] = item.key.split(":");
-                  void removeFromDevice(source === "wikisource" ? "wikisource" : "gutenberg", rest.join(":")).then(() => list.refetch());
-                }}
-                className="press min-h-9 rounded-md px-2 text-[13px] text-destructive"
-              >
-                Xoá khỏi máy
-              </button>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {open ? <OnDeviceList /> : null}
+    </div>
+  );
+}
+
+/** The book's page: its cover, where the cover came from, and `Đổi bìa` (my own photo, only I see it). */
+function BookPageCover({ book, cover }: { book: ThinkRecord; cover: ReturnType<ReturnType<typeof useShelfCovers>["coverOf"]> }) {
+  const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const credit = cover.isMine ? "Bìa: ảnh của bạn · chỉ bạn thấy" : cover.info === null ? null : coverCredit(sourceOf(cover.info.key.split(":")[0]), cover.url !== null);
+  const done = (): void => void queryClient.invalidateQueries({ queryKey: ["book-my-covers"] });
+  return (
+    <div className="flex items-end gap-3" data-book-page-cover="">
+      <BookCover {...cover} className="w-[84px]" />
+      <div className="min-w-0 flex-1 space-y-1">
+        {credit !== null ? <p className="text-[11.5px] text-muted-foreground" data-cover-credit="">{credit}</p> : null}
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            disabled={isSaving || user === null}
+            onClick={() => inputRef.current?.click()}
+            className="press inline-flex min-h-9 items-center gap-1.5 rounded-control border border-border px-3 text-[13px] disabled:opacity-50"
+            data-change-cover=""
+          >
+            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Camera className="h-4 w-4" aria-hidden="true" />} Đổi bìa
+          </button>
+          {cover.isMine ? (
+            <button
+              type="button"
+              disabled={isSaving}
+              onClick={() => {
+                setIsSaving(true);
+                clearMyCover(book.id)
+                  .then(done, (error: unknown) => toast.error(error instanceof Error ? error.message : "Chưa bỏ được bìa."))
+                  .finally(() => setIsSaving(false));
+              }}
+              className="press min-h-9 rounded-control px-2 text-[13px] text-muted-foreground"
+            >
+              Dùng bìa thường
+            </button>
+          ) : null}
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          aria-label="Chụp hoặc chọn ảnh bìa"
+          onChange={(event) => {
+            const file = event.target.files?.[0];
+            event.target.value = "";
+            if (file === undefined || user === null) return;
+            setIsSaving(true);
+            saveMyCover(user.id, book.id, file)
+              .then(() => {
+                done();
+                toast.success("Đã đổi bìa. Chỉ bạn thấy bìa này.");
+              }, (error: unknown) => toast.error(error instanceof Error ? error.message : "Chưa đổi được bìa."))
+              .finally(() => setIsSaving(false));
+          }}
+        />
+      </div>
     </div>
   );
 }
@@ -550,6 +591,9 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
     queryFn: async () => withoutAdultInBrowse(await searchCatalog(query, category, effectiveSource), query),
     staleTime: 5 * 60_000,
   });
+  // AVORA-103 · C: covers Avora has not fetched yet are asked for (a few at a time) and shown from Avora.
+  const resultKeys = useMemo(() => (results.data ?? []).filter((item) => item.access === "read").map((item) => `${item.source}:${item.sourceId}`), [results.data]);
+  const resultCovers = useShelfCatalog(resultKeys);
   // C7: titles outside book_title_vi.csv, translated on this device only (never stored on a server).
   const [deviceTitles, setDeviceTitles] = useState<Record<string, string>>({});
   useEffect(() => {
@@ -573,11 +617,12 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
         </button>
         <span className="h-px flex-1 bg-border" aria-hidden="true" />
       </div>
-      <div role="tablist" aria-label="Nguồn" className="mt-3 grid grid-cols-2 gap-2 md:flex md:flex-wrap" data-library-sources="">
+      <div role="tablist" aria-label="Nguồn" className="mt-3 grid grid-cols-3 gap-2 md:flex md:flex-wrap" data-library-sources="">
         {(
           [
             ["wikisource", "Tiếng Việt", "Tiếng Việt (Wikisource)"],
-            ["gutenberg", "Gutenberg", "Project Gutenberg — hơn 75.000 sách"],
+            ["gutenberg", "Gutenberg", "Project Gutenberg — hơn 43.000 sách"],
+            ["openlibrary", "Open Library", "Open Library — sách công cộng"],
           ] as const
         ).map(([id, short, label]) => (
           <button
@@ -635,7 +680,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
             const isOn = onShelf.has(key);
             return (
               <li key={key} className="flex min-w-0 items-center gap-3 rounded-card border border-border bg-card px-3 py-2.5">
-                <span className="h-12 w-8 shrink-0 rounded-sm ring-1 ring-black/10" style={{ backgroundColor: coverColor(item.title) }} aria-hidden="true" />
+                <BookCover title={item.title} url={coverUrl(resultCovers.get(key)?.coverPath ?? item.coverPath)} size="thumb" className="w-8" />
                 <span className="min-w-0 flex-1">
                   {(() => {
                     const fromFile = bookTitleLines(item);
@@ -661,6 +706,19 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
                     {[item.authors, sourceLabel(item.source), LANGUAGE_NAMES[item.language]].filter((part) => part != null && part !== "").join(" · ")}
                   </span>
                 </span>
+                {item.access === "borrow" && !isOn ? (
+                  <a
+                    href={catalogLink(item)}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="press inline-flex h-9 shrink-0 items-center gap-1 rounded-control border border-border px-3 text-[12.5px] font-medium"
+                    data-borrow-link=""
+                    title="Còn bản quyền — chỉ mở trên Open Library"
+                  >
+                    <span className="md:hidden">Open Library ↗</span>
+                    <span className="hidden md:inline">Mở trên Open Library ↗</span>
+                  </a>
+                ) : null}
                 {isOn ? (
                   <span className="inline-flex shrink-0 items-center gap-1 text-[12.5px] text-muted-foreground">
                     <Check className="h-3.5 w-3.5" aria-hidden="true" /> <span className="md:hidden">Trên kệ</span><span className="hidden md:inline">Trên kệ của bạn</span>
@@ -685,7 +743,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
           })}
         </ul>
       )}
-      <p className="mt-3 text-[12px] text-muted-foreground">Chỉ sách thuộc phạm vi công cộng. Mỗi cuốn giữ nguyên ghi chú nguồn và giấy phép ở mục “Về bản này”.</p>
+      <p className="mt-3 text-[12px] text-muted-foreground">Chỉ sách thuộc phạm vi công cộng ở Việt Nam và châu Âu (tác giả, dịch giả mất trên 70 năm). Sách còn bản quyền chỉ có link. Mỗi cuốn giữ nguyên ghi chú nguồn và giấy phép ở mục “Về bản này”.</p>
     </section>
   );
 }
@@ -729,6 +787,10 @@ function AddBookDialog({ open, onOpenChange, onAdd }: { open: boolean; onOpenCha
             type="button"
             disabled={title.trim() === "" || isSaving}
             onClick={() => {
+              if (isBannedBookLink(link)) {
+                toast.error(BANNED_LINK_MESSAGE);
+                return;
+              }
               setIsSaving(true);
               onAdd({ title, author, source, link })
                 .then(() => onOpenChange(false), (error: unknown) => toast.error(error instanceof Error ? error.message : "Không thêm được sách."))

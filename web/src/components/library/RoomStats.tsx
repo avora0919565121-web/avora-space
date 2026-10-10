@@ -6,7 +6,8 @@ import { formatMinutes, localDay, weekDays } from "@/lib/activity";
 import type { Note } from "@/lib/notes";
 import { ownWords, rankBookNotes, statName, useStatsPrefs } from "@/lib/room-stats";
 import { useReadingDays, useRoomStats, type RoomStatItem, type RoomViewed } from "@/lib/use-activity";
-import { coverColor } from "@/lib/library";
+import { BookCover } from "@/components/library/BookCover";
+import { useShelfCovers } from "@/components/library/use-bookshelf";
 import { cn } from "@/lib/utils";
 
 /**
@@ -300,6 +301,7 @@ export function BookNotes({ notes, onShelf, isWide, onOpenAt, onOpenAll }: { not
  * as in Ke2-Ke5-So-Lieu.png. The full shelf with Thư viện mở opens from `Kệ sách · Thư viện mở ›`.
  */
 export function BooksCard({ books, onOpenBook, onOpenShelf }: { books: readonly { id: string; title: string }[]; onOpenBook: (id: string) => void; onOpenShelf: () => void }) {
+  const { coverOf } = useShelfCovers();
   return (
     <Card data-books-card="">
       <div className="flex items-baseline justify-between gap-3">
@@ -317,9 +319,10 @@ export function BooksCard({ books, onOpenBook, onOpenShelf }: { books: readonly 
                 onClick={() => onOpenBook(book.id)}
                 aria-label={`Đọc ${book.title}`}
                 title={book.title}
-                className="press block h-[58px] w-[40px] rounded-[3px] shadow-sm ring-1 ring-black/10"
-                style={{ backgroundColor: coverColor(book.title) }}
-              />
+                className="press block w-[40px]"
+              >
+                <BookCover {...coverOf(book)} size="mini" className="w-[40px]" />
+              </button>
             </li>
           ))}
         </ul>

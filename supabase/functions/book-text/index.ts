@@ -3,7 +3,11 @@
 // (it blocks automated access): the official mirror gutenberg.pglaf.org. Wikisource through the
 // MediaWiki API (`action=parse`). The cleaned original is kept in Storage `public-domain-books/`;
 // a translation is never stored anywhere. 30 calls per person per hour.
+// AVORA-103: only books public everywhere Avora is used (pd_status 'ok'); Open Library editions
+// (`openlibrary`, ebook_access public) from archive.org's plain text; a borrow-only title is never
+// read here. Every call to an outside source waits for its slot (≥ 1 s apart, book_fetch_slot()).
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { dropFrontNoise, ocrNoise, plainTextToBlocks } from "./openlibrary.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -11,7 +15,9 @@ const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 
 const MIRROR = "https://gutenberg.pglaf.org";
 const WIKI_API = "https://vi.wikisource.org/w/api.php";
-const UA = "AvoraReader/1.0 (https://avorachat.com; public-domain reader)";
+const UA = "AvoraReader/1.0 (https://avorachat.com; public-domain reader; reply@avorachat.com)";
+const ARCHIVE = "https://archive.org/download";
+const OCR_LIMIT = 0.02;
 const BUCKET = "public-domain-books";
 const HOURLY_LIMIT = 30;
 const CACHE_VERSION = "v1";
@@ -42,7 +48,7 @@ function json(status: number, body: unknown): Response {
 type Block = { k: "h"; t: string; l: number } | { k: "p"; t: string } | { k: "pre"; t: string } | { k: "img"; src: string; alt: string };
 type Chapter = { title: string; blocks: Block[] | null };
 type Book = {
-  source: "gutenberg" | "wikisource";
+  source: "gutenberg" | "wikisource" | "openlibrary";
   sourceId: string;
   title: string;
   authors: string | null;
@@ -249,7 +255,11 @@ function intoChapters(blocks: Block[], fallbackTitle: string): Chapter[] {
 
 // ------------------------------------------------------------------ sources
 
+/** Set per request: waits for the shared ≥ 1 s slot before any outside call. */
+let waitForSlot: () => Promise<void> = async () => {};
+
 async function fetchText(target: string, init?: RequestInit): Promise<string> {
+  await waitForSlot();
   const response = await fetch(target, { ...init, headers: { "User-Agent": UA, ...(init?.headers ?? {}) } });
   if (!response.ok) throw new Error(`source_${response.status}`);
   return await response.text();
@@ -272,6 +282,28 @@ async function gutenbergBook(id: string, row: CatalogRow): Promise<Book> {
     sourceUrl: `https://www.gutenberg.org/ebooks/${id}`,
     epubUrl: row.epub_url,
     license,
+    chapters: intoChapters(blocks, row.title),
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
+class OcrUnclean extends Error {}
+
+async function openLibraryBook(olid: string, row: CatalogRow): Promise<Book> {
+  if (row.ia_id === null || row.ia_file === null) throw new Error("no_ia");
+  const raw = await fetchText(`${ARCHIVE}/${encodeURIComponent(row.ia_id)}/${encodeURIComponent(row.ia_file)}`);
+  const blocks = dropFrontNoise(plainTextToBlocks(raw));
+  const body = blocks.map((block) => block.t).join("\n");
+  if (body.length < 2000 || ocrNoise(body) > OCR_LIMIT) throw new OcrUnclean();
+  return {
+    source: "openlibrary",
+    sourceId: olid,
+    title: row.title,
+    authors: row.authors,
+    language: row.language,
+    sourceUrl: `https://openlibrary.org/books/${olid}`,
+    epubUrl: null,
+    license: ["Nguồn: Open Library / Internet Archive · Phạm vi công cộng", `archive.org/details/${row.ia_id}`],
     chapters: intoChapters(blocks, row.title),
     fetchedAt: new Date().toISOString(),
   };
@@ -350,13 +382,24 @@ async function wikisourceBook(sourceId: string, row: CatalogRow): Promise<{ book
 // ------------------------------------------------------------------ cache
 
 async function cacheKey(source: string, sourceId: string): Promise<string> {
-  if (source === "gutenberg") return `${CACHE_VERSION}/gutenberg/${sourceId}`;
+  if (source === "gutenberg" || source === "openlibrary") return `${CACHE_VERSION}/${source}/${sourceId}`;
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(sourceId));
   const hex = [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32);
   return `${CACHE_VERSION}/wikisource/${hex}`;
 }
 
-type CatalogRow = { source: string; source_id: string; title: string; authors: string | null; language: string; epub_url: string | null };
+type CatalogRow = {
+  source: string;
+  source_id: string;
+  title: string;
+  authors: string | null;
+  language: string;
+  epub_url: string | null;
+  pd_status: string;
+  access: string;
+  ia_id: string | null;
+  ia_file: string | null;
+};
 type Db = ReturnType<typeof createClient>;
 
 async function readCache<T>(db: Db, path: string): Promise<T | null> {
@@ -397,21 +440,31 @@ Deno.serve(async (req) => {
   const source = body.source;
   const sourceId = typeof body.source_id === "string" ? body.source_id.trim() : "";
   const part = body.part === undefined || body.part === null ? null : Number(body.part);
-  if ((source !== "gutenberg" && source !== "wikisource") || sourceId === "" || sourceId.length > 300) return json(400, { error: "body" });
+  if ((source !== "gutenberg" && source !== "wikisource" && source !== "openlibrary") || sourceId === "" || sourceId.length > 300) return json(400, { error: "body" });
   if (source === "gutenberg" && !/^\d{1,7}$/.test(sourceId)) return json(400, { error: "body" });
+  if (source === "openlibrary" && !/^OL\d{1,10}M$/.test(sourceId)) return json(400, { error: "body" });
   if (part !== null && (!Number.isInteger(part) || part < 0 || part > 500)) return json(400, { error: "body" });
 
   // Read as the person: the catalogue's RLS (and the 67 session rule) decides what exists for them.
   const { data: row, error: rowError } = await asUser
     .from("book_catalog")
-    .select("source, source_id, title, authors, language, epub_url")
+    .select("source, source_id, title, authors, language, epub_url, pd_status, access, ia_id, ia_file")
     .eq("source", source)
     .eq("source_id", sourceId)
     .maybeSingle();
   if (rowError) return json(403, { error: "session" });
   if (row === null) return json(404, { error: "not_in_catalog" });
+  const entry = row as CatalogRow;
+  // Still in copyright somewhere Avora is used: a link at most, never the text.
+  if (entry.access === "borrow") return json(403, { error: "borrow_only" });
+  if (entry.pd_status !== "ok") return json(403, { error: "not_public_domain" });
 
   const db = createClient(url, serviceKey, { auth: { persistSession: false } });
+  waitForSlot = async () => {
+    const { data: wait } = await db.rpc("book_fetch_slot");
+    const ms = typeof wait === "number" ? Math.min(wait, 20_000) : 1000;
+    if (ms > 0) await new Promise((resolve) => setTimeout(resolve, ms));
+  };
   const since = new Date(Date.now() - 3_600_000).toISOString();
   const { count } = await db.from("book_text_hits").select("id", { count: "exact", head: true }).eq("user_id", userId).gte("at", since);
   if ((count ?? 0) >= HOURLY_LIMIT) return json(429, { error: "rate_limited" });
@@ -435,6 +488,19 @@ Deno.serve(async (req) => {
     const cached = await readCache<Book>(db, `${key}/index.json`);
     if (cached !== null) return json(200, cached);
 
+    if (source === "openlibrary") {
+      const unclean = await readCache<{ unclean: true }>(db, `${key}/unclean.json`);
+      if (unclean !== null) return json(422, { error: "ocr_unclean" });
+      try {
+        const opened = await openLibraryBook(sourceId, entry);
+        await writeCache(db, `${key}/index.json`, opened);
+        return json(200, opened);
+      } catch (caught) {
+        if (!(caught instanceof OcrUnclean)) throw caught;
+        await writeCache(db, `${key}/unclean.json`, { unclean: true });
+        return json(422, { error: "ocr_unclean" });
+      }
+    }
     if (source === "gutenberg") {
       const book = await gutenbergBook(sourceId, row as CatalogRow);
       await writeCache(db, `${key}/index.json`, book);

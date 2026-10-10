@@ -2147,6 +2147,16 @@ Thanh dưới  : ToolBelt (ẩn trong thread)
 - **Nút hàng đầu:** Tìm · Người (nếu có) · `+`, cùng 38 px kiểu `.icon-btn` (theo Kiểu nút, ADR-037). `+` tông cá nhân. Cam Avora chỉ cho logo và huy hiệu.
 - **Bubble lịch:** cùng vị trí / cỡ / biểu tượng ở mọi tab; ẩn trong thread và màn tập trung.
 
+## Bìa sách · 5 cuốn trên máy (AVORA-103 · KHỐI 3A · ADR-080)
+- **Một component `BookCover`** cho mọi chỗ có sách: kệ (gáy 2:3), `Đọc tiếp`, Thư viện mở (ảnh nhỏ), danh sách trên máy, kệ 4 Kế hoạch, ghi chép sách.
+- **Bìa thật** (Avora cất, hoặc ảnh của tôi): ảnh phủ kín; sách có tên tiếng Việt → **dải đen 70 % ở đáy** ghi tên tiếng Việt (chữ trắng 11 px, 2 dòng).
+- **Bìa tự vẽ** (Wikisource, sách không có bìa, bìa trống): nền `coverColor`, tên tiếng Việt 13 px đậm, tên gốc 10 px nghiêng, tác giả ở đáy.
+- Trang sách (tấm chi tiết): bìa 84 px + chữ nhỏ `Bìa: Project Gutenberg` / `Bìa: Open Library` / `Bìa: ảnh của bạn · chỉ bạn thấy`; nút `Đổi bìa` (máy ảnh hoặc thư viện ảnh) và `Dùng bìa thường`.
+- **Trên máy: n / 5** ở đầu kệ; chạm → danh sách (bìa nhỏ · tên · `Đã đọc n%` / `Đã đọc xong` màu tông cá nhân · `Bỏ khỏi máy`).
+- **Tấm `5 cuốn trên máy`**: “Bạn đang có 5 cuốn trên máy. Đọc xong một cuốn, hoặc bỏ một cuốn khỏi máy để tải cuốn này.” + danh sách + dòng nhỏ “Sách tải về nằm trên máy của bạn, không chiếm chỗ ở Avora…”. Bỏ một cuốn → tấm đóng, cuốn mới tự tải.
+- Đọc xong: hỏi một lần `Bỏ cuốn này khỏi máy để dành chỗ cho cuốn tiếp theo?` · `Bỏ khỏi máy` · `Giữ lại`. Menu ⋯ của trình đọc có `Đánh dấu đã đọc xong`.
+- Thư viện mở có 3 nguồn: `Tiếng Việt` · `Gutenberg` · `Open Library`; sách còn bản quyền chỉ có nút `Mở trên Open Library ↗`.
+
 ## Thang khoảng cách · bo góc · phông (AVORA-101B · KHỐI 2E · ADR-079)
 | Token | Giá trị | Dùng cho |
 |---|---|---|

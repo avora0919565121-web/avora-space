@@ -1,0 +1,34 @@
+olid,title,author,author_died,language,category,ia_id,ia_file,access,ghi_chu
+OL7173379M,Pride and Prejudice,Jane Austen,1817,en,van_hoc,prideprejudice00aust,prideprejudice00aust_djvu.txt,read,Bản in 1894
+OL14015946M,Jane Eyre,Charlotte Brontë,1855,en,van_hoc,janeeyre00broniala,janeeyre00broniala_djvu.txt,read,Bản in 1899
+OL43577248M,Great Expectations,Charles Dickens,1870,en,van_hoc,greatexpectation0000dick_c1y6,greatexpectation0000dick_c1y6_djvu.txt,read,Bản in 1907
+OL27949496M,Moby Dick,Herman Melville,1891,en,van_hoc,mobydickorwhale01melvuoft,mobydickorwhale01melvuoft_djvu.txt,read,"Bản in 1922; Tên mục IA có ""01"" — có thể chỉ tập 1, VMT soát"
+OL23269295M,The Adventures of Tom Sawyer,Mark Twain,1910,en,van_hoc,adventuresoftoms00twaiiala,adventuresoftoms00twaiiala_djvu.txt,read,Bản in 1876
+OL21516677M,Little Women,Louisa May Alcott,1888,en,van_hoc,littlewomen0000alco_t3z5,littlewomen0000alco_t3z5_djvu.txt,read,Bản in 1908
+OL32405829M,Wuthering Heights,Emily Brontë,1848,en,van_hoc,wutheringheights01bron,wutheringheights01bron_djvu.txt,read,Bản in 1847
+OL529096M,Walden,Henry David Thoreau,1862,en,triet_hoc,cu31924021445741,cu31924021445741_djvu.txt,read,Bản in 1899
+OL24140399M,On Liberty,John Stuart Mill,1873,en,triet_hoc,onliberty00inmill,onliberty00inmill_djvu.txt,read,Bản in 1864
+OL7185135M,Essays,Ralph Waldo Emerson,1882,en,triet_hoc,emersonselected00emerrich,emersonselected00emerrich_djvu.txt,read,Bản in c1920; Tuyển tập Emerson c1920 — kiểm lời giới thiệu
+OL13492931M,The Pilgrim's Progress,John Bunyan,1688,en,kinh_thanh,pilgrimsprogress02buny,pilgrimsprogress02buny_djvu.txt,read,"Bản in 1847; Mục IA ""02"" — VMT soát"
+OL7063784M,Orthodoxy,G. K. Chesterton,1936,en,kinh_thanh,orthodoxy00chesuoft,orthodoxy00chesuoft_djvu.txt,read,Bản in 1908
+OL14014799M,In His Steps,Charles M. Sheldon,1946,en,kinh_thanh,inhisstepswhatwo00shel,inhisstepswhatwo00shel_djvu.txt,read,Bản in 1897
+OL14039969M,The History of the Decline and Fall of the Roman Empire,Edward Gibbon,1794,en,lich_su,romanempire05gibbuoft,romanempire05gibbuoft_djvu.txt,read,Bản in 1854; Chỉ tập 5 (romanempire05) — VMT soát
+OL20546445M,Up from Slavery,Booker T. Washington,1915,en,lich_su,upfromslaveryan08washgoog,upfromslaveryan08washgoog_djvu.txt,read,Bản in 1906
+OL7153895M,Autobiography of Benjamin Franklin,Benjamin Franklin,1790,en,lich_su,autobiobenfran00miffrich,autobiobenfran00miffrich_djvu.txt,read,Bản in 1906
+OL25267389M,On the Origin of Species,Charles Darwin,1882,en,khoa_hoc,onoriginofspec00darw,onoriginofspec00darw_djvu.txt,read,Bản in 1859
+OL7023775M,The Voyage of the Beagle,Charles Darwin,1882,en,khoa_hoc,voyageofbeagle00darwuoft,voyageofbeagle00darwuoft_djvu.txt,read,Bản in c1909
+OL7078753M,Flatland,Edwin A. Abbott,1926,en,khoa_hoc,flatlandromanceo00abbouoft,flatlandromanceo00abbouoft_djvu.txt,read,Bản in 1884
+OL13573595M,The Wealth of Nations,Adam Smith,1790,en,kinh_te,wealthofnations00smituoft,wealthofnations00smituoft_djvu.txt,read,Bản in 1902
+OL25914464M,Principles of Political Economy,John Stuart Mill,1873,en,kinh_te,principlesofpoli00mill_2,principlesofpoli00mill_2_djvu.txt,read,Bản in 1923
+OL7165754M,The Theory of the Leisure Class,Thorstein Veblen,1929,en,kinh_te,theoryofleisurec00vebliala,theoryofleisurec00vebliala_djvu.txt,read,Bản in 1912
+OL7193369M,Leaves of Grass,Walt Whitman,1892,en,tho,leavesofgrassrhys00whitrich,leavesofgrassrhys00whitrich_djvu.txt,read,Bản in 1886
+OL25594941M,Songs of Innocence and of Experience,William Blake,1827,en,tho,songsofinnocenceblak,songsofinnocenceblak_djvu.txt,read,Bản in 1925; In 1925 — kiểm lời giới thiệu
+OL7054757M,Poems,Emily Dickinson,1886,en,tho,poemsbyemilydick00dickrich,poemsbyemilydick00dickrich_djvu.txt,read,Bản in 1896
+OL31754751M,Alice's Adventures in Wonderland,Lewis Carroll,1898,en,thieu_nhi,alicesadventur00carr,alicesadventur00carr_djvu.txt,read,Bản in 
+OL7153762M,The Wind in the Willows,Kenneth Grahame,1932,en,thieu_nhi,windinwillows00grah,windinwillows00grah_djvu.txt,read,Bản in c1913
+OL6998053M,Anne of Green Gables,L. M. Montgomery,1942,en,thieu_nhi,cu31924013243963,cu31924013243963_djvu.txt,read,Bản in 1908
+OL7096476M,The Secret Garden,Frances Hodgson Burnett,1924,en,thieu_nhi,secretgarden00burn,secretgarden00burn_djvu.txt,read,Bản in [1911]
+OL24626461M,Les Misérables,Victor Hugo,1885,fr,van_hoc,lesmiserables1900hugo,lesmiserables1900hugo_djvu.txt,read,Bản in 1900
+OL24245739M,Vingt mille lieues sous les mers,Jules Verne,1905,fr,thieu_nhi,vingtmillelieue00vern,vingtmillelieue00vern_djvu.txt,read,Bản in 1871
+OL20402052M,Mere Christianity,C. S. Lewis,1963,en,kinh_thanh,,,borrow,Còn bản quyền — chỉ link
+OL7893352M,The Old Man and the Sea,Ernest Hemingway,1961,en,van_hoc,,,borrow,"Open Library ghi ""public"" nhưng tác giả mất 1961 — chỉ link"

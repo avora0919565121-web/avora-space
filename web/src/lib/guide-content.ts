@@ -67,6 +67,7 @@ export const GUIDE_CARDS: readonly GuideCard[] = [
       "Bấm + để thêm hạng mục vào bảng đang mở; giữ + để tạo bảng mới.",
       "Cùng dữ liệu xem được dạng Bảng, Theo trạng thái hoặc Cây.",
       "Bắt đầu nhanh từ một mẫu có sẵn. Bảng đã xong cất lên Kệ sách.",
+      "Kệ sách: chỉ sách thuộc phạm vi công cộng; tải về tối đa 5 cuốn trên máy. Bìa sách: Project Gutenberg, Open Library.",
     ],
   },
   {

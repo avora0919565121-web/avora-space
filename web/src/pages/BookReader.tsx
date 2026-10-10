@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, Copy, Download, Languages, List, Loader2, Moon, MoreHorizontal, NotebookPen, Pin, Type, X } from "lucide-react";
+import { BookCheck, ChevronLeft, Copy, Download, Languages, List, Loader2, Moon, MoreHorizontal, NotebookPen, Pin, Type, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 
@@ -8,14 +8,16 @@ import { useTranslationConfig } from "@/lib/use-app-config";
 import { TempTabBar } from "@/components/nav/TempTabBar";
 import { toast } from "sonner";
 
-import { useBookshelf } from "@/components/library/BookshelfPanel";
+import { useBookshelf } from "@/components/library/use-bookshelf";
+import { DeviceFullSheet } from "@/components/library/OnDeviceList";
+import { askConfirm } from "@/components/ConfirmHost";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { Switch } from "@/components/ui/switch";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { findJournal } from "@/hooks/use-paste-task";
 import { useAuth } from "@/lib/auth";
-import { catalogRefOf, epubOf, LANGUAGE_NAMES } from "@/lib/book-catalog";
+import { catalogRefOf, epubOf, LANGUAGE_NAMES, sourceLine } from "@/lib/book-catalog";
 import { ensureJournalConversation, fetchMessages, sendMessage } from "@/lib/chat";
 import { conversationTitle, type ChatMessage } from "@/lib/chat-cache";
 import { INCOMING_MESSAGE_EVENT, type IncomingMessageSignal } from "@/lib/in-app-alerts";
@@ -48,7 +50,13 @@ import { useBackPress } from "@/hooks/use-back-press";
 import {
   BookTextError,
   clipExcerpt,
+  DeviceFullError,
   downloadBook,
+  FINISHED_PERCENT,
+  hasRoomFor,
+  markFinishAsked,
+  removeFromDevice,
+  wasFinishAsked,
   fetchAllReadingStates,
   fetchReadingState,
   flushPositions,
@@ -122,6 +130,7 @@ const BookReader = () => {
   const [offer, setOffer] = useState<ReadingState | null>(null);
   const [onDevice, setOnDevice] = useState<boolean>(false);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [isDeviceFull, setIsDeviceFull] = useState<boolean>(false);
   const [translated, setTranslated] = useState<Record<number, string[]>>({});
   const [translating, setTranslating] = useState<{ target: string; progress: string | null } | null>(null);
   const [showOriginal, setShowOriginal] = useState<boolean>(false);
@@ -195,7 +204,8 @@ const BookReader = () => {
       if (cancelled) return;
       setOnDevice(whole);
       if (!whole && (book?.status === "dang_doc" || isPinned) && navigator.onLine) {
-        void downloadBook(ref.source, ref.sourceId).then(
+        // AVORA-103 · D1: with five books already here, read online and keep nothing.
+        void hasRoomFor(ref.source, ref.sourceId).then((room) => (room ? downloadBook(ref.source, ref.sourceId) : Promise.reject(new DeviceFullError()))).then(
           (full) => {
             if (cancelled) return;
             setText((current) => (current === null ? full : { ...current, chapters: full.chapters }));
@@ -345,12 +355,14 @@ const BookReader = () => {
     if (key === lastSavedRef.current) return;
     lastSavedRef.current = key;
     void savePosition(book.id, place.locator, place.percent);
+    if (place.percent >= FINISHED_PERCENT) void offerLetGoRef.current();
     const label = positionLabel(chapter, place.percent);
     if (keys.position !== null && field(book, keys.position) !== label) {
       actions.updateRecord(book.id, { extensionFields: { ...book.extensionFields, [keys.position]: label } }).catch(() => undefined);
     }
   }, [currentPlace, book, chapter, keys.position, field, actions]);
 
+  const offerLetGoRef = useRef<() => Promise<void>>(async () => undefined);
   const saveRef = useRef(save);
   saveRef.current = save;
   useEffect(() => {
@@ -723,10 +735,36 @@ const BookReader = () => {
       setOnDevice(true);
       toast.success("Đã tải cả cuốn về máy.");
     } catch (caught) {
-      toast.error(caught instanceof BookTextError ? caught.message : "Chưa tải được.");
+      if (caught instanceof DeviceFullError) setIsDeviceFull(true);
+      else toast.error(caught instanceof BookTextError ? caught.message : "Chưa tải được.");
     } finally {
       setDownloading(null);
     }
+  };
+
+  /** D3 · finished (≥ 95 %, or marked): ask once whether to let it go from this device. */
+  const offerLetGo = useCallback(async (): Promise<void> => {
+    if (ref === null || book === null || wasFinishAsked(book.id) || !(await isOnDevice(ref.source, ref.sourceId))) return;
+    markFinishAsked(book.id);
+    const letGo = await askConfirm({ title: "Bạn đã đọc xong", body: "Bỏ cuốn này khỏi máy để dành chỗ cho cuốn tiếp theo?", confirmLabel: "Bỏ khỏi máy", cancelLabel: "Giữ lại" });
+    if (!letGo) return;
+    await removeFromDevice(ref.source, ref.sourceId);
+    setOnDevice(false);
+    void queryClient.invalidateQueries({ queryKey: ["books-on-device"] });
+    toast.success("Đã bỏ khỏi máy. Ghi chú và chỗ đang đọc vẫn còn.");
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- ref is derived from the link string
+  }, [ref?.source, ref?.sourceId, book, queryClient]);
+  offerLetGoRef.current = offerLetGo;
+  const markFinished = async (): Promise<void> => {
+    if (book === null) return;
+    try {
+      await actions.updateRecord(book.id, { status: "da_doc" });
+      toast.success("Đã chuyển sang Đã đọc.");
+    } catch (caught) {
+      toast.error(caught instanceof Error ? caught.message : "Không lưu được.");
+      return;
+    }
+    await offerLetGo();
   };
 
   const isOpeningBook = shelfPending || (book !== null && ref !== null && text === null && loadError === null);
@@ -875,6 +913,11 @@ const BookReader = () => {
               <DropdownMenuItem disabled={onDevice || downloading !== null} onSelect={() => void download()}>
                 <Download className="mr-2 h-4 w-4" /> {onDevice ? "Đã có trên máy ✓" : downloading !== null ? `Đang tải ${downloading}` : "Tải về"}
               </DropdownMenuItem>
+              {book !== null && book.status !== "da_doc" ? (
+                <DropdownMenuItem onSelect={() => void markFinished()}>
+                  <BookCheck className="mr-2 h-4 w-4" /> Đánh dấu đã đọc xong
+                </DropdownMenuItem>
+              ) : null}
               {epub !== null ? (
                 <DropdownMenuItem onSelect={() => window.open(epub, "_blank", "noopener")}>
                   <Download className="mr-2 h-4 w-4" /> Mở bằng app đọc trên máy
@@ -1163,6 +1206,7 @@ const BookReader = () => {
           <span className="absolute inset-x-0 text-center text-[17px] font-semibold" style={{ bottom: `${READER_BOTTOM_BAND + 28}px` }}>Chạm để bắt đầu đọc</span>
         </button>
       ) : null}
+      <DeviceFullSheet open={isDeviceFull} onOpenChange={setIsDeviceFull} onRoom={() => void download()} />
       <PinFullSheet open={panel === "pin"} onClose={() => setPanel(null)} books={books.map((item) => ({ id: item.id, title: item.title }))} states={allStates.data ?? []} wanted={recordId} />
       <QuickPeek conversationId={peek} page={pageNumber} onClose={() => setPeek(null)} />
     </div>
@@ -1197,7 +1241,7 @@ function AboutEdition({ text, epub }: { text: BookText; epub: string | null }) {
     <section aria-label="Về bản này" data-about-edition="" className="mt-10 break-before-column rounded-card border border-border bg-card/70 p-5 font-sans text-[13px] leading-relaxed text-muted-foreground" style={{ textAlign: "start" }}>
       <h2 className="text-[15px] font-semibold text-foreground">Về bản này</h2>
       <p className="mt-1">
-        Nguồn: {text.source === "gutenberg" ? "Project Gutenberg" : "Wikisource tiếng Việt"} ·{" "}
+        Nguồn: {sourceLine(text.source)} ·{" "}
         <a href={text.sourceUrl} target="_blank" rel="noreferrer noopener" className="text-personal underline-offset-2 hover:underline">
           bản gốc
         </a>
@@ -1211,7 +1255,7 @@ function AboutEdition({ text, epub }: { text: BookText; epub: string | null }) {
         ) : null}
       </p>
       {text.license.length > 0 ? (
-        <div className="mt-3 space-y-2 whitespace-pre-line" lang={text.source === "gutenberg" ? "en" : "vi"}>
+        <div className="mt-3 space-y-2 whitespace-pre-line" lang={text.source === "wikisource" ? "vi" : text.language}>
           {text.license.map((line, index) => (
             <p key={index}>{line}</p>
           ))}

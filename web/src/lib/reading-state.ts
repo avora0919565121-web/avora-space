@@ -1,5 +1,6 @@
 import { supabase } from "@/integrations/supabase/client";
 import type { BookSource } from "@/lib/book-catalog";
+import { BORROW_MESSAGE, NOT_PUBLIC_MESSAGE, OCR_MESSAGE } from "@/lib/book-sources";
 import { deviceLabelOf } from "@/lib/device";
 import { hubFail } from "@/lib/think-hub";
 
@@ -103,12 +104,15 @@ function textKey(source: BookSource, sourceId: string): string {
 // ------------------------------------------------------------------ book text
 
 export class BookTextError extends Error {
-  constructor(public readonly code: "offline" | "rate_limited" | "not_in_catalog" | "source_failed" | "auth" | "unknown", message: string) {
+  constructor(public readonly code: "offline" | "rate_limited" | "not_in_catalog" | "source_failed" | "auth" | "not_public" | "borrow" | "ocr" | "unknown", message: string) {
     super(message);
   }
 }
 
 const MESSAGES: Record<BookTextError["code"], string> = {
+  not_public: NOT_PUBLIC_MESSAGE,
+  borrow: BORROW_MESSAGE,
+  ocr: OCR_MESSAGE,
   offline: "Cần mạng để mở lần đầu.",
   rate_limited: "Bạn đã mở nhiều sách trong một giờ. Thử lại sau ít phút.",
   not_in_catalog: "Cuốn này không có trong Thư viện mở.",
@@ -132,26 +136,67 @@ async function callBookText(body: Record<string, unknown>): Promise<unknown> {
     throw new BookTextError("offline", MESSAGES.offline);
   }
   if (response.ok) return await response.json();
+  if (response.status === 403 || response.status === 422) {
+    const answer = (await response.json().catch(() => ({}))) as { error?: string };
+    if (answer.error === "borrow_only") throw new BookTextError("borrow", MESSAGES.borrow);
+    if (answer.error === "not_public_domain") throw new BookTextError("not_public", MESSAGES.not_public);
+    if (answer.error === "ocr_unclean") throw new BookTextError("ocr", MESSAGES.ocr);
+  }
   const code = response.status === 429 ? "rate_limited" : response.status === 404 ? "not_in_catalog" : response.status === 502 ? "source_failed" : response.status === 401 ? "auth" : "unknown";
   throw new BookTextError(code, MESSAGES[code]);
 }
 
-/** The whole book (chapters of a long Wikisource work may arrive one at a time — `loadPart`). */
+// ------------------------------------------------------------------ AVORA-103 · D · at most five books on this device
+
+/** Books kept on one device at a time — to read with focus, and so the device does not fill up. */
+export const MAX_ON_DEVICE = 5;
+/** Read this far (percent) = finished: first in the list of books to let go. */
+export const FINISHED_PERCENT = 95;
+
+export class DeviceFullError extends Error {
+  constructor() {
+    super(`Bạn đang có ${MAX_ON_DEVICE} cuốn trên máy.`);
+  }
+}
+
+async function keptKeys(): Promise<string[]> {
+  return (await booksOnDevice()).map((item) => item.key);
+}
+
+/** Room for this book on the device: it is already here, or fewer than five are. */
+export async function hasRoomFor(source: BookSource, sourceId: string): Promise<boolean> {
+  const keys = await keptKeys();
+  return keys.includes(textKey(source, sourceId)) || keys.length < MAX_ON_DEVICE;
+}
+
+/** Books read online but not kept (five already on the device): held for this session only. */
+const online = new Map<string, BookText>();
+
+/**
+ * The whole book (chapters of a long Wikisource work may arrive one at a time — `loadPart`).
+ * Opening a book keeps it on the device while there is room; with five already here it is read
+ * online and nothing is stored.
+ */
 export async function loadBookText(source: BookSource, sourceId: string): Promise<BookText> {
   const key = textKey(source, sourceId);
   const kept = await idbGet<BookText>("texts", key);
   if (kept !== null) return kept;
+  const held = online.get(key);
+  if (held !== undefined) return held;
   const book = (await callBookText({ source, source_id: sourceId })) as BookText;
-  await idbPut("texts", key, book);
+  if (await hasRoomFor(source, sourceId)) await idbPut("texts", key, book);
+  else online.set(key, book);
   return book;
 }
 
-/** One chapter not yet fetched (a book of the Bible, a part of Lục Vân Tiên). Kept on the device too. */
+/** One chapter not yet fetched (a book of the Bible, a part of Lục Vân Tiên). Kept on the device when the book is. */
 export async function loadPart(book: BookText, part: number): Promise<BookText> {
   if (book.chapters[part]?.blocks != null) return book;
   const answer = (await callBookText({ source: book.source, source_id: book.sourceId, part })) as { blocks: BookBlock[] };
   const next: BookText = { ...book, chapters: book.chapters.map((chapter, index) => (index === part ? { ...chapter, blocks: answer.blocks } : chapter)) };
-  await idbPut("texts", textKey(book.source, book.sourceId), next);
+  const key = textKey(book.source, book.sourceId);
+  if ((await idbGet<BookText>("texts", key)) !== null) await idbPut("texts", key, next);
+  else online.set(key, next);
   return next;
 }
 
@@ -343,8 +388,15 @@ export async function isOnDevice(source: BookSource, sourceId: string): Promise<
   return kept !== null && kept.chapters.every((chapter) => chapter.blocks !== null);
 }
 
-/** `Tải về`: every chapter, cleaned, into IndexedDB (only the device; nothing on the server). */
+/** `Tải về`: every chapter, cleaned, into IndexedDB (only the device; nothing on the server). Five at most. */
 export async function downloadBook(source: BookSource, sourceId: string, onProgress?: (done: number, total: number) => void): Promise<BookText> {
+  if (!(await hasRoomFor(source, sourceId))) throw new DeviceFullError();
+  const key = textKey(source, sourceId);
+  const held = online.get(key);
+  if (held !== undefined) {
+    await idbPut("texts", key, held);
+    online.delete(key);
+  }
   let book = await loadBookText(source, sourceId);
   const total = book.chapters.length;
   for (let index = 0; index < total; index += 1) {
@@ -354,8 +406,27 @@ export async function downloadBook(source: BookSource, sourceId: string, onProgr
   return book;
 }
 
+/** `Bỏ khỏi máy`: only the text goes; notes and the reading place stay (they live on the server). */
 export async function removeFromDevice(source: BookSource, sourceId: string): Promise<void> {
   await idbDelete("texts", textKey(source, sourceId));
+}
+
+/** `Đọc xong` asks once per book whether to let it go (AVORA-103 · D3). */
+const FINISH_ASKED_KEY = "avora.book-finish-asked.v1";
+export function wasFinishAsked(recordId: string): boolean {
+  try {
+    return (window.localStorage.getItem(FINISH_ASKED_KEY) ?? "").split(",").includes(recordId);
+  } catch {
+    return false;
+  }
+}
+export function markFinishAsked(recordId: string): void {
+  try {
+    const list = (window.localStorage.getItem(FINISH_ASKED_KEY) ?? "").split(",").filter((id) => id !== "");
+    window.localStorage.setItem(FINISH_ASKED_KEY, [...list.slice(-500), recordId].join(","));
+  } catch {
+    // Asking again is the worst that can happen.
+  }
 }
 
 /** `n cuốn trên máy · x MB`. */

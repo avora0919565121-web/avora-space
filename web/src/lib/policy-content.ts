@@ -146,6 +146,7 @@ export const PRIVACY: PolicyDoc = {
           ["Resend", "Gửi email", "Địa chỉ email, nội dung email hệ thống"],
           ["Rork", "Lưu trữ và phục vụ ứng dụng web", "Truy cập trang"],
           ["Jitsi", "Cuộc gọi", "Âm thanh / hình ảnh trong cuộc gọi"],
+          ["Open Library / Internet Archive", "Chỉ lấy sách thuộc phạm vi công cộng và bìa sách; AVORA cất sẵn", "Không thấy gì về bạn — trình duyệt của bạn không kết nối tới họ"],
           ["Cloudflare Turnstile", "Chặn đăng ký tự động (nếu đang bật)", "Tín hiệu trình duyệt lúc đăng ký"],
           ["Dịch vụ thông báo của trình duyệt / điện thoại", "Đẩy thông báo", "Tên người gửi (không nội dung)"],
         ],

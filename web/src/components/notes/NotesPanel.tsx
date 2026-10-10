@@ -33,6 +33,8 @@ import {
   type Note,
 } from "@/lib/notes";
 import type { NotesData } from "@/lib/use-notes";
+import { BookCover } from "@/components/library/BookCover";
+import { useShelfCovers } from "@/components/library/use-bookshelf";
 import { cn } from "@/lib/utils";
 import { isPreviousEntry } from "@/lib/nav-history";
 
@@ -381,7 +383,7 @@ export function NotesPanel({
             </span>
             {note.bookRecordId !== null || note.bookTitle !== null ? (
               <span className="mt-0.5 flex items-center gap-1 text-[12px] text-amber-700 dark:text-amber-300">
-                <BookOpen className="h-3 w-3" /> {note.bookTitle}
+                {note.bookRecordId !== null ? <NoteBookCover recordId={note.bookRecordId} title={note.bookTitle ?? ""} /> : <BookOpen className="h-3 w-3" />} {note.bookTitle}
                 {note.bookRecordId === null ? " (đã xoá khỏi kệ)" : ""}
               </span>
             ) : null}
@@ -574,3 +576,9 @@ export function NotesPanel({
 }
 
 export { newBlockId };
+
+/** AVORA-103 · C7: a book note shows the book's cover (small) — the same cover as on the shelf. */
+function NoteBookCover({ recordId, title }: { recordId: string; title: string }) {
+  const { coverOf } = useShelfCovers();
+  return <BookCover {...coverOf({ id: recordId, title })} size="mini" className="w-3" />;
+}

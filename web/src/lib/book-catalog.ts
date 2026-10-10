@@ -5,7 +5,7 @@ import { hubFail } from "@/lib/think-hub";
  * AVORA-77 · D2 — the open library. Only lawful public-domain sources: Project Gutenberg's own
  * catalogue file (imported once, never scraped) and Vietnamese Wikisource pages checked one by one.
  */
-export type BookSource = "gutenberg" | "wikisource";
+export type BookSource = "gutenberg" | "wikisource" | "openlibrary";
 
 export type BookCategory = "van_hoc" | "triet_hoc" | "kinh_thanh" | "lich_su" | "khoa_hoc" | "kinh_te" | "tho" | "thieu_nhi" | "khac";
 
@@ -65,13 +65,33 @@ export type CatalogBook = {
   /** C7: the Vietnamese title — `xuat_ban` (a printed edition, certain) or `tam_dich` (Avora's). */
   titleVi: string | null;
   titleViKind: "xuat_ban" | "tam_dich" | null;
+  /** AVORA-103 · C: the cover Avora keeps (`book-covers/…`), null = none yet / draw our own. */
+  coverPath: string | null;
+  /** AVORA-103 · A: `borrow` = still in copyright on Open Library — a link only, never read here. */
+  access: "read" | "borrow";
 };
 
-type CatalogRow = { source: string; source_id: string; title: string; authors: string | null; language: string; category: string; epub_url: string | null; title_vi?: string | null; title_vi_kind?: string | null };
+type CatalogRow = {
+  source: string;
+  source_id: string;
+  title: string;
+  authors: string | null;
+  language: string;
+  category: string;
+  epub_url: string | null;
+  title_vi?: string | null;
+  title_vi_kind?: string | null;
+  cover_path?: string | null;
+  access?: string | null;
+};
+
+export function sourceOf(value: string): BookSource {
+  return value === "wikisource" ? "wikisource" : value === "openlibrary" ? "openlibrary" : "gutenberg";
+}
 
 function toBook(row: CatalogRow): CatalogBook {
   return {
-    source: row.source === "wikisource" ? "wikisource" : "gutenberg",
+    source: sourceOf(row.source),
     sourceId: row.source_id,
     title: row.title,
     authors: row.authors,
@@ -80,7 +100,21 @@ function toBook(row: CatalogRow): CatalogBook {
     epubUrl: row.epub_url,
     titleVi: row.title_vi ?? null,
     titleViKind: row.title_vi_kind === "xuat_ban" || row.title_vi_kind === "tam_dich" ? row.title_vi_kind : null,
+    coverPath: row.cover_path ?? null,
+    access: row.access === "borrow" ? "borrow" : "read",
   };
+}
+
+/** The public URL of a cover Avora keeps — the browser never asks Gutenberg / Open Library itself. */
+export function coverUrl(path: string | null | undefined): string | null {
+  if (path == null || !/^(gutenberg|openlibrary)\/[A-Za-z0-9]{1,20}\.webp$/.test(path)) return null;
+  return `${import.meta.env.EXPO_PUBLIC_SUPABASE_URL as string}/storage/v1/object/public/book-covers/${path}`;
+}
+
+/** Where a cover came from, in small print on the book's page. */
+export function coverCredit(source: BookSource, hasCover: boolean): string | null {
+  if (!hasCover) return null;
+  return source === "gutenberg" ? "Bìa: Project Gutenberg" : source === "openlibrary" ? "Bìa: Open Library" : null;
 }
 
 /** C7 · how a catalogue title reads: Vietnamese first, the original always kept under it. */
@@ -119,9 +153,18 @@ export async function searchCatalog(query: string, category: BookCategory | null
 
 /** The link a book on the shelf keeps: where it can be read in the original. */
 export function catalogLink(book: Pick<CatalogBook, "source" | "sourceId">): string {
+  if (book.source === "openlibrary") return `https://openlibrary.org/books/${book.sourceId}`;
   return book.source === "gutenberg"
     ? `https://www.gutenberg.org/ebooks/${book.sourceId}`
     : `https://vi.wikisource.org/wiki/${encodeURIComponent(book.sourceId.replace(/ /g, "_"))}`;
+}
+
+/**
+ * A borrow-only Open Library title keeps a plain link (like Kindle): `…/books/OL…M/borrow` never
+ * reads back as a catalogue reference, so the shelf only offers `Mở trên Open Library ↗`.
+ */
+export function borrowLink(book: Pick<CatalogBook, "sourceId">): string {
+  return `https://openlibrary.org/books/${book.sourceId}/borrow`;
 }
 
 /** Reads a shelf link back into a catalogue reference — only links Avora itself wrote. */
@@ -129,6 +172,8 @@ export function catalogRefOf(link: string | null | undefined): { source: BookSou
   if (link == null) return null;
   const gutenberg = link.match(/^https:\/\/www\.gutenberg\.org\/ebooks\/(\d{1,7})$/);
   if (gutenberg !== null) return { source: "gutenberg", sourceId: gutenberg[1] };
+  const openLibrary = link.match(/^https:\/\/openlibrary\.org\/books\/(OL\d{1,10}M)$/);
+  if (openLibrary !== null) return { source: "openlibrary", sourceId: openLibrary[1] };
   const wiki = link.match(/^https:\/\/vi\.wikisource\.org\/wiki\/(.+)$/);
   if (wiki !== null) {
     try {
@@ -140,6 +185,12 @@ export function catalogRefOf(link: string | null | undefined): { source: BookSou
   return null;
 }
 
+/** A borrow-only Open Library link written by Avora → its catalogue key (for `Trên kệ`). */
+export function borrowKeyOf(link: string | null | undefined): string | null {
+  const match = link?.match(/^https:\/\/openlibrary\.org\/books\/(OL\d{1,10}M)\/borrow$/) ?? null;
+  return match === null ? null : `openlibrary:${match[1]}`;
+}
+
 /** The EPUB of a Gutenberg book, from the official mirror. Wikisource has none here. */
 export function epubOf(ref: { source: BookSource; sourceId: string } | null): string | null {
   if (ref === null || ref.source !== "gutenberg") return null;
@@ -147,7 +198,67 @@ export function epubOf(ref: { source: BookSource; sourceId: string } | null): st
 }
 
 export function sourceLabel(source: BookSource): string {
-  return source === "gutenberg" ? "Gutenberg" : "Wikisource";
+  return source === "gutenberg" ? "Gutenberg" : source === "openlibrary" ? "Open Library" : "Wikisource";
+}
+
+/** The source line on a book's page (AVORA-103 · B). */
+export function sourceLine(source: BookSource): string {
+  if (source === "openlibrary") return "Open Library / Internet Archive · Phạm vi công cộng";
+  return source === "gutenberg" ? "Project Gutenberg" : "Wikisource tiếng Việt";
+}
+
+export type ShelfCatalogInfo = {
+  key: string;
+  title: string;
+  titleVi: string | null;
+  language: string;
+  coverPath: string | null;
+  coverChecked: boolean;
+  pdStatus: "ok" | "recent" | "unknown";
+  access: "read" | "borrow";
+};
+
+/** Covers + rights of the books on a shelf, one call (AVORA-103). */
+export async function fetchShelfCatalog(keys: readonly string[]): Promise<Map<string, ShelfCatalogInfo>> {
+  const out = new Map<string, ShelfCatalogInfo>();
+  if (keys.length === 0) return out;
+  const { data, error } = await supabase.rpc("book_catalog_covers" as never, { p_refs: [...keys].slice(0, 200) } as never);
+  if (error) throw hubFail(error.code, error.message);
+  type Row = { source: string; source_id: string; title: string; title_vi: string | null; language: string; cover_path: string | null; cover_checked: boolean; pd_status: string; access: string };
+  for (const row of (data ?? []) as Row[]) {
+    const key = `${row.source}:${row.source_id}`;
+    out.set(key, {
+      key,
+      title: row.title,
+      titleVi: row.title_vi,
+      language: row.language,
+      coverPath: row.cover_path,
+      coverChecked: row.cover_checked,
+      pdStatus: row.pd_status === "ok" ? "ok" : row.pd_status === "recent" ? "recent" : "unknown",
+      access: row.access === "borrow" ? "borrow" : "read",
+    });
+  }
+  return out;
+}
+
+/** Asks Avora to fetch one cover it does not have yet (once per book, for everyone). */
+export async function requestCover(source: BookSource, sourceId: string): Promise<string | null> {
+  if (source === "wikisource") return null;
+  const { data: session } = await supabase.auth.getSession();
+  const token = session.session?.access_token;
+  if (token === undefined) return null;
+  try {
+    const response = await fetch(`${import.meta.env.EXPO_PUBLIC_SUPABASE_URL as string}/functions/v1/book-cover`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, apikey: import.meta.env.EXPO_PUBLIC_SUPABASE_ANON_KEY as string, "Content-Type": "application/json" },
+      body: JSON.stringify({ source, source_id: sourceId }),
+    });
+    if (!response.ok) return null;
+    const body = (await response.json()) as { cover_path?: string | null };
+    return body.cover_path ?? null;
+  } catch {
+    return null;
+  }
 }
 
 export const LANGUAGE_NAMES: Readonly<Record<string, string>> = { en: "tiếng Anh", fr: "tiếng Pháp", vi: "tiếng Việt" };

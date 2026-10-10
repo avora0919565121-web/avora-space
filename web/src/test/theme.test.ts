@@ -136,6 +136,8 @@ describe("AVORA-74 · 74.9 — no hard-coded white / black", () => {
     ["components/contacts/ConnectQrDialog.tsx", /bg-white p-3|border-white\/80/],
     ["components/PersonCard.tsx", /bg-black\/85|bg-white\/10 text-white/],
     ["components/library/BookshelfPanel.tsx", /text-white/],
+    // AVORA-103 · C: covers are pictures — white lettering on the drawn cover, a dark strip over a photo cover.
+    ["components/library/BookCover.tsx", /text-white|bg-black\/70|ring-black\/10/],
     // AVORA-89 · kệ 1: spines are coloured file backs (like book covers) — white lettering, dark holes.
     ["components/library/PlanRoom.tsx", /text-white|ring-white|bg-black\/3/],
     ["pages/BookReader.tsx", /bg-black\/30/],

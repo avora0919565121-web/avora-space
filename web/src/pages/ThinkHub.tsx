@@ -59,7 +59,8 @@ import { readPhoneMode, TableView, writePhoneMode, type PhoneMode } from "@/comp
 import { useMediaQuery } from "@/hooks/use-media-query";
 import { HubShelf } from "@/components/think-hub/HubShelf";
 import { BoardHead, ThinkingTypeDialog } from "@/components/library/BoardHead";
-import { BookshelfPanel, useBookshelf } from "@/components/library/BookshelfPanel";
+import { BookshelfPanel } from "@/components/library/BookshelfPanel";
+import { useBookshelf } from "@/components/library/use-bookshelf";
 import { ShelfCards } from "@/components/library/ShelfCards";
 import { DefaultShelf, DiaryShelf, LifecycleShelf, OtherShelf, PlannedShelf } from "@/components/library/ShelfPanels";
 import { ViewBoardPanel } from "@/components/library/ViewBoardPanel";

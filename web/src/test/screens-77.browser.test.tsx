@@ -1329,3 +1329,169 @@ test("101C.1b · dải Nhiệm vụ đo bằng đúng dải kệ", async () => {
   expect(getComputedStyle(taskTab).fontSize).toBe(planStrip?.font ?? "13px");
   if (planStrip !== null) expect(getComputedStyle(tasks.querySelector("[data-sub-tab-bar]") as HTMLElement).backgroundColor).toBe(planStrip.bar);
 });
+
+// ------------------------------------------------------------------ AVORA-103 · KHỐI 3A (bìa sách · 5 cuốn trên máy)
+const OUT_103 = "../../../docs/screens/2026-10-10";
+
+/** Pride and Prejudice has a kept cover and a Vietnamese title; Meditations has a Vietnamese title, no cover. */
+function seedCovers(): void {
+  db.tables.think_hub_record = RECORDS.map((row) =>
+    row.id === "k1" ? { ...row, title: "Kiêu hãnh và định kiến" } : row.id === "k4" ? { ...row, title: "Suy tưởng" } : row,
+  );
+  db.rpcs.book_catalog_covers = [
+    { source: "gutenberg", source_id: "1342", title: "Pride and Prejudice", title_vi: "Kiêu hãnh và định kiến", language: "en", cover_path: "openlibrary/OL7173379M.webp", cover_checked: true, pd_status: "ok", access: "read" },
+    { source: "gutenberg", source_id: "2680", title: "Meditations", title_vi: "Suy tưởng", language: "en", cover_path: null, cover_checked: true, pd_status: "ok", access: "read" },
+    { source: "wikisource", source_id: "Truyện Kiều", title: "Truyện Kiều", title_vi: null, language: "vi", cover_path: null, cover_checked: false, pd_status: "ok", access: "read" },
+  ];
+}
+
+/** Fills this device's IndexedDB with `n` whole books (what `Tải về` leaves behind). */
+async function fillDevice(n: number): Promise<void> {
+  await new Promise<void>((resolve) => {
+    const open = indexedDB.open("avora-books", 1);
+    open.onupgradeneeded = () => {
+      open.result.createObjectStore("texts");
+      open.result.createObjectStore("positions");
+    };
+    open.onsuccess = () => {
+      const tx = open.result.transaction("texts", "readwrite");
+      const store = tx.objectStore("texts");
+      store.clear();
+      for (let i = 0; i < n; i += 1) {
+        store.put({ source: "gutenberg", sourceId: String(9000 + i), title: `Sách trên máy ${i + 1}`, chapters: [{ title: "I", blocks: [{ k: "p", t: "x" }] }] }, `gutenberg:${9000 + i}`);
+      }
+      tx.oncomplete = () => {
+        open.result.close();
+        resolve();
+      };
+    };
+  });
+}
+
+for (const [w, h] of SIZES) {
+  test(`103.6 · kệ sách có bìa: bìa gốc + dải tên tiếng Việt; không bìa → bìa tự vẽ tên tiếng Việt · ${w}x${h}`, async () => {
+    seedCovers();
+    await fillDevice(3);
+    await viewport(w, h);
+    await render(<App at="/ke-hoach?ke=ke-sach" />);
+    await settle(1800);
+    const covers = [...document.querySelectorAll<HTMLElement>("[data-shelf-panel] [data-book-cover]")];
+    const withImage = covers.filter((cover) => cover.dataset.bookCover === "image");
+    expect(withImage.length).toBeGreaterThanOrEqual(1);
+    // The image is Avora's own storage — never Gutenberg / Open Library.
+    for (const img of document.querySelectorAll<HTMLImageElement>("[data-book-cover] img")) expect(img.src).toMatch(/supabase\.co\/storage\/v1\/object\/public\/book-covers\//);
+    expect(document.querySelector("[data-cover-vi-strip]")?.textContent).toContain("Kiêu hãnh và định kiến");
+    const drawn = covers.find((cover) => cover.textContent?.includes("Suy tưởng") === true && cover.dataset.bookCover === "drawn");
+    expect(drawn?.querySelector("[data-cover-original]")?.textContent).toBe("Meditations");
+    expect(document.querySelector("[data-on-device-count]")?.textContent).toBe("Trên máy: 3 / 5");
+    await page.screenshot({ path: `${OUT_103}/103-ke-sach-bia-${w}.png` });
+  });
+}
+
+test("103.7 · đủ 5 cuốn trên máy, bấm Tải về cuốn thứ 6 → tấm `5 cuốn trên máy`; bỏ 1 cuốn → tải được", async () => {
+  seedCovers();
+  await fillDevice(5);
+  const fetchSpy = vi.spyOn(window, "fetch").mockImplementation(async () =>
+    new Response(JSON.stringify({ source: "gutenberg", sourceId: "2680", title: "Meditations", authors: "Marcus Aurelius", language: "en", sourceUrl: "", epubUrl: null, license: [], chapters: [{ title: "I", blocks: [{ k: "p", t: "x" }] }], fetchedAt: now }), { status: 200 }),
+  );
+  db.tables.book_reading_state = [{ record_id: "k1", locator: "c2:p3", percent: 97, device_label: null, updated_at: daysAgo(0) }];
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k4" />);
+  await settle(1200);
+  await tapMiddle();
+  await userEvent.click(screen.getByRole("button", { name: "Thêm" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /Tải về/ }));
+  await settle(500);
+  const sheet = document.querySelector("[data-device-full-sheet]") as HTMLElement;
+  expect(sheet.textContent).toContain("Bạn đang có 5 cuốn trên máy. Đọc xong một cuốn, hoặc bỏ một cuốn khỏi máy để tải cuốn này.");
+  expect(sheet.querySelectorAll("[data-on-device-item]")).toHaveLength(5);
+  await page.screenshot({ path: `${OUT_103}/103-tam-5-cuon-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Bỏ khỏi máy" }).first());
+  await settle(900);
+  expect(document.querySelector("[data-device-full-sheet]")).toBeNull();
+  const kept = await new Promise<number>((resolve) => {
+    const open = indexedDB.open("avora-books", 1);
+    open.onsuccess = () => {
+      const req = open.result.transaction("texts", "readonly").objectStore("texts").count();
+      req.onsuccess = () => {
+        open.result.close();
+        resolve(req.result);
+      };
+    };
+  });
+  expect(kept).toBe(5);
+  const keys = await new Promise<string[]>((resolve) => {
+    const open = indexedDB.open("avora-books", 1);
+    open.onsuccess = () => {
+      const req = open.result.transaction("texts", "readonly").objectStore("texts").getAllKeys();
+      req.onsuccess = () => {
+        open.result.close();
+        resolve(req.result.map(String));
+      };
+    };
+  });
+  expect(keys).toContain("gutenberg:2680");
+  fetchSpy.mockRestore();
+});
+
+test("103.8 · đang có 5 cuốn, mở cuốn thứ 6 đang đọc → đọc trực tuyến, không tự tải", async () => {
+  seedCovers();
+  await fillDevice(5);
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach/ke-sach/doc/k1" />);
+  await settle(1500);
+  expect(document.querySelector("[data-reader] article")?.textContent).toContain("¶ 1.");
+  const keys = await new Promise<string[]>((resolve) => {
+    const open = indexedDB.open("avora-books", 1);
+    open.onsuccess = () => {
+      const req = open.result.transaction("texts", "readonly").objectStore("texts").getAllKeys();
+      req.onsuccess = () => {
+        open.result.close();
+        resolve(req.result.map(String));
+      };
+    };
+  });
+  expect(keys).toHaveLength(5);
+  expect(keys).not.toContain("gutenberg:1342");
+});
+
+test("103.9 · `Đánh dấu đã đọc xong` → hỏi bỏ khỏi máy một lần; bỏ → chỉ văn bản đi, ghi chú vẫn còn", async () => {
+  seedCovers();
+  await fillDevice(2);
+  await new Promise<void>((resolve) => {
+    const open = indexedDB.open("avora-books", 1);
+    open.onsuccess = () => {
+      const tx = open.result.transaction("texts", "readwrite");
+      tx.objectStore("texts").put({ source: "gutenberg", sourceId: "2680", title: "Meditations", chapters: [{ title: "I", blocks: [{ k: "p", t: "x" }] }] }, "gutenberg:2680");
+      tx.oncomplete = () => {
+        open.result.close();
+        resolve();
+      };
+    };
+  });
+  await viewport(390, 844);
+  const screen = await render(<App at="/ke-hoach/ke-sach/doc/k4" />);
+  await settle(1200);
+  await tapMiddle();
+  await userEvent.click(screen.getByRole("button", { name: "Thêm" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: /Đánh dấu đã đọc xong/ }));
+  await settle(600);
+  expect(document.body.textContent).toContain("Bỏ cuốn này khỏi máy để dành chỗ cho cuốn tiếp theo?");
+  await page.screenshot({ path: `${OUT_103}/103-doc-xong-hoi-bo-390.png` });
+  await userEvent.click(screen.getByRole("button", { name: "Bỏ khỏi máy" }));
+  await settle(600);
+  expect(db.writes.some((write) => write.table === "think_hub_record" || JSON.stringify(write.row).includes("da_doc")) || db.calls.length > 0).toBe(true);
+  expect(window.localStorage.getItem("avora.book-finish-asked.v1")).toContain("k4");
+  const keys = await new Promise<string[]>((resolve) => {
+    const open = indexedDB.open("avora-books", 1);
+    open.onsuccess = () => {
+      const req = open.result.transaction("texts", "readonly").objectStore("texts").getAllKeys();
+      req.onsuccess = () => {
+        open.result.close();
+        resolve(req.result.map(String));
+      };
+    };
+  });
+  expect(keys).not.toContain("gutenberg:2680");
+  expect(keys).toHaveLength(2);
+});
