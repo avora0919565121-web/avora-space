@@ -6,7 +6,7 @@ export type BoardChange = {
   id: string;
   tableId: string;
   actorId: string;
-  kind: "record_add" | "record_edit" | "record_delete" | "column_add" | "column_edit" | "column_delete";
+  kind: "record_add" | "record_edit" | "record_delete" | "column_add" | "column_edit" | "column_delete" | "task_link" | "task_unlink";
   recordId: string | null;
   columnId: string | null;
   recordOwnerId: string | null;
@@ -40,7 +40,7 @@ export type BoardNudge = {
   createdAt: string;
 };
 
-export type ChangeSummary = { added: number; cells: number; deleted: number; columns: number; total: number };
+export type ChangeSummary = { added: number; cells: number; deleted: number; columns: number; tasks?: number; total: number };
 
 /** `?thay-doi=1` (or `=<announcement id>`) opens a board with its changes marked (AVORA-62 · C). */
 export const BOARD_CHANGES_PARAM = "thay-doi";
@@ -189,13 +189,15 @@ export function summarizeChanges(changes: readonly BoardChange[]): ChangeSummary
   let cells = 0;
   let deleted = 0;
   let columns = 0;
+  let tasks = 0;
   for (const change of changes) {
     if (change.kind === "record_add") added += 1;
     else if (change.kind === "record_edit") cells += change.cells;
     else if (change.kind === "record_delete") deleted += 1;
+    else if (change.kind === "task_link" || change.kind === "task_unlink") tasks += 1;
     else columns += 1;
   }
-  return { added, cells, deleted, columns, total: added + cells + deleted + columns };
+  return { added, cells, deleted, columns, tasks, total: added + cells + deleted + columns + tasks };
 }
 
 export function summaryWords(summary: ChangeSummary): string {
@@ -204,6 +206,7 @@ export function summaryWords(summary: ChangeSummary): string {
   if (summary.cells > 0) parts.push(`Sửa ${summary.cells} ô`);
   if (summary.deleted > 0) parts.push(`Xoá ${summary.deleted} Hạng mục`);
   if (summary.columns > 0) parts.push(`Đổi ${summary.columns} cột`);
+  if ((summary.tasks ?? 0) > 0) parts.push(`Gắn/bỏ ${summary.tasks} việc`);
   return parts.length === 0 ? "Không có thay đổi mới" : parts.join(" · ");
 }
 
@@ -241,6 +244,8 @@ export function needsLeaveReminder(changes: readonly BoardChange[], userId: stri
 export function changeLine(change: BoardChange, columnLabel: (key: string) => string): string {
   const title = change.recordTitle ?? "Hạng mục";
   if (change.kind === "record_add") return `Thêm "${title}"`;
+  if (change.kind === "task_link") return `Gắn việc "${String(change.after?.task ?? "")}" vào "${title}"`;
+  if (change.kind === "task_unlink") return `Bỏ việc "${String(change.after?.task ?? "")}" khỏi "${title}"`;
   if (change.kind === "record_delete") return `Xoá "${title}"`;
   if (change.kind === "column_add") return `Thêm cột "${String(change.after?.label ?? "")}"`;
   if (change.kind === "column_delete") return `Xoá cột "${String(change.before?.label ?? "")}"`;

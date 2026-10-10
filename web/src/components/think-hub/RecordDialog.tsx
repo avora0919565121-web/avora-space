@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Copy, ListPlus, MoreHorizontal, MoveRight, Star, Table2 } from "lucide-react";
+import { Copy, Link2, ListPlus, MoreHorizontal, MoveRight, Plus, Star, Table2 } from "lucide-react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 
 import {
@@ -56,6 +56,8 @@ type RecordDialogProps = {
   /** The tasks hanging under this Hạng mục, read-only; each row carries `data-record-task-id` so a link can light it. */
   tasks?: readonly TaskItem[];
   onOpenTask?: (taskId: string) => void;
+  /** AVORA-104 · PHẦN 3: `⛓ Gắn việc có sẵn` — absent when the board is read-only. */
+  onLinkTask?: () => void;
   /** Đợt gộp 2 · C8: this person's own ★. */
   isStarred?: boolean;
   onToggleStar?: () => void;
@@ -248,6 +250,7 @@ export function RecordDialog({
   onQuickTask,
   tasks,
   onOpenTask,
+  onLinkTask,
   isStarred = false,
   onToggleStar,
   onMove,
@@ -613,9 +616,10 @@ export function RecordDialog({
 
         </form>
 
-        {record !== null && tasks !== undefined && tasks.length > 0 ? (
-          <div className="mt-5 border-t border-border pt-4">
+        {record !== null && tasks !== undefined && (tasks.length > 0 || onQuickTask !== undefined || onLinkTask !== undefined) ? (
+          <div data-record-tasks="" className="mt-5 border-t border-border pt-4">
             <p className="text-[12.5px] font-medium text-muted-foreground">Việc trong Hạng mục này</p>
+            {tasks.length === 0 ? <p className="mt-1 text-[12.5px] text-muted-foreground/80">Chưa có việc nào.</p> : null}
             <ul className="mt-2 space-y-1">
               {tasks.map((task) => (
                 <li key={task.id} data-record-task-id={task.id}>
@@ -638,6 +642,20 @@ export function RecordDialog({
                 </li>
               ))}
             </ul>
+            {onQuickTask !== undefined || onLinkTask !== undefined ? (
+              <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                {onQuickTask !== undefined ? (
+                  <button type="button" onClick={thenAct(onQuickTask)} className="press flex min-h-10 items-center gap-1.5 text-[13.5px] font-semibold text-personal">
+                    <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> Việc mới
+                  </button>
+                ) : null}
+                {onLinkTask !== undefined ? (
+                  <button type="button" onClick={onLinkTask} className="press flex min-h-10 items-center gap-1.5 text-[13.5px] font-semibold text-personal">
+                    <Link2 className="h-4 w-4" strokeWidth={2} aria-hidden="true" /> Gắn việc có sẵn
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         ) : null}
 

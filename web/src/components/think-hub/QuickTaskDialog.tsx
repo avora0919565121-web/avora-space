@@ -1,7 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo } from "react";
 
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { useAuth } from "@/lib/auth";
 import { fetchGroupMembers, groupKeys } from "@/lib/groups";
 import type { Project } from "@/lib/projects";
@@ -89,7 +89,7 @@ export function QuickTaskDialog({
    * The existing Hạng mục route: personal on a private Bảng, or "Cho tôi" on a 1-1 Bảng. That route
    * carries no Sự kiện, so one is written right after — the task is the author's own, and personal.
    */
-  const createOnRecord = async (values: ComposerValues): Promise<void> => {
+  const createOnRecord = async (values: ComposerValues): Promise<string> => {
     const taskId = await createRecordTask({
       recordId: record.id,
       title: values.title,
@@ -112,11 +112,12 @@ export function QuickTaskDialog({
       });
     }
     refresh();
+    return taskId;
   };
 
-  const suggest = async (assigneeId: string, values: ComposerValues, isSelf: boolean): Promise<void> => {
+  const suggest = async (assigneeId: string, values: ComposerValues, isSelf: boolean): Promise<unknown> => {
     if (conversationId === null) throw new Error("Bảng này không thuộc cuộc trò chuyện nào.");
-    await proposeOne(
+    const created = await proposeOne(
       {
         conversationId,
         assigneeId,
@@ -136,10 +137,11 @@ export function QuickTaskDialog({
       isSelf,
     );
     refresh();
+    return created;
   };
 
   return (
-    <TaskComposer
+    <TaskCard
       open
       onOpenChange={onOpenChange}
       place={place}
@@ -153,11 +155,8 @@ export function QuickTaskDialog({
       }}
       onCreateMine={async (values) => {
         if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-        if (place === "group") {
-          await suggest(user.id, values, true);
-          return;
-        }
-        await createOnRecord(values);
+        if (place === "group") return suggest(user.id, values, true);
+        return createOnRecord(values);
       }}
       onPropose={(assigneeId, values) => suggest(assigneeId, values, false)}
     />

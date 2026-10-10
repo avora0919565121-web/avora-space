@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { askConfirm, askText } from "@/components/ConfirmHost";
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
@@ -259,7 +259,7 @@ export function BoardHead({
       </Dialog>
 
       {isTaskOpen && latest !== undefined ? (
-        <TaskComposer
+        <TaskCard
           open
           onOpenChange={setIsTaskOpen}
           place="personal"
@@ -267,7 +267,7 @@ export function BoardHead({
           initial={{ title: latest.body.slice(0, 200) }}
           onCreateMine={async (values) => {
             if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-            await createPersonal(user.id, values, null);
+            return createPersonal(user.id, values, null);
           }}
         />
       ) : null}

@@ -7,10 +7,11 @@ import { expect, test, vi } from "vitest";
 
 /**
  * AVORA-104 · PHẦN 1 — chọn ngày mà không lưu. Three roads, at 390×844 and 1280×800:
- *  D.1 Hạng mục › Tạo nhiệm vụ (QuickTaskDialog → TaskComposer) — pick a day → Tạo
- *  D.2 Nhiệm vụ › a task (TaskDetailSheet) › Sửa (TaskEditComposer) — move the day → Lưu
- *  D.3 as D.2 on an overdue task — move it to tomorrow → Lưu
- * Each checks the field shows the new day right after the tap AND that the server got that day.
+ *  D.1 Hạng mục › Tạo nhiệm vụ (QuickTaskDialog → TaskCard) — pick a day → Tạo
+ *  D.2 Nhiệm vụ › a task (TaskCard: xem = sửa, PHẦN 2) — move the day → saved by itself
+ *  D.3 as D.2 on an overdue task — move it to tomorrow → saved
+ * Each checks the row shows the new day right after the tap AND that the server got that day.
+ * Since PHẦN 2 the calendar opens inside the card (no floating layer at all).
  */
 const db = vi.hoisted(() => ({
   tables: {} as Record<string, unknown[]>,
@@ -72,7 +73,8 @@ vi.mock("@/lib/auth", () => ({
 }));
 vi.mock("@/lib/realtime", () => ({ useChatRealtime: () => ({ status: "live", isLive: true, setReadingConversation: () => undefined }) }));
 
-import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { TaskCard } from "@/components/tasks/TaskCard";
+import { cardDay } from "@/lib/task-card";
 import { QuickTaskDialog } from "@/components/think-hub/QuickTaskDialog";
 import { Toaster } from "@/components/ui/sonner";
 import { todayIso, type TaskItem } from "@/lib/tasks";
@@ -136,22 +138,27 @@ async function settle(ms = 250): Promise<void> {
   await new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/** Opens the date field and taps `day` in Lịch Avora (moving months when needed). */
-async function pickDay(fieldLabel: RegExp, day: string): Promise<void> {
-  const field = page.getByRole("button", { name: fieldLabel });
-  await userEvent.click(field);
+/** Opens Ngày diễn ra (row or quick chip) and taps `day` in the in-card calendar. */
+async function pickDay(day: string): Promise<void> {
+  const row = document.querySelector<HTMLElement>('[data-card-row="when"] button');
+  const chip = document.querySelector<HTMLElement>('[aria-label^="Ngày diễn ra"]');
+  await userEvent.click((row ?? chip) as HTMLElement);
   for (let i = 0; i < 3; i += 1) {
-    const cell = document.querySelector<HTMLButtonElement>(`[data-day="${day}"]:not([disabled])`);
+    const cell = document.querySelector<HTMLButtonElement>(`[data-card-day="${day}"]:not([disabled])`);
     if (cell !== null) {
       await userEvent.click(cell);
       return;
     }
-    const next = document.querySelector<HTMLButtonElement>('[aria-label="Tới trước"]');
+    const next = document.querySelector<HTMLButtonElement>('[aria-label="Tháng sau"]');
     if (next === null) break;
     await userEvent.click(next);
     await settle(80);
   }
   throw new Error(`day ${day} not found in the calendar`);
+}
+
+function shownDay(): string {
+  return (document.querySelector('[data-card-row="when"]')?.textContent ?? document.querySelector('[aria-label^="Ngày diễn ra"]')?.getAttribute("aria-label") ?? "");
 }
 
 const SIZES: readonly [number, number][] = [
@@ -172,17 +179,16 @@ for (const [w, h] of SIZES) {
       </Frame>,
     );
     const target = plusDays(9);
-    await pickDay(/^Hạn hoàn thành/, target);
+    await pickDay(target);
     await settle();
-    // The field shows the new day straight away.
-    const field = document.getElementById("composer-deadline");
-    expect(field?.textContent ?? "").not.toBe("");
+    // The chip shows the new day straight away; no floating calendar exists.
+    expect(shownDay()).toContain(cardDay(target) ?? "?");
     expect(document.querySelector('[role="dialog"][aria-label^="Chọn"]')).toBeNull();
-    await userEvent.click(page.getByRole("button", { name: /^Tạo|Giao|Lưu/ }).last());
+    await userEvent.click(document.querySelector("[data-card-submit]") as HTMLElement);
     await expect.poll(() => db.rpcs.find((c) => c.name === "create_record_task")?.args.p_deadline).toBe(target);
   });
 
-  test(`D.2 · Nhiệm vụ › Sửa: đổi ngày → ô hiện ngày mới → Lưu gửi đúng ngày, sheet không đóng / mở lại (${w}x${h})`, async () => {
+  test(`D.2 · Nhiệm vụ › thẻ: đổi ngày → dòng hiện ngày mới → tự lưu đúng ngày, thẻ không đóng / mở lại (${w}x${h})`, async () => {
     await page.viewport(w, h);
     db.writes = [];
     db.rpcs = [];
@@ -190,23 +196,22 @@ for (const [w, h] of SIZES) {
     db.tables.tasks = [row];
     await render(
       <Frame at="/nhiem-vu?mo=t1">
-        <TaskDetailSheet task={asItem(row)} today={today} open onOpenChange={() => undefined} />
+        <TaskCard task={asItem(row)} today={today} open onOpenChange={() => undefined} />
       </Frame>,
     );
-    await userEvent.click(page.getByRole("button", { name: /^Sửa/ }).first());
     await settle(300);
     const before = document.querySelector("[data-where]")?.getAttribute("data-where");
     const target = plusDays(12);
-    await pickDay(/^Hạn hoàn thành/, target);
+    await pickDay(target);
     await settle(300);
-    // Still editing: the composer did not close and the address did not move.
-    expect(document.getElementById("composer-deadline")).not.toBeNull();
+    // Still open: the card did not close and the address did not move.
+    expect(document.querySelector("[data-task-card]")).not.toBeNull();
+    expect(shownDay()).toContain(cardDay(target) ?? "?");
     expect(document.querySelector("[data-where]")?.getAttribute("data-where")).toBe(before);
-    await userEvent.click(page.getByRole("button", { name: "Lưu thay đổi" }));
     await expect.poll(() => db.writes.find((w2) => w2.table === "tasks" && w2.op === "update" && "deadline_date" in w2.values)?.values.deadline_date).toBe(target);
   });
 
-  test(`D.3 · việc đã trễ hạn › Sửa: dời sang ngày mai → Lưu gửi đúng ngày (${w}x${h})`, async () => {
+  test(`D.3 · việc đã trễ hạn › thẻ: dời sang ngày mai → tự lưu đúng ngày (${w}x${h})`, async () => {
     await page.viewport(w, h);
     db.writes = [];
     db.rpcs = [];
@@ -214,16 +219,14 @@ for (const [w, h] of SIZES) {
     db.tables.tasks = [row];
     await render(
       <Frame at="/nhiem-vu?mo=t1">
-        <TaskDetailSheet task={asItem(row)} today={today} open onOpenChange={() => undefined} />
+        <TaskCard task={asItem(row)} today={today} open onOpenChange={() => undefined} />
       </Frame>,
     );
-    await userEvent.click(page.getByRole("button", { name: /^Sửa/ }).first());
     await settle(300);
     const target = plusDays(1);
-    await pickDay(/^Hạn hoàn thành/, target);
+    await pickDay(target);
     await settle(300);
-    expect(document.getElementById("composer-deadline")).not.toBeNull();
-    await userEvent.click(page.getByRole("button", { name: "Lưu thay đổi" }));
+    expect(shownDay()).toContain(cardDay(target) ?? "?");
     await expect.poll(() => db.writes.find((w2) => w2.table === "tasks" && w2.op === "update" && "deadline_date" in w2.values)?.values.deadline_date).toBe(target);
   });
 }

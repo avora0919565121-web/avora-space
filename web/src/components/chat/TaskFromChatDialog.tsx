@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 
-import { TaskComposer, type ComposerSource } from "@/components/tasks/TaskComposer";
+import { TaskCard, type ComposerSource } from "@/components/tasks/TaskCard";
 import { useAuth } from "@/lib/auth";
 import type { ConversationKind } from "@/lib/chat";
 import type { GroupMember } from "@/lib/groups";
@@ -100,7 +100,7 @@ export function TaskFromChatDialog({
         };
 
   return (
-    <TaskComposer
+    <TaskCard
       open={open}
       onOpenChange={onOpenChange}
       place={place}
@@ -114,15 +114,14 @@ export function TaskFromChatDialog({
         if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
         if (place === "group") {
           // The group's own self-take path (AVORA 13): accepted at once, the group sees it.
-          await proposeOne(
+          return proposeOne(
             { conversationId, assigneeId: user.id, messageId: contextMessage?.id ?? null, contextSnapshot: snapshotFor(values), projectId },
             values,
             true,
           );
-          return;
         }
         // Nhật ký and "Cho tôi" in a 1-1: a personal task; the snapshot points back at the message.
-        await createPersonal(user.id, values, snapshotFor(values));
+        return createPersonal(user.id, values, snapshotFor(values));
       }}
       onPropose={async (assigneeId, values) => {
         await proposeOne(

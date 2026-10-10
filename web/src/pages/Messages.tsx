@@ -146,7 +146,7 @@ import { MessageDetailsDialog } from "@/components/chat/MessageDetailsDialog";
 import { ConnectionRequestsRow } from "@/components/contacts/ConnectionRequests";
 import { REPORT_SENT_TOAST, submitReport, type ReportReason } from "@/lib/reports";
 import { useBlocks } from "@/lib/use-blocks";
-import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { PersonAvatarButton } from "@/components/PersonCard";
 import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
 import {
@@ -4719,9 +4719,10 @@ activeKind === "personal" ? (
           }}
         />
       ) : null}
-      <TaskDetailSheet
+      <TaskCard
         task={openedSourceTask}
         today={todayIso()}
+        backLabel="Cuộc trò chuyện"
         open={openedSourceTask !== null}
         onOpenChange={(next) => {
           if (!next) setOpenedSourceTaskId(null);

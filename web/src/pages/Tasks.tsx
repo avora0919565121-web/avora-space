@@ -50,8 +50,7 @@ import {
   TimeTag,
   type ScheduleDraft,
 } from "@/components/tasks/ScheduleFields";
-import { TaskComposer } from "@/components/tasks/TaskComposer";
-import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { ownerCircleClass, ownerStripeClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
 import { AssignTaskFlow } from "@/components/tasks/AssignTaskFlow";
 import { PlusMenuButton } from "@/components/PlusMenuButton";
@@ -137,7 +136,6 @@ import { suggestionsProposed, type TaskSuggestion } from "@/lib/task-suggestions
 import { TASK_VOICE_HINT, TASK_VOICE_TITLE_CLASS, taskVoice, type TaskVoice } from "@/lib/task-voice";
 import { useConversations } from "@/lib/use-conversations";
 import { useSuggestionActions, useTaskSuggestions } from "@/lib/use-task-suggestions";
-import { EditSuggestionDialog } from "@/components/tasks/EditSuggestionDialog";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -733,13 +731,13 @@ function PersonalSection({
 
         </div>
       ) : null}
-      <TaskComposer
+      <TaskCard
         open={isComposerOpen}
         onOpenChange={setIsComposerOpen}
         place="personal"
         onCreateMine={async (values) => {
           if (!user) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-          await createPersonal(user.id, values, null);
+          return createPersonal(user.id, values, null);
         }}
       />
     </section>
@@ -996,8 +994,8 @@ function ProposedSection({
         </div>
       ) : null}
 
-      <EditSuggestionDialog
-        suggestion={editTarget}
+      <TaskCard
+        suggestion={isEditOpen ? editTarget : null}
         assigneeName="người được gợi ý"
         open={isEditOpen}
         onOpenChange={setIsEditOpen}
@@ -1856,7 +1854,7 @@ export default function Tasks() {
         instead of freezing whatever was clicked.
       */}
       <AssignTaskFlow open={isAssignOpen} onOpenChange={setIsAssignOpen} />
-      <TaskComposer
+      <TaskCard
         key={newKind}
         open={isNewOpen}
         onOpenChange={setIsNewOpen}
@@ -1865,12 +1863,13 @@ export default function Tasks() {
         initial={newTaskDeadline !== undefined ? { deadline: newTaskDeadline } : undefined}
         onCreateMine={async (values) => {
           if (!user) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-          await createPersonal(user.id, values, null);
+          return createPersonal(user.id, values, null);
         }}
       />
-      <TaskDetailSheet
+      <TaskCard
         task={openedTask}
         today={today}
+        backLabel="Nhiệm vụ"
         open={openedTask !== null}
         onOpenChange={(next) => {
           if (!next) closeTask();

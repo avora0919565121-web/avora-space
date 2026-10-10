@@ -1,5 +1,5 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ChevronRight, Pencil, Plus, Table2, X } from "lucide-react";
+import { ChevronRight, Link2, Pencil, Plus, Table2, X } from "lucide-react";
 import { useCallback, useMemo, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { hereFrom, withReturn } from "@/lib/return-to";
 
 import { Button } from "@/components/ui/button";
 import { QuickTaskDialog } from "@/components/think-hub/QuickTaskDialog";
+import { TaskPicker } from "@/components/tasks/LinkPickers";
 import { RecordDialog } from "@/components/think-hub/RecordDialog";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { conversationTitle, type ConversationSummary } from "@/lib/chat";
@@ -107,6 +108,7 @@ function PeekBody({
   const [newTitle, setNewTitle] = useState<string>("");
   const [editing, setEditing] = useState<ThinkRecord | null>(null);
   const [quickTaskRecord, setQuickTaskRecord] = useState<ThinkRecord | null>(null);
+  const [linkTaskRecord, setLinkTaskRecord] = useState<ThinkRecord | null>(null);
 
   const allTables = useMemo(() => tablesQuery.data ?? [], [tablesQuery.data]);
   const allRecords = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data]);
@@ -199,6 +201,7 @@ function PeekBody({
                 today={today}
                 onEdit={isReadOnly ? undefined : () => setEditing(record)}
                 onAddTask={isReadOnly ? undefined : () => setQuickTaskRecord(record)}
+                onLinkTask={isReadOnly ? undefined : () => setLinkTaskRecord(record)}
               />
             ))}
           </ul>
@@ -267,6 +270,16 @@ function PeekBody({
         }
       />
 
+      {linkTaskRecord !== null ? (
+        <TaskPicker
+          recordId={linkTaskRecord.id}
+          recordTitle={linkTaskRecord.title}
+          open
+          onOpenChange={(open) => {
+            if (!open) setLinkTaskRecord(null);
+          }}
+        />
+      ) : null}
       <QuickTaskDialog
         record={quickTaskRecord}
         table={quickTaskRecord === null ? undefined : table}
@@ -288,6 +301,7 @@ function PeekRecord({
   today,
   onEdit,
   onAddTask,
+  onLinkTask,
 }: {
   record: ThinkRecord;
   tasks: readonly TaskItem[];
@@ -296,6 +310,8 @@ function PeekRecord({
   /** Absent when the table is read-only. */
   onEdit?: () => void;
   onAddTask?: () => void;
+  /** AVORA-104 · PHẦN 3: `⛓ Gắn việc có sẵn`. */
+  onLinkTask?: () => void;
 }) {
   return (
     <li className="rounded-lg border border-border bg-card px-3.5 py-3">
@@ -339,16 +355,28 @@ function PeekRecord({
         </ul>
       ) : null}
 
-      {onAddTask === undefined ? null : (
-      <button
-        type="button"
-        onClick={onAddTask}
-        className="press mt-2 inline-flex min-h-9 items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
-      >
-        <Plus className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
-        Thêm việc
-      </button>
-      )}
+      <div className="mt-2 flex flex-wrap gap-x-4">
+        {onAddTask === undefined ? null : (
+          <button
+            type="button"
+            onClick={onAddTask}
+            className="press inline-flex min-h-9 items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+            Việc mới
+          </button>
+        )}
+        {onLinkTask === undefined ? null : (
+          <button
+            type="button"
+            onClick={onLinkTask}
+            className="press inline-flex min-h-9 items-center gap-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Link2 className="h-3.5 w-3.5" strokeWidth={2.2} aria-hidden="true" />
+            Gắn việc có sẵn
+          </button>
+        )}
+      </div>
     </li>
   );
 }

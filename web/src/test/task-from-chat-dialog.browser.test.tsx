@@ -48,6 +48,7 @@ vi.mock("@/lib/use-task-composer", async () => {
  * the exact regression this batch exists to prevent.
  */
 vi.mock("@/lib/use-task-suggestions", () => ({
+  useTaskSuggestions: () => ({ data: [] }),
   useSuggestionActions: () => ({
     propose: {
       isPending: false,
@@ -124,16 +125,17 @@ function dayFromToday(offset: number): string {
 
 const DUE = dayFromToday(7);
 
-/** Picks the deadline through the DateField's calendar — the way the field is really used. */
+/** Picks Ngày diễn ra in the card's own calendar (AVORA-104 · PHẦN 2) — the way it is really used. */
 async function pickDue(screen: Awaited<ReturnType<typeof renderDialog>>): Promise<void> {
-  await userEvent.click(screen.getByLabelText(/Hạn hoàn thành/));
+  void screen;
+  await userEvent.click(document.querySelector('[data-card-row="when"] button') as HTMLElement);
   for (let step = 0; step < 4; step += 1) {
-    const dayButton = document.querySelector<HTMLButtonElement>(`[data-day="${DUE}"]`);
+    const dayButton = document.querySelector<HTMLButtonElement>(`[data-card-day="${DUE}"]`);
     if (dayButton !== null) {
       await userEvent.click(dayButton);
       return;
     }
-    await userEvent.click(screen.getByRole("button", { name: "Tới trước" }));
+    await userEvent.click(document.querySelector('[data-card-row="when"] [aria-label="Tháng sau"]') as HTMLElement);
   }
   throw new Error(`pickDue: ${DUE} never appeared in the calendar`);
 }
@@ -153,10 +155,9 @@ async function fillAndAssign(
   names: RegExp[],
 ): Promise<void> {
   await userEvent.fill(screen.getByLabelText("Tên việc"), "Lập kế hoạch tuần");
-  await userEvent.click(screen.getByRole("button", { name: "Ghi chú" }));
-  const note = document.querySelector<HTMLTextAreaElement>("#composer-note");
-  if (note === null) throw new Error("composer note textarea not found");
-  await userEvent.fill(note, "Mỗi người một phần, gửi trước thứ sáu");
+  // `Mở rộng` opens the same full card as editing (2.2 · 4).
+  await userEvent.click(document.querySelector("[data-card-expand]") as HTMLElement);
+  await userEvent.fill(screen.getByLabelText("Ghi chú"), "Mỗi người một phần, gửi trước thứ sáu");
   await pickDue(screen);
   await pickPeople(screen, names);
 }

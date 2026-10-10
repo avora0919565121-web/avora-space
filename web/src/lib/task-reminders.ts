@@ -135,6 +135,35 @@ export async function createTaskReminderBefore(
   return toReminder(data as Row);
 }
 
+/**
+ * AVORA-104 · PHẦN 2: `Nhắc tôi` picked as a day + time in the card. Stored with its distance from
+ * the deadline when it sits before it, so a repeating task carries it to the next occurrence.
+ */
+export async function createTaskReminderAt(
+  taskId: string,
+  userId: string,
+  at: Date,
+  deadlineDate: string | null,
+  deadlineTime: string | null,
+  timezone: string,
+): Promise<TaskReminder> {
+  const due = deadlineDate === null ? null : deadlineInstant(deadlineDate, deadlineTime);
+  const offset = due === null ? null : Math.round((due.getTime() - at.getTime()) / 60_000);
+  const { data, error } = await supabase
+    .from("task_reminders")
+    .insert({
+      task_id: taskId,
+      user_id: userId,
+      reminder_time: at.toISOString(),
+      reminder_tz: timezone,
+      offset_minutes: offset !== null && offset >= 0 ? offset : null,
+    })
+    .select(COLUMNS)
+    .single();
+  if (error) throw fail(error.code, error.message);
+  return toReminder(data as Row);
+}
+
 export async function deleteTaskReminder(reminderId: string): Promise<void> {
   const { error } = await supabase.from("task_reminders").delete().eq("id", reminderId);
   if (error) throw fail(error.code, error.message);

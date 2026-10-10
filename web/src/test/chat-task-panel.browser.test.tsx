@@ -19,9 +19,11 @@ vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
 
 // The completion dialog reads its one-time guidance through React Query; these tests mock the
 // panel's own data instead of standing up a provider, so the explanation is simply retired.
-vi.mock("@/lib/use-task-flags", () => ({
+vi.mock("@/lib/use-task-flags", async () => ({
+  ...(await vi.importActual<typeof import("@/lib/use-task-flags")>("@/lib/use-task-flags")),
   useGuidance: () => ({ shouldShow: () => false, dismiss: () => undefined }),
   useTaskFlagIndex: () => new Map(),
+  useMyDay: () => ({ add: () => undefined, remove: () => undefined, isWorking: false }),
 }));
 
 vi.mock("@/lib/use-tasks", async () => {

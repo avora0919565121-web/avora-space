@@ -27,6 +27,7 @@ import { AddColumnDialog } from "@/components/think-hub/AddColumnDialog";
 import { KanbanView } from "@/components/think-hub/KanbanView";
 import { MindmapView } from "@/components/think-hub/MindmapView";
 import { QuickTaskDialog, recordSourceLabel } from "@/components/think-hub/QuickTaskDialog";
+import { TaskPicker } from "@/components/tasks/LinkPickers";
 import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTableDialog";
 import { askConfirm, askText } from "@/components/ConfirmHost";
 import { BoardMenu, type BoardMenuItem } from "@/components/think-hub/BoardMenu";
@@ -314,6 +315,8 @@ const ThinkHub = () => {
   const [isRenamingTable, setIsRenamingTable] = useState<boolean>(false);
   const [nameDraft, setNameDraft] = useState<string>("");
   const [quickTaskRecord, setQuickTaskRecord] = useState<ThinkRecord | null>(null);
+  // AVORA-104 · PHẦN 3: `⛓ Gắn việc có sẵn` from the open Hạng mục.
+  const [linkTaskRecord, setLinkTaskRecord] = useState<ThinkRecord | null>(null);
   const [isMoveOpen, setIsMoveOpen] = useState<boolean>(false);
 
   const today: string = useMemo(() => todayIso(), []);
@@ -2447,6 +2450,16 @@ const ThinkHub = () => {
         />
       ) : null}
 
+      {linkTaskRecord !== null ? (
+        <TaskPicker
+          recordId={linkTaskRecord.id}
+          recordTitle={linkTaskRecord.title}
+          open
+          onOpenChange={(open) => {
+            if (!open) setLinkTaskRecord(null);
+          }}
+        />
+      ) : null}
       <QuickTaskDialog
         record={quickTaskRecord}
         table={quickTaskRecord === null ? undefined : tables.find((table) => table.id === quickTaskRecord.tableId)}
@@ -2525,6 +2538,7 @@ const ThinkHub = () => {
           openTable(tableId);
         }}
         tasks={editing === null ? undefined : tasksByRecord.get(editing.id) ?? []}
+        onLinkTask={editing === null || isReadOnly ? undefined : () => setLinkTaskRecord(editing)}
         onOpenTask={(taskId) => {
           setIsRecordOpen(false);
           navigate(withReturn(taskLink(taskId), hereFrom(location, "Kế hoạch")));

@@ -2163,6 +2163,32 @@ Thân        : nền --room-wall / --room-desk rất nhạt; một kệ một l�
 | 5 Đọc & Nhật ký | khu **Sách** (thời gian đọc, ghi chú sách, giá sách) | khu **Nhật ký** một hàng gập |
 | 6 Bàn làm việc | "Trên bàn n/5 · Lấy từ kệ 3 ›" + thẻ hai dòng | ⋯ Đặt xuống / Đánh dấu |
 
+## Một thẻ nhiệm vụ (AVORA-104 · PHẦN 2 · ADR-075)
+```
+‹ {nơi trước}                         Đã lưu ✓  ⋯
+○  Gọi lại cho anh Tuấn về báo giá               (21 px, đậm)
+   Bảng Khách hàng › Cty Hoà Phát          Mở ›   (Nguồn, 12.5 px)
+CÁC BƯỚC ································ 1/2 ⌃
+  ○ Xem lại báo giá v3 · ○ … · ＋ Thêm bước
+THỜI GIAN ······················ T6, 09/10 ⌃
+  ☀ Thêm vào Hôm nay · 🔔 Nhắc tôi · 📅 Ngày diễn ra · 🔁 Lặp lại
+CÓ MẶT  · 📍 Hiện diện       NGƯỜI · 👥 Giao cho       TỆP · 📎 Thêm tệp
+[ Ghi chú                                       ]
+Tạo 08/10 bởi bạn · từ Hạng mục                 🗑
+```
+- Một `TaskCard` cho tạo / xem / sửa ở mọi nơi; mọi nơi chỉ khác dòng Nguồn và lựa chọn Giao cho.
+- Dòng trống mờ; dòng đã đặt mang tông cá nhân (`--personal`). Chạm dòng → mở **ngay dưới dòng**, trong thẻ; không lớp nổi.
+- Cụm thu/mở nhớ theo máy; thu thì có tóm tắt (`1/2`, `T6, 09/10 · 10:00`).
+- Tạo trên điện thoại: tấm từ dưới (tên + 3 chip + `Mở rộng ⌄`); `Mở rộng` → thẻ đầy đủ toàn màn hình. Máy tính: khung phải 460 px.
+- Xem = sửa, tự lưu; không nút `Sửa`. Người nhận việc đang chờ: chỉ đọc + `Từ chối · Đồng ý`.
+- `⋯`: Thêm (mang theo · kế hoạch) · Xem trong ngữ cảnh · Mở trong Két sắt · Kết quả vào Nhật ký.
+
+## Gắn việc vào Hạng mục (AVORA-104 · PHẦN 3 · ADR-076)
+- Thẻ việc chưa gắn: dưới tên có chip viền đứt `⛓ Gắn vào Hạng mục` → tấm chọn: ô `Tìm hạng mục…` (tròn, 44 px) · `GẦN ĐÂY` · mỗi dòng 📄 tên + đường dẫn 12 px (`Bảng Khách hàng`, `Hoiana › Vật tư sảnh`) · chân: `Chỉ hiện Hạng mục cùng nơi với việc …`.
+- Đã gắn: dòng Nguồn = `Bảng › Hạng mục   Mở ›`, cạnh đó `⋯` → `Đổi Hạng mục · Bỏ gắn`.
+- Từ Hạng mục: dưới `Việc trong Hạng mục này` có `＋ Việc mới · ⛓ Gắn việc có sẵn` (tông cá nhân). Tấm `Gắn việc có sẵn`: việc chưa gắn trước, dòng phụ `T6, 09/10 · chưa gắn Hạng mục` / `đang ở {Hạng mục}`.
+- Khác nơi: báo đúng câu của máy chủ `Việc này thuộc …, chỉ gắn được vào Hạng mục cùng nơi.`
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

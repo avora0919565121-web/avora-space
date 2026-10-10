@@ -4,11 +4,12 @@
  * and the row that comes back agree.
  */
 
-export type TaskRecurrence = "none" | "daily" | "weekly" | "monthly" | "custom";
+export type TaskRecurrence = "none" | "daily" | "weekdays" | "weekly" | "monthly" | "custom";
 
 export const TASK_RECURRENCES: readonly TaskRecurrence[] = [
   "none",
   "daily",
+  "weekdays",
   "weekly",
   "monthly",
   "custom",
@@ -17,6 +18,7 @@ export const TASK_RECURRENCES: readonly TaskRecurrence[] = [
 export const RECURRENCE_LABELS: Record<TaskRecurrence, string> = {
   none: "Không lặp",
   daily: "Hàng ngày",
+  weekdays: "Ngày làm việc",
   weekly: "Hàng tuần",
   monthly: "Hàng tháng",
   custom: "Tuỳ chỉnh",

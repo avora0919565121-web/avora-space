@@ -3,7 +3,7 @@ import { ClipboardPaste, FileText, X } from "lucide-react";
 import { useEffect, useRef, useState, type ClipboardEvent } from "react";
 import { toast } from "sonner";
 
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import {
   attachmentKeys,
   MAX_ATTACHMENTS_PER_MESSAGE,
@@ -93,7 +93,7 @@ export function PasteTaskDialog({ open, onOpenChange, journalId, journalName, in
   const counts = [images > 0 ? `${images} ảnh` : null, others > 0 ? `${others} tệp` : null].filter(Boolean).join(", ");
 
   return (
-    <TaskComposer
+    <TaskCard
       open={open}
       onOpenChange={onOpenChange}
       place="personal"
@@ -141,7 +141,7 @@ export function PasteTaskDialog({ open, onOpenChange, journalId, journalName, in
           fileNote,
           description: values.description,
         });
-        await createPersonal(user.id, values, snapshot);
+        return createPersonal(user.id, values, snapshot);
       }}
     />
   );

@@ -1438,7 +1438,7 @@ function toRecurrencePattern(raw: unknown): RecurrencePattern | null {
 }
 
 function toRecurrence(raw: string | null): TaskRecurrence {
-  if (raw === "daily" || raw === "weekly" || raw === "monthly" || raw === "custom") return raw;
+  if (raw === "daily" || raw === "weekdays" || raw === "weekly" || raw === "monthly" || raw === "custom") return raw;
   return "none";
 }
 
@@ -1685,7 +1685,7 @@ export async function createPersonalTask(
    * "Xem trong ngữ cảnh" reads to find its way back.
    */
   contextSnapshot: TaskContextSnapshot | null = null,
-  /** Sự kiện / Hiện diện written in the same insert (TaskComposer, ADR-030). */
+  /** Sự kiện / Hiện diện written in the same insert (TaskCard, ADR-075). */
   schedule: TaskSchedulePatch = {},
 ): Promise<TaskItem> {
   const clean = validateTaskDraft(draft, today);
@@ -1934,6 +1934,23 @@ export async function updatePersonalTaskDetails(
     .single();
   if (error) throw fail(error.code, error.message);
   return toTaskItem(data as TaskRow);
+}
+
+/**
+ * AVORA-104 · PHẦN 2: the card's `Lặp lại` row, through one RPC that checks who may edit the task
+ * (the owner of a personal task; creator or assignee of shared work, as everywhere else).
+ */
+export async function setTaskRecurrence(
+  taskId: string,
+  recurrence: TaskRecurrence,
+  pattern: RecurrencePattern | null,
+): Promise<void> {
+  const { error } = await supabase.rpc("set_task_recurrence" as never, {
+    p_task_id: taskId,
+    p_recurrence: recurrence,
+    p_pattern: recurrence === "custom" ? pattern : null,
+  } as never);
+  if (error) throw fail(error.code, error.message);
 }
 
 /**

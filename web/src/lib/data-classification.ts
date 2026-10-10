@@ -147,6 +147,7 @@ export const DATA_CLASSIFICATION = {
   // Each person's own ★, never shown to anyone else.
   think_hub_record_stars: { level: "personal", domain: "personal" },
   // AVORA-61 · D: files in a Tệp cell — members of the board read them; names may be sensitive.
+  task_files: { level: "personal", domain: "personal", columns: { file_name: "sensitive" } },
   think_hub_cell_files: { level: "personal", domain: "personal", columns: { file_name: "sensitive" } },
   // AVORA-62: what changed on a shared board (before/after values), only its members read it.
   think_hub_change_log: { level: "personal", domain: "personal", columns: { before: "sensitive", after: "sensitive" } },

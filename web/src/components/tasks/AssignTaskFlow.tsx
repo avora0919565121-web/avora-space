@@ -3,7 +3,7 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { InitialsAvatar } from "@/components/InitialsAvatar";
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import { createDirectConversation } from "@/lib/chat";
@@ -93,7 +93,7 @@ export function AssignTaskFlow({ open, onOpenChange }: { open: boolean; onOpenCh
         </DialogContent>
       </Dialog>
       {target !== null ? (
-        <TaskComposer
+        <TaskCard
           open
           onOpenChange={(next) => (next ? undefined : setTarget(null))}
           place="direct"
@@ -103,7 +103,7 @@ export function AssignTaskFlow({ open, onOpenChange }: { open: boolean; onOpenCh
           onCreateMine={async (values) => {
             // "Cho tôi" picked after all: the 1-1's own self path, same as from the chat.
             if (user === null || user === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-            await proposeOne(
+            return proposeOne(
               {
                 conversationId: target.conversationId,
                 assigneeId: user.id,

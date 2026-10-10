@@ -60,8 +60,7 @@ import { MobileTopBar } from "@/components/nav/MobileTopBar";
 import { ToolBelt } from "@/components/nav/ToolBelt";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
-import { TaskComposer } from "@/components/tasks/TaskComposer";
-import { TaskDetailSheet } from "@/components/tasks/TaskDetailSheet";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { Toaster } from "@/components/ui/sonner";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import { todayIso, type TaskItem } from "@/lib/tasks";
@@ -303,30 +302,31 @@ beforeEach(() => {
   delete document.documentElement.dataset.keyboard;
 });
 
-test("59.1 · việc được giao cho tôi, mở từ Lịch: Nhận việc ngay tại chỗ", async () => {
+test("59.1 · việc được giao cho tôi, mở từ Lịch: Đồng ý ngay tại chỗ (thẻ PHẦN 2)", async () => {
   await viewport(390, 844);
   const screen = await render(
     <Frame>
-      <TaskDetailSheet task={item(ROWS[0])} today={today} open onOpenChange={() => undefined} />
+      <TaskCard task={item(ROWS[0])} today={today} open onOpenChange={() => undefined} />
     </Frame>,
   );
-  await expect.element(screen.getByRole("button", { name: "Nhận việc" })).toBeInTheDocument();
+  await expect.element(screen.getByRole("button", { name: "Đồng ý" })).toBeInTheDocument();
   // AVORA-94 · B2.1: whose it is is said once, in `Giao cho`.
   await expect.element(screen.getByText("Tôi · do Lan Nguyễn giao").first()).toBeInTheDocument();
-  await expect.element(screen.getByRole("button", { name: "Mở cuộc trò chuyện" })).toBeInTheDocument();
+  // The conversation opens from ⋯ › Xem trong ngữ cảnh (and from Nguồn `Mở ›` when the task has one).
+  await expect.element(screen.getByRole("button", { name: "Tuỳ chọn nhiệm vụ" })).toBeInTheDocument();
   expect(document.body.textContent ?? "").not.toMatch(/Người khác giao|nằm trong cuộc trò chuyện|@/);
   await settle();
   await page.screenshot({ path: `${OUT}/59-1-nhan-viec-tai-cho-390.png` });
 });
 
-test("59.1 · đã nhận: nút cam là Xong", async () => {
+test("59.1 · đã nhận: ô tròn cạnh tên là Xong", async () => {
   await viewport(390, 844);
   const screen = await render(
     <Frame>
-      <TaskDetailSheet task={item({ ...ROWS[4], status: "confirmed" })} today={today} open onOpenChange={() => undefined} />
+      <TaskCard task={item({ ...ROWS[4], status: "confirmed" })} today={today} open onOpenChange={() => undefined} />
     </Frame>,
   );
-  await expect.element(screen.getByRole("button", { name: "Xong", exact: true })).toBeInTheDocument();
+  await expect.element(screen.getByRole("checkbox", { name: "Đánh dấu xong" })).not.toBeDisabled();
   await settle();
   await page.screenshot({ path: `${OUT}/59-1-xong-tai-cho-390.png` });
 });
@@ -335,14 +335,14 @@ test("59.2 · việc tôi giao: không có Xong, dòng Giao … · chờ nhận"
   await viewport(390, 844);
   const screen = await render(
     <Frame>
-      <TaskDetailSheet task={item(ROWS[1])} today={today} open onOpenChange={() => undefined} />
+      <TaskCard task={item(ROWS[1])} today={today} open onOpenChange={() => undefined} />
     </Frame>,
   );
   // AVORA-94 · B2.1: whose it is is said once, in `Giao cho` (the header no longer repeats it).
   await expect.element(screen.getByText("Lan Nguyễn · chờ nhận").first()).toBeInTheDocument();
   expect(screen.getByText("Giao Lan Nguyễn · chờ nhận").elements()).toHaveLength(0);
-  expect(screen.getByRole("button", { name: "Xong", exact: true }).elements()).toHaveLength(0);
-  expect(screen.getByRole("button", { name: "Nhận việc" }).elements()).toHaveLength(0);
+  expect((screen.getByRole("checkbox", { name: "Đánh dấu xong" }).element() as HTMLButtonElement).disabled).toBe(true);
+  expect(screen.getByRole("button", { name: "Đồng ý" }).elements()).toHaveLength(0);
   await settle();
   await page.screenshot({ path: `${OUT}/59-2-viec-toi-giao-390.png` });
 });
@@ -370,27 +370,26 @@ test("59.8 · chi tiết dài, cuộn xuống giữa: vẫn thấy ‹ và ‹ �
   let isOpen = true;
   const screen = await render(
     <Frame>
-      <TaskDetailSheet task={item({ ...ROWS[4], status: "confirmed" })} today={today} open onOpenChange={(next) => (isOpen = next)} />
+      <TaskCard task={item({ ...ROWS[4], status: "confirmed" })} today={today} open onOpenChange={(next) => (isOpen = next)} />
     </Frame>,
   );
-  const back = screen.getByRole("button", { name: "Quay lại" });
+  const back = screen.getByRole("button", { name: "Nhiệm vụ", exact: true });
   await expect.element(back).toBeInTheDocument();
-  await userEvent.click(screen.getByRole("button", { name: "Xem thêm" }));
-  const scroller = document.querySelector("[role='dialog'] .overflow-y-auto") as HTMLElement;
+  const scroller = document.querySelector("[data-task-card] .overflow-y-auto") as HTMLElement;
   scroller.scrollTop = scroller.scrollHeight / 2;
   await settle();
   const rect = back.element().getBoundingClientRect();
   expect(rect.top).toBeGreaterThanOrEqual(0);
   expect(rect.height).toBeGreaterThanOrEqual(44);
   // Above the task's own title row, never under it.
-  const title = screen.getByRole("heading", { name: "Soạn biên bản họp tuần" }).element().getBoundingClientRect();
-  expect(rect.bottom).toBeLessThanOrEqual(title.top + 1);
+  const head = (document.querySelector("[data-card-head]") as HTMLElement).getBoundingClientRect();
+  expect(rect.bottom).toBeLessThanOrEqual(head.bottom + 1);
   await page.screenshot({ path: `${OUT}/59-8-chi-tiet-dai-van-thay-quay-lai-390.png` });
   await userEvent.click(back);
   expect(isOpen).toBe(false);
 });
 
-test("59.7 / 60.1 · sửa nhiệm vụ khi bàn phím mở: tiêu đề form và Lưu vẫn thấy, ô ≥ 16px", async () => {
+test("59.7 / 60.1 · sửa trong thẻ khi bàn phím mở: hàng đầu và tên vẫn thấy, ô ≥ 16px", async () => {
   await viewport(390, 844);
   // A phone keyboard cannot be opened in a headless browser: KeyboardSync's own signal is set by
   // hand (iOS: 336px covered), and a grey block stands in for the keys in the picture.
@@ -398,14 +397,7 @@ test("59.7 / 60.1 · sửa nhiệm vụ khi bàn phím mở: tiêu đề form v�
   document.documentElement.dataset.keyboard = "open";
   const screen = await render(
     <Frame>
-      <TaskComposer
-        open
-        onOpenChange={() => undefined}
-        mode="edit-task"
-        place="personal"
-        initial={{ title: "Đặt lịch khám răng", deadline: today, description: "Phòng khám gần nhà" }}
-        onSave={async () => undefined}
-      />
+      <TaskCard task={item(ROWS[2])} today={today} open onOpenChange={() => undefined} />
       <div aria-hidden="true" className="fixed inset-x-0 bottom-0 z-[100] flex h-[336px] items-center justify-center bg-[#cfd3d9] text-[13px] text-black/50">
         Bàn phím iPhone (giả lập)
       </div>
@@ -416,31 +408,31 @@ test("59.7 / 60.1 · sửa nhiệm vụ khi bàn phím mở: tiêu đề form v�
   await userEvent.click(field);
   await userEvent.keyboard(" — buổi sáng");
   expect(Number.parseFloat(getComputedStyle(field.element()).fontSize)).toBeGreaterThanOrEqual(16);
-  const heading = screen.getByText("Sửa nhiệm vụ").element().getBoundingClientRect();
-  const save = screen.getByRole("button", { name: "Lưu thay đổi" }).element().getBoundingClientRect();
-  expect(heading.top).toBeGreaterThanOrEqual(0);
-  expect(save.bottom).toBeLessThanOrEqual(844 - 336 + 1);
+  // Xem = sửa: the head row (‹ · Đã lưu ✓) and the name stay above the keys.
+  const head = (document.querySelector("[data-card-head]") as HTMLElement).getBoundingClientRect();
+  const name = field.element().getBoundingClientRect();
+  expect(head.top).toBeGreaterThanOrEqual(0);
+  expect(name.bottom).toBeLessThanOrEqual(844 - 336 + 1);
   noSideScroll(390);
   await settle();
   await page.screenshot({ path: `${OUT}/59-7-sua-nhiem-vu-ban-phim-mo-390.png` });
 });
 
-test("60.1 · chi tiết → Sửa → gõ → Lưu: không phóng to, ‹ vẫn thấy", async () => {
+test("60.1 · thẻ → gõ tên → tự lưu: không phóng to, ‹ vẫn thấy", async () => {
   await viewport(390, 844);
   const screen = await render(
     <Frame>
-      <TaskDetailSheet task={item(ROWS[2])} today={today} open onOpenChange={() => undefined} />
+      <TaskCard task={item(ROWS[2])} today={today} open onOpenChange={() => undefined} />
     </Frame>,
   );
-  await userEvent.click(screen.getByRole("button", { name: "Sửa", exact: true }));
   const field = screen.getByLabelText("Tên việc");
   await expect.element(field).toBeInTheDocument();
   await userEvent.click(field);
   await userEvent.keyboard(" ở quận 3");
   expect(Number.parseFloat(getComputedStyle(field.element()).fontSize)).toBeGreaterThanOrEqual(16);
-  await userEvent.click(screen.getByRole("button", { name: "Lưu thay đổi" }));
+  (field.element() as HTMLElement).blur();
   await settle(700);
-  const back = screen.getByRole("button", { name: "Quay lại" }).element().getBoundingClientRect();
+  const back = screen.getByRole("button", { name: "Nhiệm vụ", exact: true }).element().getBoundingClientRect();
   expect(back.top).toBeGreaterThanOrEqual(0);
   expect(back.left).toBeGreaterThanOrEqual(0);
   expect(window.visualViewport?.scale ?? 1).toBe(1);

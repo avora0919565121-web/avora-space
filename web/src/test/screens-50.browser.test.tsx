@@ -30,7 +30,7 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/realtime", () => ({ useChatRealtime: () => ({ isLive: true, setReadingConversation: () => undefined }) }));
 
 import Auth from "@/pages/Auth";
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
@@ -121,7 +121,7 @@ test("50.C1 · ScheduleMessageDialog ở 700px", async () => {
   await page.screenshot({ path: `${OUT}/50-C1-hen-gio-700.png` });
 });
 
-test("50.C2 · điện thoại: TaskComposer mở Sự kiện + Ghi chú, nút tạo không bị đẩy khỏi màn", async () => {
+test("50.C2 · điện thoại: TaskCard (Mở rộng) với Ghi chú dài, nút tạo không bị đẩy khỏi màn", async () => {
   await page.viewport(390, 700);
   window.matchMedia = ((query: string) => ({
     matches: query.includes("max-width"),
@@ -135,8 +135,9 @@ test("50.C2 · điện thoại: TaskComposer mở Sự kiện + Ghi chú, nút t
   })) as typeof window.matchMedia;
   const screen = await render(
     <Frame>
-      <TaskComposer
+      <TaskCard
         open
+        startExpanded
         onOpenChange={() => undefined}
         place="personal"
         initial={{ title: "Họp dự án sửa mái", description: "Ghi chú dài\n".repeat(20), startAt: "2026-10-02T09:00", endAt: "2026-10-02T10:00", location: "Nhà thờ" }}

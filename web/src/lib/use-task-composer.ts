@@ -3,8 +3,12 @@ import { useCallback } from "react";
 
 import { useAuth } from "@/lib/auth";
 import { logError } from "@/lib/log";
-import { createTaskReminderBefore, taskReminderKeys } from "@/lib/task-reminders";
-import { browserTimezone } from "@/lib/task-schedule";
+import { createTaskReminderAt, createTaskReminderBefore, taskReminderKeys } from "@/lib/task-reminders";
+import { browserTimezone, type RecurrencePattern, type TaskRecurrence } from "@/lib/task-schedule";
+import { addChecklistItem } from "@/lib/task-collab-api";
+import { taskCollabKeys } from "@/lib/use-task-collab";
+import { saveTaskFlag, taskFlagKeys } from "@/lib/task-flags";
+import { taskFileKeys, uploadTaskFile } from "@/lib/task-files";
 import type { TaskContextSnapshot } from "@/lib/task-context";
 import { departureTimes, type Recipients } from "@/lib/task-composer";
 import {
@@ -21,6 +25,7 @@ import {
 import {
   isSharedTask,
   isTaskEditUnchanged,
+  setTaskRecurrence,
   taskKeys,
   todayIso,
   updatePersonalTaskSchedule,
@@ -50,6 +55,22 @@ export type ComposerValues = {
   /** AVORA-53 · 4.2: this person's own reading, written to `task_flags`. */
   isImportant?: boolean;
   durationMinutes?: number | null;
+  /**
+   * AVORA-104 · PHẦN 2: what `Mở rộng` lets the author add while creating their own task — written
+   * right after the task exists. Ignored for a suggestion to someone else (it is theirs to plan).
+   */
+  extras?: CreateExtras;
+};
+
+/** The rows of the full card that only exist once a task does (steps, Hôm nay, Nhắc, Lặp lại, Tệp). */
+export type CreateExtras = {
+  steps: string[];
+  myDay: boolean;
+  /** ISO instant, or null for no reminder. */
+  reminderAt: string | null;
+  recurrence: TaskRecurrence;
+  recurrencePattern: RecurrencePattern | null;
+  files: File[];
 };
 
 export function eventOf(values: ComposerValues): SuggestionEvent {
@@ -202,15 +223,28 @@ export function useComposerActions() {
    * the server; each is skipped when nothing in it changed, so the other side sees no false edit.
    */
   const saveTaskEdit = useMutation({
-    mutationFn: async ({ task, values }: { task: TaskItem; values: ComposerValues }): Promise<void> => {
+    mutationFn: async ({
+      task,
+      values,
+      parts = ["details", "schedule"],
+    }: {
+      task: TaskItem;
+      values: ComposerValues;
+      /** AVORA-104 · PHẦN 2: the card saves one field at a time — only the part that field lives in. */
+      parts?: readonly ("details" | "schedule")[];
+    }): Promise<void> => {
+      // An overdue task keeps its day while its name or note changes; only a NEW day must be ahead.
+      const today = todayIso();
+      const keepsPastDay = task.deadline !== null && values.deadline === task.deadline && task.deadline < today;
       const clean = validateTaskEdit(
         { title: values.title, description: values.description, deadline: values.deadline, deadlineTime: values.deadlineTime },
-        todayIso(),
+        keepsPastDay ? (task.deadline as string) : today,
       );
       if (!clean.value) throw new Error(clean.error ?? "Nhiệm vụ chưa đủ thông tin.");
-      if (!isTaskEditUnchanged(task, clean.value)) {
+      if (parts.includes("details") && !isTaskEditUnchanged(task, clean.value)) {
         await editDetails.mutateAsync({ taskId: task.id, isShared: isSharedTask(task), edit: clean.value });
       }
+      if (!parts.includes("schedule")) return;
 
       const event = eventOf(values);
       const presence = event.requiresPresence;
@@ -244,6 +278,69 @@ export function useComposerActions() {
   });
 
   return { createPersonal, proposeOne, saveTaskEdit, refreshTravel, isWorking: addPersonal.isPending || propose.isPending || saveTaskEdit.isPending };
+}
+
+/**
+ * AVORA-104 · PHẦN 2: the full card's extra rows, written once the author's own task exists —
+ * whichever road created it (a plain insert, `create_record_task`, a project RPC). Each part is
+ * independent: a failed upload does not undo the steps, and the task itself is never lost.
+ */
+export function useTaskExtras() {
+  const queryClient = useQueryClient();
+  return useCallback(
+    async (taskId: string, userId: string, values: ComposerValues): Promise<void> => {
+      const extras = values.extras;
+      if (extras === undefined) return;
+      const failures: string[] = [];
+      if (extras.recurrence !== "none") {
+        try {
+          await setTaskRecurrence(taskId, extras.recurrence, extras.recurrencePattern);
+          void queryClient.invalidateQueries({ queryKey: taskKeys.all });
+        } catch (error) {
+          logError("task-card", error);
+          failures.push("lặp lại");
+        }
+      }
+      for (const [index, step] of extras.steps.entries()) {
+        try {
+          await addChecklistItem(taskId, step, index + 1);
+        } catch (error) {
+          logError("task-card", error);
+          failures.push("bước");
+        }
+      }
+      if (extras.steps.length > 0) void queryClient.invalidateQueries({ queryKey: taskCollabKeys.checklist(taskId) });
+      if (extras.myDay) {
+        try {
+          await saveTaskFlag(taskId, userId, { myDayOn: todayIso() });
+          void queryClient.invalidateQueries({ queryKey: taskFlagKeys.all });
+        } catch (error) {
+          logError("task-card", error);
+          failures.push("Hôm nay");
+        }
+      }
+      if (extras.reminderAt !== null) {
+        try {
+          await createTaskReminderAt(taskId, userId, new Date(extras.reminderAt), values.deadline, values.deadlineTime, browserTimezone());
+          void queryClient.invalidateQueries({ queryKey: taskReminderKeys.all });
+        } catch (error) {
+          logError("task-card", error);
+          failures.push("nhắc");
+        }
+      }
+      for (const file of extras.files) {
+        try {
+          await uploadTaskFile(taskId, file);
+        } catch (error) {
+          logError("task-card", error);
+          failures.push(file.name);
+        }
+      }
+      if (extras.files.length > 0) void queryClient.invalidateQueries({ queryKey: taskFileKeys.all });
+      if (failures.length > 0) throw new Error(`Đã tạo việc, nhưng chưa lưu được: ${[...new Set(failures)].join(", ")}. Mở việc để thêm lại.`);
+    },
+    [queryClient],
+  );
 }
 
 /** The travel this person set for a task: their private plan when owned, else the task row. */

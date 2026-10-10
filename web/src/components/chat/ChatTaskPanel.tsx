@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { SkipSuggestionDialog } from "@/components/chat/SkipSuggestionDialog";
 import { SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
-import { TaskEditComposer } from "@/components/tasks/TaskEditComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { ownerCircleClass, ownerStripeClass, TaskOwnerLine } from "@/components/tasks/TaskOwner";
 import { useTaskOwnership } from "@/lib/use-task-owner";
 import { ownedTaskIds } from "@/lib/task-suggestions";
@@ -389,8 +389,8 @@ function ChatTaskRow({
           <button
             type="button"
             onClick={() => setIsEditing(true)}
-            aria-label="Sửa nhiệm vụ"
-            title="Sửa nhiệm vụ"
+            aria-label="Mở thẻ nhiệm vụ"
+            title="Mở thẻ nhiệm vụ"
             className="press flex h-12 w-12 shrink-0 items-center justify-center rounded-[8px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground sm:h-9 sm:w-9"
           >
             <Pencil className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
@@ -530,13 +530,7 @@ function ChatTaskRow({
         onComplete={(output) => void handleComplete(output)}
         isWorking={markSharedDone.isPending}
       />
-      <TaskEditComposer
-        task={isEditing ? task : null}
-        open={isEditing}
-        onOpenChange={setIsEditing}
-        lockedLabel={isOwned ? "Chỉ bạn" : `Giao cho ${assigneeLabel(task, members, peerName, userId)}`}
-        isOwnedByAssignee={isOwned}
-      />
+      <TaskCard task={isEditing ? task : null} open={isEditing} onOpenChange={setIsEditing} backLabel="Cuộc trò chuyện" />
     </li>
   );
 }

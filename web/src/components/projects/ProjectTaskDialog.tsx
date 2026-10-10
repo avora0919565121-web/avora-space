@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { useAuth } from "@/lib/auth";
 import type { GroupMember } from "@/lib/groups";
 import type { Project } from "@/lib/projects";
@@ -45,8 +45,8 @@ export function ProjectTaskDialog({
   }, [members, recipientIds.data]);
   const record = records.find((entry) => entry.id === recordId) ?? null;
 
-  const send = async (assigneeId: string, values: ComposerValues, isSelf: boolean): Promise<void> => {
-    await proposeOne(
+  const send = async (assigneeId: string, values: ComposerValues, isSelf: boolean): Promise<unknown> => {
+    return proposeOne(
       {
         conversationId: project.conversationId,
         assigneeId,
@@ -68,7 +68,7 @@ export function ProjectTaskDialog({
   };
 
   return (
-    <TaskComposer
+    <TaskCard
       open={open}
       onOpenChange={onOpenChange}
       place="group"
@@ -99,7 +99,7 @@ export function ProjectTaskDialog({
       }}
       onCreateMine={async (values) => {
         if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-        await send(user.id, values, true);
+        return send(user.id, values, true);
       }}
       onPropose={(assigneeId, values) => send(assigneeId, values, false)}
     />

@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { askText } from "@/components/ConfirmHost";
 import { Money } from "@/components/finance/primitives";
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
 import { vnDate, isVaultViewBoard, viewBoardOf, type ViewBoardKey, type ViewRow } from "@/lib/avora-default-boards";
@@ -216,7 +216,7 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
       )}
 
       {taskFrom !== null ? (
-        <TaskComposer
+        <TaskCard
           open
           onOpenChange={(next) => !next && setTaskFrom(null)}
           place="personal"
@@ -224,8 +224,9 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
           initial={{ title: titleOf(taskFrom).slice(0, 200), deadline: typeof taskFrom.cells.date === "string" && taskFrom.cells.date >= new Date().toISOString().slice(0, 10) ? taskFrom.cells.date : "" }}
           onCreateMine={async (values) => {
             if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-            await createPersonal(user.id, values, null);
+            const created = await createPersonal(user.id, values, null);
             setTaskFrom(null);
+            return created;
           }}
         />
       ) : null}

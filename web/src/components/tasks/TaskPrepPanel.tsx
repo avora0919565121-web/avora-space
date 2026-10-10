@@ -1,47 +1,18 @@
-import { useQuery } from "@tanstack/react-query";
-import { Check, Loader2, MapPin, Plus, Trash2, UserPlus } from "lucide-react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Trash2, UserPlus } from "lucide-react";
 import { useState, type FormEvent } from "react";
 import { toast } from "sonner";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/lib/auth";
 import { fetchGroupMembers, groupKeys } from "@/lib/groups";
-import { checklistProgress, nextChecklistPosition } from "@/lib/task-collab";
 import { inviteTaskParticipant, withdrawTaskInvitation } from "@/lib/task-collab-api";
-import { formatDuration, parseDurationInput } from "@/lib/task-flags";
-import {
-  isSharedTask,
-  taskKeys,
-  updatePersonalTaskSchedule,
-  updateSharedTaskSchedule,
-  type TaskItem,
-  type TaskSchedulePatch,
-} from "@/lib/tasks";
-import {
-  taskCollabKeys,
-  useChecklist,
-  useChecklistActions,
-  useResourceActions,
-  useResources,
-  useTaskParticipants,
-} from "@/lib/use-task-collab";
+import { isSharedTask, type TaskItem } from "@/lib/tasks";
+import { taskCollabKeys, useResourceActions, useResources, useTaskParticipants } from "@/lib/use-task-collab";
 import { cn } from "@/lib/utils";
-import { eventSummary } from "@/lib/task-composer";
 
 const FIELD =
   "mt-1 w-full rounded-[8px] border border-input bg-card px-3 py-2 text-[16px] md:text-[14px] text-foreground outline-none focus:border-muted-foreground";
 const LABEL = "text-[12px] font-medium text-muted-foreground";
-
-function toLocalInput(iso: string | null): string {
-  if (iso === null) return "";
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  return new Date(date.getTime() - date.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
-}
-
-function fromLocalInput(value: string): string | null {
-  return value.length === 0 ? null : new Date(value).toISOString();
-}
 
 function showError(error: unknown): void {
   toast.error(error instanceof Error ? error.message : "Có lỗi xảy ra. Bạn thử lại nhé.");
@@ -53,83 +24,6 @@ function Heading({ title, note }: { title: string; note: string }) {
     <div>
       <p className={LABEL}>{title}</p>
       <p className="mt-0.5 text-[12px] leading-5 text-muted-foreground">{note}</p>
-    </div>
-  );
-}
-
-/**
- * The schedule as one read-only block (ADR-030): Sự kiện, Hiện diện, duration. Editing happens in
- * the one task form ("Sửa"), so there is no separate "Lưu lịch" any more. Empty blocks are hidden.
- */
-function ScheduleSummary({ task }: { task: TaskItem }) {
-  const duration = formatDuration(task.estimatedDurationMinutes);
-  const event = eventSummary(task.startAt, task.endAt, task.location);
-  if (duration === null && event === null) return null;
-  return (
-    <div className="space-y-0.5 rounded-[10px] border border-border bg-card px-3 py-2 text-[13px] text-foreground">
-      {event !== null ? (
-        <p className="flex items-center gap-1.5">
-          <MapPin className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-          {event}
-        </p>
-      ) : null}
-      {task.requiresPresence && task.startAt !== null ? <p className="pl-5 text-muted-foreground">Có mặt trực tiếp</p> : null}
-      {duration !== null ? <p className="text-muted-foreground">Dự kiến mất {duration}</p> : null}
-    </div>
-  );
-}
-
-function ChecklistBlock({ task, canEdit }: { task: TaskItem; canEdit: boolean }) {
-  const { data: items } = useChecklist(task.id);
-  const actions = useChecklistActions(task.id);
-  const [draft, setDraft] = useState<string>("");
-  const list = items ?? [];
-  const progress = checklistProgress(list);
-
-  const add = (event: FormEvent<HTMLFormElement>): void => {
-    event.preventDefault();
-    if (draft.trim() === "") return;
-    actions.add.mutate(
-      { content: draft, position: nextChecklistPosition(list) },
-      { onSuccess: () => setDraft(""), onError: showError },
-    );
-  };
-
-  return (
-    <div className="space-y-2 rounded-[10px] border border-border bg-card p-3">
-      <div className="flex items-start justify-between gap-2">
-        <Heading title="Các bước" note="Chia việc thành từng bước nhỏ — chạm ô để đánh dấu xong." />
-        {progress !== null ? <span className="tabular shrink-0 text-[12px] text-muted-foreground">{progress.done}/{progress.total}</span> : null}
-      </div>
-      {list.length === 0 ? <p className="text-[13px] text-muted-foreground">Chưa có bước nào.</p> : null}
-      <ul className="space-y-0.5">
-        {list.map((item) => (
-          <li key={item.id} className="flex min-h-11 items-center gap-2">
-            <input
-              type="checkbox"
-              aria-label={item.content}
-              checked={item.completed}
-              disabled={!canEdit}
-              onChange={(e) => actions.toggle.mutate({ itemId: item.id, completed: e.target.checked }, { onError: showError })}
-              className="h-4 w-4 accent-[hsl(var(--primary))]"
-            />
-            <span className={cn("flex-1 text-[14px]", item.completed ? "text-muted-foreground line-through" : "text-foreground")}>{item.content}</span>
-            {canEdit ? (
-              <button type="button" aria-label={`Xoá bước ${item.content}`} onClick={() => actions.remove.mutate(item.id, { onError: showError })} className="press flex h-9 w-9 items-center justify-center rounded-md text-muted-foreground hover:text-foreground">
-                <Trash2 className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
-              </button>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-      {canEdit ? (
-        <form onSubmit={add} className="flex gap-2">
-          <input value={draft} maxLength={500} onChange={(e) => setDraft(e.target.value)} placeholder="Thêm một bước" aria-label="Thêm một bước" className={cn(FIELD, "mt-0")} />
-          <button type="submit" aria-label="Thêm bước" className="press flex h-10 w-10 shrink-0 items-center justify-center rounded-[8px] border border-border hover:bg-secondary">
-            <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-          </button>
-        </form>
-      ) : null}
     </div>
   );
 }
@@ -241,30 +135,25 @@ function ParticipantsBlock({ task }: { task: TaskItem }) {
 }
 
 /**
- * What a task carries beside itself: how long and where (Phần 4–5), the steps and the things to
- * bring (Phần 6), and who is coming along. Each part says in one line what it is for.
+ * `⋯ › Thêm` of the task card (AVORA-104 · PHẦN 2): what a task carries beside the ten rows —
+ * the things to bring and who else is coming along. Các bước moved into the card itself.
  */
 export function TaskPrepPanel({
   task,
   canEdit,
   showPrivate = true,
-  showSchedule = true,
 }: {
   task: TaskItem;
   canEdit: boolean;
-  /** False inside the task detail, which already shows Sự kiện in the form's own order (A13). */
-  showSchedule?: boolean;
   /**
-   * False for the proposer of a task that came from a suggestion (D3): Các bước and Mang theo are
-   * the assignee's own and the server does not return them to anyone else.
+   * False for the proposer of a task that came from a suggestion (D3): Mang theo is the
+   * assignee's own and the server does not return it to anyone else.
    */
   showPrivate?: boolean;
 }) {
   const shared = isSharedTask(task);
   return (
     <div className="space-y-3">
-      {showSchedule ? <ScheduleSummary task={task} /> : null}
-      {showPrivate ? <ChecklistBlock task={task} canEdit={canEdit} /> : null}
       {showPrivate ? <ResourcesBlock task={task} canEdit={canEdit} /> : null}
       {shared ? <ParticipantsBlock task={task} /> : null}
     </div>

@@ -294,7 +294,7 @@ test("78.9 · Tạo việc từ dòng Lịch thanh toán: form điền sẵn, ng
   await userEvent.click(screen.getByRole("button", { name: "Thêm cho Vay anh Minh" }));
   await userEvent.click(screen.getByRole("menuitem", { name: /Tạo việc/ }));
   await settle(500);
-  expect((document.querySelector('input[placeholder="Việc cần làm là gì?"]') as HTMLInputElement | null)?.value).toBe("Vay anh Minh");
+  expect((document.getElementById("task-card-title") as HTMLTextAreaElement | null)?.value).toBe("Vay anh Minh");
   expect(document.body.textContent).toContain("Tài chính | Lịch thanh toán · Vay anh Minh");
   await page.screenshot({ path: `${OUT}/78-9-tao-viec-1280.png` });
 });

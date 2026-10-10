@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { TaskComposer } from "@/components/tasks/TaskComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,7 @@ export function NoteExits({
 
   return (
     <>
-      <TaskComposer
+      <TaskCard
         open={task !== null}
         onOpenChange={(open) => {
           if (!open) onTaskClose();
@@ -60,7 +60,7 @@ export function NoteExits({
         initial={task === null ? undefined : { title: task.title.slice(0, 200), description: task.text.slice(0, 2000) }}
         onCreateMine={async (values) => {
           if (user?.id === undefined) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
-          await createPersonal(user.id, values, null);
+          return createPersonal(user.id, values, null);
         }}
         onCreated={() => onTaskClose()}
       />

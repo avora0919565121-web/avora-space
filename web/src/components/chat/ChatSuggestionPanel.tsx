@@ -3,8 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { toast } from "sonner";
 
 import { SkipSuggestionDialog } from "@/components/chat/SkipSuggestionDialog";
-import { EditSuggestionDialog } from "@/components/tasks/EditSuggestionDialog";
-import { TaskEditComposer } from "@/components/tasks/TaskEditComposer";
+import { TaskCard } from "@/components/tasks/TaskCard";
 import { eventSummary, isLinkLocation, noteSummary, TRAVEL_CHIPS } from "@/lib/task-composer";
 import { useAuth } from "@/lib/auth";
 import type { ConversationKind } from "@/lib/chat";
@@ -397,8 +396,8 @@ function SuggestionRow({
         isWorking={skip.isPending}
       />
 
-      <EditSuggestionDialog
-        suggestion={suggestion}
+      <TaskCard
+        suggestion={isEditOpen ? suggestion : null}
         assigneeName={askedOf}
         place={conversationKind === "group" ? "group" : "direct"}
         open={isEditOpen}
@@ -609,7 +608,7 @@ function AcceptedRow({
       ) : null}
 
       {isAssignee ? (
-        <TaskEditComposer task={task} open={isEditOpen} onOpenChange={setIsEditOpen} lockedLabel="Chỉ bạn" isOwnedByAssignee />
+        <TaskCard task={isEditOpen ? task : null} open={isEditOpen} onOpenChange={setIsEditOpen} backLabel="Cuộc trò chuyện" />
       ) : null}
     </li>
   );
