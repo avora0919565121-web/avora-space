@@ -55,15 +55,15 @@ function makeTask(overrides: Partial<TaskItem> & { id: string }): TaskItem {
 const at = (day: number, hour: number): string => new Date(2026, 8, day, hour, 0).toISOString();
 
 describe("Task Hub sections", () => {
-  it("has the ten sections in order, each with a description", () => {
+  it("has the eleven sections in order, each with a description", () => {
     expect(TASK_HUB_SECTIONS.map((section) => section.label)).toEqual([
-      "Hôm nay", "Sắp tới", "Tất cả", "Sự kiện", "Lịch", "Quá hạn", "Lời mời", "Nháp", "Đã xong", "Thùng rác",
+      "Hôm nay", "Sắp tới", "Tất cả", "Sự kiện", "Lịch", "Thói quen", "Quá hạn", "Lời mời", "Nháp", "Đã xong", "Thùng rác",
     ]);
     // AVORA-53 · 4.7: five in the strip, Lời mời only when any, Đã xong / Thùng rác behind ⋯.
     expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "top").map((section) => section.label)).toEqual([
       "Hôm nay", "Sắp tới", "Tất cả",
     ]);
-    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => section.label)).toEqual(["Lịch", "Đã xong", "Thùng rác"]);
+    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => section.label)).toEqual(["Lịch", "Thói quen", "Đã xong", "Thùng rác"]);
     for (const section of TASK_HUB_SECTIONS) expect(section.description.length).toBeGreaterThan(0);
   });
 

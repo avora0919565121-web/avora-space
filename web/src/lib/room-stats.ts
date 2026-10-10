@@ -11,6 +11,7 @@ const VIEW_LABELS: Record<string, string> = {
   memorable_days: "Ngày đáng nhớ",
   my_projects: "Dự án của tôi",
   assigned_by_me: "Việc tôi giao",
+  habits: "Thói quen",
   cashflow: "Dòng tiền",
   summary: "Tổng hợp",
   loans: "Khoản vay",

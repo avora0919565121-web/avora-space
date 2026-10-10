@@ -64,6 +64,8 @@ import { useComposerActions } from "@/lib/use-task-composer";
 import { AvoraSearchButton } from "@/components/search/AvoraSearch";
 import { HubTitle } from "@/components/nav/HubTitle";
 import { TaskViewTabs } from "@/components/tasks/TaskViewTabs";
+import { HabitTodayBlock } from "@/components/habits/HabitTodayBlock";
+import { HabitsSection } from "@/components/habits/HabitsSection";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle } from "@/lib/chat";
 import type { TaskCategory } from "@/lib/task-categories";
@@ -1474,6 +1476,19 @@ export default function Tasks() {
     setSearchParams(next, { replace: true });
   }, [searchParams, setSearchParams]);
   const [newKind, setNewKind] = useState<"task" | "event">("task");
+  /** AVORA-107: `+` on Thói quen (or `+ › Thói quen` anywhere) opens Tạo thói quen there. */
+  const [habitCreateRequest, setHabitCreateRequest] = useState<number>(0);
+  const [habitStartCreate, setHabitStartCreate] = useState<boolean>(false);
+  const openHabitEditor = useCallback((): void => {
+    if (hubSection.id !== "habits") {
+      const next = new URLSearchParams(searchParams);
+      next.set(TASK_HUB_PARAM, "thoi-quen");
+      setSearchParams(next, { replace: true });
+      setHabitStartCreate(true);
+      return;
+    }
+    setHabitCreateRequest((count) => count + 1);
+  }, [hubSection.id, searchParams, setSearchParams]);
   const [isAssignOpen, setIsAssignOpen] = useState<boolean>(false);
   const openNew = useCallback((kind: "task" | "event"): void => {
     setNewKind(kind);
@@ -1701,13 +1716,14 @@ export default function Tasks() {
               label="Thêm nhiệm vụ"
               tapLabel="giữ để chọn loại"
               tapAction="nhiệm vụ cho tôi"
-              onTap={() => openNew("task")}
+              onTap={() => (hubSection.id === "habits" ? setHabitCreateRequest((count) => count + 1) : openNew("task"))}
               hintKey="task_plus_hold"
               entries={[
                 { id: "mine", label: "Nhiệm vụ cho tôi", icon: UserRound, onSelect: () => openNew("task") },
                 { id: "assign", label: "Giao việc cho người khác", icon: UserPlus, onSelect: () => setIsAssignOpen(true) },
                 { id: "event", label: "Sự kiện", icon: CalendarClock, onSelect: () => openNew("event") },
                 { id: "note", label: "Ghi chú nhanh", icon: StickyNote, onSelect: () => void quickNote() },
+                { id: "habit", label: "Thói quen", icon: Repeat, onSelect: () => openHabitEditor() },
               ]}
             />
           </div>
@@ -1717,12 +1733,12 @@ export default function Tasks() {
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 short:mx-0 short:max-w-none short:px-4">
         <InlineBack className="-mt-2 mb-1" />
         <div>
-          {/* AVORA-101A: the shared strip — Hôm nay · Sắp tới · Tất cả, ⋯ for Lịch / Đã xong / Thùng rác (ADR-059). */}
+          {/* AVORA-101A: the shared strip — Hôm nay · Sắp tới · Tất cả, ⋯ for Lịch / Thói quen / Đã xong / Thùng rác (ADR-059). */}
           <SubTabs
             ariaLabel="Các mục Nhiệm vụ"
             items={TASK_HUB_SECTIONS.filter((section) => TASK_HUB_TOP.includes(section.id)).map((section) => ({ id: section.id, label: section.label, count: hubCounts[section.id] }))}
             overflow={{
-              label: "Thêm mục: Lịch, Đã xong, Thùng rác",
+              label: "Thêm mục: Lịch, Thói quen, Đã xong, Thùng rác",
               items: TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => ({ id: section.id, label: section.label })),
             }}
             value={hubSection.id}
@@ -1737,7 +1753,9 @@ export default function Tasks() {
           <div className="mt-5 space-y-3 pb-10">
             {/* AVORA-93 · 4: reminders fold into one line, only on `Hôm nay`. */}
             {hubSection.id === "my_day" ? <ReminderLine due={due} titleFor={titleFor} onDismiss={dismiss} onOpen={setOpenTaskId} /> : null}
-            {tasksFailed ? (
+            {hubSection.id === "habits" ? (
+              <HabitsSection createRequest={habitCreateRequest} startWithCreate={habitStartCreate} onStarted={() => setHabitStartCreate(false)} />
+            ) : tasksFailed ? (
               <BlockLoadError name="nhiệm vụ" onRetry={() => void refetchTasks()} />
             ) : isLoading ? (
               <div className="flex justify-center py-16" role="status" aria-label="Đang tải nhiệm vụ">
@@ -1755,6 +1773,8 @@ export default function Tasks() {
             ) : (
               <TaskHubSectionView section={hubSection} tasks={tasks ?? []} userId={userId} today={today} onOpen={openTask} />
             )}
+            {/* AVORA-107 · 1.2 · 3: today's habits fold into one block at the end of Hôm nay. */}
+            {hubSection.id === "my_day" ? <HabitTodayBlock /> : null}
           </div>
         ) : (
         <>

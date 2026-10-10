@@ -14,9 +14,12 @@ import {
   type IncomingMessageSignal,
 } from "@/lib/in-app-alerts";
 import { isFamily } from "@/lib/family";
+import { habitAlarms, habitChimeAllowed } from "@/lib/habits";
+import { activeFocus } from "@/lib/mute";
 import { isQuietReading } from "@/lib/quiet-reading";
 import { taskLink } from "@/lib/task-scope";
 import { useConversations } from "@/lib/use-conversations";
+import { useHabits } from "@/lib/use-habits";
 import { useFamilyRelations } from "@/lib/use-family";
 import { useMuteSettings } from "@/lib/use-mute";
 import { useProfileSettings } from "@/lib/use-settings";
@@ -30,6 +33,32 @@ function play(url: string): void {
     const audio = new Audio(url);
     audio.volume = 0.6;
     void audio.play().catch(() => undefined);
+  } catch {
+    // No audio on this device.
+  }
+}
+
+/**
+ * AVORA-107 · 1.2 · 4: the habit chime — one soft, short tone made on the device, quieter than the
+ * task reminder file, so the two never sound alike.
+ */
+function playSoftTone(): void {
+  try {
+    const Context = window.AudioContext ?? (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (Context === undefined) return;
+    const context = new Context();
+    const gain = context.createGain();
+    gain.gain.setValueAtTime(0.0001, context.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.12, context.currentTime + 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, context.currentTime + 0.9);
+    gain.connect(context.destination);
+    const tone = context.createOscillator();
+    tone.type = "sine";
+    tone.frequency.setValueAtTime(660, context.currentTime);
+    tone.connect(gain);
+    tone.start();
+    tone.stop(context.currentTime + 0.95);
+    tone.onended = () => void context.close().catch(() => undefined);
   } catch {
     // No audio on this device.
   }
@@ -54,6 +83,7 @@ export function InAppAlerts() {
   const { data: tasks } = useTasks();
   const { data: reminders } = useTaskReminders();
   const { data: records } = useThinkRecords();
+  const { habits, done: habitDone, today: habitDay } = useHabits();
 
   const soundMessages = settings?.soundMessages ?? true;
   const soundReminders = settings?.soundReminders ?? true;
@@ -143,6 +173,32 @@ export function InAppAlerts() {
     const timer = window.setInterval(check, 30_000);
     return () => window.clearInterval(timer);
   }, [candidates, soundReminders, decide, navigate]);
+
+  // AVORA-107 · 1.2 · 4: habit windows. Quiet wins (focus, Tắt toàn AVORA, rest day): no sound,
+  // no toast — the habit still hangs in Hôm nay. Task reminders above are untouched.
+  const habitRungRef = useRef<Set<string>>(new Set());
+  const habitCandidates = useMemo(
+    () => habitAlarms(habits, habitDone, habitDay).map((alarm) => ({ key: alarm.key, at: alarm.at, title: alarm.title, href: "/nhiem-vu?muc=thoi-quen" })),
+    [habits, habitDone, habitDay],
+  );
+  const focusActive = activeFocus(settings?.focusMode, settings?.focusUntil) !== null;
+  const restWeekday = settings?.restWeekday ?? 0;
+  useEffect(() => {
+    const check = (): void => {
+      const due = dueReminders(habitCandidates, habitRungRef.current, Date.now());
+      if (due.length === 0) return;
+      due.forEach((item) => habitRungRef.current.add(item.key));
+      const avoraMuted = decide({ surface: "direct", isFromFamily: false, mentionsRecipient: false }).decidedBy === "avora";
+      if (!habitChimeAllowed({ focusActive, avoraMuted, restWeekday, now: new Date(), soundOn: true })) return;
+      if (soundReminders && !isQuietReading()) playSoftTone();
+      for (const item of due.slice(0, 2)) {
+        toast(item.title, { description: "Đến giờ thói quen", duration: 6_000, action: { label: "Mở", onClick: () => navigate(item.href) } });
+      }
+    };
+    check();
+    const timer = window.setInterval(check, 30_000);
+    return () => window.clearInterval(timer);
+  }, [habitCandidates, focusActive, restWeekday, soundReminders, decide, navigate]);
 
   return null;
 }

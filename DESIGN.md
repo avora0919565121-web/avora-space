@@ -2196,6 +2196,18 @@ Tạo 08/10 bởi bạn · từ Hạng mục                 🗑
 - 600–1023 ngang: hai cột liền nhau, dời từng nấc.
 - Cây > 500 Hạng mục: mỗi nhánh 50 dòng + `Xem thêm N`.
 
+## Thói quen (AVORA-107 · PHẦN 1 · ADR-077)
+- Chỗ: Nhiệm vụ › ⋯ › `Thói quen` (sau Lịch, trước Đã xong / Thùng rác) — không thêm mục con thứ tư. `+` khi đang ở Thói quen = `Tạo thói quen`; giữ `+` có thêm `Thói quen`.
+- Danh sách: `HÔM NAY · 1/3` (thói quen đã giữ đủ / thói quen của hôm nay) + `＋ Tạo thói quen`; mỗi thói quen một dòng trong khung bo 12 px: tên 15 px đậm (⏱ nếu có đồng hồ), loại 12 px, mỗi khung giờ một viên tròn 44 px `◯ 08:00` → đã làm `✓` nền `personal`; dưới cùng `Hôm nay 2/4 · Tuần này 5/7` 12 px mờ. Thói quen giữ đủ hôm nay: tên nhạt đi. Khung đã qua giờ mà chưa làm: không đổi màu. `⋯`: Sửa · Tạm nghỉ · Lưu trữ (Lưu trữ có Hoàn tác). Bên dưới: `NGÀY KHÁC` (không có hôm nay), `ĐANG TẠM NGHỈ` (`Tiếp tục`).
+- Màn trống: thẻ `personal-soft` "Một thói quen nhỏ, một giờ cụ thể" + `Tạo thói quen`.
+- Tạo / sửa: gợi ý `Dậy sớm · Uống đủ nước · Vận động · Đọc sách · Ngủ đúng giờ` + `Thói quen của tôi` (viền đứt); Tên; Loại `Có đồng hồ | Chỉ đánh dấu` (số phút khi có đồng hồ, mặc định 15); 7 nút ngày; khung giờ (đồng hồ chạm chọn `TimeField`, 🔔 nhắc từng khung, 🗑 bỏ khung, `＋ Thêm khung giờ`); công tắc Nhắc kèm câu "Im lặng khi bạn đang tập trung, tắt thông báo hay vào ngày nghỉ". Enter không lưu.
+- Chi tiết (tấm phải, `‹ Thói quen`): 3 ô `Hôm nay · Tuần này · Tổng N lần`; `4 TUẦN GẦN NHẤT 5/7 · 6/7 · 4/7 · 7/7` + 4 cột nhỏ; `LỊCH SỬ` theo ngày: `08:00 Đã làm` / `Chưa làm` (mờ) / `Đã bỏ phiên · 12 phút · ghi chú`. Hôm nay không bao giờ ghi `Chưa làm`.
+- Hôm nay (tab Nhiệm vụ): cuối trang, một dòng gập `THÓI QUEN · 2/5 ⌄`; mở ra chỉ những thói quen còn khung chưa làm.
+- Avora Space: một dòng `↻ Thói quen hôm nay 2/5 ›` dưới khối Cần chú ý; không có thói quen thì không hiện; không đánh dấu ở đây.
+- Bảng `Thói quen` (Kế hoạch › Avora lập sẵn › Nhiệm vụ): cột Thói quen · Loại · Lịch · Hôm nay · Tuần này · 4 tuần gần nhất · Tổng số lần; `⋯` dòng: Ghi chú riêng · Lưu trữ thói quen (không có Tạo việc).
+- Nhìn lại tuần / hôm nay: khối `↻ Thói quen  Đã giữ X · Chưa làm Y`, từng thói quen một dòng; không thêm câu hỏi.
+- Không mạng: dòng nhỏ `☁̸ Đã lưu trên máy · gửi khi có mạng`.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

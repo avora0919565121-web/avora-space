@@ -1,4 +1,5 @@
 import { addDaysIso, isObligationType, isLiabilityAccount, monthKey, outstandingCents, obligationStatusOf, OBLIGATION_STATUS_LABELS, signedCents, type Account, type LedgerEntry } from "@/lib/finance";
+import { dayTally, fourWeeks, isScheduledOn, kindText, scheduleText, tallyText, weekTally, type DoneIndex, type Habit } from "@/lib/habits";
 import { normalizeSearch } from "@/lib/normalize-search";
 import { SECTION_LABEL, SECTION_PATH, templateOf, type VaultPayload } from "@/lib/vault-templates";
 import type { VaultSection } from "@/lib/vault-crypto";
@@ -18,6 +19,7 @@ export type ViewBoardKey =
   | "memorable_days"
   | "my_projects"
   | "assigned_by_me"
+  | "habits"
   | "cashflow"
   | "summary"
   | "loans"
@@ -114,6 +116,27 @@ export const DEFAULT_BOARDS: readonly DefaultBoardDef[] = [
       { key: "status", label: "Trạng thái", kind: "text" },
     ],
     views: [VIEW_TABLE, { id: "person", label: "Theo người" }],
+  },
+  {
+    // AVORA-107 · 1.2 · 5 (đặc tả mục 6): always there, name and goal fixed; a row's ⋯ › Lưu trữ =
+    // stop following the habit (its log stays). Private note per row = the free column.
+    kind: "view",
+    key: "habits",
+    zone: "nhiem-vu",
+    name: "Thói quen",
+    goal: "Tôi đang duy trì những thói quen nào, và tuần này giữ được bao nhiêu?",
+    source: "Thói quen",
+    empty: "Tạo thói quen đầu tiên ở Nhiệm vụ › Thói quen",
+    columns: [
+      { key: "title", label: "Thói quen", kind: "text", phone: true },
+      { key: "kind", label: "Loại", kind: "text" },
+      { key: "schedule", label: "Lịch", kind: "text" },
+      { key: "today", label: "Hôm nay", kind: "text", phone: true },
+      { key: "week", label: "Tuần này", kind: "text", phone: true },
+      { key: "weeks", label: "4 tuần gần nhất", kind: "text" },
+      { key: "total", label: "Tổng số lần", kind: "number" },
+    ],
+    views: [VIEW_TABLE],
   },
   {
     kind: "view",
@@ -323,6 +346,28 @@ export function memorableDays(
 }
 
 // --- Việc tôi giao
+
+// --- Thói quen (AVORA-107)
+
+/** One row per habit still followed (archived = the row was removed). Read live from this device. */
+export function habitBoardRows(habits: readonly Habit[], done: DoneIndex, today: string, totalOf: (habitId: string) => number): ViewRow[] {
+  return habits
+    .filter((habit) => habit.archivedAt === null)
+    .sort((a, b) => a.name.localeCompare(b.name, "vi"))
+    .map((habit) => ({
+      key: habit.id,
+      href: `/nhiem-vu?muc=thoi-quen&thoi-quen=${encodeURIComponent(habit.id)}`,
+      cells: {
+        title: habit.name,
+        kind: kindText(habit),
+        schedule: scheduleText(habit),
+        today: habit.pausedAt !== null ? "Tạm nghỉ" : isScheduledOn(habit, today) ? tallyText(dayTally(habit, done, today)) : "Không có hôm nay",
+        week: tallyText(weekTally(habit, done, today)),
+        weeks: fourWeeks(habit, done, today).map(tallyText).join(" · "),
+        total: totalOf(habit.id),
+      },
+    }));
+}
 
 export type AssignedItem = {
   kind: "task" | "suggestion";

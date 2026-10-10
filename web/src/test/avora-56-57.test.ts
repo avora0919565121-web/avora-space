@@ -91,7 +91,8 @@ describe("AVORA-56 · E — completion effect", () => {
 
 describe("AVORA-57 · A — Hướng dẫn", () => {
   it("57.2: six cards, 3–5 lines each, no promises it cannot keep", () => {
-    expect(GUIDE_CARDS).toHaveLength(6);
+    // AVORA-107 · 1.2 · 8 added `Tạo một thói quen`.
+    expect(GUIDE_CARDS).toHaveLength(7);
     for (const card of GUIDE_CARDS) {
       expect(card.lines.length).toBeGreaterThanOrEqual(3);
       expect(card.lines.length).toBeLessThanOrEqual(5);

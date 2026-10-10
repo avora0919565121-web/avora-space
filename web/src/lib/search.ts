@@ -7,7 +7,7 @@ import { normalizeSearch } from "@/lib/normalize-search";
  * decides what that is. Két sắt / Tài chính never take part (they search inside Két sắt only).
  */
 
-export type SearchKind = "message" | "file" | "task" | "note" | "record" | "table" | "contact" | "conversation";
+export type SearchKind = "message" | "file" | "task" | "note" | "record" | "table" | "contact" | "conversation" | "habit";
 
 export type SearchTab = "ket-noi" | "nhat-ky" | "nhiem-vu" | "ke-hoach" | "avora-space";
 
@@ -31,7 +31,7 @@ export const SEARCH_TYPE_FILTERS: readonly { id: "all" | SearchKind; label: stri
   { id: "all", label: "Tất cả", kinds: null },
   { id: "message", label: "Tin nhắn", kinds: ["message", "conversation"] },
   { id: "file", label: "Tệp", kinds: ["file"] },
-  { id: "task", label: "Nhiệm vụ", kinds: ["task"] },
+  { id: "task", label: "Nhiệm vụ", kinds: ["task", "habit"] },
   { id: "note", label: "Ghi chép", kinds: ["note"] },
   { id: "record", label: "Hạng mục", kinds: ["record", "table"] },
   { id: "contact", label: "Liên hệ", kinds: ["contact"] },
@@ -162,6 +162,8 @@ export function resultHref(result: SearchResult, journalId: string | null): stri
       return `/ke-hoach?bang=${encodeURIComponent(result.id)}`;
     case "contact":
       return `/lien-he/${result.id}`;
+    case "habit":
+      return `/nhiem-vu?muc=thoi-quen&thoi-quen=${encodeURIComponent(result.id)}`;
     default:
       return null;
   }

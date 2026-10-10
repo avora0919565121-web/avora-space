@@ -195,13 +195,14 @@ const SIZES = [
 ] as const;
 
 for (const [w, h] of SIZES) {
-  test(`78.1 · tài khoản trống: đủ 11 bảng, mỗi bảng có Mục tiêu · ${w}x${h}`, async () => {
+  // AVORA-107 · 1.2 · 5: + `Thói quen` → 12.
+  test(`78.1 · tài khoản trống: đủ 12 bảng, mỗi bảng có Mục tiêu · ${w}x${h}`, async () => {
     seed({ empty: true, vaultOpen: true });
     await viewport(w, h);
     await render(<Frame at="/ke-hoach?ke=mac-dinh"><span /></Frame>);
     await settle(1400);
     const links = [...document.querySelectorAll("[data-view-board-link]")];
-    expect(links.length + document.querySelectorAll("[data-default-board]").length).toBe(11);
+    expect(links.length + document.querySelectorAll("[data-default-board]").length).toBe(12);
     for (const link of links) expect(link.textContent?.includes("?")).toBe(true);
     await page.screenshot({ path: `${OUT}/78-1-avora-lap-san-${w}.png` });
   });

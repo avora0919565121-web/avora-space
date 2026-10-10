@@ -8,6 +8,7 @@ import {
   cashflowRows,
   decisionRows,
   expiringRows,
+  habitBoardRows,
   loanRows,
   memorableDays,
   paymentRows,
@@ -22,6 +23,7 @@ import { conversationTitle } from "@/lib/chat-cache";
 import { todayIso } from "@/lib/finance";
 import { useAssignedByMe, useHiddenBoards, useMyDecisions, useMyProjectsSummary } from "@/lib/use-default-boards";
 import { useContacts } from "@/lib/use-contacts";
+import { useHabits } from "@/lib/use-habits";
 import { useConversations } from "@/lib/use-conversations";
 import { useLedger } from "@/lib/use-finance";
 import { useHasMasterKey, useKeyring, useVaultItems } from "@/lib/use-vault-e2ee";
@@ -48,6 +50,7 @@ export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {
   const certificates = useVaultItems("certificates", ring);
   const documents = useVaultItems("documents", ring);
   const assets = useVaultItems("assets", ring);
+  const habitState = useHabits();
 
   const placeOf = useMemo(() => {
     const map = new Map((conversations.data ?? []).map((summary) => [summary.conversationId, conversationTitle(summary)] as const));
@@ -74,6 +77,7 @@ export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {
       memorable_days: { rows: memorableDays(contacts.data ?? [], today), locked: false, isLoading: contacts.isPending, error: contacts.error?.message ?? null },
       my_projects: { rows: projectRows(projects.data ?? [], placeOf), locked: false, isLoading: projects.isPending, error: projects.error?.message ?? null },
       assigned_by_me: { rows: assignedRows(assigned.data ?? [], today), locked: false, isLoading: assigned.isPending, error: assigned.error?.message ?? null },
+      habits: { rows: habitBoardRows(habitState.habits, habitState.done, habitState.today, habitState.totalOf), locked: false, isLoading: !habitState.isLoaded, error: habitState.loadFailed ? "Không tải được thói quen." : null },
       cashflow: fin(() => cashflowRows(ledger.entries)),
       summary: fin(() => summaryRows(ledger.accounts, ledger.baseEntries, 6, today, hasKey ? assetResult.totalCents : null)),
       loans: fin(() => loanRows(ledger.entries, contactName, today)),
@@ -81,7 +85,7 @@ export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {
       expiring_docs: vault(() => expiringRows(vaultItems, today)),
       assets: vault(() => assetResult.rows),
     };
-  }, [isVaultOpen, hasKey, ledger, decisions.data, decisions.isPending, decisions.error, contacts.data, contacts.isPending, contacts.error, projects.data, projects.isPending, projects.error, assigned.data, assigned.isPending, assigned.error, placeOf, contactName, today, vaultItems, assetResult, paymentMonth, certificates.isPending, documents.isPending, assets.isPending]);
+  }, [isVaultOpen, hasKey, ledger, decisions.data, decisions.isPending, decisions.error, contacts.data, contacts.isPending, contacts.error, projects.data, projects.isPending, projects.error, assigned.data, assigned.isPending, assigned.error, placeOf, contactName, today, vaultItems, assetResult, paymentMonth, certificates.isPending, documents.isPending, assets.isPending, habitState.habits, habitState.done, habitState.today, habitState.totalOf, habitState.isLoaded, habitState.loadFailed]);
 
   const byMonth = useMemo(() => (isVaultOpen ? cashflowByMonth(ledger.baseEntries) : []), [isVaultOpen, ledger.baseEntries]);
   const byPerson = useMemo(() => assignedByPerson((assigned.data ?? []) as AssignedItem[], today), [assigned.data, today]);

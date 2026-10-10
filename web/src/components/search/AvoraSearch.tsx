@@ -13,6 +13,7 @@ import {
   Users,
   X,
   type LucideIcon,
+  Repeat,
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
@@ -48,6 +49,7 @@ const KIND_ICONS: Readonly<Record<SearchKind, LucideIcon>> = {
   table: Table2,
   contact: UserRound,
   conversation: Users,
+  habit: Repeat,
 };
 
 const OPEN_EVENT = "avora:search";

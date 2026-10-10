@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { BookOpen, CalendarClock, CheckCircle2, ChevronRight, Hourglass, Lightbulb, Loader2, Scissors, Star, X } from "lucide-react";
+import { BookOpen, CalendarClock, CheckCircle2, ChevronRight, Hourglass, Lightbulb, Loader2, Repeat, Scissors, Star, X } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -9,10 +9,12 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import { useAuth } from "@/lib/auth";
 import { chatKeys, ensureJournalConversation, sendMessage } from "@/lib/chat";
+import { habitReview, localDateOf } from "@/lib/habits";
 import { logError } from "@/lib/log";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { DAY_QUESTIONS, dismissReview, reviewJournalText, WEEK_QUESTIONS, type ReviewKind } from "@/lib/review";
 import { recordLink, statusLabelIn } from "@/lib/think-hub";
+import { useHabits } from "@/lib/use-habits";
 import { useThinkHubActions } from "@/lib/use-think-hub";
 import { useShelfActions } from "@/lib/use-think-hub-shelf";
 import type { ReviewState } from "@/lib/use-review";
@@ -108,6 +110,15 @@ export function ReviewSheet({
       .then(() => toast.success("Đã chuyển sang Không làm nữa (không xoá)."))
       .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không đổi được."));
   };
+
+  const { habits, done: habitDone } = useHabits();
+  const habitLines = useMemo(() => {
+    const fromDay = localDateOf(range.from);
+    const toDay = localDateOf(new Date(range.to.getTime() - 1));
+    return habitReview(habits, habitDone, fromDay, toDay);
+  }, [habits, habitDone, range.from, range.to]);
+  const habitKept = habitLines.reduce((sum, line) => sum + line.kept, 0);
+  const habitMissed = habitLines.reduce((sum, line) => sum + line.missed, 0);
 
   const shownThought = showAllThought ? thoughtRows : thoughtRows.slice(0, THOUGHT_LIMIT);
 
@@ -241,6 +252,22 @@ export function ReviewSheet({
               </ul>
             )}
           </Block>
+
+          {habitLines.length > 0 ? (
+            // AVORA-107 · 1.2 · 6: read-only, the same quiet words as Thói quen — no question added.
+            <section data-review-habits="">
+              <Block icon={<Repeat className="h-4 w-4 text-muted-foreground" aria-hidden="true" />} title="Thói quen" count={`Đã giữ ${habitKept} · Chưa làm ${habitMissed}`}>
+                <ul className="space-y-1">
+                  {habitLines.map((line) => (
+                    <li key={line.habitId} className="flex items-baseline gap-2 px-1.5 text-[13.5px]">
+                      <span className="min-w-0 flex-1 truncate text-foreground">{line.name}</span>
+                      <span className="tabular text-[12.5px] text-muted-foreground">Đã giữ {line.kept} · Chưa làm {line.missed}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Block>
+            </section>
+          ) : null}
 
           <section className="space-y-3 pt-1">
             {questions.map((question, index) => (

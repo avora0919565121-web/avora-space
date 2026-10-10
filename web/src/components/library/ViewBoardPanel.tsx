@@ -1,4 +1,4 @@
-import { ChevronRight, EyeOff, ListPlus, Lock, Maximize2, Minimize2, MoreHorizontal, NotebookPen, Star } from "lucide-react";
+import { Archive, ChevronRight, EyeOff, ListPlus, Lock, Maximize2, Minimize2, MoreHorizontal, NotebookPen, Star } from "lucide-react";
 import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -13,6 +13,7 @@ import { normalizeSearch } from "@/lib/normalize-search";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { useHiddenBoards, useRowMeta } from "@/lib/use-default-boards";
 import { useComposerActions } from "@/lib/use-task-composer";
+import { archiveHabit } from "@/lib/use-habits";
 import { useViewBoardRows } from "@/lib/use-view-board-rows";
 import { cn } from "@/lib/utils";
 
@@ -137,7 +138,14 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
           ) : board.error !== null ? (
             <p role="alert" className="mt-6 text-[14px] text-destructive">{board.error}</p>
           ) : board.rows.length === 0 ? (
-            <p data-view-empty="" className="mt-6 rounded-xl border border-dashed border-border px-4 py-5 text-[14.5px] text-muted-foreground">{def.empty}</p>
+            <div data-view-empty="" className="mt-6 rounded-xl border border-dashed border-border px-4 py-5 text-[14.5px] text-muted-foreground">
+              <p>{def.empty}</p>
+              {boardKey === "habits" ? (
+                <button type="button" onClick={() => navigate(withReturn("/nhiem-vu?muc=thoi-quen", here))} className="press mt-3 h-10 rounded-md border border-border px-3 text-[13.5px] text-foreground">
+                  Mở Thói quen
+                </button>
+              ) : null}
+            </div>
           ) : view === "month" ? (
             <table className="mt-4 w-full text-[14px]" data-view="month">
               <thead>
@@ -202,9 +210,21 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
                         <DropdownMenuItem onSelect={() => void editNote(row)}>
                           <NotebookPen className="mr-2 h-4 w-4" /> Ghi chú riêng
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => setTaskFrom(row)}>
-                          <ListPlus className="mr-2 h-4 w-4" /> Tạo việc
-                        </DropdownMenuItem>
+                        {boardKey === "habits" ? (
+                          // Thói quen là kỷ luật, không phải nhiệm vụ: no `Tạo việc`; removing the row = Lưu trữ.
+                          <DropdownMenuItem
+                            onSelect={() => {
+                              archiveHabit(row.key, true);
+                              toast(`Đã lưu trữ “${titleOf(row)}”. Lịch sử vẫn còn.`, { action: { label: "Hoàn tác", onClick: () => archiveHabit(row.key, false) } });
+                            }}
+                          >
+                            <Archive className="mr-2 h-4 w-4" /> Lưu trữ thói quen
+                          </DropdownMenuItem>
+                        ) : (
+                          <DropdownMenuItem onSelect={() => setTaskFrom(row)}>
+                            <ListPlus className="mr-2 h-4 w-4" /> Tạo việc
+                          </DropdownMenuItem>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </li>

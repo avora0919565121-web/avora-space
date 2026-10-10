@@ -60,21 +60,24 @@ function entry(part: Partial<LedgerEntry> & { id: string }): LedgerEntry {
 }
 
 describe("78.1 · registry", () => {
-  it("11 boards: 1 Bảng nối + 10 Bảng xem, each with a goal and an empty line", () => {
-    expect(DEFAULT_BOARDS).toHaveLength(11);
+  it("12 boards: 1 Bảng nối + 11 Bảng xem, each with a goal and an empty line", () => {
+    // AVORA-107 · 1.2 · 5 added `Thói quen` (its empty line is the spec's own words).
+    expect(DEFAULT_BOARDS).toHaveLength(12);
     expect(DEFAULT_BOARDS.filter((b) => b.kind === "link").map((b) => b.key)).toEqual(["opportunities"]);
-    expect(VIEW_BOARDS).toHaveLength(10);
+    expect(VIEW_BOARDS).toHaveLength(11);
     for (const board of VIEW_BOARDS) {
       expect(board.goal.endsWith("?")).toBe(true);
-      expect(board.empty.startsWith("Dữ liệu vào đây khi")).toBe(true);
+      if (board.key === "habits") expect(board.empty).toBe("Tạo thói quen đầu tiên ở Nhiệm vụ › Thói quen");
+      else expect(board.empty.startsWith("Dữ liệu vào đây khi")).toBe(true);
     }
     expect(VIEW_BOARDS.filter((b) => b.zone === "ket-sat").map((b) => b.key)).toEqual(["cashflow", "summary", "loans", "payment_calendar", "expiring_docs", "assets"]);
-    expect(VIEW_BOARDS.filter((b) => b.zone === "nhiem-vu").map((b) => b.key)).toEqual(["assigned_by_me"]);
+    expect(VIEW_BOARDS.filter((b) => b.zone === "nhiem-vu").map((b) => b.key)).toEqual(["assigned_by_me", "habits"]);
   });
 
   it("the migration accepts exactly the registry's view keys, and seals Két sắt notes", () => {
     const sql = readFileSync(path.resolve(__dirname, "../../../supabase/migrations/20261004100000_avora78_view_boards.sql"), "utf8");
-    for (const board of VIEW_BOARDS) expect(sql).toContain(`'${board.key}'`);
+    const habits = readFileSync(path.resolve(__dirname, "../../../supabase/migrations/20261010140000_avora107_habits.sql"), "utf8");
+    for (const board of VIEW_BOARDS) expect(board.key === "habits" ? habits : sql).toContain(`'${board.key}'`);
     expect(sql).toContain("view_row_meta_vault_sealed");
     expect(sql).toMatch(/as restrictive for all to public/);
     expect(sql).toMatch(/revoke all on public\.think_hub_view_row_meta from public, anon/);

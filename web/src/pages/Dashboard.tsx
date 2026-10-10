@@ -6,6 +6,7 @@ import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBound
 import { ThoughtNote } from "@/components/space/ThoughtNote";
 import { NavRulesIntro } from "@/components/nav/NavRules";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
+import { HabitSpaceLine } from "@/components/habits/HabitSpaceLine";
 import { useReview } from "@/lib/use-review";
 import { useAuth, useDisplayName } from "@/lib/auth";
 import { conversationsWithUnread, unreadSummaryText } from "@/lib/chat";
@@ -301,6 +302,7 @@ export default function Dashboard() {
                     </div>
                   )}
                 </div>
+                <HabitSpaceLine href={withReturn("/nhiem-vu?muc=thoi-quen", SPACE_ORIGIN)} />
                 <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1">
                   <Link to={withReturn("/nhiem-vu", SPACE_ORIGIN)} className="inline-flex min-h-10 items-center text-[13px] font-medium text-muted-foreground underline decoration-border underline-offset-2 hover:text-foreground">
                     Xem tất cả nhiệm vụ
