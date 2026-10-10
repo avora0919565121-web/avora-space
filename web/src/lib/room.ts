@@ -17,9 +17,10 @@ export const ROOM_SHELVES: readonly { id: RoomShelf; name: string; short: string
   { id: 1, name: "Toàn cảnh", short: "Toàn cảnh", row: "wall" },
   { id: 2, name: "Tổng quan", short: "Tổng quan", row: "wall" },
   { id: 3, name: "Tiến trình", short: "Tiến trình", row: "wall" },
-  { id: 4, name: "Bảng Avora", short: "Bảng Avora", row: "desk" },
+  // AVORA-101C: `short` is the word on the strip, read after `Bàn` (Bàn › Avora · Đọc & Nhật ký · Làm việc).
+  { id: 4, name: "Bảng Avora", short: "Avora", row: "desk" },
   { id: 5, name: "Đọc & Nhật ký", short: "Đọc & Nhật ký", row: "desk" },
-  { id: 6, name: "Bàn làm việc", short: "Bàn làm việc", row: "desk" },
+  { id: 6, name: "Bàn làm việc", short: "Làm việc", row: "desk" },
 ];
 
 export function shelfOfRoom(id: RoomShelf): (typeof ROOM_SHELVES)[number] {
@@ -115,4 +116,53 @@ export function startsInHorizontalScroller(target: EventTarget | null, stopAt: E
     node = node.parentElement;
   }
   return false;
+}
+
+// ------------------------------------------------------------------ AVORA-101C · Kệ | Bàn
+
+export type RoomRow = "wall" | "desk";
+/** First time on each row (VMT 08/10 23:17): wall → kệ 2, desk → kệ 6. */
+export const ROW_HOME: Readonly<Record<RoomRow, RoomShelf>> = { wall: 2, desk: 6 };
+const LAST_KEY = "avora-room-last";
+
+export function rowOf(id: RoomShelf): RoomRow {
+  return id <= 3 ? "wall" : "desk";
+}
+
+/** The three shelves of a row, always in the same order (1 2 3 · 4 5 6) so places never move. */
+export function shelvesOfRow(row: RoomRow): readonly (typeof ROOM_SHELVES)[number][] {
+  return ROOM_SHELVES.filter((item) => item.row === row);
+}
+
+function readLast(storage: Pick<Storage, "getItem"> | null): Partial<Record<RoomRow, unknown>> {
+  try {
+    const raw = storage?.getItem(LAST_KEY) ?? null;
+    const parsed: unknown = raw === null ? null : JSON.parse(raw);
+    return parsed !== null && typeof parsed === "object" ? (parsed as Partial<Record<RoomRow, unknown>>) : {};
+  } catch {
+    return {};
+  }
+}
+
+function deviceStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** Where `Kệ | Bàn` lands: the shelf last stood on in that row (device memory), else the row's home. */
+export function lastShelfOfRow(row: RoomRow, storage: Pick<Storage, "getItem"> | null = deviceStorage()): RoomShelf {
+  const value = readLast(storage)[row];
+  return isRoomShelf(value) && rowOf(value) === row ? value : ROW_HOME[row];
+}
+
+/** Remembers the shelf as the last one of its row. Device memory only — no column, no server call. */
+export function rememberShelf(id: RoomShelf, storage: Pick<Storage, "getItem" | "setItem"> | null = deviceStorage()): void {
+  try {
+    storage?.setItem(LAST_KEY, JSON.stringify({ ...readLast(storage), [rowOf(id)]: id }));
+  } catch {
+    // Private mode or full storage: the row's home is a fine answer.
+  }
 }

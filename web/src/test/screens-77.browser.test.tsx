@@ -949,6 +949,10 @@ test("88.1b · kệ 2: Đang nghĩ (câu hỏi = mục đích, ô trống) · Đ
   expect([...(thinking?.querySelectorAll("[data-open-question]") ?? [])].map((n) => n.getAttribute("data-open-question"))).toEqual(["b1", "b5"]);
   expect(thinking?.textContent).toContain("“Làm gì trước khi mùa mưa tới?”");
   expect(thinking?.textContent).toContain("Còn trống 3 ô");
+  // AVORA-101C: "Để lâu" is one counting row; a tap shows the oldest.
+  expect(document.querySelector('[data-overview="dusty"]')?.textContent).toContain("Để lâu chưa nghĩ tiếp · 1");
+  document.querySelector<HTMLButtonElement>("[data-overview-dusty-toggle]")?.click();
+  await settle(300);
   expect(document.querySelector('[data-overview="dusty"]')?.textContent).toContain("10 ngày chưa mở");
   expect(document.querySelector('[data-overview="no-question"]')?.textContent).toContain("1 bảng chưa có câu hỏi");
   expect(document.querySelector('[data-overview="settled"]')?.textContent).toContain("Chốt nhà cung cấp Rạng Đông");
@@ -958,24 +962,30 @@ test("88.1b · kệ 2: Đang nghĩ (câu hỏi = mục đích, ô trống) · Đ
   expect(document.querySelector("[data-board-question]")?.textContent).toBe("Làm gì trước khi mùa mưa tới?");
 });
 
-test("88.2 · đi đủ 6 kệ bằng ‹ › và nút lên/xuống; 1/4 không có ‹, 3/6 không có ›", async () => {
+test("88.2 → 101C · đi đủ 6 kệ bằng dải chuẩn và Kệ | Bàn; không còn nút nổi", async () => {
   await viewport(390, 844);
   await render(<App at="/ke-hoach?ke=1" />);
   await settle(1000);
   const at = () => Number(document.querySelector("[data-room-bar]")?.getAttribute("data-room-bar"));
   const click = (sel: string) => document.querySelector<HTMLButtonElement>(sel)?.click();
+  const strip = document.querySelector("[data-room-bar] [data-sub-tabs]");
   const seen: number[] = [];
-  for (const step of ["", "[data-room-next]", "[data-room-next]", "[data-room-updown]", "[data-room-prev]", "[data-room-prev]"]) {
+  for (const step of ["", '[data-sub-tab="2"]', '[data-sub-tab="3"]', '[data-room-row="desk"]', '[data-sub-tab="5"]', '[data-sub-tab="4"]', '[data-room-row="wall"]', '[data-room-row="desk"]']) {
     if (step !== "") click(step);
     await settle(450);
-    seen.push(at());
     const id = at();
-    expect(document.querySelector("[data-room-prev]") === null).toBe(id === 1 || id === 4);
-    expect(document.querySelector("[data-room-next]") === null).toBe(id === 3 || id === 6);
-    expect(document.querySelector("[data-room-minimap] [data-on]")).not.toBeNull();
+    seen.push(id);
+    // One strip that never remounts; three shelves of the row; no floating pill, no mini map.
+    expect(document.querySelector("[data-room-bar] [data-sub-tabs]")).toBe(strip);
+    expect([...document.querySelectorAll("[data-room-bar] [data-sub-tab]")].map((n) => Number(n.getAttribute("data-sub-tab")))).toEqual(id <= 3 ? [1, 2, 3] : [4, 5, 6]);
+    expect(document.querySelector("[data-room-updown]")).toBeNull();
+    expect(document.querySelector("[data-room-minimap]")).toBeNull();
     await page.screenshot({ path: `${OUT79}/88-2-ke-${id}-390.png` });
   }
-  expect(seen).toEqual([1, 2, 3, 6, 5, 4]);
+  // Kệ | Bàn: first time desk → 6 (VMT 08/10); after that, the last shelf stood on in each row.
+  expect(seen).toEqual([1, 2, 3, 6, 5, 4, 3, 4]);
+  const bar = document.querySelector("[data-room-bar] [data-sub-tabs]")?.getBoundingClientRect();
+  expect(Math.round(bar?.height ?? 0)).toBe(40);
 });
 
 test("88.3 · chạm bản đồ → tấm Cả phòng → ô 6", async () => {
@@ -1119,13 +1129,14 @@ for (const [at, shelf] of [["/ke-hoach?bay=tien-trinh", "3"], ["/ke-hoach?ke=ke-
   });
 }
 
-test("88.12 · máy tính bấm ↓ từ kệ 2 → kệ 5; giảm chuyển động: không trượt", async () => {
+test("88.12 · máy tính bấm ↓ từ kệ 2 → kệ 6; giảm chuyển động: không trượt", async () => {
   await viewport(1280, 800);
   await render(<App at="/ke-hoach?ke=2" />);
   await settle(800);
   window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowDown", bubbles: true }));
   await settle(500);
-  expect(document.querySelector('[data-room-shelf="5"]')).not.toBeNull();
+  // AVORA-101C: ↓ changes row like `Bàn` — to the desk's last shelf (first time: kệ 6).
+  expect(document.querySelector('[data-room-shelf="6"]')).not.toBeNull();
   // The slide class exists; under prefers-reduced-motion the CSS swaps it for a fade (index.css).
   expect(document.querySelector("[data-room-stage]")?.className).toContain("room-in-down");
   const css = [...document.styleSheets].flatMap((sheet) => { try { return [...sheet.cssRules].map((r) => r.cssText); } catch { return []; } }).join(" ");
@@ -1211,3 +1222,110 @@ for (const [w, h] of SIZES94) {
     await page.screenshot({ path: `${OUT94}/94-doc-4-vung-${w}.png` });
   });
 }
+
+// ------------------------------------------------------------------ AVORA-101C · Kế hoạch trong khung chuẩn
+const OUT101C = "../../../docs/screens/2026-10-10";
+
+let planStrip: { h: number; font: string; bar: string } | null = null;
+test("101C.1 · dải kệ = dải Nhiệm vụ: 40px, chữ 13px, gạch chân tông cá nhân; không phần tử nổi", async () => {
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=2" />);
+  await settle(1000);
+  const plan = document.querySelector("[data-room-bar] [data-sub-tabs]") as HTMLElement;
+  const planTab = plan.querySelector('[data-sub-tab="2"]') as HTMLElement;
+  const planBar = plan.querySelector("[data-sub-tab-bar]") as HTMLElement;
+  const measured = { h: plan.getBoundingClientRect().height, font: getComputedStyle(planTab).fontSize, bar: getComputedStyle(planBar).backgroundColor };
+  expect(document.querySelector("[data-room-updown]")).toBeNull();
+  // Nothing of the room floats over the page on a phone.
+  const floating = [...document.querySelectorAll("[data-room-shelf] *, [data-room-bar] *")].filter((node) => ["fixed", "absolute"].includes(getComputedStyle(node).position) && node.getBoundingClientRect().height > 30);
+  expect(floating.length).toBe(0);
+  await page.screenshot({ path: `${OUT101C}/101C-1-dai-ke-390.png` });
+  expect(measured.h).toBe(40);
+  expect(measured.font).toBe("13px");
+  planStrip = measured;
+});
+
+for (const [w, h] of [[390, 844], [360, 740]] as const) {
+  test(`101C.2 · tầng 0 của từng kệ thấy ngay không cuộn · ${w}x${h}`, async () => {
+    db.tables.think_hub_desk = [{ table_id: "b1", placed_at: daysAgo(1) }];
+    await viewport(w, h);
+    await render(<App at="/ke-hoach?ke=1" />);
+    await settle(1000);
+    const report: string[] = [];
+    for (const shelf of [1, 2, 3, 4, 5, 6] as const) {
+      document.querySelector<HTMLButtonElement>(shelf <= 3 ? '[data-room-row="wall"]' : '[data-room-row="desk"]')?.click();
+      await settle(350);
+      document.querySelector<HTMLButtonElement>(`[data-sub-tab="${shelf}"]`)?.click();
+      await settle(500);
+      const root = document.querySelector(`[data-room-shelf="${shelf}"]`) as HTMLElement;
+      expect(root).not.toBeNull();
+      const floor = (document.querySelector("[data-scroll-memory]") as HTMLElement).getBoundingClientRect().bottom;
+      // The shelf's first block starts on screen (its main answer is seen without scrolling).
+      const first = (root.firstElementChild as HTMLElement).getBoundingClientRect();
+      expect(first.top).toBeLessThan(floor);
+      report.push(`${shelf}:${Math.round(root.getBoundingClientRect().bottom - floor)}`);
+      await page.screenshot({ path: `${OUT101C}/101C-2-ke-${shelf}-${w}.png` });
+    }
+    console.log(`101C tầng 0 ${w}x${h}`, report.join(" "));
+  });
+}
+
+test("101C.3 · Kệ | Bàn nhớ kệ cuối của hàng; cuộn mỗi kệ được nhớ", async () => {
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=5" />);
+  await settle(1100);
+  const scroller = document.querySelector("[data-scroll-memory]") as HTMLElement;
+  scroller.scrollTop = 180;
+  scroller.dispatchEvent(new Event("scroll"));
+  const kept = scroller.scrollTop;
+  document.querySelector<HTMLButtonElement>('[data-room-row="wall"]')?.click();
+  await settle(500);
+  expect(document.querySelector('[data-room-shelf="2"]')).not.toBeNull();
+  expect(document.querySelector("[data-room-stage]")?.className).toContain("room-in-up");
+  document.querySelector<HTMLButtonElement>('[data-room-row="desk"]')?.click();
+  await settle(500);
+  expect(document.querySelector('[data-room-shelf="5"]')).not.toBeNull();
+  expect(document.querySelector("[data-room-stage]")?.className).toContain("room-in-down");
+  expect(Math.abs(scroller.scrollTop - kept)).toBeLessThanOrEqual(2);
+});
+
+test("101C.4 · kệ 5: Sách mở sẵn, Nhật ký một hàng; + = Thêm sách kiểu .icon-btn tông cá nhân", async () => {
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=5" />);
+  await settle(1100);
+  expect(document.querySelector('[data-room-zone="books"]')?.hasAttribute("data-open")).toBe(true);
+  expect(document.querySelector('[data-room-zone="diary"]')?.hasAttribute("data-open")).toBe(false);
+  expect(document.querySelector("[data-diary-door]")).toBeNull();
+  const plus = document.querySelector("[data-plus-button]") as HTMLElement;
+  expect(plus.getAttribute("aria-label")).toMatch(/^Thêm sách/);
+  expect(plus.className).toContain("icon-btn");
+  expect(plus.className).not.toContain("bg-primary");
+  document.querySelector<HTMLButtonElement>('[data-room-zone-toggle="diary"]')?.click();
+  await settle(400);
+  expect(document.querySelector("[data-diary-door]")).not.toBeNull();
+  await page.screenshot({ path: `${OUT101C}/101C-4-ke-5-390.png` });
+});
+
+test("101C.5 · kệ 6: thẻ bàn hai dòng (câu hỏi ≤ 2 dòng · một dòng thông tin)", async () => {
+  db.tables.think_hub_desk = [{ table_id: "b1", placed_at: daysAgo(1) }];
+  await viewport(390, 844);
+  await render(<App at="/ke-hoach?ke=6" />);
+  await settle(1000);
+  const card = document.querySelector('[data-desk-card="b1"] button') as HTMLElement;
+  expect(card.children.length).toBe(2);
+  const meta = card.querySelector("[data-desk-meta]") as HTMLElement;
+  expect(meta.textContent).toMatch(/hạng mục · sửa/);
+  expect(meta.getBoundingClientRect().height).toBeLessThan(22);
+  await page.screenshot({ path: `${OUT101C}/101C-5-ke-6-390.png` });
+});
+
+test("101C.1b · dải Nhiệm vụ đo bằng đúng dải kệ", async () => {
+  await viewport(390, 844);
+  await render(<App at="/nhiem-vu" />);
+  await settle(900);
+  const tasks = document.querySelector("[data-sub-tabs]") as HTMLElement;
+  const taskTab = tasks.querySelector("[data-sub-tab]") as HTMLElement;
+  expect(tasks.getBoundingClientRect().height).toBe(planStrip?.h ?? 40);
+  expect(getComputedStyle(taskTab).fontSize).toBe(planStrip?.font ?? "13px");
+  if (planStrip !== null) expect(getComputedStyle(tasks.querySelector("[data-sub-tab-bar]") as HTMLElement).backgroundColor).toBe(planStrip.bar);
+});

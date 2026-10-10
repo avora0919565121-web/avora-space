@@ -37,6 +37,7 @@ export function SubTabs({
   className,
   leading,
   trailing,
+  dense = false,
 }: {
   items: readonly SubTabItem[];
   value: string;
@@ -48,6 +49,8 @@ export function SubTabs({
   leading?: ReactNode;
   /** Something fixed at the right of the strip (Kế hoạch's map button). */
   trailing?: ReactNode;
+  /** Tighter side padding per tab, when leading/trailing share the row. */
+  dense?: boolean;
 }) {
   const scrolls = items.length > 4;
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -62,14 +65,15 @@ export function SubTabs({
       setBar(null);
       return;
     }
-    const measure = (): void => setBar({ left: tab.offsetLeft + 8, width: Math.max(0, tab.offsetWidth - 16) });
+    const inset = dense ? 4 : 8;
+    const measure = (): void => setBar({ left: tab.offsetLeft + inset, width: Math.max(0, tab.offsetWidth - inset * 2) });
     measure();
     if (scrolls) tab.scrollIntoView?.({ inline: "center", block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(list);
     return () => observer.disconnect();
-  }, [value, scrolls, items]);
+  }, [value, scrolls, items, dense]);
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -115,9 +119,10 @@ export function SubTabs({
               data-sub-tab={item.id}
               onClick={() => onChange(item.id)}
               className={cn(
-                "press relative flex items-center justify-center gap-1 whitespace-nowrap px-2 text-[13px] transition-colors",
+                "press relative flex items-center justify-center gap-1 whitespace-nowrap text-[13px] transition-colors",
+                dense ? "px-1" : "px-2",
                 "before:absolute before:inset-x-0 before:-inset-y-[2px] before:content-['']",
-                scrolls ? "shrink-0" : "min-w-0 flex-1",
+                scrolls ? "shrink-0" : dense ? "min-w-0 flex-auto" : "min-w-0 flex-1",
                 isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
               )}
             >

@@ -19,7 +19,7 @@ import {
   X,
 } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
@@ -64,9 +64,9 @@ import { BottomTabStrip } from "@/components/nav/TempTabBar";
 /** AVORA-93 · 4.3: the Hạng mục open on a focused board (`?hm=<record id>`). */
 const OPEN_RECORD_PARAM = "hm";
 import { BookNotes, BooksCard, ReadingTime, RoomNumbers, StatsMenu } from "@/components/library/RoomStats";
-import { EdgeArrows, OverviewShelf, ProgressMatrix, RoomBar, RoomMapSheet, RoomStage, ThinkingOverview, UpDownPill, WorkDesk, type SpinePreview } from "@/components/library/PlanRoom";
+import { EdgeArrows, OverviewShelf, ProgressMatrix, RoomMapSheet, RoomStage, RoomStrip, ShelfZone, ThinkingOverview, WorkDesk, type SpinePreview } from "@/components/library/PlanRoom";
 import { AudienceAsk, PlacePicker, TemplateLibrary } from "@/components/library/TemplateLibrary";
-import { neighbour, ROOM_HOME, ROOM_PARAM, roomFromParams, shelfOfRoom, startsInHorizontalScroller, swipeDirection, type RoomShelf } from "@/lib/room";
+import { lastShelfOfRow, neighbour, rememberShelf, ROOM_HOME, ROOM_PARAM, roomFromParams, rowOf, shelfOfRoom, startsInHorizontalScroller, swipeDirection, type RoomShelf } from "@/lib/room";
 import { templateUsage, useOpenQuestions, useRoomPrefs } from "@/lib/use-room";
 import { useFocusHeader } from "@/lib/focus-header";
 import { libraryTemplates, type BoardTemplate } from "@/lib/think-hub-shelf";
@@ -251,6 +251,7 @@ const ThinkHub = () => {
   const [addBookRequest, setAddBookRequest] = useState<number>(0);
   const [isThinkingTypeOpen, setIsThinkingTypeOpen] = useState<boolean>(false);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const shelfScroll = useRef<Map<RoomShelf, number>>(new Map());
   const focusScrollRef = useRef<number>(0);
   const notesData = useNotes();
   const bookshelfData = useBookshelf();
@@ -1255,6 +1256,11 @@ const ThinkHub = () => {
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   const [isStoreOpen, setIsStoreOpen] = useState<boolean>(false);
   const [isShelfOpen, setIsShelfOpen] = useState<boolean>(false);
+  const [isBooksOpen, setIsBooksOpen] = useState<boolean>(true);
+  const [isDiaryOpen, setIsDiaryOpen] = useState<boolean>(() => roomFromUrl?.focus === "diary");
+  useEffect(() => {
+    if (roomFromUrl?.focus === "diary") setIsDiaryOpen(true);
+  }, [roomFromUrl?.focus]);
   const [focusLane, setFocusLane] = useState<"waiting" | "thinking" | "concluded" | null>(null);
   const deskBook: DeskBook | null = useMemo(() => {
     const reading = bookshelfData.books.filter((book) => book.status === "dang_doc").sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
@@ -1291,23 +1297,30 @@ const ThinkHub = () => {
     setIsLibraryOpen(false);
     setIsStoreOpen(false);
     setRoomDir(dir ?? (to > room ? (to - room >= 3 ? "down" : "right") : room - to >= 3 ? "up" : "left"));
+    // AVORA-101C: each shelf keeps its own scroll; coming back finds the same place.
+    if (scrollRef.current !== null && inRoom) shelfScroll.current.set(room, scrollRef.current.scrollTop);
     setSearchParams(params, { replace: true });
     roomPrefs.saveRoom(to);
-    scrollRef.current?.scrollTo({ top: 0 });
   };
   const inRoom = active === null && activeView === null && !isLibraryOpen && !isFullscreen;
   useEffect(() => {
     if (active === null && activeView === null) roomPrefs.saveRoom(room);
+    rememberShelf(room);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- remember where the person stands
   }, [room]);
+  useLayoutEffect(() => {
+    if (!inRoom) return;
+    scrollRef.current?.scrollTo({ top: shelfScroll.current.get(room) ?? 0 });
+  }, [room, inRoom]);
   useEffect(() => {
     if (!inRoom || isSearchOpen) return;
     const onKey = (event: KeyboardEvent): void => {
       const target = event.target as HTMLElement | null;
-      if (target !== null && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))) return;
+      if (event.defaultPrevented || (target !== null && (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)))) return;
       const side = event.key === "ArrowLeft" ? "left" : event.key === "ArrowRight" ? "right" : event.key === "ArrowUp" ? "up" : event.key === "ArrowDown" ? "down" : null;
       if (side === null) return;
-      const to = neighbour(room, side);
+      // ←/→ along the row; ↑/↓ change row, like `Kệ | Bàn` (to the last shelf stood on there).
+      const to = side === "up" ? (rowOf(room) === "desk" ? lastShelfOfRow("wall") : null) : side === "down" ? (rowOf(room) === "wall" ? lastShelfOfRow("desk") : null) : neighbour(room, side);
       if (to === null) return;
       event.preventDefault();
       goRoom(to, side);
@@ -1707,37 +1720,39 @@ const ThinkHub = () => {
         action={
           <div className="flex items-center gap-2">
             <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Tìm trong Kế hoạch" data-plan-search-button="" className="icon-btn h-11 w-11 text-foreground">
-              <Search className="h-[18px] w-[18px]" aria-hidden="true" />
+              <Search className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
             </button>
-            {drawer === "sach" && active === null ? (
-              <button
-                type="button"
-                onClick={() => setAddBookRequest((count) => count + 1)}
-                className="press inline-flex h-11 items-center gap-1.5 rounded-xl bg-primary px-4 text-[14px] font-semibold text-primary-foreground"
-              >
-                <Plus className="h-[18px] w-[18px]" aria-hidden="true" /> <span className="hidden sm:inline">Thêm sách</span>
-              </button>
-            ) : (
-              // AVORA-57 · E: one `+` — tap adds a Hạng mục, hold (or ▾) offers Hạng mục / Bảng.
-              <PlanPlusButton
-                canAddRecord={active !== null && !isReadOnly}
-                onNewRecord={openNewRecord}
-                onNewTable={() => {
-                  if (!roomPrefs.audiencesAsked) setIsAudienceAskOpen(true);
-                  setActiveId(null);
-                  setIsLibraryOpen(true);
-                }}
-              />
-            )}
+            {/* AVORA-57 · E: one `+` — tap adds a Hạng mục, hold (or ▾) offers Hạng mục / Bảng.
+                AVORA-101C: among the books (kệ 5 · Sách) the same `+` adds a book; never an orange pill. */}
+            <PlanPlusButton
+              canAddRecord={active !== null && !isReadOnly}
+              onNewRecord={openNewRecord}
+              onNewTable={() => {
+                if (!roomPrefs.audiencesAsked) setIsAudienceAskOpen(true);
+                setActiveId(null);
+                setIsLibraryOpen(true);
+              }}
+              onAddBook={
+                active === null && activeView === null && (drawer === "sach" || (inRoom && room === 5))
+                  ? () => {
+                      setIsShelfOpen(true);
+                      setIsBooksOpen(true);
+                      setAddBookRequest((count) => count + 1);
+                    }
+                  : undefined
+              }
+            />
           </div>
         }
       />
       )}
-      {inRoom && !isSearchOpen ? <RoomBar shelf={room} onGo={(to, dir) => goRoom(to, dir)} onOpenMap={() => setIsRoomMapOpen(true)} /> : null}
-      {inRoom && !isSearchOpen ? <UpDownPill shelf={room} onGo={(to, dir) => goRoom(to, dir)} /> : null}
+      {inRoom && !isSearchOpen ? <RoomStrip shelf={room} onGo={(to, dir) => goRoom(to, dir)} onOpenMap={() => setIsRoomMapOpen(true)} /> : null}
       <div
         ref={scrollRef}
         data-scroll-memory=""
+        onScroll={(event) => {
+          if (inRoom) shelfScroll.current.set(room, event.currentTarget.scrollTop);
+        }}
         className={cn("min-h-0 flex-1 overflow-y-auto", inRoom && (room <= 3 ? "bg-[hsl(var(--room-wall)/0.45)]" : "bg-[hsl(var(--room-desk)/0.45)]"))}
         onTouchStart={(event) => {
           const touch = event.touches[0];
@@ -1848,7 +1863,9 @@ const ThinkHub = () => {
               <div data-room-shelf="5">
                 <div className="flex justify-end"><StatsMenu /></div>
                 {/* AVORA-93 · PHẦN 2 · 3 / AVORA-94 · B2.3: computer = two columns as in Ke2-Ke5-So-Lieu.png
-                    (left: reading time + books · right: book notes + diary); a phone reads time → notes → books → diary. */}
+                    (left: reading time + books · right: book notes); a phone reads time → notes → books. */}
+                {/* AVORA-101C · two zones, no second strip: Sách open, Nhật ký one folded row. */}
+                <ShelfZone id="books" label="Sách" count={bookshelfData.books.length} open={isBooksOpen} onToggle={() => setIsBooksOpen((open) => !open)}>
                 <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start md:gap-4" data-room-five-top="">
                   <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4" data-room-five-col="left">
                     <div className="order-1 min-w-0">
@@ -1880,12 +1897,14 @@ const ThinkHub = () => {
                         onOpenAll={() => void openJournal(true)}
                       />
                     </div>
-                    <section id="room-diary" data-room-section="diary" className="order-4 min-w-0">
-                      <h2 className="mb-3 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Nhật ký · {notesData.liveNotes.length}</h2>
-                      <DiaryShelf />
-                    </section>
                   </div>
                 </div>
+                </ShelfZone>
+                <ShelfZone id="diary" label="Nhật ký" count={notesData.liveNotes.length} open={isDiaryOpen} onToggle={() => setIsDiaryOpen((open) => !open)}>
+                  <section id="room-diary" data-room-section="diary" className="min-w-0">
+                    <DiaryShelf />
+                  </section>
+                </ShelfZone>
               </div>
             ) : (
               <WorkDesk boards={tables} placeOf={placeOf} countOf={(id) => recordCount.get(id) ?? 0} onOpen={(id) => openTable(id, 6)} onCreate={createOnDesk} onFull={setWantedDesk} onGo={(to) => goRoom(to)} />
@@ -1991,7 +2010,7 @@ const ThinkHub = () => {
                     }}
                     className="h-11 min-w-0 flex-1 rounded-md border border-border bg-background px-3 text-[18px] font-semibold text-foreground outline-none focus:border-personal"
                   />
-                  <button type="submit" className="press h-11 rounded-md bg-primary px-4 text-[14px] font-semibold text-primary-foreground">
+                  <button type="submit" className="press h-11 rounded-md bg-personal px-4 text-[14px] font-semibold text-personal-foreground">
                     Lưu
                   </button>
                   <button type="button" onClick={() => setIsRenamingTable(false)} className="press h-11 rounded-md border border-border px-3 text-[14px]">
@@ -2154,7 +2173,7 @@ const ThinkHub = () => {
                   <button
                     type="button"
                     onClick={openNewRecord}
-                    className="press inline-flex min-h-9 items-center gap-1 rounded-md bg-primary px-3 text-[13.5px] font-semibold text-primary-foreground"
+                    className="press inline-flex min-h-9 items-center gap-1 rounded-md bg-personal px-3 text-[13.5px] font-semibold text-personal-foreground"
                   >
                     <Plus className="h-4 w-4" aria-hidden="true" /> {isSynced ? "Cơ hội mới" : "Hạng mục"}
                   </button>

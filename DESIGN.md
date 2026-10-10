@@ -2145,6 +2145,24 @@ Thanh dưới  : ToolBelt (ẩn trong thread)
 - **Nút hàng đầu:** Tìm · Người (nếu có) · `+`, cùng 38 px kiểu `.icon-btn` (theo Kiểu nút, ADR-037). `+` tông cá nhân. Cam Avora chỉ cho logo và huy hiệu.
 - **Bubble lịch:** cùng vị trí / cỡ / biểu tượng ở mọi tab; ẩn trong thread và màn tập trung.
 
+## Kế hoạch trong khung chuẩn (AVORA-101C · ADR-074)
+```
+Thanh trên  : Kế hoạch  ·  🔍  +            (desktop: HubTitle)
+Dải kệ      : [Kệ | Bàn]  Toàn cảnh · Tổng quan · Tiến trình  [▦]    ← SubTabs 40 px
+Thân        : nền --room-wall / --room-desk rất nhạt; một kệ một lúc (RoomStage 220 ms)
+```
+- Dải không remount khi đổi kệ, chỉ gạch chân trượt (180 ms; Giảm chuyển động: không trượt). `Kệ | Bàn` về kệ cuối của hàng đó (lần đầu 2 / 6). Không còn nút nổi.
+- **Ba tầng:** tầng 0 mở là thấy · tầng 1 một chạm (mở bảng, xổ nhóm, xem đủ) · tầng 2 trong ⋯ (đánh dấu, đặt xuống, dọn, mẫu). Tổng quan → bảng bất kỳ ≤ 2 chạm; kệ bất kỳ ≤ 1 chạm (dải) hoặc 2 (bản đồ).
+
+| Kệ | Tầng 0 (390×844, không cuộn) | Sâu một chạm |
+|---|---|---|
+| 1 Toàn cảnh | tủ 6 gáy | xem trước mở ngay dưới tủ, tự cuộn vào tầm |
+| 2 Tổng quan | số liệu + 3 câu "Đang nghĩ" | "và N điều nữa ›" (kệ 3) · "Để lâu chưa nghĩ tiếp · N ›" xổ 3 |
+| 3 Tiến trình | lưới nơi × tiến trình (hàng 40 px) + danh sách ô đang chọn | ⋯ Đánh dấu |
+| 4 Bảng Avora | đầu danh sách bảng Avora lập sẵn | mở bảng |
+| 5 Đọc & Nhật ký | khu **Sách** (thời gian đọc, ghi chú sách, giá sách) | khu **Nhật ký** một hàng gập |
+| 6 Bàn làm việc | "Trên bàn n/5 · Lấy từ kệ 3 ›" + thẻ hai dòng | ⋯ Đặt xuống / Đánh dấu |
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

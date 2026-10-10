@@ -1,14 +1,15 @@
-import { Archive, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, MoreHorizontal, Plus, Table2, Trash2 } from "lucide-react";
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { Archive, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Grid3x2, MoreHorizontal, Plus, Table2, Trash2 } from "lucide-react";
+import { useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { useConclusions, useLifecycleChange } from "@/components/library/BoardHead";
+import { SubTabs } from "@/components/nav/SubTabs";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useAuth } from "@/lib/auth";
 import { canEditHead, latestConclusions, lifecycleLabel, LIFECYCLES, type Lifecycle } from "@/lib/board-head";
 import { boardQuestion, DESK_LIMIT, isDusty, openedAgo, sameWords, type PlaceKind } from "@/lib/desk";
-import { neighbour, ROOM_SHELVES, shelfOfRoom, SPINES, type RoomShelf } from "@/lib/room";
+import { lastShelfOfRow, neighbour, ROOM_SHELVES, rowOf, shelfOfRoom, shelvesOfRow, SPINES, type RoomRow, type RoomShelf } from "@/lib/room";
 import type { ThinkTable } from "@/lib/think-hub";
 import { THINKING_TYPES, type BoardTemplate } from "@/lib/think-hub-shelf";
 import { DeskFullError, useBoardOpened, useDesk } from "@/lib/use-desk";
@@ -21,6 +22,8 @@ import { cn } from "@/lib/utils";
  */
 
 const DAY = 86_400_000;
+/** AVORA-101C · tầng 0 of kệ 2: three questions; the rest are one tap away on kệ 3. */
+const THINKING_SHOWN = 3;
 const PLACE_ROWS: readonly { id: PlaceKind; label: string }[] = [
   { id: "personal", label: "Cá nhân" },
   { id: "direct", label: "1-1" },
@@ -32,53 +35,59 @@ type Lane = (typeof LANES)[number];
 const laneOf = (board: ThinkTable): Lane => (board.lifecycle === "thinking" || board.lifecycle === "concluded" ? board.lifecycle : "waiting");
 const typeLabel = (board: ThinkTable): string | null => THINKING_TYPES.find((item) => item.id === board.thinkingType)?.label ?? null;
 
-// ------------------------------------------------------------------ shelf bar · map · up / down
+// ------------------------------------------------------------------ the strip · map
 
-export function RoomBar({ shelf, onGo, onOpenMap }: { shelf: RoomShelf; onGo: (to: RoomShelf, dir: "left" | "right" | "up" | "down") => void; onOpenMap: () => void }) {
-  const meta = shelfOfRoom(shelf);
-  const left = neighbour(shelf, "left");
-  const right = neighbour(shelf, "right");
+/**
+ * AVORA-101C — the room's one strip, the same 40 px `SubTabs` as every other tab:
+ * `[ Kệ | Bàn ]  three shelves of the row you stand in  [ ▦ ]`. It never remounts between shelves:
+ * only the underline slides. `Kệ | Bàn` lands on the last shelf stood on in that row.
+ */
+export function RoomStrip({ shelf, onGo, onOpenMap }: { shelf: RoomShelf; onGo: (to: RoomShelf, dir: "left" | "right" | "up" | "down") => void; onOpenMap: () => void }) {
+  const row = rowOf(shelf);
+  const items = useMemo(() => shelvesOfRow(row).map((item) => ({ id: String(item.id), label: item.short })), [row]);
+  const switchRow = (to: RoomRow): void => {
+    if (to === row) return;
+    onGo(lastShelfOfRow(to), to === "desk" ? "down" : "up");
+  };
   return (
-    <div
-      data-room-bar={shelf}
-      className={cn("flex h-12 shrink-0 items-center gap-1 border-b border-border px-2", meta.row === "wall" ? "bg-[hsl(var(--room-wall))]" : "bg-[hsl(var(--room-desk))]")}
-    >
-      <div className="flex w-[30%] min-w-0 justify-start">
-        {left !== null ? (
-          <button type="button" onClick={() => onGo(left, "left")} data-room-prev="" aria-label={`Sang ${shelfOfRoom(left).name}`} className="press flex h-11 min-w-0 items-center gap-0.5 rounded-md pr-1 text-[12px] leading-tight text-muted-foreground">
-            <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden="true" />
-            <span className="line-clamp-2 text-left">{shelfOfRoom(left).name}</span>
-          </button>
-        ) : null}
-      </div>
-      <button type="button" onClick={onOpenMap} aria-label={`Đang ở ${meta.name}. Xem cả phòng`} data-room-map-button="" className="press flex min-w-0 flex-1 flex-col items-center justify-center rounded-md">
-        <span className="flex items-center gap-2">
-          <span className="truncate text-[15px] font-semibold text-foreground">{meta.name}</span>
-          <MiniMap shelf={shelf} />
-        </span>
-        <span className="text-[10px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
-          {meta.row === "wall" ? "Kệ treo tường" : "Mặt bàn"} · {shelf}
-        </span>
-      </button>
-      <div className="flex w-[30%] min-w-0 justify-end">
-        {right !== null ? (
-          <button type="button" onClick={() => onGo(right, "right")} data-room-next="" aria-label={`Sang ${shelfOfRoom(right).name}`} className="press flex h-11 min-w-0 items-center gap-0.5 rounded-md pl-1 text-[12px] leading-tight text-muted-foreground">
-            <span className="line-clamp-2 text-right">{shelfOfRoom(right).name}</span>
-            <ChevronRight className="h-4 w-4 shrink-0" aria-hidden="true" />
-          </button>
-        ) : null}
-      </div>
+    <div data-room-bar={shelf} data-room-row-now={row}>
+    <SubTabs
+      ariaLabel={row === "wall" ? "Kệ treo tường" : "Mặt bàn"}
+      items={items}
+      value={String(shelf)}
+      onChange={(id) => {
+        const to = Number(id) as RoomShelf;
+        if (to !== shelf) onGo(to, to > shelf ? "right" : "left");
+      }}
+      className="pl-3 pr-1 md:pl-6 md:pr-3"
+      dense
+      leading={
+        <div role="radiogroup" aria-label="Hàng" data-room-rows="" className="my-auto mr-1 flex h-8 shrink-0 items-center rounded-full bg-secondary p-0.5">
+          {(["wall", "desk"] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              role="radio"
+              aria-checked={row === item}
+              data-room-row={item}
+              onClick={() => switchRow(item)}
+              className={cn(
+                "press relative flex h-7 items-center rounded-full px-1.5 text-[12.5px] transition-colors before:absolute before:-inset-y-1.5 before:inset-x-0 before:content-['']",
+                row === item ? "bg-background font-semibold text-foreground shadow-sm" : "font-medium text-muted-foreground",
+              )}
+            >
+              <span>{item === "wall" ? "Kệ" : "Bàn"}</span>
+            </button>
+          ))}
+        </div>
+      }
+      trailing={
+        <button type="button" onClick={onOpenMap} aria-label={`Đang ở ${shelfOfRoom(shelf).name}. Xem cả phòng`} data-room-map-button="" className="icon-btn my-auto ml-1 h-[38px] w-[38px] shrink-0 text-foreground">
+          <Grid3x2 className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
+        </button>
+      }
+    />
     </div>
-  );
-}
-
-function MiniMap({ shelf }: { shelf: RoomShelf }) {
-  return (
-    <span className="grid grid-cols-3 gap-[2px]" aria-hidden="true" data-room-minimap="">
-      {ROOM_SHELVES.map((item) => (
-        <span key={item.id} data-on={item.id === shelf ? "" : undefined} className={cn("h-[5px] w-[9px] rounded-[1.5px]", item.id === shelf ? "bg-personal" : "bg-foreground/15")} />
-      ))}
-    </span>
   );
 }
 
@@ -114,26 +123,6 @@ export function RoomMapSheet({ open, shelf, summaries, onOpenChange, onGo }: { o
         </p>
       </SheetContent>
     </Sheet>
-  );
-}
-
-/** One pill at the bottom centre: `⌄ Xuống bàn · …` on the wall row, `⌃ Lên kệ · …` on the desk row. */
-export function UpDownPill({ shelf, onGo }: { shelf: RoomShelf; onGo: (to: RoomShelf, dir: "up" | "down") => void }) {
-  const down = neighbour(shelf, "down");
-  const up = neighbour(shelf, "up");
-  const to = down ?? up;
-  if (to === null) return null;
-  return (
-    <button
-      type="button"
-      onClick={() => onGo(to, down !== null ? "down" : "up")}
-      data-room-updown={down !== null ? "down" : "up"}
-      className="press absolute bottom-3 left-1/2 z-20 inline-flex h-10 max-w-[calc(100%-32px)] -translate-x-1/2 items-center gap-1.5 whitespace-nowrap rounded-full border border-border bg-card px-4 text-[13.5px] text-foreground shadow-[0_4px_16px_-6px_hsl(30_20%_20%/0.35)]"
-    >
-      {down !== null ? <ChevronDown className="h-4 w-4 shrink-0" aria-hidden="true" /> : <ChevronUp className="h-4 w-4 shrink-0" aria-hidden="true" />}
-      <span>{down !== null ? "Xuống bàn" : "Lên kệ"} ·</span>
-      <b className="truncate font-semibold">{shelfOfRoom(to).name}</b>
-    </button>
   );
 }
 
@@ -210,7 +199,16 @@ export function OverviewShelf({
       // Device memory only; nothing to do.
     }
     if (next === "templates") onFirstTemplates();
+    if (next !== null) setRevealTick((tick) => tick + 1);
   };
+  // AVORA-101C · kệ 1: the preview opens right under the cabinet and brings itself into view.
+  const previewRef = useRef<HTMLDivElement | null>(null);
+  const [revealTick, setRevealTick] = useState<number>(0);
+  useEffect(() => {
+    if (revealTick === 0) return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches === true;
+    previewRef.current?.scrollIntoView?.({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+  }, [revealTick]);
   const heights = [148, 132, 160, 142, 136, 150];
   return (
     <div data-room-shelf="1">
@@ -247,6 +245,7 @@ export function OverviewShelf({
         <div className="-mx-3 h-3 rounded-b-xl bg-[hsl(var(--room-wood))]" aria-hidden="true" />
       </div>
 
+      <div ref={previewRef} className="scroll-mb-28" data-spine-preview-anchor="">
       {open === null ? (
         <p className="mt-4 text-center text-[13px] text-muted-foreground" data-spine-hint="">Chạm một gáy để xem bên trong</p>
       ) : open === "templates" ? (
@@ -309,6 +308,7 @@ export function OverviewShelf({
           );
         })()
       )}
+      </div>
     </div>
   );
 }
@@ -335,6 +335,7 @@ export function ThinkingOverview({
   now?: Date;
 }) {
   const { openedAt } = useBoardOpened();
+  const [isDustyOpen, setIsDustyOpen] = useState<boolean>(false);
   const conclusions = useConclusions();
   const latest = useMemo(() => latestConclusions(conclusions.data ?? []), [conclusions.data]);
   const lastOpen = (board: ThinkTable): string => openedAt.get(board.id) ?? board.createdAt;
@@ -377,7 +378,8 @@ export function ThinkingOverview({
   const isEmpty = thinking.length === 0 && dusty.length === 0 && noQuestion.length === 0;
   return (
     <div data-room-shelf="2">
-      <h2 className="text-[20px] font-semibold tracking-tight text-foreground">Điều gì còn chưa thông suốt?</h2>
+      {/* AVORA-101C: the strip already says where you are; the question stays as one quiet line. */}
+      <p className="text-[14px] text-muted-foreground" data-overview-question="">Điều gì còn chưa thông suốt?</p>
       {isEmpty ? (
         <div className="mt-4 rounded-2xl border border-border bg-card p-4 text-[14px] text-muted-foreground" data-all-clear="">
           Mọi điều đang nghĩ đều đã thông suốt.{" "}
@@ -388,29 +390,39 @@ export function ThinkingOverview({
         <section className="mt-3 rounded-2xl border border-border bg-card px-4 py-2" data-overview="thinking">
           <h3 className="pt-1 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Đang nghĩ {thinking.length}</h3>
           <ul>
-            {thinking.slice(0, 5).map((board) => {
+            {thinking.slice(0, THINKING_SHOWN).map((board) => {
               const onDesk = deskIds.includes(board.id);
               const head = [onDesk ? "Trên bàn" : (placeOf(board) ?? "Của tôi"), openedAgo(lastOpen(board), now)].filter((part) => part !== "").join(" · ");
               const gap = gaps(board).join(" · ");
               return question(board, gap === "" ? [head] : [head, gap], onDesk);
             })}
           </ul>
-          {thinking.length > 5 ? (
-            <button type="button" onClick={() => onGo(3)} className="press py-2 text-[13px] font-medium text-personal">và {thinking.length - 5} điều nữa</button>
+          {thinking.length > THINKING_SHOWN ? (
+            <button type="button" onClick={() => onGo(3)} data-overview-more="" className="press min-h-11 py-2 text-[13px] font-medium text-personal">và {thinking.length - THINKING_SHOWN} điều nữa ›</button>
           ) : null}
         </section>
       ) : null}
       {dusty.length > 0 ? (
-        <section className="mt-3 rounded-2xl border border-border bg-card px-4 py-2" data-overview="dusty">
-          <h3 className="pt-1 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Để lâu chưa nghĩ tiếp {dusty.length}</h3>
-          <ul>
-            {dusty.slice(0, 3).map((board) => {
-              const days = Math.floor((now.getTime() - new Date(lastOpen(board)).getTime()) / DAY);
-              return question(board, [`Đang chờ · ${days} ngày chưa mở`], false);
-            })}
-          </ul>
-          {dusty.length > 3 ? (
-            <button type="button" onClick={() => onGo(3)} className="press py-2 text-[13px] font-medium text-personal">và {dusty.length - 3} điều nữa</button>
+        <section className="mt-3 rounded-2xl border border-border bg-card px-4" data-overview="dusty" data-open={isDustyOpen ? "" : undefined}>
+          {/* Tầng 1: one counting row; a tap shows the three oldest. */}
+          <button type="button" onClick={() => setIsDustyOpen((open) => !open)} aria-expanded={isDustyOpen} data-overview-dusty-toggle="" className="press flex min-h-12 w-full items-center gap-2 text-left">
+            <span className="min-w-0 flex-1 text-[14px] text-foreground">
+              Để lâu chưa nghĩ tiếp <span className="tabular text-muted-foreground">· {dusty.length}</span>
+            </span>
+            <ChevronRight className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none", isDustyOpen && "rotate-90")} aria-hidden="true" />
+          </button>
+          {isDustyOpen ? (
+            <div className="animate-rise-in border-t border-border/60">
+              <ul>
+                {dusty.slice(0, 3).map((board) => {
+                  const days = Math.floor((now.getTime() - new Date(lastOpen(board)).getTime()) / DAY);
+                  return question(board, [`Đang chờ · ${days} ngày chưa mở`], false);
+                })}
+              </ul>
+              {dusty.length > 3 ? (
+                <button type="button" onClick={() => onGo(3)} className="press min-h-11 py-2 text-[13px] font-medium text-personal">và {dusty.length - 3} điều nữa ›</button>
+              ) : null}
+            </div>
           ) : null}
         </section>
       ) : null}
@@ -547,7 +559,7 @@ export function ProgressMatrix({
           ))}
           {PLACE_ROWS.map((row) => (
             <div key={row.id} className="contents">
-              <button type="button" onClick={() => setPick({ row: row.id, lane: null })} className="press flex h-12 items-center text-left text-[12.5px] font-semibold text-foreground">
+              <button type="button" onClick={() => setPick({ row: row.id, lane: null })} className="press flex h-10 items-center text-left text-[12.5px] font-semibold text-foreground">
                 {row.label}
               </button>
               {LANES.map((lane) => {
@@ -560,7 +572,7 @@ export function ProgressMatrix({
                     onClick={() => setPick({ row: row.id, lane })}
                     data-matrix-cell={`${row.id}:${lane}`}
                     aria-pressed={isOn}
-                    className={cn("press flex h-12 items-center justify-center rounded-lg text-[17px] tabular", isOn ? "bg-personal font-semibold text-personal-foreground" : n === 0 ? "border border-dashed border-border text-muted-foreground/50" : "border border-border bg-card text-foreground")}
+                    className={cn("press flex h-10 items-center justify-center rounded-lg text-[17px] tabular", isOn ? "bg-personal font-semibold text-personal-foreground" : n === 0 ? "border border-dashed border-border text-muted-foreground/50" : "border border-border bg-card text-foreground")}
                   >
                     {n === 0 ? "·" : n}
                   </button>
@@ -671,19 +683,21 @@ export function WorkDesk({
   const slots = Math.max(0, DESK_LIMIT - onDesk.length);
   return (
     <div data-room-shelf="6">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      <div className="flex min-h-11 items-center justify-between text-[13px]" data-desk-head="">
+        <h2 className="font-medium text-muted-foreground">
           Trên bàn <span className="tabular" data-desk-count="">{onDesk.length}/{DESK_LIMIT}</span>
         </h2>
-        <button type="button" onClick={() => onGo(3)} className="press text-[13px] font-medium text-personal">Lấy từ kệ 3</button>
+        <button type="button" onClick={() => onGo(3)} className="press min-h-11 font-medium text-personal">Lấy từ kệ 3 ›</button>
       </div>
       <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2.5 lg:grid-cols-[repeat(2,minmax(0,1fr))]" data-desk-cards="">
         {onDesk.map((board) => (
           <li key={board.id} className="flex items-start rounded-2xl border border-border bg-card shadow-sm" data-desk-card={board.id}>
-            <button type="button" onClick={() => onOpen(board.id)} className="press min-w-0 flex-1 px-4 py-3 text-left">
-              <span className="block text-[17px] font-semibold leading-snug text-foreground">{boardQuestion(board)}</span>
-              <span className="mt-1 block truncate text-[12.5px] text-muted-foreground">{[typeLabel(board), placeOf(board) ?? "Của tôi", lifecycleLabel(board.lifecycle)].filter(Boolean).join(" · ")}</span>
-              <span className="mt-1 block truncate text-[13px] text-foreground/80">{countOf(board.id)} hạng mục · {openedAgo(board.updatedAt).replace(/^/, "sửa ")}</span>
+            {/* AVORA-101C: two lines — the question (≤ 2 lines), then one quiet line of facts. */}
+            <button type="button" onClick={() => onOpen(board.id)} className="press min-w-0 flex-1 px-4 py-2.5 text-left">
+              <span className="line-clamp-2 block text-[16px] font-semibold leading-snug text-foreground">{boardQuestion(board)}</span>
+              <span className="mt-0.5 block truncate text-[12.5px] text-muted-foreground" data-desk-meta="">
+                {[typeLabel(board), placeOf(board) ?? "Của tôi", lifecycleLabel(board.lifecycle), `${countOf(board.id)} hạng mục`, `sửa ${openedAgo(board.updatedAt)}`].filter(Boolean).join(" · ")}
+              </span>
             </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -734,10 +748,25 @@ export function WorkDesk({
   );
 }
 
+/** AVORA-101C · kệ 5: a zone title that folds (Sách, Nhật ký) instead of a second strip. */
+export function ShelfZone({ id, label, count, open, onToggle, children }: { id: string; label: string; count: number; open: boolean; onToggle: () => void; children: ReactNode }) {
+  return (
+    <section data-room-zone={id} data-open={open ? "" : undefined} className="mt-2 first:mt-0">
+      <button type="button" onClick={onToggle} aria-expanded={open} data-room-zone-toggle={id} className="press flex min-h-12 w-full items-center gap-2 border-b border-border/70 text-left">
+        <span className="min-w-0 flex-1 text-[15px] font-semibold text-foreground">
+          {label} <span className="tabular font-normal text-muted-foreground">· {count}</span>
+        </span>
+        <ChevronRight className={cn("h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 motion-reduce:transition-none", open && "rotate-90")} aria-hidden="true" />
+      </button>
+      {open ? <div className="animate-rise-in pt-3">{children}</div> : null}
+    </section>
+  );
+}
+
 /** Wraps one shelf with the slide (220 ms along the way travelled) or a fade when motion is reduced. */
 export function RoomStage({ shelf, dir, children }: { shelf: RoomShelf; dir: "left" | "right" | "up" | "down" | null; children: ReactNode }) {
   return (
-    <div key={shelf} data-room-stage={shelf} className={cn(dir === null ? "" : `room-in-${dir}`)}>
+    <div key={shelf} data-room-stage={shelf} className={cn("min-h-[55dvh]", dir === null ? "" : `room-in-${dir}`)}>
       {children}
     </div>
   );
