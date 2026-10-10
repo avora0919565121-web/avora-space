@@ -403,6 +403,9 @@
   @media (prefers-reduced-motion: reduce) {
     .room-in-left, .room-in-right, .room-in-up, .room-in-down { animation: room-fade 220ms ease-out both; }
   }
+
+  /* AVORA-107 · PHẦN 2: the habit clock's glow breathes (opacity only) while running, Cân bằng only. */
+  @keyframes habit-breathe { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 }
 
 /*

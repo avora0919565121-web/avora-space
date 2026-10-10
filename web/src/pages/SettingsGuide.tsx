@@ -58,7 +58,7 @@ function ReplayHints() {
 /** Cài đặt › Hướng dẫn (AVORA-57 · A): one card per area, words from `lib/guide-content.ts`. */
 const SettingsGuide = () => (
   <div className="paper min-h-0 flex-1 overflow-y-auto">
-    <div className="mx-auto max-w-2xl animate-rise-in space-y-4 px-6 py-12 md:px-10">
+    <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-4 px-6 pb-12 pt-4 md:px-10">
       <header className="mb-2 flex items-center gap-2.5">
         <BookOpen className="h-5 w-5 text-primary" strokeWidth={1.7} aria-hidden="true" />
         <p className="text-[14px] leading-6 text-muted-foreground">Mỗi khu vài dòng, chỉ những gì đang dùng được.</p>

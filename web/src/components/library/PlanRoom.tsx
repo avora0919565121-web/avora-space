@@ -59,10 +59,8 @@ export function RoomStrip({ shelf, onGo, onOpenMap }: { shelf: RoomShelf; onGo: 
         const to = Number(id) as RoomShelf;
         if (to !== shelf) onGo(to, to > shelf ? "right" : "left");
       }}
-      className="pl-3 pr-1 md:pl-6 md:pr-3"
-      dense
       leading={
-        <div role="radiogroup" aria-label="Hàng" data-room-rows="" className="my-auto mr-1 flex h-8 shrink-0 items-center rounded-full bg-secondary p-0.5">
+        <div role="radiogroup" aria-label="Hàng" data-room-rows="" className="my-auto flex h-8 shrink-0 items-center rounded-full bg-secondary p-0.5">
           {(["wall", "desk"] as const).map((item) => (
             <button
               key={item}
@@ -82,7 +80,7 @@ export function RoomStrip({ shelf, onGo, onOpenMap }: { shelf: RoomShelf; onGo: 
         </div>
       }
       trailing={
-        <button type="button" onClick={onOpenMap} aria-label={`Đang ở ${shelfOfRoom(shelf).name}. Xem cả phòng`} data-room-map-button="" className="icon-btn my-auto ml-1 h-[38px] w-[38px] shrink-0 text-foreground">
+        <button type="button" onClick={onOpenMap} aria-label={`Đang ở ${shelfOfRoom(shelf).name}. Xem cả phòng`} data-room-map-button="" className="icon-btn my-auto h-[38px] w-[38px] shrink-0 text-foreground">
           <Grid3x2 className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
         </button>
       }

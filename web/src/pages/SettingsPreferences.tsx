@@ -97,7 +97,7 @@ const SettingsPreferences = () => {
 
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-2xl animate-rise-in px-6 py-12 md:px-10">
+      <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in px-6 pb-12 pt-4 md:px-10">
         <div className="rounded-xl border border-border bg-card p-6">
           <h2 className="text-[17px] font-semibold text-foreground">Tiền tệ, múi giờ và Góc suy ngẫm</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">

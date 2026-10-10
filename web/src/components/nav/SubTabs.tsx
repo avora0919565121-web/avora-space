@@ -21,12 +21,18 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * AVORA-101A — the ONE strip of sub-sections under a tab's top row (Kết nối, Nhiệm vụ, Kế hoạch,
- * Két sắt, Cài đặt). 40 px tall (each tab still answers a 44 px touch through a pseudo-element),
- * 13 px words, paper background, a 1 px line below and a 2 px underline in the person's tone that
- * slides to the chosen item (180 ms; fades instead with reduced motion). ≤ 4 items share the width;
- * more scroll sideways with soft edges and the chosen one is brought to the middle. `overflow`
- * puts the rest behind "⋯" at the same height. Never carries a status label: status belongs in content.
+ * AVORA-101A · VMT 10/10 19:39 — the ONE strip of sub-sections under a tab's title line (Kết nối,
+ * Nhiệm vụ, Kế hoạch, Két sắt, Cài đặt). Every tab draws it the same way and none adds its own CSS:
+ *
+ * - it sits flush under the title line and runs the full width of its column (no outer margin);
+ * - words start 20 px in and follow each other with an even 20 px gap — never shared-out cells;
+ *   when they do not fit the row scrolls sideways (labels are never shortened);
+ * - 40 px tall, 13 px words (chosen: semibold, ink · others: medium, muted), a 1 px line below and a
+ *   2 px underline in the person's tone exactly as wide as the chosen word, sliding 180 ms (fades
+ *   with reduced motion); every item still answers a 44 px touch through a pseudo-element.
+ *
+ * `overflow` puts the rest behind "⋯" at the same height; `leading` / `trailing` hold fixed controls
+ * (Kế hoạch's `Kệ | Bàn` and map button). Never carries a status label: status belongs in content.
  */
 export function SubTabs({
   items,
@@ -34,46 +40,47 @@ export function SubTabs({
   onChange,
   overflow,
   ariaLabel,
-  className,
   leading,
   trailing,
-  dense = false,
 }: {
   items: readonly SubTabItem[];
   value: string;
   onChange: (id: string) => void;
   overflow?: SubTabsOverflow;
   ariaLabel: string;
-  className?: string;
   /** Something fixed at the left of the strip (Kế hoạch's `Kệ | Bàn`). */
   leading?: ReactNode;
   /** Something fixed at the right of the strip (Kế hoạch's map button). */
   trailing?: ReactNode;
-  /** Tighter side padding per tab, when leading/trailing share the row. */
-  dense?: boolean;
 }) {
-  const scrolls = items.length > 4;
   const listRef = useRef<HTMLDivElement | null>(null);
   const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
   const [bar, setBar] = useState<{ left: number; width: number } | null>(null);
+  const [scrolls, setScrolls] = useState<boolean>(false);
   const overflowActive = overflow?.items.find((item) => item.id === value) ?? null;
 
   useLayoutEffect(() => {
     const list = listRef.current;
     const tab = tabRefs.current.get(value);
-    if (list === null || tab === undefined) {
-      setBar(null);
-      return;
-    }
-    const inset = dense ? 4 : 8;
-    const measure = (): void => setBar({ left: tab.offsetLeft + inset, width: Math.max(0, tab.offsetWidth - inset * 2) });
+    if (list === null) return;
+    const measure = (): void => {
+      setScrolls(list.scrollWidth > list.clientWidth + 1);
+      const word = tab?.querySelector<HTMLElement>("[data-sub-tab-label]");
+      if (tab === undefined || word === null || word === undefined) {
+        setBar(null);
+        return;
+      }
+      setBar({ left: tab.offsetLeft + word.offsetLeft, width: word.offsetWidth });
+    };
     measure();
-    if (scrolls) tab.scrollIntoView?.({ inline: "center", block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    if (tab !== undefined && list.scrollWidth > list.clientWidth + 1) {
+      tab.scrollIntoView?.({ inline: "center", block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
+    }
     if (typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(measure);
     observer.observe(list);
     return () => observer.disconnect();
-  }, [value, scrolls, items, dense]);
+  }, [value, items]);
 
   const onKeyDown = useCallback(
     (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -89,8 +96,12 @@ export function SubTabs({
   );
 
   return (
-    <div data-sub-tabs="" className={cn("relative flex h-10 shrink-0 items-stretch border-b border-border bg-background", className)}>
-      {leading}
+    <div data-sub-tabs="" className="relative flex h-10 w-full shrink-0 items-stretch border-b border-border bg-background">
+      {leading !== undefined ? (
+        <div data-sub-tabs-leading="" className="flex shrink-0 items-stretch pl-5">
+          {leading}
+        </div>
+      ) : null}
       <div
         ref={listRef}
         role="tablist"
@@ -98,9 +109,9 @@ export function SubTabs({
         onKeyDown={onKeyDown}
         data-h-scroll={scrolls ? "" : undefined}
         className={cn(
-          "relative flex min-w-0 flex-1 items-stretch",
-          scrolls &&
-            "no-scrollbar overflow-x-auto [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-16px),transparent)] [scroll-padding-inline:12px]",
+          "no-scrollbar relative flex min-w-0 flex-1 items-stretch gap-5 overflow-x-auto pr-5 [scroll-padding-inline:20px]",
+          leading !== undefined ? "pl-4" : "pl-5",
+          scrolls && "[mask-image:linear-gradient(to_right,#000_calc(100%-20px),transparent)]",
         )}
       >
         {items.map((item) => {
@@ -119,15 +130,13 @@ export function SubTabs({
               data-sub-tab={item.id}
               onClick={() => onChange(item.id)}
               className={cn(
-                "press relative flex items-center justify-center gap-1 whitespace-nowrap text-[13px] transition-colors",
-                dense ? "px-1" : "px-2",
-                "before:absolute before:inset-x-0 before:-inset-y-[2px] before:content-['']",
-                scrolls ? "shrink-0" : dense ? "min-w-0 flex-auto" : "min-w-0 flex-1",
+                "press relative flex shrink-0 items-center gap-1 whitespace-nowrap text-[13px] transition-colors",
+                "before:absolute before:-inset-x-2.5 before:-inset-y-[3px] before:content-['']",
                 isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
               )}
             >
               {item.icon}
-              <span className="truncate">{item.label}</span>
+              <span data-sub-tab-label="">{item.label}</span>
               {item.count !== undefined && item.count > 0 ? (
                 <span className="tabular text-[11px] font-normal text-muted-foreground">{item.count}</span>
               ) : null}
@@ -146,7 +155,7 @@ export function SubTabs({
           <span
             aria-hidden="true"
             data-sub-tab-bar=""
-            className="pointer-events-none absolute bottom-[-1px] left-0 h-[2px] rounded-full bg-personal transition-[transform,width] duration-[180ms] ease-out motion-reduce:transition-opacity"
+            className="pointer-events-none absolute bottom-0 left-0 h-[2px] rounded-full bg-personal transition-[transform,width] duration-[180ms] ease-out motion-reduce:transition-opacity"
             style={{ width: bar.width, transform: `translateX(${bar.left}px)` }}
           />
         ) : null}
@@ -155,26 +164,31 @@ export function SubTabs({
         <DropdownMenu>
           <DropdownMenuTrigger
             aria-label={overflow.label}
+            data-sub-tabs-more=""
             className={cn(
-              "press relative flex min-w-11 shrink-0 items-center justify-center gap-1 px-2 text-[13px]",
-              "before:absolute before:inset-x-0 before:-inset-y-[2px] before:content-['']",
-              overflowActive !== null ? "font-semibold text-foreground" : "text-muted-foreground hover:text-foreground",
+              "press relative flex min-w-11 shrink-0 items-center justify-center gap-1 pl-2 pr-4 text-[13px]",
+              "before:absolute before:inset-x-0 before:-inset-y-[3px] before:content-['']",
+              overflowActive !== null ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
             )}
           >
-            {overflowActive !== null ? <span>{overflowActive.label}</span> : null}
+            {overflowActive !== null ? (
+              <span className="relative flex items-center self-stretch">
+                <span data-sub-tab-label="">{overflowActive.label}</span>
+                <span aria-hidden="true" data-sub-tab-bar="" className="absolute inset-x-0 bottom-0 h-[2px] rounded-full bg-personal" />
+              </span>
+            ) : null}
             <MoreHorizontal className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-            {overflowActive !== null ? <span aria-hidden="true" className="absolute inset-x-2 -bottom-px h-[2px] rounded-full bg-personal" /> : null}
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-44">
             {overflow.items.map((item) => (
-              <DropdownMenuItem key={item.id} onSelect={() => onChange(item.id)} className="min-h-11">
+              <DropdownMenuItem key={item.id} onSelect={() => onChange(item.id)} className="min-h-11" data-sub-tabs-more-item={item.id}>
                 {item.label}
               </DropdownMenuItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       ) : null}
-      {trailing}
+      {trailing !== undefined ? <div className="flex shrink-0 items-stretch pr-3">{trailing}</div> : null}
     </div>
   );
 }

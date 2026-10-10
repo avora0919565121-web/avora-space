@@ -1800,7 +1800,7 @@ const ThinkHub = () => {
       >
       {/* AVORA-93 · 4.3: a focused Bảng has no tab bar; this strip brings it up for a moment. */}
       {isPhoneUpright && !inRoom && (active !== null || activeView !== null) ? <BottomTabStrip /> : null}
-      <div className={cn("mx-auto px-4 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen || (overview.isOn && overview.isWide) ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : isPhoneUpright && (active !== null || activeView !== null) ? "pb-[calc(2.5rem+28px)]" : "pb-10")}>
+      <div data-under-tabs="" className={cn("mx-auto px-4 pt-4 sm:px-6 md:px-10 short:px-4", isFullscreen || (overview.isOn && overview.isWide) ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : isPhoneUpright && (active !== null || activeView !== null) ? "pb-[calc(2.5rem+28px)]" : "pb-10")}>
 
         {isFullscreen ? null : <InlineBack className="-mt-2 mb-2" />}
         {isLibraryOpen && active === null && activeView === null ? (

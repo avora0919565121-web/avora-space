@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import { completionTimeline } from "@/lib/confetti";
-import { calendarProjection, invitationRows, sectionBySlug, tasksForSection, TASK_HUB_SECTIONS } from "@/lib/task-hub";
+import { calendarProjection, invitationRows, sectionBySlug, tasksForSection, TASK_HUB_SECTIONS, TASK_HUB_TOP } from "@/lib/task-hub";
 import type { TaskParticipant } from "@/lib/task-collab";
 import type { TaskItem } from "@/lib/tasks";
 
@@ -60,10 +60,10 @@ describe("Task Hub sections", () => {
       "Hôm nay", "Sắp tới", "Tất cả", "Sự kiện", "Lịch", "Thói quen", "Quá hạn", "Lời mời", "Nháp", "Đã xong", "Thùng rác",
     ]);
     // AVORA-53 · 4.7: five in the strip, Lời mời only when any, Đã xong / Thùng rác behind ⋯.
-    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "top").map((section) => section.label)).toEqual([
-      "Hôm nay", "Sắp tới", "Tất cả",
-    ]);
-    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => section.label)).toEqual(["Lịch", "Thói quen", "Đã xong", "Thùng rác"]);
+    // VMT 10/10 19:34: Thói quen · Hôm nay · Sắp tới · Tất cả · ⋯ (Lịch / Đã xong / Thùng rác).
+    expect(TASK_HUB_TOP.map((id) => TASK_HUB_SECTIONS.find((section) => section.id === id)?.label)).toEqual(["Thói quen", "Hôm nay", "Sắp tới", "Tất cả"]);
+    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "top").map((section) => section.id).sort()).toEqual([...TASK_HUB_TOP].sort());
+    expect(TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => section.label)).toEqual(["Lịch", "Đã xong", "Thùng rác"]);
     for (const section of TASK_HUB_SECTIONS) expect(section.description.length).toBeGreaterThan(0);
   });
 

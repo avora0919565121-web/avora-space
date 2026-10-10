@@ -27,7 +27,7 @@ const SettingsNotifications = () => {
 
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
-      <div className="mx-auto max-w-2xl animate-rise-in space-y-6 px-6 py-12 md:px-10">
+      <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-6 px-6 pb-12 pt-4 md:px-10">
         {/* AVORA-47 · C: the easy-to-find way in; holding Kết nối opens the same sheet. */}
         <section aria-labelledby="focus-heading" className="rounded-xl border border-border bg-card p-5">
           <div className="flex items-start gap-3">

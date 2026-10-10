@@ -2656,7 +2656,8 @@ const Messages = () => {
           control={listColumn}
           label="Độ rộng danh sách"
         />
-        <div className="px-4 pb-2 pt-2 md:px-6 md:pb-4 md:pt-7 short:px-4 short:pt-3">
+        {/* VMT 10/10 19:39: on an upright phone nothing sits between the top row and the strip. */}
+        <div className={cn("px-4 md:block md:px-6 md:pb-4 md:pt-7 short:block short:px-4 short:pb-2 short:pt-3", isLive ? "hidden" : "block pb-2 pt-2")}>
           <div className={cn("items-center justify-between gap-3 md:flex short:flex", isLive ? "hidden" : "flex")}>
             {/* AVORA-89 · 1.1: on an upright phone the top row already reads `A · Kết nối`. */}
             <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground hidden md:block short:block md:text-[30px]">Kết nối</h1>
@@ -2725,10 +2726,11 @@ const Messages = () => {
             </MobileTopActions>
           </div>
 
-          {/* AVORA-101A: the shared SubTabs strip (40 px, 13 px, underline in the person's tone — no longer orange). */}
-          <SubTabs
+        </div>
+
+        {/* AVORA-101A: the shared SubTabs strip, flush under the title line and full width (VMT 10/10 19:39). */}
+        <SubTabs
             ariaLabel="Hướng trò chuyện"
-            className="mt-1 md:mt-5"
             items={MESSAGE_TABS.map((tab) => ({
               id: tab.id,
               label: tab.label,
@@ -2741,6 +2743,7 @@ const Messages = () => {
             onChange={(id) => handleSelectTab(id as MessageTab)}
           />
 
+        <div className="px-4 md:px-6 short:px-4">
           {activeTab === "journal" || isPlaceholder ? null : (
             <label
               data-list-search=""
@@ -2794,7 +2797,7 @@ const Messages = () => {
             <PlaceholderComingSoon id={activeTab} />
           </div>
         ) : isProjects ? (
-          <div className="min-h-0 flex-1 scroll-y pb-2">
+          <div className="min-h-0 flex-1 scroll-y pb-2 pt-1.5">
             {projectsQuery.isError ? (
               <div className="px-6 py-10 text-center">
                 <p className="text-[14px] text-muted-foreground">{projectsQuery.error.message}</p>
@@ -2830,7 +2833,7 @@ const Messages = () => {
             />
           </div>
         ) : (
-        <div className="min-h-0 flex-1 scroll-y px-3 pb-6">
+        <div className="min-h-0 flex-1 scroll-y px-3 pb-6 pt-1.5">
           {/* AVORA-47 · C: only I see this line; nobody else learns I am focusing. */}
           {rhythm.focus !== null ? (
             <div className="mx-1 mb-2 flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-[13px] text-foreground">

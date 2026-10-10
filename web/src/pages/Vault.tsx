@@ -22,7 +22,7 @@ function VaultBar() {
   const [isAbout, setIsAbout] = useState<boolean>(false);
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl items-center justify-end gap-1 px-4 pt-2 sm:px-6 md:px-10 short:px-4">
+    <div data-under-tabs="" className="mx-auto flex w-full max-w-6xl items-center justify-end gap-1 px-4 pt-4 sm:px-6 md:px-10 short:px-4">
       <button
         type="button"
         onClick={() => void vault.lock()}

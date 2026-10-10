@@ -12,6 +12,7 @@ import { PinGate, PinReminderBanner } from "@/components/PinGate";
 import { QuickActionBubble } from "@/components/QuickActionBubble";
 import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { InAppAlerts } from "@/components/InAppAlerts";
+import { HabitTimerHost } from "@/components/habits/HabitTimerHost";
 import { ConfirmHost } from "@/components/ConfirmHost";
 import { PersonCardHost } from "@/components/PersonCard";
 import { FocusHost } from "@/components/chat/FocusHost";
@@ -106,6 +107,8 @@ export function RequireAuth() {
           needs that corner for 🔍 and ⋯, so there it steps aside (AVORA-49 · 2.6). */}
       {inReader ? null : inThread ? <div className="hidden md:contents"><QuickActionBubble /></div> : <QuickActionBubble />}
       <InAppAlerts />
+      {/* AVORA-107 · PHẦN 2: the habit clock (full screen) or its waiting chip, on every tab. */}
+      {inReader ? null : <HabitTimerHost />}
       <AvoraSearchHost />
       <PushOfferCard />
       <PushClickBridge />

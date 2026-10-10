@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { HabitDetail } from "@/components/habits/HabitDetail";
 import { HabitEditor } from "@/components/habits/HabitEditor";
 import { HabitRow } from "@/components/habits/HabitRow";
+import { openHabitTimer } from "@/lib/use-habit-timer";
 import { HABIT_PARAM, HABIT_SUGGESTIONS, habitsForDay, isRunning, readingRepeatTask, scheduleText, tallyText, todaySummary, type Habit, type HabitDraft } from "@/lib/habits";
 import { useTasks } from "@/lib/use-tasks";
 import { archiveHabit, pauseHabit, toggleHabitWindow, useHabits } from "@/lib/use-habits";
@@ -60,6 +61,7 @@ export function HabitsSection({ createRequest, startWithCreate = false, onStarte
   const summary = useMemo(() => todaySummary(habits, done, today), [habits, done, today]);
 
   const toggle = useCallback((habit: Habit, index: number, isDone: boolean) => toggleHabitWindow(habit, today, index, isDone), [today]);
+  const start = useCallback((habit: Habit, index: number) => openHabitTimer(habit, index, today), [today]);
   const edit = useCallback((habit: Habit) => setEditor({ key: Date.now(), habit }), []);
   const pause = useCallback((habit: Habit) => {
     const willPause = habit.pausedAt === null;
@@ -160,7 +162,7 @@ export function HabitsSection({ createRequest, startWithCreate = false, onStarte
             ) : (
               <ul className="overflow-hidden rounded-[12px] border border-border bg-card">
                 {todays.map((habit) => (
-                  <HabitRow key={habit.id} habit={habit} done={done} today={today} onToggle={toggle} onOpen={openDetail} onEdit={edit} onPause={pause} onArchive={archive} />
+                  <HabitRow key={habit.id} habit={habit} done={done} today={today} onToggle={toggle} onOpen={openDetail} onEdit={edit} onPause={pause} onArchive={archive} onStart={start} />
                 ))}
               </ul>
             )}

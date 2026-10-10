@@ -3,6 +3,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
 import { HabitRow } from "@/components/habits/HabitRow";
+import { openHabitTimer } from "@/lib/use-habit-timer";
 import { HABIT_PARAM, habitsForDay, isDayKept, tallyText, todaySummary, type Habit } from "@/lib/habits";
 import { toggleHabitWindow, useHabits } from "@/lib/use-habits";
 import { cn } from "@/lib/utils";
@@ -19,6 +20,7 @@ export function HabitTodayBlock() {
   const summary = useMemo(() => todaySummary(habits, done, today), [habits, done, today]);
   const waiting = useMemo(() => habitsForDay(habits, today).filter((habit) => !isDayKept(habit, done, today)), [habits, done, today]);
   const toggle = useCallback((habit: Habit, index: number, isDone: boolean) => toggleHabitWindow(habit, today, index, isDone), [today]);
+  const start = useCallback((habit: Habit, index: number) => openHabitTimer(habit, index, today), [today]);
   const open = useCallback((habit: Habit) => navigate(`/nhiem-vu?muc=thoi-quen&${HABIT_PARAM}=${encodeURIComponent(habit.id)}`), [navigate]);
 
   if (summary.total === 0) return null;
@@ -41,7 +43,7 @@ export function HabitTodayBlock() {
         ) : (
           <ul className="border-y border-border">
             {waiting.map((habit) => (
-              <HabitRow key={habit.id} habit={habit} done={done} today={today} onToggle={toggle} onOpen={open} compact />
+              <HabitRow key={habit.id} habit={habit} done={done} today={today} onToggle={toggle} onOpen={open} onStart={start} compact />
             ))}
           </ul>
         )

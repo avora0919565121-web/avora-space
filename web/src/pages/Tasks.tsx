@@ -1729,28 +1729,31 @@ export default function Tasks() {
           </div>
         }
       />
+      {/* AVORA-101A · VMT 10/10 19:34 / 19:39: the shared strip, flush under the title line —
+          Thói quen · Hôm nay · Sắp tới · Tất cả, ⋯ for Lịch / Đã xong / Thùng rác (ADR-059). */}
+      <div className="mx-auto w-full max-w-[720px] shrink-0 short:mx-0 short:max-w-none">
+        <SubTabs
+          ariaLabel="Các mục Nhiệm vụ"
+          items={TASK_HUB_TOP.flatMap((id) => {
+            const section = TASK_HUB_SECTIONS.find((item) => item.id === id);
+            return section === undefined ? [] : [{ id: section.id, label: section.label, count: hubCounts[section.id] }];
+          })}
+          overflow={{
+            label: "Thêm mục: Lịch, Đã xong, Thùng rác",
+            items: TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => ({ id: section.id, label: section.label })),
+          }}
+          value={hubSection.id}
+          onChange={(id) => {
+            const next = TASK_HUB_SECTIONS.find((section) => section.id === id);
+            if (next !== undefined) selectHubSection(next);
+          }}
+        />
+      </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
-      <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 short:mx-0 short:max-w-none short:px-4">
-        <InlineBack className="-mt-2 mb-1" />
-        <div>
-          {/* AVORA-101A: the shared strip — Hôm nay · Sắp tới · Tất cả, ⋯ for Lịch / Thói quen / Đã xong / Thùng rác (ADR-059). */}
-          <SubTabs
-            ariaLabel="Các mục Nhiệm vụ"
-            items={TASK_HUB_SECTIONS.filter((section) => TASK_HUB_TOP.includes(section.id)).map((section) => ({ id: section.id, label: section.label, count: hubCounts[section.id] }))}
-            overflow={{
-              label: "Thêm mục: Lịch, Thói quen, Đã xong, Thùng rác",
-              items: TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => ({ id: section.id, label: section.label })),
-            }}
-            value={hubSection.id}
-            onChange={(id) => {
-              const next = TASK_HUB_SECTIONS.find((section) => section.id === id);
-              if (next !== undefined) selectHubSection(next);
-            }}
-          />
-        </div>
-
+      <div data-under-tabs="" className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 short:mx-0 short:max-w-none short:px-4">
+        <InlineBack className="mb-3" />
         {hubSection.id !== "tasks" ? (
-          <div className="mt-5 space-y-3 pb-10">
+          <div className="space-y-3 pb-10">
             {/* AVORA-93 · 4: reminders fold into one line, only on `Hôm nay`. */}
             {hubSection.id === "my_day" ? <ReminderLine due={due} titleFor={titleFor} onDismiss={dismiss} onOpen={setOpenTaskId} /> : null}
             {hubSection.id === "habits" ? (
@@ -1778,7 +1781,7 @@ export default function Tasks() {
           </div>
         ) : (
         <>
-        <div className="mt-4 space-y-3">
+        <div className="space-y-3">
           {/* Arrived from a dashboard block: say what is being left out, and offer the way back.
               In Theo đối tượng the layer chips already say it. */}
           {scope !== null && mode !== "relationship" ? (

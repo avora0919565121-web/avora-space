@@ -27,7 +27,7 @@ export function SectionNav({
 
   return (
     <header data-section-nav="" className="shrink-0 md:bg-card short:bg-card">
-      <div className="hidden items-center justify-between gap-3 px-4 pt-6 sm:px-6 md:flex md:px-10 md:pr-[4.5rem] short:flex short:px-4 short:pr-[4.25rem] short:pt-2">
+      <div className="hidden items-center justify-between gap-3 px-4 pb-2 pt-6 sm:px-6 md:flex md:px-10 md:pr-[4.5rem] short:flex short:px-4 short:pr-[4.25rem] short:pb-1 short:pt-2">
         <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
         {action?.(current) ?? null}
       </div>
@@ -37,7 +37,6 @@ export function SectionNav({
         items={tabs.map((tab) => ({ id: tab.to, label: tab.label }))}
         value={current}
         onChange={(to) => navigate(to)}
-        className="px-2 md:mt-2 md:px-8 short:mt-1"
       />
     </header>
   );

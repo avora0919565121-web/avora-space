@@ -45,8 +45,9 @@ export const TASK_HUB_SECTIONS: readonly TaskHubSection[] = [
   { id: "tasks", placement: "top", slug: "viec", label: "Tất cả", description: "Mọi nhiệm vụ đang mở.", empty: "Chưa có việc nào đang mở." },
   { id: "events", placement: "hidden", slug: "su-kien", label: "Sự kiện", description: "Những việc cần bạn có mặt, xếp theo giờ bắt đầu.", empty: "Chưa có sự kiện nào sắp tới." },
   { id: "calendar", placement: "more", slug: "lich", label: "Lịch", description: "Chạm một việc để xem và làm luôn.", empty: "Khoảng này chưa có việc hay sự kiện nào." },
-  // AVORA-107 · 1.2: Thói quen in ⋯ next to Lịch / Đã xong / Thùng rác (ADR-059) — not a fourth strip item.
-  { id: "habits", placement: "more", slug: "thoi-quen", label: "Thói quen", description: "Kỷ luật của riêng bạn, theo khung giờ bạn đặt.", empty: "Chưa có thói quen nào." },
+  // AVORA-107 · VMT 10/10 19:34: Thói quen is the strip's first item (Thói quen · Hôm nay · Sắp tới · Tất cả · ⋯).
+  // Nhiệm vụ still opens on Hôm nay — only the position moved.
+  { id: "habits", placement: "top", slug: "thoi-quen", label: "Thói quen", description: "Kỷ luật của riêng bạn, theo khung giờ bạn đặt.", empty: "Chưa có thói quen nào." },
   { id: "overdue", placement: "hidden", slug: "qua-han", label: "Quá hạn", description: "Việc đã qua hạn — xem lại khi bạn sẵn sàng.", empty: "Không có việc nào trễ hạn." },
   { id: "invitations", placement: "hidden", slug: "loi-moi", label: "Lời mời", description: "Có người mời bạn cùng tham gia — nhận hay từ chối đều được.", empty: "Không có lời mời nào đang chờ." },
   { id: "drafts", placement: "hidden", slug: "nhap", label: "Nháp", description: "Việc bạn viết dở, chưa giao cho ai.", empty: "Phần nháp sắp có.", isComingSoon: true },
@@ -54,8 +55,8 @@ export const TASK_HUB_SECTIONS: readonly TaskHubSection[] = [
   { id: "trash", placement: "more", slug: "thung-rac", label: "Thùng rác", description: "Việc bạn đã xoá — chạm để khôi phục.", empty: "Thùng rác trống." },
 ];
 
-/** The three sections of the strip, in order (AVORA-89 · 3.B). */
-export const TASK_HUB_TOP: readonly TaskHubSectionId[] = ["my_day", "upcoming", "tasks"];
+/** The four sections of the strip, in order (AVORA-89 · 3.B; Thói quen first since VMT 10/10 19:34). */
+export const TASK_HUB_TOP: readonly TaskHubSectionId[] = ["habits", "my_day", "upcoming", "tasks"];
 
 export function sectionBySlug(slug: string | null): TaskHubSection {
   // AVORA-93 · 4 (89 · 3.B1): Nhiệm vụ opens on `Hôm nay`.

@@ -2141,7 +2141,8 @@ Dải mục con : SubTabs — 40 px, chữ 13 px, gạch chân tông cá nhân
 Thân trang  : lề ngang 16 px, nhịp dọc 8 / 12 / 16
 Thanh dưới  : ToolBelt (ẩn trong thread)
 ```
-- **SubTabs** (`components/nav/SubTabs.tsx`) là dải duy nhất: Kết nối, Nhiệm vụ, Két sắt, Cài đặt (và Kế hoạch ở 101C). ≤ 4 mục chia đều; > 4 cuộn ngang và tự đưa mục đang chọn vào giữa; `⋯` cho mục phụ.
+- **SubTabs** (`components/nav/SubTabs.tsx`) là dải duy nhất: Kết nối, Nhiệm vụ, Két sắt, Cài đặt, Kế hoạch. **Một kiểu (VMT 10/10 19:39 · ADR-078):** đặt sát dưới đường kẻ tiêu đề, tràn hết bề ngang cột (không margin / padding ngoài); chữ dồn trái, lề đầu 20 px, cách đều 20 px — không chia ô; quá bề ngang thì cuộn ngang (mép phải mờ 20 px), không rút gọn nhãn, mục đang chọn tự vào giữa. 40 px; chữ 13 px — đang chọn đậm 600 màu chữ chính, còn lại 500 màu mờ; gạch chân 2 px tông cá nhân **rộng bằng chữ**; vùng chạm ≥ 44 px. `⋯` cho mục phụ (lề phải 16 px). Kế hoạch: `[Kệ | Bàn]` bắt đầu ở 20 px, các kệ sau 16 px, nút bản đồ bên phải. Trang không thêm CSS riêng cho dải.
+- **Dưới dải:** thân trang bắt đầu 16 px dưới dải ở mọi tab (`data-under-tabs`, `pt-4`); danh sách Kết nối: chữ / avatar dòng đầu cũng ở 16 px. Màn khoá Két sắt và màn `Sắp có` canh giữa như cũ.
 - **Nút hàng đầu:** Tìm · Người (nếu có) · `+`, cùng 38 px kiểu `.icon-btn` (theo Kiểu nút, ADR-037). `+` tông cá nhân. Cam Avora chỉ cho logo và huy hiệu.
 - **Bubble lịch:** cùng vị trí / cỡ / biểu tượng ở mọi tab; ẩn trong thread và màn tập trung.
 
@@ -2197,7 +2198,7 @@ Tạo 08/10 bởi bạn · từ Hạng mục                 🗑
 - Cây > 500 Hạng mục: mỗi nhánh 50 dòng + `Xem thêm N`.
 
 ## Thói quen (AVORA-107 · PHẦN 1 · ADR-077)
-- Chỗ: Nhiệm vụ › ⋯ › `Thói quen` (sau Lịch, trước Đã xong / Thùng rác) — không thêm mục con thứ tư. `+` khi đang ở Thói quen = `Tạo thói quen`; giữ `+` có thêm `Thói quen`.
+- Chỗ: **Nhiệm vụ › Thói quen** — mục đầu của dải: `Thói quen · Hôm nay · Sắp tới · Tất cả · ⋯` (⋯ = Lịch · Đã xong · Thùng rác) (VMT 10/10 19:34). Nhiệm vụ vẫn mở ở `Hôm nay`; link cũ `?muc=thoi-quen` / `?muc=lich` mở đúng chỗ. `+` khi đang ở Thói quen = `Tạo thói quen`; giữ `+` có thêm `Thói quen`.
 - Danh sách: `HÔM NAY · 1/3` (thói quen đã giữ đủ / thói quen của hôm nay) + `＋ Tạo thói quen`; mỗi thói quen một dòng trong khung bo 12 px: tên 15 px đậm (⏱ nếu có đồng hồ), loại 12 px, mỗi khung giờ một viên tròn 44 px `◯ 08:00` → đã làm `✓` nền `personal`; dưới cùng `Hôm nay 2/4 · Tuần này 5/7` 12 px mờ. Thói quen giữ đủ hôm nay: tên nhạt đi. Khung đã qua giờ mà chưa làm: không đổi màu. `⋯`: Sửa · Tạm nghỉ · Lưu trữ (Lưu trữ có Hoàn tác). Bên dưới: `NGÀY KHÁC` (không có hôm nay), `ĐANG TẠM NGHỈ` (`Tiếp tục`).
 - Màn trống: thẻ `personal-soft` "Một thói quen nhỏ, một giờ cụ thể" + `Tạo thói quen`.
 - Tạo / sửa: gợi ý `Dậy sớm · Uống đủ nước · Vận động · Đọc sách · Ngủ đúng giờ` + `Thói quen của tôi` (viền đứt); Tên; Loại `Có đồng hồ | Chỉ đánh dấu` (số phút khi có đồng hồ, mặc định 15); 7 nút ngày; khung giờ (đồng hồ chạm chọn `TimeField`, 🔔 nhắc từng khung, 🗑 bỏ khung, `＋ Thêm khung giờ`); công tắc Nhắc kèm câu "Im lặng khi bạn đang tập trung, tắt thông báo hay vào ngày nghỉ". Enter không lưu.
@@ -2207,6 +2208,26 @@ Tạo 08/10 bởi bạn · từ Hạng mục                 🗑
 - Bảng `Thói quen` (Kế hoạch › Avora lập sẵn › Nhiệm vụ): cột Thói quen · Loại · Lịch · Hôm nay · Tuần này · 4 tuần gần nhất · Tổng số lần; `⋯` dòng: Ghi chú riêng · Lưu trữ thói quen (không có Tạo việc).
 - Nhìn lại tuần / hôm nay: khối `↻ Thói quen  Đã giữ X · Chưa làm Y`, từng thói quen một dòng; không thêm câu hỏi.
 - Không mạng: dòng nhỏ `☁̸ Đã lưu trên máy · gửi khi có mạng`.
+
+### Đồng hồ đếm ngược (AVORA-107 · PHẦN 2 · ADR-077)
+```
+[⤡]            Đọc sách
+          ╭──────────╮
+          │  14:59   │   vòng 2 px → 6 px tông cá nhân
+          │ còn lại · mục tiêu 15 phút
+          ╰──────────╯
+   Khung 21:00 · rời màn này là đồng hồ dừng
+ [ ‖ Dừng ]   [ ✓ Hoàn thành ]
+            Bỏ phiên
+```
+- Mở: dòng thói quen có đồng hồ có nút `▶ Bắt đầu · 15 phút` (khung đầu còn mở hôm nay), ở Thói quen và khối Thói quen của Hôm nay. Màn `Sẵn sàng` → `Bắt đầu`.
+- Toàn màn (`z-70`, che cả thanh trên / dưới); điện thoại nằm ngang: vòng bên trái, nút bên phải.
+- **Rời màn là dừng:** `⤡ Thu nhỏ`, Esc, sang tab khác, mất focus, khoá màn hình / chuyển ứng dụng. Mở lại không tự chạy: `Đã dừng khi bạn rời màn đồng hồ.` / `…màn hình tắt hoặc bạn chuyển ứng dụng.` + `Tiếp tục`.
+- Chip nổi ở góc mọi tab khi có phiên đang dừng: `⏱ Đọc sách 14:59` (điện thoại: trái, trên ToolBelt; desktop / nằm ngang: góc phải dưới). Chạm = mở lại đồng hồ. Chip không đếm.
+- Hết giờ → `✓ Đã làm · 15 phút`, âm nhẹ của thói quen (im khi tập trung / Tắt toàn AVORA / ngày nghỉ / tắt âm nhắc), tự đóng sau 6 giây hoặc `Xong`. `Hoàn thành` giữa chừng = `Đã làm` với thời lượng thật.
+- `Bỏ phiên` → tấm nhỏ "Bỏ phiên này?" + Ghi chú (không bắt buộc, Enter xuống dòng) → lịch sử `Đã bỏ phiên · 6 phút · Có khách`; khung giờ vẫn còn mở.
+- Một phiên một lúc: bấm `Bắt đầu` ở thói quen khác → mở lại phiên đang có + toast `Đang có một phiên: …`. Phiên đang dừng qua 24:00 tự huỷ (toast một lần, không ghi gì).
+- Giảm chuyển động / Space Rhythm Tĩnh: vòng nhảy từng giây, không trượt; nền không "thở". Cân bằng: vòng trượt 260 ms, quầng sáng thở 6 s (chỉ độ mờ).
 
 ## Out of scope
 

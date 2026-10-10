@@ -118,7 +118,7 @@ export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
 
   return (
     <div className={cn("paper min-h-0 flex-1 overflow-y-auto", isPublic && "min-h-[100dvh]")} data-policy-view={isPublic ? "public" : "settings"}>
-      <div className={cn("mx-auto w-full max-w-5xl px-4 pb-16 md:px-10 md:pt-10", isPublic ? "pt-6" : "pt-3")}>
+      <div className={cn("mx-auto w-full max-w-5xl px-4 pb-16 md:px-10", isPublic ? "pt-6 md:pt-10" : "pt-4")} data-under-tabs={isPublic ? undefined : ""}>
         {isPublic ? (
           // AVORA-94B · PHẦN C: an installed app has no browser Back — `‹ AVORA` is the way out.
           <a href={session !== null ? "/cai-dat/chinh-sach" : "/dang-nhap"} data-policy-exit="" className="press -ml-2 inline-flex min-h-11 items-center gap-0.5 rounded-md px-2 text-muted-foreground hover:text-foreground">

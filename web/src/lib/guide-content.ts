@@ -52,7 +52,7 @@ export const GUIDE_CARDS: readonly GuideCard[] = [
     title: "Tạo một thói quen",
     to: "/nhiem-vu?muc=thoi-quen",
     lines: [
-      "Ở Nhiệm vụ, chạm ⋯ › Thói quen rồi bấm +. Chọn một gợi ý hoặc tự đặt tên.",
+      "Ở Nhiệm vụ, chạm Thói quen (mục đầu tiên) rồi bấm +. Chọn một gợi ý hoặc tự đặt tên.",
       "Chọn Có đồng hồ khi cần thời lượng, Chỉ đánh dấu khi chỉ cần đúng giờ. Đặt một giờ cụ thể — nhiều khung cũng được.",
       "Làm xong thì chạm vòng tròn của khung đó. Thói quen ở lại Hôm nay tới hết ngày; lỡ một hôm thì mai bắt đầu lại.",
       "Cần nghỉ một thời gian thì Tạm nghỉ; lịch sử luôn còn.",

@@ -1,4 +1,4 @@
-import { Check, MoreHorizontal, Timer } from "lucide-react";
+import { Check, MoreHorizontal, Play, Timer } from "lucide-react";
 import { memo } from "react";
 
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -19,6 +19,7 @@ export const HabitRow = memo(function HabitRow({
   onEdit,
   onPause,
   onArchive,
+  onStart,
   compact = false,
 }: {
   habit: Habit;
@@ -29,12 +30,15 @@ export const HabitRow = memo(function HabitRow({
   onEdit?: (habit: Habit) => void;
   onPause?: (habit: Habit) => void;
   onArchive?: (habit: Habit) => void;
+  /** AVORA-107 · PHẦN 2: a habit with a clock opens its countdown for the first window still open. */
+  onStart?: (habit: Habit, windowIndex: number) => void;
   /** Hôm nay's folded block: name + marks only. */
   compact?: boolean;
 }) {
   const day = dayTally(habit, done, today);
   const week = weekTally(habit, done, today);
   const isKept = day.total > 0 && day.done === day.total;
+  const firstOpen = habit.windows.findIndex((_, index) => !done.has(doneKey(habit.id, today, index)));
   return (
     <li data-habit-id={habit.id} data-habit-kept={isKept ? "" : undefined} className="flex items-start gap-2 border-t border-border px-3 py-3 first:border-t-0">
       <div className="min-w-0 flex-1">
@@ -78,6 +82,18 @@ export const HabitRow = memo(function HabitRow({
               </button>
             );
           })}
+          {onStart !== undefined && habit.kind === "timed" && firstOpen >= 0 ? (
+            <button
+              type="button"
+              onClick={() => onStart(habit, firstOpen)}
+              data-habit-start=""
+              aria-label={`Bắt đầu ${habit.name} · ${habit.targetMinutes ?? 0} phút`}
+              className="press flex h-11 items-center gap-1.5 rounded-full bg-personal/10 pl-3 pr-3.5 text-[13px] font-semibold text-personal transition-colors hover:bg-personal/15"
+            >
+              <Play className="h-3.5 w-3.5" strokeWidth={2.4} aria-hidden="true" />
+              Bắt đầu · {habit.targetMinutes ?? 0} phút
+            </button>
+          ) : null}
         </div>
         {!compact ? (
           <p data-habit-tally="" className="mt-1.5 text-[12px] tabular text-muted-foreground">
