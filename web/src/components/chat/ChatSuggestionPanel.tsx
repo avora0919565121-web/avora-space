@@ -139,7 +139,7 @@ export function ChatSuggestionPanel({
 
   if (embedded) {
     return (
-      <section aria-label="Gợi ý nhiệm vụ" className="max-h-[35dvh] overflow-y-auto border-b border-border bg-card px-3 md:px-10">
+      <section aria-label="Gợi ý nhiệm vụ" className="max-h-[35dvh] scroll-y border-b border-border bg-card px-3 md:px-10">
         <ul className="mx-auto max-w-2xl space-y-1 py-2">{rows}</ul>
       </section>
     );

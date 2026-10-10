@@ -50,7 +50,8 @@ vi.mock("@/integrations/supabase/client", () => {
   return {
     supabase: {
       from: (table: string) => builder(table, db.tables[table] ?? []),
-      rpc: (name: string, args: unknown) => {
+      rpc: (rawName: string, args: unknown) => {
+        const name = rawName === "inbox_page" ? "list_my_conversations" : rawName;
         db.calls.push({ name, args });
         return builder(name, db.rpcs[name] ?? []);
       },

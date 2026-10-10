@@ -8,6 +8,9 @@ import { clearAllDrafts } from "@/lib/chat-drafts";
 import { APP_ORIGIN } from "@/lib/app-origin";
 import { outboxStore } from "@/lib/outbox";
 import { clearThreadCache } from "@/lib/thread-cache";
+import { resetComposerDrafts } from "@/lib/composer-draft";
+import { clearSignedUrlMemo } from "@/lib/attachments";
+import { clearCachedMedia } from "@/lib/media-cache";
 import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { isSafeReturnPath } from "@/lib/return-to";
@@ -308,9 +311,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     await supabase.rpc("vault_lock").then(() => undefined, () => undefined);
     await supabase.auth.signOut();
     // Half-typed messages stay on this device only while signed in (Đợt gộp 2 · A8).
+    resetComposerDrafts();
     clearAllDrafts();
     // AVORA-106 · K2/K3: the outbox and the thread copies belong to this account only.
     await Promise.all([outboxStore.clear(), clearThreadCache()]).catch(() => undefined);
+    // K3 · N7: cached chat photos and remembered links leave with the account.
+    clearSignedUrlMemo();
+    clearCachedMedia();
     // AVORA-77 · G: where each tab stood is forgotten on sign-out.
     clearTabMemory();
     writeRecoveryFlag(false);

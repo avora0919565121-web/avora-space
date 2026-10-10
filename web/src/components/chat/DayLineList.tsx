@@ -182,7 +182,7 @@ export function DayLineList({
                 <X className="h-4 w-4" aria-hidden="true" />
               </button>
             </header>
-            <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 pb-[max(env(safe-area-inset-bottom),1rem)]">{(renderFull ?? renderDetail)(fullLine)}</div>
+            <div className="min-h-0 flex-1 scroll-y px-4 py-4 pb-[max(env(safe-area-inset-bottom),1rem)]">{(renderFull ?? renderDetail)(fullLine)}</div>
           </div>
         </div>
       ) : null}
@@ -232,7 +232,8 @@ function LineRow({
   const down = useCallback(
     (event: ReactPointerEvent<HTMLDivElement>): void => {
       hold.onPointerDown(event);
-      if (canSwipe && event.pointerType === "touch") swipeRef.current = { x: event.clientX, y: event.clientY, decided: null, base: offset };
+      // K4 · 5: a start within 24 px of the left edge is the system's back swipe (ADR-062).
+      if (canSwipe && event.pointerType === "touch" && event.clientX > 24) swipeRef.current = { x: event.clientX, y: event.clientY, decided: null, base: offset };
     },
     [hold, canSwipe, offset],
   );

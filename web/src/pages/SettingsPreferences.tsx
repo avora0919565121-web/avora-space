@@ -4,6 +4,7 @@ import { toast } from "sonner";
 import { AppearanceCard } from "@/components/AppearanceCard";
 import { BlockedPeopleCard } from "@/components/BlockedPeopleCard";
 import { LookPrefsCard } from "@/components/LookPrefsCard";
+import { ChatBackdropCard } from "@/components/ChatBackdropCard";
 import { PlanBoardsCard } from "@/components/PlanBoardsCard";
 import { currenciesByRegion, REGION_LABELS, formatRate } from "@/lib/currency";
 import {
@@ -273,6 +274,7 @@ const SettingsPreferences = () => {
         <AppearanceCard />
 
         <LookPrefsCard />
+        <ChatBackdropCard />
 
         <PlanBoardsCard />
 

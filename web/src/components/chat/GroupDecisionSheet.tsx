@@ -527,7 +527,7 @@ export function GroupDecisionSheet({
    * wrapping onto four lines each while most of the screen sat empty.
    */
   const logBody: ReactNode = (
-    <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 lg:px-6">
+    <div className="min-h-0 flex-1 scroll-y px-5 py-4 lg:px-6">
           {/* Opening something new */}
           {composing === null ? (
             <div className="mb-5 flex gap-2">

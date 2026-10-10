@@ -50,9 +50,18 @@ export function KeyboardSync() {
       const covered = Math.max(0, window.innerHeight - viewport.height - viewport.offsetTop);
       const isOpen = typing && baseline - viewport.height > KEYBOARD_MIN_PX;
       root.style.setProperty("--keyboard-inset", `${isOpen ? Math.round(covered) : 0}px`);
+      // 101B · 3c / 100 · S.1: the visible area itself, for anything that must ride the keyboard's
+      // top edge (Ghi chép toolbar) or size to what is actually on screen.
+      root.style.setProperty("--vv-height", `${Math.round(viewport.height)}px`);
+      root.style.setProperty("--vv-bottom", `${Math.round(viewport.offsetTop + viewport.height)}px`);
       if (isOpen) root.dataset.keyboard = "open";
       else delete root.dataset.keyboard;
-      if (isOpen && !wasOpen) {
+      const inThreadComposer = isOpen && document.activeElement?.closest("[data-composer-shell]") != null;
+      if (inThreadComposer) {
+        // 101B · 3c: iOS pushes the whole page up when the chat box takes focus, taking the thread
+        // header off screen. The page stays put; the layout already sits above the keyboard.
+        if (window.scrollY !== 0) window.scrollTo(0, 0);
+      } else if (isOpen && !wasOpen) {
         const field = document.activeElement;
         if (isTextField(field)) field.scrollIntoView({ block: "center", behavior: "auto" });
       }
@@ -63,11 +72,13 @@ export function KeyboardSync() {
     };
 
     viewport.addEventListener("resize", schedule);
+    viewport.addEventListener("scroll", schedule);
     window.addEventListener("focusin", schedule);
     window.addEventListener("focusout", schedule);
     apply();
     return () => {
       viewport.removeEventListener("resize", schedule);
+      viewport.removeEventListener("scroll", schedule);
       window.removeEventListener("focusin", schedule);
       window.removeEventListener("focusout", schedule);
       if (frame !== 0) window.cancelAnimationFrame(frame);

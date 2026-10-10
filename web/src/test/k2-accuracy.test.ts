@@ -20,7 +20,7 @@ const item = (id: string, conversationId: string, seq: number, state: OutboxItem
 describe("AVORA-106 · K2", () => {
   it("C4 · a realtime row maps to the same fields as a fetched one", () => {
     const fetched = toChatMessageRow(row("m1", "2026-10-09T01:00:00Z", { is_urgent: true, refs: [{ type: "task", id: "t" }], system_kind: "member_added", contact_card_user_id: "x", forward_bundle: { a: 1 } }));
-    const keys = ["id", "conversationId", "senderId", "content", "createdAt", "editedAt", "deletedAt", "replyToMessageId", "mentionedUserIds", "originGroupId", "attachmentCount", "originContentId", "originSenderId", "systemKind", "forwardBundle", "isUrgent", "refs", "contactCardUserId"];
+    const keys = ["id", "conversationId", "senderId", "content", "createdAt", "editedAt", "deletedAt", "replyToMessageId", "mentionedUserIds", "originGroupId", "attachmentCount", "originContentId", "originSenderId", "systemKind", "forwardBundle", "isUrgent", "refs", "contactCardUserId", "stickerId", "effect"];
     expect(Object.keys(fetched).sort()).toEqual([...keys].sort());
     expect(fetched.isUrgent).toBe(true);
     expect(fetched.systemKind).toBe("member_added");

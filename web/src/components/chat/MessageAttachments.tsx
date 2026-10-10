@@ -48,6 +48,8 @@ type AttachmentProps = {
   attachment: MessageAttachment;
   url: string | null;
   outgoing: boolean;
+  /** K3 · N2: drawn in the thread when present; the full photo loads only when tapped. */
+  thumbUrl?: string | null;
 };
 
 /** Downloads the file under its own name, rather than leaving a tab open on a signed URL. */
@@ -69,9 +71,10 @@ async function download(attachment: MessageAttachment): Promise<void> {
 /** K2 · C9: a file that no longer exists says so, instead of "Đang tải ảnh…" forever. */
 export const MISSING_FILE_NOTE = "Tệp không còn";
 
-function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
+function ImageAttachment({ attachment, url, outgoing, thumbUrl = null }: AttachmentProps) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
   const [isBroken, setIsBroken] = useState<boolean>(false);
+  const [isThumbBroken, setIsThumbBroken] = useState<boolean>(false);
   const canSave = canExportAttachment(attachment.permission);
 
   return (
@@ -80,7 +83,7 @@ function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
         type="button"
         onClick={() => setIsOpen(true)}
         aria-label={`Xem ảnh ${attachment.fileName}`}
-        className="press group relative block overflow-hidden rounded-[12px] border border-border bg-secondary/40"
+        className="press group relative block max-w-full overflow-hidden rounded-[12px] border border-border bg-secondary/40"
         style={{ width: IMAGE_MAX_WIDTH_PX, aspectRatio: aspectRatio(attachment) }}
       >
         {isBroken || url === MISSING_URL ? (
@@ -93,11 +96,13 @@ function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
           </span>
         ) : (
           <img
-            src={url}
+            src={thumbUrl !== null && !isThumbBroken ? thumbUrl : url}
             alt={attachment.fileName}
             draggable={false}
             loading="lazy"
-            onError={() => setIsBroken(true)}
+            decoding="async"
+            data-thumb={thumbUrl !== null && !isThumbBroken ? "" : undefined}
+            onError={() => (thumbUrl !== null && !isThumbBroken ? setIsThumbBroken(true) : setIsBroken(true))}
             className="h-full w-full object-cover"
           />
         )}
@@ -181,7 +186,7 @@ function ImageAttachment({ attachment, url, outgoing }: AttachmentProps) {
 
 function VoiceAttachment({ attachment, url }: AttachmentProps) {
   return (
-    <div className="flex w-[280px] items-center gap-2.5 rounded-[12px] border border-border bg-card px-3 py-2.5">
+    <div className="flex w-[280px] max-w-full min-w-0 items-center gap-2.5 rounded-[12px] border border-border bg-card px-3 py-2.5">
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
         <Mic className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
       </span>
@@ -211,7 +216,7 @@ function FileAttachment({ attachment }: AttachmentProps) {
   const KindIcon = fileIconOf(attachment);
 
   return (
-    <div className="flex w-[280px] items-center gap-3 rounded-[12px] border border-border bg-card px-3 py-2.5">
+    <div className="flex w-[280px] max-w-full min-w-0 items-center gap-3 rounded-[12px] border border-border bg-card px-3 py-2.5">
       <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[9px] bg-secondary text-muted-foreground">
         <KindIcon className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" data-file-icon="" />
       </span>
@@ -262,7 +267,7 @@ export function ForwardImageGrid({
   return (
     <>
       <div
-        className="mt-2 grid gap-1 overflow-hidden rounded-[10px]"
+        className="mt-2 grid w-full gap-1 overflow-hidden rounded-[10px]"
         style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`, maxWidth: IMAGE_MAX_WIDTH_PX }}
       >
         {images.map((image, index) => {
@@ -417,6 +422,7 @@ function ImageViewer({
 export type MessageAttachmentsProps = {
   attachments: readonly MessageAttachment[];
   urlOf: (storagePath: string) => string | null;
+  thumbUrlOf?: (storagePath: string) => string | null;
   outgoing: boolean;
 };
 
@@ -428,16 +434,17 @@ export type MessageAttachmentsProps = {
  * a determined reader can always photograph a screen — and saying so plainly beats pretending
  * the file is locked.
  */
-export function MessageAttachments({ attachments, urlOf, outgoing }: MessageAttachmentsProps) {
+export function MessageAttachments({ attachments, urlOf, thumbUrlOf, outgoing }: MessageAttachmentsProps) {
   const renderOne = useCallback(
     (attachment: MessageAttachment) => {
       const url = urlOf(attachment.storagePath);
       const shared = { attachment, url, outgoing };
-      if (attachment.kind === "image") return <ImageAttachment key={attachment.id} {...shared} />;
+      if (attachment.kind === "image")
+        return <ImageAttachment key={attachment.id} {...shared} thumbUrl={thumbUrlOf?.(attachment.storagePath) ?? null} />;
       if (attachment.kind === "voice") return <VoiceAttachment key={attachment.id} {...shared} />;
       return <FileAttachment key={attachment.id} {...shared} />;
     },
-    [urlOf, outgoing],
+    [urlOf, thumbUrlOf, outgoing],
   );
 
   if (attachments.length === 0) return null;

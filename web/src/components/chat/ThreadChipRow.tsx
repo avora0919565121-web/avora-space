@@ -39,7 +39,7 @@ export function ThreadChipRow({
   return (
     <>
       <nav aria-label="Trong cuộc này" className="border-b border-border bg-card/80">
-        <ul className="no-scrollbar flex h-10 items-center gap-1.5 overflow-x-auto px-3 md:px-10">
+        <ul data-h-scroll="" className="no-scrollbar flex h-10 items-center gap-1.5 overflow-x-auto px-3 md:px-10">
           {chips.map((chip) => {
             const Icon = ICONS[chip.id];
             const base =

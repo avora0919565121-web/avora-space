@@ -14,6 +14,13 @@
  *     so a newly deployed build is always the one that loads. Nobody gets
  *     stranded on a stale version.
  *
+ * One narrow, deliberate exception (AVORA-106 · K3 · N7): chat photos. A signed link to a file
+ * in the private `chat-attachments` bucket is cached by its PATH (the one-time token removed), in
+ * a separate cache, so reopening a thread does not download the same photo again. The path holds
+ * a uuid and never changes content. Only image requests are kept, only from that bucket, and the
+ * whole cache is dropped when the app signs out (message `avora-clear-media`). Nothing else from
+ * Supabase is ever cached.
+ *
  * Behaviour is covered by src/test/pwa.test.ts, which executes this exact file.
  */
 
@@ -69,6 +76,39 @@ function isCacheableRequest(request, scopeOrigin) {
   return STATIC_EXTENSIONS.some((extension) => pathname.endsWith(extension));
 }
 
+const MEDIA_CACHE_NAME = "avora-media-v1";
+/** Signed chat-attachment links only; never public buckets, never other private buckets. */
+const MEDIA_PATH_RE = /^\/storage\/v1\/object\/sign\/chat-attachments\/[^?]+\.(jpe?g|png|webp|gif|heic|avif)$/i;
+const MEDIA_HOST_RE = /\.supabase\.(co|in)$/;
+
+/** The cache key for a chat photo: same file, any token → one entry. Null when not a chat photo. */
+function mediaCacheKey(request) {
+  if (request.method !== "GET") return null;
+  let url;
+  try {
+    url = new URL(request.url);
+  } catch {
+    return null;
+  }
+  if (!MEDIA_HOST_RE.test(url.hostname)) return null;
+  if (!MEDIA_PATH_RE.test(url.pathname)) return null;
+  if (url.searchParams.has("download")) return null;
+  return url.origin + url.pathname;
+}
+
+/** Cache first by path; the network only when this photo was never seen on this device. */
+async function mediaCacheFirst(request, key) {
+  const cache = await caches.open(MEDIA_CACHE_NAME);
+  const keyRequest = new Request(key);
+  const hit = await cache.match(keyRequest);
+  if (hit) return hit;
+  const response = await fetch(request);
+  if (response && response.ok && (response.type === "cors" || response.type === "basic")) {
+    await cache.put(keyRequest, response.clone());
+  }
+  return response;
+}
+
 /** Network first, cache only as an offline fallback. */
 async function networkFirst(request) {
   const cache = await caches.open(CACHE_NAME);
@@ -93,13 +133,18 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(
     (async () => {
       const keys = await caches.keys();
-      await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+      await Promise.all(keys.filter((key) => key !== CACHE_NAME && key !== MEDIA_CACHE_NAME).map((key) => caches.delete(key)));
       await self.clients.claim();
     })(),
   );
 });
 
 self.addEventListener("fetch", (event) => {
+  const mediaKey = mediaCacheKey(event.request);
+  if (mediaKey !== null) {
+    event.respondWith(mediaCacheFirst(event.request, mediaKey));
+    return;
+  }
   if (!isCacheableRequest(event.request, self.location.origin)) return;
   event.respondWith(networkFirst(event.request));
 });
@@ -165,4 +210,11 @@ self.addEventListener("notificationclick", (event) => {
       await self.clients.openWindow(target);
     })(),
   );
+});
+
+/* Signing out drops every cached chat photo on this device (K3 · N7). */
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "avora-clear-media") {
+    event.waitUntil(caches.delete(MEDIA_CACHE_NAME));
+  }
 });

@@ -18,6 +18,7 @@ import { useTasks } from "@/lib/use-tasks";
 import type { TaskItem } from "@/lib/tasks";
 import { cn } from "@/lib/utils";
 import { FileChipRow } from "@/components/chat/FileChipRow";
+import { storageLine, useConversationStorage } from "@/lib/conversation-storage";
 import { matchesFileChip, readFileChip, writeFileChip, type FileChip } from "@/lib/file-category";
 
 type DiaryTab = "days" | "files" | "links" | "sources";
@@ -73,6 +74,7 @@ export function ConversationDiarySheet({
   });
   const edgeSwipe = useEdgeSwipeBack(stacked.onBack);
 
+  const storage = useConversationStorage(conversationId);
   const linesQuery = useQuery<DiaryLine[], Error>({
     queryKey: ["chat", "conversation-diary", conversationId],
     queryFn: () => fetchConversationDiary(conversationId),
@@ -132,7 +134,7 @@ export function ConversationDiarySheet({
             Chỉ những gì bạn đang được xem. Tin đã thu hồi không hiện.
           </SheetDescription>
         </div>
-        <div role="tablist" aria-label="Cách xem" className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border px-4 pb-3">
+        <div role="tablist" aria-label="Cách xem" data-h-scroll="" className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border px-4 pb-3">
           {tabs.map((entry) => (
             <button
               key={entry.id}
@@ -151,7 +153,7 @@ export function ConversationDiarySheet({
           ))}
         </div>
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none px-4 py-4">
           {linesQuery.isError ? (
             <div className="py-10 text-center">
               <p className="text-[14px] text-muted-foreground">{linesQuery.error.message}</p>
@@ -219,6 +221,8 @@ export function ConversationDiarySheet({
             </div>
           ) : tab === "files" ? (
             <div>
+              {/* K6 · đợt A: counted only, nothing is removed yet. */}
+              <p data-storage-line="" className="mb-2 text-[12.5px] text-muted-foreground">{storageLine(storage)}</p>
               <div className="-mx-1 mb-3">
                 <FileChipRow
                   files={allFiles.map((file) => ({ kind: file.kind, mimeType: file.mimeType, fileName: file.fileName, captureSource: file.captureSource ?? null }))}

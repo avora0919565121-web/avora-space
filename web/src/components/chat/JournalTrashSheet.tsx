@@ -71,7 +71,7 @@ export function JournalTrashSheet({
             Mục đã xoá được giữ 30 ngày, cùng tệp, rồi mới xoá hẳn.
           </SheetDescription>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
+        <div className="min-h-0 flex-1 scroll-y px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
           {query.isPending && open ? (
             <div className="flex justify-center py-10">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />

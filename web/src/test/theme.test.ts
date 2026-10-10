@@ -171,10 +171,13 @@ describe("AVORA-74 · 74.3b — the two zones", () => {
     expect(read("pages/Auth.tsx")).not.toContain("personal");
   });
   it("your zone follows the tone: own bubble, selected tab, my-task stripe, Gửi, dialog buttons", () => {
-    expect(read("pages/Messages.tsx")).toContain('"rounded-br-[4px] bg-personal text-personal-foreground"');
-    expect(read("components/SectionTabs.tsx")).toContain("bg-personal transition-opacity");
+    // K4 · 3: the tail (6 px) is only on a run's last bubble; the colour is still the person's tone.
+    expect(read("pages/Messages.tsx")).toContain('cn("bg-personal text-personal-foreground", run.end && "rounded-br-[6px]")');
+    // AVORA-101A: one strip (SubTabs) for every tab; its underline is the person's tone.
+    expect(read("components/nav/SubTabs.tsx")).toContain("rounded-full bg-personal transition-[transform,width]");
     expect(read("components/tasks/TaskOwner.tsx")).toContain("border-l-personal");
-    expect(read("components/chat/MessageComposer.tsx")).toContain("icon-btn-personal");
+    // 101B · 3b: Gửi is an icon only, coloured by the person's tone.
+    expect(read("components/chat/MessageComposer.tsx")).toContain("text-personal transition-colors");
     expect(read("components/ConfirmHost.tsx")).toContain("bg-personal text-personal-foreground");
   });
 });

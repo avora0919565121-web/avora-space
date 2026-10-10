@@ -41,7 +41,7 @@ vi.mock("@/integrations/supabase/client", () => {
   return {
     supabase: {
       from: (table: string) => builder(db.tables[table] ?? []),
-      rpc: (name: string) => builder(db.rpcs[name] ?? []),
+      rpc: (rawName: string) => { const name = rawName === "inbox_page" ? "list_my_conversations" : rawName; return builder(db.rpcs[name] ?? []); },
       storage: { from: () => builder([]) },
       channel: () => builder([]),
       removeChannel: () => undefined,
@@ -986,7 +986,7 @@ for (const [width, height, label] of [[1280, 800, "1280"], [390, 844, "390"]] as
 test("70.1b · cuộn qua một ngày 20 mục: hàng ngày dính trên cùng rồi nhường ngày kế (390)", async () => {
   seedJournal(20);
   await openJournal(390, 844);
-  const scroller = (document.querySelector("[data-day-lines]") as HTMLElement).closest(".overflow-y-auto") as HTMLElement;
+  const scroller = (document.querySelector("[data-day-lines]") as HTMLElement).closest(".overflow-y-auto, .scroll-y") as HTMLElement;
   const top = scroller.getBoundingClientRect().top;
   const sections = [...document.querySelectorAll("section[data-day]")] as HTMLElement[];
   const todaySection = sections[sections.length - 1];

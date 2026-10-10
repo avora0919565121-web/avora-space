@@ -38,6 +38,10 @@ export type OutboxItem = {
   refs: { type: string; id: string }[];
   originGroupId: string | null;
   isUrgent: boolean;
+  /** K5: a send effect asked for (the server may drop it past 3 / 10 min). */
+  effect?: "fireworks" | "hearts" | "balloons" | "buzz" | null;
+  /** K5: an Avora sticker message — the id only, never an image. */
+  stickerId?: string | null;
   files: OutboxFile[];
   createdAt: string;
   /** Monotonic order within this device. */

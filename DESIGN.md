@@ -2106,6 +2106,44 @@ Luật: không màn nào được "mất" dòng thứ 1.001. Đọc danh sách =
 - **Giới hạn:** `Bạn gửi hơi nhanh — đợi vài giây nhé` (5 tin / giây, 30 / phút); tệp bị cấm `Avora không gửi loại tệp này (tệp chạy được hoặc trang web).`; tệp quá cỡ `Tệp quá lớn: ảnh / tài liệu tối đa 25 MB, video tối đa 50 MB.`; `Video tối đa 3 phút.`; `Một tin gửi tối đa 100 MB tệp.`; `Một tin nhắc tối đa 20 người.`
 - **Tệp mất:** `Tệp không còn` thay cho `Đang tải ảnh…`.
 - **Mở nhanh:** cuộc đã mở trên máy vẽ ngay từ bản trên máy; ấn xuống một dòng là bắt đầu tải; tab khác Kết nối / Avora Space tải mã khi mở (khung app giữ nguyên, chỉ vùng nội dung hiện vòng tải ≤ 10 giây rồi `Chưa tải được · Thử lại`).
+- **Danh sách theo trang:** 50 cuộc 1-1 đầu; cuộn tới cuối là tự tải thêm (nút `Xem thêm cuộc trò chuyện` cho bàn phím / trình đọc màn hình). Nhật ký, Nhóm, Dự án luôn đủ. Số chưa đọc quá 99 ghi `99+`.
+- **Ảnh trong cuộc:** ảnh nhỏ 320 px vẽ trong thread; chạm mới tải ảnh gốc. Ảnh đã xem trên máy không tải lại khi mở lại cuộc; đăng xuất là xoá.
+- **Gõ phím:** chỉ ô nhập vẽ lại; nháp lưu trên máy sau 400 ms, và ngay khi ẩn trang.
+
+### Màn chat (AVORA-106 · K4 · ADR-070)
+- **Không kéo ngang được:** vùng cuộn dọc dùng `.scroll-y`; dải cuộn ngang chủ đích (chip, ngăn) khai `data-h-scroll` và nằm ngoài cây `touch-action: pan-y`. Quy tắc chung: `overflow-y-auto` phải kèm `overflow-x-hidden` (hoặc là `.scroll-y`).
+- **Bong bóng:** gom theo người + 5 phút; 2 px trong nhóm, 8 px giữa nhóm; chỉ bong bóng cuối có đuôi 6 px và giờ (11 px, mờ) ở góc dưới phải bên trong; chạm tin giữa nhóm xem giờ 3 giây. Rộng tối đa 86% (điện thoại). Nhãn ngày `my-2`.
+- **Vuốt:** ← Trả lời · → Tạo việc. ↩ hiện bên phải, ☑ bên trái. 24 px mép trái để dành cho lùi.
+- **Khung soạn:** một đường xám, nền giấy, không vòng tròn quanh `+` / micro / Gửi. Gửi xám khi trống, màu tông cá nhân khi có chữ — không cam.
+- **☑ nổi:** việc của cuộc ở góc phải trên vùng tin; mờ 40% khi cuộn; mở tấm nổi.
+- **Nền trò chuyện:** Trơn · Chấm bi · Giấy (Cài đặt). Thứ tự ưu tiên: nền chung của cuộc (Không khí) → nền của tôi → Trơn.
+- **iPhone, không làm được từ web:** thanh `⌃ ⌄ ✓` và dải gợi ý chữ của iOS; thanh của Avora nằm ngay trên nó.
+
+### Không khí · hiệu ứng · sticker (AVORA-106 · K5 · ADR-071)
+- **⋯ › Không khí** (chỉ 1-1 / Nhóm / Dự án): Màu cuộc trò chuyện (Theo tôi · Avora · Biển · Ngọc · Tím · Than), Nền (Giấy · Lá · Mây · Sóng), Icon nhóm (24 icon hoặc ảnh vuông), Hiệu ứng khi nhận (Đầy đủ · Nhẹ · Tắt — chỉ mình). Thành viên thường ở Nhóm thấy các ô màu / nền / icon mờ, kèm câu "Chỉ quản trị đổi…".
+- **Giữ Gửi:** một menu — hàng 4 hiệu ứng ở trên, `Gửi khẩn` ở dưới. Thả tay không chọn = không gửi.
+- **Nhận:** Đầy đủ ≤ 2 giây phủ vùng tin; Nhẹ ≤ 1 giây trong bong bóng; Tắt → biểu tượng nhỏ ở góc bong bóng, chạm để xem.
+- **Sticker:** 🙂 ở cuối ô chữ, trước 🎙 / Gửi. Sticker trong khay đứng yên; trong thread chuyển động một lần khi vừa tới.
+- **Emoji to / chạm đúp:** 1–3 emoji to không bong bóng; chạm đúp bong bóng = ❤️, nổ nhỏ tại chỗ (trừ khi Tắt).
+- **Thứ tự nền:** Không khí của cuộc → Nền trò chuyện của tôi → Trơn.
+
+### Kho chung (AVORA-106 · K6 · ADR-072, đợt A)
+- `⋯ › Nhật ký trò chuyện › File`: một dòng chỉ xem `Kho chung 1,4 GB · tệp giữ 30 ngày (sắp áp dụng)`.
+- `Cài đặt › Lưu trữ`: `Tệp bạn đã gửi trong trò chuyện: x / 5 GB (đang đếm, chưa giới hạn)`.
+- Chưa xoá tệp nào người dùng còn thấy. Đợt B sẽ báo trước 14 ngày.
+
+## Khung trang chuẩn (AVORA-101 · ADR-073)
+Nguyên tắc nền: **Rõ ràng · Không gian nội tâm · Không gian của tôi.** Sang trọng = ít thành phần, đều nhịp, không lặp. Một hệ thống, nhiều tông — không ngoại lệ theo màn hình.
+
+```
+Thanh trên  : MobileTopBar (52 px + safe-area) — tên tab chỉ ở đây
+Dải mục con : SubTabs — 40 px, chữ 13 px, gạch chân tông cá nhân
+Thân trang  : lề ngang 16 px, nhịp dọc 8 / 12 / 16
+Thanh dưới  : ToolBelt (ẩn trong thread)
+```
+- **SubTabs** (`components/nav/SubTabs.tsx`) là dải duy nhất: Kết nối, Nhiệm vụ, Két sắt, Cài đặt (và Kế hoạch ở 101C). ≤ 4 mục chia đều; > 4 cuộn ngang và tự đưa mục đang chọn vào giữa; `⋯` cho mục phụ.
+- **Nút hàng đầu:** Tìm · Người (nếu có) · `+`, cùng 38 px kiểu `.icon-btn` (theo Kiểu nút, ADR-037). `+` tông cá nhân. Cam Avora chỉ cho logo và huy hiệu.
+- **Bubble lịch:** cùng vị trí / cỡ / biểu tượng ở mọi tab; ẩn trong thread và màn tập trung.
 
 ## Out of scope
 

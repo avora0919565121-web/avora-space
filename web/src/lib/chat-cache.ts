@@ -228,6 +228,10 @@ export type ChatMessage = {
   refs?: { type: string; id: string }[] | null;
   /** AVORA-89 · `@@`: the person introduced (name + PIN read at view time). */
   contactCardUserId?: string | null;
+  /** K5: an Avora sticker message (drawn by AvoraSticker, 120 px, no bubble). */
+  stickerId?: string | null;
+  /** K5: the effect the sender sent with it (played once on arrival). */
+  effect?: SendEffect | null;
   /** True while an optimistic bubble is still being written to the server. */
   pending?: boolean;
   /**
@@ -808,3 +812,60 @@ export function daysLeftInTrash(trashedAt: string, now: Date = new Date()): numb
   const ends = new Date(trashedAt).getTime() + 30 * 24 * 60 * 60 * 1000;
   return Math.max(0, Math.ceil((ends - now.getTime()) / (24 * 60 * 60 * 1000)));
 }
+
+/** AVORA-106 · K4 · 3 (100 · S.1a): consecutive messages within this gap form one run. */
+export const BUBBLE_RUN_GAP_MS = 5 * 60_000;
+
+export type BubbleRunPosition = { start: boolean; end: boolean };
+
+/**
+ * Where each message sits in its run: same sender, ≤ 5 minutes apart, nothing else between.
+ * System lines break a run and belong to none. Only the last bubble of a run carries the tail,
+ * the clock and the receipt; in a group only the first carries the name, the last the face.
+ */
+export function bubbleRuns(
+  messages: readonly Pick<ChatMessage, "id" | "senderId" | "createdAt" | "systemKind">[],
+): Map<string, BubbleRunPosition> {
+  const result = new Map<string, BubbleRunPosition>();
+  const joins = (a: (typeof messages)[number] | undefined, b: (typeof messages)[number] | undefined): boolean => {
+    if (a === undefined || b === undefined) return false;
+    if (a.systemKind != null || b.systemKind != null) return false;
+    if (a.senderId !== b.senderId) return false;
+    const gap = Math.abs(new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return Number.isFinite(gap) && gap <= BUBBLE_RUN_GAP_MS;
+  };
+  messages.forEach((message, index) => {
+    if (message.systemKind != null) return;
+    result.set(message.id, {
+      start: !joins(messages[index - 1], message),
+      end: !joins(message, messages[index + 1]),
+    });
+  });
+  return result;
+}
+
+/** K5 · 4.2A: the four send effects. */
+export type SendEffect = "fireworks" | "hearts" | "balloons" | "buzz";
+export const SEND_EFFECTS: readonly { id: SendEffect; label: string; emoji: string }[] = [
+  { id: "fireworks", label: "Pháo hoa", emoji: "🎆" },
+  { id: "hearts", label: "Tim bay", emoji: "💕" },
+  { id: "balloons", label: "Bóng bay", emoji: "🎈" },
+  { id: "buzz", label: "Rung nhẹ", emoji: "〰️" },
+];
+export function isSendEffect(value: unknown): value is SendEffect {
+  return value === "fireworks" || value === "hearts" || value === "balloons" || value === "buzz";
+}
+
+/** K5 · 4.2B: a message of only 1–3 emoji is drawn big, without a bubble. Returns the count or 0. */
+export function bigEmojiCount(content: string): number {
+  const text = content.trim();
+  if (text === "" || text.length > 40) return 0;
+  if (!/^(?:\p{Extended_Pictographic}|\p{Emoji_Component}|\u200d|\ufe0f|\s)+$/u.test(text)) return 0;
+  if (/[0-9#*]/.test(text)) return 0;
+  const Segmenter = (Intl as unknown as { Segmenter?: new (locale: string, options: { granularity: string }) => { segment: (input: string) => Iterable<{ segment: string }> } }).Segmenter;
+  const graphemes = Segmenter
+    ? [...new Segmenter("vi", { granularity: "grapheme" }).segment(text.replace(/\s+/g, ""))].length
+    : [...text.replace(/\s+/g, "")].length;
+  return graphemes >= 1 && graphemes <= 3 ? graphemes : 0;
+}
+

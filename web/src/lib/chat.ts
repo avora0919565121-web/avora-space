@@ -1,7 +1,8 @@
 import { logError } from "@/lib/log";
 import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
-import type { ChatMessage, ConversationKind, ConversationSummary } from "@/lib/chat-cache";
+import type { Database } from "@/integrations/supabase/types";
+import { isSendEffect, type ChatMessage, type ConversationKind, type ConversationSummary, type SendEffect } from "@/lib/chat-cache";
 import { peerLabel } from "@/lib/initials";
 import { parseForwardBundle } from "@/lib/chat-transcript";
 import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
@@ -10,6 +11,7 @@ import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
 export const VERIFICATION_QUOTA_NOTICE = "Bạn đã dùng hết 5 tin. Chờ người kia trả lời nhé.";
 
 export {
+  isSendEffect,
   applyMessageEditToInbox,
   applyMessageToInbox,
   applyMessageUpdate,
@@ -66,8 +68,13 @@ export {
   unreadForTab,
   unreadSummaryText,
   withFailedSends,
+  bubbleRuns,
+  BUBBLE_RUN_GAP_MS,
+  bigEmojiCount,
+  SEND_EFFECTS,
 } from "@/lib/chat-cache";
 export type {
+  SendEffect,
   ChatMessage,
   FailedSend,
   ConversationKind,
@@ -141,11 +148,74 @@ function fail(code: string | undefined, message: string): Error {
 }
 
 /** Inbox list, newest activity first. Peer identity is resolved server-side. */
-export async function fetchConversations(): Promise<ConversationSummary[]> {
-  const { data, error } = await supabase.rpc("list_my_conversations");
-  if (error) throw fail(error.code, error.message);
+/**
+ * K3 · N9: the inbox is paged. 1-1 threads come 50 at a time (the long tail); Nhật ký, Nhóm and
+ * Dự án always come whole (few, and Nhóm is drawn as a tree). The open thread and pinned threads
+ * ride along even before their page arrives. A refetch asks for as many 1-1 rows as are already
+ * shown, so a background refresh never shrinks a list the person has scrolled.
+ */
+export const INBOX_PAGE_SIZE = 50;
+const inboxPaging: { directLimit: number; include: ReadonlySet<string>; hasMore: boolean } = {
+  directLimit: INBOX_PAGE_SIZE,
+  include: new Set<string>(),
+  hasMore: false,
+};
+const inboxPagingListeners = new Set<() => void>();
 
-  return (data ?? []).map((row) => ({
+/** Threads that must be in the list whatever page is loaded (open + pinned). */
+export function setInboxInclude(ids: readonly string[]): boolean {
+  const next = new Set(ids.filter((id) => id.length > 0));
+  const changed = next.size !== inboxPaging.include.size || [...next].some((id) => !inboxPaging.include.has(id));
+  if (changed) inboxPaging.include = next;
+  return changed;
+}
+
+/** One more page of 1-1 threads on the next fetch. */
+export function growInboxPage(): void {
+  inboxPaging.directLimit += INBOX_PAGE_SIZE;
+}
+
+export function inboxHasMore(): boolean {
+  return inboxPaging.hasMore;
+}
+
+export function subscribeInboxPaging(listener: () => void): () => void {
+  inboxPagingListeners.add(listener);
+  return () => inboxPagingListeners.delete(listener);
+}
+
+/** Per-kind unread totals from one light call, for tab badges while the list is still paged. */
+export type InboxUnreadCounts = { byKind: Record<string, number>; total: number };
+
+export async function fetchInboxUnreadCounts(): Promise<InboxUnreadCounts> {
+  const { data, error } = await supabase.rpc("inbox_unread_counts" as never);
+  if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);
+  const byKind: Record<string, number> = {};
+  let total = 0;
+  for (const row of (data ?? []) as { conversation_type: string | null; unread_messages: number | null }[]) {
+    const count = row.unread_messages ?? 0;
+    byKind[row.conversation_type ?? "direct"] = count;
+    total += count;
+  }
+  return { byKind, total };
+}
+
+/** Inbox list, newest activity first. Peer identity is resolved server-side. */
+export async function fetchConversations(): Promise<ConversationSummary[]> {
+  const limit = inboxPaging.directLimit;
+  const { data: raw, error } = await supabase.rpc("inbox_page" as never, {
+    p_limit: limit,
+    p_include: [...inboxPaging.include],
+  } as never);
+  if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);
+  type InboxRow = Database["public"]["Functions"]["list_my_conversations"]["Returns"][number];
+  const data = (raw ?? []) as InboxRow[];
+  const directRows = data.filter((row) => row.conversation_type === "direct").length;
+  const hadMore = inboxPaging.hasMore;
+  inboxPaging.hasMore = directRows >= limit;
+  if (hadMore !== inboxPaging.hasMore) inboxPagingListeners.forEach((listener) => listener());
+
+  return data.map((row) => ({
     conversationId: row.conversation_id,
     kind: (row.conversation_type as ConversationKind | null) ?? "direct",
     peerId: row.peer_id,
@@ -311,7 +381,7 @@ export async function addGroupMembers(conversationId: string, userIds: readonly 
 
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent, refs, contact_card_user_id";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent, refs, contact_card_user_id, sticker_id, effect";
 
 /** How many messages one page holds (Đợt gộp 2 · A7). */
 export const MESSAGE_PAGE_SIZE = 50;
@@ -336,6 +406,8 @@ export type MessageRowShape = {
   is_urgent?: boolean | null;
   refs?: unknown;
   contact_card_user_id?: string | null;
+  sticker_id?: string | null;
+  effect?: string | null;
 };
 
 /**
@@ -362,6 +434,8 @@ export function toChatMessageRow(row: MessageRowShape): ChatMessage {
     isUrgent: row.is_urgent === true,
     refs: Array.isArray(row.refs) ? (row.refs as { type: string; id: string }[]) : null,
     contactCardUserId: row.contact_card_user_id ?? null,
+    stickerId: row.sticker_id ?? null,
+    effect: isSendEffect(row.effect) ? row.effect : null,
   };
 }
 
@@ -588,6 +662,8 @@ export async function sendMessage(
   refs: readonly { type: string; id: string }[] = [],
   /** K2 · C1: the device-made id of this message (outbox keeps it across retries). */
   messageId: string | null = null,
+  /** K5: a send effect and / or an Avora sticker. */
+  extras: { effect?: SendEffect | null; stickerId?: string | null } = {},
 ): Promise<ChatMessage> {
   const trimmed = content.trim();
   // AVORA-106 · K1 (M3): one send RPC; the server sets sender / created_at. The id is made here so
@@ -603,6 +679,8 @@ export async function sendMessage(
     p_origin_group: originGroupId,
     p_daily_thought: replyToDailyThoughtId,
     p_urgent: isUrgent,
+    p_effect: extras.effect ?? null,
+    p_sticker: extras.stickerId ?? null,
   } as never);
 
   if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);

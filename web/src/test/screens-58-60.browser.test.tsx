@@ -41,7 +41,7 @@ vi.mock("@/integrations/supabase/client", () => {
   return {
     supabase: {
       from: (table: string) => builder(db.tables[table] ?? []),
-      rpc: (name: string) => builder(db.rpcs[name] ?? []),
+      rpc: (rawName: string) => { const name = rawName === "inbox_page" ? "list_my_conversations" : rawName; return builder(db.rpcs[name] ?? []); },
       storage: { from: () => builder([]) },
       channel: () => builder([]),
       removeChannel: () => undefined,

@@ -1,4 +1,4 @@
-import { ArrowUp, Mic } from "lucide-react";
+import { ArrowUp, Keyboard, Mic, Smile } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -14,7 +14,8 @@ import {
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 // The pure module, not "@/lib/chat": the composer needs no Supabase client to decide
 // whether a draft can leave, which also keeps it renderable in isolation under test.
-import { canSendDraft } from "@/lib/chat-cache";
+import { canSendDraft, SEND_EFFECTS, type SendEffect } from "@/lib/chat-cache";
+import { StickerTray } from "@/components/chat/StickerTray";
 import {
   activeMentionQuery,
   applyMention,
@@ -80,6 +81,10 @@ export type MessageComposerProps = {
   onRefsChange?: (refs: RefChoice[]) => void;
   /** `@@`: introduce one friend (name + PIN). */
   onShareCard?: (person: CardSuggestion) => void;
+  /** K5 · 84 §4.2D: 🙂 opens the sticker tray in place of the keyboard; omitted = no stickers here. */
+  onSendSticker?: (stickerId: string) => void;
+  /** K5 · 84 §4.2A: holding Gửi offers four effects; omitted = no effects here. */
+  onSendWithEffect?: (content: string, effect: SendEffect) => void;
 };
 
 /**
@@ -109,7 +114,12 @@ export function MessageComposer({
   directPeerName,
   onRefsChange,
   onShareCard,
+  onSendSticker,
+  onSendWithEffect,
 }: MessageComposerProps) {
+  const [isStickerTrayOpen, setIsStickerTrayOpen] = useState<boolean>(false);
+  const [isEffectTrayOpen, setIsEffectTrayOpen] = useState<boolean>(false);
+  const effectHoldRef = useRef<{ timer: ReturnType<typeof setTimeout> | null; fired: boolean }>({ timer: null, fired: false });
   const [trigger, setTrigger] = useState<Trigger | null>(null);
   const [triggerCaret, setTriggerCaret] = useState<number>(0);
   const [refOptions, setRefOptions] = useState<RefChoice[]>([]);
@@ -294,7 +304,7 @@ export function MessageComposer({
     <>
       {attachmentSlot}
       <form
-        className="mx-auto flex max-w-2xl items-end gap-1 border-t border-border pt-1 transition-colors has-[textarea:focus-visible]:border-personal md:gap-3 [&>*]:self-end"
+        className="mx-auto flex max-w-2xl items-end gap-1 md:gap-3 [&>*]:self-end"
         onSubmit={handleSubmit}
         onKeyDown={blockEnterSubmit}
       >
@@ -432,6 +442,7 @@ export function MessageComposer({
             const field = event.currentTarget;
             syncMentionRange(field.value, field.selectionStart ?? 0);
           }}
+          onFocus={() => setIsStickerTrayOpen(false)}
           onBlur={() => {
             setMentionRange(null);
             setTrigger(null);
@@ -444,6 +455,26 @@ export function MessageComposer({
         />
       </div>
         {trailingAction}
+        {onSendSticker !== undefined ? (
+          <button
+            type="button"
+            data-sticker-toggle=""
+            aria-label={isStickerTrayOpen ? "Về bàn phím" : "Sticker"}
+            aria-expanded={isStickerTrayOpen}
+            onClick={() => {
+              if (isStickerTrayOpen) {
+                setIsStickerTrayOpen(false);
+                window.requestAnimationFrame(() => fieldRef.current?.focus());
+              } else {
+                fieldRef.current?.blur();
+                setIsStickerTrayOpen(true);
+              }
+            }}
+            className="press flex h-11 w-9 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground"
+          >
+            {isStickerTrayOpen ? <Keyboard className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" /> : <Smile className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />}
+          </button>
+        ) : null}
         {showMic ? (
           <button
             type="button"
@@ -451,20 +482,77 @@ export function MessageComposer({
             disabled={isSending}
             aria-label="Ghi âm tin nhắn thoại"
             title="Ghi âm"
-            className="icon-btn h-11 w-11 text-foreground disabled:opacity-45"
+            className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-45"
           >
             <Mic className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
           </button>
         ) : urgent === undefined ? (
+          <span className="relative shrink-0">
+          {isEffectTrayOpen ? (
+            <span
+              role="menu"
+              aria-label="Gửi kèm hiệu ứng"
+              data-effect-tray=""
+              className="absolute bottom-[calc(100%+6px)] right-0 z-30 flex gap-1 rounded-full border border-border bg-card p-1 shadow-lg"
+            >
+              {SEND_EFFECTS.map((effect) => (
+                <button
+                  key={effect.id}
+                  type="button"
+                  role="menuitem"
+                  aria-label={`Gửi kèm ${effect.label}`}
+                  onClick={() => {
+                    setIsEffectTrayOpen(false);
+                    if (!canSendDraft(value, isSending, attachmentCount)) return;
+                    onSendWithEffect?.(value.trim(), effect.id);
+                  }}
+                  className="press flex min-h-11 min-w-11 flex-col items-center justify-center rounded-full px-1.5 text-[18px] hover:bg-accent/50"
+                >
+                  <span aria-hidden="true">{effect.emoji}</span>
+                  <span className="text-[10px] leading-none text-muted-foreground">{effect.label}</span>
+                </button>
+              ))}
+            </span>
+          ) : null}
           <button
             type="submit"
             disabled={!canSend}
             aria-label="Gửi"
-            title="Gửi"
-            className="icon-btn icon-btn-primary icon-btn-personal h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
+            title={onSendWithEffect ? "Gửi · giữ để gửi kèm hiệu ứng" : "Gửi"}
+            data-composer-send=""
+            onPointerDown={() => {
+              if (onSendWithEffect === undefined || !canSend) return;
+              effectHoldRef.current.fired = false;
+              effectHoldRef.current.timer = setTimeout(() => {
+                effectHoldRef.current.fired = true;
+                setIsEffectTrayOpen(true);
+              }, 450);
+            }}
+            onPointerUp={() => {
+              if (effectHoldRef.current.timer !== null) clearTimeout(effectHoldRef.current.timer);
+              effectHoldRef.current.timer = null;
+            }}
+            onPointerLeave={() => {
+              if (effectHoldRef.current.timer !== null) clearTimeout(effectHoldRef.current.timer);
+              effectHoldRef.current.timer = null;
+            }}
+            onClick={(event) => {
+              // A hold opened the effect tray: that press is not a send.
+              if (effectHoldRef.current.fired) {
+                event.preventDefault();
+                effectHoldRef.current.fired = false;
+              } else if (isEffectTrayOpen) {
+                setIsEffectTrayOpen(false);
+              }
+            }}
+            onContextMenu={(event) => {
+              if (onSendWithEffect !== undefined) event.preventDefault();
+            }}
+                className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-personal transition-colors disabled:cursor-not-allowed disabled:text-muted-foreground"
           >
             <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
           </button>
+          </span>
         ) : (
           <DropdownMenu open={isUrgentMenuOpen} onOpenChange={setIsUrgentMenuOpen} modal={false}>
             <DropdownMenuTrigger asChild>
@@ -505,12 +593,32 @@ export function MessageComposer({
                   // Keyboard users: Enter/Space submit as usual; the menu never steals them.
                   if (event.key === "Enter" || event.key === " ") event.stopPropagation();
                 }}
-                className="icon-btn icon-btn-primary icon-btn-personal h-11 w-11 disabled:cursor-not-allowed disabled:opacity-45"
+                data-composer-send=""
+                className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-personal transition-colors disabled:cursor-not-allowed disabled:text-muted-foreground"
               >
                 <ArrowUp className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" side="top" className="w-64">
+              {onSendWithEffect !== undefined ? (
+                <div role="group" aria-label="Gửi kèm hiệu ứng" data-effect-tray="" className="grid grid-cols-4 gap-1 border-b border-border p-1 pb-1.5">
+                  {SEND_EFFECTS.map((effect) => (
+                    <DropdownMenuItem
+                      key={effect.id}
+                      disabled={!canSend}
+                      aria-label={`Gửi kèm ${effect.label}`}
+                      onSelect={() => {
+                        if (!canSendDraft(value, isSending, attachmentCount)) return;
+                        onSendWithEffect(value.trim(), effect.id);
+                      }}
+                      className="flex min-h-12 flex-col items-center justify-center gap-0.5 px-0.5 text-[18px]"
+                    >
+                      <span aria-hidden="true">{effect.emoji}</span>
+                      <span className="text-[10px] leading-none text-muted-foreground">{effect.label}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </div>
+              ) : null}
               <DropdownMenuItem
                 disabled={urgent.blockedNote !== null || !canSend}
                 onSelect={() => {
@@ -529,6 +637,13 @@ export function MessageComposer({
           </DropdownMenu>
         )}
       </form>
+      {isStickerTrayOpen && onSendSticker !== undefined ? (
+        <StickerTray
+          onPick={(id) => {
+            onSendSticker(id);
+          }}
+        />
+      ) : null}
     </>
   );
 }

@@ -133,7 +133,7 @@ export function ChatTaskPanel({
 
   if (embedded) {
     return (
-      <section aria-label={scope === "mine" ? "Việc của bạn ở đây" : "Nhiệm vụ chung"} className="max-h-[35dvh] overflow-y-auto border-b border-border bg-card px-3 md:px-10">
+      <section aria-label={scope === "mine" ? "Việc của bạn ở đây" : "Nhiệm vụ chung"} className="max-h-[35dvh] scroll-y border-b border-border bg-card px-3 md:px-10">
         <ul className="mx-auto max-w-2xl space-y-1 py-2">
           {threadTasks.map((task) => (
             <ChatTaskRow

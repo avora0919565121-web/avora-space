@@ -1706,7 +1706,7 @@ const ThinkHub = () => {
         className="max-w-6xl"
         action={
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Tìm trong Kế hoạch" data-plan-search-button="" className="press flex h-11 w-11 items-center justify-center rounded-full border border-border bg-card text-foreground">
+            <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Tìm trong Kế hoạch" data-plan-search-button="" className="icon-btn h-11 w-11 text-foreground">
               <Search className="h-[18px] w-[18px]" aria-hidden="true" />
             </button>
             {drawer === "sach" && active === null ? (

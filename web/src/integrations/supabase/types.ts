@@ -1696,6 +1696,8 @@ export type Database = {
           attachment_count: number
           contact_card_user_id: string | null
           content: string
+          effect: string | null
+          sticker_id: string | null
           conversation_id: string
           created_at: string
           deleted_at: string | null
@@ -1720,6 +1722,8 @@ export type Database = {
           attachment_count?: number
           contact_card_user_id?: string | null
           content: string
+          effect?: string | null
+          sticker_id?: string | null
           conversation_id: string
           created_at?: string
           deleted_at?: string | null
@@ -1744,6 +1748,8 @@ export type Database = {
           attachment_count?: number
           contact_card_user_id?: string | null
           content?: string
+          effect?: string | null
+          sticker_id?: string | null
           conversation_id?: string
           created_at?: string
           deleted_at?: string | null

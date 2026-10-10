@@ -111,6 +111,13 @@ function loadWorker(fetchImpl: (request: FakeRequest) => Promise<FakeResponse>) 
       await Promise.all(pending);
     },
     hasFetchHandler: (): boolean => listeners.has("fetch"),
+    dispatchMessage: async (data: unknown) => {
+      const handler = listeners.get("message");
+      if (!handler) throw new Error("the worker registered no message handler");
+      const pending: Promise<unknown>[] = [];
+      handler({ data, waitUntil: (value: Promise<unknown>) => pending.push(value) });
+      await Promise.all(pending);
+    },
   };
 }
 
@@ -282,5 +289,39 @@ describe("how the service worker serves build output", () => {
 
     expect(worker.cachedUrls()).toEqual([`${ORIGIN}/assets/app-a1b2.js`]);
     expect(worker.cachedUrls().some((url) => url.includes("supabase"))).toBe(false);
+  });
+
+  describe("K3 · N7 chat photos", () => {
+    const signed = (token: string) =>
+      makeRequest(`${SUPABASE_ORIGIN}/storage/v1/object/sign/chat-attachments/c1/u1/photo.jpg?token=${token}`, { destination: "image" });
+
+    it("caches a chat photo by path: a new token does not download it again", async () => {
+      const worker = online();
+      await worker.dispatchFetch(signed("aaa")).responded;
+      const second = await worker.dispatchFetch(signed("bbb")).responded;
+      expect(worker.fetchSpy).toHaveBeenCalledTimes(1);
+      expect(second?.body).toContain("token=aaa");
+      expect(worker.cachedUrls()).toEqual([`${SUPABASE_ORIGIN}/storage/v1/object/sign/chat-attachments/c1/u1/photo.jpg`]);
+    });
+
+    it("never caches other buckets, non-images or downloads", async () => {
+      const worker = online();
+      for (const url of [
+        `${SUPABASE_ORIGIN}/storage/v1/object/sign/vault/c1/u1/photo.jpg?token=a`,
+        `${SUPABASE_ORIGIN}/storage/v1/object/sign/chat-attachments/c1/u1/report.pdf?token=a`,
+        `${SUPABASE_ORIGIN}/storage/v1/object/sign/chat-attachments/c1/u1/photo.jpg?token=a&download=photo.jpg`,
+      ]) {
+        const event = worker.dispatchFetch(makeRequest(url));
+        if (event.responded) await event.responded;
+      }
+      expect(worker.cachedUrls()).toEqual([]);
+    });
+
+    it("drops every cached photo on sign-out", async () => {
+      const worker = online();
+      await worker.dispatchFetch(signed("aaa")).responded;
+      await worker.dispatchMessage({ type: "avora-clear-media" });
+      expect(worker.cachedUrls()).toEqual([]);
+    });
   });
 });

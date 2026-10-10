@@ -31,6 +31,7 @@ import {
   Users,
   X,
   type LucideIcon,
+  Palette,
 } from "lucide-react";
 
 /** The one "Sắp ra mắt" screen the remaining placeholder tab shows, in both panes. */
@@ -63,6 +64,15 @@ import { ResizeHandle } from "@/components/ResizeHandle";
 import { NewGroupDialog } from "@/components/NewGroupDialog";
 import { ChatSuggestionPanel, useChatSuggestions } from "@/components/chat/ChatSuggestionPanel";
 import { ThreadChipRow, type ThreadChip, type ThreadChipId } from "@/components/chat/ThreadChipRow";
+import { ThreadTaskButton } from "@/components/chat/ThreadTaskButton";
+import { chatBackdropClass, useChatBackdrop } from "@/lib/chat-backdrop";
+import { atmosphereKeys, atmosphereToneStyle, effectiveEffectsLevel, hasPlayedEffect, useGroupIconUrl, markEffectPlayed, useAtmosphere, useIsDarkCanvas } from "@/lib/atmosphere";
+import { EffectOverlay } from "@/components/chat/EffectOverlay";
+import { AvoraSticker } from "@/components/chat/AvoraSticker";
+import { GroupIconGlyph } from "@/components/chat/GroupIcon";
+import { useConnections } from "@/lib/use-connections";
+import { AtmosphereSheet } from "@/components/chat/AtmosphereSheet";
+import { prefersReducedMotion } from "@/lib/motion";
 import { askConfirm } from "@/components/ConfirmHost";
 import { JournalTrashSheet, useJournalTrashCount } from "@/components/chat/JournalTrashSheet";
 import { InlineBack } from "@/components/nav/InlineBack";
@@ -76,13 +86,15 @@ import { ComposerPlusMenu } from "@/components/chat/ComposerPlusMenu";
 import { PlusMenuButton } from "@/components/PlusMenuButton";
 import { BoardUpdateCard } from "@/components/think-hub/BoardChanges";
 import { BOARD_CHANGES_PARAM, boardChangeKeys, fetchAnnouncements } from "@/lib/board-changes";
-import { MessageComposer } from "@/components/chat/MessageComposer";
+import { DraftedComposer } from "@/components/chat/DraftedComposer";
+import { SubTabs } from "@/components/nav/SubTabs";
+import { getComposerDraft, setComposerDraft, useComposerDraftIsEmpty } from "@/lib/composer-draft";
 import { MobileTopActions } from "@/components/nav/HubTitle";
 import { connectTabSlug } from "@/lib/resume-place";
 import { useBack } from "@/lib/go-back";
 import { useBackPress } from "@/hooks/use-back-press";
 import { ContactCardBubble, MessageRefChips } from "@/components/chat/ContactCardBubble";
-import { refsInText, shareContactCard, type RefChoice, type RefContext } from "@/lib/context-refs";
+import { refsInText, shareContactCard, suggestJournalContacts, type RefChoice, type RefContext } from "@/lib/context-refs";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
 import { ForwardDialog } from "@/components/chat/ForwardDialog";
@@ -204,7 +216,8 @@ import {
 } from "@/lib/forwarding";
 import { useAuth } from "@/lib/auth";
 import { useChatRealtime } from "@/lib/realtime";
-import { useConversations } from "@/lib/use-conversations";
+import { useConversations, useInboxPaging, useInboxUnreadCounts } from "@/lib/use-conversations";
+import { InboxMoreSentinel } from "@/components/chat/InboxMoreSentinel";
 import { useDocumentVisible } from "@/lib/use-document-visible";
 import {
   chatKeys,
@@ -251,6 +264,8 @@ import {
   tabForOpenedThread,
   threadScrollDecision,
   unreadForTab,
+  setInboxInclude,
+  bubbleRuns,
   failedSendIdOf,
   withFailedSends,
   type ChatMessage,
@@ -258,6 +273,9 @@ import {
   type ConversationSummary,
   type FailedSend,
   type MessageTab,
+  type SendEffect,
+  bigEmojiCount,
+  SEND_EFFECTS,
 } from "@/lib/chat";
 import { LIST_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { fetchGroupMembers, fetchGroupParents, groupKeys } from "@/lib/groups";
@@ -384,17 +402,10 @@ const Messages = () => {
    * their owner, so a render for another thread can never show — or send — them: that thread
    * reads its own saved draft instead.
    */
-  const [composer, setComposer] = useState<{ owner: string | undefined; text: string }>({ owner: undefined, text: "" });
-  const draft: string = composer.owner === conversationId ? composer.text : readDraft(userId, conversationId);
+  // K3 · N3: the words live in the draft store; this screen only hears whether the box is empty.
+  const isDraftEmpty: boolean = useComposerDraftIsEmpty(userId, conversationId);
   const setDraft = useCallback(
-    (next: string | ((current: string) => string)): void => {
-      setComposer((current) => {
-        const base = current.owner === conversationId ? current.text : readDraft(userId, conversationId);
-        const text = typeof next === "function" ? next(base) : next;
-        writeDraft(userId, conversationId, text);
-        return { owner: conversationId, text };
-      });
-    },
+    (next: string | ((current: string) => string)): void => setComposerDraft(userId, conversationId, next),
     [conversationId, userId],
   );
   // AVORA-89 · ADR-052: `#` chips picked in the composer (kept while their `#name` stays in the text).
@@ -489,6 +500,18 @@ const Messages = () => {
       : tabConversations.filter((item) => !isArchivedNow(item, rhythm.archives.get(item.conversationId)));
     return withPinnedFirst(source.filter((item) => matchesConversationQuery(item, query)), conversationPins);
   }, [tabConversations, archivedInTab, isArchiveOpen, rhythm.archives, query, conversationPins]);
+
+  /** K3 · N9: 1-1 threads arrive 50 at a time; the open and pinned threads always ride along. */
+  const inboxPaging = useInboxPaging();
+  const inboxUnreadServer = useInboxUnreadCounts();
+  useEffect(() => {
+    const include = [...conversationPins.keys(), ...(conversationId ? [conversationId] : [])];
+    const changed = setInboxInclude(include);
+    const loaded = new Set(conversations.map((item) => item.conversationId));
+    if (changed && conversationsQuery.isSuccess && include.some((id) => !loaded.has(id))) {
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations, exact: true });
+    }
+  }, [conversationPins, conversationId, conversations, conversationsQuery.isSuccess, queryClient]);
 
   /** AVORA-57 · D: `Chọn nhiều` over conversation rows. */
   const [pickedRows, setPickedRows] = useState<string[]>([]);
@@ -973,6 +996,21 @@ const Messages = () => {
     [activeKind, groupMembersQuery.data, userId],
   );
 
+  /**
+   * K4 · 5 (100 · S.1b, ADR-052): `@` in Nhật ký offers the person's own Liên hệ. It only writes
+   * the name — nobody is notified, so these never become `mentioned_user_ids`.
+   */
+  const journalContactsQuery = useQuery({
+    queryKey: ["journal-mention-contacts", userId ?? ""],
+    queryFn: suggestJournalContacts,
+    enabled: activeKind === "personal" && Boolean(userId),
+    staleTime: 5 * 60_000,
+  });
+  const composerMentionCandidates = useMemo(
+    () => (activeKind === "personal" ? (journalContactsQuery.data ?? []) : mentionable),
+    [activeKind, journalContactsQuery.data, mentionable],
+  );
+
   /** This viewer's seat in the room, which decides whether they may pin for everyone. */
   const myGroupRole = useMemo(
     () => (groupMembersQuery.data ?? []).find((member) => member.userId === userId)?.role,
@@ -1006,6 +1044,7 @@ const Messages = () => {
     attachments: threadAttachments,
     attachmentsOf,
     urlOf: attachmentUrlOf,
+    thumbUrlOf: attachmentThumbUrlOf,
     isLoading: isAttachmentsLoading,
   } = useThreadAttachments(conversationId);
 
@@ -1068,19 +1107,11 @@ const Messages = () => {
           needsMe: chipSuggestions.awaitingMe,
         });
       }
-      if (chipTasks.threadTasks.length > 0) {
-        const count = chipTasks.openCount > 0 ? chipTasks.openCount : chipTasks.threadTasks.length;
-        chips.push({
-          id: "tasks",
-          label: activeKind === "group" ? `Việc của bạn ở đây (${count})` : `${count} việc`,
-          count,
-          needsMe: chipTasks.wantsAttention,
-        });
-      }
+      // 101B · 3d: tasks left this row — they are the floating ☑ over the thread (ThreadTaskButton).
     }
     if (waitingScheduledCount > 0) chips.push({ id: "scheduled", label: `${waitingScheduledCount} hẹn giờ`, count: waitingScheduledCount });
     return chips;
-  }, [orderedPinList.length, projectHere, isProjectChatClosed, location, threadTitle, activeKind, chipSuggestions, chipTasks, waitingScheduledCount]);
+  }, [orderedPinList.length, projectHere, isProjectChatClosed, location, threadTitle, activeKind, chipSuggestions, waitingScheduledCount]);
   // Sent here to look at one task or one suggestion: that chip opens; otherwise every thread opens closed.
   useEffect(() => {
     if (highlightTaskId !== null) setOpenChip("tasks");
@@ -1282,6 +1313,89 @@ const Messages = () => {
     return out;
   }, [diaryLatest, seenTick]);
   const dayGroups = useMemo(() => groupMessagesByDay(timelineMessages), [timelineMessages]);
+  /** 101B · 4: the person's own chat backdrop (K5 Không khí overrides per conversation). */
+  const personalBackdrop = useChatBackdrop();
+  /** K5: the conversation's Không khí (colour, shared backdrop) and my effects level. */
+  const [isAtmosphereOpen, setIsAtmosphereOpen] = useState<boolean>(false);
+  const atmosphereKind = activeKind === "direct" || activeKind === "group" ? activeKind : undefined;
+  const atmosphere = useAtmosphere(conversationId, atmosphereKind);
+  const isDarkCanvas = useIsDarkCanvas();
+  const reducedMotion = prefersReducedMotion();
+  const effectsLevel = effectiveEffectsLevel(atmosphere.myEffectsLevel, activeKind, reducedMotion);
+  // One system (101B · 4 + K5): the conversation's shared backdrop wins over mine.
+  const threadBackdrop: string = atmosphereKind !== undefined && atmosphere.appearance?.backdrop ? atmosphere.appearance.backdrop : personalBackdrop;
+  const groupIconUrl = useGroupIconUrl(activeKind === "group" ? (atmosphere.appearance?.iconPath ?? null) : null);
+  const threadToneStyle = atmosphereKind !== undefined ? atmosphereToneStyle(atmosphere.appearance?.color ?? null, isDarkCanvas) : undefined;
+  /**
+   * K5 · 84 §4.2A: effects play once, on arrival, by MY level in this conversation. Only from friends:
+   * in a group, someone not connected to me shows the small icon only. Off → the icon; a tap plays it.
+   */
+  const { isConnected: isConnectedTo } = useConnections();
+  const [overlayEffect, setOverlayEffect] = useState<{ messageId: string; effect: SendEffect } | null>(null);
+  const [lightEffect, setLightEffect] = useState<{ messageId: string; effect: SendEffect } | null>(null);
+  const [heartPopId, setHeartPopId] = useState<string | null>(null);
+  const effectScopeFor = useCallback(
+    (message: ChatMessage): "full" | "light" | "off" => {
+      if (message.effect == null || message.senderId === userId) return "off";
+      if (activeKind === "group" && !isConnectedTo(message.senderId)) return "off";
+      return effectsLevel;
+    },
+    [userId, activeKind, isConnectedTo, effectsLevel],
+  );
+  useEffect(() => {
+    if (atmosphereKind === undefined) return;
+    const fresh = timelineMessages.filter(
+      (message) =>
+        message.effect != null &&
+        message.senderId !== userId &&
+        Date.now() - new Date(message.createdAt).getTime() < 24 * 60 * 60_000 &&
+        !hasPlayedEffect(message.id),
+    );
+    const newest = fresh[fresh.length - 1];
+    fresh.forEach((message) => markEffectPlayed(message.id));
+    if (newest === undefined || newest.effect == null) return;
+    const scope = effectScopeFor(newest);
+    if (scope === "full") setOverlayEffect({ messageId: newest.id, effect: newest.effect });
+    else if (scope === "light") setLightEffect({ messageId: newest.id, effect: newest.effect });
+  }, [timelineMessages, userId, atmosphereKind, effectScopeFor]);
+  // K5: someone changed the Không khí → that system line refreshes the look for everyone in the thread.
+  const lastAppearanceLineId = useMemo(
+    () => [...timelineMessages].reverse().find((message) => message.systemKind === "appearance_changed")?.id ?? null,
+    [timelineMessages],
+  );
+  useEffect(() => {
+    if (lastAppearanceLineId !== null && conversationId) void queryClient.invalidateQueries({ queryKey: atmosphereKeys.appearance(conversationId) });
+  }, [lastAppearanceLineId, conversationId, queryClient]);
+  /** K5 · 84 §4.2C: double tap a bubble = ❤️ (again = remove), with a small pop where it was tapped. */
+  const lastTapRef = useRef<{ id: string; at: number } | null>(null);
+  // A plain function on purpose: it calls toggleReaction (declared below) at tap time.
+  const handleBubbleTap = (message: ChatMessage, canReactHere: boolean): boolean => {
+    const now = Date.now();
+    const last = lastTapRef.current;
+    lastTapRef.current = { id: message.id, at: now };
+    if (!canReactHere || last === null || last.id !== message.id || now - last.at > 320) return false;
+    lastTapRef.current = null;
+    toggleReaction(message.id, "❤️");
+    if (effectsLevel !== "off") {
+      setHeartPopId(message.id);
+      window.setTimeout(() => setHeartPopId((current) => (current === message.id ? null : current)), 700);
+    }
+    return true;
+  };
+
+  /** K4 · 3: where each message sits in its run (same sender, ≤ 5 min). */
+  const runPositions = useMemo(() => {
+    const positions = new Map<string, { start: boolean; end: boolean }>();
+    for (const group of dayGroups) for (const [id, position] of bubbleRuns(group.messages)) positions.set(id, position);
+    return positions;
+  }, [dayGroups]);
+  /** K4 · 3: a tap on a bubble in the middle of a run shows its time for 3 seconds. */
+  const [peekTimeId, setPeekTimeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (peekTimeId === null) return;
+    const timer = window.setTimeout(() => setPeekTimeId(null), 3000);
+    return () => window.clearTimeout(timer);
+  }, [peekTimeId]);
 
   // One paste flow for Kết nối and the corner bubble (AVORA-35 / F).
   const { start: startPaste, isReading: isReadingClipboard, dialog: pasteDialog } = usePasteTask();
@@ -1345,6 +1459,8 @@ const Messages = () => {
    */
   const [isDraggingFiles, setIsDraggingFiles] = useState<boolean>(false);
   const canDropFiles: boolean = activeVerification === null && !isNoLongerConnected && !hasBlockedPeer;
+  /** K4 · 4: no swipe actions where nothing can be said back (closed project, blocked, not connected). */
+  const isReadOnlyThread: boolean = isProjectChatClosed || isNoLongerConnected || hasBlockedPeer;
   const dragDepthRef = useRef<number>(0);
   const hasFiles = (event: DragEvent): boolean => Array.from(event.dataTransfer.types).includes("Files");
   const handleDragEnter = useCallback((event: DragEvent<HTMLDivElement>): void => {
@@ -1524,6 +1640,8 @@ const Messages = () => {
   const handleThreadScroll = useCallback((): void => {
     const node = threadScrollRef.current;
     if (!node) return;
+    // AVORA-105 · A: insurance — whatever slipped through, the column always sits at its left edge.
+    if (node.scrollLeft !== 0) node.scrollLeft = 0;
     // Close to the oldest message on screen: fetch the page before it.
     if (node.scrollTop < 240) void loadOlder();
     const nearBottom = isNearThreadBottom({
@@ -1802,6 +1920,9 @@ const Messages = () => {
     retryOf: string | null;
     /** AVORA-47 · D: words only; the server enforces the daily limit and the 7-day lock. */
     isUrgent?: boolean;
+    /** K5: a send effect (server keeps ≤ 3 / 10 min) or an Avora sticker. */
+    effect?: SendEffect | null;
+    stickerId?: string | null;
   };
 
   // AVORA-106 · K2: every message goes through the outbox on this device — the id is made here,
@@ -1831,6 +1952,8 @@ const Messages = () => {
         refs,
         originGroupId,
         isUrgent: payload.isUrgent === true,
+        effect: payload.effect ?? null,
+        stickerId: payload.stickerId ?? null,
         files: payload.files.map(stagedToOutboxFile),
       });
       if (payload.isUrgent === true) void queryClient.invalidateQueries({ queryKey: ["chat", "urgent", payload.conversationId] });
@@ -1842,6 +1965,29 @@ const Messages = () => {
       toast.error(error.message || "Tin chưa gửi được. Chạm vào tin để gửi lại.");
     },
   });
+
+  /** K5 · 84 §4.2D: a sticker is a message of its own — sent at once, no words, no files. */
+  const handleSendSticker = useCallback(
+    (stickerId: string): void => {
+      if (!conversationId || activeConversationRef.current !== conversationId) return;
+      sendMutation.mutate({ conversationId, content: "", replyToMessageId: replyTarget?.id ?? null, files: [], retryOf: null, stickerId });
+      setReplyTarget(null);
+    },
+    [sendMutation, conversationId, replyTarget],
+  );
+  /** K5 · 84 §4.2A: the words go with an effect; the server may drop the effect past 3 / 10 min. */
+  const handleSendWithEffect = useCallback(
+    (content: string, effect: SendEffect): void => {
+      if (content.length === 0 || !conversationId || activeConversationRef.current !== conversationId) return;
+      const files = staged;
+      setDraft("");
+      setStaged([]);
+      setReplyTarget(null);
+      clearTyping();
+      sendMutation.mutate({ conversationId, content, replyToMessageId: replyTarget?.id ?? null, files, retryOf: null, effect });
+    },
+    [sendMutation, conversationId, replyTarget, staged, setDraft, clearTyping],
+  );
 
   /** The composer hands over an already-trimmed message; the send path itself is unchanged. */
   const handleSend = useCallback(
@@ -2259,6 +2405,7 @@ const Messages = () => {
             void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(conversationId) });
           }
           toast.success("Đã chuyển mục Nhật ký vào Thùng rác (giữ 30 ngày).", {
+            duration: 5000,
             action: {
               label: "Hoàn tác",
               onClick: () => {
@@ -2578,38 +2725,21 @@ const Messages = () => {
             </MobileTopActions>
           </div>
 
-          <div role="tablist" aria-label="Hướng trò chuyện" className="no-scrollbar mt-1 md:mt-5 flex items-center overflow-x-auto border-b border-border [mask-image:linear-gradient(to_right,transparent,#000_12px,#000_calc(100%-20px),transparent)] [scroll-padding-inline:12px]">
-            {MESSAGE_TABS.map((tab) => {
-              const isActive = tab.id === activeTab;
-              const tabUnread = unreadForTab(conversations, tab.id);
-              return (
-                <button
-                  key={tab.id}
-                  type="button"
-                  role="tab"
-                  aria-selected={isActive}
-                  onClick={() => handleSelectTab(tab.id)}
-                  className={cn(
-                    "press relative flex flex-1 shrink-0 items-center justify-center gap-1.5 whitespace-nowrap px-2 pb-2.5 pt-1 text-[13.5px] transition-colors",
-                    isActive ? "font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {tab.label}
-                  {tabUnread > 0 ? (
-                    <span
-                      aria-label={`${tabUnread} tin nhắn chưa đọc`}
-                      className="tabular inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
-                    >
-                      {formatUnreadBadge(tabUnread)}
-                    </span>
-                  ) : null}
-                  {isActive ? (
-                    <span aria-hidden="true" className="absolute inset-x-1 -bottom-px h-[2px] rounded-full bg-primary" />
-                  ) : null}
-                </button>
-              );
-            })}
-          </div>
+          {/* AVORA-101A: the shared SubTabs strip (40 px, 13 px, underline in the person's tone — no longer orange). */}
+          <SubTabs
+            ariaLabel="Hướng trò chuyện"
+            className="mt-1 md:mt-5"
+            items={MESSAGE_TABS.map((tab) => ({
+              id: tab.id,
+              label: tab.label,
+              badge: Math.max(
+                unreadForTab(conversations, tab.id),
+                inboxUnreadServer && tab.id === "direct" ? (inboxUnreadServer.byKind.direct ?? 0) : 0,
+              ),
+            }))}
+            value={activeTab}
+            onChange={(id) => handleSelectTab(id as MessageTab)}
+          />
 
           {activeTab === "journal" || isPlaceholder ? null : (
             <label
@@ -2664,7 +2794,7 @@ const Messages = () => {
             <PlaceholderComingSoon id={activeTab} />
           </div>
         ) : isProjects ? (
-          <div className="min-h-0 flex-1 overflow-y-auto pb-2">
+          <div className="min-h-0 flex-1 scroll-y pb-2">
             {projectsQuery.isError ? (
               <div className="px-6 py-10 text-center">
                 <p className="text-[14px] text-muted-foreground">{projectsQuery.error.message}</p>
@@ -2687,7 +2817,7 @@ const Messages = () => {
             )}
           </div>
         ) : activeTab === "journal" ? (
-          <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="min-h-0 flex-1 scroll-y">
             <DiaryList
               journalId={journalSummary?.conversationId ?? null}
               active={activeKind === "personal" ? diaryView : null}
@@ -2700,7 +2830,7 @@ const Messages = () => {
             />
           </div>
         ) : (
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+        <div className="min-h-0 flex-1 scroll-y px-3 pb-6">
           {/* AVORA-47 · C: only I see this line; nobody else learns I am focusing. */}
           {rhythm.focus !== null ? (
             <div className="mx-1 mb-2 flex items-center gap-2 rounded-lg border border-primary/25 bg-primary/5 px-3 py-2 text-[13px] text-foreground">
@@ -2857,7 +2987,7 @@ const Messages = () => {
                       data-conversation-row=""
                       className={cn(
                         // AVORA-93 · 3.1: phone rows have no card — a hairline between them, ≥ 8 fit on 390×844.
-                        "flex items-center gap-3 px-1 py-2.5 transition-colors md:rounded-lg md:px-3 md:py-3",
+                        "flex min-h-14 items-center gap-3 px-1 py-2.5 transition-colors md:rounded-lg md:px-3 md:py-3",
                         isActive ? "md:bg-accent/70" : "md:hover:bg-accent/35",
                       )}
                     >
@@ -2976,6 +3106,9 @@ const Messages = () => {
                   </button>
                 </li>
               ) : null}
+              {activeTab === "direct" && !isArchiveOpen && query.trim() === "" && inboxPaging.hasMore ? (
+                <InboxMoreSentinel onLoadMore={inboxPaging.loadMore} isLoading={inboxPaging.isLoadingMore} />
+              ) : null}
               </ul>
           )}
         </div>
@@ -3039,6 +3172,22 @@ const Messages = () => {
                   <span className="relative shrink-0">
                     {activeKind === "direct" && directPeerId !== null ? (
                       <PersonAvatarButton person={{ userId: directPeerId, name: threadTitle, pin: activeSummary?.peerPin ?? null }} size="sm" />
+                    ) : activeKind === "group" && conversationId !== undefined && groupIconUrl !== null ? (
+                      <button type="button" onClick={() => setIsInfoOpen(true)} aria-label={`Nhóm ${threadTitle}`} className="press h-9 w-9 shrink-0 overflow-hidden rounded-full">
+                        <img src={groupIconUrl} alt="" className="h-full w-full object-cover" />
+                      </button>
+                    ) : activeKind === "group" && conversationId !== undefined && atmosphere.appearance?.iconKey ? (
+                      // K5 · 84 §4.1: the group's own icon from the Avora set.
+                      <button
+                        type="button"
+                        onClick={() => setIsInfoOpen(true)}
+                        aria-label={`Nhóm ${threadTitle}`}
+                        data-group-icon={atmosphere.appearance.iconKey}
+                        className="press flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-personal-soft text-personal-soft-foreground"
+                        style={threadToneStyle}
+                      >
+                        <GroupIconGlyph iconKey={atmosphere.appearance.iconKey} className="h-[18px] w-[18px]" />
+                      </button>
                     ) : activeKind === "group" && conversationId !== undefined ? (
                       <GroupAvatarButton group={{ conversationId, name: threadTitle, memberCount: activeSummary?.memberCount ?? null }} size="sm" />
                     ) : (
@@ -3072,7 +3221,7 @@ const Messages = () => {
                       {typingLine}
                     </p>
                   ) : (
-                    <p className="truncate text-[13px] text-muted-foreground">
+                    <p className="truncate text-[13px] text-muted-foreground [html[data-keyboard=open]_&]:hidden">
                       {isPeerOnline ? "Đang trực tuyến" : activeKind === "personal" ? "Chỉ mình bạn xem" : threadSubtitle}
                     </p>
                   )}
@@ -3165,16 +3314,6 @@ const Messages = () => {
                       onSendMessage={sendPlainMessage}
                       focusedSuggestionId={focusedSuggestionId}
                     />
-                  ) : openChip === "tasks" && activeKind !== "personal" ? (
-                    <ChatTaskPanel
-                      embedded
-                      conversationId={conversationId}
-                      peerName={threadTitle}
-                      members={groupMembersQuery.data ?? []}
-                      highlightTaskId={highlightTaskId}
-                      scope={activeKind === "group" ? "mine" : "all"}
-                      onSendMessage={sendPlainMessage}
-                    />
                   ) : openChip === "scheduled" && canSchedule ? (
                     <ScheduledStrip embedded conversationId={conversationId} items={scheduledQuery.data ?? []} />
                   ) : null}
@@ -3256,7 +3395,7 @@ const Messages = () => {
                   />
                 </div>
               ) : isDiaryAside ? (
-                <div className="min-h-0 flex-1 overflow-y-auto px-5 py-6 md:px-10">
+                <div className="min-h-0 flex-1 overflow-y-auto overflow-x-hidden overscroll-x-none px-5 py-6 md:px-10">
                   {diaryView === "files" ? (
                     <DiaryFilesView
                       notes={diaryFiles}
@@ -3301,12 +3440,39 @@ const Messages = () => {
                 </div>
               ) : (
               <div
-                className="relative min-h-0 flex-1"
+                className="relative min-h-0 flex-1 overflow-x-hidden"
                 onDragEnter={canDropFiles ? handleDragEnter : undefined}
                 onDragOver={canDropFiles ? handleDragOver : undefined}
                 onDragLeave={canDropFiles ? handleDragLeave : undefined}
                 onDrop={canDropFiles ? handleDrop : undefined}
               >
+              {overlayEffect !== null ? (
+                <EffectOverlay
+                  key={overlayEffect.messageId}
+                  effect={overlayEffect.effect}
+                  scope="full"
+                  onDone={() => setOverlayEffect(null)}
+                />
+              ) : null}
+              {activeKind !== "personal" && conversationId ? (
+                <ThreadTaskButton
+                  count={chipTasks.openCount > 0 ? chipTasks.openCount : chipTasks.threadTasks.length}
+                  needsMe={chipTasks.wantsAttention}
+                  open={openChip === "tasks"}
+                  onOpenChange={(next) => setOpenChip(next ? "tasks" : null)}
+                  isScrolling={false}
+                >
+                  <ChatTaskPanel
+                    embedded
+                    conversationId={conversationId}
+                    peerName={threadTitle}
+                    members={groupMembersQuery.data ?? []}
+                    highlightTaskId={highlightTaskId}
+                    scope={activeKind === "group" ? "mine" : "all"}
+                    onSendMessage={sendPlainMessage}
+                  />
+                </ThreadTaskButton>
+              ) : null}
               {isDraggingFiles ? (
                 <div
                   aria-hidden="true"
@@ -3318,7 +3484,10 @@ const Messages = () => {
               <div
                 ref={threadScrollRef}
                 onScroll={handleThreadScroll}
-                className={cn("h-full overflow-y-auto", activeKind === "personal" ? "px-0 pb-6 pt-0" : "px-2 py-3 md:px-10 md:py-6")}
+                data-thread-scroll=""
+                data-chat-backdrop={threadBackdrop}
+                style={threadToneStyle}
+                className={cn("h-full scroll-y", chatBackdropClass(threadBackdrop), overlayEffect?.effect === "buzz" && "avora-buzz", activeKind === "personal" ? "px-0 pb-6 pt-0" : "px-2 py-3 md:px-10 md:py-6")}
               >
                 {messagesQuery.isPending ? (
                   <p className="text-center text-[13px] text-muted-foreground">Đang tải tin nhắn…</p>
@@ -3389,10 +3558,17 @@ const Messages = () => {
                         }}
                         isSavingEdit={editMutation.isPending}
                       />
-                    ) : dayGroups.map((group) => (
-                      <div key={group.key}>
-                        <p className="mb-6 text-center text-[12px] font-medium text-muted-foreground/80">{group.label}</p>
-                        <ul className="flex flex-col gap-1 md:gap-3">
+                    ) : dayGroups.map((group, groupIndex) => (
+                      <div
+                        key={group.key}
+                        data-day-group={group.key}
+                        // K3 · N4: days well above the screen skip layout and paint until scrolled
+                        // near (content-visibility). The newest two days always render in full, so
+                        // menus and pickers of the messages people act on are never clipped.
+                        className={groupIndex < dayGroups.length - 2 ? "pb-3 [content-visibility:auto] [contain-intrinsic-size:auto_640px]" : undefined}
+                      >
+                        <p className="my-2 text-center text-[12px] font-medium text-muted-foreground/80">{group.label}</p>
+                        <ul className="flex flex-col">
                           {group.messages.map((message, index) => {
                             // A line the server wrote itself: no bubble, no sender, no actions.
                             if (message.systemKind === "proposal_opened") {
@@ -3468,7 +3644,7 @@ const Messages = () => {
                                 <li
                                   key={message.id}
                                   id={`message-${message.id}`}
-                                  className="mx-auto max-w-md px-4 text-center text-[12.5px] leading-relaxed text-muted-foreground"
+                                  className="mx-auto my-2 max-w-md px-4 text-center text-[12.5px] leading-relaxed text-muted-foreground"
                                 >
                                   {message.content}
                                 </li>
@@ -3482,6 +3658,8 @@ const Messages = () => {
                               message.id === lastOwnMessageId &&
                               message.pending !== true &&
                               activeKind !== "personal";
+                            const run = runPositions.get(message.id) ?? { start: true, end: true };
+                            const showsMeta = run.end || peekTimeId === message.id;
                             const showsSender = !outgoing && activeKind === "group";
                             const senderLabel = showsSender
                               ? (senderNames.get(message.senderId) ?? "Thành viên")
@@ -3494,6 +3672,26 @@ const Messages = () => {
                             const canRaiseTask = message.pending !== true && activeVerification === null && !isNoLongerConnected;
                             const recalled = isRecalled(message);
                             const isBeingEdited = editingMessageId === message.id;
+                            // K4 · 3: the clock and ✓ ride inside the last bubble of a run.
+                            const bigEmoji = message.stickerId == null && message.forwardBundle == null && attachmentsOf(message.id).length === 0 ? bigEmojiCount(message.content) : 0;
+                            const rendersTextBubble =
+                              !isBeingEdited &&
+                              !isRecalled(message) &&
+                              message.forwardBundle == null &&
+                              message.contactCardUserId == null &&
+                              message.stickerId == null &&
+                              bigEmoji === 0 &&
+                              message.content.trim() !== "";
+                            const effectScope = effectScopeFor(message);
+                            const metaInside = showsMeta && rendersTextBubble && message.failed !== true;
+                            const taskMarkHere = taskMarkFor(message.id);
+                            const receiptDelivered =
+                              showsReceipt && activeKind === "direct" && deliveredAt !== null && message.pending !== true;
+                            const showsMetaRow =
+                              message.failed === true ||
+                              isEdited(message) ||
+                              taskMarkHere !== null ||
+                              (showsMeta && !metaInside);
                             // A journal has nobody to react to you, and a withdrawn message has
                             // nothing left to react to.
                             const canReact =
@@ -3561,8 +3759,12 @@ const Messages = () => {
                               <li
                                 id={`message-${message.id}`}
                                 style={{ animationDelay: `${Math.min(index, 8) * 60}ms` }}
+                                data-run-start={run.start ? "" : undefined}
+                                data-run-end={run.end ? "" : undefined}
                                 className={cn(
                                   "group flex animate-bubble-in scroll-mt-8 rounded-bubble transition-colors",
+                                  // K4 · 3: 2 px inside a run, 8 px between runs.
+                                  run.start ? "mt-2 first:mt-0" : "mt-[2px]",
                                   outgoing ? "flex-col items-end" : "items-end gap-2.5",
                                   // The message a task was raised from, pointed out on arrival,
                                   // or a search result just jumped to.
@@ -3603,10 +3805,14 @@ const Messages = () => {
                                   </span>
                                 ) : null}
                                 {senderLabel ? (
-                                  <div className="shrink-0 pb-5">
-                                    {/* AVORA-60 · C: tap a sender's face → their card. */}
-                                    <PersonAvatarButton person={{ userId: message.senderId, name: senderLabel, groupId: conversationId ?? null }} size="sm" />
-                                  </div>
+                                  run.end ? (
+                                    <div className="shrink-0">
+                                      {/* AVORA-60 · C: tap a sender's face → their card. Only beside a run's last bubble (K4 · 3). */}
+                                      <PersonAvatarButton person={{ userId: message.senderId, name: senderLabel, groupId: conversationId ?? null }} size="sm" />
+                                    </div>
+                                  ) : (
+                                    <div className="w-9 shrink-0" aria-hidden="true" />
+                                  )
                                 ) : null}
                                 <div
                                   className={cn(
@@ -3617,7 +3823,7 @@ const Messages = () => {
                                     isSelecting ? "pointer-events-none select-none" : "",
                                   )}
                                 >
-                                  {senderLabel ? (
+                                  {senderLabel && run.start ? (
                                     <span className="mb-1 px-1 text-[12px] font-medium text-muted-foreground">
                                       {senderLabel}
                                     </span>
@@ -3705,7 +3911,8 @@ const Messages = () => {
                                   ) : (
                                     <MessageActionsAffordance
                                       disabled={isSelecting}
-                                      onSwipeReply={canReplyToMessage(message) ? () => setReplyTarget(message) : undefined}
+                                      onSwipeReply={canReplyToMessage(message) && !isReadOnlyThread ? () => setReplyTarget(message) : undefined}
+                                      onSwipeTask={canRaiseTask && !isReadOnlyThread ? () => handleMessageAction(message, "task") : undefined}
                                       message={message}
                                       viewerId={userId}
                                       canRaiseTask={canRaiseTask}
@@ -3761,6 +3968,7 @@ const Messages = () => {
                                         <MessageAttachments
                                           attachments={attachmentsOf(message.id)}
                                           urlOf={attachmentUrlOf}
+                                          thumbUrlOf={attachmentThumbUrlOf}
                                           outgoing={outgoing}
                                         />
                                       )}
@@ -3778,14 +3986,42 @@ const Messages = () => {
                                         />
                                       ) : message.contactCardUserId != null ? (
                                         <ContactCardBubble messageId={message.id} senderName={senderNames.get(message.senderId) ?? ""} outgoing={outgoing} />
+                                      ) : message.stickerId != null ? (
+                                        // K5 · 84 §4.2D: 120 px, no bubble; moves once on first arrival.
+                                        <span
+                                          data-sticker-message=""
+                                          className="relative block"
+                                          onClick={() => handleBubbleTap(message, canReact)}
+                                        >
+                                          <AvoraSticker
+                                            id={message.stickerId}
+                                            size={120}
+                                            live={effectsLevel !== "off" && Date.now() - new Date(message.createdAt).getTime() < 15_000}
+                                          />
+                                        </span>
+                                      ) : bigEmoji > 0 ? (
+                                        // K5 · 84 §4.2B: 1–3 emoji alone are drawn big, without a bubble.
+                                        <span
+                                          data-big-emoji={bigEmoji}
+                                          onClick={() => handleBubbleTap(message, canReact)}
+                                          className={cn(
+                                            "block leading-none",
+                                            bigEmoji === 1 ? "text-[56px]" : bigEmoji === 2 ? "text-[44px]" : "text-[36px]",
+                                            lightEffect?.messageId === message.id || (effectsLevel !== "off" && Date.now() - new Date(message.createdAt).getTime() < 15_000)
+                                              ? "avora-big-emoji-live"
+                                              : "",
+                                          )}
+                                        >
+                                          {message.content.trim()}
+                                        </span>
                                       ) : message.content.trim() === "" ? null : (
                                       <div
                                         className={cn(
                                           // AVORA-89 · 1.1: denser on a phone (16/21 px, 12×7 padding); desktop unchanged.
-                                          "whitespace-pre-wrap break-words rounded-bubble px-3 py-[7px] text-[16px] leading-[21px] md:px-4 md:py-2.5 md:text-[15px] md:leading-relaxed",
+                                          "relative whitespace-pre-wrap break-words [overflow-wrap:anywhere] rounded-bubble px-3 py-[7px] text-[16px] leading-[21px] md:px-4 md:py-2.5 md:text-[15px] md:leading-relaxed",
                                           outgoing
-                                            ? "rounded-br-[4px] bg-personal text-personal-foreground"
-                                            : "rounded-bl-[4px] border border-border bg-card text-foreground",
+                                            ? cn("bg-personal text-personal-foreground", run.end && "rounded-br-[6px]")
+                                            : cn("border border-border bg-card text-foreground", run.end && "rounded-bl-[6px]"),
                                           message.pending ? "opacity-70" : "",
                                           message.failed === true ? "cursor-pointer" : "",
                                           attachmentsOf(message.id).length > 0 ? "mt-1.5" : "",
@@ -3797,7 +4033,10 @@ const Messages = () => {
                                                 const localId = failedSendIdOf(message) ?? (message.outboxState !== undefined ? message.id : null);
                                                 if (localId !== null) retryFailedSend(localId);
                                               }
-                                            : undefined
+                                            : () => {
+                                                if (handleBubbleTap(message, canReact)) return;
+                                                if (!run.end) setPeekTimeId(message.id);
+                                              }
                                         }
                                       >
                                         {/*
@@ -3852,6 +4091,48 @@ const Messages = () => {
                                             </span>
                                           ),
                                         )}
+                                        {lightEffect?.messageId === message.id ? (
+                                          <EffectOverlay effect={lightEffect.effect} scope="light" onDone={() => setLightEffect(null)} />
+                                        ) : null}
+                                        {heartPopId === message.id ? (
+                                          <span aria-hidden="true" className="avora-heart-pop pointer-events-none absolute -top-3 left-1/2 -ml-3 text-[24px]">❤️</span>
+                                        ) : null}
+                                        {message.effect != null && !outgoing && effectScope === "off" ? (
+                                          <button
+                                            type="button"
+                                            data-effect-icon={message.effect}
+                                            aria-label="Xem hiệu ứng"
+                                            onClick={(event) => {
+                                              event.stopPropagation();
+                                              if (message.effect != null && !reducedMotion) setOverlayEffect({ messageId: message.id, effect: message.effect });
+                                            }}
+                                            className="press absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full border border-border bg-background text-[12px] before:absolute before:-inset-2.5"
+                                          >
+                                            {SEND_EFFECTS.find((item) => item.id === message.effect)?.emoji ?? "✨"}
+                                          </button>
+                                        ) : null}
+                                        {metaInside ? (
+                                          <span
+                                            data-bubble-meta=""
+                                            className="tabular float-right ml-2 mt-[5px] inline-flex translate-y-[3px] items-center gap-1 text-[11px] leading-none opacity-70"
+                                          >
+                                            {message.pending
+                                              ? message.outboxState === "waiting_network"
+                                                ? "Đang chờ mạng"
+                                                : "Chờ gửi…"
+                                              : formatClock(message.createdAt)}
+                                            {outgoing && scheduledSentIds.has(message.id) ? (
+                                              <Clock3 className="h-3 w-3" strokeWidth={1.8} aria-label="Đã gửi theo hẹn giờ" />
+                                            ) : null}
+                                            {showsReceipt ? (
+                                              receiptDelivered ? (
+                                                <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-label="Đã nhận" />
+                                              ) : (
+                                                <Check className="h-3.5 w-3.5" strokeWidth={1.8} aria-label={sendReceiptLabel(message)} />
+                                              )
+                                            ) : null}
+                                          </span>
+                                        ) : null}
                                       </div>
                                       )}
                                       {message.refs != null && message.refs.length > 0 && message.pending !== true ? <MessageRefChips messageId={message.id} outgoing={outgoing} /> : null}
@@ -3934,6 +4215,7 @@ const Messages = () => {
                                       onToggle={(emoji) => toggleReaction(message.id, emoji)}
                                     />
                                   ) : null}
+                                  {showsMetaRow ? (
                                   <span className="tabular mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
                                     {message.failed === true ? (
                                       <>
@@ -3962,7 +4244,7 @@ const Messages = () => {
                                           Bỏ
                                         </button>
                                       </>
-                                    ) : message.pending ? (
+                                    ) : metaInside || !showsMeta ? null : message.pending ? (
                                       message.outboxState === "waiting_network" ? "Đang chờ mạng" : "Chờ gửi…"
                                     ) : (
                                       formatClock(message.createdAt)
@@ -3973,7 +4255,7 @@ const Messages = () => {
                                     {/* Work that came out of this message. Nothing is shown
                                         when nothing came of it. */}
                                     {(() => {
-                                      const mark = taskMarkFor(message.id);
+                                      const mark = taskMarkHere;
                                       if (mark === null) return null;
                                       return (
                                         <MessageTaskDot
@@ -3982,13 +4264,13 @@ const Messages = () => {
                                         />
                                       );
                                     })()}
-                                    {outgoing && scheduledSentIds.has(message.id) ? (
+                                    {outgoing && scheduledSentIds.has(message.id) && showsMeta && !metaInside ? (
                                       <span title="Đã gửi theo hẹn giờ" aria-label="Đã gửi theo hẹn giờ" className="flex items-center">
                                         <Clock3 className="h-3 w-3" strokeWidth={1.8} aria-hidden="true" />
                                       </span>
                                     ) : null}
-                                    {showsReceipt ? (
-                                      activeKind === "direct" && deliveredAt !== null && message.pending !== true ? (
+                                    {showsReceipt && !metaInside ? (
+                                      receiptDelivered ? (
                                         <span
                                           className="flex items-center gap-1"
                                           title={`Đã nhận lúc ${new Date(deliveredAt).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`}
@@ -4004,6 +4286,7 @@ const Messages = () => {
                                       )
                                     ) : null}
                                   </span>
+                                  ) : null}
                                 </div>
                               </li>
                               {skipNotices.map((notice) => (
@@ -4082,7 +4365,13 @@ activeKind === "personal" ? (
               )}
 
               {isDiaryAside ? null : (
-              <div className="border-t border-border bg-card px-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-3 md:px-10 md:py-4">
+              <div
+                data-composer-shell=""
+                style={threadToneStyle}
+                // 101B · 3b–3c: one grey line, paper background, the input row 4–6 px under it; with the
+                // keyboard up the home-indicator inset is gone, so 3 px is all that is left below.
+                className="border-t border-border bg-background px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-[5px] md:px-10 md:py-3 [html[data-keyboard=open]_&]:pb-[3px]"
+              >
                 {/*
                   What the next message will answer, shown before it is sent so nobody replies
                   to the wrong thing. Dismissable, because changing your mind about replying is
@@ -4114,12 +4403,12 @@ activeKind === "personal" ? (
                   </div>
                 ) : null}
                 {isProjectChatClosed ? (
-                  <p className="mx-auto max-w-2xl rounded-md border border-border bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
+                  <p className="mx-auto max-w-2xl rounded-md bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
                     Dự án đã đóng nên cuộc trò chuyện chỉ còn để đọc. Người mở dự án có thể mở lại bất cứ lúc nào.
                   </p>
                 ) : isNoLongerConnected && !hasBlockedPeer ? (
                   /* AVORA-38: history stays readable; sending needs the pair to be bạn again. */
-                  <p className="mx-auto max-w-2xl rounded-md border border-border bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
+                  <p className="mx-auto max-w-2xl rounded-md bg-secondary/40 px-4 py-3 text-center text-[13.5px] text-muted-foreground">
                     {NOT_CONNECTED_NOTICE} Kết bạn lại qua PIN để nhắn tiếp.
                   </p>
                 ) : hasBlockedPeer ? (
@@ -4127,7 +4416,7 @@ activeKind === "personal" ? (
                     The blocker's side (AVORA-37 / A): history stays readable above, and the box
                     gives way to the one thing that can be done here — undo the block.
                   */
-                  <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-md border border-border bg-secondary/40 px-4 py-2.5">
+                  <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 rounded-md bg-secondary/40 px-4 py-2.5">
                     <p className="min-w-0 text-[13.5px] text-muted-foreground">Bạn đã chặn {threadTitle}.</p>
                     <button
                       type="button"
@@ -4143,10 +4432,10 @@ activeKind === "personal" ? (
                 {activeVerification !== null && conversationId && userId ? (
                   <VerificationPanel conversationId={conversationId} verification={activeVerification} viewerId={userId} />
                 ) : null}
-                <MessageComposer
-                  value={draft}
-                  onValueChange={(next) => {
-                    setDraft(next);
+                <DraftedComposer
+                  userId={userId}
+                  conversationId={conversationId}
+                  onTyped={(next) => {
                     // Typing is announced from the keystroke, and stopped the moment the box
                     // empties — a cleared draft is someone who changed their mind, and leaving
                     // the indicator up would misreport that for the next few seconds.
@@ -4158,7 +4447,7 @@ activeKind === "personal" ? (
                   isSending={sendMutation.isPending || isUploading}
                   placeholder={activeKind === "personal" ? "Ghi vào Nhật ký" : activeKind === "direct" ? `Nhắn tin cho ${threadTitle}` : projectHere !== undefined ? `Nhắn trong Dự án ${projectHere.title}` : `Nhắn trong ${threadTitle}`}
                   ariaLabel={activeKind === "personal" ? "Ghi vào nhật ký" : `Nhắn tin cho ${threadTitle}`}
-                  mentionCandidates={mentionable}
+                  mentionCandidates={composerMentionCandidates}
                   refContext={conversationId ? (activeKind === "personal" ? "journal" : (`conversation:${conversationId}` as RefContext)) : undefined}
                   contextLabel={
                     activeKind === "personal"
@@ -4184,6 +4473,8 @@ activeKind === "personal" ? (
                     );
                   }}
                   attachmentCount={staged.length}
+                  onSendSticker={atmosphereKind !== undefined && activeVerification === null ? handleSendSticker : undefined}
+                  onSendWithEffect={atmosphereKind !== undefined && activeVerification === null && staged.length === 0 ? handleSendWithEffect : undefined}
                   urgent={
                     activeKind === "personal" || activeVerification !== null
                       ? undefined
@@ -4257,7 +4548,7 @@ activeKind === "personal" ? (
                           canSchedule
                             ? {
                                 onSelect: () => setIsScheduleOpen(true),
-                                note: staged.length > 0 ? "Hẹn giờ chỉ gửi được chữ" : draft.trim() === "" ? "Gõ tin trước" : null,
+                                note: staged.length > 0 ? "Hẹn giờ chỉ gửi được chữ" : isDraftEmpty ? "Gõ tin trước" : null,
                               }
                             : undefined
                         }
@@ -4335,13 +4626,23 @@ activeKind === "personal" ? (
         }}
       />
 
+      {conversationId && atmosphereKind !== undefined ? (
+        <AtmosphereSheet
+          open={isAtmosphereOpen}
+          onOpenChange={setIsAtmosphereOpen}
+          conversationId={conversationId}
+          kind={atmosphereKind}
+          canStyle={atmosphereKind === "direct" || myGroupRole === "owner" || myGroupRole === "admin"}
+        />
+      ) : null}
+
       <ScheduleMessageDialog
         open={isScheduleOpen}
         onOpenChange={setIsScheduleOpen}
-        content={draft}
+        content={isScheduleOpen ? getComposerDraft(userId, conversationId) : ""}
         isWorking={scheduleActions.schedule.isPending}
         onSubmit={(at) => {
-          const content = draft.trim();
+          const content = getComposerDraft(userId, conversationId).trim();
           if (content === "") return;
           void scheduleActions.schedule
             .mutateAsync({
@@ -4595,6 +4896,7 @@ activeKind === "personal" ? (
               <ConversationMoreSections
                 roomSlot={roomSlot}
                 diaryRow={
+                  <>
                   <button
                     type="button"
                     onClick={() => setIsConversationDiaryOpen(true)}
@@ -4604,6 +4906,18 @@ activeKind === "personal" ? (
                     <span className="min-w-0 flex-1 text-[14px] text-foreground">Nhật ký trò chuyện</span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
                   </button>
+                  {/* K5 · 84 §4.1: Không khí lives inside the conversation's own ⋯, nowhere else. */}
+                  <button
+                    type="button"
+                    data-atmosphere-row=""
+                    onClick={() => setIsAtmosphereOpen(true)}
+                    className="press flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/40"
+                  >
+                    <Palette className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                    <span className="min-w-0 flex-1 text-[14px] text-foreground">Không khí</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                  </button>
+                  </>
                 }
                 conversationId={conversationId}
                 placeLabel={threadTitle}

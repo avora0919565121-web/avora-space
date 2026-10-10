@@ -1,3 +1,4 @@
+import { formatStorageBytes, STANDARD_UPLOAD_CAP_BYTES, useMyUploadUsage } from "@/lib/conversation-storage";
 import { ChevronDown, ChevronRight, Download, Loader2, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -119,6 +120,7 @@ const SettingsStorage = () => {
 
   const row = "press flex min-h-[56px] w-full items-center gap-2 border-b border-border/60 px-4 py-2.5 text-left last:border-b-0";
 
+  const uploadBytes = useMyUploadUsage();
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto" data-settings-storage="">
       <div className="mx-auto max-w-2xl animate-rise-in space-y-6 px-4 py-8 md:px-10 md:py-12">
@@ -131,7 +133,9 @@ const SettingsStorage = () => {
           ) : (
             <>
               <p className="tabular text-[34px] font-semibold leading-tight tracking-tight text-foreground" data-storage-total="">{formatBytes(total)}</p>
-              <p className="text-[12.5px] text-muted-foreground">Hạn mức gói và kho chung sẽ hiện ở đây.</p>
+              <p className="text-[12.5px] text-muted-foreground" data-upload-usage="">
+                {`Tệp bạn đã gửi trong trò chuyện: ${formatStorageBytes(uploadBytes ?? 0)} / ${formatStorageBytes(STANDARD_UPLOAD_CAP_BYTES)} (đang đếm, chưa giới hạn). Tệp trong mỗi cuộc giữ 30 ngày — sắp áp dụng.`}
+              </p>
               <ul className="mt-3 rounded-xl border border-border bg-card px-4 py-1">
                 {PLACES.map((place) => {
                   const bytes = data?.byPlace[place.id]?.bytes ?? 0;

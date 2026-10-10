@@ -62,7 +62,7 @@ export function PinnedStrip({
   return (
     <section
       aria-label="Tin nhắn đã ghim"
-      className={cn("border-b border-border bg-accent/25 px-5 py-2 md:px-10", embedded && "max-h-[35dvh] overflow-y-auto px-3")}
+      className={cn("border-b border-border bg-accent/25 px-5 py-2 md:px-10", embedded && "max-h-[35dvh] scroll-y px-3")}
     >
       <div className="mx-auto max-w-2xl">
         {embedded ? null : (

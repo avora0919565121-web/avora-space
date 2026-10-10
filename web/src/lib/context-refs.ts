@@ -89,3 +89,10 @@ export async function fetchMessageRefs(messageId: string): Promise<{ kind: RefKi
 }
 
 export const REF_KIND_LABEL: Readonly<Record<RefKind, string>> = { file: "File", record: "Hạng mục", board: "Bảng", note: "Ghi chép", contact: "Liên hệ" };
+
+/** K4 · 5 (ADR-052): `@` in Nhật ký — the person's own Liên hệ. Writes a name; notifies nobody. */
+export async function suggestJournalContacts(): Promise<{ userId: string; name: string }[]> {
+  const { data, error } = await supabase.rpc("suggest_mentions", { p_context: "journal", p_query: "" });
+  if (error) throw new Error("Không tải được Liên hệ.");
+  return (data ?? []).filter((row) => row.kind === "contact").map((row) => ({ userId: row.id, name: row.label }));
+}

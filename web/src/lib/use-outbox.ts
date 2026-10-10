@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 
@@ -42,6 +43,7 @@ export function useOutboxRunner(userId: string | undefined): {
         replyToMessageId: item.replyToMessageId,
         attachmentCount: item.files.length,
         isUrgent: item.isUrgent,
+        stickerId: item.stickerId ?? null,
         pending: true,
         failed: item.state === "failed",
         outboxState: item.state,
@@ -108,10 +110,13 @@ export function useOutboxRunner(userId: string | undefined): {
             current.isUrgent,
             current.refs,
             current.id,
+            { effect: current.effect ?? null, stickerId: current.stickerId ?? null },
           );
           queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(current.conversationId), (thread) =>
             mergeIncomingMessage(thread ?? [], row),
           );
+          // K5: past 3 effects in 10 minutes the words still went — say so gently, once.
+          if (current.effect != null && row.effect == null) toast.info("Hiệu ứng nghỉ một chút nhé");
         }
         await outboxStore.remove(current.id);
         void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });

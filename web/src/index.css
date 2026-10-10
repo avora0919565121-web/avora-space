@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* AVORA-84 · K5: the sticker lettering, self-hosted and cut to the letters the stickers use (OFL). */
+@font-face {
+  font-family: "Baloo 2";
+  src: url("/fonts/baloo2-sticker-800.woff") format("woff");
+  font-weight: 400 800;
+  font-display: swap;
+}
+
 /* AVORA design system — warm paper canvas, bold ink, terracotta accent.
    All colors MUST be HSL. */
 
@@ -313,6 +321,31 @@
 }
 
 @layer utilities {
+  /*
+   * AVORA-105: a vertical scroller that can never be dragged sideways. `overflow-y: auto` alone
+   * makes `overflow-x` auto too, so anything a pixel too wide let the whole column slide left and
+   * stay there. Zoom is locked in index.html, so only vertical panning is handed to the browser.
+   * A region that scrolls sideways on purpose sits outside this, marked `data-h-scroll`.
+   */
+  .scroll-y { overflow-y: auto; overflow-x: hidden; overscroll-behavior-x: none; touch-action: pan-y; }
+  /*
+   * 101B · 4 + K5 Không khí — chat backdrops. Colour tokens only, so light / dark / every tone
+   * stay right; pattern strength ≤ 4% so bubble text keeps its contrast. One system: a
+   * conversation's shared backdrop (Không khí) wins over the person's own (Nền trò chuyện).
+   */
+  .chat-backdrop { background-attachment: local; }
+  .chat-backdrop-cham-bi { background-image: radial-gradient(hsl(var(--border)) 1px, transparent 1.2px); background-size: 16px 16px; }
+  .chat-backdrop-giay {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(hsl(var(--foreground) / 0.025) 0.6px, transparent 0.8px),
+      radial-gradient(hsl(var(--foreground) / 0.02) 0.6px, transparent 0.8px);
+    background-size: 7px 7px, 11px 11px;
+    background-position: 0 0, 3px 5px;
+  }
+  .chat-backdrop-la { background-image: radial-gradient(ellipse 6px 3px at 50% 50%, hsl(var(--personal) / 0.04) 98%, transparent 100%); background-size: 28px 22px; }
+  .chat-backdrop-may { background-image: radial-gradient(circle at 30% 40%, hsl(var(--foreground) / 0.03) 0 10px, transparent 11px), radial-gradient(circle at 70% 70%, hsl(var(--foreground) / 0.025) 0 14px, transparent 15px); background-size: 72px 56px; }
+  .chat-backdrop-song { background-image: repeating-linear-gradient(170deg, transparent 0 14px, hsl(var(--personal) / 0.035) 14px 15px); }
   /* AVORA-62 · C: `Xem thay đổi` — a thin orange outline on a changed cell, a light orange wash
      on a new Hạng mục. Both fade once the reader has looked (data-change-seen). */
   .change-cell {
@@ -371,3 +404,50 @@
     .room-in-left, .room-in-right, .room-in-up, .room-in-down { animation: room-fade 220ms ease-out both; }
   }
 }
+
+/*
+ * AVORA-84 · K5 — sticker motion, copied from the source sheet. It only runs inside
+ * `.sticker-live` (first appearance, once ~1.5 s, by the conversation's effects level);
+ * in the tray and on later views every sticker stands still. Reduced motion: never.
+ */
+@keyframes st-bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-5px)}}
+@keyframes st-wag{0%{transform:rotate(-14deg)}100%{transform:rotate(14deg)}}
+@keyframes st-twinkle{0%,100%{transform:scale(.7);opacity:.6}50%{transform:scale(1.15);opacity:1}}
+@keyframes st-floatup{0%{transform:translateY(6px);opacity:0}30%{opacity:1}100%{transform:translateY(-16px);opacity:0}}
+@keyframes st-flap{0%{transform:rotate(-10deg)}100%{transform:rotate(12deg)}}
+@keyframes st-pulse{0%,100%{transform:scale(.8)}50%{transform:scale(1.25)}}
+@keyframes st-spin{to{transform:rotate(360deg)}}
+.avora-sticker .wag{transform-box:fill-box;transform-origin:5% 95%}
+.avora-sticker .twinkle,.avora-sticker .floatup,.avora-sticker .floatup2,.avora-sticker .pulse{transform-box:fill-box;transform-origin:center}
+.avora-sticker .flapL{transform-box:fill-box;transform-origin:90% 90%}
+.avora-sticker .flapR{transform-box:fill-box;transform-origin:10% 90%}
+.avora-sticker .twinkleSlow{transform-box:view-box;transform-origin:110px 152px}
+.sticker-live .bob{animation:st-bob 1.5s ease-in-out 1}
+.sticker-live .wag{animation:st-wag .5s ease-in-out 3 alternate}
+.sticker-live .twinkle{animation:st-twinkle 1.4s ease-in-out 1}
+.sticker-live .floatup{animation:st-floatup 1.5s ease-out 1}
+.sticker-live .floatup2{animation:st-floatup 1.5s ease-out .3s 1}
+.sticker-live .flapL{animation:st-flap .35s ease-in-out 4 alternate}
+.sticker-live .flapR{animation:st-flap .35s ease-in-out 4 alternate-reverse}
+.sticker-live .pulse{animation:st-pulse 1.5s ease-in-out 1}
+.sticker-live .twinkleSlow{animation:st-spin 1.5s ease-out 1}
+@media (prefers-reduced-motion: reduce){.sticker-live *{animation:none!important}}
+
+/* K5 · 84 §4.2: effect pieces rise and fade once; the buzz shakes the thread for 0.5 s. */
+@keyframes avora-effect-rise {
+  0% { transform: translate(0, 0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(var(--drift, 0px), var(--rise, -200px)) scale(1.1); opacity: 0; }
+}
+.avora-effect-piece { animation-name: avora-effect-rise; animation-timing-function: cubic-bezier(0.2, 0.7, 0.3, 1); animation-fill-mode: both; }
+@keyframes avora-buzz { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-4px); } 40% { transform: translateX(4px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+.avora-buzz { animation: avora-buzz 0.5s ease-in-out 1; }
+@keyframes avora-pop { 0% { transform: scale(0.4); opacity: 0; } 60% { transform: scale(1.25); opacity: 1; } 100% { transform: scale(1); opacity: 0; } }
+.avora-heart-pop { animation: avora-pop 0.7s ease-out 1 both; }
+@keyframes avora-big-emoji { 0%, 100% { transform: translateY(0) scale(1); } 40% { transform: translateY(-6px) scale(1.08); } }
+.avora-big-emoji-live { animation: avora-big-emoji 0.6s ease-out 1; }
+@media (prefers-reduced-motion: reduce) {
+  .avora-effect-piece, .avora-buzz, .avora-heart-pop, .avora-big-emoji-live { animation: none !important; }
+  .avora-effect-piece, .avora-heart-pop { display: none; }
+}
+

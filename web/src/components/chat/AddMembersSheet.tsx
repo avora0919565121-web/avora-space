@@ -88,7 +88,7 @@ export function AddMembersSheet({
             />
           </label>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+        <div className="min-h-0 flex-1 scroll-y px-3 pb-3">
           {friendsQuery.isPending ? (
             <div className="flex justify-center py-12" role="status" aria-label="Đang tải">
               <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />

@@ -15,6 +15,7 @@ export function FileChipRow({ files, chip, onChip }: { files: readonly Categoriz
       role="tablist"
       aria-label="Lọc theo loại tệp"
       data-file-chips=""
+      data-h-scroll=""
       className="flex gap-1.5 overflow-x-auto border-b border-border px-3 py-2 [mask-image:linear-gradient(to_right,transparent,black_12px,black_calc(100%-12px),transparent)] [scrollbar-width:none]"
     >
       {shown.map((c) => {

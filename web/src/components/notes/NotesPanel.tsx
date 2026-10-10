@@ -469,7 +469,7 @@ export function NotesPanel({
           <Plus className="h-4 w-4" /> Ghi chép
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-6">
+      <div className="min-h-0 flex-1 scroll-y px-3 pb-6">
         {data.notes.isPending ? null : onlyBooks && recentNotes.length === 0 ? (
           <p className="px-4 py-14 text-center text-[14px] text-muted-foreground">Chưa có ghi chú nào gắn với sách.</p>
         ) : notes.length === 0 ? (
@@ -498,7 +498,7 @@ export function NotesPanel({
         <p className="min-w-0 flex-1 truncate text-[16px] font-semibold text-foreground">Thùng rác</p>
       </div>
       <p className="px-5 pb-2 text-[12.5px] text-muted-foreground">Ghi chép trong Thùng rác được giữ 30 ngày, cùng tệp đính kèm.</p>
-      <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-6">
+      <div className="min-h-0 flex-1 scroll-y px-2 pb-6">
         {data.trashedNotes.length === 0 ? (
           <p className="px-3 py-8 text-center text-[13.5px] text-muted-foreground">Thùng rác trống.</p>
         ) : (
@@ -562,7 +562,7 @@ export function NotesPanel({
   let body: ReactElement;
   if (editorColumn !== null) body = <div className="h-full min-w-0">{editorColumn}</div>;
   else if (showTrash) body = trashPane;
-  else if (!isWide && tree !== undefined && !onlyBooks) body = <div className="h-full min-h-0 overflow-y-auto">{tree}</div>;
+  else if (!isWide && tree !== undefined && !onlyBooks) body = <div className="h-full min-h-0 scroll-y">{tree}</div>;
   else body = recentPane;
 
   return (

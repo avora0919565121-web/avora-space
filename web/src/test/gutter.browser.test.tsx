@@ -41,7 +41,7 @@ vi.mock("@/integrations/supabase/client", () => {
   return {
     supabase: {
       from: (table: string) => builder(db.tables[table] ?? []),
-      rpc: (name: string) => builder(db.rpcs[name] ?? []),
+      rpc: (rawName: string) => { const name = rawName === "inbox_page" ? "list_my_conversations" : rawName; return builder(db.rpcs[name] ?? []); },
       storage: { from: () => builder([]) },
       channel: () => builder([]),
       removeChannel: () => undefined,
@@ -328,4 +328,38 @@ for (const tab of TABS) {
       await page.screenshot({ path: `../../../docs/screens/2026-10-04/94-tab-${tab.name}-${w}.png` });
     });
   }
+}
+
+// AVORA-106 · K4 · 1 (105 A–B): the thread never scrolls sideways, whatever is in it.
+for (const width of [360, 390, 430]) {
+  test(`105 · thread ${width}: scrollWidth ≤ clientWidth, scrollLeft stays 0`, async () => {
+    db.tables.messages = [
+      message("w1", "lan", "https://example.com/" + "a".repeat(180) + "?q=" + "b".repeat(60), 30),
+      message("w2", "lan", "Chuỗiliềnkhôngdấucáchrấtdài".repeat(12), 29),
+      message("w3", "me", "ok", 28),
+      message("w4", "me", "Mã đơn: ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ", 27),
+    ];
+    await page.viewport(width, 844);
+    await expect.poll(() => window.innerWidth).toBe(width);
+    await render(
+      <Frame at="/tin-nhan/c-lan">
+        <Routes>
+          <Route path="/tin-nhan/:conversationId" element={<Messages />} />
+        </Routes>
+      </Frame>,
+    );
+    await expect.poll(() => document.querySelector("[data-thread-scroll]") !== null, { timeout: 4000 }).toBe(true);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    const scroller = document.querySelector("[data-thread-scroll]") as HTMLElement;
+    // Not vacuous: the long lines are really on screen.
+    await expect.poll(() => scroller.textContent?.includes("Mã đơn") ?? false, { timeout: 4000 }).toBe(true);
+    expect(scroller.scrollWidth - scroller.clientWidth).toBeLessThanOrEqual(1);
+    scroller.scrollLeft = 40;
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    scroller.dispatchEvent(new Event("scroll"));
+    await new Promise((resolve) => requestAnimationFrame(() => resolve(null)));
+    expect(scroller.scrollLeft).toBe(0);
+    expect(getComputedStyle(scroller).overflowX).toBe("hidden");
+    expect(getComputedStyle(scroller).touchAction).toBe("pan-y");
+  });
 }

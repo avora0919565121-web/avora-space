@@ -45,7 +45,7 @@ export function ForwardBundleCard({
   return (
     <div
       className={cn(
-        "min-w-[220px] rounded-bubble border px-4 py-2.5",
+        "w-full min-w-0 max-w-[min(100%,360px)] rounded-bubble border px-4 py-2.5 [overflow-wrap:anywhere]",
         outgoing ? "rounded-br-[4px] border-personal/30 bg-personal-soft" : "rounded-bl-[4px] border-border bg-card",
       )}
     >

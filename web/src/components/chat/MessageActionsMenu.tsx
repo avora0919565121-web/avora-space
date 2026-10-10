@@ -33,50 +33,53 @@ import { QUICK_REACTIONS } from "@/lib/reactions";
 import { messageActionGroup, orderMessageActions, type MessageMenuAction, type MessageMenuGroup } from "@/lib/menu-order";
 import { cn } from "@/lib/utils";
 
-/** How far a finger must travel right before a swipe means "answer this" (Đợt gộp 2 · A10). */
-export const SWIPE_REPLY_PX = 56;
+import { SWIPE_EDGE_PX, SWIPE_MAX_PX, SWIPE_REPLY_PX, swipeIntent, type SwipeDirection } from "@/lib/message-swipe";
 
-/**
- * Swipe right to reply, fingers only. A mostly vertical move is a scroll and cancels it; the
- * bubble follows the finger (at most a little past the threshold) and springs back on release.
- */
-function useSwipeToReply(onReply: (() => void) | undefined) {
+function useMessageSwipe(onReply: (() => void) | undefined, onTask: (() => void) | undefined) {
   const [offset, setOffset] = useState<number>(0);
-  const startRef = useRef<{ x: number; y: number; decided: "swipe" | "scroll" | null; fired: boolean } | null>(null);
+  const startRef = useRef<{ x: number; y: number; decided: "swipe" | "scroll" | null; fired: SwipeDirection | null } | null>(null);
+  const enabled = onReply !== undefined || onTask !== undefined;
 
   const onPointerDown = useCallback(
     (event: PointerEvent<HTMLElement>): void => {
-      if (onReply === undefined || event.pointerType !== "touch") return;
-      startRef.current = { x: event.clientX, y: event.clientY, decided: null, fired: false };
+      if (!enabled || event.pointerType !== "touch") return;
+      if (event.clientX <= SWIPE_EDGE_PX) return;
+      startRef.current = { x: event.clientX, y: event.clientY, decided: null, fired: null };
     },
-    [onReply],
+    [enabled],
   );
 
   const onPointerMove = useCallback(
     (event: PointerEvent<HTMLElement>): void => {
       const start = startRef.current;
-      if (start === null || onReply === undefined) return;
+      if (start === null) return;
       const dx = event.clientX - start.x;
       const dy = event.clientY - start.y;
-      if (start.decided === null && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
-        start.decided = Math.abs(dx) > Math.abs(dy) * 1.5 && dx > 0 ? "swipe" : "scroll";
-      }
+      if (start.decided === null) start.decided = swipeIntent(dx, dy);
       if (start.decided !== "swipe") return;
-      setOffset(Math.min(Math.max(0, dx), SWIPE_REPLY_PX + 16));
-      if (!start.fired && dx >= SWIPE_REPLY_PX) {
-        start.fired = true;
-        if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(10);
+      const allowed = dx < 0 ? onReply !== undefined : onTask !== undefined;
+      const next = allowed ? Math.max(-SWIPE_MAX_PX, Math.min(SWIPE_MAX_PX, dx)) : 0;
+      setOffset(next);
+      const direction: SwipeDirection = next < 0 ? "reply" : "task";
+      if (Math.abs(next) >= SWIPE_REPLY_PX) {
+        if (start.fired !== direction) {
+          start.fired = direction;
+          if (typeof navigator !== "undefined" && typeof navigator.vibrate === "function") navigator.vibrate(10);
+        }
+      } else {
+        start.fired = null;
       }
     },
-    [onReply],
+    [onReply, onTask],
   );
 
   const onPointerEnd = useCallback((): void => {
     const start = startRef.current;
     startRef.current = null;
     setOffset(0);
-    if (start?.fired === true) onReply?.();
-  }, [onReply]);
+    if (start?.fired === "reply") onReply?.();
+    if (start?.fired === "task") onTask?.();
+  }, [onReply, onTask]);
 
   return { offset, onPointerDown, onPointerMove, onPointerEnd };
 }
@@ -349,11 +352,14 @@ export function MessageActionsAffordance({
   reactionPicker,
   disabled = false,
   onSwipeReply,
+  onSwipeTask,
   children,
 }: {
   disabled?: boolean;
-  /** Phone: swiping the bubble right past ~56px makes it the message being answered (A10). */
+  /** Phone: swiping the bubble LEFT past ~56px makes it the message being answered (K4 · 4). */
   onSwipeReply?: () => void;
+  /** Phone: swiping the bubble RIGHT past ~56px raises a task from it (K4 · 4). */
+  onSwipeTask?: () => void;
   message: ChatMessage;
   viewerId: string | undefined;
   canRaiseTask: boolean;
@@ -388,7 +394,7 @@ export function MessageActionsAffordance({
     isEnabled: () => !disabled,
   });
   void _ignoredTap;
-  const swipe = useSwipeToReply(disabled ? undefined : onSwipeReply);
+  const swipe = useMessageSwipe(disabled ? undefined : onSwipeReply, disabled ? undefined : onSwipeTask);
 
   if (disabled) {
     return (
@@ -418,14 +424,27 @@ export function MessageActionsAffordance({
           handlers.onPointerCancel();
           swipe.onPointerEnd();
         }}
-        style={swipe.offset > 0 ? { transform: `translateX(${swipe.offset}px)` } : undefined}
+        style={swipe.offset !== 0 ? { transform: `translateX(${swipe.offset}px)` } : undefined}
         className={cn(
           // AVORA-59 · D: holding a bubble opens our menu, never the phone's text callout.
-          "no-callout max-w-[86%] transition-opacity md:max-w-[80%]",
+          "no-callout relative min-w-0 max-w-[86%] transition-opacity md:max-w-[80%] motion-reduce:transition-none",
           swipe.offset === 0 && "transition-transform",
           isPressing ? "select-none opacity-70" : "opacity-100",
         )}
       >
+        {swipe.offset !== 0 ? (
+          <span
+            aria-hidden="true"
+            data-swipe-hint={swipe.offset < 0 ? "reply" : "task"}
+            style={{ opacity: Math.min(1, Math.abs(swipe.offset) / SWIPE_REPLY_PX) }}
+            className={cn(
+              "pointer-events-none absolute top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full bg-secondary text-muted-foreground",
+              swipe.offset < 0 ? "-right-9" : "-left-9",
+            )}
+          >
+            {swipe.offset < 0 ? <Reply className="h-4 w-4" strokeWidth={1.8} /> : <CheckSquare className="h-4 w-4" strokeWidth={1.8} />}
+          </span>
+        ) : null}
         {children}
       </div>
       {reactionPicker}

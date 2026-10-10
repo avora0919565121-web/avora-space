@@ -547,7 +547,7 @@ export function NoteEditor({
         </DropdownMenu>
       </div>
 
-      <div ref={scrollRef} onScroll={onEditorScroll} className="min-h-0 flex-1 overflow-y-auto px-4 pb-28 pt-5 md:px-10">
+      <div ref={scrollRef} onScroll={onEditorScroll} className="min-h-0 flex-1 scroll-y px-4 pb-28 pt-5 md:px-10">
         <div className="mx-auto max-w-2xl">
           {initial.bookRecordId !== null || initial.bookTitle !== null ? (
             <button
@@ -735,8 +735,15 @@ export function NoteEditor({
         </div>
       </div>
 
-      {/* The small toolbar that sits over the phone keyboard. */}
-      <div className="flex items-center gap-1 border-t border-border bg-card px-3 py-2 md:px-8">
+      {/*
+        The small toolbar that sits over the phone keyboard. With the keyboard up it is pinned to
+        the bottom of what is actually visible (visualViewport, `--vv-bottom` from KeyboardSync) —
+        not to window.innerHeight, which on iPhone left a gap above the keyboard (100 · S.1).
+      */}
+      <div
+        data-note-toolbar=""
+        className="flex items-center gap-1 border-t border-border bg-card px-3 py-2 md:px-8 [html[data-keyboard=open]_&]:fixed [html[data-keyboard=open]_&]:inset-x-0 [html[data-keyboard=open]_&]:z-30 [html[data-keyboard=open]_&]:bottom-[calc(100%-var(--vv-bottom,100%))]"
+      >
         <button type="button" aria-label="Lùi một cấp" onMouseDown={(event) => event.preventDefault()} onClick={() => indentFocused(-1)} className="press rounded-md p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
           <IndentDecrease className="h-[18px] w-[18px]" />
         </button>
@@ -744,6 +751,7 @@ export function NoteEditor({
           <IndentIncrease className="h-[18px] w-[18px]" />
         </button>
         <span className="mx-1 h-5 w-px bg-border" />
+        <span className="flex-1" aria-hidden="true" />
         <button type="button" aria-label="Đính kèm tệp" onClick={() => fileInput.current?.click()} className="press rounded-md p-2 text-muted-foreground hover:bg-accent/50 hover:text-foreground">
           <Paperclip className="h-[18px] w-[18px]" />
         </button>

@@ -3,7 +3,7 @@ import { Suspense, useState } from "react";
 import { Outlet, useNavigate } from "react-router-dom";
 
 import { InlineBack } from "@/components/nav/InlineBack";
-import { SectionTabs } from "@/components/SectionTabs";
+import { SectionNav } from "@/components/nav/SectionNav";
 import { PlusMenuButton } from "@/components/PlusMenuButton";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -102,7 +102,7 @@ const Vault = () => {
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <SectionTabs
+      <SectionNav
         section="Két sắt"
         tabs={VAULT_TABS}
         action={(current) => {

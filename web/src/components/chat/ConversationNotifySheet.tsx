@@ -48,7 +48,7 @@ export function ConversationNotifySheet({
             Chỉ cho cuộc này, luôn có hạn. Gia đình và tin Khẩn vẫn báo; trong nhóm, người nhắc tên bạn vẫn báo. Nhắc việc không bao giờ bị tắt.
           </SheetDescription>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 pb-6 pt-2">
+        <div className="min-h-0 flex-1 scroll-y px-4 pb-6 pt-2">
           {mutedUntil !== null ? (
             <div className="flex items-center gap-3 rounded-xl border border-border bg-background/60 px-3.5 py-3">
               <BellOff className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />

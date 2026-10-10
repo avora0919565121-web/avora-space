@@ -328,6 +328,46 @@ export async function stageAttachment(
   };
 }
 
+/** K3 · N2 step 2: the long edge of the thumbnail drawn in the thread. */
+export const THUMBNAIL_EDGE_PX = 320;
+const THUMBNAIL_NAME = "thumb-320.webp";
+
+/**
+ * The thumbnail sits beside its photo, in the same upload folder, so the folder rule
+ * (`{conversationId}/…`) that guards the photo guards it too. Null for anything but a photo path.
+ */
+export function thumbnailPathOf(storagePath: string): string | null {
+  const slash = storagePath.lastIndexOf("/");
+  if (slash <= 0) return null;
+  return `${storagePath.slice(0, slash)}/${THUMBNAIL_NAME}`;
+}
+
+/** A 320 px WebP of a photo, made once on the sender's device. Null when the browser cannot. */
+export async function makeThumbnail(blob: Blob): Promise<Blob | null> {
+  if (typeof createImageBitmap === "undefined" || typeof document === "undefined") return null;
+  try {
+    const bitmap = await createImageBitmap(blob);
+    const scale = Math.min(1, THUMBNAIL_EDGE_PX / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+    const context = canvas.getContext("2d");
+    if (context === null) {
+      bitmap.close();
+      return null;
+    }
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const encoded = await new Promise<Blob | null>((resolve) => canvas.toBlob((result) => resolve(result), "image/webp", 0.78));
+    // Some Safari versions answer with PNG for webp; only keep a real, smaller WebP.
+    if (encoded === null || encoded.type !== "image/webp" || encoded.size >= blob.size) return null;
+    return encoded;
+  } catch (error) {
+    logError("attachments", error);
+    return null;
+  }
+}
+
 /** Uploads one staged file and returns what the send RPC needs to record it. */
 export async function uploadStagedAttachment(
   conversationId: string,
@@ -341,6 +381,20 @@ export async function uploadStagedAttachment(
     contentType: staged.mimeType === "" ? "application/octet-stream" : staged.mimeType,
   });
   if (error) throw fail(undefined, error.message);
+
+  // A missing thumbnail only costs the reader the full photo, so it never fails the send.
+  if (staged.kind === "image" && staged.mimeType !== "image/gif") {
+    const thumbPath = thumbnailPathOf(path);
+    const thumb = thumbPath === null ? null : await makeThumbnail(staged.blob);
+    if (thumbPath !== null && thumb !== null) {
+      await supabase.storage
+        .from(ATTACHMENT_BUCKET)
+        .upload(thumbPath, thumb, { cacheControl: "31536000", upsert: false, contentType: "image/webp" })
+        .then(({ error: thumbError }) => {
+          if (thumbError) logError("attachments", thumbError);
+        });
+    }
+  }
 
   return {
     kind: staged.kind,
@@ -431,20 +485,43 @@ export async function fetchThreadAttachments(conversationId: string): Promise<Me
  * The bucket is private, so nothing is readable by URL alone. Ten minutes is long enough to
  * look at a thread and short enough that a link pasted elsewhere stops working.
  */
+const SIGNED_URL_TTL_S = 600;
+/** Reuse a link while it has at least this long left (K3 · N7): same URL → no second download. */
+const SIGNED_URL_MIN_LEFT_MS = 120_000;
+const signedUrlMemo = new Map<string, { url: string; expiresAt: number }>();
+
+/** Forget every remembered link (sign-out). */
+export function clearSignedUrlMemo(): void {
+  signedUrlMemo.clear();
+}
+
 export async function signedUrlsFor(paths: readonly string[]): Promise<Map<string, string>> {
   const urls = new Map<string, string>();
   if (paths.length === 0) return urls;
 
+  const now = Date.now();
+  const toSign: string[] = [];
+  for (const path of paths) {
+    const kept = signedUrlMemo.get(path);
+    if (kept !== undefined && kept.expiresAt - now > SIGNED_URL_MIN_LEFT_MS) urls.set(path, kept.url);
+    else toSign.push(path);
+  }
+  if (toSign.length === 0) return urls;
+
   const { data, error } = await supabase.storage
     .from(ATTACHMENT_BUCKET)
-    .createSignedUrls([...paths], 600);
+    .createSignedUrls(toSign, SIGNED_URL_TTL_S);
 
   if (error) {
     logError("attachments", error);
     return urls;
   }
+  const expiresAt = now + SIGNED_URL_TTL_S * 1000;
   for (const entry of data ?? []) {
-    if (entry.signedUrl !== null && entry.path !== null) urls.set(entry.path, entry.signedUrl);
+    if (entry.signedUrl !== null && entry.path !== null && !entry.error) {
+      urls.set(entry.path, entry.signedUrl);
+      signedUrlMemo.set(entry.path, { url: entry.signedUrl, expiresAt });
+    }
   }
   return urls;
 }

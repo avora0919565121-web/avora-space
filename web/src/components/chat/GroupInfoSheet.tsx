@@ -1015,7 +1015,7 @@ export function GroupInfoSheet({
                 <SheetTitle className="text-[20px] font-semibold tracking-tight text-foreground">Nhật ký của tôi</SheetTitle>
                 <SheetDescription className="mt-1 text-[13px] text-muted-foreground">Chỉ mình bạn xem</SheetDescription>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto pt-4">{typeof moreSections === "function" ? moreSections(null) : moreSections}</div>
+              <div className="min-h-0 flex-1 scroll-y pt-4">{typeof moreSections === "function" ? moreSections(null) : moreSections}</div>
             </div>
           ) : metaQuery.isPending ? (
             <p className="p-6 text-[14px] text-muted-foreground">Đang tải…</p>
@@ -1056,7 +1056,7 @@ export function GroupInfoSheet({
                 ) : null}
               </div>
 
-              <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
+              <div className="min-h-0 flex-1 scroll-y px-3 pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
                 <div className="-mx-3">
                   {/* AVORA-71 · C: the quick row — Tìm · Lịch · Thông báo · Thành viên. */}
                   {quickRow("group")}
@@ -1193,7 +1193,7 @@ export function GroupInfoSheet({
                   <SheetDescription className="mt-1 text-[13px] text-muted-foreground">Trò chuyện 1-1</SheetDescription>
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
+              <div className="min-h-0 flex-1 scroll-y pb-[max(env(safe-area-inset-bottom),1rem)] pt-4">
                 {quickRow("direct")}
                 {/* Only in a 1-1: family is a relationship between two people, not a room. */}
                 {peerId ? <FamilyFlagCard peerId={peerId} peerName={peerName ?? "người này"} /> : null}

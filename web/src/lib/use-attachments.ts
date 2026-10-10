@@ -7,6 +7,7 @@ import {
   attachmentsByMessage,
   fetchThreadAttachments,
   signedUrlsFor,
+  thumbnailPathOf,
   type MessageAttachment,
 } from "@/lib/attachments";
 
@@ -21,6 +22,8 @@ export function useThreadAttachments(conversationId: string | undefined): {
   attachments: MessageAttachment[];
   attachmentsOf: (messageId: string) => MessageAttachment[];
   urlOf: (storagePath: string) => string | null;
+  /** K3 · N2: the 320 px thumbnail of a photo, or null when it has none (older photos). */
+  thumbUrlOf: (storagePath: string) => string | null;
   isLoading: boolean;
 } {
   const { data, isLoading } = useQuery<MessageAttachment[], Error>({
@@ -38,6 +41,23 @@ export function useThreadAttachments(conversationId: string | undefined): {
     [attachments],
   );
 
+  const thumbPaths = useMemo(
+    () =>
+      attachments
+        .filter((item) => item.kind === "image")
+        .map((item) => thumbnailPathOf(item.storagePath))
+        .filter((path): path is string => path !== null)
+        .sort(),
+    [attachments],
+  );
+  const { data: thumbUrls } = useQuery<Map<string, string>, Error>({
+    queryKey: attachmentKeys.urls(thumbPaths),
+    queryFn: () => signedUrlsFor(thumbPaths),
+    enabled: thumbPaths.length > 0,
+    staleTime: 8 * 60_000,
+    refetchInterval: 8 * 60_000,
+  });
+
   const { data: urls, isSuccess: hasUrls } = useQuery<Map<string, string>, Error>({
     queryKey: attachmentKeys.urls(paths),
     queryFn: () => signedUrlsFor(paths),
@@ -54,6 +74,13 @@ export function useThreadAttachments(conversationId: string | undefined): {
     urlOf: useCallback(
       (storagePath: string) => urls?.get(storagePath) ?? (hasUrls ? MISSING_URL : null),
       [urls, hasUrls],
+    ),
+    thumbUrlOf: useCallback(
+      (storagePath: string) => {
+        const thumbPath = thumbnailPathOf(storagePath);
+        return thumbPath === null ? null : (thumbUrls?.get(thumbPath) ?? null);
+      },
+      [thumbUrls],
     ),
     isLoading,
   };

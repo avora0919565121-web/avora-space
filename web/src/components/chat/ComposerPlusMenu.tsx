@@ -38,7 +38,7 @@ export function ComposerPlusMenu({
           disabled={disabled}
           aria-label="Thêm: đính kèm, ghi âm, tạo nhiệm vụ"
           title="Đính kèm, ghi âm hoặc tạo nhiệm vụ"
-          className="icon-btn h-11 w-11 text-foreground disabled:opacity-45 data-[state=open]:bg-accent/60"
+          className="press flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:text-foreground disabled:opacity-45 data-[state=open]:text-foreground"
         >
           <Plus className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
         </button>

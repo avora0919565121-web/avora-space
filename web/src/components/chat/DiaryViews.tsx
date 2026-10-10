@@ -91,7 +91,7 @@ export function DiaryCountRow({
   }, [active]);
   return (
     <nav aria-label="Các mục Nhật ký" className="border-b border-border bg-card/80">
-      <ul className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 py-2 md:px-8">
+      <ul data-h-scroll="" className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 py-2 md:px-8">
         {DIARY_VIEWS.map((view) => {
           const isActive = view.id === active;
           const count = counts[view.id];

@@ -21,7 +21,8 @@ import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
 import { celebrate } from "@/lib/confetti";
-import { TaskHubNav } from "@/components/tasks/TaskHubNav";
+import { SubTabs } from "@/components/nav/SubTabs";
+import { TASK_HUB_SECTIONS, TASK_HUB_TOP } from "@/lib/task-hub";
 import { TaskHubSectionView } from "@/components/tasks/TaskHubSectionView";
 import { CalendarView } from "@/components/tasks/CalendarView";
 import {
@@ -1718,7 +1719,20 @@ export default function Tasks() {
       <div className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 short:mx-0 short:max-w-none short:px-4">
         <InlineBack className="-mt-2 mb-1" />
         <div>
-          <TaskHubNav active={hubSection} counts={hubCounts} onChange={selectHubSection} />
+          {/* AVORA-101A: the shared strip — Hôm nay · Sắp tới · Tất cả, ⋯ for Lịch / Đã xong / Thùng rác (ADR-059). */}
+          <SubTabs
+            ariaLabel="Các mục Nhiệm vụ"
+            items={TASK_HUB_SECTIONS.filter((section) => TASK_HUB_TOP.includes(section.id)).map((section) => ({ id: section.id, label: section.label, count: hubCounts[section.id] }))}
+            overflow={{
+              label: "Thêm mục: Lịch, Đã xong, Thùng rác",
+              items: TASK_HUB_SECTIONS.filter((section) => section.placement === "more").map((section) => ({ id: section.id, label: section.label })),
+            }}
+            value={hubSection.id}
+            onChange={(id) => {
+              const next = TASK_HUB_SECTIONS.find((section) => section.id === id);
+              if (next !== undefined) selectHubSection(next);
+            }}
+          />
         </div>
 
         {hubSection.id !== "tasks" ? (

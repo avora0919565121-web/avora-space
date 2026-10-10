@@ -289,7 +289,7 @@ export function GroupTaskListSheet({
           </div>
         ) : null}
 
-        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
+        <div className="min-h-0 flex-1 scroll-y px-5 py-4">
           {entries.length === 0 ? (
             <div className="py-16 text-center">
               <ListTodo className="mx-auto h-10 w-10 text-muted-foreground/60" strokeWidth={1.3} aria-hidden="true" />

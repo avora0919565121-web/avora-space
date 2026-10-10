@@ -36,7 +36,7 @@ export function ScheduledStrip({
   };
 
   return (
-    <div className={cn("mx-auto mb-2 max-w-2xl rounded-[12px] border border-border bg-card", embedded && "mb-0 max-h-[35dvh] overflow-y-auto rounded-none border-x-0 border-t-0")}>
+    <div className={cn("mx-auto mb-2 max-w-2xl rounded-[12px] border border-border bg-card", embedded && "mb-0 max-h-[35dvh] scroll-y rounded-none border-x-0 border-t-0")}>
       {embedded ? null : (
       <button
         type="button"
