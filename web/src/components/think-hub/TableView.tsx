@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { ChevronDown, ChevronRight, ExternalLink, Eye, ListPlus, Paperclip, Plus, Settings2, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, ExternalLink, Eye, ListPlus, Paperclip, Plus, Settings2, SquareCheck, Star } from "lucide-react";
 import {
   useCallback,
   useEffect,
@@ -80,7 +80,23 @@ export type TableViewProps = {
   depth?: number;
   /** Who put a contact into a shared cell, when it was not me (AVORA-65 · E). */
   myName?: string;
+  /**
+   * AVORA-104 · PHẦN 4: the virtual `Việc` column of Toàn cảnh — `☑ xong/tổng`, a tap opens the
+   * right column. Never stored in `column_defs`; `⋯ › Ẩn cột` hides it on this device.
+   */
+  taskTally?: TaskTally;
 };
+
+/** See {@link TableViewProps.taskTally}. */
+export type TaskTally = {
+  of: (recordId: string) => { done: number; total: number } | null;
+  onOpen: (record: ThinkRecord) => void;
+  selectedId: string | null;
+  onHide: () => void;
+};
+
+/** The virtual column's id (never a real column key). */
+export const TASK_TALLY_COLUMN = "__viec";
 
 export type PhoneMode = "cards" | "table";
 
@@ -273,6 +289,7 @@ export function TableView({
   stars,
   onToggleStar,
   depth = 1,
+  taskTally,
 }: TableViewProps) {
   const markClass = (record: ThinkRecord, column: GridColumn | null): string | undefined => {
     if (marks === null) return undefined;
@@ -281,7 +298,11 @@ export function TableView({
     return undefined;
   };
   const rowMark = (record: ThinkRecord): string | undefined =>
-    marks !== null && marks.newRecords.has(record.id) ? "change-new" : undefined;
+    taskTally?.selectedId === record.id
+      ? "bg-personal/10 hover:bg-personal/15"
+      : marks !== null && marks.newRecords.has(record.id)
+        ? "change-new"
+        : undefined;
   const dot = (record: ThinkRecord): ReactNode =>
     dots !== null && marks === null && dots.records.has(record.id) ? (
       <span aria-label="có thay đổi từ lần bạn xem trước" data-change-dot="" className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
@@ -529,8 +550,42 @@ export function TableView({
       }
       return { ...base, render: (record: ThinkRecord) => <span className="block truncate text-muted-foreground">{cellValue(record, def)}</span> };
     });
-    return [...system, ...own];
-  }, [shown, preview, fileCounts, contactName, onToggleCheckbox, onOpenContact, today]);
+    const tally: GridColumn[] =
+      taskTally === undefined
+        ? []
+        : [
+            {
+              id: TASK_TALLY_COLUMN,
+              label: "Việc",
+              width: 96,
+              def: null,
+              isInteractive: true,
+              render: (record) => {
+                const count = taskTally.of(record.id) ?? { done: 0, total: 0 };
+                return (
+                  <button
+                    type="button"
+                    data-task-tally={record.id}
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      taskTally.onOpen(record);
+                    }}
+                    aria-label={`Việc của "${record.title}": ${count.done} xong / ${count.total}`}
+                    className="press -mx-1 inline-flex min-h-8 items-center gap-1 rounded-md px-1.5 text-[13px] font-semibold text-foreground hover:bg-accent/50"
+                  >
+                    <SquareCheck className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
+                    <span className="tabular">
+                      {count.done}/{count.total}
+                    </span>
+                  </button>
+                );
+              },
+              sortKey: (record) => taskTally.of(record.id)?.total ?? 0,
+              isFilled: (record) => (taskTally.of(record.id)?.total ?? 0) > 0,
+            },
+          ];
+    return [...tally, ...system, ...own];
+  }, [shown, preview, fileCounts, contactName, onToggleCheckbox, onOpenContact, today, taskTally]);
 
   const titleColumn: GridColumn = useMemo(
     () => ({
@@ -569,6 +624,7 @@ export function TableView({
   const menuActions: ColumnMenuActions = {
     ...(columnActions ?? { lockedReason: "Chỉ chủ Bảng đổi được cột." }),
     onWidth: columnActions?.onWidth === undefined ? undefined : handleResize,
+    onHideSystem: taskTally === undefined ? undefined : (columnId) => columnId === TASK_TALLY_COLUMN && taskTally.onHide(),
     onSort: (column, direction) => setSort(direction === null ? null : { columnId: column.id, direction }),
     onFilter: (column, filterMode) => setFilter(filterMode === null ? null : { columnId: column.id, mode: filterMode }),
   };

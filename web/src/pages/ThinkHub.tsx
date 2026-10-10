@@ -28,6 +28,11 @@ import { KanbanView } from "@/components/think-hub/KanbanView";
 import { MindmapView } from "@/components/think-hub/MindmapView";
 import { QuickTaskDialog, recordSourceLabel } from "@/components/think-hub/QuickTaskDialog";
 import { TaskPicker } from "@/components/tasks/LinkPickers";
+import { OverviewColumns } from "@/components/think-hub/overview/OverviewColumns";
+import { OverviewTaskPane } from "@/components/think-hub/overview/OverviewTaskPane";
+import { OverviewTree } from "@/components/think-hub/overview/OverviewTree";
+import { OverviewToggle } from "@/components/think-hub/overview/OverviewToggle";
+import { useProjectOverview } from "@/components/think-hub/overview/use-project-overview";
 import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTableDialog";
 import { askConfirm, askText } from "@/components/ConfirmHost";
 import { BoardMenu, type BoardMenuItem } from "@/components/think-hub/BoardMenu";
@@ -664,6 +669,20 @@ const ThinkHub = () => {
     }
     return counts;
   }, [projectTaskLinks, recordTaskLinksQuery.data]);
+
+  // AVORA-104 · PHẦN 4: Toàn cảnh dự án — tree, task column, phone columns.
+  const recordLinkedTaskIds: ReadonlySet<string> = useMemo(() => new Set((recordTaskLinksQuery.data ?? []).map((link) => link.taskId)), [recordTaskLinksQuery.data]);
+  const overview = useProjectOverview({
+    active,
+    tables,
+    records,
+    tasks: tasksQuery.data ?? [],
+    tasksByRecord,
+    projectTaskLinks,
+    recordLinkedTaskIds,
+    isEnabled: searchParams.get("toan-man") !== "1",
+    setActiveId,
+  });
 
   const knownStatuses: string[] = useMemo(
     () => [...new Set(visibleRecords.map((record) => record.status))],
@@ -1781,7 +1800,7 @@ const ThinkHub = () => {
       >
       {/* AVORA-93 · 4.3: a focused Bảng has no tab bar; this strip brings it up for a moment. */}
       {isPhoneUpright && !inRoom && (active !== null || activeView !== null) ? <BottomTabStrip /> : null}
-      <div className={cn("mx-auto px-4 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : isPhoneUpright && (active !== null || activeView !== null) ? "pb-[calc(2.5rem+28px)]" : "pb-10")}>
+      <div className={cn("mx-auto px-4 pt-5 sm:px-6 md:px-10 short:px-4", isFullscreen || (overview.isOn && overview.isWide) ? "max-w-none pb-10 pt-2" : "max-w-6xl", inRoom ? "pb-24" : isPhoneUpright && (active !== null || activeView !== null) ? "pb-[calc(2.5rem+28px)]" : "pb-10")}>
 
         {isFullscreen ? null : <InlineBack className="-mt-2 mb-2" />}
         {isLibraryOpen && active === null && activeView === null ? (
@@ -1960,12 +1979,76 @@ const ThinkHub = () => {
           </>
         ) : null}
 
-        {active === null ? null : (
-          <>
+        {active === null ? null : overview.isOn && !overview.isWide && overview.tree !== null ? (
+          <OverviewColumns
+            tree={overview.tree}
+            columns={overview.columns}
+            isTwoUp={overview.isTwoUp}
+            onlyOpen={overview.onlyOpen}
+            onToggleOnlyOpen={overview.toggleOnlyOpen}
+            tasksOf={overview.tasksOf}
+            taskById={overview.taskById}
+            canEdit={!isReadOnly}
+            onGo={overview.go}
+            onBack={overview.back}
+            onHome={closeBoard}
+            onShowBoard={() => overview.setMode("board")}
+            onAddRecord={(boardId) => {
+              setTargetTableId(boardId);
+              setEditing(null);
+              setIsRecordOpen(true);
+            }}
+            onAddTask={(recordId) => {
+              const record = records.find((entry) => entry.id === recordId);
+              if (record !== undefined) setQuickTaskRecord(record);
+            }}
+            onLinkTask={(recordId) => {
+              const record = records.find((entry) => entry.id === recordId);
+              if (record !== undefined) setLinkTaskRecord(record);
+            }}
+            onRecordDetails={(recordId) => {
+              const record = records.find((entry) => entry.id === recordId);
+              if (record !== undefined) openRecord(record);
+            }}
+          />
+        ) : (
+          <div
+            data-overview-desk={overview.isOn ? "" : undefined}
+            className={cn(overview.isOn && "mt-3 grid grid-cols-[300px_minmax(0,1fr)_420px] items-start gap-0 overflow-hidden rounded-2xl border border-border bg-card/40")}
+          >
+          {overview.isOn && overview.tree !== null ? (
+            <aside className="sticky top-2 max-h-[calc(100dvh-7rem)] overflow-y-auto border-r border-border/70 bg-secondary/30 px-2 py-3">
+              <OverviewTree
+                tree={overview.tree}
+                activeBoardId={active.id}
+                selectedKey={overview.recordKey}
+                selectedTaskId={overview.taskId}
+                onlyOpen={overview.onlyOpen}
+                onToggleOnlyOpen={overview.toggleOnlyOpen}
+                tasksOf={overview.tasksOf}
+                onOpenBoard={(boardId) => overview.go({ board: boardId, record: null, task: null }, "push")}
+                onOpenRecord={(node) => overview.go({ board: node.kind === "unlinked" ? (overview.tree?.root?.id ?? active.id) : (node.parentId ?? active.id), record: node.kind === "unlinked" ? "chua-gan" : node.id, task: null }, "push")}
+                onOpenTask={(node, task) =>
+                  overview.go({ board: node.kind === "unlinked" ? (overview.tree?.root?.id ?? active.id) : (node.parentId ?? active.id), record: node.kind === "unlinked" ? "chua-gan" : node.id, task: task.id }, "push")
+                }
+              />
+            </aside>
+          ) : null}
+          <div className={cn("min-w-0", overview.isOn && "px-6 pb-8")} data-overview-middle={overview.isOn ? "" : undefined}>
             {isFullscreen ? null : (
-              <button type="button" onClick={closeBoard} data-board-back="" className="press mt-5 inline-flex min-h-10 items-center gap-0.5 rounded-md pr-2 text-[13.5px] font-medium text-personal">
-                <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Kệ
-              </button>
+              <div className="flex items-center justify-between gap-2">
+                <button type="button" onClick={closeBoard} data-board-back="" className="press mt-5 inline-flex min-h-10 items-center gap-0.5 rounded-md pr-2 text-[13.5px] font-medium text-personal">
+                  <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Kệ
+                </button>
+                {active.kind === "bookshelf" ? null : (
+                  <OverviewToggle
+                    mode={overview.mode}
+                    onChange={overview.setMode}
+                    taskColumnHidden={overview.isOn && overview.isWide && overview.isTaskColumnHidden}
+                    onShowTaskColumn={overview.showTaskColumn}
+                  />
+                )}
+              </div>
             )}
             {ancestry.length > 1 ? (
               <nav aria-label="Vị trí bảng" className="mt-5 flex flex-wrap items-center gap-1 text-[13px]">
@@ -2266,6 +2349,7 @@ const ThinkHub = () => {
                 stars={stars}
                 onToggleStar={(record) => shelfActions.star.mutate(record.id)}
                 depth={1}
+                taskTally={overview.taskTally}
                 defaultCardColumns={active.mobileColumns}
                 marks={markingMarks}
                 dots={isShared ? boardChanges.since : null}
@@ -2308,7 +2392,30 @@ const ThinkHub = () => {
                 }
               }}
             />
-          </>
+          </div>
+          {overview.isOn ? (
+            <aside aria-label="Việc" data-overview-right="" className="sticky top-2 flex h-[calc(100dvh-7rem)] min-h-0 flex-col border-l border-border/70 bg-background">
+              <OverviewTaskPane
+                node={overview.selectedNode}
+                tasks={overview.recordKey === null ? [] : overview.tasksOf(overview.recordKey)}
+                task={overview.taskId === null ? null : (overview.taskById(overview.taskId) ?? null)}
+                taskMissing={overview.taskId !== null && overview.taskById(overview.taskId) === undefined}
+                canEdit={!isReadOnly}
+                onOpenTask={(task) => overview.go({ board: active.id, record: overview.recordKey, task: task.id }, "push")}
+                onCloseTask={() => overview.back({ board: active.id, record: overview.recordKey, task: null })}
+                onClose={() => overview.go({ board: active.id, record: null, task: null }, "replace")}
+                onAdd={() => {
+                  const record = records.find((entry) => entry.id === overview.recordKey);
+                  if (record !== undefined) setQuickTaskRecord(record);
+                }}
+                onLink={() => {
+                  const record = records.find((entry) => entry.id === overview.recordKey);
+                  if (record !== undefined) setLinkTaskRecord(record);
+                }}
+              />
+            </aside>
+          ) : null}
+          </div>
         )}
       </div>
       </div>

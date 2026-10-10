@@ -160,6 +160,11 @@ export type TaskCardTaskProps = {
   today?: string;
   /** Phone `‹ {nơi trước}`. */
   backLabel?: string;
+  /**
+   * AVORA-104 · PHẦN 4: drawn in place (Toàn cảnh's right column / last phone column) instead of a
+   * sheet. `‹ {backLabel}` closes it; switching task remounts the card, which saves what was typed.
+   */
+  embedded?: boolean;
 };
 
 /** The proposer rewording a suggestion nobody has answered yet. */
@@ -663,6 +668,7 @@ function CardPanel({
   footer,
   modalOnDesktop = false,
   mode,
+  embedded = false,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -675,11 +681,12 @@ function CardPanel({
   footer?: ReactNode;
   modalOnDesktop?: boolean;
   mode: "task" | "suggestion" | "create";
+  embedded?: boolean;
 }) {
   const isMobile = useIsMobile();
   const isModal = isMobile || modalOnDesktop;
   // Phone: a swipe from the left edge is `‹`; holding `‹` closes and goes back to the top of the tab (94B / 100 C).
-  const edge = useEdgeSwipeBack(isMobile ? () => onOpenChange(false) : undefined);
+  const edge = useEdgeSwipeBack(isMobile && !embedded ? () => onOpenChange(false) : undefined);
   const hold = useLongPress({
     onTap: () => onOpenChange(false),
     onHold: () => {
@@ -688,6 +695,29 @@ function CardPanel({
       document.querySelector("main")?.scrollTo({ top: 0 });
     },
   });
+  if (embedded) {
+    if (!open) return null;
+    return (
+      <section data-task-card={mode} data-card-embedded="" aria-label={heading} className="flex h-full min-h-0 flex-col bg-background">
+        <div data-card-head="" className="flex min-h-[52px] shrink-0 items-center gap-1 border-b border-border/60 px-2">
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            aria-label={backLabel}
+            className="press no-callout flex min-h-11 min-w-0 items-center gap-1 rounded-md px-2 text-[15px] text-foreground/80 hover:bg-accent/40"
+          >
+            <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
+            <span className="truncate">{backLabel}</span>
+          </button>
+          <span className="min-w-0 flex-1" />
+          {status}
+          {menu}
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 pb-6 pt-3">{children}</div>
+        {footer}
+      </section>
+    );
+  }
   return (
     <Sheet open={open} onOpenChange={onOpenChange} modal={isModal}>
       <SheetContent
@@ -738,12 +768,12 @@ function CardPanel({
 
 /* ------------------------------------------------------------------ live task */
 
-function LiveTaskCard({ task, open, onOpenChange, today: todayProp, backLabel = "Nhiệm vụ" }: TaskCardTaskProps) {
+function LiveTaskCard({ task, open, onOpenChange, today: todayProp, backLabel = "Nhiệm vụ", embedded = false }: TaskCardTaskProps) {
   if (task === null) return null;
-  return <LiveTaskCardBody key={task.id} task={task} open={open} onOpenChange={onOpenChange} today={todayProp ?? todayIso()} backLabel={backLabel} />;
+  return <LiveTaskCardBody key={task.id} task={task} open={open} onOpenChange={onOpenChange} today={todayProp ?? todayIso()} backLabel={backLabel} embedded={embedded} />;
 }
 
-function LiveTaskCardBody({ task, open, onOpenChange, today, backLabel }: { task: TaskItem; open: boolean; onOpenChange: (open: boolean) => void; today: string; backLabel: string }) {
+function LiveTaskCardBody({ task, open, onOpenChange, today, backLabel, embedded }: { task: TaskItem; open: boolean; onOpenChange: (open: boolean) => void; today: string; backLabel: string; embedded: boolean }) {
   const { user } = useAuth();
   const userId = user?.id;
   const navigate = useNavigate();
@@ -1065,6 +1095,7 @@ function LiveTaskCardBody({ task, open, onOpenChange, today, backLabel }: { task
       open={open}
       onOpenChange={onOpenChange}
       backLabel={backLabel}
+      embedded={embedded}
       heading="Nhiệm vụ"
       description="Xem và sửa ngay tại đây; mỗi ô tự lưu."
       status={<SaveBadge state={saver.state} onRetry={saver.retry} />}

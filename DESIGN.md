@@ -2189,6 +2189,13 @@ Tạo 08/10 bởi bạn · từ Hạng mục                 🗑
 - Từ Hạng mục: dưới `Việc trong Hạng mục này` có `＋ Việc mới · ⛓ Gắn việc có sẵn` (tông cá nhân). Tấm `Gắn việc có sẵn`: việc chưa gắn trước, dòng phụ `T6, 09/10 · chưa gắn Hạng mục` / `đang ở {Hạng mục}`.
 - Khác nơi: báo đúng câu của máy chủ `Việc này thuộc …, chỉ gắn được vào Hạng mục cùng nơi.`
 
+## Toàn cảnh dự án (AVORA-104 · PHẦN 4 · ADR-076)
+- Đầu mỗi bảng mở: `Toàn cảnh · Chỉ bảng` (viên tròn, chọn = nền chữ đậm). Nhớ theo bảng.
+- Máy tính ≥ 1024: một khung bo 16 px chia 3 cột — Cây 300 px nền `secondary/30` (`TOÀN CẢNH` · `Chỉ việc chưa xong ○`; nút: ✦ dự án, ▦ bảng / `Bảng con · …`, 📄 Hạng mục, ○ việc; số `xong/tổng` 12 px bên phải; nút đang chọn tô `personal/10`) · bảng như cũ (cột đầu `Việc ☑ 1/2`) · cột Việc 420 px (`{Hạng mục} · N việc ×`, dòng `○ tên  ngày · người`, `＋ Việc mới  ⛓ Gắn việc có sẵn`; chạm việc → thẻ ngay trong cột, `‹ {Hạng mục}`).
+- Điện thoại / máy tính bảng dọc: đầu màn `‹` + đường dẫn ngắn 12 px trên tên cột 18 px + `Chỉ bảng`. Cột Bảng: `HẠNG MỤC` + `KHÁC › Việc chưa gắn Hạng mục`; cột Hạng mục: `BẢNG CON`, `VIỆC`, `＋ Việc mới · ⛓ Gắn việc có sẵn`, `Mở Hạng mục`. Tay kéo trái 22×200 px chữ dọc; thanh chấm đáy (cột hiện tại = vạch dài). Trượt 220 ms, giảm chuyển động thì tức thì.
+- 600–1023 ngang: hai cột liền nhau, dời từng nấc.
+- Cây > 500 Hạng mục: mỗi nhánh 50 dòng + `Xem thêm N`.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

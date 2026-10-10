@@ -29,6 +29,8 @@ export type ColumnMenuActions = {
   onSort: (column: ColumnDef, direction: "asc" | "desc" | null) => void;
   onFilter: (column: ColumnDef, mode: "filled" | "empty" | null) => void;
   onHide?: (column: ColumnDef) => void;
+  /** A virtual column this device may hide (Toàn cảnh's `Việc`). */
+  onHideSystem?: (columnId: string) => void;
   onWidth?: (column: ColumnDef, width: number | null) => void;
   onDelete?: (column: ColumnDef) => void;
   /** A shared board's member: "Đề nghị xoá" instead of "Xoá cột" (ADR-031). */
@@ -195,7 +197,11 @@ export function ColumnMenu({
             ) : null}
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        {isSystem ? (
+        {isSystem && actions.onHideSystem !== undefined && columnId.startsWith("__") ? (
+          <DropdownMenuItem className="min-h-10 gap-2" onSelect={() => actions.onHideSystem?.(columnId)}>
+            <EyeOff className="h-4 w-4" aria-hidden="true" /> Ẩn cột
+          </DropdownMenuItem>
+        ) : isSystem ? (
           <Blocked reason={systemReason}>Ẩn cột</Blocked>
         ) : isSynced && actions.onHide !== undefined ? (
           <DropdownMenuItem className="min-h-10 gap-2" onSelect={() => actions.onHide?.(subject)}>
