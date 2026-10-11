@@ -41,7 +41,8 @@ type AuthContextValue = {
   /** True while the session came from a password-recovery link and no new password is set yet. */
   isRecovering: boolean;
   /** `redirectPath`: where the confirmation link should land (an invite link that is waiting). */
-  signUp: (email: string, password: string, displayName: string, redirectPath?: string) => Promise<AuthResult>;
+  /** AVORA-100 · G.3: `inviteCode` rides in the account metadata and is used as the account is made. */
+  signUp: (email: string, password: string, displayName: string, redirectPath?: string, inviteCode?: string) => Promise<AuthResult>;
   signIn: (email: string, password: string) => Promise<AuthResult>;
   /** Sends the confirmation email again for an address that signed up but never confirmed. */
   resendConfirmation: (email: string, redirectPath?: string) => Promise<AuthResult>;
@@ -176,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [userId, loadProfile]);
 
   const signUp = useCallback(
-    async (email: string, password: string, displayName: string, redirectPath?: string): Promise<AuthResult> => {
+    async (email: string, password: string, displayName: string, redirectPath?: string, inviteCode?: string): Promise<AuthResult> => {
       let captchaToken: string | undefined;
       try {
         captchaToken = await getCaptchaToken("sign_up");
@@ -187,7 +188,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         password,
         options: {
-          data: { display_name: displayName.trim() },
+          data: inviteCode !== undefined && inviteCode.trim() !== "" ? { display_name: displayName.trim(), invite_code: inviteCode.trim().toUpperCase() } : { display_name: displayName.trim() },
           emailRedirectTo: confirmationRedirect(redirectPath),
           captchaToken,
         },

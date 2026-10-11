@@ -7,7 +7,7 @@
  * With more than one action a tap opens a short chooser in this order; a screen to reorder the
  * list is not built.
  */
-export type QuickActionId = "calendar" | "paste-task" | "quick-transaction" | "assistant";
+export type QuickActionId = "calendar" | "paste-task" | "quick-transaction" | "assistant" | "feedback";
 
 export type QuickAction = {
   id: QuickActionId;
@@ -25,6 +25,8 @@ export const QUICK_ACTIONS: readonly QuickAction[] = [
   { id: "paste-task", label: "Tạo nhiệm vụ từ nội dung copy", note: "Dán chữ, ảnh hoặc tệp bạn vừa copy", isUpcoming: false },
   { id: "quick-transaction", label: "Tạo giao dịch nhanh", note: "Ghi thu/chi ngay, chọn sổ", isUpcoming: false },
   { id: "assistant", label: "Avora AI", note: "Trợ lý riêng của bạn", isUpcoming: true },
+  // AVORA-100 · G.1: one line to Cài đặt › Góp ý cho Avora (the page the person stood on goes along).
+  { id: "feedback", label: "Góp ý cho Avora", note: "Lỗi, ý tưởng, chỗ khó dùng", isUpcoming: false },
 ];
 
 /**

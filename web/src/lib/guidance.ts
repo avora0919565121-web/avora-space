@@ -15,6 +15,7 @@ export const GUIDANCE_KEYS = [
   "task_output_value",
   "plan_plus_hold",
   "task_plus_hold",
+  "group_receipts_intro",
 ] as const;
 
 export type GuidanceKey = (typeof GUIDANCE_KEYS)[number];
@@ -30,6 +31,8 @@ export type GuidanceKey = (typeof GUIDANCE_KEYS)[number];
 export const GUIDANCE_TEXT: Record<GuidanceKey, string> = {
   plan_plus_hold: "Giữ nút + để tạo bảng mới.",
   task_plus_hold: "Giữ nút + để chọn loại.",
+  // AVORA-108 · 3.4: once per account, the first time a group of ≤ 100 is opened after the change.
+  group_receipts_intro: "Nhóm này giờ cho thấy ai đã xem tin. Bạn có thể tắt trong Cài đặt → Riêng tư.",
   task_important_flag:
     "Quan trọng không phải vì gấp hay tốn nhiều công sức — ví dụ: gọi điện hỏi thăm mẹ chỉ mất vài phút, không có hạn nào, nhưng vẫn đáng đánh dấu quan trọng.",
   task_duration_field:

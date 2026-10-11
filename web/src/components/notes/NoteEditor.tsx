@@ -12,6 +12,7 @@ import {
   Maximize2,
   Mic,
   Minimize2,
+  Forward,
   MoreHorizontal,
   Paperclip,
   Pin,
@@ -61,11 +62,13 @@ import {
 } from "@/lib/notes";
 import { formatRecordingClock, isRecordingSupported, startRecording, stopRecording, useRecorder } from "@/lib/recorder";
 import type { NotesData } from "@/lib/use-notes";
+import { JournalForwardDialog, type JournalForwardItem } from "@/components/chat/JournalForwardDialog";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 
 const AUTOSAVE_MS = 800;
-const INDENT_PX = 16;
+/** AVORA-100 · S.3 (b): a level steps 12 px on a phone (was 16), 16 px from md up — via `--note-indent`. */
+const INDENT_VAR = "var(--note-indent, 16px)";
 
 type SaveState = { kind: "idle" } | { kind: "saving" } | { kind: "saved"; at: Date } | { kind: "offline" } | { kind: "error" };
 
@@ -197,6 +200,7 @@ export function NoteEditor({
   const [title, setTitle] = useState<string>(initial.title);
   const [blocks, setBlocks] = useState<NoteBlock[]>(initial.blocks.length > 0 ? initial.blocks : [emptyBlock()]);
   const [tags, setTags] = useState<string[]>(initial.tags);
+  const [forwardItem, setForwardItem] = useState<JournalForwardItem | null>(null);
   const [tagDraft, setTagDraft] = useState<string>("");
   const [folderId, setFolderId] = useState<string | null>(initial.folderId);
   const [save, setSave] = useState<SaveState>({ kind: "idle" });
@@ -213,6 +217,16 @@ export function NoteEditor({
   const noteId = initial.id;
 
   const labels = useMemo(() => blockLabels(blocks), [blocks]);
+  const markerWidth = useMemo(() => {
+    const widths = new Map<number, number>();
+    blocks.forEach((block, index) => {
+      const label = labels[index];
+      if (label === null || label === undefined) return;
+      const level = block.level ?? 0;
+      widths.set(level, Math.max(widths.get(level) ?? 0, label.length + 0.4));
+    });
+    return widths;
+  }, [blocks, labels]);
   const visible = useMemo(() => visibleBlocks(blocks), [blocks]);
   const folderName = folders.find((folder) => folder.id === folderId)?.name ?? "Chưa xếp";
   const byId = useMemo(() => new Map(attachments.map((item) => [item.id, item] as const)), [attachments]);
@@ -539,12 +553,17 @@ export function NoteEditor({
             >
               <Pin className="mr-2 h-4 w-4" /> {initial.pinnedAt === null ? "Ghim" : "Bỏ ghim"}
             </DropdownMenuItem>
+            {/* AVORA-100 · S.3 (a): a snapshot of this ghi chép (and its files, by pointer) to someone. */}
+            <DropdownMenuItem onSelect={() => void persist().then(() => setForwardItem({ kind: "note", noteId, label: displayTitle }))}>
+              <Forward className="mr-2 h-4 w-4" /> Chuyển tiếp ghi chép…
+            </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem className="text-destructive" onSelect={() => onDelete(noteId)}>
               <Trash2 className="mr-2 h-4 w-4" /> Xoá
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <JournalForwardDialog item={forwardItem} onOpenChange={(open) => { if (!open) setForwardItem(null); }} />
       </div>
 
       <div ref={scrollRef} onScroll={onEditorScroll} className="min-h-0 flex-1 scroll-y px-4 pb-28 pt-5 md:px-10">
@@ -608,20 +627,23 @@ export function NoteEditor({
             </span>
           </div>
 
-          <div className="mt-5 space-y-0.5">
+          <div className="mt-5 space-y-0.5 [--note-indent:12px] md:[--note-indent:16px]" data-note-blocks="">
             {blocks.map((block, index) => {
               if (!visible[index]) return null;
               const label = labels[index];
               const icons = (block.attachmentRefs ?? []).map((id) => byId.get(id)).filter((item): item is NoteAttachment => item !== undefined);
               return (
-                <div key={block.id} className="group flex items-start gap-1.5" style={{ paddingLeft: block.level === null ? 0 : block.level * INDENT_PX }}>
+                <div key={block.id} className="group flex items-start gap-1.5" style={{ paddingLeft: block.level === null ? 0 : `calc(${block.level} * ${INDENT_VAR})` }}>
                   {label !== null ? (
                     <button
                       type="button"
                       onClick={() => change(blocks.map((item) => (item.id === block.id ? { ...item, collapsed: item.collapsed !== true } : item)))}
                       aria-label={block.collapsed === true ? "Mở nhánh" : "Thu gọn nhánh"}
+                      // As wide as the longest marker of this level (I. … VIII.), not a fixed column.
+                      style={{ minWidth: `${markerWidth.get(block.level ?? 0) ?? 2}ch` }}
+                      data-note-marker=""
                       className={cn(
-                        "tabular mt-[3px] min-w-[1.6rem] shrink-0 select-none rounded text-right text-[15px] font-semibold leading-7 text-primary/80 hover:text-primary",
+                        "tabular mt-[3px] shrink-0 select-none rounded text-right text-[15px] font-semibold leading-7 text-primary/80 hover:text-primary",
                         block.collapsed === true && "underline decoration-dotted underline-offset-4",
                       )}
                     >
@@ -663,6 +685,11 @@ export function NoteEditor({
                           <span key={item.id} className="inline-flex items-center gap-1 rounded-md border border-border bg-card px-1.5 py-0.5 text-[11.5px] text-muted-foreground">
                             <button
                               type="button"
+                              // Hold / right-click the 📎 → Chuyển tiếp… (S.3 a).
+                              onContextMenu={(event) => {
+                                event.preventDefault();
+                                setForwardItem({ kind: "note-files", attachmentIds: [item.id], label: item.fileName });
+                              }}
                               onClick={() => document.getElementById(`note-file-${item.id}`)?.scrollIntoView({ behavior: "smooth", block: "center" })}
                               className="inline-flex items-center gap-1 hover:text-foreground"
                             >
@@ -691,6 +718,15 @@ export function NoteEditor({
                     <div className="min-w-0 flex-1 overflow-hidden">
                       <MessageAttachments attachments={[toAttachmentView(item)]} urlOf={notesData.urlOf} outgoing={false} />
                     </div>
+                    <button
+                      type="button"
+                      aria-label={`Chuyển tiếp tệp ${item.fileName}`}
+                      data-note-file-forward={item.id}
+                      onClick={() => setForwardItem({ kind: "note-files", attachmentIds: [item.id], label: item.fileName })}
+                      className="press mt-1 rounded-md p-1.5 text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                    >
+                      <Forward className="h-4 w-4" />
+                    </button>
                     <button
                       type="button"
                       aria-label={`Xoá tệp ${item.fileName}`}

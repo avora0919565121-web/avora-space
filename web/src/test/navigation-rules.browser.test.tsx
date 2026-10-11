@@ -396,7 +396,9 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await staysAt(to);
   });
 
-  it("N.7 · Nhiệm vụ → A → vào một thẻ → `‹` → A → về Nhiệm vụ, đúng chỗ cuộn", async () => {
+  // Four route changes plus a restored scroll: under a loaded full-suite run at 1440 this crept past
+  // the 15 s default. Same budget as N.1/N.16; the last two polls get a longer window too.
+  it("N.7 · Nhiệm vụ → A → vào một thẻ → `‹` → A → về Nhiệm vụ, đúng chỗ cuộn", { timeout: 60_000 }, async () => {
     await start("/nhiem-vu");
     scroller().scrollTop = 450;
     scroller().dispatchEvent(new Event("scroll"));
@@ -408,8 +410,8 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await userEvent.click(backButton());
     await expect.poll(where).toBe("/tong-quan");
     await userEvent.click(visibleLogo());
-    await expect.poll(where).toBe("/nhiem-vu");
-    await expect.poll(() => Math.round(scroller().scrollTop)).toBe(450);
+    await expect.poll(where, { timeout: 10_000 }).toBe("/nhiem-vu");
+    await expect.poll(() => Math.round(scroller().scrollTop), { timeout: 10_000 }).toBe(450);
   });
 
   it("N.8 · giữ logo A 450 ms → Toàn bộ AVORA; nhả tay không về Avora Space", async () => {

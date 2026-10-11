@@ -6,6 +6,7 @@ import {
   Forward,
   Hand,
   ImageDown,
+  Eye,
   Info,
   ListPlus,
   MoreHorizontal,
@@ -104,6 +105,7 @@ export type MessageAction =
   | "save-image"
   | "save-journal"
   | "details"
+  | "receipts"
   | "delete";
 
 type MenuEntry = {
@@ -123,8 +125,8 @@ type MenuEntry = {
  * ③ Ghim / Bỏ ghim · Chọn nhiều tin ④ Sửa · Chi tiết ⑤ Thu hồi / Đề nghị thu hồi · Xoá · Báo cáo (red, last)
  *
  * On a phone the same entries show as a 4-column icon grid — first row Trả lời · Chuyển tiếp · Sao chép · Tạo nhiệm vụ; a computer keeps the
- * list. Edit and recall are absent past their window rather than shown and refused. There is
- * no "Đã xem" anywhere (ADR-028).
+ * list. Edit and recall are absent past their window rather than shown and refused. `Ai đã xem`
+ * (AVORA-108, ADR-083) only where receipts exist — groups of ≤ 100.
  */
 export function MessageActionsMenu({
   message,
@@ -141,6 +143,7 @@ export function MessageActionsMenu({
   canSaveImage = false,
   canSaveToJournal = false,
   canDelete = false,
+  canSeeReceipts = false,
   onAction,
   onQuickReact,
   open,
@@ -173,6 +176,8 @@ export function MessageActionsMenu({
   canSaveToJournal?: boolean;
   /** AVORA-70 · C / 71 · B: only in Nhật ký của tôi — a soft delete into its Thùng rác. */
   canDelete?: boolean;
+  /** AVORA-108 · 3.2: `Ai đã xem` — groups of ≤ 100 (not Nhật ký, email, large groups). */
+  canSeeReceipts?: boolean;
   onAction: (action: MessageAction) => void;
   /** AVORA-49 · 2.4: six quick reactions on top of the menu — the one way in on a phone. */
   onQuickReact?: (emoji: string) => void;
@@ -215,6 +220,7 @@ export function MessageActionsMenu({
     select: showForward ? { label: "Chọn nhiều tin", icon: CheckSquare } : null,
     edit: showEdit ? { label: "Sửa", icon: Pencil } : null,
     details: showDetails ? { label: "Chi tiết", icon: Info } : null,
+    receipts: canSeeReceipts && message.pending !== true && message.systemKind == null && message.deletedAt == null ? { label: "Ai đã xem", icon: Eye } : null,
     recall: showRecall ? { label: "Thu hồi", icon: Trash2, danger: true } : null,
     // Asking, not doing: the sender decides. Shown as already-asked rather than hidden.
     "request-recall": showRequestRecall
@@ -346,10 +352,12 @@ export function MessageActionsAffordance({
   canSaveImage = false,
   canSaveToJournal = false,
   canDelete = false,
+  canSeeReceipts = false,
   outgoing,
   onAction,
   onQuickReact,
   reactionPicker,
+  overlay,
   disabled = false,
   onSwipeReply,
   onSwipeTask,
@@ -374,6 +382,7 @@ export function MessageActionsAffordance({
   canSaveImage?: boolean;
   canSaveToJournal?: boolean;
   canDelete?: boolean;
+  canSeeReceipts?: boolean;
   outgoing: boolean;
   onAction: (action: MessageAction) => void;
   onQuickReact?: (emoji: string) => void;
@@ -382,6 +391,8 @@ export function MessageActionsAffordance({
    * it two taps deep in a list would make it slower than typing "ok".
    */
   reactionPicker?: React.ReactNode;
+  /** AVORA-108 · 4: drawn over the bubble's lower edge (the floating reaction pill). */
+  overlay?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -399,7 +410,10 @@ export function MessageActionsAffordance({
   if (disabled) {
     return (
       <div className={cn("flex w-full items-center gap-1.5", outgoing ? "flex-row-reverse" : "flex-row")}>
-        <div className="max-w-[86%] md:max-w-[80%]">{children}</div>
+        <div className="relative max-w-[86%] md:max-w-[80%]">
+          {children}
+          {overlay}
+        </div>
       </div>
     );
   }
@@ -446,6 +460,7 @@ export function MessageActionsAffordance({
           </span>
         ) : null}
         {children}
+        {overlay}
       </div>
       {reactionPicker}
       <MessageActionsMenu
@@ -463,6 +478,7 @@ export function MessageActionsAffordance({
         canSaveImage={canSaveImage}
         canSaveToJournal={canSaveToJournal}
         canDelete={canDelete}
+        canSeeReceipts={canSeeReceipts}
         onAction={onAction}
         onQuickReact={onQuickReact}
         open={isOpen}

@@ -196,7 +196,7 @@ describe("77 · B — six shelves", () => {
 
 describe("77 · D — the open library and the reader", () => {
   it("nine categories, one source", () => {
-    expect(BOOK_CATEGORIES.map((item) => item.label)).toEqual(["Văn học", "Triết học", "Kinh Thánh", "Lịch sử", "Khoa học", "Kinh tế", "Thơ", "Thiếu nhi", "Khác"]);
+    expect(BOOK_CATEGORIES.map((item) => item.label)).toEqual(["Văn học", "Triết học", "Kinh Thánh", "Lịch sử", "Khoa học", "Kinh tế", "Thơ", "Thiếu nhi · Thiếu niên", "Khác"]);
   });
   it("77.14 · the checked Wikisource list has Truyện Kiều and the 1925 Bible", () => {
     expect(WIKISOURCE_TITLES.map((item) => item.id)).toContain("Truyện Kiều");

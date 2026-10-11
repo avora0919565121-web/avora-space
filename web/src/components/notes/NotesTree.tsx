@@ -48,6 +48,7 @@ import {
   type NoteFolder,
 } from "@/lib/notes";
 import type { NotesData } from "@/lib/use-notes";
+import { treeIndent } from "@/lib/notes-tree";
 import { cn } from "@/lib/utils";
 
 /** AVORA-94B: the folder open in Ghi chép on a phone (`?tm=<id>`). */
@@ -79,6 +80,9 @@ function byOrder(a: NoteFolder, b: NoteFolder): number {
  * the pane beside (or full screen on a phone). Up to three folder levels; the reading folder is a
  * system folder with no children. Which folders are open is remembered on this device.
  */
+
+
+
 export function NotesTree({
   data,
   activeNoteId,
@@ -233,16 +237,20 @@ export function NotesTree({
       <button
         type="button"
         onClick={() => onOpenNote(note)}
-        style={{ paddingLeft: 12 + depth * 16 }}
+        style={{ paddingLeft: treeIndent(depth) + 8 }}
         aria-current={note.id === activeNoteId ? "true" : undefined}
+        data-note-row={note.id}
         className={cn(
-          "press flex min-h-10 w-full items-center gap-2 rounded-md pr-2 text-left transition-colors",
+          "press flex min-h-10 w-full items-start gap-2 rounded-md py-1.5 pr-2 text-left transition-colors",
           note.id === activeNoteId ? "bg-accent/80" : "hover:bg-accent/35",
         )}
       >
-        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate text-[14px] text-foreground">{noteDisplayTitle(note)}</span>
-        <span className="shrink-0 text-[11.5px] text-muted-foreground">{shortAge(note.updatedAt)}</span>
+        <FileText className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
+        {/* S.3 (b): the name gets two lines; under 320 px the age drops below it instead of taking its room. */}
+        <span className="note-row-line min-w-0 flex-1">
+          <span className="line-clamp-2 min-w-0 flex-1 break-words text-[14px] leading-5 text-foreground" data-note-title="">{noteDisplayTitle(note)}</span>
+          <span className="shrink-0 text-[11.5px] leading-5 text-muted-foreground">{shortAge(note.updatedAt)}</span>
+        </span>
       </button>
     </li>
   );
@@ -268,7 +276,7 @@ export function NotesTree({
           {folder.isSystem ? null : (
             <span
               aria-hidden="true"
-              style={{ backgroundColor: cover, left: depth * 16 }}
+              style={{ backgroundColor: cover, left: treeIndent(depth) }}
               className="absolute bottom-1.5 top-1.5 w-[3px] rounded-full"
             />
           )}
@@ -285,7 +293,7 @@ export function NotesTree({
               toggle(folder.id);
             }}
             aria-expanded={isOpen}
-            style={{ paddingLeft: 4 + depth * 16 }}
+            style={{ paddingLeft: treeIndent(depth) + 2 }}
             className="press flex min-h-10 min-w-0 flex-1 items-center gap-1.5 pr-1 text-left"
           >
             {isOpen ? (
@@ -396,7 +404,7 @@ export function NotesTree({
             {children.map((child) => folderNode(child, depth + 1))}
             {visibleNotes(folder.id).map((note) => noteRow(note, depth + 1))}
             {children.length === 0 && visibleNotes(folder.id).length === 0 && matching === null ? (
-              <li style={{ paddingLeft: 30 + depth * 16 }} className="py-1.5 text-[12.5px] text-muted-foreground">
+              <li style={{ paddingLeft: treeIndent(depth + 1) + 26 }} className="py-1.5 text-[12.5px] text-muted-foreground">
                 Trống
               </li>
             ) : null}
@@ -414,7 +422,7 @@ export function NotesTree({
   const targetForNew = selectedFolder !== null && folders.some((folder) => folder.id === selectedFolder) ? selectedFolder : null;
 
   return (
-    <div className="pb-2">
+    <div className="notes-tree pb-2">
       {header}
       <div className="flex items-center gap-1.5 px-2 pb-1.5 pt-1">
         <label className="relative min-w-0 flex-1">

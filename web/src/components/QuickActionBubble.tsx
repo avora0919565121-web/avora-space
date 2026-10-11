@@ -1,5 +1,6 @@
-import { CalendarDays, ClipboardPaste, Sparkles, Wallet } from "lucide-react";
+import { CalendarDays, ClipboardPaste, MessageSquareHeart, Sparkles, Wallet } from "lucide-react";
 import { useCallback, useState, type PointerEvent } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 
 import { StatusPill } from "@/components/StatusPill";
 import { QuickTransactionDialog } from "@/components/finance/QuickTransactionDialog";
@@ -22,6 +23,7 @@ const ICONS: Record<QuickActionId, typeof CalendarDays> = {
   "paste-task": ClipboardPaste,
   "quick-transaction": Wallet,
   assistant: Sparkles,
+  feedback: MessageSquareHeart,
 };
 
 const BUBBLE_CLASS =
@@ -39,6 +41,8 @@ export function QuickActionBubble() {
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const direct = directQuickAction(QUICK_ACTIONS);
   const paste = usePasteTask();
+  const navigate = useNavigate();
+  const location = useLocation();
 
   /**
    * The paste action reads the clipboard inside this same selection — browsers only hand it over
@@ -50,9 +54,13 @@ export function QuickActionBubble() {
         void paste.start();
         return;
       }
+      if (id === "feedback") {
+        navigate("/cai-dat/gop-y", { state: { from: location.pathname } });
+        return;
+      }
       setOpenAction(id);
     },
-    [paste],
+    [paste, navigate, location.pathname],
   );
 
   const press = useLongPress({
@@ -97,7 +105,7 @@ export function QuickActionBubble() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              aria-label="Hành động nhanh: Lịch, tạo việc từ nội dung copy, giao dịch nhanh, Avora AI"
+              aria-label="Hành động nhanh: Lịch, tạo việc từ nội dung copy, giao dịch nhanh, Avora AI, góp ý"
               title="Hành động nhanh"
               className={`${BUBBLE_CLASS} select-none [-webkit-touch-callout:none]`}
               onPointerDown={handlePointerDown}

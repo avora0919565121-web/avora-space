@@ -33,7 +33,7 @@ function json(status: number, body: unknown): Response {
 
 // deno-lint-ignore no-explicit-any
 type Db = any;
-type Row = { source: string; source_id: string; cover_path: string | null; cover_checked_at: string | null; pd_status: string; access: string };
+type Row = { source: string; source_id: string; cover_path: string | null; cover_checked_at: string | null; pd_status: string; access: string; credits?: { thumbnail?: string } | null };
 
 let webpReady: Promise<void> | null = null;
 function ensureWebp(): Promise<void> {
@@ -52,6 +52,9 @@ function sourceUrl(row: Row): string | null {
     // By OLID (never ISBN); default=false answers 404 instead of a blank placeholder.
     return `https://covers.openlibrary.org/b/olid/${row.source_id}-L.jpg?default=false`;
   }
+  // AVORA-100 · §4.4 C: an open-licence picture book's own cover, as GDL lists it.
+  const thumb = row.credits?.thumbnail ?? "";
+  if (row.source === "gdl" && /^\d{1,9}$/.test(row.source_id) && thumb.startsWith("https://content.digitallibrary.io/wp-content/uploads/")) return thumb;
   return null;
 }
 
@@ -125,15 +128,22 @@ Deno.serve(async (req) => {
   if (body.backfill === true) {
     if (cronSecret === "" || req.headers.get("x-avora-cron") !== cronSecret) return json(401, { error: "auth" });
     // Books someone already has first (Open Library, then Gutenberg's early numbers — its classics).
-    const { data } = await db
+    const { data: others } = await db
       .from("book_catalog")
-      .select("source, source_id, cover_path, cover_checked_at, pd_status, access")
+      .select("source, source_id, cover_path, cover_checked_at, pd_status, access, credits")
       .is("cover_checked_at", null)
       .eq("pd_status", "ok")
-      .neq("source", "wikisource")
-      .order("source", { ascending: false })
+      .in("source", ["openlibrary", "gdl"])
+      .limit(100);
+    const { data: gutenberg } = await db
+      .from("book_catalog")
+      .select("source, source_id, cover_path, cover_checked_at, pd_status, access, credits")
+      .is("cover_checked_at", null)
+      .eq("pd_status", "ok")
+      .eq("source", "gutenberg")
       .limit(400);
-    const rows = ((data ?? []) as Row[]).sort((a, b) => (a.source === b.source ? (a.source === "gutenberg" ? Number(a.source_id) - Number(b.source_id) : 0) : a.source === "openlibrary" ? -1 : 1)).slice(0, BACKFILL_ROUND);
+    const data = [...(others ?? []), ...(gutenberg ?? [])];
+    const rows = ((data ?? []) as Row[]).sort((a, b) => (a.source === b.source ? (a.source === "gutenberg" ? Number(a.source_id) - Number(b.source_id) : 0) : a.source !== "gutenberg" ? -1 : b.source !== "gutenberg" ? 1 : 0)).slice(0, BACKFILL_ROUND);
     let kept = 0;
     const started = Date.now();
     for (const row of rows) {
@@ -151,11 +161,11 @@ Deno.serve(async (req) => {
   if (userError || userData.user === null) return json(401, { error: "auth" });
   const source = body.source;
   const sourceId = typeof body.source_id === "string" ? body.source_id.trim() : "";
-  if ((source !== "gutenberg" && source !== "openlibrary") || sourceId === "" || sourceId.length > 20) return json(400, { error: "body" });
+  if ((source !== "gutenberg" && source !== "openlibrary" && source !== "gdl") || sourceId === "" || sourceId.length > 20) return json(400, { error: "body" });
 
   const { data: found, error: rowError } = await asUser
     .from("book_catalog")
-    .select("source, source_id, cover_path, cover_checked_at, pd_status, access")
+    .select("source, source_id, cover_path, cover_checked_at, pd_status, access, credits")
     .eq("source", source)
     .eq("source_id", sourceId)
     .maybeSingle();

@@ -15,6 +15,7 @@ import {
   Search,
   Trash2,
   type LucideIcon,
+  Forward,
 } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
@@ -22,6 +23,7 @@ import { Link } from "react-router-dom";
 import { DayLineList, type DayLine } from "@/components/chat/DayLineList";
 import { fileIconOf } from "@/components/chat/file-icon";
 import { FileChipRow } from "@/components/chat/FileChipRow";
+import type { JournalForwardItem } from "@/components/chat/JournalForwardDialog";
 import { matchesFileChip, readFileChip, writeFileChip, type CategorizableFile, type FileChip } from "@/lib/file-category";
 import { normalizeSearch } from "@/lib/normalize-search";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
@@ -225,7 +227,8 @@ export function DiaryList({
                 </div>
               )}
               {view.id === "notes" && notesTree !== undefined && isTreeOpen ? (
-                <div className="ml-[62px] border-l border-border/70 pl-1">{notesTree}</div>
+                // AVORA-100 · S.3 (b): no extra indent or rule under `Ghi chép` — the tree uses the width.
+                <div data-notes-tree-slot="">{notesTree}</div>
               ) : null}
             </li>
           );
@@ -310,6 +313,7 @@ export function DiaryFilesView({
   onOpenNote,
   onOpenWriting,
   onDelete,
+  onForward,
 }: {
   notes: readonly DiaryFileNote[];
   meetingNotes?: readonly (SavedMeetingNote & { messageId: string; createdAt: string })[];
@@ -320,6 +324,8 @@ export function DiaryFilesView({
   onOpenNote: (messageId: string) => void;
   onOpenWriting?: (noteId: string) => void;
   onDelete: (entry: DiaryFileNote) => void;
+  /** AVORA-100 · S.3 (a): `Chuyển tiếp…` for a file of mine or a file in a ghi chép. */
+  onForward?: (item: JournalForwardItem) => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   // AVORA-73: one chip at a time, remembered per device; search by file name, combined with the chip.
@@ -419,6 +425,11 @@ export function DiaryFilesView({
           <div className="flex flex-wrap items-center gap-1 text-[13px]">
             <SourceTag>{`Ghi chép: ${row.file.noteTitle}`}</SourceTag>
             {onOpenWriting !== undefined ? <RowAction onClick={() => onOpenWriting(row.file.noteId)}>Mở trong ghi chép</RowAction> : null}
+            {onForward !== undefined ? (
+              <RowAction onClick={() => onForward({ kind: "note-files", attachmentIds: [row.file.id], label: row.file.attachment.fileName })}>
+                <Forward className="h-3.5 w-3.5" aria-hidden="true" /> Chuyển tiếp…
+              </RowAction>
+            ) : null}
           </div>
         </div>
       );
@@ -432,6 +443,11 @@ export function DiaryFilesView({
         <div className="flex flex-wrap items-center gap-1 text-[13px]">
           <span className="text-muted-foreground">{diaryFileSourceLabel(row.entry.source)}</span>
           <RowAction onClick={() => onOpenNote(row.entry.messageId)}>Tới tin gốc</RowAction>
+          {onForward !== undefined && row.entry.attachments.length > 0 ? (
+            <RowAction onClick={() => onForward({ kind: "journal-file", messageId: row.entry.messageId, label: row.entry.attachments.map((a) => a.fileName).join(", ") })}>
+              <Forward className="h-3.5 w-3.5" aria-hidden="true" /> Chuyển tiếp…
+            </RowAction>
+          ) : null}
           <RowAction danger onClick={() => onDelete(row.entry)}>
             <Trash2 className="h-3.5 w-3.5" aria-hidden="true" /> Xoá
           </RowAction>

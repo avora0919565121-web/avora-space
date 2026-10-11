@@ -337,6 +337,8 @@ const THUMBNAIL_NAME = "thumb-320.webp";
  * (`{conversationId}/…`) that guards the photo guards it too. Null for anything but a photo path.
  */
 export function thumbnailPathOf(storagePath: string): string | null {
+  // A ghi chép file forwarded by pointer has no thumbnail beside it.
+  if (storagePath.startsWith(NOTE_FILE_PREFIX)) return null;
   const slash = storagePath.lastIndexOf("/");
   if (slash <= 0) return null;
   return `${storagePath.slice(0, slash)}/${THUMBNAIL_NAME}`;
@@ -495,7 +497,25 @@ export function clearSignedUrlMemo(): void {
   signedUrlMemo.clear();
 }
 
+/**
+ * AVORA-100 · S.3 (a): a file attached in a ghi chép and forwarded is pointed at, not copied — its
+ * message_attachments path reads `note-files:{path}` and is signed from the note-files bucket.
+ */
+export const NOTE_FILE_PREFIX = "note-files:";
+
+function bucketOf(path: string): { bucket: string; key: string } {
+  return path.startsWith(NOTE_FILE_PREFIX) ? { bucket: "note-files", key: path.slice(NOTE_FILE_PREFIX.length) } : { bucket: ATTACHMENT_BUCKET, key: path };
+}
+
 export async function signedUrlsFor(paths: readonly string[]): Promise<Map<string, string>> {
+  const notePaths = paths.filter((path) => path.startsWith(NOTE_FILE_PREFIX));
+  if (notePaths.length > 0) {
+    const [chat, notes] = await Promise.all([
+      signedUrlsFor(paths.filter((path) => !path.startsWith(NOTE_FILE_PREFIX))),
+      signedNoteUrls(notePaths),
+    ]);
+    return new Map([...chat, ...notes]);
+  }
   const urls = new Map<string, string>();
   if (paths.length === 0) return urls;
 
@@ -526,9 +546,37 @@ export async function signedUrlsFor(paths: readonly string[]): Promise<Map<strin
   return urls;
 }
 
+async function signedNoteUrls(paths: readonly string[]): Promise<Map<string, string>> {
+  const urls = new Map<string, string>();
+  const now = Date.now();
+  const toSign = paths.filter((path) => {
+    const kept = signedUrlMemo.get(path);
+    if (kept !== undefined && kept.expiresAt - now > SIGNED_URL_MIN_LEFT_MS) {
+      urls.set(path, kept.url);
+      return false;
+    }
+    return true;
+  });
+  if (toSign.length === 0) return urls;
+  const { data, error } = await supabase.storage.from("note-files").createSignedUrls(toSign.map((path) => bucketOf(path).key), SIGNED_URL_TTL_S);
+  if (error) {
+    logError("attachments", error);
+    return urls;
+  }
+  for (const entry of data ?? []) {
+    if (entry.signedUrl !== null && entry.path !== null && !entry.error) {
+      const original = `${NOTE_FILE_PREFIX}${entry.path}`;
+      urls.set(original, entry.signedUrl);
+      signedUrlMemo.set(original, { url: entry.signedUrl, expiresAt: now + SIGNED_URL_TTL_S * 1000 });
+    }
+  }
+  return urls;
+}
+
 /** One link, for downloading a single file on demand. */
 export async function signedUrlFor(path: string): Promise<string | null> {
-  const { data, error } = await supabase.storage.from(ATTACHMENT_BUCKET).createSignedUrl(path, 600);
+  const { bucket, key } = bucketOf(path);
+  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(key, 600);
   if (error) {
     logError("attachments", error);
     return null;

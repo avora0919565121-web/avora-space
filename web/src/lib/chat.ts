@@ -381,7 +381,7 @@ export async function addGroupMembers(conversationId: string, userIds: readonly 
 
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent, refs, contact_card_user_id, sticker_id, effect";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent, refs, contact_card_user_id, sticker_id, effect, note_card";
 
 /** How many messages one page holds (Đợt gộp 2 · A7). */
 export const MESSAGE_PAGE_SIZE = 50;
@@ -408,6 +408,7 @@ export type MessageRowShape = {
   contact_card_user_id?: string | null;
   sticker_id?: string | null;
   effect?: string | null;
+  note_card?: unknown;
 };
 
 /**
@@ -436,6 +437,7 @@ export function toChatMessageRow(row: MessageRowShape): ChatMessage {
     contactCardUserId: row.contact_card_user_id ?? null,
     stickerId: row.sticker_id ?? null,
     effect: isSendEffect(row.effect) ? row.effect : null,
+    noteCard: parseNoteCard(row.note_card),
   };
 }
 
@@ -716,4 +718,21 @@ export async function ensureJournalConversation(): Promise<string> {
   if (error) throw fail(error.code, error.message);
   if (!data) throw new Error("Không mở được nhật ký. Thử lại nhé.");
   return data;
+}
+
+/** AVORA-100 · S.3 (a): a forwarded ghi chép — its title and levelled lines, read-only. */
+export type NoteCard = { title: string; noteId: string | null; blocks: { text: string; level: number }[] };
+
+export function parseNoteCard(raw: unknown): NoteCard | null {
+  if (raw === null || typeof raw !== "object") return null;
+  const r = raw as { title?: unknown; note_id?: unknown; blocks?: unknown };
+  if (typeof r.title !== "string" || !Array.isArray(r.blocks)) return null;
+  return {
+    title: r.title,
+    noteId: typeof r.note_id === "string" ? r.note_id : null,
+    blocks: r.blocks.map((b) => {
+      const block = (b ?? {}) as { text?: unknown; level?: unknown };
+      return { text: typeof block.text === "string" ? block.text : "", level: typeof block.level === "number" ? Math.max(0, Math.min(8, block.level)) : 0 };
+    }),
+  };
 }

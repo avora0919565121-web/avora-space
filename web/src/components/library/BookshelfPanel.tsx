@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { askText } from "@/components/ConfirmHost";
 import { DateField } from "@/components/calendar/DateField";
 import { BookCover } from "@/components/library/BookCover";
+import { ChildrenShelf } from "@/components/library/ChildrenShelf";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { findJournal } from "@/hooks/use-paste-task";
 import { useAuth } from "@/lib/auth";
@@ -660,6 +661,8 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
           </button>
         ))}
       </div>
+      {/* AVORA-100 · S.2 §4.4: browsing `Thiếu nhi · Thiếu niên` opens the hand-picked shelf first. */}
+      {category === "thieu_nhi" && query === "" ? <ChildrenShelf onShelf={onShelf} onAdd={onAdd} /> : null}
       {results.isPending ? (
         <p className="mt-4 flex items-center gap-2 text-[13.5px] text-muted-foreground">
           <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> Đang tìm…

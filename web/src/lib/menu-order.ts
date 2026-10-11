@@ -19,6 +19,7 @@ export type MessageMenuAction =
   | "select"
   | "edit"
   | "details"
+  | "receipts"
   | "recall"
   | "request-recall"
   | "delete"
@@ -40,6 +41,8 @@ export const MESSAGE_MENU_ORDER: readonly { action: MessageMenuAction; group: Me
   { action: "select", group: "arrange" },
   { action: "edit", group: "own" },
   { action: "details", group: "own" },
+  // AVORA-108 · 3.2: who has read / received this line (1-1 and groups of ≤ 100).
+  { action: "receipts", group: "own" },
   { action: "recall", group: "restrict" },
   { action: "request-recall", group: "restrict" },
   { action: "delete", group: "restrict" },

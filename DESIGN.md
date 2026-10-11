@@ -2270,6 +2270,12 @@ Trong Tạo / Sửa thói quen có đồng hồ, dưới số phút: `Khi rời 
 - Một phiên một lúc: bấm `Bắt đầu` ở thói quen khác → mở lại phiên đang có + toast `Đang có một phiên: …`. Phiên đang dừng qua 24:00 tự huỷ (toast một lần, không ghi gì).
 - Giảm chuyển động / Space Rhythm Tĩnh: vòng nhảy từng giây, không trượt; nền không "thở". Cân bằng: vòng trượt 260 ms, quầng sáng thở 6 s (chỉ độ mờ).
 
+## Trạng thái tin thật · cảm xúc nổi (AVORA-108 · ADR-083 · VMT 09/10)
+
+- **Vì sao có đi có lại:** "Đã xem" là sự thật, nhưng ai cũng có quyền không cho người khác biết mình đã xem. Một công tắc cho cả hai chiều — tắt thì không ai thấy bạn đã xem *và* bạn cũng không thấy ai — nên nó không thể thành công cụ giám sát một chiều. Người tắt hiện là `Ẩn` (một con số, không tên) chứ không phải "chưa xem", để không bị hiểu là phớt lờ. Không có nhắc nhở, không "lần cuối online", không thống kê.
+- **Vì sao ngưỡng 100:** ở nhóm nhỏ, biết ai đã đọc giúp phối hợp (đã thấy lịch họp chưa). Ở nhóm lớn, danh sách người đọc biến thành bảng điểm danh và áp lực xã hội — nên trên 100 người không tính, không hiện, không ghi.
+- **Vì sao viên cảm xúc nổi:** hàng cảm xúc riêng dưới bong bóng làm mỗi tin cao thêm ~32 px. Viên nổi đè góc phía trong (12 px) cộng 8 px đệm trong bong bóng chỉ thêm ~20 px, giữ cảm xúc dính liền với tin, và viền màu nền khung chat làm viên như được khoét ra khỏi bong bóng.
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

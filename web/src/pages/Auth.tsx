@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent } from "react";
 import { Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
@@ -5,6 +6,7 @@ import { Navigate, useLocation, useNavigate, useSearchParams } from "react-route
 import { useAuth } from "@/lib/auth";
 import { AUTH_TAGLINE, BRAND_MOTTO, BRAND_PRODUCT } from "@/lib/brand";
 import { dismissGuestNotice, isGuestMachine, setGuestMachine } from "@/lib/guest-machine";
+import { checkInvite, inviteMessage, isInviteRequired, normalizeInviteCode } from "@/lib/invites";
 import { returnPathFrom } from "@/lib/navigation";
 
 type Mode = "signin" | "signup" | "forgot" | "otp";
@@ -42,6 +44,9 @@ const Auth = () => {
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [displayName, setDisplayName] = useState<string>("");
+  // AVORA-100 · G.3: `…/dang-ky?moi=AVR-US-01` fills the code in.
+  const [inviteCode, setInviteCode] = useState<string>(() => normalizeInviteCode(searchParams.get("moi") ?? ""));
+  const inviteRequired = useQuery({ queryKey: ["invite-required"], queryFn: isInviteRequired, staleTime: 60_000 });
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -79,7 +84,7 @@ const Auth = () => {
   // The return path rides along when switching between sign in / sign up / forgot / code.
   const switchMode = (next: Mode): void => {
     const options = { replace: true, state: location.state as unknown };
-    if (next === "signup") setSearchParams({ mode: "dang-ky" }, options);
+    if (next === "signup") setSearchParams(inviteCode !== "" ? { mode: "dang-ky", moi: inviteCode } : { mode: "dang-ky" }, options);
     else if (next === "forgot") setSearchParams({ mode: "quen-mat-khau" }, options);
     else if (next === "otp") {
       // AVORA-54 · B: the machine checkbox arrives checked on this path; the person can uncheck it.
@@ -199,12 +204,29 @@ const Auth = () => {
       return;
     }
 
+    if (mode === "signup") {
+      const code = normalizeInviteCode(inviteCode);
+      if (code === "" && inviteRequired.data === true) {
+        setError("Cần mã mời để đăng ký Avora lúc này.");
+        return;
+      }
+      if (code !== "") {
+        setIsSubmitting(true);
+        const check = await checkInvite(code);
+        setIsSubmitting(false);
+        if ("reason" in check) {
+          setError(inviteMessage(check.reason));
+          return;
+        }
+      }
+    }
+
     setIsSubmitting(true);
     // AVORA-54 · A — the flag routes the new session into sessionStorage when checked.
     setGuestMachine(guestMachine);
     if (guestMachine) dismissGuestNotice();
     const result =
-      mode === "signup" ? await signUp(email, password, displayName, returnTo) : await signIn(email, password);
+      mode === "signup" ? await signUp(email, password, displayName, returnTo, normalizeInviteCode(inviteCode)) : await signIn(email, password);
     setIsSubmitting(false);
 
     if (!result.ok) {
@@ -317,6 +339,28 @@ const Auth = () => {
                   onChange={(event) => setDisplayName(event.target.value)}
                   placeholder="Minh Anh"
                   className="h-12 w-full rounded-md border border-border bg-card px-4 text-[16px] md:text-[15px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/60 focus:border-primary/70"
+                />
+              </div>
+            ) : null}
+
+            {isSignUp ? (
+              <div className="space-y-2">
+                <label htmlFor="inviteCode" className="block text-[14px] font-medium text-foreground">
+                  Mã mời{" "}
+                  {inviteRequired.data === true ? null : <span className="font-normal text-muted-foreground">(nếu có)</span>}
+                </label>
+                <input
+                  id="inviteCode"
+                  name="inviteCode"
+                  type="text"
+                  autoComplete="off"
+                  autoCapitalize="characters"
+                  spellCheck={false}
+                  data-invite-input=""
+                  value={inviteCode}
+                  onChange={(event) => setInviteCode(normalizeInviteCode(event.target.value))}
+                  placeholder="AVR-VN-01"
+                  className="h-12 w-full rounded-md border border-border bg-card px-4 font-mono text-[16px] uppercase tracking-wide text-foreground outline-none transition-colors placeholder:normal-case placeholder:text-muted-foreground/60 focus:border-primary/70 md:text-[15px]"
                 />
               </div>
             ) : null}

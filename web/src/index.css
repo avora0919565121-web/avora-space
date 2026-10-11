@@ -464,3 +464,18 @@
   .avora-effect-piece, .avora-heart-pop { display: none; }
 }
 
+
+/* AVORA-100 · S.2 §4.3: the keepsake sticker bobs once each time Avora Space opens. Reduced motion: never. */
+@keyframes avora-keepsake-bob { 0%, 100% { transform: translateY(0) rotate(0); } 35% { transform: translateY(-7px) rotate(-3deg); } 65% { transform: translateY(1px) rotate(1.5deg); } }
+.avora-keepsake-bob { animation: avora-keepsake-bob 0.9s cubic-bezier(0.3, 0.7, 0.3, 1) 0.15s 1 both; }
+@media (prefers-reduced-motion: reduce) { .avora-keepsake-bob { animation: none !important; } }
+
+/* AVORA-100 · S.3 (b): a ghi chép's age sits beside its name when the tree is ≥ 320 px wide, under it otherwise. */
+.notes-tree { container-type: inline-size; }
+.note-row-line { display: flex; flex-direction: column; gap: 2px; }
+@container (min-width: 320px) { .note-row-line { flex-direction: row; align-items: flex-start; gap: 8px; } }
+
+/* AVORA-108 · 4: the reaction pill grows in once (150 ms); never with reduced motion. */
+@keyframes avora-pill-in { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+.avora-reaction-pill { animation: avora-pill-in 150ms ease-out 1 both; }
+@media (prefers-reduced-motion: reduce) { .avora-reaction-pill { animation: none; } }

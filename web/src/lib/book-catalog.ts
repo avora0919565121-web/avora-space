@@ -5,7 +5,7 @@ import { hubFail } from "@/lib/think-hub";
  * AVORA-77 · D2 — the open library. Only lawful public-domain sources: Project Gutenberg's own
  * catalogue file (imported once, never scraped) and Vietnamese Wikisource pages checked one by one.
  */
-export type BookSource = "gutenberg" | "wikisource" | "openlibrary";
+export type BookSource = "gutenberg" | "wikisource" | "openlibrary" | "gdl";
 
 export type BookCategory = "van_hoc" | "triet_hoc" | "kinh_thanh" | "lich_su" | "khoa_hoc" | "kinh_te" | "tho" | "thieu_nhi" | "khac";
 
@@ -18,7 +18,8 @@ export const BOOK_CATEGORIES: readonly { id: BookCategory; label: string }[] = [
   { id: "khoa_hoc", label: "Khoa học" },
   { id: "kinh_te", label: "Kinh tế" },
   { id: "tho", label: "Thơ" },
-  { id: "thieu_nhi", label: "Thiếu nhi" },
+  // AVORA-100 · S.2 §4.4 D: one chip for both ages; the two ages are chips inside it.
+  { id: "thieu_nhi", label: "Thiếu nhi · Thiếu niên" },
   { id: "khac", label: "Khác" },
 ];
 
@@ -69,6 +70,18 @@ export type CatalogBook = {
   coverPath: string | null;
   /** AVORA-103 · A: `borrow` = still in copyright on Open Library — a link only, never read here. */
   access: "read" | "borrow";
+  /** AVORA-100 · §4.4 C: who made an open-licence picture book, and under which licence. */
+  credits: BookCredits | null;
+};
+
+/** The attribution an open licence asks for (author · illustrator · translator · publisher · licence + link). */
+export type BookCredits = {
+  license: string;
+  link: string | null;
+  publisher: string | null;
+  authors: string[];
+  illustrators: string[];
+  translators: string[];
 };
 
 type CatalogRow = {
@@ -83,10 +96,11 @@ type CatalogRow = {
   title_vi_kind?: string | null;
   cover_path?: string | null;
   access?: string | null;
+  credits?: unknown;
 };
 
 export function sourceOf(value: string): BookSource {
-  return value === "wikisource" ? "wikisource" : value === "openlibrary" ? "openlibrary" : "gutenberg";
+  return value === "wikisource" ? "wikisource" : value === "openlibrary" ? "openlibrary" : value === "gdl" ? "gdl" : "gutenberg";
 }
 
 function toBook(row: CatalogRow): CatalogBook {
@@ -102,19 +116,119 @@ function toBook(row: CatalogRow): CatalogBook {
     titleViKind: row.title_vi_kind === "xuat_ban" || row.title_vi_kind === "tam_dich" ? row.title_vi_kind : null,
     coverPath: row.cover_path ?? null,
     access: row.access === "borrow" ? "borrow" : "read",
+    credits: parseCredits(row.credits),
   };
+}
+
+function names(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((v): v is string => typeof v === "string" && v.trim() !== "") : [];
+}
+
+export function parseCredits(raw: unknown): BookCredits | null {
+  if (raw === null || typeof raw !== "object") return null;
+  const r = raw as Record<string, unknown>;
+  if (typeof r.license !== "string") return null;
+  return {
+    license: r.license,
+    link: typeof r.link === "string" ? r.link : null,
+    publisher: typeof r.publisher === "string" && r.publisher.trim() !== "" ? r.publisher : null,
+    authors: names(r.authors),
+    illustrators: names(r.illustrators),
+    translators: names(r.translators),
+  };
+}
+
+/** The credit lines shown on a picture book's page and its first page. */
+export function creditLines(credits: BookCredits): string[] {
+  const lines: string[] = [];
+  if (credits.authors.length > 0) lines.push(`Tác giả: ${credits.authors.join(", ")}`);
+  if (credits.illustrators.length > 0) lines.push(`Hoạ sĩ: ${credits.illustrators.join(", ")}`);
+  if (credits.translators.length > 0) lines.push(`Dịch: ${credits.translators.join(", ")}`);
+  if (credits.publisher !== null) lines.push(`Nhà xuất bản: ${credits.publisher}`);
+  lines.push("Nguồn: Global Digital Library");
+  lines.push(`Giấy phép: ${credits.license === "CC-BY-SA-4.0" ? "CC BY-SA 4.0" : "CC BY 4.0"}`);
+  return lines;
+}
+
+/**
+ * AVORA-100 · S.2 §4.4 — Tủ sách tuổi thơ: a hand-picked shelf inside `Thiếu nhi · Thiếu niên`.
+ * Every entry passed the AVORA-103 rule (authors and translators died ≤ 1955, or an open licence);
+ * Vietnamese Wikisource pages were opened and checked one by one (see the migration's notes).
+ * No scores, no badges, no streaks.
+ */
+export type ChildrenAge = "thieu_nhi" | "thieu_nien";
+export const CHILDREN_AGES: readonly { id: ChildrenAge; label: string }[] = [
+  { id: "thieu_nhi", label: "Thiếu nhi" },
+  { id: "thieu_nien", label: "Thiếu niên" },
+];
+
+export const CHILDREN_SHELF: readonly { key: string; age: ChildrenAge }[] = [
+  // Thiếu nhi — tiếng Việt trước.
+  { key: "wikisource:Thơ ngụ ngôn La Fontaine (1951)", age: "thieu_nhi" },
+  { key: "wikisource:Chuyện trẻ con", age: "thieu_nhi" },
+  { key: "wikisource:Đeo nhạc cho mèo", age: "thieu_nhi" },
+  { key: "wikisource:Biên dịch:Cô bé Lọ Lem", age: "thieu_nhi" },
+  { key: "gutenberg:11", age: "thieu_nhi" },
+  { key: "gutenberg:27200", age: "thieu_nhi" },
+  { key: "gutenberg:2591", age: "thieu_nhi" },
+  { key: "gutenberg:18732", age: "thieu_nhi" },
+  { key: "gutenberg:16", age: "thieu_nhi" },
+  { key: "gutenberg:16865", age: "thieu_nhi" },
+  { key: "gutenberg:55", age: "thieu_nhi" },
+  { key: "gutenberg:289", age: "thieu_nhi" },
+  { key: "gutenberg:236", age: "thieu_nhi" },
+  { key: "gutenberg:11757", age: "thieu_nhi" },
+  // Thiếu niên.
+  { key: "wikisource:Nam Hải dị nhân liệt truyện", age: "thieu_nien" },
+  { key: "gutenberg:113", age: "thieu_nien" },
+  { key: "gutenberg:514", age: "thieu_nien" },
+  { key: "gutenberg:45", age: "thieu_nien" },
+  { key: "gutenberg:120", age: "thieu_nien" },
+  { key: "gutenberg:521", age: "thieu_nien" },
+  { key: "gutenberg:74", age: "thieu_nien" },
+  { key: "gutenberg:271", age: "thieu_nien" },
+  { key: "gutenberg:1450", age: "thieu_nien" },
+  { key: "gutenberg:146", age: "thieu_nien" },
+  { key: "gutenberg:164", age: "thieu_nien" },
+  { key: "gutenberg:103", age: "thieu_nien" },
+  { key: "gutenberg:46", age: "thieu_nien" },
+  { key: "gutenberg:11703", age: "thieu_nien" },
+  { key: "gutenberg:829", age: "thieu_nien" },
+];
+
+/** Not on the shelf, on purpose: still in copyright in many countries. */
+export const CHILDREN_SHELF_EXCLUDED: readonly string[] = ["Le Petit Prince / Hoàng tử bé"];
+
+export type ChildrenShelf = { thieu_nhi: CatalogBook[]; thieu_nien: CatalogBook[]; tranh: CatalogBook[] };
+
+/** The shelf in its own order (only books the catalogue still marks readable), plus the picture books. */
+export async function fetchChildrenShelf(): Promise<ChildrenShelf> {
+  const bySource = (source: BookSource): string[] => CHILDREN_SHELF.filter((e) => e.key.startsWith(`${source}:`)).map((e) => e.key.slice(source.length + 1));
+  const columns = "source, source_id, title, authors, language, category, epub_url, title_vi, title_vi_kind, cover_path, access, credits, pd_status";
+  const [g, w, t] = await Promise.all([
+    supabase.from("book_catalog").select(columns as never).eq("source", "gutenberg").in("source_id", bySource("gutenberg")),
+    supabase.from("book_catalog").select(columns as never).eq("source", "wikisource").in("source_id", bySource("wikisource")),
+    supabase.from("book_catalog").select(columns as never).eq("source", "gdl").eq("pd_status" as never, "ok" as never).order("title").limit(60),
+  ]);
+  const error = g.error ?? w.error ?? t.error;
+  if (error) throw hubFail(error.code, error.message);
+  const rows = [...((g.data ?? []) as unknown as (CatalogRow & { pd_status: string })[]), ...((w.data ?? []) as unknown as (CatalogRow & { pd_status: string })[])];
+  const found = new Map(rows.filter((r) => r.pd_status === "ok").map((r) => [`${r.source}:${r.source_id}`, toBook(r)]));
+  const pick = (age: ChildrenAge): CatalogBook[] =>
+    CHILDREN_SHELF.filter((e) => e.age === age).map((e) => found.get(e.key)).filter((b): b is CatalogBook => b !== undefined);
+  return { thieu_nhi: pick("thieu_nhi"), thieu_nien: pick("thieu_nien"), tranh: ((t.data ?? []) as unknown as CatalogRow[]).map(toBook) };
 }
 
 /** The public URL of a cover Avora keeps — the browser never asks Gutenberg / Open Library itself. */
 export function coverUrl(path: string | null | undefined): string | null {
-  if (path == null || !/^(gutenberg|openlibrary)\/[A-Za-z0-9]{1,20}\.webp$/.test(path)) return null;
+  if (path == null || !/^(gutenberg|openlibrary|gdl)\/[A-Za-z0-9]{1,20}\.webp$/.test(path)) return null;
   return `${import.meta.env.EXPO_PUBLIC_SUPABASE_URL as string}/storage/v1/object/public/book-covers/${path}`;
 }
 
 /** Where a cover came from, in small print on the book's page. */
 export function coverCredit(source: BookSource, hasCover: boolean): string | null {
   if (!hasCover) return null;
-  return source === "gutenberg" ? "Bìa: Project Gutenberg" : source === "openlibrary" ? "Bìa: Open Library" : null;
+  return source === "gutenberg" ? "Bìa: Project Gutenberg" : source === "openlibrary" ? "Bìa: Open Library" : source === "gdl" ? "Bìa: Global Digital Library (CC BY)" : null;
 }
 
 /** C7 · how a catalogue title reads: Vietnamese first, the original always kept under it. */
@@ -154,6 +268,7 @@ export async function searchCatalog(query: string, category: BookCategory | null
 /** The link a book on the shelf keeps: where it can be read in the original. */
 export function catalogLink(book: Pick<CatalogBook, "source" | "sourceId">): string {
   if (book.source === "openlibrary") return `https://openlibrary.org/books/${book.sourceId}`;
+  if (book.source === "gdl") return `https://content.digitallibrary.io/?p=${book.sourceId}`;
   return book.source === "gutenberg"
     ? `https://www.gutenberg.org/ebooks/${book.sourceId}`
     : `https://vi.wikisource.org/wiki/${encodeURIComponent(book.sourceId.replace(/ /g, "_"))}`;
@@ -174,6 +289,8 @@ export function catalogRefOf(link: string | null | undefined): { source: BookSou
   if (gutenberg !== null) return { source: "gutenberg", sourceId: gutenberg[1] };
   const openLibrary = link.match(/^https:\/\/openlibrary\.org\/books\/(OL\d{1,10}M)$/);
   if (openLibrary !== null) return { source: "openlibrary", sourceId: openLibrary[1] };
+  const gdl = link.match(/^https:\/\/content\.digitallibrary\.io\/\?p=(\d{1,9})$/);
+  if (gdl !== null) return { source: "gdl", sourceId: gdl[1] };
   const wiki = link.match(/^https:\/\/vi\.wikisource\.org\/wiki\/(.+)$/);
   if (wiki !== null) {
     try {
@@ -198,12 +315,13 @@ export function epubOf(ref: { source: BookSource; sourceId: string } | null): st
 }
 
 export function sourceLabel(source: BookSource): string {
-  return source === "gutenberg" ? "Gutenberg" : source === "openlibrary" ? "Open Library" : "Wikisource";
+  return source === "gutenberg" ? "Gutenberg" : source === "openlibrary" ? "Open Library" : source === "gdl" ? "Sách tranh GDL" : "Wikisource";
 }
 
 /** The source line on a book's page (AVORA-103 · B). */
 export function sourceLine(source: BookSource): string {
   if (source === "openlibrary") return "Open Library / Internet Archive · Phạm vi công cộng";
+  if (source === "gdl") return "Global Digital Library · giấy phép mở (CC BY)";
   return source === "gutenberg" ? "Project Gutenberg" : "Wikisource tiếng Việt";
 }
 

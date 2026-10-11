@@ -94,6 +94,13 @@ import { connectTabSlug } from "@/lib/resume-place";
 import { useBack } from "@/lib/go-back";
 import { useBackPress } from "@/hooks/use-back-press";
 import { ContactCardBubble, MessageRefChips } from "@/components/chat/ContactCardBubble";
+import { NoteCardBubble } from "@/components/chat/NoteCardBubble";
+import { ReceiptsSheet } from "@/components/chat/ReceiptsSheet";
+import { GUIDANCE_TEXT } from "@/lib/guidance";
+import { useGuidance } from "@/lib/use-task-flags";
+import { ConversationShareReadRow } from "@/components/chat/ConversationShareReadRow";
+import { fetchReceiptCount, fetchReceipts, RECEIPT_GROUP_LIMIT, receiptChipLabel, receiptKeys, receiptTime, type Receipt, type ReceiptCount } from "@/lib/receipts";
+import { JournalForwardDialog, type JournalForwardItem } from "@/components/chat/JournalForwardDialog";
 import { refsInText, shareContactCard, suggestJournalContacts, type RefChoice, type RefContext } from "@/lib/context-refs";
 import { AttachActions, StagedAttachmentBar } from "@/components/chat/ComposerAttachments";
 import { MessageAttachments } from "@/components/chat/MessageAttachments";
@@ -110,7 +117,8 @@ import {
   MessageActionsAffordance,
   type MessageAction,
 } from "@/components/chat/MessageActionsMenu";
-import { MessageReactions, ReactionPicker } from "@/components/chat/MessageReactions";
+import { ReactionPicker } from "@/components/chat/MessageReactions";
+import { ReactionPill } from "@/components/chat/ReactionPill";
 import { MessageTaskDot } from "@/components/chat/MessageTaskDot";
 import { PinChoiceDialog, PinnedStrip } from "@/components/chat/PinnedStrip";
 import { NewProjectDialog } from "@/components/projects/NewProjectDialog";
@@ -449,6 +457,9 @@ const Messages = () => {
   const [editDraft, setEditDraft] = useState<string>("");
   /** AVORA-57 · C: the message whose Chi tiết is open. */
   const [detailsMessage, setDetailsMessage] = useState<ChatMessage | null>(null);
+  // AVORA-108 · 3.2: `Ai đã xem` for one line.
+  const [receiptsFor, setReceiptsFor] = useState<string | null>(null);
+  const guidance = useGuidance();
   const [isSearchOpen, setIsSearchOpen] = useState<boolean>(false);
   /** A result just jumped to, lit briefly so the eye can find it among its neighbours. */
   const [flashedMessageId, setFlashedMessageId] = useState<string | null>(null);
@@ -822,7 +833,37 @@ const Messages = () => {
   const deliveredAt: string | null =
     lastOwnMessageId !== null ? (deliveryQuery.data?.get(lastOwnMessageId) ?? null) : null;
 
+  // AVORA-108 (ADR-083): receipts are true and mutual. Groups of ≤ 100 show `👁 n/m` under my last
+  // line (30 s while on screen); a 1-1 adds `Đã xem 14:32` when both share (15 s until read).
+  const receiptsApply: boolean = activeKind === "group" && (activeSummary?.memberCount ?? RECEIPT_GROUP_LIMIT + 1) <= RECEIPT_GROUP_LIMIT;
+  const receiptCountQuery = useQuery<ReceiptCount | null, Error>({
+    queryKey: receiptKeys.counts(lastOwnMessageId ?? ""),
+    queryFn: () => fetchReceiptCount(lastOwnMessageId ?? ""),
+    enabled: lastOwnIsSent && receiptsApply,
+    refetchInterval: 30_000,
+    retry: false,
+    staleTime: 10_000,
+  });
+  const directReceiptQuery = useQuery<Receipt[], Error>({
+    queryKey: receiptKeys.list(lastOwnMessageId ?? ""),
+    queryFn: () => fetchReceipts(lastOwnMessageId ?? ""),
+    enabled: lastOwnIsSent && activeKind === "direct",
+    refetchInterval: (query) => (query.state.data?.[0]?.state === "read" ? false : 15_000),
+    retry: false,
+    staleTime: 10_000,
+  });
+  const directReadAt: string | null =
+    directReceiptQuery.data?.[0]?.state === "read" ? (directReceiptQuery.data[0].at ?? null) : null;
+
   const newestMessage: ChatMessage | null = messages.length > 0 ? messages[messages.length - 1] : null;
+
+  // AVORA-108: a reply after my line means it was seen — look again now rather than in 15 s
+  // (the server still decides whether both share).
+  const newestFromOther: string | null = newestMessage !== null && newestMessage.senderId !== userId ? newestMessage.id : null;
+  useEffect(() => {
+    if (newestFromOther === null || lastOwnMessageId === null || activeKind !== "direct") return;
+    void queryClient.invalidateQueries({ queryKey: receiptKeys.list(lastOwnMessageId) });
+  }, [newestFromOther, lastOwnMessageId, activeKind, queryClient]);
 
   /**
    * The group this visit came from, when the thread was opened from a group's member list.
@@ -1256,6 +1297,8 @@ const Messages = () => {
     }));
     return diaryLinks(entries, noteRows);
   }, [activeKind, messages, journalFilesOf, taskMessageIds, notesData.liveNotes]);
+  // AVORA-100 · S.3 (a): `Chuyển tiếp…` from Nhật ký (a file of mine, a ghi chép file, a whole ghi chép).
+  const [journalForward, setJournalForward] = useState<JournalForwardItem | null>(null);
   const noteFileRows = useMemo(() => {
     const titleOf = new Map(notesData.liveNotes.map((note) => [note.id, note.title.trim() === "" ? "Ghi chép" : note.title] as const));
     return (notesData.attachments.data ?? [])
@@ -2217,6 +2260,10 @@ const Messages = () => {
       }
       if (action === "details") {
         setDetailsMessage(message);
+        return;
+      }
+      if (action === "receipts") {
+        setReceiptsFor(message.id);
         return;
       }
       // AVORA-70 · C / 71 · B: only in Nhật ký của tôi — a soft delete, undone from the toast or the bin.
@@ -3410,6 +3457,7 @@ const Messages = () => {
                       onOpenNote={openJournalEntry}
                       onOpenWriting={openWriting}
                       onDelete={(entry) => askDeleteEntry(entry.messageId, entry.note, entry.attachments.length, entry.place !== "files")}
+                      onForward={setJournalForward}
                     />
                   ) : diaryView === "links" ? (
                     <DiaryLinksView
@@ -3682,6 +3730,7 @@ const Messages = () => {
                               !isRecalled(message) &&
                               message.forwardBundle == null &&
                               message.contactCardUserId == null &&
+                              message.noteCard == null &&
                               message.stickerId == null &&
                               bigEmoji === 0 &&
                               message.content.trim() !== "";
@@ -3699,6 +3748,7 @@ const Messages = () => {
                             // nothing left to react to.
                             const canReact =
                               activeKind !== "personal" && message.pending !== true && !recalled;
+                            const hasReactions = canReact && reactionGroupsFor(message.id).length > 0;
                             // Pinning works everywhere, including a journal — that is where
                             // people keep the things they most often come back looking for.
                             const canPinThis = message.pending !== true && !recalled;
@@ -3931,7 +3981,19 @@ const Messages = () => {
                                       canSaveImage={attachmentsOf(message.id).some((item) => item.kind === "image" && canExportAttachment(item.permission))}
                                       canSaveToJournal={activeKind !== "personal" && message.systemKind == null && message.forwardBundle == null}
                                       canDelete={activeKind === "personal" && message.systemKind == null}
+                                      canSeeReceipts={receiptsApply}
                                       onAction={(action) => handleMessageAction(message, action)}
+                                      overlay={
+                                        hasReactions ? (
+                                          <ReactionPill
+                                            groups={reactionGroupsFor(message.id)}
+                                            outgoing={outgoing}
+                                            viewerId={userId}
+                                            nameOf={(id) => (activeKind === "group" ? (senderNames.get(id) ?? "Thành viên") : threadTitle)}
+                                            onRemoveMine={(emoji) => toggleReaction(message.id, emoji)}
+                                          />
+                                        ) : undefined
+                                      }
                                       onQuickReact={canReact ? (emoji) => toggleReaction(message.id, emoji) : undefined}
                                       reactionPicker={
                                         canReact ? (
@@ -3989,6 +4051,9 @@ const Messages = () => {
                                         />
                                       ) : message.contactCardUserId != null ? (
                                         <ContactCardBubble messageId={message.id} senderName={senderNames.get(message.senderId) ?? ""} outgoing={outgoing} />
+                                      ) : message.noteCard != null ? (
+                                        // AVORA-100 · S.3 (a): a forwarded ghi chép — read-only, `Lưu vào Nhật ký`.
+                                        <NoteCardBubble card={message.noteCard} messageId={message.id} outgoing={outgoing} />
                                       ) : message.stickerId != null ? (
                                         // K5 · 84 §4.2D: 120 px, no bubble; moves once on first arrival.
                                         <span
@@ -4028,6 +4093,8 @@ const Messages = () => {
                                           message.pending ? "opacity-70" : "",
                                           message.failed === true ? "cursor-pointer" : "",
                                           attachmentsOf(message.id).length > 0 ? "mt-1.5" : "",
+                                          // AVORA-108 · 4: room under the words for the floating pill.
+                                          hasReactions && "pb-[15px] md:pb-[18px]",
                                         )}
                                         // A failed bubble is itself the retry: tapping it sends the same words again.
                                         onClick={
@@ -4128,11 +4195,17 @@ const Messages = () => {
                                               <Clock3 className="h-3 w-3" strokeWidth={1.8} aria-label="Đã gửi theo hẹn giờ" />
                                             ) : null}
                                             {showsReceipt ? (
-                                              receiptDelivered ? (
-                                                <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-label="Đã nhận" />
+                                              receiptDelivered || directReadAt !== null ? (
+                                                <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-label={directReadAt !== null ? "Đã xem" : "Đã nhận"} />
                                               ) : (
                                                 <Check className="h-3.5 w-3.5" strokeWidth={1.8} aria-label={sendReceiptLabel(message)} />
                                               )
+                                            ) : null}
+                                            {showsReceipt && activeKind === "direct" && directReadAt !== null ? (
+                                              <span data-receipt-read="">Đã xem {receiptTime(directReadAt)}</span>
+                                            ) : null}
+                                            {showsReceipt && receiptsApply && receiptCountQuery.data != null ? (
+                                              <span data-receipt-chip="">{receiptChipLabel(receiptCountQuery.data)}</span>
                                             ) : null}
                                           </span>
                                         ) : null}
@@ -4200,24 +4273,8 @@ const Messages = () => {
                                     </div>
                                   ) : null}
 
-                                  {/*
-                                    What people said back without saying anything. Shown under
-                                    the bubble rather than over it, so a busy message does not
-                                    hide its own words.
-                                  */}
-                                  {canReact ? (
-                                    <MessageReactions
-                                      groups={reactionGroupsFor(message.id)}
-                                      nameOf={(id) =>
-                                        activeKind === "group"
-                                          ? (senderNames.get(id) ?? "Thành viên")
-                                          : threadTitle
-                                      }
-                                      viewerId={userId}
-                                      outgoing={outgoing}
-                                      onToggle={(emoji) => toggleReaction(message.id, emoji)}
-                                    />
-                                  ) : null}
+                                  {/* AVORA-108 · 4: the pill floats over the bubble; this keeps the 12 px it sticks out. */}
+                                  {hasReactions ? <div aria-hidden="true" className="h-3" data-reaction-gap="" /> : null}
                                   {showsMetaRow ? (
                                   <span className="tabular mt-1 flex items-center gap-1.5 text-[12px] text-muted-foreground">
                                     {message.failed === true ? (
@@ -4272,7 +4329,16 @@ const Messages = () => {
                                         <Clock3 className="h-3 w-3" strokeWidth={1.8} aria-hidden="true" />
                                       </span>
                                     ) : null}
-                                    {showsReceipt && !metaInside ? (
+                                    {showsReceipt && !metaInside && activeKind === "direct" && directReadAt !== null ? (
+                                      <span className="flex items-center gap-1" data-receipt-read="">
+                                        <CheckCheck className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
+                                        Đã xem {receiptTime(directReadAt)}
+                                      </span>
+                                    ) : showsReceipt && !metaInside && receiptsApply && receiptCountQuery.data != null ? (
+                                      <span className="flex items-center gap-1" data-receipt-chip="">
+                                        {receiptChipLabel(receiptCountQuery.data)}
+                                      </span>
+                                    ) : showsReceipt && !metaInside ? (
                                       receiptDelivered ? (
                                         <span
                                           className="flex items-center gap-1"
@@ -4367,6 +4433,15 @@ activeKind === "personal" ? (
               </div>
               )}
 
+              {/* AVORA-108 · 3.4: once per account — a small card, never in the way, closes with one tap. */}
+              {!isDiaryAside && receiptsApply && guidance.shouldShow("group_receipts_intro") ? (
+                <div data-receipts-intro="" className="mx-2 mb-1 flex items-start gap-2 rounded-card border border-border bg-card px-3 py-2 text-[13.5px] leading-snug text-muted-foreground md:mx-10">
+                  <span className="min-w-0 flex-1">{GUIDANCE_TEXT.group_receipts_intro}</span>
+                  <button type="button" onClick={() => guidance.dismiss("group_receipts_intro")} aria-label="Đóng" className="press -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:text-foreground">
+                    <X className="h-4 w-4" aria-hidden="true" />
+                  </button>
+                </div>
+              ) : null}
               {isDiaryAside ? null : (
               <div
                 data-composer-shell=""
@@ -4612,6 +4687,7 @@ activeKind === "personal" ? (
         Forwarding leaves the selection behind once it succeeds: the messages have gone where
         they were going, and keeping the ticks would invite sending them twice.
       */}
+      <JournalForwardDialog item={journalForward} onOpenChange={(open) => { if (!open) setJournalForward(null); }} />
       <ForwardDialog
         open={isForwardOpen}
         onOpenChange={(next) => {
@@ -4671,6 +4747,7 @@ activeKind === "personal" ? (
         onConfirm={confirmBlock}
         isWorking={isBlockWorking}
       />
+      <ReceiptsSheet messageId={receiptsFor} onOpenChange={(open) => { if (!open) setReceiptsFor(null); }} />
       <MessageDetailsDialog
         message={detailsMessage}
         isOwn={detailsMessage !== null && detailsMessage.senderId === userId}
@@ -4921,6 +4998,10 @@ activeKind === "personal" ? (
                     <span className="min-w-0 flex-1 text-[14px] text-foreground">Không khí</span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
                   </button>
+                  {/* AVORA-108 · 1: per conversation — `Theo cài đặt chung` · `Luôn bật` · `Luôn tắt`. */}
+                  {conversationId !== undefined && (activeKind === "direct" || receiptsApply) ? (
+                    <ConversationShareReadRow conversationId={conversationId} isGroup={activeKind === "group"} />
+                  ) : null}
                   </>
                 }
                 conversationId={conversationId}

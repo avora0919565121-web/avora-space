@@ -1,3 +1,7 @@
+vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+
+import { groupReceipts, RECEIPT_GROUP_LIMIT, receiptChipLabel } from "@/lib/receipts";
+import { reactionPill } from "@/lib/reactions";
 import {
   applyMessageToInbox,
   canSendDraft,
@@ -415,7 +419,7 @@ describe("message tabs", () => {
   });
 });
 
-describe("send receipts (ADR-028: no Đã xem)", () => {
+describe("send receipts (ADR-083, thay ADR-028: Đã xem thật, có đi có lại)", () => {
   it("shows only Chờ gửi while in flight and Đã gửi once stored (AVORA-55 · 3.5)", () => {
     expect(sendReceiptLabel(message({ pending: true }))).toBe("Chờ gửi");
     expect(sendReceiptLabel(message({ pending: false }))).toBe("Đã gửi");
@@ -439,6 +443,40 @@ describe("send receipts (ADR-028: no Đã xem)", () => {
     ];
     expect(lastOutgoingId(thread, ME)).toBe("b");
     expect(lastOutgoingId([message({ id: "c", senderId: PEER })], ME)).toBeNull();
+  });
+
+  it("1-1 · Đã xem chỉ khi cả hai chia sẻ (server trả read); một bên tắt → chỉ Đã nhận", () => {
+    // The server answers `read` only when both share; the client shows exactly what it says.
+    expect(receiptChipLabel({ read: 1, delivered: 1, total: 1 })).toBe("Mọi người đã xem");
+    expect(groupReceipts([{ userId: "b", name: "B", state: "delivered", at: "2026-10-11T07:00:00Z" }]).read).toHaveLength(0);
+  });
+
+  it("Nhóm ≤ 100 có chip 👁 n/m; Mọi người đã xem; chưa ai → Đã gửi", () => {
+    expect(receiptChipLabel({ read: 12, delivered: 30, total: 37 })).toBe("👁 12/37");
+    expect(receiptChipLabel({ read: 37, delivered: 37, total: 37 })).toBe("Mọi người đã xem");
+    expect(receiptChipLabel({ read: 0, delivered: 5, total: 37 })).toBe("Đã gửi");
+  });
+
+  it("Nhóm > 100 không có trạng thái (giới hạn 100, server trả rỗng)", () => {
+    expect(RECEIPT_GROUP_LIMIT).toBe(100);
+  });
+
+  it("người tắt chia sẻ chỉ là một con số `Ẩn`, không có tên", () => {
+    const g = groupReceipts([
+      { userId: "b", name: "B", state: "read", at: "2026-10-11T07:00:00Z" },
+      { userId: "c", name: "C", state: "read", at: "2026-10-11T08:00:00Z" },
+      { userId: "d", name: "D", state: "hidden", at: null },
+      { userId: "e", name: "E", state: "not_delivered", at: null },
+    ]);
+    expect(g.read.map((r) => r.userId)).toEqual(["c", "b"]);
+    expect(g.hidden).toBe(1);
+    expect(g.notDelivered).toHaveLength(1);
+  });
+
+  it("viên cảm xúc gộp tối đa 3 loại + `+N` + tổng; 1 loại 1 người → không số", () => {
+    const grp = (emoji: string, count: number, mine = false) => ({ emoji, count, mine, userIds: Array.from({ length: count }, (_, i) => `${emoji}${i}`) });
+    expect(reactionPill([grp("❤️", 8), grp("👍", 3), grp("😂", 1), grp("😮", 1)])).toMatchObject({ emoji: ["❤️", "👍", "😂"], more: 1, total: 13, showTotal: true });
+    expect(reactionPill([grp("❤️", 1)])).toMatchObject({ emoji: ["❤️"], more: 0, total: 1, showTotal: false });
   });
 });
 

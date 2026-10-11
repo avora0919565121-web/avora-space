@@ -185,3 +185,18 @@ export function describeReactors(
   if (names.length <= 3) return names.join(", ");
   return `${names.slice(0, 3).join(", ")} và ${names.length - 3} người khác`;
 }
+
+/**
+ * AVORA-108 · 4 — the one floating pill: up to three different emoji (most given first), then
+ * `+N` for any more kinds, then the total. A single emoji from a single person shows no number.
+ */
+export function reactionPill(groups: readonly ReactionGroup[]): { emoji: string[]; more: number; total: number; showTotal: boolean; mine: boolean } {
+  const total = groups.reduce((sum, group) => sum + group.count, 0);
+  return {
+    emoji: groups.slice(0, 3).map((group) => group.emoji),
+    more: Math.max(0, groups.length - 3),
+    total,
+    showTotal: !(groups.length === 1 && total === 1),
+    mine: groups.some((group) => group.mine),
+  };
+}

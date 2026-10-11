@@ -24,3 +24,11 @@ export function ShelfRedirect() {
   params.set("ke", "ke-sach");
   return <Navigate to={`/ke-hoach?${params.toString()}`} replace />;
 }
+
+/** AVORA-100 · G.3 — `/dang-ky?moi=AVR-US-01` opens the sign-up form with the code filled in. */
+export function SignUpRedirect() {
+  const location = useLocation();
+  const params = new URLSearchParams(location.search);
+  params.set("mode", "dang-ky");
+  return <Navigate to={`/dang-nhap?${params.toString()}`} replace />;
+}

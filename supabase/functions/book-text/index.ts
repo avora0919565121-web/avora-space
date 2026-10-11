@@ -6,7 +6,9 @@
 // AVORA-103: only books public everywhere Avora is used (pd_status 'ok'); Open Library editions
 // (`openlibrary`, ebook_access public) from archive.org's plain text; a borrow-only title is never
 // read here. Every call to an outside source waits for its slot (≥ 1 s apart, book_fetch_slot()).
+// AVORA-100 · S.2 §4.4 C: open-licence picture books (`gdl`, CC BY / CC BY-SA) from the GDL EPUB.
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { creditLines, mimeOf, readGdlEpub, type GdlCredits } from "./gdl.ts";
 import { dropFrontNoise, ocrNoise, plainTextToBlocks } from "./openlibrary.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
@@ -48,7 +50,7 @@ function json(status: number, body: unknown): Response {
 type Block = { k: "h"; t: string; l: number } | { k: "p"; t: string } | { k: "pre"; t: string } | { k: "img"; src: string; alt: string };
 type Chapter = { title: string; blocks: Block[] | null };
 type Book = {
-  source: "gutenberg" | "wikisource" | "openlibrary";
+  source: "gutenberg" | "wikisource" | "openlibrary" | "gdl";
   sourceId: string;
   title: string;
   authors: string | null;
@@ -289,6 +291,42 @@ async function gutenbergBook(id: string, row: CatalogRow): Promise<Book> {
 
 class OcrUnclean extends Error {}
 
+const GDL_EPUB = "https://content.digitallibrary.io/wp-json/epub-generator/v1/book";
+const PICTURES = "picture-books";
+
+/** One open-licence picture book: credits first, then each page's picture and its words. */
+async function gdlBook(db: Db, id: string, row: CatalogRow): Promise<Book> {
+  const credits = row.credits;
+  if (credits === null || !/^\d{1,9}$/.test(credits.epub_id) || (credits.license !== "CC-BY-4.0" && credits.license !== "CC-BY-SA-4.0")) throw new Error("gdl_credits");
+  await waitForSlot();
+  const response = await fetch(`${GDL_EPUB}/${credits.epub_id}`, { headers: { "User-Agent": UA } });
+  if (!response.ok) throw new Error(`source_${response.status}`);
+  const { pages, contributors } = readGdlEpub(new Uint8Array(await response.arrayBuffer()));
+  const lines = creditLines(row.title, credits, contributors);
+  const blocks: Block[] = [{ k: "h", t: row.title, l: 1 }, ...lines.slice(1).map((t): Block => ({ k: "p", t }))];
+  for (const page of pages) {
+    for (const image of page.images) {
+      const path = `${id}/${image.name.replace(/[^A-Za-z0-9._-]/g, "_")}`;
+      const { error } = await db.storage.from(PICTURES).upload(path, new Blob([image.data as unknown as BlobPart], { type: mimeOf(image.name) }), { upsert: true, contentType: mimeOf(image.name) });
+      if (error) console.error("book-text picture write failed", path, error.message);
+      blocks.push({ k: "img", src: `${url}/storage/v1/object/public/${PICTURES}/${path}`, alt: image.alt });
+    }
+    for (const t of page.text) blocks.push({ k: "p", t });
+  }
+  return {
+    source: "gdl",
+    sourceId: id,
+    title: row.title,
+    authors: row.authors,
+    language: row.language,
+    sourceUrl: credits.link ?? `https://content.digitallibrary.io/?p=${id}`,
+    epubUrl: null,
+    license: lines,
+    chapters: [{ title: row.title, blocks }],
+    fetchedAt: new Date().toISOString(),
+  };
+}
+
 async function openLibraryBook(olid: string, row: CatalogRow): Promise<Book> {
   if (row.ia_id === null || row.ia_file === null) throw new Error("no_ia");
   const raw = await fetchText(`${ARCHIVE}/${encodeURIComponent(row.ia_id)}/${encodeURIComponent(row.ia_file)}`);
@@ -399,6 +437,7 @@ type CatalogRow = {
   access: string;
   ia_id: string | null;
   ia_file: string | null;
+  credits: GdlCredits | null;
 };
 type Db = ReturnType<typeof createClient>;
 
@@ -440,15 +479,16 @@ Deno.serve(async (req) => {
   const source = body.source;
   const sourceId = typeof body.source_id === "string" ? body.source_id.trim() : "";
   const part = body.part === undefined || body.part === null ? null : Number(body.part);
-  if ((source !== "gutenberg" && source !== "wikisource" && source !== "openlibrary") || sourceId === "" || sourceId.length > 300) return json(400, { error: "body" });
+  if ((source !== "gutenberg" && source !== "wikisource" && source !== "openlibrary" && source !== "gdl") || sourceId === "" || sourceId.length > 300) return json(400, { error: "body" });
   if (source === "gutenberg" && !/^\d{1,7}$/.test(sourceId)) return json(400, { error: "body" });
   if (source === "openlibrary" && !/^OL\d{1,10}M$/.test(sourceId)) return json(400, { error: "body" });
+  if (source === "gdl" && !/^\d{1,9}$/.test(sourceId)) return json(400, { error: "body" });
   if (part !== null && (!Number.isInteger(part) || part < 0 || part > 500)) return json(400, { error: "body" });
 
   // Read as the person: the catalogue's RLS (and the 67 session rule) decides what exists for them.
   const { data: row, error: rowError } = await asUser
     .from("book_catalog")
-    .select("source, source_id, title, authors, language, epub_url, pd_status, access, ia_id, ia_file")
+    .select("source, source_id, title, authors, language, epub_url, pd_status, access, ia_id, ia_file, credits")
     .eq("source", source)
     .eq("source_id", sourceId)
     .maybeSingle();
@@ -500,6 +540,11 @@ Deno.serve(async (req) => {
         await writeCache(db, `${key}/unclean.json`, { unclean: true });
         return json(422, { error: "ocr_unclean" });
       }
+    }
+    if (source === "gdl") {
+      const book = await gdlBook(db, sourceId, entry);
+      await writeCache(db, `${key}/index.json`, book);
+      return json(200, book);
     }
     if (source === "gutenberg") {
       const book = await gutenbergBook(sourceId, row as CatalogRow);

@@ -4,6 +4,7 @@ import { useEffect, useMemo } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchShelfCatalog, requestCover, sourceOf, type ShelfCatalogInfo } from "@/lib/book-catalog";
 import { useAuth } from "@/lib/auth";
+import { redrawImage, redrawnExt } from "@/lib/redraw-image";
 
 /**
  * AVORA-103 · C — covers for a set of catalogue books (`source:id` keys). Covers Avora has not
@@ -86,17 +87,8 @@ const MY_COVER_SIDE = 600;
  * then keeps it in my own folder and sets it as this book's cover.
  */
 export async function saveMyCover(userId: string, recordId: string, file: File): Promise<void> {
-  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  const scale = Math.min(1, MY_COVER_SIDE / Math.max(bitmap.width, bitmap.height));
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  const webp = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.82));
-  const blob = webp !== null && webp.type === "image/webp" ? webp : await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.85));
-  if (blob === null) throw new Error("Không đọc được ảnh này.");
-  const ext = blob.type === "image/webp" ? "webp" : "jpg";
+  const blob = await redrawImage(file, MY_COVER_SIDE);
+  const ext = redrawnExt(blob);
   const path = `${userId}/${recordId}-${Date.now()}.${ext}`;
   const { error: uploadError } = await supabase.storage.from("my-book-covers").upload(path, blob, { contentType: blob.type, upsert: false });
   if (uploadError) throw new Error("Chưa lưu được ảnh bìa.");

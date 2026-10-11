@@ -376,6 +376,8 @@ test("T.8 · máy tính 1440: thẻ ở khung phải 420–480 px; nút bên tr�
     </Frame>,
   );
   await settle(500);
+  // Under a loaded full run the slide-in can still be moving at 500 ms: wait until it has landed.
+  await expect.poll(() => Math.round(document.querySelector("[data-task-card]")?.getBoundingClientRect().right ?? 0), { timeout: 5_000 }).toBe(1440);
   const card = document.querySelector("[data-task-card]") as HTMLElement;
   const rect = card.getBoundingClientRect();
   expect(rect.width).toBeGreaterThanOrEqual(420);

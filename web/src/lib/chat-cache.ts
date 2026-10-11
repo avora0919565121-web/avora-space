@@ -228,6 +228,8 @@ export type ChatMessage = {
   refs?: { type: string; id: string }[] | null;
   /** AVORA-89 · `@@`: the person introduced (name + PIN read at view time). */
   contactCardUserId?: string | null;
+  /** AVORA-100 · S.3 (a): a forwarded ghi chép (snapshot), read-only. */
+  noteCard?: import("@/lib/chat").NoteCard | null;
   /** K5: an Avora sticker message (drawn by AvoraSticker, 120 px, no bubble). */
   stickerId?: string | null;
   /** K5: the effect the sender sent with it (played once on arrival). */

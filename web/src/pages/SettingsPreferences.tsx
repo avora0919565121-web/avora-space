@@ -6,6 +6,7 @@ import { FontPrefCard } from "@/components/FontPrefCard";
 import { BlockedPeopleCard } from "@/components/BlockedPeopleCard";
 import { LookPrefsCard } from "@/components/LookPrefsCard";
 import { ChatBackdropCard } from "@/components/ChatBackdropCard";
+import { ShareReadCard } from "@/components/ShareReadCard";
 import { PlanBoardsCard } from "@/components/PlanBoardsCard";
 import { currenciesByRegion, REGION_LABELS, formatRate } from "@/lib/currency";
 import {
@@ -225,6 +226,9 @@ const SettingsPreferences = () => {
             </div>
           )}
         </div>
+
+        {/* AVORA-108 · 3.4: true read receipts, mutual — one switch for the whole account. */}
+        <ShareReadCard />
 
         <section aria-labelledby="review-heading" className="rounded-card border border-border bg-card p-s-4">
           <h2 id="review-heading" className="text-[17px] font-semibold tracking-tight text-foreground">Nhìn lại</h2>

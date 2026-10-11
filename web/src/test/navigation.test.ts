@@ -80,6 +80,7 @@ describe("the sectioned screens", () => {
       "Dung lượng",
       "Avora AI",
       "Hướng dẫn",
+      "Góp ý cho Avora",
     ]);
     expect(SETTINGS_TABS.map((tab) => tab.to)).toEqual([
       "/cai-dat",
@@ -89,6 +90,7 @@ describe("the sectioned screens", () => {
       "/cai-dat/dung-luong",
       "/cai-dat/avora-ai",
       "/cai-dat/huong-dan",
+      "/cai-dat/gop-y",
     ]);
   });
 

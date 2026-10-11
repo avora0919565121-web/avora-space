@@ -134,6 +134,8 @@ export const SETTINGS_TABS: readonly NavEntry[] = [
   { to: "/cai-dat/avora-ai", label: "Avora AI" },
   // AVORA-57 · A: last in the row.
   { to: "/cai-dat/huong-dan", label: "Hướng dẫn" },
+  // AVORA-100 · G.1: the last one.
+  { to: "/cai-dat/gop-y", label: "Góp ý cho Avora" },
 ];
 
 /**

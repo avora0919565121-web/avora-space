@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { lazy, Suspense } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
-import { LegacyRedirect, ShelfRedirect } from "@/components/LegacyRedirect";
+import { LegacyRedirect, ShelfRedirect, SignUpRedirect } from "@/components/LegacyRedirect";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 import { LookSync } from "@/components/LookSync";
 import { KeyboardSync } from "@/components/KeyboardSync";
@@ -56,6 +56,8 @@ const SettingsAssistant = lazy(() => import("./pages/SettingsAssistant"));
 const SettingsGuide = lazy(() => import("./pages/SettingsGuide"));
 const SettingsNotifications = lazy(() => import("./pages/SettingsNotifications"));
 const SettingsStorage = lazy(() => import("./pages/SettingsStorage"));
+const SettingsFeedback = lazy(() => import("./pages/SettingsFeedback"));
+const PublicFeedback = lazy(() => import("./pages/PublicFeedback"));
 const SettingsPreferences = lazy(() => import("./pages/SettingsPreferences"));
 const Tasks = lazy(() => import("./pages/Tasks"));
 const Vault = lazy(() => import("./pages/Vault"));
@@ -97,13 +99,16 @@ const App = () => (
             <Routes>
               <Route path="/" element={<Navigate to={HOME_ROUTE} replace />} />
               <Route path="/dang-nhap" element={<Auth />} />
-              <Route path="/dang-ky" element={<Navigate to="/dang-nhap?mode=dang-ky" replace />} />
+              {/* AVORA-100 · G.3: `/dang-ky?moi=AVR-US-01` keeps its code on the way to the form. */}
+              <Route path="/dang-ky" element={<SignUpRedirect />} />
               {/* Public on purpose: the recovery session is not allowed past RequireAuth yet. */}
               <Route path="/dat-lai-mat-khau" element={<ResetPassword />} />
               {/* AVORA-67: email links work without signing in; opening the page changes nothing. */}
               <Route path="/xac-nhan-thiet-bi" element={<DeviceConfirm />} />
               {/* AVORA-66: the policy is readable before signing up. */}
               <Route path="/chinh-sach" element={<PublicPolicy />} />
+              {/* AVORA-100 · G.2: feedback without an account. */}
+              <Route path="/gop-y" element={<PublicFeedback />} />
               <Route element={<RequireAuth />}>
                 <Route path="/tong-quan" element={<Dashboard />} />
                 <Route path="/thu-argon" element={<ArgonBench />} />
@@ -137,6 +142,7 @@ const App = () => (
                   <Route path="dung-luong" element={<SettingsStorage />} />
                   <Route path="avora-ai" element={<SettingsAssistant />} />
                   <Route path="huong-dan" element={<SettingsGuide />} />
+                  <Route path="gop-y" element={<SettingsFeedback />} />
                 </Route>
 
                 <Route path="/lien-he" element={<Contacts />} />

@@ -5,6 +5,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 
 import { AppSidebar } from "@/components/AppSidebar";
 import { DeviceGuard } from "@/components/DeviceGuard";
+import { InviteGate } from "@/components/InviteGate";
 import { DeviceRankPrompt } from "@/components/DeviceSecurity";
 import { NewAddressNotice } from "@/components/NewAddressNotice";
 import { GuestMachineBanner } from "@/components/GuestMachineBanner";
@@ -76,6 +77,8 @@ export function RequireAuth() {
   return (
     // AVORA-67: a blocked session sees only the block screen — before the PIN gate, before any data.
     <DeviceGuard>
+    {/* AVORA-100 · G.3: an account held for an invite code sees only the code screen. */}
+    <InviteGate>
     {/* AVORA 33: the PIN blocks only after its 30-day window; until then a quiet banner reminds. */}
     <PinGate>
     {/* AVORA-51: the Két sắt lock is known to every screen (badge, quick transaction), not only Két sắt. */}
@@ -123,6 +126,7 @@ export function RequireAuth() {
     </div>
     </VaultLockProvider>
     </PinGate>
+    </InviteGate>
     </DeviceGuard>
   );
 }

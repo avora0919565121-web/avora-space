@@ -1698,6 +1698,7 @@ export type Database = {
           content: string
           effect: string | null
           sticker_id: string | null
+          note_card: Json | null
           conversation_id: string
           created_at: string
           deleted_at: string | null
@@ -1724,6 +1725,7 @@ export type Database = {
           content: string
           effect?: string | null
           sticker_id?: string | null
+          note_card?: Json | null
           conversation_id: string
           created_at?: string
           deleted_at?: string | null
@@ -1750,6 +1752,7 @@ export type Database = {
           content?: string
           effect?: string | null
           sticker_id?: string | null
+          note_card?: Json | null
           conversation_id?: string
           created_at?: string
           deleted_at?: string | null

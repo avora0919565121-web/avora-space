@@ -3,6 +3,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBoundary";
+import { KeepsakeGreeting } from "@/components/space/KeepsakeGreeting";
 import { ThoughtNote } from "@/components/space/ThoughtNote";
 import { NavRulesIntro } from "@/components/nav/NavRules";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
@@ -191,6 +192,8 @@ export default function Dashboard() {
       case "greeting":
         return (
           <header key={id}>
+            {/* AVORA-100 · S.2 §4.3: hold the greeting → Đặt dấu ấn của tôi (sticker beside it, or a photo strip). */}
+            <KeepsakeGreeting>
             <div className="flex items-start gap-2">
             <h1 className="min-w-0 flex-1 text-[19px] leading-snug text-foreground">
               <span className="font-normal text-muted-foreground">{greeting(opened.getHours())}, </span>
@@ -205,6 +208,7 @@ export default function Dashboard() {
             {/* AVORA-44 · việc 5: the one search, from Avora Space too. */}
             <AvoraSearchButton here={{ tab: "avora-space", label: "Avora Space" }} />
             </div>
+            </KeepsakeGreeting>
             {thought === null ? null : (
               <section aria-label={SPACE_BLOCK_COPY.greeting.title} className="mt-4 border-l-2 border-primary/30 pl-4">
                 <blockquote className="text-[20px] leading-[1.65] text-foreground">{thought.text}</blockquote>

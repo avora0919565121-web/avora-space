@@ -485,7 +485,7 @@ export function countInSubtree(folders: readonly NoteFolder[], notes: readonly N
   return notes.filter((note) => note.deletedAt === null && note.folderId !== null && ids.has(note.folderId)).length;
 }
 
-const OPEN_FOLDERS_KEY = "avora.notes.openFolders";
+export const OPEN_FOLDERS_KEY = "avora.notes.openFolders";
 
 export function readOpenFolders(): Set<string> {
   try {
