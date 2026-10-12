@@ -78,7 +78,7 @@ export function ThinkDesk({
         <h2 className="text-[15px] font-semibold tracking-tight text-foreground">
           Bàn nghĩ <span className="tabular font-normal text-muted-foreground" data-desk-count="">{onDesk.length}/{DESK_LIMIT}</span>
         </h2>
-        <div className="-mr-3 flex min-w-0 flex-1 gap-1.5 overflow-x-auto pr-3 [scrollbar-width:none] md:mr-0 md:flex-wrap md:overflow-visible md:pr-0">
+        <div data-h-scroll="" className="-mr-3 flex min-w-0 flex-1 gap-1.5 overflow-x-auto pr-3 [scrollbar-width:none] md:mr-0 md:flex-wrap md:overflow-visible md:pr-0">
           {liveTiles.map((tile) => (
             <button key={tile.id} type="button" data-tile={tile.id} onClick={() => onPickTile(tile.id)} className="press inline-flex h-8 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border border-border bg-background px-2.5 text-[12.5px]">
               <span className="text-foreground">{tile.label}</span>
@@ -95,7 +95,7 @@ export function ThinkDesk({
       </div>
 
       {isEmpty ? null : (
-        <ul className="-mx-3 mt-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0" data-desk-cards="">
+        <ul data-h-scroll="" className="-mx-3 mt-3 flex snap-x gap-2 overflow-x-auto px-3 pb-1 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-5 md:overflow-visible md:px-0" data-desk-cards="">
           {onDesk.map((board) => (
             <li key={board.id} className="w-[64%] shrink-0 snap-start md:w-auto">
               <button type="button" onClick={() => onOpenBoard(board.id)} data-desk-card={board.id} className="press flex h-full min-h-[104px] w-full flex-col justify-between rounded-card border border-border bg-background p-3 text-left transition-colors hover:border-personal/60">

@@ -57,7 +57,7 @@ export function PinGate({ children }: { children: ReactNode }) {
 
   if (statusQuery.data !== undefined && pinPhase(statusQuery.data) === "overdue") {
     return (
-      <div className="paper flex min-h-[100dvh] items-start justify-center overflow-y-auto px-5 py-10 md:items-center">
+      <div className="paper flex min-h-[100dvh] items-start justify-center scroll-y px-5 py-10 md:items-center">
         <div className="animate-rise-in w-full max-w-[460px]">
           <img src="/avora-logo-full-v2.png" alt="AVORA" width={1425} height={1052} className="h-auto w-[120px]" />
           <p className="mt-8 text-[12px] font-semibold uppercase tracking-[0.14em] text-primary">
@@ -145,7 +145,7 @@ export function PinReminderBanner() {
         </div>
       )}
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-h-[92dvh] overflow-y-auto sm:max-w-[480px]">
+        <DialogContent className="max-h-[92dvh] scroll-y sm:max-w-[480px]">
           <DialogTitle className="text-[22px] font-semibold tracking-tight">Chọn PIN AVORA của bạn</DialogTitle>
           <DialogDescription className="text-[13.5px] leading-relaxed">
             PIN là mã định danh riêng của bạn, dùng để người khác mời bạn. Không phải mật khẩu — nhưng đã chọn thì

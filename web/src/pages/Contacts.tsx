@@ -102,7 +102,7 @@ const Contacts = () => {
   );
 
   return (
-    <div ref={setScrollEl} className="paper min-h-0 flex-1 overflow-y-auto">
+    <div ref={setScrollEl} className="paper min-h-0 flex-1 scroll-y-free">
       <div className="animate-rise-in mx-auto max-w-3xl px-6 py-10 md:px-10">
         <InlineBack className="-mt-6 mb-2" />
         <header className="flex flex-wrap items-center justify-between gap-4">

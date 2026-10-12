@@ -43,7 +43,8 @@ export function LandscapeRail() {
             <Icon className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />
             {badge !== undefined && badge.count > 0 ? (
               <span
-                aria-label={badge.label}
+                data-count-badge=""
+                        aria-label={badge.label}
                 className="tabular absolute -right-0.5 -top-0.5 inline-flex h-[17px] min-w-[17px] items-center justify-center rounded-full bg-primary px-1 text-[10px] font-semibold leading-none text-primary-foreground"
               >
                 {formatUnreadBadge(badge.count)}

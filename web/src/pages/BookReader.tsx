@@ -83,6 +83,7 @@ import { useProfilePrefs } from "@/lib/use-default-boards";
 import { useThinkHubActions } from "@/lib/use-think-hub";
 import { cn } from "@/lib/utils";
 import { BackClosesBinding } from "@/lib/use-back-closes";
+import { useRestScope } from "@/lib/use-rest-day";
 
 const GAP = 48;
 
@@ -98,6 +99,8 @@ const GAP = 48;
  * Avora's own `Dịch` uses only the on-device Translator; nothing is sent or stored on a server.
  */
 const BookReader = () => {
+  // AVORA-110: reading is an inward place — it keeps the person's own colours on a rest day.
+  useRestScope("reading");
   const { recordId = "" } = useParams<{ recordId: string }>();
   const navigate = useNavigate();
   const location = useLocation();
@@ -1021,7 +1024,7 @@ const BookReader = () => {
           )}
         </div>
       ) : (
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto" data-scroll-memory="" onClick={onTap}>
+        <div ref={scrollRef} className="min-h-0 flex-1 scroll-y-free" data-scroll-memory="" onClick={onTap}>
           <article lang={language} className="mx-auto max-w-[40rem] pb-24 pt-14" style={{ ...articleStyle, paddingLeft: margin, paddingRight: margin }}>
             {body === null || isPartLoading ? <p role="status">Đang tải chương…</p> : blocks}
             {endOfChapter}
@@ -1085,7 +1088,7 @@ const BookReader = () => {
         <SheetContent side="right" className="flex w-full max-w-sm flex-col p-0" aria-label="Mục lục">
           <SheetTitle className="border-b border-border px-4 py-3 text-[16px]">Mục lục</SheetTitle>
           <SheetDescription className="sr-only">Các chương của sách</SheetDescription>
-          <ol className="min-h-0 flex-1 overflow-y-auto py-1" lang={language}>
+          <ol className="min-h-0 flex-1 scroll-y py-1" lang={language}>
             {text.chapters.map((item, index) => (
               <li key={index}>
                 <button type="button" onClick={() => void goChapter(index)} aria-current={index === chapter ? "true" : undefined} className={cn("press flex w-full items-baseline gap-3 px-4 py-2.5 text-left text-[14px] hover:bg-accent/30", index === chapter && "bg-personal-soft font-semibold text-personal-soft-foreground")}>
@@ -1100,7 +1103,7 @@ const BookReader = () => {
 
       {/* Aa */}
       <Sheet open={panel === "aa"} onOpenChange={(open) => !open && setPanel(null)}>
-        <SheetContent side="bottom" className="mx-auto max-h-[80dvh] max-w-lg overflow-y-auto rounded-t-card" data-reader-aa="">
+        <SheetContent side="bottom" className="mx-auto max-h-[80dvh] max-w-lg scroll-y rounded-t-card" data-reader-aa="">
           <SheetTitle className="text-[17px]">Chữ và giao diện</SheetTitle>
           <SheetDescription className="sr-only">Cỡ chữ, kiểu chữ, giao diện, lề, giãn dòng, cách sang trang</SheetDescription>
           <div className="mt-3 flex items-center gap-3">
@@ -1331,7 +1334,7 @@ function QuickPeek({ conversationId, page, onClose }: { conversationId: string |
       <SheetContent side="bottom" className="mx-auto flex h-[55dvh] max-w-lg flex-col rounded-t-card" data-quick-peek="">
         <SheetTitle className="text-[16px]">{summary === undefined ? "Tin nhắn" : conversationTitle(summary)}</SheetTitle>
         <SheetDescription className="sr-only">Vài tin gần nhất</SheetDescription>
-        <ul className="mt-2 min-h-0 flex-1 space-y-1.5 overflow-y-auto">
+        <ul className="mt-2 min-h-0 flex-1 space-y-1.5 scroll-y">
           {(messages.data ?? []).slice(-8).map((message) => (
             <li key={message.id} className={cn("max-w-[86%] rounded-card px-3 py-1.5 text-[14.5px]", message.senderId === user?.id ? "ml-auto bg-personal text-personal-foreground" : "bg-secondary")}>
               {message.content}

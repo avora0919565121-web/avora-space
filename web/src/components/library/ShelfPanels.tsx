@@ -51,7 +51,7 @@ export function DefaultShelf({
   const { boards: live } = useViewBoardRows();
   const { hidden } = useHiddenBoards();
   return (
-    <div className="grid gap-3 md:grid-cols-3" data-shelf-panel="mac-dinh">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3" data-shelf-panel="mac-dinh">
       {ZONES.map((zone) => (
         <section key={zone.id} aria-label={zone.label} data-zone={zone.id} className="rounded-card border border-border bg-card">
           <h3 className="border-b border-border/70 px-4 py-2 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{zone.label}</h3>
@@ -135,7 +135,7 @@ export function PlannedShelf({
   const shown = filter === "all" ? live : live.filter((board) => placeKindOf(board, kindOf) === filter);
   return (
     <div data-shelf-panel="hoach-dinh">
-      <div role="tablist" aria-label="Lọc theo nơi" className="flex gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none]">
+      <div data-h-scroll="" role="tablist" aria-label="Lọc theo nơi" className="flex gap-1.5 overflow-x-auto pb-2 [scrollbar-width:none]">
         {PLACE_FILTERS.map((item) => (
           <button
             key={item.id}
@@ -226,7 +226,7 @@ export function LifecycleShelf({ boards, placeOf, onOpen }: { boards: readonly T
   };
 
   return (
-    <div className="grid gap-3 md:grid-cols-3" data-shelf-panel="trang-thai">
+    <div className="grid grid-cols-1 gap-3 md:grid-cols-3" data-shelf-panel="trang-thai">
       {LIFECYCLES.map((lane) => (
         <section
           key={lane.id}
@@ -315,7 +315,7 @@ export function DiaryShelf() {
   const countOf = (view: DiaryView): number | null => (view === "notes" && notes.notes.data !== undefined ? notes.liveNotes.length : null);
   return (
     <div data-shelf-panel="nhat-ky">
-      <div className="grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
         {DIARY_VIEWS.map((view) => {
           const Icon = DIARY_ICONS[view.id];
           const count = countOf(view.id);

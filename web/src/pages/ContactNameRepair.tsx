@@ -103,7 +103,7 @@ const ContactNameRepair = () => {
   };
 
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
+    <div className="paper min-h-0 flex-1 scroll-y">
       <div className="mx-auto max-w-3xl px-4 pb-28 pt-6 sm:px-6 md:px-10 md:pt-10">
         <BackButton parent={{ path: "/lien-he", label: back?.label ?? "Liên hệ" }} showLabel className="-ml-2" />
         <h1 className="mt-2 text-[26px] font-semibold tracking-tight text-foreground">Sửa tên</h1>

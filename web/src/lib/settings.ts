@@ -52,6 +52,10 @@ export type ProfileSettings = {
   soundReminders: boolean;
   /** Đợt gộp 2 · C7: 0 = Chủ nhật … 6 = Thứ Bảy. Nhìn lại tuần shows the day before it. */
   restWeekday: number;
+  /** AVORA-110: Thứ Bảy as a second rest day. Default off. */
+  restSaturday: boolean;
+  /** AVORA-110: `Đổi màu vào ngày nghỉ`. Default on. */
+  restThemeEnabled: boolean;
   reviewDailyEnabled: boolean;
   /** From this hour "Nhìn lại hôm nay" appears (12–23). */
   reviewDailyHour: number;
@@ -76,9 +80,9 @@ export type ProfileSettings = {
 
 /** The columns every read and write below round-trips, named once so they cannot drift apart. */
 const PROFILE_SETTINGS_COLUMNS =
-  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders, focus_mode, focus_until, celebration_style, button_style, color_scheme, accent_tone";
-/** Before the AVORA-74 migration reaches a database: everything except the two look columns. */
-const LEGACY_SETTINGS_COLUMNS = PROFILE_SETTINGS_COLUMNS.replace(", color_scheme, accent_tone", "");
+  "base_currency, timezone, daily_thought_category, hide_typing_signal, sound_messages, sound_reminders, rest_weekday, review_daily_enabled, review_daily_hour, review_weekly_enabled, push_show_content, push_reminders, focus_mode, focus_until, celebration_style, button_style, color_scheme, accent_tone, rest_saturday, rest_theme_enabled";
+/** Before the AVORA-74 / AVORA-110 migrations reach a database: everything except those columns. */
+const LEGACY_SETTINGS_COLUMNS = PROFILE_SETTINGS_COLUMNS.replace(", color_scheme, accent_tone, rest_saturday, rest_theme_enabled", "");
 let settingsColumns: string = PROFILE_SETTINGS_COLUMNS;
 const profileColumns = (): string => settingsColumns;
 
@@ -101,6 +105,8 @@ type ProfileSettingsRow = {
   button_style?: string | null;
   color_scheme?: string | null;
   accent_tone?: string | null;
+  rest_saturday?: boolean | null;
+  rest_theme_enabled?: boolean | null;
 };
 
 /**
@@ -123,6 +129,8 @@ function toProfileSettings(row: ProfileSettingsRow | null): ProfileSettings {
     soundMessages: row?.sound_messages ?? true,
     soundReminders: row?.sound_reminders ?? true,
     restWeekday: row?.rest_weekday ?? 0,
+    restSaturday: row?.rest_saturday ?? false,
+    restThemeEnabled: row?.rest_theme_enabled ?? true,
     reviewDailyEnabled: row?.review_daily_enabled ?? true,
     reviewDailyHour: row?.review_daily_hour ?? 19,
     reviewWeeklyEnabled: row?.review_weekly_enabled ?? true,
@@ -171,10 +179,12 @@ export async function updateFocus(
 /** Ngày nghỉ và hai thói quen Nhìn lại (C7). */
 export async function updateReviewPrefs(
   userId: string,
-  patch: Partial<Pick<ProfileSettings, "restWeekday" | "reviewDailyEnabled" | "reviewDailyHour" | "reviewWeeklyEnabled">>,
+  patch: Partial<Pick<ProfileSettings, "restWeekday" | "restSaturday" | "restThemeEnabled" | "reviewDailyEnabled" | "reviewDailyHour" | "reviewWeeklyEnabled">>,
 ): Promise<ProfileSettings> {
-  const row: { rest_weekday?: number; review_daily_enabled?: boolean; review_daily_hour?: number; review_weekly_enabled?: boolean } = {};
+  const row: { rest_weekday?: number; rest_saturday?: boolean; rest_theme_enabled?: boolean; review_daily_enabled?: boolean; review_daily_hour?: number; review_weekly_enabled?: boolean } = {};
   if (patch.restWeekday !== undefined) row.rest_weekday = patch.restWeekday;
+  if (patch.restSaturday !== undefined) row.rest_saturday = patch.restSaturday;
+  if (patch.restThemeEnabled !== undefined) row.rest_theme_enabled = patch.restThemeEnabled;
   if (patch.reviewDailyEnabled !== undefined) row.review_daily_enabled = patch.reviewDailyEnabled;
   if (patch.reviewDailyHour !== undefined) row.review_daily_hour = patch.reviewDailyHour;
   if (patch.reviewWeeklyEnabled !== undefined) row.review_weekly_enabled = patch.reviewWeeklyEnabled;

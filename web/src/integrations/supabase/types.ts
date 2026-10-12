@@ -856,6 +856,7 @@ export type Database = {
           created_at: string
           deleted_at: string | null
           deleted_via: string | null
+          disappear_after_seconds: number | null
           direct_key: string | null
           group_depth: number
           id: string
@@ -873,6 +874,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           deleted_via?: string | null
+          disappear_after_seconds?: number | null
           direct_key?: string | null
           group_depth?: number
           id?: string
@@ -890,6 +892,7 @@ export type Database = {
           created_at?: string
           deleted_at?: string | null
           deleted_via?: string | null
+          disappear_after_seconds?: number | null
           direct_key?: string | null
           group_depth?: number
           id?: string
@@ -1699,6 +1702,8 @@ export type Database = {
           effect: string | null
           sticker_id: string | null
           note_card: Json | null
+          expires_at: string | null
+          expired_at: string | null
           conversation_id: string
           created_at: string
           deleted_at: string | null
@@ -1726,6 +1731,8 @@ export type Database = {
           effect?: string | null
           sticker_id?: string | null
           note_card?: Json | null
+          expires_at?: string | null
+          expired_at?: string | null
           conversation_id: string
           created_at?: string
           deleted_at?: string | null
@@ -1753,6 +1760,8 @@ export type Database = {
           effect?: string | null
           sticker_id?: string | null
           note_card?: Json | null
+          expires_at?: string | null
+          expired_at?: string | null
           conversation_id?: string
           created_at?: string
           deleted_at?: string | null
@@ -2018,6 +2027,8 @@ export type Database = {
           push_show_content: boolean
           quiet_reading_until: string | null
           rest_weekday: number
+          rest_saturday: boolean
+          rest_theme_enabled: boolean
           review_daily_enabled: boolean
           review_daily_hour: number
           review_weekly_enabled: boolean
@@ -2048,6 +2059,8 @@ export type Database = {
           push_show_content?: boolean
           quiet_reading_until?: string | null
           rest_weekday?: number
+          rest_saturday?: boolean
+          rest_theme_enabled?: boolean
           review_daily_enabled?: boolean
           review_daily_hour?: number
           review_weekly_enabled?: boolean
@@ -2078,6 +2091,8 @@ export type Database = {
           push_show_content?: boolean
           quiet_reading_until?: string | null
           rest_weekday?: number
+          rest_saturday?: boolean
+          rest_theme_enabled?: boolean
           review_daily_enabled?: boolean
           review_daily_hour?: number
           review_weekly_enabled?: boolean

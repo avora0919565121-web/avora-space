@@ -42,6 +42,20 @@
           var vars = raw && (dark ? raw.dark : raw.light);
           if (vars) for (var k in vars) if (/^--[a-z-]+$/.test(k)) root.style.setProperty(k, String(vars[k]));
           if (raw && raw.tone) root.setAttribute("data-tone", String(raw.tone));
+          // AVORA-110: a rest day paints the shared rest tone from the first frame (lib/rest-day.ts holds the values).
+          if (vars) for (var u in vars) if (/^--[a-z-]+$/.test(u)) root.style.setProperty(u.replace(/^--/, "--user-"), String(vars[u]));
+          var rest = JSON.parse(localStorage.getItem("avora.rest") || "null");
+          if (rest && rest.enabled !== false) {
+            var day = new Date().getDay();
+            var chosen = ((Number(rest.restWeekday) || 0) % 7 + 7) % 7;
+            if (day === chosen || (rest.restSaturday === true && day === 6)) {
+              var rv = dark
+                ? { "--personal": "168 22% 66%", "--personal-foreground": "30 10% 8%", "--personal-soft": "168 14% 19%", "--personal-soft-foreground": "168 24% 76%", "--ring": "168 22% 66%" }
+                : { "--personal": "168 24% 30%", "--personal-foreground": "15 100% 97%", "--personal-soft": "168 20% 92%", "--personal-soft-foreground": "168 26% 26%", "--ring": "168 24% 30%" };
+              for (var r in rv) root.style.setProperty(r, rv[r]);
+              root.setAttribute("data-rest", "true");
+            }
+          }
           // KHỐI 2E: the one font chosen on this device (lib/font-pref.ts keeps the stacks).
           var font = localStorage.getItem("avora.font");
           var stacks = { may: 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif', "be-vietnam": '"Be Vietnam Pro", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif' };

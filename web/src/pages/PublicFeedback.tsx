@@ -15,7 +15,7 @@ const PublicFeedback = () => {
   const [isSent, setIsSent] = useState<boolean>(false);
 
   return (
-    <div className="paper min-h-[100dvh] overflow-y-auto" data-public-feedback="">
+    <div className="paper min-h-[100dvh] scroll-y" data-public-feedback="">
       <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 md:px-10 md:pt-10">
         <a href={session !== null ? "/cai-dat/gop-y" : "/dang-nhap"} data-feedback-exit="" className="press -ml-2 inline-flex min-h-11 items-center gap-0.5 rounded-md px-2 text-muted-foreground hover:text-foreground">
           <ChevronLeft className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />

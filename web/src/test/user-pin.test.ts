@@ -3,8 +3,10 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import { returnPathFrom } from "@/lib/navigation";
+import samples from "./fixtures/pin-samples.json";
 import {
   generatePinBody,
+  PIN_DIGITS,
   PIN_LETTERS,
   pinBody,
   pinDaysLeft,
@@ -62,7 +64,29 @@ describe("PIN format (AVORA 32)", () => {
   it("refuses confusable characters", () => {
     expect(pinProblem("ABCDEFGO")).toBe("confusing");
     expect(pinProblem("ABCDEF1H")).toBe("confusing");
-    expect(pinProblem("ABCLEFGH")).toBe("confusing");
+    expect(pinProblem("ABCD0EFG")).toBe("confusing");
+    expect(pinProblem("ABCDIEFG")).toBe("confusing");
+  });
+
+  it("keeps the upper-case L (VMT 12/10)", () => {
+    expect(PIN_LETTERS).toHaveLength(24);
+    expect(PIN_LETTERS).toContain("L");
+    expect(PIN_DIGITS).toBe("23456789");
+    for (const char of "01OI") expect(PIN_LETTERS + PIN_DIGITS).not.toContain(char);
+    expect(pinProblem("ABCLEFGH")).toBeNull();
+    expect(pinProblem("LMNPQ23L")).toBeNull();
+  });
+
+  it("turns typed lower case into upper case: l becomes L, o and i are still refused", () => {
+    expect(pinProblem(pinBody("a-lmnpq23l"))).toBeNull();
+    expect(pinProblem(pinBody("a-abcdefgo"))).toBe("confusing");
+    expect(pinProblem(pinBody("a-abcdiefg"))).toBe("confusing");
+  });
+
+  it("matches private.user_pin_problem on the shared samples (supabase/tests/pin_alphabet.sql)", () => {
+    for (const [body, expected] of samples as [string, string | null][]) {
+      expect([body, pinProblem(body)]).toEqual([body, expected]);
+    }
   });
 
   it("needs letters at both ends and at least four letters", () => {
@@ -92,6 +116,7 @@ describe("the generator meets the same rules", () => {
       expect(pinProblem(body)).toBeNull();
       expect(PIN_LETTERS.includes(body[0])).toBe(true);
       expect(PIN_LETTERS.includes(body[7])).toBe(true);
+      expect(body).not.toMatch(/[01OI]/);
     }
   });
 });

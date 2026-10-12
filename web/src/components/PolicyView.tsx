@@ -50,7 +50,7 @@ function Section({ section, openTech }: { section: PolicySection; openTech: bool
         ))}
       </ul>
       {section.table !== undefined ? (
-        <div className="mt-4 overflow-x-auto rounded-lg border border-border">
+        <div data-h-scroll="" className="mt-4 overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[520px] text-left text-[13.5px]">
             <thead className="bg-secondary/50">
               <tr>{section.table.head.map((h) => <th key={h} className="px-3 py-2 font-semibold">{h}</th>)}</tr>
@@ -130,7 +130,7 @@ export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
         <h1 className={cn("text-[26px] font-semibold tracking-tight text-foreground", isPublic ? "mt-4" : "hidden md:block short:block")}>Chính sách</h1>
         <p className={cn("text-muted-foreground", isPublic ? "mt-1 text-[13px]" : "text-[11.5px] opacity-80 md:mt-1 md:text-[13px] md:opacity-100")} data-policy-updated="">Cập nhật lần cuối: {POLICY_VERSION} · {POLICY_DRAFT_NOTE}</p>
 
-        <div role="tablist" aria-label="Bộ chính sách" className="mt-3 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:mt-5 md:[mask-image:none]">
+        <div data-h-scroll="" role="tablist" aria-label="Bộ chính sách" className="mt-3 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:mt-5 md:[mask-image:none]">
           {POLICY_DOCS.map((d) => (
             <button key={d.id} type="button" role="tab" aria-selected={d.id === doc.id} onClick={() => { setDocId(d.id); window.history.replaceState(null, "", `${location.pathname}${location.search}#${d.id}`); }} className={cn("press h-10 shrink-0 rounded-full border px-4 text-[13.5px] font-medium", d.id === doc.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground")}>
               <span className="md:hidden">{policyShortTitle(d.title)}</span>
@@ -153,7 +153,7 @@ export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
                   ))}
                 </ul>
               </nav>
-              <div className="mb-5 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:hidden" data-policy-chips="">
+              <div data-h-scroll="" className="mb-5 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:hidden" data-policy-chips="">
                 {doc.sections.map((s) => (
                   <button key={s.id} type="button" onClick={() => jump(s.id)} className="press h-9 shrink-0 rounded-full bg-secondary/70 px-3.5 text-[13px] text-foreground">
                     {s.title.replace(/^[A-I]\.\s/, "")}

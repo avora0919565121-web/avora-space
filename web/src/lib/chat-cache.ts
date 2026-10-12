@@ -179,6 +179,12 @@ export type ChatMessage = {
    * the text rather than hiding it.
    */
   deletedAt?: string | null;
+  /**
+   * AVORA-109 · B: when this message disappears (set by the server from the conversation's timer),
+   * and when it actually did. An expired message is a tombstone like a recalled one, labelled apart.
+   */
+  expiresAt?: string | null;
+  expiredAt?: string | null;
   /** The message this one answers, or null for an ordinary message. */
   replyToMessageId?: string | null;
   /**
@@ -318,6 +324,8 @@ export function failedSendIdOf(message: Pick<ChatMessage, "id">): string | null 
 
 /** Stands in for the words of a withdrawn message, wherever they would have been shown. */
 export const RECALLED_MESSAGE_NOTE = "Tin nhắn đã được thu hồi.";
+/** AVORA-109 · B3: the words of a message that disappeared on its timer. */
+export const EXPIRED_MESSAGE_NOTE = "Tin đã tự biến mất.";
 
 /** True once a message has been taken back. */
 export function isRecalled(message: Pick<ChatMessage, "deletedAt">): boolean {
@@ -335,8 +343,10 @@ export function isEdited(message: Pick<ChatMessage, "editedAt" | "deletedAt">): 
  * is why every surface asks this rather than reading `content` directly.
  */
 export function messageBodyText(
-  message: Pick<ChatMessage, "content" | "deletedAt" | "attachmentCount">,
+  message: Pick<ChatMessage, "content" | "deletedAt" | "attachmentCount"> & Partial<Pick<ChatMessage, "expiresAt" | "expiredAt">>,
 ): string {
+  // AVORA-109 · B3: gone by its timer — said apart from a recall, and before the sweep has run too.
+  if (message.expiredAt != null || (message.expiresAt != null && new Date(message.expiresAt).getTime() <= Date.now())) return EXPIRED_MESSAGE_NOTE;
   if (isRecalled(message)) return RECALLED_MESSAGE_NOTE;
   // A photo sent without a caption has no words to show, but it is not nothing. Surfaces
   // with no room for the file itself say what arrived instead of rendering a blank line.
@@ -443,7 +453,7 @@ export function isSearchable(query: string): boolean {
 
 /** The short version of a quoted message, for the block above a reply. */
 export function quotePreview(
-  message: Pick<ChatMessage, "content" | "deletedAt" | "attachmentCount">,
+  message: Pick<ChatMessage, "content" | "deletedAt" | "attachmentCount"> & Partial<Pick<ChatMessage, "expiresAt" | "expiredAt">>,
   maxLength: number = 80,
 ): string {
   const text = messageBodyText(message);
@@ -540,7 +550,9 @@ export function applyMessageEditToInbox(
   if (!isPreviewed) return inbox;
 
   const next = [...inbox];
-  next[index] = { ...current, lastMessageContent: messageBodyText(incoming) };
+  // AVORA-109 · B2: a preview that disappeared becomes `—` until the inbox re-reads the latest remaining line.
+  const gone = incoming.expiredAt != null;
+  next[index] = { ...current, lastMessageContent: gone ? "—" : messageBodyText(incoming) };
   return next;
 }
 

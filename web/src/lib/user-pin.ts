@@ -5,13 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
  * User PIN (ADR-019): a permanent identifier used to route invitations — not a secret.
  *
  * `A-` + 8 characters. Letters and digits only, without the ones people confuse when reading a
- * PIN aloud or copying it by hand (0/O, 1/I/L). At least 4 of the 8 are letters, and the first
+ * PIN aloud or copying it by hand (0/O, 1/I). An upper-case L is kept (VMT 12/10): a PIN is
+ * always shown upper-case, so the lower-case l that looks like 1 never appears. At least 4 of the 8 are letters, and the first
  * and last are letters. The database checks exactly the same rules; this copy exists so the form
  * can say what is wrong while the person is still typing.
  */
 export const PIN_PREFIX = "A-";
 export const PIN_BODY_LENGTH = 8;
-export const PIN_LETTERS = "ABCDEFGHJKMNPQRSTUVWXYZ";
+export const PIN_LETTERS = "ABCDEFGHJKLMNPQRSTUVWXYZ";
 export const PIN_DIGITS = "23456789";
 const PIN_ALPHABET = PIN_LETTERS + PIN_DIGITS;
 const MIN_LETTERS = 4;
@@ -25,7 +26,7 @@ export type PinAvailability = "ok" | "taken" | PinProblem;
 
 export const PIN_RULES: readonly string[] = [
   "Bắt đầu bằng A- và 8 ký tự sau đó",
-  "Chỉ chữ cái và số, không dùng 0, O, 1, I, L",
+  "Chỉ chữ cái và số, không dùng 0, 1, O, I",
   "Ít nhất 4 chữ cái trong 8 ký tự",
   "Ký tự đầu và cuối là chữ cái",
 ];
@@ -44,7 +45,7 @@ export function toPin(body: string): string {
 /** Which rule the 8 characters break first, or null when they are a valid PIN body. */
 export function pinProblem(body: string): PinProblem | null {
   if (body.length !== PIN_BODY_LENGTH) return "format";
-  if (/[01OIL]/.test(body)) return "confusing";
+  if (/[01OI]/.test(body)) return "confusing";
   if (![...body].every((char) => PIN_ALPHABET.includes(char))) return "format";
   if (!PIN_LETTERS.includes(body[0]) || !PIN_LETTERS.includes(body[PIN_BODY_LENGTH - 1])) return "edges";
   if ([...body].filter((char) => PIN_LETTERS.includes(char)).length < MIN_LETTERS) return "letters";
@@ -56,7 +57,7 @@ export function pinProblemMessage(problem: PinAvailability): string {
   if (problem === "ok") return "PIN này dùng được.";
   if (problem === "taken") return "PIN này đã có người dùng. Thử một biến thể khác nhé.";
   if (problem === "format") return "Cần đủ 8 ký tự, chỉ chữ cái và số.";
-  if (problem === "confusing") return "Không dùng 0, O, 1, I, L — những ký tự dễ đọc nhầm.";
+  if (problem === "confusing") return "Không dùng 0, 1, O, I vì dễ nhầm.";
   if (problem === "edges") return "Ký tự đầu và cuối cần là chữ cái.";
   if (problem === "letters") return "Cần ít nhất 4 chữ cái trong 8 ký tự.";
   return "PIN này chứa từ không phù hợp hoặc trùng tên thương hiệu. Chọn cách viết khác nhé.";

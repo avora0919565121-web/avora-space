@@ -1383,7 +1383,7 @@ function ScopeChips({ value, onChange }: { value: TaskScope | null; onChange: (n
     ...TASK_SCOPES.map((id) => ({ id, label: TASK_SCOPE_LABELS[id] })),
   ];
   return (
-    <div role="group" aria-label="Lọc theo lớp" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
+    <div data-h-scroll="" role="group" aria-label="Lọc theo lớp" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-0.5">
       {options.map((option) => {
         const isActive = option.id === value;
         return (
@@ -1749,7 +1749,7 @@ export default function Tasks() {
           }}
         />
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto">
+      <div className="min-h-0 flex-1 scroll-y-free">
       <div data-under-tabs="" className="rise-in mx-auto w-full max-w-[720px] px-4 pb-6 pt-4 sm:px-6 sm:pb-8 short:mx-0 short:max-w-none short:px-4">
         <InlineBack className="mb-3" />
         {hubSection.id !== "tasks" ? (

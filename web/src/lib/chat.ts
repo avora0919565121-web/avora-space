@@ -304,6 +304,7 @@ export async function fetchConversationDiary(conversationId: string): Promise<Di
     .is("deleted_at", null)
     .is("system_kind", null)
     .is("trashed_at", null)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .order("created_at", { ascending: false })
     .limit(1000);
   if (error) throw fail(error.code, error.message);
@@ -381,7 +382,7 @@ export async function addGroupMembers(conversationId: string, userIds: readonly 
 
 /** The columns every message read returns, named once so the shapes cannot drift apart. */
 const MESSAGE_COLUMNS =
-  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent, refs, contact_card_user_id, sticker_id, effect, note_card";
+  "id, conversation_id, sender_id, content, created_at, edited_at, deleted_at, reply_to_message_id, mentioned_user_ids, origin_group_id, attachment_count, origin_content_id, origin_sender_id, system_kind, forward_bundle, is_urgent, refs, contact_card_user_id, sticker_id, effect, note_card, expires_at, expired_at";
 
 /** How many messages one page holds (Đợt gộp 2 · A7). */
 export const MESSAGE_PAGE_SIZE = 50;
@@ -409,6 +410,8 @@ export type MessageRowShape = {
   sticker_id?: string | null;
   effect?: string | null;
   note_card?: unknown;
+  expires_at?: string | null;
+  expired_at?: string | null;
 };
 
 /**
@@ -438,6 +441,8 @@ export function toChatMessageRow(row: MessageRowShape): ChatMessage {
     stickerId: row.sticker_id ?? null,
     effect: isSendEffect(row.effect) ? row.effect : null,
     noteCard: parseNoteCard(row.note_card),
+    expiresAt: row.expires_at ?? null,
+    expiredAt: row.expired_at ?? null,
   };
 }
 
@@ -541,6 +546,8 @@ export async function searchMessages(
     .eq("conversation_id", conversationId)
     .is("deleted_at", null)
     .is("trashed_at", null)
+    // AVORA-109 · B2: a message whose time is up is never a hit, even before the sweep empties it.
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .ilike("content", `%${escaped}%`)
     .order("created_at", { ascending: false })
     .limit(limit);

@@ -15,6 +15,7 @@ import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from 
 import { getCaptchaToken } from "@/lib/turnstile";
 import { isSafeReturnPath } from "@/lib/return-to";
 import { clearTabMemory } from "@/lib/tab-memory";
+import { clearChatLock } from "@/lib/chat-lock";
 
 export type Profile = {
   id: string;
@@ -321,6 +322,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearCachedMedia();
     // AVORA-77 · G: where each tab stood is forgotten on sign-out.
     clearTabMemory();
+    // AVORA-109 · A2: signing in again is how a forgotten Khoá Kết nối is reset.
+    await clearChatLock(null);
     writeRecoveryFlag(false);
     setIsRecovering(false);
     setProfile(null);

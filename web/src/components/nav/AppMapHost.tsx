@@ -76,6 +76,7 @@ export function AppMapHost() {
                     <span className="min-w-0 flex-1 text-[15.5px] font-medium">{item.label}</span>
                     {badge !== undefined && badge.count > 0 ? (
                       <span
+                        data-count-badge=""
                         aria-label={badge.label}
                         className="tabular inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold leading-none text-primary-foreground"
                       >

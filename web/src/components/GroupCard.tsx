@@ -80,7 +80,7 @@ export function GroupCardHost() {
   if (isMobile || request?.anchor === null) {
     return (
       <Sheet open={request !== null} onOpenChange={(next) => (next ? undefined : close())}>
-        <SheetContent side="bottom" className="max-h-[88dvh] overflow-y-auto rounded-t-[18px] px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-5">
+        <SheetContent side="bottom" className="max-h-[88dvh] scroll-y rounded-t-[18px] px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-5">
           <SheetTitle className="sr-only">Thẻ nhóm</SheetTitle>
           <SheetDescription className="sr-only">Tên nhóm, thành viên và các việc nhanh.</SheetDescription>
           {body}

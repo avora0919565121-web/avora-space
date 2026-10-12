@@ -26,7 +26,7 @@ const SettingsNotifications = () => {
   };
 
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
+    <div className="paper min-h-0 flex-1 scroll-y">
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-s-4 px-6 pb-12 pt-4 md:px-10">
         {/* AVORA-47 · C: the easy-to-find way in; holding Kết nối opens the same sheet. */}
         <section aria-labelledby="focus-heading" className="rounded-card border border-border bg-card p-s-4">

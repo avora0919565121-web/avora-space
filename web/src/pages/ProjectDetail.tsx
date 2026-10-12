@@ -499,7 +499,7 @@ const ProjectDetail = () => {
 
   if (detailQuery.isPending) {
     return (
-      <div className="paper min-h-0 flex-1 overflow-y-auto">
+      <div className="paper min-h-0 flex-1 scroll-y-free">
         <div className="mx-auto max-w-3xl px-6 py-10 md:px-10" aria-hidden="true">
           <span className="block h-7 w-2/5 animate-pulse rounded bg-secondary" />
           <span className="mt-4 block h-3 w-3/5 animate-pulse rounded bg-secondary/70" />
@@ -511,7 +511,7 @@ const ProjectDetail = () => {
 
   if (detailQuery.isError) {
     return (
-      <div className="paper min-h-0 flex-1 overflow-y-auto">
+      <div className="paper min-h-0 flex-1 scroll-y-free">
         <div className="mx-auto max-w-2xl px-6 py-16 text-center md:px-10">
           <p className="text-[15px] text-muted-foreground">{detailQuery.error.message}</p>
           <Button variant="outline" className="press mt-5" onClick={() => void detailQuery.refetch()}>
@@ -524,7 +524,7 @@ const ProjectDetail = () => {
 
   if (detail === null) {
     return (
-      <div className="paper min-h-0 flex-1 overflow-y-auto">
+      <div className="paper min-h-0 flex-1 scroll-y-free">
         <div className="mx-auto max-w-2xl px-6 py-16 text-center md:px-10">
           <h1 className="text-[22px] font-semibold tracking-tight text-foreground">Không mở được dự án</h1>
           <p className="mt-2 text-[15px] text-muted-foreground">Dự án này không còn nữa hoặc bạn không có quyền xem.</p>
@@ -555,7 +555,7 @@ const ProjectDetail = () => {
   );
 
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
+    <div className="paper min-h-0 flex-1 scroll-y-free">
       <div className="mx-auto max-w-3xl px-6 py-8 md:px-10 md:py-10">
         {/* AVORA-94B · luật 1: back one screen; nothing behind → `tu`, else Kết nối › Dự án. */}
         <BackButton parent={{ path: "/tin-nhan?tab=du-an", label: back.label }} showLabel className="-ml-2" />

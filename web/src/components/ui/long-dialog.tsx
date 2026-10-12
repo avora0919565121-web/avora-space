@@ -20,7 +20,7 @@ export function LongDialogHeader({ className, ...props }: HTMLAttributes<HTMLDiv
 }
 
 export function LongDialogBody({ className, ...props }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cn("min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4", className)} {...props} />;
+  return <div className={cn("min-h-0 flex-1 scroll-y-free overscroll-contain px-5 py-4", className)} {...props} />;
 }
 
 export function LongDialogFooter({ className, ...props }: HTMLAttributes<HTMLDivElement>) {

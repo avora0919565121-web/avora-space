@@ -794,7 +794,7 @@ export function TableView({
     <>
       {hiddenRow}
       {sortNote}
-      <div ref={scrollBoxRef} data-board-grid={depth} className={cn("overflow-x-auto rounded-card border border-border bg-card", isNested ? "mt-1" : "mt-5")}>
+      <div data-h-scroll="" ref={scrollBoxRef} data-board-grid={depth} className={cn("overflow-x-auto rounded-card border border-border bg-card", isNested ? "mt-1" : "mt-5")}>
         <table className="w-full table-fixed border-collapse" style={{ minWidth: tableWidth }}>
           <thead className="border-b border-border">
             <tr>
@@ -1091,7 +1091,7 @@ function PhoneBoard({
       <div className={cn("rounded-card border border-border bg-card", isNested ? "mt-1" : "mt-3")}>
         {/* The names row: sticky at the top of the screen's scroll, slides with the cells. */}
         <div ref={nameRowRef} className="sticky top-0 z-20 rounded-t-card border-b border-border bg-card">
-          <div ref={register} onScroll={onRowScroll} data-sync-scroll="names" className={cn("no-scrollbar overflow-x-auto", EDGE_FADE)}>
+          <div data-h-scroll="" ref={register} onScroll={onRowScroll} data-sync-scroll="names" className={cn("no-scrollbar overflow-x-auto", EDGE_FADE)}>
             <div className="flex" style={{ width: totalWidth }}>
               {grid.map((column) => (
                 <div
@@ -1143,7 +1143,7 @@ function PhoneBoard({
               {starButton(record)}
               {quickTaskButton(record, false)}
             </div>
-            <div ref={register} onScroll={onRowScroll} data-sync-scroll="cells" className={cn("no-scrollbar overflow-x-auto pb-2", EDGE_FADE)}>
+            <div data-h-scroll="" ref={register} onScroll={onRowScroll} data-sync-scroll="cells" className={cn("no-scrollbar overflow-x-auto pb-2", EDGE_FADE)}>
               <div className="flex" style={{ width: totalWidth }}>
                 {grid.map((column) => (
                   <div

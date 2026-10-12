@@ -39,7 +39,7 @@ export function KanbanView({ records, onOpenRecord, today, statusOptions = null,
   };
 
   return (
-    <div className="mt-5 flex gap-4 overflow-x-auto pb-2">
+    <div data-h-scroll="" className="mt-5 flex gap-4 overflow-x-auto pb-2">
       {columns.map((column) => (
         <section
           key={column.status}

@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 
+import { TASK_STAYS_NOTE } from "@/lib/disappear";
 import { TaskCard, type ComposerSource } from "@/components/tasks/TaskCard";
 import { useAuth } from "@/lib/auth";
 import type { ConversationKind } from "@/lib/chat";
@@ -29,6 +30,8 @@ type TaskFromChatDialogProps = {
    */
   selection?: { messageIds: readonly string[]; transcript: string } | null;
   onCreated?: () => void;
+  /** AVORA-109 · B2: the conversation has Tin tự biến mất on — say the task stays. */
+  disappearing?: boolean;
 };
 
 /**
@@ -53,6 +56,7 @@ export function TaskFromChatDialog({
   projectId = null,
   selection = null,
   onCreated,
+  disappearing = false,
 }: TaskFromChatDialogProps) {
   const { user } = useAuth();
   const { createPersonal, proposeOne } = useComposerActions();
@@ -85,17 +89,23 @@ export function TaskFromChatDialog({
         ? {
             label: `Từ ${selection.messageIds.length} tin nhắn đã chọn`,
             render: () => (
+              <>
               <p className="line-clamp-3 whitespace-pre-wrap text-[13px] leading-5 text-foreground">
                 {selection.transcript}
               </p>
+              {disappearing ? <p className="mt-1 text-[12.5px] text-muted-foreground" data-task-stays="">{TASK_STAYS_NOTE}</p> : null}
+            </>
             ),
           }
         : {
           label: place === "personal" ? "Từ ghi chú trong Nhật ký" : `Từ tin nhắn của ${contextSenderName}`,
           render: () => (
-            <p className="line-clamp-2 whitespace-pre-wrap text-[13px] leading-5 text-foreground">
-              {contextMessage.content.trim() === "" ? "(Tin nhắn chỉ có tệp đính kèm)" : contextMessage.content}
-            </p>
+            <>
+              <p className="line-clamp-2 whitespace-pre-wrap text-[13px] leading-5 text-foreground">
+                {contextMessage.content.trim() === "" ? "(Tin nhắn chỉ có tệp đính kèm)" : contextMessage.content}
+              </p>
+              {disappearing ? <p className="mt-1 text-[12.5px] text-muted-foreground" data-task-stays="">{TASK_STAYS_NOTE}</p> : null}
+            </>
           ),
         };
 

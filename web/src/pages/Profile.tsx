@@ -97,7 +97,7 @@ const Profile = () => {
     : "—";
 
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
+    <div className="paper min-h-0 flex-1 scroll-y">
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in px-6 pb-12 pt-4 md:px-10">
         {/* AVORA-53 · 6.5: the tab names the page; no second large title, and the email shows once (below). */}
         <div className="flex items-center gap-s-2">

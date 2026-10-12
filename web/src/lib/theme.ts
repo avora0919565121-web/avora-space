@@ -208,15 +208,28 @@ export function toneVars(values: ToneValues): Record<string, string> {
   };
 }
 
-/** Puts a look on <html>: `.dark`, the personal variables and the browser's bar colour. */
-export function paintLook(resolved: ResolvedLook): void {
+/** `--personal` → `--user-personal`: the person's own tone, kept beside the rest tone (AVORA-110). */
+export function userVarName(name: string): string {
+  return name.replace(/^--/, "--user-");
+}
+
+/**
+ * Puts a look on <html>: `.dark`, the personal variables and the browser's bar colour.
+ * AVORA-110: with `rest` (a rest day), the accents take the shared rest tone while the person's own
+ * values stay in `--user-*`, which every `[data-rest-scope="inner"]` puts back.
+ */
+export function paintLook(resolved: ResolvedLook, rest: ToneSet | null = null): void {
   if (typeof document === "undefined") return;
   const root = document.documentElement;
   root.classList.toggle("dark", resolved.isDark);
   root.style.colorScheme = resolved.isDark ? "dark" : "light";
   root.dataset.tone = resolved.tone;
-  const vars = toneVars(resolved.isDark ? resolved.set.dark : resolved.set.light);
+  const userVars = toneVars(resolved.isDark ? resolved.set.dark : resolved.set.light);
+  for (const [name, value] of Object.entries(userVars)) root.style.setProperty(userVarName(name), value);
+  const vars = rest === null ? userVars : toneVars(resolved.isDark ? rest.dark : rest.light);
   for (const [name, value] of Object.entries(vars)) root.style.setProperty(name, value);
+  if (rest === null) delete root.dataset.rest;
+  else root.dataset.rest = "true";
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content", resolved.isDark ? THEME_COLOR.dark : THEME_COLOR.light);
 }
 
@@ -246,10 +259,12 @@ const listeners = new Set<Listener>();
 let saved: Look = { scheme: DEFAULT_SCHEME, tone: DEFAULT_TONE };
 let preview: ToneId | null = null;
 let snapshot: LookSnapshot = { saved, preview, resolved: { isDark: false, tone: "avora", set: TONES.avora, deviceFallback: null } };
+/** AVORA-110: the rest tone in force (a rest day with `Đổi màu vào ngày nghỉ` on, or `Xem thử`). */
+let restTone: ToneSet | null = null;
 
 function repaint(): void {
   const resolved = resolveLook({ scheme: saved.scheme, tone: preview ?? saved.tone });
-  paintLook(resolved);
+  paintLook(resolved, restTone);
   // A preview is never cached: closing the app mid-preview opens on the saved tone.
   cacheLook(saved, preview === null ? resolved : resolveLook(saved));
   snapshot = { saved, preview, resolved };
@@ -264,6 +279,26 @@ export function setSavedLook(look: Look): void {
 export function setPreviewTone(tone: ToneId | null): void {
   preview = tone;
   repaint();
+}
+/**
+ * AVORA-110: turn the rest tone on / off. A real change fades over ~350 ms (none with Giảm chuyển
+ * động); moving between inward and work places never fades (the scope is set before paint).
+ */
+export function setRestTone(tone: ToneSet | null): void {
+  if (tone === restTone) return;
+  restTone = tone;
+  if (typeof document !== "undefined") {
+    const reduce = typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const root = document.documentElement;
+    if (!reduce) {
+      root.classList.add("rest-switching");
+      window.setTimeout(() => root.classList.remove("rest-switching"), 400);
+    }
+  }
+  repaint();
+}
+export function currentRestTone(): ToneSet | null {
+  return restTone;
 }
 /** The device changed (light ↔ dark, or its accent): paint again with the same choice. */
 export function refreshLook(): void {

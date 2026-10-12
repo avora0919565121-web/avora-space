@@ -119,7 +119,7 @@ export function TemplateLibrary({
         </button>
       )}
       <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Bạn dùng bảng để làm gì?</p>
-      <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none]" data-filter-type="">
+      <div data-h-scroll="" className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none]" data-filter-type="">
         <button type="button" onClick={() => setType(null)} aria-pressed={type === null} className={chip(type === null)}>Tất cả</button>
         {THINKING_TYPES.map((item) => (
           <button key={item.id} type="button" onClick={() => setType(type === item.id ? null : item.id)} aria-pressed={type === item.id} className={chip(type === item.id)}>
@@ -130,7 +130,7 @@ export function TemplateLibrary({
       <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
         Dành cho{mine.length > 0 ? <span className="normal-case tracking-normal"> · của bạn đứng trước</span> : null}
       </p>
-      <div className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none]" data-filter-audience="">
+      <div data-h-scroll="" className="mt-1.5 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none]" data-filter-audience="">
         {audienceOrder.map((item) => (
           <button key={item.id} type="button" onClick={() => toggle(item.id)} aria-pressed={audiences.includes(item.id)} data-audience={item.id} className={chip(audiences.includes(item.id))}>
             {item.label}
@@ -192,7 +192,7 @@ export function TemplateLibrary({
               <SheetTitle className="text-[18px]">{preview.name}</SheetTitle>
               <SheetDescription className="text-[13.5px] italic">“{preview.guidingQuestion ?? "Tự đặt cột và trạng thái."}”</SheetDescription>
               <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Ví dụ · chỉ để xem, không lưu</p>
-              <div className="mt-1.5 overflow-x-auto rounded-card border border-border" data-no-room-swipe="">
+              <div data-h-scroll="" className="mt-1.5 overflow-x-auto rounded-card border border-border" data-no-room-swipe="">
                 <table className="w-full min-w-[420px] text-left text-[13px]">
                   <thead className="bg-secondary/60 text-[12px] text-muted-foreground">
                     <tr>

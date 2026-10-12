@@ -1650,7 +1650,7 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   (server-set only); pressing again returns the same task. Full settlement marks it done (trigger on
   `amount_settled`); reopening it by hand is not undone. The row then reads "Đã có việc nhắc" / "Việc nhắc đã xong".
 - 2026-09-25 — User PIN (AVORA 32, ADR-019). `user_pins` (one per account, unique, own-row read, no client writes,
-  update refused by trigger): `A-` + 8 of A–Z/2–9 without 0/O/1/I/L, ≥4 letters, letters at both ends, a light
+  update refused by trigger): `A-` + 8 of A–Z/2–9 without 0/1/O/I (upper-case L allowed since VMT 12/10 — PINs are always shown upper-case), ≥4 letters, letters at both ends, a light
   offensive/brand filter; the same rules in `lib/user-pin.ts` and `private.user_pin_problem`. `check_user_pin`
   answers ok / taken / rule — never the owner; `claim_user_pin` sets it once. Every signed-in screen sits behind a
   blocking PIN step until one exists: "Để hệ thống tự sinh" (generator meets the rules, redraws if taken) or "Tự chọn"
@@ -2275,6 +2275,32 @@ Trong Tạo / Sửa thói quen có đồng hồ, dưới số phút: `Khi rời 
 - **Vì sao có đi có lại:** "Đã xem" là sự thật, nhưng ai cũng có quyền không cho người khác biết mình đã xem. Một công tắc cho cả hai chiều — tắt thì không ai thấy bạn đã xem *và* bạn cũng không thấy ai — nên nó không thể thành công cụ giám sát một chiều. Người tắt hiện là `Ẩn` (một con số, không tên) chứ không phải "chưa xem", để không bị hiểu là phớt lờ. Không có nhắc nhở, không "lần cuối online", không thống kê.
 - **Vì sao ngưỡng 100:** ở nhóm nhỏ, biết ai đã đọc giúp phối hợp (đã thấy lịch họp chưa). Ở nhóm lớn, danh sách người đọc biến thành bảng điểm danh và áp lực xã hội — nên trên 100 người không tính, không hiện, không ghi.
 - **Vì sao viên cảm xúc nổi:** hàng cảm xúc riêng dưới bong bóng làm mỗi tin cao thêm ~32 px. Viên nổi đè góc phía trong (12 px) cộng 8 px đệm trong bong bóng chỉ thêm ~20 px, giữ cảm xúc dính liền với tin, và viền màu nền khung chat làm viên như được khoét ra khỏi bong bóng.
+
+## Khoá Kết nối (AVORA-109 · PHẦN A · ADR-084 · VMT 09/10)
+
+- **Là gì:** tấm che Kết nối trên máy này, cho người cầm điện thoại đang mở sẵn app. Không phải mã hoá, và chữ giao diện không bao giờ nói vậy.
+- **Nút:** `Khoá` (ổ khoá, cùng cỡ nút hàng trên) trong Kết nối, trước `Liên hệ`. Chạm là khoá; lần đầu mở sheet 2 bước.
+- **Màn khoá:** chữ AVORA giãn chữ, vòng ổ khoá 64 px trên nền quầng tông cá nhân rất nhạt, `Kết nối đang khoá`, ô mã (≥ 16 px, bàn phím số) hoặc nút `Mở` (sinh trắc), dòng nhỏ `Quên cách mở? Đăng xuất để đặt lại`. Không tên, không xem trước, không giờ, không số; huy hiệu tab cũng tắt.
+- **Cài đặt › Riêng tư:** `Khoá Kết nối` (trạng thái + `Bật`), `Tự khoá Kết nối` (5 lựa chọn), `Đổi cách mở`, `Tắt khoá` — hai nút sau hỏi cách mở hiện tại trước.
+
+## Tin tự biến mất · dấu vết (AVORA-109 · PHẦN B · ADR-085)
+
+- **⋯ của cuộc:** `Không khí` → `Tin tự biến mất` (giá trị hiện bên phải; `Chờ đồng ý · 24 giờ` khi có đề nghị) → công tắc `Ẩn dấu vết tin đã biến mất / thu hồi`.
+- **Sheet chọn:** 5 nút cao 48 px (đang chọn đổ màu chữ chính), một câu giải thích theo loại cuộc, một dòng nhỏ `Người nhận vẫn có thể chụp màn hình hoặc sao chép trước khi tin biến mất.` — không doạ.
+- **Đề nghị 1-1:** dòng hệ thống giữa cuộc, biểu tượng đồng hồ; người kia có `Đồng ý` (nút chính) · `Không đồng ý`; người đề nghị thấy `Đang chờ người kia đồng ý.`
+- **Dấu vết:** như thu hồi (nét đứt, nghiêng) + nút `Dọn` nhỏ cuối dòng. Tin còn hạn: đồng hồ 12 px cạnh giờ, không đếm ngược.
+
+## Ngày nghỉ (AVORA-110 · ADR-086 · VMT 09/10)
+
+- **Không khí, không chặn:** vào ngày nghỉ, mọi phần nhấn ở vùng việc (nút chính, tab đang chọn, bong bóng của tôi, vạch gõ, chip, `+` cá nhân) chuyển sang một tông xanh lục-xám dịu chung cho mọi người; huy hiệu số thành viền nhạt. Nền giấy / tối giữ nguyên.
+- **Vùng nội tâm giữ màu của bạn:** đọc sách, chat 1-1, Suy gẫm hằng ngày, Nhật ký, Ghi chép — bước vào là thấy lại màu mình chọn, như một lời mời.
+- **Cài đặt › Tuỳ chọn chung › Nhìn lại:** `Ngày nghỉ trong tuần` · `Thêm Thứ Bảy làm ngày nghỉ` · `Đổi màu vào ngày nghỉ` (+ `Xem thử` 3 giây).
+- **Avora Space:** thẻ `Hôm nay là ngày nghỉ.` nền nhạt, ba cửa chữ + biểu tượng, `Để sau`.
+
+## Không kéo ngang (AVORA-105 · D · KHỐI 2F · ADR-088)
+
+- Thân trang và thân tấm cuộn dọc dùng `scroll-y` (hoặc `scroll-y-free` khi bên trong có dải cuộn ngang). Dải cuộn ngang chủ đích (chip, thẻ bàn, bảng rộng, dải mục con, kệ sách) luôn mang `data-h-scroll`.
+- Lưới một cột trên điện thoại ghi rõ `grid-cols-1` để chữ `truncate` không đẩy cột rộng hơn màn hình.
 
 ## Out of scope
 

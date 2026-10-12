@@ -29,8 +29,21 @@ function openDb(): Promise<IDBDatabase | null> {
 const keyOf = (userId: string, conversationId: string): string => `${userId}:${conversationId}`;
 
 /** Only real, settled messages are cached — never a waiting bubble (the outbox owns those). */
-export function cacheable(messages: readonly ChatMessage[]): ChatMessage[] {
-  return messages.filter((message) => message.pending !== true).slice(-THREAD_CACHE_SIZE);
+export function cacheable(messages: readonly ChatMessage[], now: number = Date.now()): ChatMessage[] {
+  return messages
+    .filter((message) => message.pending !== true)
+    .map((message) => scrubExpired(message, now))
+    .slice(-THREAD_CACHE_SIZE);
+}
+
+/**
+ * AVORA-109 · B2: a copy on this device never keeps the words of a message whose time is up —
+ * scrubbed when written and again when read back.
+ */
+export function scrubExpired(message: ChatMessage, now: number = Date.now()): ChatMessage {
+  const gone = message.expiredAt != null || (message.expiresAt != null && new Date(message.expiresAt).getTime() <= now);
+  if (!gone || (message.content === "" && message.forwardBundle == null && message.noteCard == null && message.stickerId == null)) return message;
+  return { ...message, content: "", forwardBundle: null, noteCard: null, stickerId: null, contactCardUserId: null, refs: null, attachmentCount: 0, mentionedUserIds: [] };
 }
 
 export async function readThreadCache(userId: string, conversationId: string): Promise<ChatMessage[] | null> {
@@ -38,7 +51,10 @@ export async function readThreadCache(userId: string, conversationId: string): P
   if (db === null) return null;
   return new Promise((resolve) => {
     const request = db.transaction(STORE, "readonly").objectStore(STORE).get(keyOf(userId, conversationId));
-    request.onsuccess = () => resolve((request.result as Entry | undefined)?.messages ?? null);
+    request.onsuccess = () => {
+      const messages = (request.result as Entry | undefined)?.messages ?? null;
+      resolve(messages === null ? null : messages.map((message) => scrubExpired(message)));
+    };
     request.onerror = () => resolve(null);
   });
 }

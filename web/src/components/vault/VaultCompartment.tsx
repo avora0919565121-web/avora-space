@@ -254,21 +254,21 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
 
   if (mode.kind === "form") {
     return (
-      <div className="paper min-h-0 flex-1 overflow-y-auto">
+      <div className="paper min-h-0 flex-1 scroll-y-free">
         <ItemForm section={section} initial={current?.payload ?? emptyPayload(section)} pages={pages} onAddPages={(f) => void addFiles(f, false)} onSave={save} onCancel={() => { setPages([]); setMode(current ? { kind: "detail", id: current.id } : { kind: "list" }); }} isSaving={actions.save.isPending} />
       </div>
     );
   }
   if (mode.kind === "detail" && current !== null) {
     return (
-      <div className="paper min-h-0 flex-1 overflow-y-auto">
+      <div className="paper min-h-0 flex-1 scroll-y-free">
         <ItemDetail item={current} section={section} onBack={() => setMode({ kind: "list" })} onEdit={() => setMode({ kind: "form", id: current.id, startPage: current.files.length + 1 })} onTrash={() => void actions.trash.mutateAsync({ id: current.id, restore: false }).then(() => { setMode({ kind: "list" }); toast.success("Đã chuyển vào Thùng rác (30 ngày)."); })} />
       </div>
     );
   }
   if (mode.kind === "trash") {
     return (
-      <div className="paper min-h-0 flex-1 overflow-y-auto">
+      <div className="paper min-h-0 flex-1 scroll-y-free">
         <div className="mx-auto max-w-2xl px-4 pb-16 pt-3 md:px-8" data-vault-trash="">
           <button type="button" onClick={() => setMode({ kind: "list" })} className="press -ml-2 inline-flex min-h-11 items-center gap-1 px-2 text-[14px] text-muted-foreground"><ChevronLeft className="h-4 w-4" /> {SECTION_LABEL[section]}</button>
           <h2 className="mt-2 text-[22px] font-semibold">Thùng rác</h2>
@@ -320,7 +320,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
 
   return (
     <div
-      className={cn("paper relative min-h-0 flex-1 overflow-y-auto", dragging && "ring-2 ring-inset ring-primary")}
+      className={cn("paper relative min-h-0 flex-1 scroll-y-free", dragging && "ring-2 ring-inset ring-primary")}
       onDragOver={(e: DragEvent) => { e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
       onDrop={(e: DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length > 0) void addFiles(e.dataTransfer.files, true); }}

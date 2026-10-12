@@ -44,7 +44,7 @@ export function OpportunityBoardBar({
         </div>
       ) : (
         <div className="mt-3 flex items-center gap-2">
-          <div role="tablist" aria-label="Lọc theo giai đoạn" className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
+          <div data-h-scroll="" role="tablist" aria-label="Lọc theo giai đoạn" className="-mx-1 flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-1 [scrollbar-width:none]">
             {STAGE_CHIPS.map((item) => (
               <button
                 key={item.id}

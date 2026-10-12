@@ -658,7 +658,7 @@ test("61.9 · điện thoại, dạng Bảng: tiêu đề hàng riêng; trượt
   expect(rows[2].scrollLeft).toBeGreaterThan(100);
   await page.screenshot({ path: `${OUT}/61-9-bang-2-truot-ngang-390.png` });
 
-  const scroller = board.closest(".overflow-y-auto") as HTMLElement;
+  const scroller = board.closest(".overflow-y-auto, .scroll-y-free, .scroll-y") as HTMLElement;
   scroller.scrollTop = 420;
   await settle(300);
   const head = board.querySelector(".sticky.top-0") as HTMLElement;
@@ -829,7 +829,7 @@ for (const [width, height, label] of [[1280, 800, "1280x800"], [1280, 720, "1280
     await settle(500);
     const panel = [...document.querySelectorAll('[role="dialog"]')].find((node) => node.querySelector("[data-day]") !== null) as HTMLElement | undefined;
     expect(panel).toBeDefined();
-    const body = (panel as HTMLElement).querySelector(".overflow-y-auto") as HTMLElement;
+    const body = (panel as HTMLElement).querySelector(".overflow-y-auto, .scroll-y-free, .scroll-y") as HTMLElement;
     expect(body.getBoundingClientRect().height).toBeGreaterThan(200);
     expect((panel as HTMLElement).querySelectorAll("[data-day]").length).toBeGreaterThanOrEqual(28);
     const rect = (panel as HTMLElement).getBoundingClientRect();

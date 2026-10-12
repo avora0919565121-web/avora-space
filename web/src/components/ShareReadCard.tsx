@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye } from "lucide-react";
 import { toast } from "sonner";
 
+import { ChatLockSettings } from "@/components/chat-lock/ChatLockSettings";
 import { Switch } from "@/components/ui/switch";
 import { useAuth } from "@/lib/auth";
 import { fetchShareReadStatus, receiptKeys, setShareReadStatus } from "@/lib/receipts";
@@ -39,6 +40,8 @@ export function ShareReadCard() {
         </span>
         <Switch checked={isOn} disabled={share.isPending} onCheckedChange={(next) => change.mutate(next)} aria-label="Cho nhóm biết khi tôi đã xem tin" data-share-read-switch="" />
       </label>
+      {/* AVORA-109 · A2/A3: Khoá Kết nối lives in the same Riêng tư block. */}
+      <ChatLockSettings />
     </section>
   );
 }

@@ -27,6 +27,7 @@ import { useProfileSettings } from "@/lib/use-settings";
 import { useTaskReminders } from "@/lib/use-task-meta";
 import { useTasks } from "@/lib/use-tasks";
 import { useThinkRecords } from "@/lib/use-think-hub";
+import { useChatLock } from "@/lib/use-chat-lock";
 
 /** Plays a short file; a browser that blocks sound before the first tap is simply ignored. */
 function play(url: string): void {
@@ -63,7 +64,12 @@ export function InAppAlerts() {
   const soundMessages = settings?.soundMessages ?? true;
   const soundReminders = settings?.soundReminders ?? true;
 
-  const count = useMemo(() => unreadConversationCount(conversations ?? [], decide), [conversations, decide]);
+  const { isLocked: isChatLocked } = useChatLock();
+  // AVORA-109 · A1: while Kết nối is locked, the title and the app-icon badge carry no count either.
+  const count = useMemo(
+    () => (isChatLocked ? 0 : unreadConversationCount(conversations ?? [], decide)),
+    [conversations, decide, isChatLocked],
+  );
 
   useEffect(() => {
     document.title = tabTitle(count);

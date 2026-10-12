@@ -144,7 +144,7 @@ function ReportChartView({ chart, currency }: { chart: ReportChart; currency: st
 
 function ReportTable({ report, currency }: { report: ReportResult; currency: string }) {
   return (
-    <div className="overflow-x-auto">
+    <div data-h-scroll="" className="overflow-x-auto">
       <table className="w-full min-w-[560px] border-collapse text-[13.5px]">
         <thead>
           <tr className="border-b border-border bg-background/70">

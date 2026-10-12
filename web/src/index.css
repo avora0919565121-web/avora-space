@@ -102,6 +102,12 @@
     --personal-soft: 16 63% 92%;
     --personal-soft-foreground: 13 62% 36%;
     --ring: 13 70% 44%;
+    /* AVORA-110: the person's own tone, kept beside the rest tone (theme.ts writes both). */
+    --user-personal: 13 70% 44%;
+    --user-personal-foreground: 15 100% 97%;
+    --user-personal-soft: 16 63% 92%;
+    --user-personal-soft-foreground: 13 62% 36%;
+    --user-ring: 13 70% 44%;
     /* AVORA-89 · PHẦN 2: the room — wall row a touch cooler, desk row a touch warmer. */
     --room-wall: 36 28% 93%;
     --room-desk: 32 34% 90%;
@@ -164,6 +170,11 @@
     --personal-soft: 13 30% 20%;
     --personal-soft-foreground: 16 70% 78%;
     --ring: 13 70% 62%;
+    --user-personal: 13 70% 62%;
+    --user-personal-foreground: 30 10% 8%;
+    --user-personal-soft: 13 30% 20%;
+    --user-personal-soft-foreground: 16 70% 78%;
+    --user-ring: 13 70% 62%;
     --room-wall: 30 8% 13%;
     --room-desk: 30 10% 16%;
     --room-wood: 28 22% 34%;
@@ -339,6 +350,12 @@
    */
   .scroll-y { overflow-y: auto; overflow-x: hidden; overscroll-behavior-x: none; touch-action: pan-y; }
   /*
+   * KHỐI 2F (AVORA-105 · D): the same lock without `touch-action`, for a page / sheet body that holds
+   * a region scrolling sideways on purpose (`data-h-scroll`): `pan-y` on an ancestor would take that
+   * gesture away from it.
+   */
+  .scroll-y-free { overflow-y: auto; overflow-x: hidden; overscroll-behavior-x: none; }
+  /*
    * 101B · 4 + K5 Không khí — chat backdrops. Colour tokens only, so light / dark / every tone
    * stay right; pattern strength ≤ 4% so bubble text keeps its contrast. One system: a
    * conversation's shared backdrop (Không khí) wins over the person's own (Nền trò chuyện).
@@ -479,3 +496,33 @@
 @keyframes avora-pill-in { from { transform: scale(0.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 .avora-reaction-pill { animation: avora-pill-in 150ms ease-out 1 both; }
 @media (prefers-reduced-motion: reduce) { .avora-reaction-pill { animation: none; } }
+
+/*
+ * AVORA-110 — Ngày nghỉ. On a rest day `<html data-rest="true">` carries the shared rest tone in
+ * `--personal*`; an inward place (`[data-rest-scope="inner"]`, set on the page frame or on the
+ * Suy gẫm block) puts the person's own tone back. One rule here — no per-component CSS.
+ */
+[data-rest-scope="inner"] {
+  --personal: var(--user-personal);
+  --personal-foreground: var(--user-personal-foreground);
+  --personal-soft: var(--user-personal-soft);
+  --personal-soft-foreground: var(--user-personal-soft-foreground);
+  --ring: var(--user-ring);
+}
+/* Work places do not call out on a rest day: count badges turn into a quiet outline (still exact). */
+:root[data-rest="true"] [data-count-badge]:not([data-rest-scope="inner"] [data-count-badge]) {
+  background-color: hsl(var(--card));
+  color: hsl(var(--muted-foreground));
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
+}
+/* A real switch (midnight, Xem thử, the setting) fades; moving between places never does. */
+.rest-switching,
+.rest-switching * {
+  transition: background-color 350ms ease, color 350ms ease, border-color 350ms ease, fill 350ms ease, stroke 350ms ease !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .rest-switching,
+  .rest-switching * {
+    transition: none !important;
+  }
+}

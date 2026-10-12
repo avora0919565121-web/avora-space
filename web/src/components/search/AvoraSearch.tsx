@@ -38,6 +38,7 @@ import {
   type SearchResult,
 } from "@/lib/search";
 import { useConversations } from "@/lib/use-conversations";
+import { useChatLock } from "@/lib/use-chat-lock";
 import { cn } from "@/lib/utils";
 
 const KIND_ICONS: Readonly<Record<SearchKind, LucideIcon>> = {
@@ -156,7 +157,12 @@ export function AvoraSearchHost() {
     enabled: open && debounced.length >= MIN_QUERY_LENGTH && !debounced.startsWith("#"),
     staleTime: 15_000,
   });
-  const split = useMemo(() => splitResults(results.data ?? []), [results.data]);
+  // AVORA-109 · A1: while Kết nối is locked, its messages do not surface through search.
+  const { isLocked: isChatLocked } = useChatLock();
+  const split = useMemo(
+    () => splitResults((results.data ?? []).filter((result) => !isChatLocked || result.kind !== "message")),
+    [results.data, isChatLocked],
+  );
   const journalId = findJournal(conversations)?.conversationId ?? null;
 
   const tagSuggestions = useMemo(() => {
@@ -234,7 +240,7 @@ export function AvoraSearchHost() {
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border px-4 py-2" role="group" aria-label="Loại">
+        <div data-h-scroll="" className="no-scrollbar flex gap-1.5 overflow-x-auto border-b border-border px-4 py-2" role="group" aria-label="Loại">
           {SEARCH_TYPE_FILTERS.map((item) => (
             <button
               key={item.id}

@@ -137,6 +137,7 @@ export function AppSidebar() {
                     ) : null}
                     {badge !== undefined && badge.count > 0 ? (
                       <span
+                        data-count-badge=""
                         aria-label={badge.label}
                         className="tabular ml-auto inline-flex h-5 min-w-[20px] items-center justify-center rounded-full bg-primary px-1.5 text-[11px] font-semibold leading-none text-primary-foreground"
                       >

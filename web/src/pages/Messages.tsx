@@ -9,6 +9,7 @@ import {
   Check,
   CheckCheck,
   Clock3,
+  Timer,
   CalendarClock,
   ClipboardPaste,
   CircleAlert,
@@ -325,6 +326,12 @@ import { cn } from "@/lib/utils";
 import { transcriptText } from "@/lib/chat-transcript";
 import { draftPreview, readDraft, useDraftsVersion, writeDraft } from "@/lib/chat-drafts";
 import { CalendarPeekButton } from "@/components/tasks/CalendarPeekSheet";
+import { ChatLockButton } from "@/components/chat-lock/ChatLockButton";
+import { DisappearProposalLine, DisappearRows } from "@/components/chat/DisappearControls";
+import { useTidyTombstones } from "@/lib/use-tidy-tombstones";
+import { useRestDay, useRestScope } from "@/lib/use-rest-day";
+import type { RestInnerScope } from "@/lib/rest-day";
+import { DISAPPEAR_KINDS, disappearKeys, expiredLine, fetchDisappearState, isExpired, isTombstone, nextExpiryIn, visibleMessages } from "@/lib/disappear";
 
 /**
  * Realtime is the delivery path. This interval only engages while the socket is down
@@ -1355,7 +1362,38 @@ const Messages = () => {
     for (const view of DIARY_VIEWS) out[view.id] = hasNewSince(diaryLatest[view.id], readDiarySeen(view.id));
     return out;
   }, [diaryLatest, seenTick]);
-  const dayGroups = useMemo(() => groupMessagesByDay(timelineMessages), [timelineMessages]);
+  /** AVORA-109 · B: the timer, the open 1-1 proposal and my "hide tombstones" for this conversation. */
+  const disappearKind = activeKind === "direct" || activeKind === "group" ? activeKind : undefined;
+  const disappearQuery = useQuery({
+    queryKey: disappearKeys.state(conversationId ?? ""),
+    queryFn: () => fetchDisappearState(conversationId ?? "", userId ?? ""),
+    enabled: disappearKind !== undefined && conversationId !== undefined && (userId ?? "") !== "",
+    staleTime: 30_000,
+  });
+  const hideTombstones = disappearKind !== undefined && disappearQuery.data?.hideTombstones === true;
+  const tidyTombstones = useTidyTombstones(conversationId);
+  // B2: a message whose time has come turns into its tombstone on time, even before the sweep's update arrives.
+  const [expiryTick, setExpiryTick] = useState<number>(0);
+  useEffect(() => {
+    const wait = nextExpiryIn(timelineMessages);
+    if (wait === null) return;
+    const timer = window.setTimeout(() => setExpiryTick((tick) => tick + 1), Math.min(wait + 250, 2_147_000_000));
+    return () => window.clearTimeout(timer);
+  }, [timelineMessages, expiryTick]);
+  const lastDisappearLineId = useMemo(
+    () => [...timelineMessages].reverse().find((message) => message.systemKind != null && DISAPPEAR_KINDS.includes(message.systemKind))?.id ?? null,
+    [timelineMessages],
+  );
+  useEffect(() => {
+    if (lastDisappearLineId !== null && conversationId) void queryClient.invalidateQueries({ queryKey: disappearKeys.state(conversationId) });
+  }, [lastDisappearLineId, conversationId, queryClient]);
+  // B4: with tombstones hidden on my screen they leave no gap behind (recomputed when one expires).
+  const shownTimeline = useMemo(
+    () => visibleMessages(timelineMessages, hideTombstones),
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- expiryTick re-evaluates "now".
+    [timelineMessages, hideTombstones, expiryTick],
+  );
+  const dayGroups = useMemo(() => groupMessagesByDay(shownTimeline), [shownTimeline]);
   /** 101B · 4: the person's own chat backdrop (K5 Không khí overrides per conversation). */
   const personalBackdrop = useChatBackdrop();
   /** K5: the conversation's Không khí (colour, shared backdrop) and my effects level. */
@@ -1368,7 +1406,26 @@ const Messages = () => {
   // One system (101B · 4 + K5): the conversation's shared backdrop wins over mine.
   const threadBackdrop: string = atmosphereKind !== undefined && atmosphere.appearance?.backdrop ? atmosphere.appearance.backdrop : personalBackdrop;
   const groupIconUrl = useGroupIconUrl(activeKind === "group" ? (atmosphere.appearance?.iconPath ?? null) : null);
-  const threadToneStyle = atmosphereKind !== undefined ? atmosphereToneStyle(atmosphere.appearance?.color ?? null, isDarkCanvas) : undefined;
+  // AVORA-110: on a rest day a group's own colour gives way to the shared rest tone; a 1-1 keeps it.
+  const restDay = useRestDay();
+  const restMutesGroupTone = restDay.isRest && restDay.themeOn && atmosphereKind === "group";
+  const threadToneStyle = atmosphereKind !== undefined && !restMutesGroupTone ? atmosphereToneStyle(atmosphere.appearance?.color ?? null, isDarkCanvas) : undefined;
+  // AVORA-110 · 3: 1-1 chat, Nhật ký and Ghi chép are inward places; Nhóm / Dự án are work places.
+  const restPlace: RestInnerScope | null =
+    conversationId && !isPlaceholder
+      ? activeKind === "direct"
+        ? "direct-chat"
+        : activeKind === "personal"
+          ? diaryView === "notes"
+            ? "notes"
+            : "journal"
+          : null
+      : activeTab === "direct"
+        ? "direct-chat"
+        : activeTab === "journal"
+          ? "journal"
+          : null;
+  useRestScope(restPlace);
   /**
    * K5 · 84 §4.2A: effects play once, on arrival, by MY level in this conversation. Only from friends:
    * in a group, someone not connected to me shows the small icon only. Off → the icon; a tap plays it.
@@ -2734,6 +2791,8 @@ const Messages = () => {
                   here={{ tab: activeTab === "journal" ? "nhat-ky" : "ket-noi", conversationId: conversationId ?? null, label: activeTab === "journal" ? "Nhật ký" : "Kết nối" }}
                 />
               )}
+              {/* AVORA-109 · A1: Khoá Kết nối — tap locks now (first time: set it up). */}
+              <ChatLockButton />
               {/* Liên hệ left the main rail: the people you talk to belong beside the talking. */}
               <Link
                 to={withReturn("/lien-he", hereFrom(location, "Kết nối"))}
@@ -3690,6 +3749,18 @@ const Messages = () => {
                                 </li>
                               );
                             }
+                            if (message.systemKind === "disappear_proposed" && conversationId !== undefined) {
+                              return (
+                                <li key={message.id} id={`message-${message.id}`}>
+                                  <DisappearProposalLine
+                                    message={message}
+                                    proposal={disappearQuery.data?.proposal ?? null}
+                                    viewerId={userId ?? ""}
+                                    conversationId={conversationId}
+                                  />
+                                </li>
+                              );
+                            }
                             if (message.systemKind != null) {
                               return (
                                 <li
@@ -3721,7 +3792,9 @@ const Messages = () => {
                             // rather than a suggestion. Only a message still in flight is refused.
                             // Chờ kết bạn frame (AVORA-38): text only — no task entry at all.
                             const canRaiseTask = message.pending !== true && activeVerification === null && !isNoLongerConnected;
-                            const recalled = isRecalled(message);
+                            // AVORA-109 · B3: an expired message is a tombstone, drawn by the same branch as a recall.
+                            const expired = isExpired(message);
+                            const recalled = isRecalled(message) || expired;
                             const isBeingEdited = editingMessageId === message.id;
                             // K4 · 3: the clock and ✓ ride inside the last bubble of a run.
                             const bigEmoji = message.stickerId == null && message.forwardBundle == null && attachmentsOf(message.id).length === 0 ? bigEmojiCount(message.content) : 0;
@@ -3902,7 +3975,7 @@ const Messages = () => {
                                       <span
                                         className={cn(
                                           "line-clamp-2 text-[12.5px]",
-                                          isRecalled(quotedParent)
+                                          isTombstone(quotedParent)
                                             ? "italic text-muted-foreground"
                                             : "text-foreground/80",
                                         )}
@@ -3954,12 +4027,24 @@ const Messages = () => {
                                     /* A withdrawn message keeps its place in the thread but not
                                        its words — the gap is part of the honest record. */
                                     <div
+                                      data-tombstone={expired ? "expired" : "recalled"}
                                       className={cn(
-                                        "max-w-[80%] rounded-bubble border border-dashed border-border px-4 py-2.5 text-[14px] italic leading-relaxed text-muted-foreground",
+                                        "flex max-w-[80%] items-center gap-2 rounded-bubble border border-dashed border-border py-1.5 pl-4 pr-1.5 text-[14px] italic leading-relaxed text-muted-foreground",
                                         outgoing ? "rounded-br-[4px]" : "rounded-bl-[4px]",
                                       )}
                                     >
-                                      {messageBodyText(message)}
+                                      <span className="min-w-0 py-1">{expired ? expiredLine(message) : messageBodyText(message)}</span>
+                                      {/* B4: `Dọn` hides every tombstone here, on my screen only (Hoàn tác 5 s). */}
+                                      {disappearKind !== undefined ? (
+                                        <button
+                                          type="button"
+                                          onClick={tidyTombstones}
+                                          data-tombstone-tidy=""
+                                          className="press min-h-9 shrink-0 rounded-full px-2.5 text-[12.5px] not-italic text-muted-foreground hover:bg-accent/50 hover:text-foreground"
+                                        >
+                                          Dọn
+                                        </button>
+                                      ) : null}
                                     </div>
                                   ) : (
                                     <MessageActionsAffordance
@@ -4191,6 +4276,8 @@ const Messages = () => {
                                                 ? "Đang chờ mạng"
                                                 : "Chờ gửi…"
                                               : formatClock(message.createdAt)}
+                                            {/* B6: a tiny clock beside the time — no countdown on each message. */}
+                                            {message.expiresAt != null ? <Timer className="h-3 w-3" strokeWidth={1.8} aria-label="Tin tự biến mất" data-disappear-mark="" /> : null}
                                             {outgoing && scheduledSentIds.has(message.id) ? (
                                               <Clock3 className="h-3 w-3" strokeWidth={1.8} aria-label="Đã gửi theo hẹn giờ" />
                                             ) : null}
@@ -4324,6 +4411,9 @@ const Messages = () => {
                                         />
                                       );
                                     })()}
+                                    {message.expiresAt != null && showsMeta && !metaInside ? (
+                                      <Timer className="h-3 w-3" strokeWidth={1.8} aria-label="Tin tự biến mất" data-disappear-mark="" />
+                                    ) : null}
                                     {outgoing && scheduledSentIds.has(message.id) && showsMeta && !metaInside ? (
                                       <span title="Đã gửi theo hẹn giờ" aria-label="Đã gửi theo hẹn giờ" className="flex items-center">
                                         <Clock3 className="h-3 w-3" strokeWidth={1.8} aria-hidden="true" />
@@ -4464,7 +4554,7 @@ activeKind === "personal" ? (
                       <p
                         className={cn(
                           "line-clamp-2 text-[12.5px]",
-                          isRecalled(replyTarget) ? "italic text-muted-foreground" : "text-foreground/80",
+                          isTombstone(replyTarget) ? "italic text-muted-foreground" : "text-foreground/80",
                         )}
                       >
                         {quotePreview(replyTarget)}
@@ -4830,6 +4920,7 @@ activeKind === "personal" ? (
           members={groupMembersQuery.data ?? []}
           contextMessage={taskContextMessage}
           contextSenderName={senderNameOf(taskContextMessage)}
+          disappearing={disappearQuery.data?.seconds != null}
           projectId={projectHere?.id ?? null}
         />
       ) : null}
@@ -4998,6 +5089,15 @@ activeKind === "personal" ? (
                     <span className="min-w-0 flex-1 text-[14px] text-foreground">Không khí</span>
                     <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
                   </button>
+                  {/* AVORA-109 · B1/B4 — order in ⋯: Không khí · Tin tự biến mất · Ẩn dấu vết. */}
+                  {conversationId !== undefined && disappearKind !== undefined ? (
+                    <DisappearRows
+                      conversationId={conversationId}
+                      kind={disappearKind}
+                      canChange={disappearKind === "direct" || myGroupRole === "owner" || myGroupRole === "admin"}
+                      state={disappearQuery.data}
+                    />
+                  ) : null}
                   {/* AVORA-108 · 1: per conversation — `Theo cài đặt chung` · `Luôn bật` · `Luôn tắt`. */}
                   {conversationId !== undefined && (activeKind === "direct" || receiptsApply) ? (
                     <ConversationShareReadRow conversationId={conversationId} isGroup={activeKind === "group"} />

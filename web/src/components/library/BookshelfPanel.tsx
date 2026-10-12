@@ -318,7 +318,7 @@ export function BookshelfPanel({ addRequest }: { addRequest: number }) {
           return (
             <section key={tier.key} aria-label={tier.label} className="mt-6">
               <h3 className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{tier.label} · {list.length}</h3>
-              <ul className="flex gap-3 overflow-x-auto border-b-[3px] border-foreground/10 pb-0 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] md:grid md:[mask-image:none] md:grid-cols-[repeat(auto-fill,minmax(118px,1fr))] md:overflow-visible md:px-0">
+              <ul data-h-scroll="" className="flex gap-3 overflow-x-auto border-b-[3px] border-foreground/10 pb-0 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] md:grid md:[mask-image:none] md:grid-cols-[repeat(auto-fill,minmax(118px,1fr))] md:overflow-visible md:px-0">
                 {list.map((book) => {
                   const progress = readingProgress(field(book, keys.position));
                   const lesson = tier.key === "da_doc" ? field(book, keys.lesson) : "";
@@ -648,7 +648,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
         <input autoFocus={isSearchOpen} value={text} onChange={(event) => setText(event.target.value)} placeholder="Tìm tên sách, tác giả" aria-label="Tìm trong Thư viện mở" className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]" />
       </label>
       ) : null}
-      <div className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:flex-wrap md:[mask-image:none]">
+      <div data-h-scroll="" className="mt-2 flex gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:flex-wrap md:[mask-image:none]">
         {BOOK_CATEGORIES.map((item) => (
           <button
             key={item.id}

@@ -122,7 +122,7 @@ const SettingsStorage = () => {
 
   const uploadBytes = useMyUploadUsage();
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto" data-settings-storage="">
+    <div className="paper min-h-0 flex-1 scroll-y" data-settings-storage="">
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in space-y-s-4 px-4 pb-8 pt-4 md:px-10 md:pb-12">
         <section aria-labelledby="usage-heading">
           <p id="usage-heading" className="text-[13px] text-muted-foreground">Bạn đang dùng</p>

@@ -180,6 +180,7 @@ import { taskLink } from "@/lib/task-scope";
 import type { TaskItem } from "@/lib/tasks";
 import { useTasks } from "@/lib/use-tasks";
 import { spotlight } from "@/lib/spotlight";
+import { useRestScope } from "@/lib/use-rest-day";
 import { cn } from "@/lib/utils";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 import { isAreaRoot } from "@/lib/go-back";
@@ -248,6 +249,8 @@ const ThinkHub = () => {
   };
   const roomFromUrl = roomFromParams(searchParams);
   const room: RoomShelf = roomFromUrl?.shelf ?? roomPrefs.savedRoom ?? ROOM_HOME;
+  // AVORA-110 · gộp 5: Kệ 5 (Sách · Nhật ký) is an inward place; the other shelves and an open Bảng are work.
+  useRestScope(room === 5 && activeId === null ? "reading" : null);
   const [roomDir, setRoomDir] = useState<"left" | "right" | "up" | "down" | null>(null);
   const [isRoomMapOpen, setIsRoomMapOpen] = useState<boolean>(false);
   const [isLibraryOpen, setIsLibraryOpen] = useState<boolean>(false);
@@ -1432,7 +1435,7 @@ const ThinkHub = () => {
 
   if (isError) {
     return (
-      <div className="paper min-h-0 flex-1 overflow-y-auto">
+      <div className="paper min-h-0 flex-1 scroll-y-free">
         <div className="mx-auto max-w-2xl px-6 py-16 text-center md:px-10">
           <p role="alert" className="text-[15px] text-muted-foreground">
             {error?.message ?? "Không tải được Kế hoạch."}
@@ -1775,7 +1778,7 @@ const ThinkHub = () => {
         onScroll={(event) => {
           if (inRoom) shelfScroll.current.set(room, event.currentTarget.scrollTop);
         }}
-        className={cn("min-h-0 flex-1 overflow-y-auto", inRoom && (room <= 3 ? "bg-[hsl(var(--room-wall)/0.45)]" : "bg-[hsl(var(--room-desk)/0.45)]"))}
+        className={cn("min-h-0 flex-1 scroll-y-free", inRoom && (room <= 3 ? "bg-[hsl(var(--room-wall)/0.45)]" : "bg-[hsl(var(--room-desk)/0.45)]"))}
         onTouchStart={(event) => {
           const touch = event.touches[0];
           if (isFullscreen) swipeRef.current = { y: touch?.clientY ?? 0, atTop: (scrollRef.current?.scrollTop ?? 0) <= 0 };
@@ -2204,7 +2207,7 @@ const ThinkHub = () => {
 
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
               {/* AVORA-65 · C: one row. A phone held upright adds `Thẻ` in front; the computer keeps three. */}
-              <div role="group" aria-label="Kiểu xem" className="inline-flex max-w-full overflow-x-auto rounded-md border border-border p-0.5">
+              <div data-h-scroll="" role="group" aria-label="Kiểu xem" className="inline-flex max-w-full overflow-x-auto rounded-md border border-border p-0.5">
                 {(
                   [
                     ...(isPhoneUpright ? ([["cards", "Thẻ", LayoutList]] as const) : []),

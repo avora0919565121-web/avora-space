@@ -184,7 +184,7 @@ function CalendarPickerBody({
         </button>
       </div>
       {sharedFilter !== undefined ? (
-        <div role="radiogroup" aria-label="Lọc lịch" className="flex gap-1.5 overflow-x-auto px-3 pb-1 pt-2">
+        <div data-h-scroll="" role="radiogroup" aria-label="Lọc lịch" className="flex gap-1.5 overflow-x-auto px-3 pb-1 pt-2">
           {[
             { on: true, label: sharedFilter.label },
             { on: false, label: "Cả lịch của tôi" },
@@ -205,7 +205,7 @@ function CalendarPickerBody({
           ))}
         </div>
       ) : null}
-      <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-3">
+      <div className="min-h-0 flex-1 scroll-y-free px-3 pb-3">
         {chooser !== "none" ? (
           <div className="pt-2">
             <div className="mb-2 flex items-center gap-1">

@@ -7,6 +7,7 @@ import { BlockedPeopleCard } from "@/components/BlockedPeopleCard";
 import { LookPrefsCard } from "@/components/LookPrefsCard";
 import { ChatBackdropCard } from "@/components/ChatBackdropCard";
 import { ShareReadCard } from "@/components/ShareReadCard";
+import { previewRestTone } from "@/lib/use-rest-day";
 import { PlanBoardsCard } from "@/components/PlanBoardsCard";
 import { currenciesByRegion, REGION_LABELS, formatRate } from "@/lib/currency";
 import {
@@ -98,7 +99,7 @@ const SettingsPreferences = () => {
   };
 
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
+    <div className="paper min-h-0 flex-1 scroll-y">
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in px-6 pb-12 pt-4 md:px-10">
         <div className="rounded-card border border-border bg-card p-s-4">
           <h2 className="text-[17px] font-semibold text-foreground">Tiền tệ, múi giờ và Góc suy ngẫm</h2>
@@ -249,6 +250,39 @@ const SettingsPreferences = () => {
                 ))}
               </select>
             </label>
+            {/* AVORA-110 · 2: Saturday as a second rest day, and the rest colours (with a 3-second preview). */}
+            {(settings?.restWeekday ?? 0) === 6 ? null : (
+              <label className="flex min-h-11 items-center justify-between gap-3">
+                Thêm Thứ Bảy làm ngày nghỉ
+                <Switch
+                  checked={settings?.restSaturday ?? false}
+                  disabled={settings === undefined}
+                  onCheckedChange={(on) => saveReview({ restSaturday: on })}
+                  aria-label="Thêm Thứ Bảy làm ngày nghỉ"
+                  data-rest-saturday=""
+                />
+              </label>
+            )}
+            <div className="flex min-h-11 items-center justify-between gap-3">
+              <span>Đổi màu vào ngày nghỉ</span>
+              <span className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={previewRestTone}
+                  className="press h-11 rounded-control border border-border px-3 text-[14px] text-foreground hover:bg-accent/40"
+                  data-rest-preview=""
+                >
+                  Xem thử
+                </button>
+                <Switch
+                  checked={settings?.restThemeEnabled ?? true}
+                  disabled={settings === undefined}
+                  onCheckedChange={(on) => saveReview({ restThemeEnabled: on })}
+                  aria-label="Đổi màu vào ngày nghỉ"
+                  data-rest-theme=""
+                />
+              </span>
+            </div>
             <label className="flex min-h-11 items-center justify-between gap-3">
               <span>
                 Nhìn lại tuần

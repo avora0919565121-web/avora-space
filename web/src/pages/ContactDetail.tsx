@@ -355,7 +355,7 @@ const ContactDetail = () => {
 function Shell({ children, onBack, backLabel }: { children: ReactNode; onBack: () => void; backLabel: string }) {
   const backPress = useBackPress(onBack);
   return (
-    <div className="paper min-h-0 flex-1 overflow-y-auto">
+    <div className="paper min-h-0 flex-1 scroll-y-free">
       <div className="animate-rise-in mx-auto max-w-3xl px-6 py-10 md:px-10">
         <button
           type="button"

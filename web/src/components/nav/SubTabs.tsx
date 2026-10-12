@@ -107,7 +107,8 @@ export function SubTabs({
         role="tablist"
         aria-label={ariaLabel}
         onKeyDown={onKeyDown}
-        data-h-scroll={scrolls ? "" : undefined}
+        // KHỐI 2F: always an intentional sideways scroller (it may overflow by a pixel before `scrolls` is measured).
+        data-h-scroll=""
         className={cn(
           "no-scrollbar relative flex min-w-0 flex-1 items-stretch gap-5 overflow-x-auto pr-tab [scroll-padding-inline:var(--tab-inset)]",
           leading !== undefined ? "pl-4" : "pl-tab",
@@ -142,6 +143,7 @@ export function SubTabs({
               ) : null}
               {item.badge !== undefined && item.badge > 0 ? (
                 <span
+                  data-count-badge=""
                   aria-label={`${item.badge} chưa đọc`}
                   className="tabular min-w-[18px] rounded-full bg-primary px-1.5 py-px text-center text-[10.5px] font-semibold leading-[15px] text-primary-foreground"
                 >

@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBoundary";
 import { KeepsakeGreeting } from "@/components/space/KeepsakeGreeting";
 import { ThoughtNote } from "@/components/space/ThoughtNote";
+import { RestDayCard } from "@/components/space/RestDayCard";
 import { NavRulesIntro } from "@/components/nav/NavRules";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
 import { HabitSpaceLine } from "@/components/habits/HabitSpaceLine";
@@ -48,6 +49,7 @@ import { useTaskReminders } from "@/lib/use-task-meta";
 import { useTasks } from "@/lib/use-tasks";
 import { TYPE } from "@/lib/type-scale";
 import { AvoraSearchButton } from "@/components/search/AvoraSearch";
+import { useChatLock } from "@/lib/use-chat-lock";
 import { cn } from "@/lib/utils";
 
 /** Morning, afternoon or evening — the same greeting a person would actually use. */
@@ -156,7 +158,9 @@ export default function Dashboard() {
 
   const thought = useMemo(() => dailyThoughtView(thoughtCategory, opened), [thoughtCategory, opened]);
   const thoughtKey = useMemo(() => dailyThoughtKey(thoughtCategory, opened), [thoughtCategory, opened]);
-  const unreadThreads = useMemo(() => conversationsWithUnread(conversations ?? []), [conversations]);
+  // AVORA-109 · A1: a locked Kết nối shows no count here either.
+  const { isLocked: isChatLocked } = useChatLock();
+  const unreadThreads = useMemo(() => (isChatLocked ? 0 : conversationsWithUnread(conversations ?? [])), [conversations, isChatLocked]);
   /** Exactly one thread waiting: open it directly instead of the inbox (AVORA-39 / A5). */
   const singleUnreadId: string | null = useMemo(() => {
     const waiting = (conversations ?? []).filter((item) => item.unreadCount > 0);
@@ -210,7 +214,8 @@ export default function Dashboard() {
             </div>
             </KeepsakeGreeting>
             {thought === null ? null : (
-              <section aria-label={SPACE_BLOCK_COPY.greeting.title} className="mt-4 border-l-2 border-primary/30 pl-4">
+              // AVORA-110: Suy gẫm hằng ngày is an inward place — it keeps the person's own colours on a rest day.
+              <section id="space-thought" data-rest-scope="inner" aria-label={SPACE_BLOCK_COPY.greeting.title} className="mt-4 border-l-2 border-primary/30 pl-4">
                 <blockquote className="text-[20px] leading-[1.65] text-foreground">{thought.text}</blockquote>
                 {thought.speaker === null ? null : (
                   <p className="mt-1.5 text-[13px] text-muted-foreground">— {thought.speaker}</p>
@@ -219,6 +224,8 @@ export default function Dashboard() {
                 <ThoughtNote thought={thought} thoughtKey={thoughtKey} />
               </section>
             )}
+            {/* AVORA-110 · 5: one quiet card on a rest day — three doors inward, `Để sau` until tomorrow. */}
+            <RestDayCard />
           </header>
         );
 
@@ -457,6 +464,8 @@ export default function Dashboard() {
                 </span>
                 <ChevronRight className="h-[18px] w-[18px] shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
               </Link>
+            ) : isChatLocked ? (
+              <p className="text-[14px] text-muted-foreground" data-space-chat-locked="">Kết nối đang khoá.</p>
             ) : (
               <p className="text-[14px] text-muted-foreground">{unreadSummaryText(0)}</p>
             )}
@@ -495,7 +504,7 @@ export default function Dashboard() {
 
   return (
     <div
-      className="paper min-h-0 flex-1 overflow-y-auto"
+      className="paper min-h-0 flex-1 scroll-y-free"
       data-ambient={tone.part}
       style={{ backgroundImage: `${tone.wash}, radial-gradient(hsl(38 28% 86% / 0.55) 0.5px, transparent 0.5px)`, backgroundSize: "100% 100%, 22px 22px" }}
     >

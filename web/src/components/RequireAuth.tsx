@@ -31,6 +31,8 @@ import { useAuth } from "@/lib/auth";
 import { useNewDayLanding } from "@/lib/use-new-day-landing";
 import { useResumePlace } from "@/lib/use-resume-place";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
+import { ChatLockProvider } from "@/lib/use-chat-lock";
+import { RestDaySync } from "@/lib/use-rest-day";
 import { useTrackHistory, useTrackScroll } from "@/lib/nav-history";
 import { useTabMemory } from "@/lib/tab-memory";
 import { useFocusHeaderValue } from "@/lib/focus-header";
@@ -83,6 +85,8 @@ export function RequireAuth() {
     <PinGate>
     {/* AVORA-51: the Két sắt lock is known to every screen (badge, quick transaction), not only Két sắt. */}
     <VaultLockProvider>
+    {/* AVORA-109 · A: Khoá Kết nối — the tab badge, title and Avora Space hide counts while locked. */}
+    <ChatLockProvider>
     {/* One fixed frame, like a native app: bars stay put and only the page between them scrolls. */}
     {/* AVORA-59 · E: iOS slides the keyboard over a full-height layout; the frame stops above it. */}
     <div className="flex h-[100dvh] flex-col overflow-hidden bg-card pb-[var(--keyboard-inset,0px)] md:flex-row short:flex-row">
@@ -92,7 +96,8 @@ export function RequireAuth() {
       {/* AVORA-57 · I: a phone on its side gets a narrow icon strip instead of the full column. */}
       {inReader ? null : <LandscapeRail />}
       {/* min-w-0: a wide table scrolls inside its own frame instead of pushing the page wider. */}
-      <main className="flex min-h-0 min-w-0 flex-1 flex-col short:pr-[var(--inset-r)]">
+      {/* AVORA-110: the page frame — inward places mark it `data-rest-scope="inner"` (useRestScope). */}
+      <main data-app-main="" className="flex min-h-0 min-w-0 flex-1 flex-col short:pr-[var(--inset-r)]">
         {/* AVORA-54 · A: on a borrowed machine the reminder rides on top until closed. */}
         <GuestMachineBanner />
         <RecordingBar />
@@ -110,6 +115,7 @@ export function RequireAuth() {
           needs that corner for 🔍 and ⋯, so there it steps aside (AVORA-49 · 2.6). */}
       {inReader ? null : inThread ? <div className="hidden md:contents"><QuickActionBubble /></div> : <QuickActionBubble />}
       <InAppAlerts />
+      <RestDaySync />
       {/* AVORA-107 · PHẦN 2: the habit clock (full screen) or its waiting chip, on every tab. */}
       {inReader ? null : <HabitTimerHost />}
       <AvoraSearchHost />
@@ -124,6 +130,7 @@ export function RequireAuth() {
       <DeviceRankPrompt />
       <NewAddressNotice />
     </div>
+    </ChatLockProvider>
     </VaultLockProvider>
     </PinGate>
     </InviteGate>

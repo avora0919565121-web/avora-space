@@ -4,6 +4,7 @@ import { useAuth } from "@/lib/auth";
 import { obligationAttention } from "@/lib/finance";
 import { countTasksNeedingAttention, todayIso } from "@/lib/tasks";
 import { useTotalUnread } from "@/lib/use-conversations";
+import { useChatLock } from "@/lib/use-chat-lock";
 import { useTransactions } from "@/lib/use-finance";
 import { useTasks } from "@/lib/use-tasks";
 
@@ -19,7 +20,10 @@ export type NavBadge = { count: number; label: string };
  */
 export function useNavBadges(): Readonly<Record<string, NavBadge>> {
   const { user } = useAuth();
-  const unreadTotal = useTotalUnread();
+  const unreadAll = useTotalUnread();
+  // AVORA-109 · A1: while Kết nối is locked its badge says nothing.
+  const { isLocked: isChatLocked } = useChatLock();
+  const unreadTotal = isChatLocked ? 0 : unreadAll;
   const { data: tasks } = useTasks();
   const { data: transactions } = useTransactions();
 

@@ -9,6 +9,8 @@ import { KeyboardSync } from "@/components/KeyboardSync";
 import { NotchSync } from "@/components/NotchSync";
 import { MilestoneBurstLayer } from "@/components/MilestoneBurstLayer";
 import { RequireAuth } from "@/components/RequireAuth";
+import { ChatLockGate } from "@/components/chat-lock/ChatLockGate";
+import { SpikeGate } from "./spikes/e2ee/SpikeGate";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/lib/auth";
@@ -109,11 +111,13 @@ const App = () => (
               <Route path="/chinh-sach" element={<PublicPolicy />} />
               {/* AVORA-100 · G.2: feedback without an account. */}
               <Route path="/gop-y" element={<PublicFeedback />} />
+              {/* AVORA-E0: hidden test page — off unless VITE_E2EE_SPIKE=1 or signed in + ?spike=e2ee; lazy chunk. */}
+              <Route path="/spike/e2ee" element={<SpikeGate fallback={<NotFound />} />} />
               <Route element={<RequireAuth />}>
                 <Route path="/tong-quan" element={<Dashboard />} />
                 <Route path="/thu-argon" element={<ArgonBench />} />
-                <Route path="/tin-nhan" element={<Messages />} />
-                <Route path="/tin-nhan/:conversationId" element={<Messages />} />
+                <Route path="/tin-nhan" element={<ChatLockGate><Messages /></ChatLockGate>} />
+                <Route path="/tin-nhan/:conversationId" element={<ChatLockGate><Messages /></ChatLockGate>} />
                 <Route path="/loi-moi/:token" element={<JoinGroup />} />
                 <Route path="/ket-noi/:pin" element={<ConnectByPin />} />
                 <Route path="/nhiem-vu" element={<Tasks />} />
