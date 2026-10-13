@@ -1,0 +1,10 @@
+{
+  "measuredAt": "2026-10-13T09:59:06.756Z",
+  "threshold": "p95 ≤ 2000 ms, 100% thấy; đồng bộ hai phía 100%",
+  "assigned": 30,
+  "seenByAssignee": 30,
+  "p50Ms": 129,
+  "p95Ms": 158,
+  "statusAndDeadlineSyncedBothSides": true,
+  "note": "Đường đi: thay đổi bảng tasks → postgres_changes (RLS) → realtime.tsx handleTaskChange → danh sách việc. Bài đo chỉ có ý nghĩa khi danh sách việc đã nằm trong bộ nhớ đệm (màn Việc đã mở)."
+}

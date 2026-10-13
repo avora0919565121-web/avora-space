@@ -275,6 +275,38 @@ function backButton(): HTMLElement {
   return found;
 }
 
+/**
+ * 112-A · 6 (root cause of the N.7 flake at 1440): `userEvent.click(element)` hands Playwright a
+ * locator built from the element's accessible name. Right after a route change the `‹` can paint
+ * once with the previous label ("Quay lại Nhiệm vụ…") and then settle ("Quay lại Avora Space");
+ * a locator taken in that frame waits for a label that no longer exists until the test times out
+ * (seen at 15 s, then again at 60 s after the timeout was only raised). Wait for the label to stay
+ * the same for a few frames, then click the button that is really there.
+ */
+async function clickBack(): Promise<void> {
+  const labelNow = (): string => {
+    try {
+      const button = backButton();
+      return button.getAttribute("aria-label") ?? button.textContent ?? "";
+    } catch {
+      return "";
+    }
+  };
+  let last = labelNow();
+  let stableSince = performance.now();
+  const deadline = performance.now() + 10_000;
+  while (last === "" || performance.now() - stableSince < 150) {
+    if (performance.now() > deadline) throw new Error(`‹ label never settled (last: ${last})`);
+    await new Promise((resolve) => setTimeout(resolve, 25));
+    const label = labelNow();
+    if (label !== last) {
+      last = label;
+      stableSince = performance.now();
+    }
+  }
+  await userEvent.click(backButton());
+}
+
 function visibleLogo(): HTMLElement {
   const found = [...document.querySelectorAll<HTMLElement>("[data-logo]")].find((element) => element.getBoundingClientRect().width > 0);
   if (found === undefined) throw new Error("no visible logo");
@@ -346,22 +378,22 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await settle(1000);
     expect(params().get("gc")).toBe("n4");
 
-    await userEvent.click(backButton());
+    await clickBack();
     await expect.poll(() => params().get("gc")).toBeNull();
     if (isPhone) {
       await staysAt("/tin-nhan/j1?xem=ghi-chep&tm=f2");
-      await userEvent.click(backButton());
+      await clickBack();
       await staysAt("/tin-nhan/j1?xem=ghi-chep");
     } else {
       await staysAt("/tin-nhan/j1?xem=ghi-chep");
     }
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt("/tin-nhan?tab=1-1");
   });
 
   it("N.2 · mở thẳng Ghi chép của Nhật ký → `‹` → Kết nối › 1-1, đứng yên", async () => {
     await start("/tin-nhan/j1?xem=ghi-chep");
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt("/tin-nhan?tab=1-1");
   });
 
@@ -370,7 +402,7 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await userEvent.click(page.getByRole("link", { name: "Mở ghi chép" }));
     await expect.poll(pathOf).toBe("/tin-nhan/j1");
     expect(backButton().getAttribute("aria-label")).toMatch(/^Quay lại Avora Space/);
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt("/tong-quan");
   });
 
@@ -381,7 +413,7 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await settle();
     (document.querySelector("main [data-page] button") as HTMLButtonElement).click();
     await expect.poll(pathOf).toBe("/tin-nhan/d1");
-    await userEvent.click(backButton());
+    await clickBack();
     await expect.poll(where).toBe("/nhiem-vu");
     await expect.poll(() => Math.round(scroller().scrollTop)).toBe(600);
   });
@@ -392,13 +424,13 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     ["/lien-he/c1", "/tin-nhan?tab=1-1"],
   ])("N.6 · mở thẳng %s → `‹` → %s, không bị mở lại", async (from, to) => {
     await start(from);
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt(to);
   });
 
-  // Four route changes plus a restored scroll: under a loaded full-suite run at 1440 this crept past
-  // the 15 s default. Same budget as N.1/N.16; the last two polls get a longer window too.
-  it("N.7 · Nhiệm vụ → A → vào một thẻ → `‹` → A → về Nhiệm vụ, đúng chỗ cuộn", { timeout: 60_000 }, async () => {
+  // 112-A · 6: this used to time out at 1440 in full runs (15 s, then 60 s after the budget was raised):
+  // not slowness — a stale `‹` label (see clickBack). Back on the default budget.
+  it("N.7 · Nhiệm vụ → A → vào một thẻ → `‹` → A → về Nhiệm vụ, đúng chỗ cuộn", async () => {
     await start("/nhiem-vu");
     scroller().scrollTop = 450;
     scroller().dispatchEvent(new Event("scroll"));
@@ -407,11 +439,11 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await expect.poll(where).toBe("/tong-quan");
     await userEvent.click(page.getByRole("link", { name: "Mở liên hệ" }));
     await expect.poll(where).toBe("/lien-he/c1");
-    await userEvent.click(backButton());
+    await clickBack();
     await expect.poll(where).toBe("/tong-quan");
     await userEvent.click(visibleLogo());
-    await expect.poll(where, { timeout: 10_000 }).toBe("/nhiem-vu");
-    await expect.poll(() => Math.round(scroller().scrollTop), { timeout: 10_000 }).toBe(450);
+    await expect.poll(where).toBe("/nhiem-vu");
+    await expect.poll(() => Math.round(scroller().scrollTop)).toBe(450);
   });
 
   it("N.8 · giữ logo A 450 ms → Toàn bộ AVORA; nhả tay không về Avora Space", async () => {
@@ -447,9 +479,9 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await expect.poll(where).toBe("/ke-hoach?ke=4&bang=b1");
     await userEvent.click(page.getByRole("button", { name: "Mở hạng mục" }));
     await expect.poll(where).toBe("/ke-hoach?ke=4&bang=b1&hm=h1");
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt("/ke-hoach?ke=4&bang=b1");
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt("/ke-hoach?ke=4");
   });
 
@@ -464,7 +496,7 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
   it("N.13 · Kết nối nhớ Nhật ký › Ghi chép: Avora Space → Kết nối → chạm `‹` → Avora Space, nhãn `‹ Avora Space`", async () => {
     await intoRememberedJournal();
     expect(backButton().getAttribute("data-back-label")).toBe("Avora Space");
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt("/tong-quan");
   });
 
@@ -475,7 +507,7 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await staysAt("/tin-nhan?tab=1-1");
     await userEvent.click(page.getByRole("button", { name: "mở d1" }));
     await expect.poll(pathOf).toBe("/tin-nhan/d1");
-    await userEvent.click(backButton());
+    await clickBack();
     await staysAt("/tin-nhan?tab=1-1");
   });
 

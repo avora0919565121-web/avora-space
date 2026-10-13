@@ -1,0 +1,49 @@
+{
+  "measuredAt": "2026-10-13T10:02:46.614Z",
+  "threshold": "100% trường hợp lỗi có câu rõ ràng (nguyên nhân + bước kế tiếp)",
+  "rows": [
+    {
+      "case": "sai mật khẩu",
+      "message": "Invalid login credentials",
+      "shown": "Sai email hoặc mật khẩu. Nếu trình duyệt tự điền, hãy gõ lại — mật khẩu đã lưu có thể là mật khẩu cũ.",
+      "isVietnamese": true,
+      "notRawEnglish": true
+    },
+    {
+      "case": "mã OTP hết hạn",
+      "message": "Token has expired or is invalid",
+      "shown": "Liên kết đã hết hạn hoặc đã được dùng. Hãy yêu cầu gửi lại email.",
+      "isVietnamese": true,
+      "notRawEnglish": true
+    },
+    {
+      "case": "mất mạng",
+      "message": "Failed to fetch",
+      "shown": "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.",
+      "isVietnamese": true,
+      "notRawEnglish": true
+    },
+    {
+      "case": "email chưa xác nhận",
+      "message": "Email not confirmed",
+      "shown": "Email chưa được xác nhận. Kiểm tra hộp thư của bạn.",
+      "isVietnamese": true,
+      "notRawEnglish": true
+    },
+    {
+      "case": "quá nhiều lần",
+      "message": "For security purposes, you can only request this after 47 seconds.",
+      "shown": "Vui lòng đợi một lát rồi thử lại.",
+      "isVietnamese": true,
+      "notRawEnglish": true
+    },
+    {
+      "case": "lỗi lạ",
+      "message": "Database error saving new user",
+      "shown": "Có lỗi xảy ra. Vui lòng thử lại.",
+      "isVietnamese": true,
+      "notRawEnglish": true
+    }
+  ],
+  "note": "Bảng ghi đúng câu người dùng thấy; đánh giá 'có bước kế tiếp' làm bằng mắt trong bảng đo."
+}

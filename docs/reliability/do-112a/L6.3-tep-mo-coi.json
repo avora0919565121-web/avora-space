@@ -1,0 +1,10 @@
+{
+  "measuredAt": "2026-10-13T09:59:07.251Z",
+  "threshold": "0 tệp mồ côi",
+  "orphanFiles": 2,
+  "orphanPaths": [
+    "hop-dong.pdf",
+    "bao-gia.pdf"
+  ],
+  "note": "use-outbox.ts · drop() chỉ xoá mục trong hàng chờ; tệp đã tải lên (storagePath) không bị xoá khỏi kho."
+}

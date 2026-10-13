@@ -1,0 +1,9 @@
+{
+  "measuredAt": "2026-10-13T09:59:44.882Z",
+  "threshold": "100% đúng hai phía",
+  "editBothSides": true,
+  "replyBothSides": true,
+  "forwardOk": true,
+  "recallBothSides": true,
+  "note": "Bên gửi tự cập nhật bằng broadcast message_update (Messages.tsx còn vá cache ngay từ câu trả lời RPC)."
+}

@@ -1,0 +1,11 @@
+{
+  "measuredAt": "2026-10-13T09:59:34.623Z",
+  "threshold": "100% tin chờ còn nguyên",
+  "queued": 3,
+  "keptAfterReload": 3,
+  "bubblesShownAfterReload": 3,
+  "bubblesBackWithinMs": 0,
+  "onServerAfterKillAndReopen": 3,
+  "duplicatesOnServer": 0,
+  "receiverGot": 3
+}

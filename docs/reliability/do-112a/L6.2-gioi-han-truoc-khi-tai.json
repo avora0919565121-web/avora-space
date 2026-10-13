@@ -1,0 +1,37 @@
+{
+  "measuredAt": "2026-10-13T10:02:46.615Z",
+  "threshold": "100% báo rõ trước khi tải lên",
+  "rows": [
+    {
+      "file": "tai-lieu.pdf (30 MB)",
+      "size": 31457280,
+      "type": "application/pdf",
+      "refusedBeforeUpload": "Tệp 30 MB vượt quá giới hạn 25MB."
+    },
+    {
+      "file": "anh.jpg (30 MB, sẽ nén)",
+      "size": 31457280,
+      "type": "image/jpeg",
+      "refusedBeforeUpload": null
+    },
+    {
+      "file": "cai-dat.exe",
+      "size": 2048,
+      "type": "application/x-msdownload",
+      "refusedBeforeUpload": null
+    },
+    {
+      "file": "trang.html",
+      "size": 2048,
+      "type": "text/html",
+      "refusedBeforeUpload": null
+    },
+    {
+      "file": "rong.txt",
+      "size": 0,
+      "type": "text/plain",
+      "refusedBeforeUpload": "Tệp rỗng nên không gửi được."
+    }
+  ],
+  "note": "Loại tệp bị chặn (.exe, .html…) chỉ bị kho từ chối khi tải lên (chính sách storage + private.attachment_blocked): người gửi thấy bong bóng 'Chưa gửi được' sau khi thử, không phải trước."
+}

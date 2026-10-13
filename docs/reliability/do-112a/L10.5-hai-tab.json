@@ -1,0 +1,16 @@
+{
+  "measuredAt": "2026-10-13T10:00:09.972Z",
+  "threshold": "0 lỗi xung đột",
+  "onServer": [
+    "tab1 0",
+    "tab1 1",
+    "tab1 2",
+    "tab1 3",
+    "tab1 4",
+    "tab2 0"
+  ],
+  "duplicates": 0,
+  "orderAsWritten": true,
+  "tab1Equals2": true,
+  "note": "Hai tab dùng chung IndexedDB của trình duyệt (như máy thật): tab 2 thấy và gửi luôn hàng chờ của tab 1; máy chủ chặn trùng nhờ id tin."
+}

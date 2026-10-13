@@ -150,6 +150,12 @@ import { VaultLockProvider } from "@/lib/use-vault-lock";
 import Profile from "@/pages/Profile";
 
 const OUT = "../../../docs/screens/2026-10-13";
+/**
+ * 112-A · 6: these waits cover compress → upload → set_avatar → delete old file → redraw. Under a full
+ * parallel run that chain went past vi.waitFor's 1 s default once (the old-file delete, run 1 of 112-A).
+ * A fixed budget that only fits an idle machine is the flake; give the chain room instead.
+ */
+const WAIT = { timeout: 8_000, interval: 50 } as const;
 
 let client: QueryClient | null = null;
 
@@ -257,13 +263,13 @@ test("AVORA-115 · ai thấy: bạn thấy ảnh, thành viên chung nhóm chưa
       <Places />
     </Frame>,
   );
-  await vi.waitFor(() => expect(looks().friend).toBe("image"));
+  await vi.waitFor(() => expect(looks().friend).toBe("image"), WAIT);
   expect(looks().groupmate).toBe("initials");
 
   // The friendship ends: the server tells this viewer's topic (`avatar`), the realtime layer invalidates.
   server.friends.delete(FRIEND);
   if (client !== null) invalidateAvatar(client, FRIEND);
-  await vi.waitFor(() => expect(looks().friend).toBe("initials"));
+  await vi.waitFor(() => expect(looks().friend).toBe("initials"), WAIT);
 });
 
 test("AVORA-115 · chỉ xem: ảnh người khác không kéo, không chọn, không menu, không có Lưu / Chia sẻ / Chuyển tiếp; có Báo cáo ảnh đại diện", async () => {
@@ -274,7 +280,7 @@ test("AVORA-115 · chỉ xem: ảnh người khác không kéo, không chọn, k
       <Places />
     </Frame>,
   );
-  await vi.waitFor(() => expect(looks().friend).toBe("image"));
+  await vi.waitFor(() => expect(looks().friend).toBe("image"), WAIT);
   const holder = document.querySelector<HTMLElement>('[data-place="friend"] [data-avatar-look]');
   const img = holder?.querySelector("img");
   expect(img?.getAttribute("draggable")).toBe("false");
@@ -290,7 +296,7 @@ test("AVORA-115 · chỉ xem: ảnh người khác không kéo, không chọn, k
   await page.getByRole("button", { name: "Xem ảnh đại diện toàn màn hình" }).click();
   const viewer = page.getByRole("dialog", { name: "Ảnh đại diện của Lan Anh" });
   await expect.element(viewer).toBeVisible();
-  await vi.waitFor(() => expect(document.querySelector("[data-avatar-large] img")).not.toBeNull());
+  await vi.waitFor(() => expect(document.querySelector("[data-avatar-large] img")).not.toBeNull(), WAIT);
   const buttons = [...(viewer.element() as HTMLElement).querySelectorAll("button")].map((button) => button.getAttribute("aria-label") ?? button.textContent ?? "");
   expect(buttons).toEqual(["Đóng"]);
   expect((viewer.element() as HTMLElement).textContent ?? "").not.toMatch(/Lưu|Chia sẻ|Chuyển tiếp|Tải/);
@@ -299,7 +305,7 @@ test("AVORA-115 · chỉ xem: ảnh người khác không kéo, không chọn, k
 
   await page.getByRole("button", { name: "Báo cáo ảnh đại diện" }).click();
   await page.getByRole("button", { name: "Gửi báo cáo" }).click();
-  await vi.waitFor(() => expect(server.reports).toHaveLength(1));
+  await vi.waitFor(() => expect(server.reports).toHaveLength(1), WAIT);
   expect(server.reports[0]).toMatchObject({ p_user_id: FRIEND, p_reason: "inappropriate", p_note: "Ảnh đại diện không phù hợp", p_also_block: false });
 });
 
@@ -330,7 +336,7 @@ test("AVORA-115 · đổi ảnh ở Hồ sơ → hiện ngay ở thanh bên, 1-1
   await vi.waitFor(() => {
     const now = looks();
     expect([now.sidebar, now.direct, now.group, now.contacts, now.assign]).toEqual(["image", "image", "image", "image", "image"]);
-  });
+  }, WAIT);
   await page.screenshot({ path: `${OUT}/115-ho-so-co-anh-390x844.png` });
 
   // Change again: the old file is deleted.
@@ -338,14 +344,14 @@ test("AVORA-115 · đổi ảnh ở Hồ sơ → hiện ngay ở thanh bên, 1-1
   await page.getByTestId("profile-avatar").click();
   await userEvent.upload(page.getByTestId("avatar-library-input"), await photo(900, 900, false));
   await page.getByRole("button", { name: "Lưu" }).click();
-  await vi.waitFor(() => expect(server.removed).toContain(first));
+  await vi.waitFor(() => expect(server.removed).toContain(first), WAIT);
 
   // Remove: back to initials everywhere.
   await page.getByTestId("profile-avatar").click();
   await page.getByRole("button", { name: "Xoá ảnh" }).click();
   await page.getByRole("button", { name: "Xoá ảnh" }).last().click();
   await expect.element(page.getByText("Đã xoá ảnh")).toBeVisible();
-  await vi.waitFor(() => expect(looks().sidebar).toBe("initials"));
+  await vi.waitFor(() => expect(looks().sidebar).toBe("initials"), WAIT);
   expect(server.paths.has(ME)).toBe(false);
 });
 
@@ -372,7 +378,7 @@ test("AVORA-115 · tệp sai định dạng bị từ chối; mất mạng giữ
   server.failSetAvatar = false;
   await page.getByRole("button", { name: "Thử lại" }).click();
   await expect.element(page.getByText("Đã cập nhật ảnh")).toBeVisible();
-  await vi.waitFor(() => expect(looks().sidebar).toBe("image"));
+  await vi.waitFor(() => expect(looks().sidebar).toBe("image"), WAIT);
 });
 
 for (const [w, h] of [[390, 844], [844, 390], [1280, 800]] as const) {
@@ -384,7 +390,7 @@ for (const [w, h] of [[390, 844], [844, 390], [1280, 800]] as const) {
         <Profile />
       </Frame>,
     );
-    await vi.waitFor(() => expect(document.querySelector('[data-testid="profile-avatar"] [data-avatar-look="image"]')).not.toBeNull());
+    await vi.waitFor(() => expect(document.querySelector('[data-testid="profile-avatar"] [data-avatar-look="image"]')).not.toBeNull(), WAIT);
     await page.screenshot({ path: `${OUT}/115-ho-so-${w}x${h}.png` });
     await page.getByTestId("profile-avatar").click();
     await userEvent.upload(page.getByTestId("avatar-library-input"), await photo(1200, 900, false));

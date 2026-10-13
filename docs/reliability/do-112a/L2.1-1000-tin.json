@@ -1,0 +1,23 @@
+{
+  "measuredAt": "2026-10-13T09:59:08.997Z",
+  "threshold": "0 mất · 0 trùng · thứ tự 100%",
+  "sent": 1000,
+  "onServer": 1000,
+  "lost": 0,
+  "duplicated": 0,
+  "orderSameAsWritten": true,
+  "senderViewLength": 85,
+  "senderViewIsUnbrokenTailOfServer": true,
+  "receiverViewEqualsServer": true,
+  "senderPositionsDifferentFromServer": 0,
+  "senderDifferencesOnlyWithinSameMillisecond": true,
+  "network": {
+    "requests": 1153,
+    "droppedRequests": 24,
+    "droppedResponses": 30,
+    "expiredReplies": 0,
+    "offlineRefusals": 94
+  },
+  "elapsedMs": 7402,
+  "seed": 112
+}

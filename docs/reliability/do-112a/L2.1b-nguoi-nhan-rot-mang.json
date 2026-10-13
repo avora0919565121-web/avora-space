@@ -1,0 +1,10 @@
+{
+  "measuredAt": "2026-10-13T09:59:12.044Z",
+  "threshold": "0 tin mất trên màn hình người nhận",
+  "sentWhileReceiverOffline": 120,
+  "shownRightAfterReconnect": 50,
+  "shownIsUnbrokenNewestTail": true,
+  "pagesScrolledBack": 2,
+  "afterScrollingBackEqualsServer": true,
+  "note": "Nối lại → tải bù trang mới nhất (50 tin, không lỗ hổng); tin cũ hơn đến khi kéo lên như mọi cuộc dài."
+}

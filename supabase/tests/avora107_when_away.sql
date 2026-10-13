@@ -9,6 +9,10 @@ declare
   tz text; today date;
   failures int := 0; log text := ''; ok boolean; n bigint; out jsonb; v_ver int;
 begin
+  -- 112-A · 6: alarms are set "now + 15 minutes" for today's slot — near midnight that is tomorrow.
+  -- Pin A's zone (rolled back with the test) to one where it is 10:00–13:59 now.
+  select name into tz from pg_timezone_names where name ~ '^Etc/GMT[+-][0-9]+$' and extract(hour from now() at time zone name) between 10 and 13 order by name limit 1;
+  update public.profiles set timezone = tz where id = a;
   select coalesce(timezone, 'Asia/Ho_Chi_Minh') into tz from public.profiles where id = a;
   today := (now() at time zone tz)::date;
 

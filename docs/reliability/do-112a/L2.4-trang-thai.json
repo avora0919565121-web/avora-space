@@ -1,0 +1,18 @@
+{
+  "measuredAt": "2026-10-13T09:59:33.338Z",
+  "threshold": "100% có trạng thái rõ: đang gửi, đã gửi, gửi lỗi (kèm nút thử lại)",
+  "networkPath": [
+    "Chờ gửi…",
+    "Đang chờ mạng",
+    "Chờ gửi…",
+    "Đã gửi"
+  ],
+  "permanentFailurePath": [
+    "",
+    "Chờ gửi…",
+    "Chưa gửi được · Gửi lại"
+  ],
+  "blockedSendMsUntilFailedLabel": 16613,
+  "blockedSendServerAttempts": 5,
+  "note": "Nhãn đọc từ bong bóng của khung đo, cùng quy tắc chọn chữ với Messages.tsx."
+}

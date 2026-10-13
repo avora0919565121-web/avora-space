@@ -7,9 +7,16 @@ declare
   c uuid;
   o uuid := '92ace0b9-5de9-4568-8321-84169d3b5ca3';
   h uuid := gen_random_uuid(); h2 uuid := gen_random_uuid(); l1 uuid := gen_random_uuid(); l2 uuid;
-  today date := (now() at time zone 'utc')::date;
+  today date;
   failures int := 0; log text := ''; ok boolean; n bigint; v int; tz text; win text;
 begin
+  -- 112-A · 6 (flaky root cause): the reminder checks below build a window "10 minutes ago" from the
+  -- real clock. Around 14:00 VN that window met A's 14:00 khung; around midnight it fell on the
+  -- previous day. A's zone is pinned (inside this rolled-back transaction) to one where it is
+  -- 10:00–13:59 right now, so every window and "today" sit in the middle of one local day.
+  select name into tz from pg_timezone_names where name ~ '^Etc/GMT[+-][0-9]+$' and extract(hour from now() at time zone name) between 10 and 13 order by name limit 1;
+  update public.profiles set timezone = tz where id = 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
+  today := (now() at time zone tz)::date;
   select id into c from auth.users where id::text like '151a54b2%' limit 1;
 
   -- ---------------------------------------------------------------- A

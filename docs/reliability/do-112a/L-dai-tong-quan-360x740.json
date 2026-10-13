@@ -1,0 +1,9 @@
+{
+  "measuredAt": "2026-10-13T10:00:48.580Z",
+  "threshold": "không phần tử nào tràn ra ngoài màn hình; không kéo ngang được",
+  "screen": "Avora Space",
+  "viewport": "360×740",
+  "offenders": [],
+  "documentWidth": 360,
+  "pass": true
+}

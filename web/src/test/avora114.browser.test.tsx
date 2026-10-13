@@ -58,7 +58,7 @@ vi.mock("@/lib/realtime", () => ({ useChatRealtime: () => ({ status: "live", isL
 import { InAppAlerts } from "@/components/InAppAlerts";
 import { INCOMING_MESSAGE_EVENT, type IncomingMessageSignal } from "@/lib/in-app-alerts";
 import { resetSoundPlayerForTests, SoundPlayer, type SoundDeps } from "@/lib/sound";
-import { readSoundLog, recordSoundOutcome, SOUND_LOG_KEY } from "@/lib/sound-log";
+import { readSoundLog, recordSoundOutcome, SOUND_LOG_KEY, SOUND_STRINGS } from "@/lib/sound-log";
 import SettingsNotifications from "@/pages/SettingsNotifications";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 
@@ -322,5 +322,11 @@ for (const [w, h] of [[390, 844], [844, 390], [1280, 800]] as const) {
     list.element().scrollIntoView({ block: "center" });
     await page.screenshot({ path: `${OUT}/114-am-bao-chan-doan-${w}x${h}.png` });
     expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
+    // 112-A · ghi chú 3: the app has no language setting yet, so the screen shows Vietnamese only —
+    // none of the English twins kept in SOUND_STRINGS.en may appear beside it.
+    const shown = document.body.textContent ?? "";
+    const english = Object.values(SOUND_STRINGS.en).filter((line) => line.length > 6 && shown.includes(line));
+    expect(english).toEqual([]);
+    expect(shown).toContain(SOUND_STRINGS.vi.why);
   });
 }
