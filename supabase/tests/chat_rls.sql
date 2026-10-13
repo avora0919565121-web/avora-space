@@ -54,7 +54,8 @@ begin
       expect_rows := who.sees;
       -- Own rows only: a read mark is its owner's; "đã nhận" is read by the sender only (ADR-028).
       if t = 'conversation_read_marks' then expect_rows := who.label = 'B member'; end if;
-      if t = 'message_deliveries' then expect_rows := who.label = 'A owner'; end if;
+      -- AVORA-108: a group's deliveries are read only through the receipts RPC, never the table.
+      if t = 'message_deliveries' then expect_rows := false; end if;
       if (n > 0) <> expect_rows then
         failures := failures + 1;
         log := log || format(E'FAIL %s · %s · rows=%s (expected %s)\n', who.label, t, n, case when expect_rows then '>0' else '0' end);

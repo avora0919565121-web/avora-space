@@ -3,13 +3,17 @@ import { describe, expect, it, vi } from "vitest";
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
 import { returnPathFrom } from "@/lib/navigation";
+import generated200 from "./fixtures/pin-generated-200.json";
 import samples from "./fixtures/pin-samples.json";
+import { mulberry32, PIN_SEED, PIN_SEEDED_COUNT } from "./pin-seeded";
 import {
+  fail,
   generatePinBody,
   PIN_DIGITS,
   PIN_LETTERS,
   pinBody,
   pinDaysLeft,
+  pinErrorCode,
   pinPhase,
   pinProblem,
   toPin,
@@ -118,5 +122,44 @@ describe("the generator meets the same rules", () => {
       expect(PIN_LETTERS.includes(body[7])).toBe(true);
       expect(body).not.toMatch(/[01OI]/);
     }
+  });
+});
+
+// The table constraint `user_pins_format` mirrors the same alphabet; AVORA-113 was that copy lagging behind.
+const TABLE_FORMAT = /^A-[ABCDEFGHJKLMNPQRSTUVWXYZ][ABCDEFGHJKLMNPQRSTUVWXYZ2-9]{6}[ABCDEFGHJKLMNPQRSTUVWXYZ]$/;
+
+describe("AVORA-113 · PIN that the app accepts is one the table accepts", () => {
+  it("the 200 seeded PINs in the SQL test are exactly what the app's generator draws", () => {
+    const random = mulberry32(PIN_SEED);
+    const drawn = Array.from({ length: PIN_SEEDED_COUNT }, () => toPin(generatePinBody(random)));
+    expect(generated200).toEqual(drawn);
+    expect(generated200.filter((pin) => pin.slice(2).includes("L")).length).toBeGreaterThan(20);
+  });
+
+  it("every body pinProblem accepts also matches the table constraint", () => {
+    for (const pin of generated200) expect(pin).toMatch(TABLE_FORMAT);
+    for (const [body, expected] of samples as [string, string | null][]) {
+      if (expected === null) expect(toPin(body)).toMatch(TABLE_FORMAT);
+    }
+    for (const body of ["LBCDEFGH", "ABCLEFGH", "ABCDEFGL"]) {
+      expect(pinProblem(body)).toBeNull();
+      expect(toPin(body)).toMatch(TABLE_FORMAT);
+    }
+  });
+
+  it("an unknown database refusal says which one, in a short code", () => {
+    const message = 'new row for relation "user_pins" violates check constraint "user_pins_format"';
+    expect(pinErrorCode("23514", message)).toBe("P-23514-FORMAT");
+    expect(fail("23514", message).message).toBe("Không lưu được PIN (mã P-23514-FORMAT). Thử PIN khác hoặc báo cho Avora.");
+    expect(fail("XX000", "boom").message).toBe("Không lưu được PIN (mã P-XX000). Thử PIN khác hoặc báo cho Avora.");
+    expect(fail(undefined, "boom").message).toContain("(mã P-X)");
+    expect(fail("P0001", "avora_pin_taken").message).toBe("PIN này đã có người dùng. Thử một biến thể khác nhé.");
+  });
+
+  it("logs the code and the constraint, never the message", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    fail("23514", 'new row for relation "user_pins" violates check constraint "user_pins_format" A-LBCDEFGH');
+    expect(spy).toHaveBeenCalledWith("[user-pin] 23514.user_pins_format");
+    spy.mockRestore();
   });
 });

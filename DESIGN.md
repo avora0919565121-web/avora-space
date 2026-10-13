@@ -1650,7 +1650,7 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   (server-set only); pressing again returns the same task. Full settlement marks it done (trigger on
   `amount_settled`); reopening it by hand is not undone. The row then reads "Đã có việc nhắc" / "Việc nhắc đã xong".
 - 2026-09-25 — User PIN (AVORA 32, ADR-019). `user_pins` (one per account, unique, own-row read, no client writes,
-  update refused by trigger): `A-` + 8 of A–Z/2–9 without 0/1/O/I (upper-case L allowed since VMT 12/10 — PINs are always shown upper-case), ≥4 letters, letters at both ends, a light
+  update refused by trigger): `A-` + 8 of A–Z/2–9 without 0/1/O/I (upper-case L allowed since VMT 12/10 — PINs are always shown upper-case; the table constraint `user_pins_format` followed only in AVORA-113, 13/10), ≥4 letters, letters at both ends, a light
   offensive/brand filter; the same rules in `lib/user-pin.ts` and `private.user_pin_problem`. `check_user_pin`
   answers ok / taken / rule — never the owner; `claim_user_pin` sets it once. Every signed-in screen sits behind a
   blocking PIN step until one exists: "Để hệ thống tự sinh" (generator meets the rules, redraws if taken) or "Tự chọn"

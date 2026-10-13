@@ -139,9 +139,24 @@ export function hidePinBannerFor(userId: string, today: string): void {
   }
 }
 
-function fail(code: string | undefined, message: string): Error {
-  logError("user-pin", { code, message });
+/**
+ * A short code a person can read back to Avora (AVORA-113): `P-` + the database error code, plus
+ * the constraint it hit when there is one (`P-23514-FORMAT` for `user_pins_format`). Never the
+ * PIN or the message text.
+ */
+export function pinErrorCode(code: string | undefined, message: string): string {
+  const sqlState = typeof code === "string" && /^[A-Z0-9]{5}$/.test(code) ? code : "X";
+  const constraint = /constraint "user_pins_([a-z_]{1,24})"/i.exec(message)?.[1];
+  return constraint !== undefined ? `P-${sqlState}-${constraint.toUpperCase()}` : `P-${sqlState}`;
+}
+
+/** Exported for tests. */
+export function fail(code: string | undefined, message: string): Error {
   const normalized = message.toLowerCase();
+  const constraint = /constraint "([a-z_]{1,48})"/i.exec(message)?.[1];
+  // Code + constraint name only: log.ts drops message text, and the constraint name is what tells
+  // which rule the database and the app disagree on.
+  logError("user-pin", { code: [code, constraint].filter((part) => part !== undefined && part !== "").join("."), message });
   if (normalized.includes("avora_pin_taken")) return new Error(pinProblemMessage("taken"));
   if (normalized.includes("avora_pin_permanent")) return new Error("Tài khoản này đã có PIN — PIN không đổi được.");
   if (normalized.includes("avora_pin_confusing")) return new Error(pinProblemMessage("confusing"));
@@ -151,7 +166,7 @@ function fail(code: string | undefined, message: string): Error {
   if (normalized.includes("avora_pin_format")) return new Error(pinProblemMessage("format"));
   if (normalized.includes("avora_not_signed_in")) return new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
   if (normalized.includes("failed to fetch")) return new Error("Không kết nối được máy chủ. Kiểm tra mạng và thử lại.");
-  return new Error("Không lưu được PIN. Thử lại nhé.");
+  return new Error(`Không lưu được PIN (mã ${pinErrorCode(code, message)}). Thử PIN khác hoặc báo cho Avora.`);
 }
 
 /** The signed-in person's PIN, or null while they have none. */
