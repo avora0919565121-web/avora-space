@@ -2009,6 +2009,7 @@ export type Database = {
           accent_tone: string
           allow_group_connection: boolean
           avatar_url: string | null
+          avatar_updated_at: string | null
           base_currency: string
           button_style: string
           celebration_style: string
@@ -4847,7 +4848,13 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      avatar_paths: {
+        Args: { p_user_ids: string[] }
+        Returns: { path: string; user_id: string; version: string }[]
+      }
       check_user_pin: { Args: { p_pin: string }; Returns: string }
+      clear_avatar: { Args: never; Returns: string }
+      set_avatar: { Args: { p_path: string }; Returns: string }
       claim_user_pin: {
         Args: { p_pin: string; p_source: string }
         Returns: string

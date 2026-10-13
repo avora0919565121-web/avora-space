@@ -43,6 +43,8 @@ const STATIC_EXTENSIONS = [
   ".svg",
   ".ico",
   ".webmanifest",
+  // AVORA-114: the two short alert sounds, so they still play on a weak connection.
+  ".mp3",
 ];
 
 /** Path prefixes that carry user data and must stay off the cache entirely. */
@@ -166,6 +168,10 @@ self.addEventListener("push", (event) => {
     body: typeof data.body === "string" ? data.body : "",
     tag: typeof data.tag === "string" ? data.tag : undefined,
     renotify: typeof data.tag === "string",
+    // AVORA-114 · 5: say it plainly — the system's default sound. A custom Avora sound needs the
+    // native app; vibrate is honoured on Android only.
+    silent: false,
+    vibrate: [80],
     icon: "/icons/icon-192.png",
     badge: "/icons/icon-192.png",
     data: { url: typeof data.url === "string" && data.url.startsWith("/") ? data.url : "/tin-nhan" },

@@ -1,7 +1,7 @@
 import { Check, X } from "lucide-react";
 import { useMemo, useRef, useState, type KeyboardEvent } from "react";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import type { GroupMember } from "@/lib/groups";
 import { assignSummary, memberLabel as baseMemberLabel, searchAssignees } from "@/lib/member-search";
 import { myNameFor } from "@/lib/user-aliases";
@@ -165,7 +165,7 @@ export function AssigneePicker({
                   index === highlight ? "bg-accent/70" : "hover:bg-accent/40",
                 )}
               >
-                <InitialsAvatar name={memberLabel(member)} size="sm" />
+                <UserAvatar userId={member.userId} name={memberLabel(member)} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span
                     data-member-name=""

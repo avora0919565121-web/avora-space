@@ -3,7 +3,7 @@ import { Loader2, Users } from "lucide-react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { chatKeys } from "@/lib/chat";
 import { joinGroupWithInvite, previewGroupInvite } from "@/lib/groups";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
@@ -57,7 +57,7 @@ export default function JoinGroup() {
         ) : (
           <>
             <div className="mx-auto flex w-fit items-center justify-center">
-              <InitialsAvatar name={previewQuery.data.groupName} size="lg" />
+              <UserAvatar name={previewQuery.data.groupName} size="lg" />
             </div>
             <p className="mt-5 flex items-center justify-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
               <Users className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />

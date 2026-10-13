@@ -19,7 +19,7 @@ import { carryReturn } from "@/lib/return-to";
 import { FriendsPanel } from "@/components/contacts/FriendsPanel";
 import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog";
 import { NewContactDialog } from "@/components/contacts/NewContactDialog";
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { InlineBack } from "@/components/nav/InlineBack";
 import {
   filterContacts,
@@ -375,7 +375,7 @@ const ContactRowButton = memo(function ContactRowButton({ entry, hasOpportunity,
       className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent/35"
     >
       {entry.contactType === "individual" ? (
-        <InitialsAvatar name={entry.name} size="sm" />
+        <UserAvatar userId={entry.linkedUserId} name={entry.name} size="sm" />
       ) : (
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground/75">
           <Building2 className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />

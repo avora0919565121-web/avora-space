@@ -3,7 +3,7 @@ import { draftPreview, readDraft, useDraftsVersion } from "@/lib/chat-drafts";
 import { memo, useCallback, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { TablePeekSheet } from "@/components/projects/TablePeekSheet";
 import { conversationTitle, formatInboxTime, formatUnreadBadge, type ConversationSummary } from "@/lib/chat";
 import { visibleChildren, type GroupTreeNode } from "@/lib/group-tree";
@@ -177,7 +177,7 @@ const TreeRow = memo(function TreeRow({
 
         <Link to={mainHref} aria-current={isActive ? "page" : undefined} className="flex min-w-0 flex-1 items-center gap-3 py-2.5">
           {kind === "group" ? (
-            <InitialsAvatar name={title} />
+            <UserAvatar name={title} />
           ) : (
             <span
               className={cn(

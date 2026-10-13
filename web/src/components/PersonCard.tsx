@@ -5,7 +5,9 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import { askConfirm, askText } from "@/components/ConfirmHost";
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar, UserAvatarLarge } from "@/components/UserAvatar";
+import { openAvatarEditor } from "@/lib/avatar-editor";
+import { useAvatar } from "@/lib/avatars";
 import { InviteMessageDialog } from "@/components/contacts/InviteMessageDialog";
 import { ReportDialog, type ReportTarget } from "@/components/chat/ReportDialog";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
@@ -16,9 +18,8 @@ import { createDirectConversation } from "@/lib/chat";
 import { formatPhoneForDisplay } from "@/lib/contact-clean";
 import { createContactQuick } from "@/lib/contacts";
 import { startGroupConnection, startPinConnection } from "@/lib/connections";
-import { initialsOf } from "@/lib/initials";
 import { personCardView, type PersonRef } from "@/lib/person-card";
-import { REPORT_SENT_TOAST, submitReport } from "@/lib/reports";
+import { AVATAR_REPORT_NOTE, REPORT_SENT_TOAST, submitReport } from "@/lib/reports";
 import { OPEN_TASK_PARAM } from "@/lib/task-scope";
 import { isSharedTask } from "@/lib/tasks";
 import { fetchMyPin } from "@/lib/user-pin";
@@ -71,7 +72,7 @@ export function PersonAvatarButton({
       }}
       className={cn("press no-callout inline-flex shrink-0 cursor-pointer rounded-full", className)}
     >
-      <InitialsAvatar name={person.name} size={size} online={online} />
+      <UserAvatar userId={person.userId} name={person.name} size={size} online={online} />
     </span>
   );
 }
@@ -167,6 +168,7 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
     }
   };
   const [isPhotoOpen, setIsPhotoOpen] = useState<boolean>(false);
+  const picture = useAvatar(view.userId);
   const [isInviteOpen, setIsInviteOpen] = useState<boolean>(false);
   const [isSharedOpen, setIsSharedOpen] = useState<boolean>(false);
   const [report, setReport] = useState<ReportTarget | null>(null);
@@ -228,16 +230,47 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
     }
   };
 
+  /** AVORA-115 · 7: the existing report flow, reason "Ảnh đại diện không phù hợp" (111-B adds the target kind). */
+  const reportPicture = async (): Promise<void> => {
+    const yes = await askConfirm({
+      title: "Báo cáo ảnh đại diện?",
+      body: `Ảnh đại diện của ${view.name} không phù hợp. Avora sẽ xem xét; ${view.name} không được biết ai báo cáo.`,
+      confirmLabel: "Gửi báo cáo",
+    });
+    if (!yes) return;
+    try {
+      await submitReport({
+        reportedUserId: view.userId,
+        reason: "inappropriate",
+        note: AVATAR_REPORT_NOTE,
+        conversationId: null,
+        messageId: null,
+        includeMessage: false,
+        alsoBlock: false,
+      });
+      toast.success(REPORT_SENT_TOAST);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Không gửi được báo cáo.");
+    }
+  };
+
   return (
     <div data-person-card="" className="text-left">
       <div className="flex items-center gap-4">
+        {/* AVORA-115: one's own picture opens the one editor; someone else's opens a view-only zoom. */}
         <button
           type="button"
-          onClick={() => setIsPhotoOpen(true)}
-          aria-label="Xem ảnh đại diện toàn màn hình"
-          className="press flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-secondary text-[26px] font-semibold tracking-wide text-foreground/75"
+          onClick={() => {
+            if (view.isSelf) {
+              onClose();
+              openAvatarEditor();
+            } else setIsPhotoOpen(true);
+          }}
+          aria-label={view.isSelf ? "Đổi ảnh đại diện" : "Xem ảnh đại diện toàn màn hình"}
+          className="press no-callout shrink-0 rounded-full"
+          data-person-avatar=""
         >
-          {initialsOf(view.name)}
+          <UserAvatar userId={view.userId} name={view.name} size="xl" />
         </button>
         <div className="min-w-0 flex-1">
           <p className="break-words text-[19px] font-semibold leading-tight text-foreground" data-person-name="">{view.name}</p>
@@ -356,6 +389,16 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
             <Flag className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
             Báo cáo
           </button>
+          {picture !== null ? (
+            <button
+              type="button"
+              onClick={() => void reportPicture()}
+              className="press inline-flex min-h-11 items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
+            >
+              <Flag className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
+              Báo cáo ảnh đại diện
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -370,9 +413,8 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
           <button type="button" aria-label="Đóng" className="press absolute right-4 top-[calc(env(safe-area-inset-top)+12px)] flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-white">
             <X className="h-5 w-5" aria-hidden="true" />
           </button>
-          <span className="flex h-[min(70vw,320px)] w-[min(70vw,320px)] items-center justify-center rounded-full bg-secondary text-[min(18vw,88px)] font-semibold text-foreground/75">
-            {initialsOf(view.name)}
-          </span>
+          {/* View only: no Lưu, Chia sẻ or Chuyển tiếp — Avora does not let anyone save someone else's picture. */}
+          <UserAvatarLarge userId={view.userId} name={view.name} />
         </div>
       ) : null}
 

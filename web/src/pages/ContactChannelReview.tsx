@@ -7,7 +7,7 @@ import { carryReturn, readReturn } from "@/lib/return-to";
 import { useBack } from "@/lib/go-back";
 import { useBackPress } from "@/hooks/use-back-press";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { SharedChannelCard } from "@/components/contacts/SharedChannelCard";
 import { DuplicatePairsSection } from "@/components/contacts/DuplicatePairsSection";
 import { duplicateKeys } from "@/lib/duplicate-keys";
@@ -293,7 +293,7 @@ function ReviewCard({
         onClick={onOpen}
         className="press flex w-full min-w-0 items-center gap-3 border-b border-border px-5 py-3.5 text-left"
       >
-        <InitialsAvatar name={contact.name} size="sm" />
+        <UserAvatar userId={contact.linkedUserId} name={contact.name} size="sm" />
         <span className="block min-w-0 truncate text-[15px] font-semibold text-foreground">{contact.name}</span>
       </button>
 

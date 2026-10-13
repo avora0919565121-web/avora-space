@@ -125,16 +125,16 @@ begin
   delete from public.push_outbox where user_id = a and kind = 'habit';
   update public.profiles set focus_mode = 'quiet', focus_until = now() + interval '1 hour' where id = a;
   perform private.enqueue_due_habits();
-  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit') = 0;
+  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit' and payload->>'habit_id' = h2::text) = 0;
   log := log || format(E'%s 107.3 Chế độ tập trung · Yên lặng → không đẩy\n', case when ok then 'ok  ' else 'FAIL' end); failures := failures + (not ok)::int;
   update public.profiles set focus_mode = null, focus_until = null, rest_weekday = extract(dow from now() at time zone tz)::int where id = a;
   perform private.enqueue_due_habits();
-  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit') = 0;
+  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit' and payload->>'habit_id' = h2::text) = 0;
   log := log || format(E'%s nhắc: ngày nghỉ → không đẩy\n', case when ok then 'ok  ' else 'FAIL' end); failures := failures + (not ok)::int;
   update public.profiles set rest_weekday = (extract(dow from now() at time zone tz)::int + 3) % 7 where id = a;
   insert into public.mute_settings (user_id, scope, muted_until) values (a, 'avora', now() + interval '1 hour');
   perform private.enqueue_due_habits();
-  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit') = 0;
+  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit' and payload->>'habit_id' = h2::text) = 0;
   log := log || format(E'%s nhắc: Tắt toàn AVORA → không đẩy\n', case when ok then 'ok  ' else 'FAIL' end); failures := failures + (not ok)::int;
   delete from public.mute_settings where user_id = a and scope = 'avora';
 
@@ -143,13 +143,13 @@ begin
   perform public.pause_habit(h2, true);
   reset role;
   perform private.enqueue_due_habits();
-  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit') = 0;
+  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit' and payload->>'habit_id' = h2::text) = 0;
   set local role authenticated;
   perform public.pause_habit(h2, false);
   perform public.archive_habit(h2, true);
   reset role;
   perform private.enqueue_due_habits();
-  ok := ok and (select count(*) from public.push_outbox where user_id = a and kind = 'habit') = 0;
+  ok := ok and (select count(*) from public.push_outbox where user_id = a and kind = 'habit' and payload->>'habit_id' = h2::text) = 0;
   set local role authenticated;
   perform public.archive_habit(h, true);
   ok := ok and (select count(*) from public.habit_logs where habit_id = h) = 3 and (select archived_at from public.habits where id = h) is not null;
@@ -161,7 +161,7 @@ begin
   perform public.log_habit(null, h2, (now() at time zone tz)::date, 0, 'manual', 600);
   reset role;
   perform private.enqueue_due_habits();
-  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit') = 0;
+  ok := (select count(*) from public.push_outbox where user_id = a and kind = 'habit' and payload->>'habit_id' = h2::text) = 0;
   log := log || format(E'%s nhắc: khung đã làm → không đẩy\n', case when ok then 'ok  ' else 'FAIL' end); failures := failures + (not ok)::int;
 
   raise exception 'AVORA107_P1 failures=% %', failures, E'\n' || log;

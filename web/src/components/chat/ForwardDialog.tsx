@@ -3,7 +3,7 @@ import { Search, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import {
@@ -150,7 +150,7 @@ export function ForwardDialog({
                           <Users className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
                         </span>
                       ) : (
-                        <InitialsAvatar name={title} size="md" />
+                        <UserAvatar userId={item.peerId} name={title} size="md" />
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-[14.5px] font-medium text-foreground">

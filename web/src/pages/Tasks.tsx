@@ -36,7 +36,7 @@ import {
 import { sectionBySlug, tasksForSection, TASK_HUB_PARAM, type TaskHubSection, type TaskHubSectionId } from "@/lib/task-hub";
 import { usePendingInvitationCount } from "@/lib/use-task-collab";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { PERSONAL_BUBBLE_STATE, SHARED_BUBBLE_STATE, TaskBubble } from "@/components/TaskBubble";
 import { TaskCompleteDialog } from "@/components/tasks/TaskCompleteDialog";
 import {
@@ -826,7 +826,7 @@ function SharedSection({
                       onToggle={() => toggle(group.conversationId, group.auto)}
                       className="py-2"
                     >
-                      <InitialsAvatar name={group.peerName} size="md" />
+                      <UserAvatar name={group.peerName} size="md" />
                       <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground">
                         {group.peerName}
                       </span>

@@ -11,7 +11,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import {
   CONTACT_INVITE_TTL_DAYS,
@@ -93,7 +93,7 @@ const AcceptContactInvite = () => {
   return (
     <Shell>
       <div className="mx-auto flex w-fit items-center justify-center">
-        <InitialsAvatar name={state.inviterName} size="lg" />
+        <UserAvatar name={state.inviterName} size="lg" />
       </div>
       <p className="mt-5 flex items-center justify-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
         <UserRoundPlus className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />

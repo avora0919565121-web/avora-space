@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Check, QrCode, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -131,7 +131,7 @@ export function NewGroupDialog({ open, onOpenChange, onCreated, onConnectByPin }
                   isOn ? "bg-primary/[0.07]" : "hover:bg-accent/30",
                 )}
               >
-                <InitialsAvatar name={item.displayName ?? "?"} size="sm" />
+                <UserAvatar userId={item.userId} name={item.displayName ?? "?"} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-foreground">{item.displayName ?? "Người dùng AVORA"}</span>
                   <span className="block truncate font-mono text-[12.5px] text-muted-foreground">{item.pin ?? NO_PIN_LABEL}</span>

@@ -15,6 +15,7 @@ import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { InAppAlerts } from "@/components/InAppAlerts";
 import { HabitTimerHost } from "@/components/habits/HabitTimerHost";
 import { ConfirmHost } from "@/components/ConfirmHost";
+import { AvatarEditorHost } from "@/components/AvatarEditor";
 import { PersonCardHost } from "@/components/PersonCard";
 import { FocusHost } from "@/components/chat/FocusHost";
 import { AppMapHost } from "@/components/nav/AppMapHost";
@@ -123,6 +124,7 @@ export function RequireAuth() {
       <PushClickBridge />
       <ConfirmHost />
       <PersonCardHost />
+      <AvatarEditorHost />
       <GroupCardHost />
       <FocusHost />
       <AppMapHost />

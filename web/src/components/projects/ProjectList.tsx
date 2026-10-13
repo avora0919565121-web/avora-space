@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 
 import { TablePeekSheet } from "@/components/projects/TablePeekSheet";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { StatusPill } from "@/components/StatusPill";
 import { useAuth } from "@/lib/auth";
 import { conversationTitle, type ConversationSummary } from "@/lib/chat";
@@ -275,7 +275,7 @@ export function ProjectList({
                         isActive ? "bg-accent/70" : "hover:bg-accent/35",
                       )}
                     >
-                      <InitialsAvatar name={conversation ? conversationTitle(conversation) : "Dự án"} size="md" />
+                      <UserAvatar name={conversation ? conversationTitle(conversation) : "Dự án"} size="md" />
                       <span className="min-w-0 flex-1">
                         <span className="flex items-center gap-1.5">
                           <span className="truncate text-[14.5px] font-semibold text-foreground">{project.title}</span>

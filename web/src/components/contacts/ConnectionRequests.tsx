@@ -3,7 +3,7 @@ import { ChevronRight, KeyRound, UserPlus, Users } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { chatKeys } from "@/lib/chat";
 import { celebrate } from "@/lib/confetti";
@@ -111,7 +111,7 @@ function RequestCard({ request }: { request: ConnectionRequest }) {
   return (
     <li className="rounded-card border border-border bg-card p-4">
       <div className="flex items-center gap-3">
-        <InitialsAvatar name={title} size="sm" />
+        <UserAvatar name={title} size="sm" />
         <span className="min-w-0 flex-1">
           <span className={request.displayName === null ? "block truncate font-mono text-[14px] font-medium" : "block truncate text-[15px] font-semibold"}>
             {title}

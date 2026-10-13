@@ -15,6 +15,7 @@ import { INCOMING_MESSAGE_EVENT, type IncomingMessageSignal } from "@/lib/in-app
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { attachmentKeys } from "@/lib/attachments";
+import { avatarKeys, invalidateAvatar } from "@/lib/avatars";
 import { useAuth } from "@/lib/auth";
 import {
   applyMessageEditToInbox,
@@ -133,6 +134,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
     queryClient.removeQueries({ queryKey: taskKeys.all });
     queryClient.removeQueries({ queryKey: suggestionKeys.all });
     queryClient.removeQueries({ queryKey: messageTaskKeys.all });
+    queryClient.removeQueries({ queryKey: avatarKeys.all });
   }, [userId, queryClient]);
 
   useEffect(() => {
@@ -238,6 +240,12 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
               senderId: incoming.senderId,
               mentionsViewer: userId !== undefined && (incoming.mentionedUserIds ?? []).includes(userId),
               isReading,
+              isUrgent: incoming.isUrgent === true,
+              // AVORA-114 · 4: recalled, or a disappearing message already past its end → no sound.
+              isGone:
+                incoming.deletedAt != null ||
+                incoming.expiredAt != null ||
+                (incoming.expiresAt != null && new Date(incoming.expiresAt).getTime() <= Date.now()),
             },
           }),
         );
@@ -455,6 +463,12 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
         .on("broadcast", { event: "message_update" }, (message) => {
           const row = (message as { payload?: { message?: MessageRow } }).payload?.message;
           if (row !== undefined) handleMessageUpdate({ new: row } as RealtimePostgresUpdatePayload<MessageRow>);
+        })
+        // AVORA-115 · 6: a friend's picture changed, or a friendship / block changed between us — that
+        // one person's avatar is asked again (the server decides what this viewer may see).
+        .on("broadcast", { event: "avatar" }, (message) => {
+          const about = (message as { payload?: { user_id?: unknown } }).payload?.user_id;
+          if (typeof about === "string") invalidateAvatar(queryClient, about);
         })
         .on("broadcast", { event: "removed" }, (message) => {
           const payload = (message as { payload?: { conversation_id?: string; name?: string | null } }).payload;

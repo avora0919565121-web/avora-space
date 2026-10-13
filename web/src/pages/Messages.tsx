@@ -51,7 +51,7 @@ import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, use
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { ConversationMuteSheet, ConversationRowActions } from "@/components/chat/ConversationRowActions";
 import { useConversationPins, withPinnedFirst } from "@/lib/conversation-pins";
 import { mutedUntilFor, setConversationMute, muteKeys, type MuteDurationOption } from "@/lib/mute";
@@ -3109,7 +3109,7 @@ const Messages = () => {
                       ) : item.kind === "group" ? (
                         <GroupAvatarButton group={{ conversationId: item.conversationId, name: conversationTitle(item), memberCount: item.memberCount ?? null }} />
                       ) : (
-                        <InitialsAvatar name={conversationTitle(item)} />
+                        <UserAvatar name={conversationTitle(item)} />
                       )}
                       <span className="min-w-0 flex-1">
                         <span className="flex items-baseline justify-between gap-2">
@@ -3300,7 +3300,7 @@ const Messages = () => {
                     ) : activeKind === "group" && conversationId !== undefined ? (
                       <GroupAvatarButton group={{ conversationId, name: threadTitle, memberCount: activeSummary?.memberCount ?? null }} size="sm" />
                     ) : (
-                      <InitialsAvatar name={threadTitle} size="sm" />
+                      <UserAvatar userId={activeKind === "direct" ? (activeSummary?.peerId ?? null) : null} name={threadTitle} size="sm" />
                     )}
                     {/*
                       Online or not, and nothing more. A "last seen at" would outlive the

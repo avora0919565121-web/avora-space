@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
 import {
+  chimeDecision,
   dueReminders,
   INCOMING_MESSAGE_EVENT,
-  MESSAGE_SOUND_URL,
-  REMINDER_SOUND_URL,
-  shouldChime,
   surfaceOf,
   tabTitle,
   unreadConversationCount,
@@ -15,11 +13,14 @@ import {
 } from "@/lib/in-app-alerts";
 import { isFamily } from "@/lib/family";
 import { habitAlarms, habitChimeAllowed } from "@/lib/habits";
-import { activeFocus } from "@/lib/mute";
+import { activeFocus, toConversationMutes } from "@/lib/mute";
+import { logError } from "@/lib/log";
+import { soundPlayer, type PlayResult, type SoundKind } from "@/lib/sound";
+import { recordSoundOutcome, SOUND_TEXT } from "@/lib/sound-log";
+import { useAuth } from "@/lib/auth";
 import { isQuietReading } from "@/lib/quiet-reading";
 import { taskLink } from "@/lib/task-scope";
 import { useConversations } from "@/lib/use-conversations";
-import { playSoftTone } from "@/lib/habit-chime";
 import { useHabits } from "@/lib/use-habits";
 import { useFamilyRelations } from "@/lib/use-family";
 import { useMuteSettings } from "@/lib/use-mute";
@@ -29,15 +30,32 @@ import { useTasks } from "@/lib/use-tasks";
 import { useThinkRecords } from "@/lib/use-think-hub";
 import { useChatLock } from "@/lib/use-chat-lock";
 
-/** Plays a short file; a browser that blocks sound before the first tap is simply ignored. */
-function play(url: string): void {
+/** AVORA-114: the banner shows at most once per session (per tab). */
+const BANNER_SHOWN_KEY = "avora.sound-banner-shown";
+
+function bannerAlreadyShown(): boolean {
   try {
-    const audio = new Audio(url);
-    audio.volume = 0.6;
-    void audio.play().catch(() => undefined);
-  } catch {
-    // No audio on this device.
+    return window.sessionStorage.getItem(BANNER_SHOWN_KEY) === "1";
+  } catch (error) {
+    logError("sound", { code: "banner_storage", name: error instanceof Error ? error.name : undefined });
+    return false;
   }
+}
+
+function markBannerShown(): void {
+  try {
+    window.sessionStorage.setItem(BANNER_SHOWN_KEY, "1");
+  } catch (error) {
+    // Storage off: the banner may show once more in this session, which is harmless.
+    logError("sound", { code: "banner_storage", name: error instanceof Error ? error.name : undefined });
+  }
+}
+
+/** Plays through the shared player; a refusal or failure is logged, never swallowed. */
+async function play(kind: SoundKind): Promise<PlayResult> {
+  const result = await soundPlayer().play(kind);
+  if (result.status === "failed") logError("sound", { code: `${kind}_${result.reason}`, name: result.name });
+  return result;
 }
 
 /**
@@ -52,9 +70,20 @@ function play(url: string): void {
  */
 export function InAppAlerts() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { data: conversations } = useConversations();
   const { data: settings } = useProfileSettings();
-  const { decide } = useMuteSettings();
+  const { decide, settings: muteSettings } = useMuteSettings();
+  const conversationMutes = useMemo(() => toConversationMutes(muteSettings), [muteSettings]);
+  const [showBanner, setShowBanner] = useState<boolean>(false);
+
+  // Arm the unlock-on-first-tap listeners as soon as the signed-in app mounts.
+  useEffect(() => {
+    const player = soundPlayer();
+    return player.subscribe((unlocked) => {
+      if (unlocked) setShowBanner(false);
+    });
+  }, []);
   const { index: familyIndex } = useFamilyRelations();
   const { data: tasks } = useTasks();
   const { data: reminders } = useTaskReminders();
@@ -74,11 +103,12 @@ export function InAppAlerts() {
   useEffect(() => {
     document.title = tabTitle(count);
     const nav = navigator as Navigator & { setAppBadge?: (value?: number) => Promise<void>; clearAppBadge?: () => Promise<void> };
+    const onBadgeError = (error: unknown): void => logError("badge", { code: "set_badge", name: error instanceof Error ? error.name : undefined });
     try {
-      if (count > 0) void nav.setAppBadge?.(count).catch(() => undefined);
-      else void nav.clearAppBadge?.().catch(() => undefined);
-    } catch {
-      // Badging API not supported: nothing to do.
+      if (count > 0) void nav.setAppBadge?.(count).catch(onBadgeError);
+      else void nav.clearAppBadge?.().catch(onBadgeError);
+    } catch (error) {
+      onBadgeError(error);
     }
   }, [count]);
 
@@ -88,26 +118,55 @@ export function InAppAlerts() {
 
   // Message sound.
   const lastChimeRef = useRef<number>(0);
-  const latest = useRef({ conversations, decide, familyIndex, soundMessages });
-  latest.current = { conversations, decide, familyIndex, soundMessages };
+  const focus = activeFocus(settings?.focusMode, settings?.focusUntil);
+  const latest = useRef({ conversations, decide, familyIndex, soundMessages, conversationMutes, focus, viewerId: user?.id });
+  latest.current = { conversations, decide, familyIndex, soundMessages, conversationMutes, focus, viewerId: user?.id };
   useEffect(() => {
     const onIncoming = (event: Event): void => {
       const signal = (event as CustomEvent<IncomingMessageSignal>).detail;
-      const { conversations: list, decide: decideNow, familyIndex: family, soundMessages: on } = latest.current;
+      const { conversations: list, decide: decideNow, familyIndex: family, soundMessages: on, conversationMutes: mutes, focus: focusNow, viewerId } = latest.current;
       const summary = (list ?? []).find((item) => item.conversationId === signal.conversationId);
       const surface = surfaceOf(summary);
+      // Nhật ký never makes a sound, and is not a message from someone else either.
       if (surface === null) return;
+      // AVORA-114 · 4: every layer, including the per-conversation mute and Chế độ tập trung (both
+      // were missed before — the in-app sound only read the tab layers).
       const decision = decideNow({
         surface,
         isFromFamily: isFamily(family, signal.senderId),
         mentionsRecipient: signal.mentionsViewer,
+        isUrgent: signal.isUrgent === true,
+        conversationMuted: mutes.has(signal.conversationId),
+        focus: focusNow,
       });
       const now = Date.now();
-      if (!shouldChime({ signal, soundOn: on, lastChimeAt: lastChimeRef.current, now, decision })) return;
+      const verdict = chimeDecision({
+        signal,
+        viewerId,
+        soundOn: on,
+        quietReading: isQuietReading(),
+        lastChimeAt: lastChimeRef.current,
+        now,
+        decision,
+      });
+      if (verdict === "own") return;
+      if (verdict !== "play") {
+        recordSoundOutcome({ at: now, outcome: verdict });
+        return;
+      }
       lastChimeRef.current = now;
-      // AVORA-81 · C5: Đọc yên tĩnh — the message still arrives, no sound.
-      if (isQuietReading()) return;
-      play(MESSAGE_SOUND_URL);
+      void play("message").then((result) => {
+        if (result.status === "played") recordSoundOutcome({ at: now, outcome: "played" });
+        else if (result.status === "locked") {
+          recordSoundOutcome({ at: now, outcome: "locked" });
+          // A locked sound does not use up the 3-second window: the next message may try again.
+          lastChimeRef.current = 0;
+          if (!bannerAlreadyShown()) {
+            markBannerShown();
+            setShowBanner(true);
+          }
+        } else recordSoundOutcome({ at: now, outcome: "error", detail: result.name ?? result.reason });
+      });
     };
     window.addEventListener(INCOMING_MESSAGE_EVENT, onIncoming);
     return () => window.removeEventListener(INCOMING_MESSAGE_EVENT, onIncoming);
@@ -145,7 +204,7 @@ export function InAppAlerts() {
       if (due.length === 0) return;
       due.forEach((item) => rungRef.current.add(item.key));
       const blocked = decide({ surface: "direct", isFromFamily: false, mentionsRecipient: false }).decidedBy === "avora";
-      if (soundReminders && !blocked) play(REMINDER_SOUND_URL);
+      if (soundReminders && !blocked) void play("reminder");
       for (const item of due.slice(0, 3)) {
         toast(item.title, { description: "Đến giờ nhắc", action: { label: "Mở", onClick: () => navigate(item.href) } });
       }
@@ -171,7 +230,7 @@ export function InAppAlerts() {
       due.forEach((item) => habitRungRef.current.add(item.key));
       const avoraMuted = decide({ surface: "direct", isFromFamily: false, mentionsRecipient: false }).decidedBy === "avora";
       if (!habitChimeAllowed({ focusActive, avoraMuted, restWeekday, now: new Date(), soundOn: true })) return;
-      if (soundReminders && !isQuietReading()) playSoftTone();
+      if (soundReminders && !isQuietReading()) void play("habit");
       for (const item of due.slice(0, 2)) {
         toast(item.title, { description: "Đến giờ thói quen", duration: 6_000, action: { label: "Mở", onClick: () => navigate(item.href) } });
       }
@@ -181,5 +240,21 @@ export function InAppAlerts() {
     return () => window.clearInterval(timer);
   }, [habitCandidates, focusActive, restWeekday, soundReminders, decide, navigate]);
 
-  return null;
+  if (!showBanner) return null;
+  // Not a toast and not blocking: a small strip; a tap anywhere (including on it) unlocks and hides it.
+  return (
+    <div className="pointer-events-none fixed inset-x-0 top-0 z-[60] flex justify-center px-4 pt-[calc(env(safe-area-inset-top)+8px)]">
+      <button
+        type="button"
+        data-testid="sound-unlock-banner"
+        onClick={() => {
+          void soundPlayer().unlock();
+          setShowBanner(false);
+        }}
+        className="press pointer-events-auto rounded-full border border-border bg-card/95 px-4 py-2 text-[13px] font-medium text-foreground shadow-sm backdrop-blur"
+      >
+        {SOUND_TEXT.banner}
+      </button>
+    </div>
+  );
 }

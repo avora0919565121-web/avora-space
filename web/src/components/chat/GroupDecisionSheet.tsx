@@ -19,7 +19,6 @@ import {
 import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
 import {
   DropdownMenu,
   DropdownMenuContent,

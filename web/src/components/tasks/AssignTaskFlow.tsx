@@ -2,7 +2,7 @@ import { Search } from "lucide-react";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
@@ -83,7 +83,7 @@ export function AssignTaskFlow({ open, onOpenChange }: { open: boolean; onOpenCh
                     onClick={() => void pick(person)}
                     className="press flex min-h-12 w-full items-center gap-3 rounded-[10px] px-3 py-2 text-left hover:bg-accent/40 disabled:opacity-60"
                   >
-                    <InitialsAvatar name={nameOf(person)} size="sm" />
+                    <UserAvatar userId={person.userId} name={nameOf(person)} size="sm" />
                     <span className="min-w-0 flex-1 truncate text-[14.5px] font-medium">{nameOf(person)}</span>
                   </button>
                 </li>

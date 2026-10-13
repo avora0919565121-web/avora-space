@@ -5,6 +5,7 @@ import { openFocusSheet } from "@/components/chat/FocusHost";
 import { MuteSettingsCard } from "@/components/chat/MuteSettingsCard";
 import { shortUntil, useRhythm } from "@/lib/use-rhythm";
 import { PushSettingsCard } from "@/components/PushSettingsCard";
+import { SoundDiagnostics } from "@/components/SoundDiagnostics";
 import { Switch } from "@/components/ui/switch";
 import { useProfileSettings, useSettingsActions } from "@/lib/use-settings";
 
@@ -80,6 +81,7 @@ const SettingsNotifications = () => {
               />
             </label>
           </div>
+          <SoundDiagnostics />
         </section>
         <PushSettingsCard />
       </div>

@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { UserRound } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { fetchContactCard, fetchMessageRefs, REF_KIND_LABEL } from "@/lib/context-refs";
 import { cn } from "@/lib/utils";
 
@@ -26,7 +26,7 @@ export function ContactCardBubble({ messageId, senderName, outgoing }: { message
       ) : (
         <>
           <div className="mt-2 flex items-center gap-2.5">
-            <InitialsAvatar name={person.name} />
+            <UserAvatar userId={person.userId} name={person.name} />
             <div className="min-w-0">
               <p className="truncate text-[15px] font-semibold">{person.name}</p>
               <p className="font-mono text-[12.5px] text-muted-foreground" data-card-pin="">{person.pin}</p>

@@ -1,4 +1,5 @@
 import type { MuteDecision, NotificationEvent } from "@/lib/mute";
+import { mutedOutcome, type SoundOutcome } from "@/lib/sound-log";
 import type { ConversationSummary } from "@/lib/chat-cache";
 
 /**
@@ -17,6 +18,10 @@ export type IncomingMessageSignal = {
   mentionsViewer: boolean;
   /** The thread is on screen in a visible tab. */
   isReading: boolean;
+  /** Cờ Khẩn on the message (passes focus and mutes below Tắt toàn AVORA). */
+  isUrgent?: boolean;
+  /** Already recalled, or a disappearing message already past its end, when it arrived. */
+  isGone?: boolean;
 };
 
 /** Many messages within this window make one sound. */
@@ -24,6 +29,31 @@ export const SOUND_THROTTLE_MS = 3_000;
 
 export const MESSAGE_SOUND_URL = "/sounds/message-v1.mp3";
 export const REMINDER_SOUND_URL = "/sounds/reminder-v1.mp3";
+
+/**
+ * AVORA-114 · 4 — the whole decision for one incoming message, as a reason (or `play`). Order:
+ * own message → gone → setting off → reading → Đọc yên tĩnh → mute layers → 3-second grouping.
+ * Khoá Kết nối is deliberately not an input: a sound reveals nothing, so a locked Kết nối still
+ * sounds unless the person turned the message sound off.
+ */
+export function chimeDecision(input: {
+  signal: IncomingMessageSignal;
+  viewerId: string | undefined;
+  soundOn: boolean;
+  quietReading: boolean;
+  lastChimeAt: number;
+  now: number;
+  decision: MuteDecision;
+}): Exclude<SoundOutcome, "played" | "locked" | "error"> | "play" | "own" {
+  if (input.viewerId !== undefined && input.signal.senderId === input.viewerId) return "own";
+  if (input.signal.isGone === true) return "gone";
+  if (!input.soundOn) return "setting_off";
+  if (input.signal.isReading) return "reading";
+  if (input.quietReading) return "quiet_reading";
+  if (input.decision.blocked) return mutedOutcome(input.decision);
+  if (input.now - input.lastChimeAt < SOUND_THROTTLE_MS) return "throttled";
+  return "play";
+}
 
 /** Which mute tab a conversation belongs to. The journal never makes a sound. */
 export function surfaceOf(summary: Pick<ConversationSummary, "kind"> | undefined): NotificationEvent["surface"] | null {

@@ -3,7 +3,7 @@ import { Bell, CalendarDays, ChevronRight, ListTodo, MessageCircle, Search } fro
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { openPersonCard } from "@/components/PersonCard";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -49,7 +49,7 @@ export function GroupAvatarButton({ group, size = "md" }: { group: GroupRef; siz
       }}
       className="press no-callout inline-flex shrink-0 cursor-pointer rounded-full"
     >
-      <InitialsAvatar name={group.name} size={size} />
+      <UserAvatar name={group.name} size={size} />
     </span>
   );
 }
@@ -145,7 +145,7 @@ function GroupCardBody({ group, onClose }: { group: GroupRef; onClose: () => voi
   return (
     <div data-group-card="" className="text-left">
       <div className="flex items-center gap-4">
-        <InitialsAvatar name={group.name} size="lg" />
+        <UserAvatar name={group.name} size="lg" />
         <div className="min-w-0 flex-1">
           <p className="break-words text-[19px] font-semibold leading-tight text-foreground">{group.name}</p>
           <p className="tabular mt-1 text-[13.5px] text-muted-foreground">{count === null ? "Nhóm" : `${count} thành viên`}</p>
@@ -171,7 +171,7 @@ function GroupCardBody({ group, onClose }: { group: GroupRef; onClose: () => voi
               onClick={(event) => openPersonCard({ userId: member.userId, name: member.displayName, groupId: group.conversationId }, event.currentTarget)}
               className="press rounded-full"
             >
-              <InitialsAvatar name={nameOf(member)} size="sm" />
+              <UserAvatar userId={member.userId} name={nameOf(member)} size="sm" />
             </button>
           ))}
           {members.length > 8 || members.length > 0 ? (
@@ -208,7 +208,7 @@ function GroupCardBody({ group, onClose }: { group: GroupRef; onClose: () => voi
                     onClick={(event) => openPersonCard({ userId: member.userId, name: member.displayName, groupId: group.conversationId }, event.currentTarget)}
                     className="press flex min-h-11 w-full items-center gap-2.5 px-3 py-1.5 text-left text-[14px] hover:bg-accent/30"
                   >
-                    <InitialsAvatar name={nameOf(member)} size="sm" />
+                    <UserAvatar userId={member.userId} name={nameOf(member)} size="sm" />
                     <span className="min-w-0 flex-1 truncate">{nameOf(member)}</span>
                     {member.role !== "member" ? <span className="text-[11.5px] text-muted-foreground">{member.role === "owner" ? "Chủ nhóm" : "Quản trị"}</span> : null}
                   </button>

@@ -412,6 +412,16 @@
     -webkit-touch-callout: none;
   }
 
+  /* AVORA-115: someone's profile picture is for looking at only — no drag out, no selection, no
+     "Save image" callout. The image never takes the pointer, so a long press lands on its holder. */
+  .avatar-view-only {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+    -webkit-user-drag: none;
+    pointer-events: none;
+  }
+
   /* AVORA-59 · E: while the on-screen keyboard is up, the bottom tab bar steps aside. */
   html[data-keyboard="open"] .hide-on-keyboard {
     display: none !important;

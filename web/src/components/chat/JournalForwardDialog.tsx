@@ -3,7 +3,7 @@ import { Search, Users } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import type { AttachmentPermission } from "@/lib/attachments";
@@ -127,7 +127,7 @@ function JournalForwardSheet({ item, onOpenChange }: { item: JournalForwardItem 
                           <Users className="h-4 w-4" aria-hidden="true" />
                         </span>
                       ) : (
-                        <InitialsAvatar name={title} size="md" />
+                        <UserAvatar userId={c.peerId} name={title} size="md" />
                       )}
                       <span className="min-w-0 flex-1 truncate text-[15px] font-medium text-foreground">{title}</span>
                     </button>

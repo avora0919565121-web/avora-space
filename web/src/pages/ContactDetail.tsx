@@ -22,7 +22,7 @@ import { BusinessFields, IndividualFields } from "@/components/contacts/ContactF
 import { ContactLinkBanner } from "@/components/contacts/ContactLinkBanner";
 import { InvitePanel } from "@/components/contacts/InvitePanel";
 import { OpportunitySection } from "@/components/contacts/OpportunitySection";
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
 import { chatKeys, createDirectConversation } from "@/lib/chat";
@@ -211,7 +211,7 @@ const ContactDetail = () => {
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-4">
           {isPerson ? (
-            <InitialsAvatar name={contact.name} size="lg" />
+            <UserAvatar userId={contact.linkedUserId} name={contact.name} size="lg" />
           ) : (
             <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground/75">
               <Building2 className="h-6 w-6" strokeWidth={1.6} aria-hidden="true" />
@@ -424,7 +424,7 @@ function StaffSection({ staff }: { staff: readonly Contact[] }) {
                 onClick={() => navigate(`/lien-he/${person.id}`)}
                 className="flex w-full items-center gap-3 px-5 py-3.5 text-left transition-colors hover:bg-accent/35"
               >
-                <InitialsAvatar name={person.name} size="sm" />
+                <UserAvatar userId={person.linkedUserId} name={person.name} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[14.5px] font-medium text-foreground">
                     {person.name}

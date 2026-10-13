@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { KeyRound, QrCode, Search, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { ConnectQrDialog } from "@/components/contacts/ConnectQrDialog";
 import { InviteMessageDialog } from "@/components/contacts/InviteMessageDialog";
 import { Button } from "@/components/ui/button";
@@ -181,7 +181,7 @@ export function NewChatDialog({ open, onOpenChange, onCreated }: NewChatDialogPr
                 onClick={() => void openWithFriend(item.userId)}
                 className="press flex w-full items-center gap-3 px-6 py-3 text-left transition-colors hover:bg-accent/40"
               >
-                <InitialsAvatar name={item.displayName ?? "?"} size="sm" />
+                <UserAvatar userId={item.userId} name={item.displayName ?? "?"} size="sm" />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[15px] font-medium text-foreground">
                     {item.displayName ?? "Người dùng AVORA"}

@@ -1,9 +1,10 @@
-import { Check, Loader2, LogOut, MonitorX } from "lucide-react";
+import { Camera, Check, Loader2, LogOut, MonitorX } from "lucide-react";
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
+import { openAvatarEditor } from "@/lib/avatar-editor";
 import { DeviceSecuritySection } from "@/components/DeviceSecurity";
 import { askConfirm } from "@/components/ConfirmHost";
 import { PinSetup, usePinStatus } from "@/components/PinGate";
@@ -101,7 +102,19 @@ const Profile = () => {
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in px-6 pb-12 pt-4 md:px-10">
         {/* AVORA-53 · 6.5: the tab names the page; no second large title, and the email shows once (below). */}
         <div className="flex items-center gap-s-2">
-          <InitialsAvatar name={displayName} size="lg" online />
+          {/* AVORA-115 · 4: tap the picture → Chọn từ thư viện / Chụp ảnh / Xoá ảnh → cắt tròn → Lưu. */}
+          <button
+            type="button"
+            onClick={openAvatarEditor}
+            aria-label="Đổi ảnh đại diện"
+            className="press relative shrink-0 rounded-full"
+            data-testid="profile-avatar"
+          >
+            <UserAvatar userId={user?.id ?? null} name={displayName} size="lg" online />
+            <span aria-hidden="true" className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-card bg-secondary text-foreground/80">
+              <Camera className="h-3 w-3" strokeWidth={2} />
+            </span>
+          </button>
           <p className="min-w-0 truncate text-[20px] font-semibold tracking-tight text-foreground">{displayName}</p>
         </div>
 

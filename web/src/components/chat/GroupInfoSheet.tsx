@@ -38,7 +38,7 @@ import { useConnections } from "@/lib/use-connections";
 import { ConversationNotifySheet } from "@/components/chat/ConversationNotifySheet";
 import { shortUntil, useRhythm } from "@/lib/use-rhythm";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { PersonAvatarButton } from "@/components/PersonCard";
 import { FamilyFlagCard } from "@/components/chat/FamilyFlagCard";
 import { SubGroupDialog } from "@/components/chat/SubGroupDialog";
@@ -719,7 +719,7 @@ export function GroupInfoSheet({
         summary={
           <span className="flex -space-x-1.5" aria-hidden="true">
             {sortedMembers.slice(0, 5).map((member) => (
-              <InitialsAvatar key={member.userId} name={memberName(member)} size="sm" className="ring-2 ring-card" />
+              <UserAvatar key={member.userId} userId={member.userId} name={memberName(member)} size="sm" className="ring-2 ring-card" />
             ))}
           </span>
         }
@@ -1034,7 +1034,7 @@ export function GroupInfoSheet({
             <div className="flex min-h-0 flex-1 flex-col">
               {/* ① Đầu: ảnh + tên + Sửa (AVORA-49 · 4.1). */}
               <div className="flex items-center gap-3 border-b border-border px-6 pb-5 pt-7">
-                <InitialsAvatar name={groupName ?? "Nhóm"} />
+                <UserAvatar name={groupName ?? "Nhóm"} />
                 <div className="min-w-0 flex-1">
                   <SheetTitle className="truncate text-[20px] font-semibold tracking-tight text-foreground">
                     {groupName ?? "Nhóm"}
@@ -1187,7 +1187,7 @@ export function GroupInfoSheet({
             <div className="flex min-h-0 flex-1 flex-col">
               {/* ① Đầu: ảnh + tên — the same frame as a group (AVORA-49 · 4.1). */}
               <div className="flex items-center gap-3 border-b border-border px-6 pb-5 pt-7">
-                <InitialsAvatar name={peerName ?? "?"} />
+                <UserAvatar userId={peerId ?? null} name={peerName ?? "?"} />
                 <div className="min-w-0 flex-1">
                   <SheetTitle className="truncate text-[20px] font-semibold tracking-tight text-foreground">{peerName}</SheetTitle>
                   <SheetDescription className="mt-1 text-[13px] text-muted-foreground">Trò chuyện 1-1</SheetDescription>

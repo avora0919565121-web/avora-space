@@ -3,7 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { openFocusSheet } from "@/components/chat/FocusHost";
 import { activeFocus } from "@/lib/mute";
 import { useProfileSettings } from "@/lib/use-settings";
@@ -155,7 +155,7 @@ export function AppSidebar() {
 
       <div className="mt-auto border-t border-border px-4 py-5">
         <div className="flex items-center gap-3">
-          <InitialsAvatar name={displayName} size="sm" />
+          <UserAvatar userId={user?.id ?? null} name={displayName} size="sm" />
           <div className="min-w-0">
             <p className="truncate text-[14px] font-semibold text-foreground">{displayName}</p>
             <p className="truncate text-[12px] text-muted-foreground">{maskEmail(user?.email)}</p>

@@ -26,6 +26,9 @@ export const REPORT_CONSENT_TEXT = "Nội dung tin nhắn này sẽ được g�
 
 export const REPORT_SENT_TOAST = "Đã gửi báo cáo. Cảm ơn bạn.";
 
+/** AVORA-115 · 7: the reason line of a picture report (until 111-B adds `target_kind = 'avatar'`). */
+export const AVATAR_REPORT_NOTE = "Ảnh đại diện không phù hợp";
+
 export type ReportInput = {
   reportedUserId: string;
   reason: ReportReason;

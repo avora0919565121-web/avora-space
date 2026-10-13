@@ -1,7 +1,7 @@
 import { Ban, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
-import { InitialsAvatar } from "@/components/InitialsAvatar";
+import { UserAvatar } from "@/components/UserAvatar";
 import { blockedPersonLabel, NEEDS_NETWORK_MESSAGE } from "@/lib/blocks";
 import { useBlocks } from "@/lib/use-blocks";
 import { useOnline } from "@/lib/use-online";
@@ -42,7 +42,7 @@ export function BlockedPeopleCard() {
             const label = blockedPersonLabel(person);
             return (
               <li key={person.userId} className="flex min-h-14 items-center gap-3 py-2">
-                <InitialsAvatar name={label} size="sm" />
+                <UserAvatar userId={person.userId} name={label} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-[14px] font-medium text-foreground">{label}</p>
                   {person.email !== null && person.email !== label ? (

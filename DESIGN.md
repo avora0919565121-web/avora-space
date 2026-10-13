@@ -1789,6 +1789,37 @@ Depth comes from paper-vs-surface contrast and hairlines only — never gradient
   form's own order, with "Mở rộng" (Các bước · Cần mang theo · Kế hoạch) below and actions pinned to the bottom.
   One broken screen never blanks the app: each route and each Avora Space block has its own error state, and a
   failed load is always said as a failure, never shown as empty.
+- 2026-10-13 — Ảnh đại diện (AVORA-115, VMT chốt 13/10). One component, `UserAvatar`: initials first, the picture
+  laid over them only once it has loaded (no flash), falling back to initials on any failure. `InitialsAvatar` is
+  drawn only by `UserAvatar` (a test fails if anything else imports it). **Who sees:** the owner and friends
+  (`user_connections` active, no block either way) — one server rule, `private.can_see_avatar`. Everyone else —
+  group/project members who are not friends, strangers found by PIN, pending invitations, blocked people — sees
+  initials. Unfriending or blocking takes it away at once, everywhere (history included): the server returns
+  nothing, refuses new links, and tells both people's own topics (`avatar` broadcast). **Who uses:** only the owner
+  sets, changes or removes it (Hồ sơ → tap the picture → Chọn từ thư viện / Chụp ảnh / Xoá ảnh → round crop with drag
+  and zoom → Lưu / Huỷ; one's own person card opens the same editor). Others only look: the image is not draggable,
+  not selectable, never takes the pointer (no "Save image" on long press), no context menu; the full-size view has
+  only Đóng. A picture is never a forwardable or attachable thing and is not in forward bundles, backups or exports
+  of other people. Wording stays honest (ADR-020): "Avora không cho lưu hoặc chuyển tiếp ảnh này" — never "không thể
+  sao chép"; a screenshot cannot be stopped. **Storage:** private bucket `avatars`, `<user_id>/<version>.jpg`,
+  JPEG ≤ 256 KB (client makes 512×512, ≤ ~200 KB, EXIF and place dropped by redrawing); `profiles.avatar_url` holds
+  the path, `avatar_updated_at` the version; the column is written only through `set_avatar` / `clear_avatar`,
+  which return the old path so it is deleted. Reads are batched per frame (one `avatar_paths`, one signing), signed
+  links live 5 minutes. Messages always show the sender's current picture. Thẻ người has "Báo cáo ảnh đại diện".
+- 2026-10-13 — Âm báo trong app (A11, cập nhật AVORA-114). One player for every in-app sound (`lib/sound.ts`):
+  one shared `AudioContext`, the two files decoded once, the habit tone synthesised on the same context; fallback is
+  ONE reused `<audio>`. iPhone browsers only sound after a tap, so the first `pointerdown`/`touchend`/`keydown`
+  unlocks it (resume + a silent buffer) and the page re-arms when it comes back from the background suspended.
+  `play()` always answers `played` / `locked` / `failed` — nothing is swallowed. A locked sound on an incoming
+  message shows one small strip per session, "Chạm vào màn hình để bật âm báo.", never a repeating toast. Rules:
+  never for the thread being read, nor one's own message (any device), nor a message already recalled or past its
+  end; every mute layer counts, including the per-conversation mute and Chế độ tập trung (Cờ Khẩn and Gia đình
+  pass as everywhere else); Đọc yên tĩnh and Nhật ký are silent; many messages within 3 s make one sound; Khoá
+  Kết nối does not silence it (a sound reveals nothing — only the counts hide). Ngày nghỉ blocks nothing
+  (AVORA-110), so it does not silence either. Cài đặt › Thông báo has `Nghe thử` (the tap itself unlocks) and
+  "Vì sao tôi không nghe thấy?": the last 10 decisions, on this device only, no content and no sender. A closed
+  app's push uses the system's default sound (`silent: false`, `vibrate: [80]` for Android); a custom Avora sound
+  needs the native app.
 - 2026-09-29 — Kế hoạch, shared things and no dead ends (Đợt gộp 2 · C/D). A new Bảng starts from a template
   gallery filtered by way of thinking and by place; "Mẫu của tôi" saves structure only, never Hạng mục. Kế hoạch
   opens on a shelf of four drawers (Nhật ký · Của tôi · 1-1 · Nhóm) with four reminder tiles; choosing a Bảng folds
