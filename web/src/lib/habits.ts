@@ -1,10 +1,11 @@
 import { normalizeSearch } from "@/lib/normalize-search";
+import { appTimeZone, zonedDayIso } from "@/lib/app-time-zone";
 
 /**
  * AVORA-107 · PHẦN 1 — Thói quen (ADR-077). Pure rules, no I/O.
  *
  * Thói quen là kỷ luật, nhiệm vụ là trách nhiệm: nothing here touches `tasks`. There is no streak,
- * no score, no badge. A day ends at 24:00 on this device; a window not done by then reads
+ * no score, no badge. A day ends at 24:00 in the profile's zone (112-E); a window not done by then reads
  * `Chưa làm` in the history and never rolls over into the next day.
  */
 export type HabitKind = "timed" | "check";
@@ -92,13 +93,9 @@ export const CUSTOM_DRAFT: HabitDraft = { name: "", kind: "check", targetMinutes
 
 // ------------------------------------------------------------------ days
 
-function pad(value: number): string {
-  return String(value).padStart(2, "0");
-}
-
-/** The day on this device's clock — the habit day ends at 24:00 here. */
+/** The habit day — 112-E: in the profile's zone (LOI-03), ending at 24:00 there. */
 export function localDateOf(now: Date = new Date()): string {
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+  return zonedDayIso(now, appTimeZone());
 }
 
 function parseDay(day: string): Date {

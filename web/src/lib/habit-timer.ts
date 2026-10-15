@@ -21,7 +21,7 @@ export type HabitSession = {
   windowIndex: number;
   /** The window's time, shown on the screen (`08:00`). */
   windowTime: string;
-  /** The device day the session belongs to (ranh giới 24:00 giờ máy). */
+  /** The day the session belongs to (112-E: ranh giới 24:00 theo múi giờ hồ sơ). */
   localDate: string;
   targetSeconds: number;
   /** Time already gathered before the current run, in ms. */

@@ -49,7 +49,23 @@ export type OutboxItem = {
   state: "queued" | "sending" | "waiting_network" | "failed";
   attempts: number;
   lastError: string | null;
+  /**
+   * 112-C: when this item first tried to leave while online. Thirty seconds of trying without success turns
+   * it into `failed` (Thử lại / Xoá) — never an endless "Chờ gửi…". Cleared while offline and on Thử lại.
+   */
+  firstTriedAt?: string | null;
+  /**
+   * 112-C: true when the server said no for good (blocked, not a member…). Such an item waits for the person.
+   * A `failed` item that is not permanent (the 30-second deadline passed on a bad network) keeps trying
+   * quietly in the background while showing "Chưa gửi được · Gửi lại" — clear to the person, never lost.
+   */
+  permanent?: boolean;
 };
+
+/** 112-C: online, a message that has not gone after this long stops and asks the person. */
+export const SEND_DEADLINE_MS = 30_000;
+/** 112-C: one request that hangs longer than this counts as a failed try (the id makes a late answer harmless). */
+export const REQUEST_TIMEOUT_MS = 15_000;
 
 /** What the UI shows under a waiting bubble. */
 export function outboxLabel(item: Pick<OutboxItem, "state">): string | null {
@@ -77,12 +93,50 @@ export function isPermanentSendError(message: string): boolean {
     "messages_content",
     "avora_urgent",
     "avora_message_id_taken",
+    "avora_feature_off",
+    "avora_not_signed_in",
     "không có quyền",
     "không gửi loại tệp",
     "tệp quá lớn",
     "không còn",
     "chặn",
   ].some((needle) => m.includes(needle));
+}
+
+/**
+ * 112-C: what a failed try leads to. `errorText` is the server's own message (see `serverText`), so a
+ * permanent `avora_…` code stops at once whatever the translated sentence says (LOI-01).
+ */
+export function nextOutboxState(input: {
+  errorText: string;
+  offline: boolean;
+  attempts: number;
+  firstTriedAt: string | null | undefined;
+  now?: number;
+}): OutboxItem["state"] {
+  if (isPermanentSendError(input.errorText)) return "failed";
+  if (input.offline) return "waiting_network";
+  const started = input.firstTriedAt === null || input.firstTriedAt === undefined ? null : Date.parse(input.firstTriedAt);
+  const elapsed = started === null || Number.isNaN(started) ? 0 : (input.now ?? Date.now()) - started;
+  if (elapsed >= SEND_DEADLINE_MS || input.attempts >= 5) return "failed";
+  return isNetworkError(input.errorText) ? "waiting_network" : "queued";
+}
+
+/** Rejects with a "timeout" error when `promise` has not settled in `ms`. */
+export function withTimeout<T>(promise: Promise<T>, ms: number = REQUEST_TIMEOUT_MS): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout: không có trả lời từ máy chủ")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      },
+    );
+  });
 }
 
 /** True when the failure looks like the network (retry quietly when it is back). */
@@ -103,8 +157,11 @@ export function sendableHeads(items: readonly OutboxItem[]): OutboxItem[] {
     if (heads.has(item.conversationId)) continue;
     heads.set(item.conversationId, item);
   }
-  // A failed head blocks its conversation (order matters) until the person retries or drops it.
-  return [...heads.values()].filter((item) => item.state === "queued" || item.state === "waiting_network");
+  // A permanently failed head blocks its conversation (order matters) until the person retries or drops it;
+  // one that only ran out of time keeps trying in the background (112-C).
+  return [...heads.values()].filter(
+    (item) => item.state === "queued" || item.state === "waiting_network" || (item.state === "failed" && item.permanent === false),
+  );
 }
 
 /** Runs `tasks` with at most `limit` in flight (C3: files upload three at a time). */

@@ -14,7 +14,7 @@ import "@/index.css";
  */
 const ME = "be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d";
 const FRIEND = "ce09d234-af48-49a5-96f2-b2456ae4e5b0";
-const GROUPMATE = "151a54b2-2ae1-4b0d-906c-08a1965461bd";
+const GROUPMATE = "0b1f7a2c-0000-4000-8000-0000000115cc"; // synthetic — no real account (VMT 14/10)
 
 type ServerState = {
   paths: Map<string, string>;

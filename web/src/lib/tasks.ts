@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { appTimeZone, zonedDayIso } from "@/lib/app-time-zone";
 import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
@@ -1102,10 +1103,8 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Today as a calendar day in the viewer's own timezone, `YYYY-MM-DD`. */
 export function todayIso(now: Date = new Date()): string {
-  const year = now.getFullYear();
-  const month = `${now.getMonth() + 1}`.padStart(2, "0");
-  const day = `${now.getDate()}`.padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  // 112-E · LOI-03: the profile's zone, not the device clock's.
+  return zonedDayIso(now, appTimeZone());
 }
 
 /**

@@ -7,6 +7,7 @@ import { ChatUnlockForm } from "@/components/chat-lock/ChatUnlockForm";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AUTO_LOCK_OPTIONS, type ChatAutoLock } from "@/lib/chat-lock";
 import { useChatLock } from "@/lib/use-chat-lock";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 type Pending = "change" | "off" | null;
 
@@ -14,7 +15,7 @@ type Pending = "change" | "off" | null;
  * AVORA-109 · A2/A3 — Cài đặt › Riêng tư › `Khoá Kết nối` and `Tự khoá Kết nối`. Changing the way
  * to open or turning the lock off first asks the current way (otherwise Settings would be a side door).
  */
-export function ChatLockSettings() {
+function ChatLockSettingsInner() {
   const { config, isEnabled, setAutoLock, turnOff } = useChatLock();
   const [isSetupOpen, setIsSetupOpen] = useState<boolean>(false);
   const [setupLocks, setSetupLocks] = useState<boolean>(true);
@@ -100,5 +101,14 @@ export function ChatLockSettings() {
         </DialogContent>
       </Dialog>
     </div>
+  );
+}
+
+/** AVORA-112-B: behind the `chat_lock` switch (stable · soon · hidden). */
+export function ChatLockSettings() {
+  return (
+    <FeatureGate feature="chat_lock">
+      <ChatLockSettingsInner />
+    </FeatureGate>
   );
 }

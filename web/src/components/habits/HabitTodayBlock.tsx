@@ -7,13 +7,14 @@ import { openHabitTimer } from "@/lib/use-habit-timer";
 import { HABIT_PARAM, habitsForDay, isDayKept, tallyText, todaySummary, type Habit } from "@/lib/habits";
 import { toggleHabitWindow, useHabits } from "@/lib/use-habits";
 import { cn } from "@/lib/utils";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 /**
  * Hôm nay's folded `Thói quen · 2/5` (AVORA-107 · 1.2 · 3): at the end of the list, open on tap.
  * A habit hangs here until it is done or the day ends — even past its window; once every window
  * of it is done it leaves the part that still needs doing. Nothing at all → nothing shown.
  */
-export function HabitTodayBlock() {
+function HabitTodayBlockInner() {
   const navigate = useNavigate();
   const { habits, done, today } = useHabits();
   const [isOpen, setIsOpen] = useState<boolean>(false);
@@ -49,5 +50,14 @@ export function HabitTodayBlock() {
         )
       ) : null}
     </section>
+  );
+}
+
+/** AVORA-112-B: behind the `habits` switch (stable · soon · hidden). */
+export function HabitTodayBlock() {
+  return (
+    <FeatureGate feature="habits" soon={null}>
+      <HabitTodayBlockInner />
+    </FeatureGate>
   );
 }

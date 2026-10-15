@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { appTimeZone, nextZonedMidnight } from "@/lib/app-time-zone";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -426,12 +427,12 @@ function snapshot(): State {
   return state;
 }
 
-/** The device day, turning over at 24:00 while the app stays open. */
+/** The profile-zone day (112-E), turning over at 24:00 there while the app stays open. */
 export function useLocalDay(): string {
   const [day, setDay] = useState<string>(() => localDateOf());
   useEffect(() => {
     const now = new Date();
-    const next = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 1);
+    const next = nextZonedMidnight(now, appTimeZone());
     const timer = window.setTimeout(() => setDay(localDateOf()), Math.max(1_000, next.getTime() - now.getTime()));
     const onVisible = (): void => {
       if (document.visibilityState === "visible") setDay(localDateOf());

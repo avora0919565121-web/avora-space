@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { appTimeZone, zonedInstant, zonedParts } from "@/lib/app-time-zone";
 import { supabase } from "@/integrations/supabase/client";
 
 /**
@@ -96,9 +97,9 @@ export const MAX_CUSTOM_MUTE_HOURS = 168;
 
 /** The end of the reader's own day, in their own timezone. Local midnight, not UTC. */
 export function endOfLocalDay(now: Date = new Date()): Date {
-  const end = new Date(now);
-  end.setHours(23, 59, 59, 999);
-  return end;
+  // 112-E: the end of the day in the profile's zone.
+  const p = zonedParts(now, appTimeZone());
+  return zonedInstant(p.year, p.month, p.day, 23, 59, 59, 999, appTimeZone());
 }
 
 /** When a chosen option runs out. */

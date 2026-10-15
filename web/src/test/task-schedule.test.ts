@@ -14,6 +14,11 @@ import {
   validateDeadlineTime,
   type RecurrencePattern,
 } from "@/lib/task-schedule";
+import { deviceTimeZone, setAppTimeZone } from "@/lib/app-time-zone";
+
+// 112-E: these cases are about the day boundary itself; the profile's zone is set to this machine's zone so
+// "local" means the same thing in both (profile ≠ device is covered in golden-units / avora112e).
+setAppTimeZone(deviceTimeZone());
 
 describe("deadline clock", () => {
   it("accepts a plain HH:MM and trims seconds Postgres adds", () => {

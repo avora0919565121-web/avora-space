@@ -51,6 +51,20 @@ export function writeDraft(userId: string | undefined, conversationId: string | 
   }
 }
 
+/** 112-C: how many conversations of this account hold a saved draft (signing out removes them). */
+export function countDrafts(userId: string): number {
+  try {
+    let count = 0;
+    for (let index = 0; index < window.localStorage.length; index += 1) {
+      const key = window.localStorage.key(index);
+      if (key !== null && key.startsWith(`${PREFIX}:${userId}:`) && (window.localStorage.getItem(key) ?? "").trim() !== "") count += 1;
+    }
+    return count;
+  } catch {
+    return 0;
+  }
+}
+
 /** Removes every draft on this device — called on sign-out. */
 export function clearAllDrafts(): void {
   try {

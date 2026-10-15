@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { Ban, Copy, Flag, ListTodo, Mail, MessageCircle, Phone, Settings2, Tag, UserPlus, UserRound, X } from "lucide-react";
+import { Ban, Copy, Flag, Link2, ListTodo, Mail, MessageCircle, Phone, Settings2, Tag, UserPlus, UserRound, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,6 +14,8 @@ import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover"
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/lib/auth";
+import { openContactLinkManager } from "@/lib/contact-link-store";
+import { useFeature } from "@/lib/use-feature";
 import { createDirectConversation } from "@/lib/chat";
 import { formatPhoneForDisplay } from "@/lib/contact-clean";
 import { createContactQuick } from "@/lib/contacts";
@@ -144,6 +146,7 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
   const { data: tasks } = useTasks();
   const { block, isBlocked } = useBlocks();
   const isSelf = user?.id === personRef.userId;
+  const canManageLink = useFeature("contact_link") === "stable";
   const { data: ownPin } = useQuery({ queryKey: ["person-card", "own-pin"], queryFn: fetchMyPin, enabled: isSelf, staleTime: 5 * 60_000 });
   const { aliases, save: saveAlias } = useUserAliases();
   const view = useMemo(
@@ -336,8 +339,18 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
             {view.contactId !== null ? (
               <ActionTile
                 icon={<UserRound className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />}
-                label="Sửa tên trong Liên hệ"
-                onClick={() => go(`/lien-he/${view.contactId}`)}
+                label={canManageLink ? "Đổi tên trong danh bạ" : "Sửa tên trong Liên hệ"}
+                onClick={() => {
+                  // AVORA-117: the name is wrong because the account sits on the wrong contact — move it, or open the contact.
+                  const contactId = view.contactId;
+                  if (contactId === null) return;
+                  if (!canManageLink) {
+                    go(`/lien-he/${contactId}`);
+                    return;
+                  }
+                  onClose();
+                  openContactLinkManager({ kind: "manage", contactId });
+                }}
               />
             ) : view.isFriend ? (
               <ActionTile icon={<UserRound className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />} label="Thêm vào Liên hệ" onClick={() => void addContact()} />
@@ -347,6 +360,21 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
           </>
         )}
       </div>
+
+      {!view.isSelf && view.isFriend && view.contactId === null && canManageLink ? (
+        <button
+          type="button"
+          data-link-friend=""
+          onClick={() => {
+            onClose();
+            openContactLinkManager({ kind: "link-friend", userId: view.userId, avoraName: view.realName });
+          }}
+          className="press mt-2 inline-flex min-h-11 w-full items-center justify-center gap-1.5 rounded-[12px] text-[13px] font-medium text-muted-foreground hover:bg-secondary hover:text-foreground"
+        >
+          <Link2 className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          Liên kết với liên hệ có sẵn…
+        </button>
+      ) : null}
 
       {isSharedOpen && !view.isSelf ? (
         <div className="mt-3 rounded-[12px] border border-border">

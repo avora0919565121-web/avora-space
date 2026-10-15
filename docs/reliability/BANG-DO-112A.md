@@ -21,7 +21,7 @@ Số đo của từng dòng nằm ở `docs/reliability/do-112a/<mã>.json` (có
 |---|---|---|
 | 1 Vào app | Một phần | 1.1, 1.2, 1.5 chưa có bài đo tự động (cần máy chủ Auth thật); 1.3 thử tay |
 | 2 Gửi tin | Một phần | 2.4 lỗi vĩnh viễn chờ 16,6 s mới báo (LOI-01) |
-| 3 Thông báo | Một phần | 3.2 mâu thuẫn với ADR-086 (ngày nghỉ), chờ VMT chốt; 3.5 thử tay |
+| 3 Thông báo | Một phần | 3.2 theo chuẩn đã sửa 14/10 (ngày nghỉ không chặn thông báo, ADR-086); 3.5 thử tay |
 | 4 Việc | Một phần | 4.3 lệch ngày khi máy khác múi giờ hồ sơ (LOI-03) |
 | 5 Mở lại | Một phần | 5.4 tab ngoài Kết nối không có dữ liệu ngoại tuyến (LOI-07) |
 | 6 Ảnh, tệp | Không đạt | 6.1 không có tiến độ, không huỷ được (LOI-06); 6.2 loại tệp bị chặn chỉ báo sau khi tải (LOI-05); 6.3 tệp mồ côi ≤ 25 giờ (LOI-02) |
@@ -59,7 +59,7 @@ Số đo của từng dòng nằm ở `docs/reliability/do-112a/<mã>.json` (có
 | # | Yêu cầu | Ngưỡng | Kết quả đo | Đạt? | Bằng chứng |
 |---|---|---|---|---|---|
 | 3.1 | Đúng người, đúng cuộc | 100% | Máy chủ thật: mỗi tin phát tới chủ đề riêng của từng thành viên. Người ngoài không vào được chủ đề, không đọc được tin. Đẩy thông báo: đọc theo `push_outbox` của từng người. | Đạt (T) · thử tay (đẩy thật) | T-SQL `k3_speed.sql` (N1), `k1_safety.sql` (K1.3) |
-| 3.2 | Tôn trọng yên lặng, Tắt thông báo, ngày nghỉ | 100% | Âm trong app: bảng quyết định 128 tổ hợp. Đẩy thông báo: Chế độ tập trung, tắt toàn AVORA. Ngày nghỉ **không** chặn thông báo theo ADR-086 (chỉ chặn nhắc thói quen) → mâu thuẫn với dòng chuẩn, chờ VMT. | Đạt theo ADR · chờ VMT chốt dòng chuẩn | `avora114-sound.test.ts`, `avora-46-push.test.ts`, T-SQL `avora107_habits.sql` |
+| 3.2 | Tôn trọng Chế độ yên lặng, Chế độ tập trung, Tắt thông báo (ngày nghỉ không chặn — ADR-086, VMT chốt 14/10) | 100% | Âm trong app: bảng quyết định 128 tổ hợp. Đẩy thông báo: Chế độ tập trung, tắt toàn AVORA. Ngày nghỉ **không** chặn thông báo theo ADR-086 (chỉ chặn nhắc thói quen) → mâu thuẫn với dòng chuẩn, chờ VMT. | Đạt theo ADR · chờ VMT chốt dòng chuẩn | `avora114-sound.test.ts`, `avora-46-push.test.ts`, T-SQL `avora107_habits.sql` |
 | 3.3 | Mặc định không lộ nội dung | 100% | `profiles.push_show_content` mặc định `false` | Đạt | migration push; `avora-46-push.test.ts` |
 | 3.4 | Số chưa đọc khớp sau khi đọc ở máy khác | 100% | 2 thiết bị cùng tài khoản, mỗi máy 3 chưa đọc. Đọc ở máy tính, điện thoại về 0 ngay khi nhận sự kiện (0 ms sau phản hồi). | Đạt | `L3.4-chua-doc-hai-may.json` |
 | 3.5 | Thông báo khi app đóng | ≥ 95% trong 10 s | Cron `avora_send_push` chạy 2.880/2.880 lần thành công trong 2 ngày (máy chủ). Thông báo trên máy chưa đo. | Thử tay | `cron.job_run_details` 13/10 |

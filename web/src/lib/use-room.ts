@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { logError } from "@/lib/log";
 import { useCallback, useMemo } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -44,7 +45,7 @@ export function useRoomPrefs(): {
   const saveRoom = useCallback(
     (shelf: RoomShelf) => {
       if (prefs.think_hub_room === shelf) return;
-      void setPref("think_hub_room", shelf).catch(() => undefined);
+      void setPref("think_hub_room", shelf).catch((error: unknown) => logError("think-hub-room", error));
     },
     [prefs.think_hub_room, setPref],
   );
@@ -53,7 +54,7 @@ export function useRoomPrefs(): {
       // Only used to order templates — never shown on a profile, never shared (2.4b · C).
       void setPref("template_audiences", next)
         .then(() => setPref("template_audiences_asked", true))
-        .catch(() => undefined);
+        .catch((error: unknown) => logError("template-audiences", error));
     },
     [setPref],
   );

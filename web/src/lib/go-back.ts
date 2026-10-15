@@ -1,7 +1,7 @@
 import { useCallback, useMemo } from "react";
-import { useLocation, useNavigate, type NavigateFunction } from "react-router-dom";
+import { useLocation, useNavigate, useNavigationType, type NavigateFunction } from "react-router-dom";
 
-import { hasInAppPrevious, previousEntryPath, useHistoryVersion, walkedEntries } from "@/lib/nav-history";
+import { hasInAppPrevious, previousEntryPath, previousPathFor, useHistoryVersion, walkedEntries } from "@/lib/nav-history";
 import { activeNavEntry, HOME_ROUTE } from "@/lib/navigation";
 import { readReturn, stripReturn } from "@/lib/return-to";
 
@@ -17,7 +17,7 @@ import { readReturn, stripReturn } from "@/lib/return-to";
  */
 export type BackPlace = { path: string; label: string };
 
-type Where = { pathname: string; search: string };
+type Where = { pathname: string; search: string; key?: string };
 
 /** The six areas' own front screens: no `‹` there (the bars move between them). */
 export function isAreaRoot(where: Where): boolean {
@@ -73,9 +73,13 @@ export function placeLabel(path: string): string {
 export type BackTarget = { kind: "history"; label: string } | { kind: "path"; path: string; label: string };
 
 /** What `‹` does from here, and the small name it carries (always the place it really goes to). */
-export function backTarget(where: Where, parent?: BackPlace): BackTarget {
+export function backTarget(where: Where, parent?: BackPlace, navType?: "PUSH" | "POP" | "REPLACE"): BackTarget {
   const returnTo = readReturn(new URLSearchParams(where.search));
-  if (hasInAppPrevious()) {
+  // LOI-10: read the walk as it is for THIS location, even before the tracker has recorded it.
+  const behind = navType === undefined ? undefined : previousPathFor(where.key, navType);
+  if (behind !== undefined) {
+    if (behind !== null) return { kind: "history", label: placeLabel(behind) };
+  } else if (hasInAppPrevious()) {
     const previous = previousEntryPath();
     return { kind: "history", label: previous === null ? (returnTo?.label ?? "Quay lại") : placeLabel(previous) };
   }
@@ -139,6 +143,7 @@ export function goToTabRoot(navigate: NavigateFunction, where: Where, threadSect
 export function useBack(parent?: BackPlace): { back: () => void; label: string; toRoot: () => void; rootLabel: string } {
   const navigate = useNavigate();
   const location = useLocation();
+  const navType = useNavigationType();
   const version = useHistoryVersion();
   const parentPath = parent?.path;
   const parentLabel = parent?.label;
@@ -151,7 +156,7 @@ export function useBack(parent?: BackPlace): { back: () => void; label: string; 
   const back = useCallback(() => goBack(navigate, location, place), [navigate, location, place]);
   const toRoot = useCallback(() => goToTabRoot(navigate, location, section), [navigate, location, section]);
   // eslint-disable-next-line react-hooks/exhaustive-deps -- version: the walked path moved
-  const label = useMemo(() => backTarget(location, place).label, [location, place, version]);
+  const label = useMemo(() => backTarget(location, place, navType).label, [location, place, version, navType]);
   const rootLabel = tabRootOf(location, section).label;
   return { back, label, toRoot, rootLabel };
 }

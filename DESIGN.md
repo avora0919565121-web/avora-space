@@ -2333,6 +2333,16 @@ Trong Tạo / Sửa thói quen có đồng hồ, dưới số phút: `Khi rời 
 - Thân trang và thân tấm cuộn dọc dùng `scroll-y` (hoặc `scroll-y-free` khi bên trong có dải cuộn ngang). Dải cuộn ngang chủ đích (chip, thẻ bàn, bảng rộng, dải mục con, kệ sách) luôn mang `data-h-scroll`.
 - Lưới một cột trên điện thoại ghi rõ `grid-cols-1` để chữ `truncate` không đẩy cột rộng hơn màn hình.
 
+## Liên kết liên hệ ↔ tài khoản AVORA (AVORA-117 · VMT 14/10)
+
+- Một tài khoản AVORA gắn với **nhiều nhất một** liên hệ cá nhân của mỗi chủ (chỉ mục duy nhất). Chỉ máy chủ đổi `linked_user_id`; máy khách sửa thẳng bị từ chối (`avora_contact_link_server_only`).
+- **Quản lý liên kết AVORA** (cạnh nhãn "Đã dùng AVORA" ở trang liên hệ cá nhân; thẻ người › **Đổi tên trong danh bạ**): *Chuyển sang liên hệ khác…* hoặc *Gỡ liên kết*. Liên hệ cũ giữ nguyên tên, số, email, ghi chú, nhãn. Màn xác nhận nói rõ tên sẽ hiện ở chat, nhóm, giao việc.
+- Bạn bè chưa có liên hệ nào: thẻ người › **Liên kết với liên hệ có sẵn…** (máy chủ kiểm đang là bạn; tài khoản chưa gắn liên hệ khác).
+- Bộ chọn: chỉ liên hệ cá nhân chưa gắn, tìm theo tên/số không dấu, danh sách ảo hoá.
+- Xong → toast có **Hoàn tác** 10 giây (máy chủ cho hoàn tác một lần trong 15 phút). Lỗi → câu tiếng Việt + **Thử lại**, không đổi gì.
+- Gỡ để lại dấu vân tay để gợi ý "Gộp" không quay lại đúng cặp nhầm. Liên hệ gắn bằng tay không bị gợi ý sửa tên theo tên AVORA.
+- Người được liên kết không bao giờ được báo. Mỗi thay đổi có một dòng `contact_link_changes` (chỉ chủ đọc).
+
 ## Out of scope
 
 "Leaked password protection" của Supabase (đối chiếu mật khẩu với kho mật khẩu đã lộ HaveIBeenPwned) chỉ có trên gói

@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { withServerDetail } from "@/lib/server-error";
 import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
@@ -97,6 +98,10 @@ export const attachmentKeys = {
 
 function fail(code: string | undefined, message: string): Error {
   logError("attachments", { code, message });
+  return withServerDetail(translateAttachmentError(code, message), code, message);
+}
+
+function translateAttachmentError(code: string | undefined, message: string): Error {
   const normalized = message.toLowerCase();
   if (isContactUnavailable(normalized)) return new Error(BLOCKED_SEND_NOTICE);
   if (normalized.includes("avora_attachment_too_many"))
@@ -119,6 +124,53 @@ function fail(code: string | undefined, message: string): Error {
   if (normalized.includes("failed to fetch"))
     return new Error("Không kết nối được máy chủ. Kiểm tra mạng và thử lại.");
   return new Error("Không gửi được tệp. Vui lòng thử lại.");
+}
+
+/**
+ * 112-F · LOI-02: files uploaded for a message that will never be sent (the person chose Bỏ, or a permanent
+ * refusal) are removed at once instead of waiting for the server's 25-hour sweep. Only ever the sender's own
+ * objects; a failure here is left to that sweep (logged, not shown — the message is already gone for them).
+ */
+const PENDING_REMOVALS = "avora.unsent-uploads";
+
+function readPendingRemovals(): string[] {
+  try {
+    const parsed: unknown = JSON.parse(localStorage.getItem(PENDING_REMOVALS) ?? "[]");
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writePendingRemovals(paths: readonly string[]): void {
+  try {
+    if (paths.length === 0) localStorage.removeItem(PENDING_REMOVALS);
+    else localStorage.setItem(PENDING_REMOVALS, JSON.stringify(paths.slice(-200)));
+  } catch {
+    // Left to the server's sweep.
+  }
+}
+
+export async function removeUnsentUploads(paths: readonly string[]): Promise<void> {
+  const own = paths.filter((path) => path !== "" && !path.startsWith(NOTE_FILE_PREFIX));
+  if (own.length === 0) return;
+  try {
+    const { error } = await supabase.storage.from(ATTACHMENT_BUCKET).remove([...own]);
+    if (!error) return;
+    logError("attachments", { code: "orphan_remove_failed", message: error.message });
+  } catch (error) {
+    logError("attachments", error);
+  }
+  // Offline (or refused for now): remembered on this device and removed when the outbox next runs online.
+  writePendingRemovals([...new Set([...readPendingRemovals(), ...own])]);
+}
+
+/** Removes uploads remembered while offline. Called by the outbox whenever it runs with a network. */
+export async function flushPendingRemovals(): Promise<void> {
+  const pending = readPendingRemovals();
+  if (pending.length === 0) return;
+  writePendingRemovals([]);
+  await removeUnsentUploads(pending);
 }
 
 // ---------------------------------------------------------------- pure helpers
@@ -153,7 +205,20 @@ export function formatDuration(seconds: number | null | undefined): string {
  * Images are exempt from the size check here because they are re-encoded first — telling
  * someone their photo is too big when the app is about to shrink it would be a lie.
  */
-export function attachmentRejectionReason(file: { size: number; type: string }): string | null {
+/**
+ * 112-F · LOI-05: the server's own rule (`private.attachment_blocked`), checked before anything is uploaded —
+ * a blocked type is refused in the composer, not after a failed send.
+ */
+const BLOCKED_NAME = /\.(exe|msi|bat|cmd|sh|apk|ipa|dmg|js|mjs|jar|scr|html|htm|svg|svgz|xhtml|xht)$/i;
+const BLOCKED_MIME =
+  /^(text\/html|application\/xhtml|image\/svg|application\/javascript|text\/javascript|application\/x-msdownload|application\/x-msdos-program|application\/vnd\.android\.package-archive|application\/x-sh|application\/java-archive|application\/x-apple-diskimage)/i;
+
+export function isBlockedAttachmentType(name: string, mimeType: string): boolean {
+  return BLOCKED_NAME.test(name.trim()) || BLOCKED_MIME.test(mimeType.trim());
+}
+
+export function attachmentRejectionReason(file: { size: number; type: string; name?: string }): string | null {
+  if (isBlockedAttachmentType(file.name ?? "", file.type)) return "Avora không gửi loại tệp này (tệp chạy được hoặc trang web).";
   if (file.size <= 0) return "Tệp rỗng nên không gửi được.";
   const isImage = file.type.startsWith("image/");
   if (!isImage && file.size > MAX_ATTACHMENT_BYTES) {

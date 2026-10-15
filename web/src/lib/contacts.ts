@@ -278,6 +278,24 @@ export function toVietnameseContactError(code: string | undefined, message: stri
     return "Lời mời này đã được một tài khoản khác dùng.";
   if (normalized.includes("avora_contact_link_no_match"))
     return "Không còn tài khoản AVORA nào khớp với liên hệ này.";
+  if (normalized.includes("avora_contact_not_yours")) return "Đây không phải liên hệ của bạn.";
+  if (normalized.includes("avora_contact_not_linked"))
+    return "Liên hệ này không còn gắn với tài khoản AVORA nào.";
+  if (normalized.includes("avora_contact_target_linked"))
+    return "Liên hệ bạn chọn đã gắn với một tài khoản khác. Hãy chọn liên hệ khác.";
+  if (normalized.includes("avora_contact_not_individual"))
+    return "Chỉ gắn được với liên hệ cá nhân.";
+  if (normalized.includes("avora_contact_same")) return "Hãy chọn một liên hệ khác.";
+  if (normalized.includes("avora_contact_not_friend"))
+    return "Chỉ gắn được liên hệ với người đang là bạn của bạn.";
+  if (normalized.includes("avora_contact_account_linked_elsewhere"))
+    return "Tài khoản này đã gắn với một liên hệ khác trong danh bạ của bạn.";
+  if (normalized.includes("avora_contact_undo_expired"))
+    return "Đã quá lâu hoặc danh bạ đã đổi, nên không hoàn tác được nữa.";
+  if (normalized.includes("avora_contact_link_server_only"))
+    return "Liên kết chỉ đổi được qua mục Quản lý liên kết AVORA.";
+  if (normalized.includes("avora_rate_limited"))
+    return "Bạn đổi liên kết hơi nhiều. Hãy đợi một lúc rồi thử lại.";
   if (normalized.includes("chưa đăng nhập") || normalized.includes("avora_not_signed_in"))
     return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (code === "42501" || normalized.includes("permission denied"))
@@ -323,6 +341,62 @@ export async function confirmContactLink(contactId: string): Promise<void> {
 export async function dismissContactLink(contactId: string): Promise<void> {
   const { error } = await supabase.rpc("dismiss_contact_link", { p_contact_id: contactId });
   if (error) throw fail(error.code, error.message);
+}
+
+/**
+ * AVORA-117 · gỡ / chuyển / gắn liên kết liên hệ ↔ tài khoản. Mỗi lời gọi trả id của dòng kiểm toán —
+ * thứ `Hoàn tác` gửi lại. Gỡ và chuyển không bao giờ gửi user id; chỉ "gắn với bạn" gửi, và máy chủ
+ * kiểm hai người đang là bạn.
+ */
+export async function unlinkContact(contactId: string): Promise<string> {
+  const { data, error } = await supabase.rpc("unlink_contact" as never, { p_contact_id: contactId } as never);
+  if (error) throw fail(error.code, error.message);
+  return String(data);
+}
+
+export async function relinkContact(fromContactId: string, toContactId: string): Promise<string> {
+  const { data, error } = await supabase.rpc(
+    "relink_contact" as never,
+    { p_from_contact_id: fromContactId, p_to_contact_id: toContactId } as never,
+  );
+  if (error) throw fail(error.code, error.message);
+  return String(data);
+}
+
+export async function linkContactToFriend(contactId: string, friendId: string): Promise<string> {
+  const { data, error } = await supabase.rpc(
+    "link_contact_to_friend" as never,
+    { p_contact_id: contactId, p_friend_id: friendId } as never,
+  );
+  if (error) throw fail(error.code, error.message);
+  return String(data);
+}
+
+export async function undoContactLinkChange(changeId: string): Promise<void> {
+  const { error } = await supabase.rpc("undo_contact_link_change" as never, { p_change_id: changeId } as never);
+  if (error) throw fail(error.code, error.message);
+}
+
+/** Contacts whose link the owner set by hand (chuyển / gắn), so no name suggestion overrides their choice. */
+export async function fetchHandLinkedContactIds(): Promise<string[]> {
+  const { data, error } = await supabase
+    .from("contact_link_changes" as never)
+    .select("to_contact_id, kind, undone_at")
+    .in("kind", ["relink", "link"])
+    .is("undone_at", null)
+    .order("at", { ascending: false })
+    .limit(500); // rows-bounded: hand changes, rate-limited to 30/h on the server
+  if (error) throw fail(error.code, error.message);
+  return ((data ?? []) as { to_contact_id: string | null }[])
+    .map((row) => row.to_contact_id)
+    .filter((id): id is string => id !== null);
+}
+
+/** The contacts a link can move to: people, not linked to anyone, never the one it comes from. */
+export function linkTargets(contacts: readonly Contact[], excludeId: string | null): Contact[] {
+  return contacts.filter(
+    (contact) => contact.contactType === "individual" && contact.linkedUserId === null && contact.id !== excludeId,
+  );
 }
 
 /** Empty once trimmed — what the database treats as "not given". */

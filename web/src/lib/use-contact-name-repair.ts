@@ -7,6 +7,7 @@ import { contactKeys } from "@/lib/contacts";
 import { inBatches } from "@/lib/fetch-all-rows";
 import { logError } from "@/lib/log";
 import { useConnections } from "@/lib/use-connections";
+import { useHandLinkedContactIds } from "@/lib/use-contact-link";
 import { useContacts } from "@/lib/use-contacts";
 
 /** One applied rename, with the name it replaced — what `Hoàn tác` puts back. */
@@ -37,13 +38,15 @@ export function useContactNameIssues(): {
 } {
   const contacts = useContacts();
   const { byId } = useConnections();
+  const handLinkedIds = useHandLinkedContactIds();
   const issues = useMemo(
     () =>
       findNameIssues(
         (contacts.data ?? []).map((contact) => ({ id: contact.id, name: contact.name, phone: contact.phone, linkedUserId: contact.linkedUserId })),
         (userId) => byId.get(userId)?.displayName?.trim() || null,
+        new Set(handLinkedIds),
       ),
-    [contacts.data, byId],
+    [contacts.data, byId, handLinkedIds],
   );
   const counts = useMemo(() => countIssues(issues), [issues]);
   return { issues, counts, total: issues.length, isPending: contacts.isPending };

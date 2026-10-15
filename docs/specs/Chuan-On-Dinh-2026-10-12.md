@@ -51,7 +51,7 @@ Ngưỡng là **đề xuất ban đầu**, VMT chỉnh. "Bình thường" nghĩa
 | Yêu cầu | Ngưỡng | Đo |
 |---|---|---|
 | Thông báo đến đúng người, đúng cuộc | 100% | T, M |
-| Tôn trọng chế độ yên lặng, Tắt thông báo, ngày nghỉ | 100% | T |
+| Tôn trọng Chế độ yên lặng, Chế độ tập trung và Tắt thông báo (cuộc/nhóm). **Ngày nghỉ không chặn thông báo** (ADR-086: chỉ đổi màu; giờ nhắc do người dùng tự đặt) | 100% | T |
 | Nội dung mặc định không lộ nội dung tin | 100% | T |
 | Số chưa đọc khớp thực tế sau khi đọc ở máy khác | 100% | T, M |
 | Thông báo khi app đóng (PWA và sau này bản native) | ≥ 95% đến trong 10 giây | M |
@@ -61,7 +61,7 @@ Ngưỡng là **đề xuất ban đầu**, VMT chỉnh. "Bình thường" nghĩa
 |---|---|---|
 | Giao việc: người nhận thấy việc | p95 ≤ 2 giây, 100% | T |
 | Đổi trạng thái, hạn, người làm đồng bộ hai phía | 100% | T |
-| Giờ, hạn chót đúng múi giờ người dùng (Asia/Saigon), không lệch ngày ở 23:30–00:30 | 0 lỗi | T |
+| Giờ, hạn chót, hôm nay và hết ngày tính theo múi giờ trong hồ sơ (mặc định Asia/Saigon), không theo giờ máy; hai thiết bị cùng tài khoản thấy cùng một ngày; không lệch ngày ở 23:30–00:30. Máy đổi múi giờ → hỏi một lần, không tự đổi | 0 lỗi | T |
 | Nhắc việc báo đúng một lần, đúng giờ | 100% | T, M |
 | Việc tạo từ tin nhắn, từ Hạng mục giữ đúng liên kết | 100% | T |
 
@@ -140,3 +140,5 @@ Ngưỡng là **đề xuất ban đầu**, VMT chỉnh. "Bình thường" nghĩa
 - Ngưỡng đo là đề xuất của Claude, chưa kiểm chứng với thiết bị và mạng thực tế của người dùng.
 - Kiểm thử tự động không thay được thử trên máy thật, nhất là thông báo khi app đóng và đồng hồ khi khoá máy.
 - Chuẩn này giảm lỗi, không loại bỏ hoàn toàn; ghi trung thực với người dùng.
+
+> Sửa theo quyết định VMT 14/10/2026 (chat Avora 09): dòng 3.2 (ngày nghỉ, giữ ADR-086) và dòng múi giờ của luồng 4 (LOI-03: múi giờ hồ sơ là nguồn duy nhất).

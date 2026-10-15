@@ -5,7 +5,7 @@ declare
   a uuid := 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
   b uuid := 'ce09d234-af48-49a5-96f2-b2456ae4e5b0';
   c uuid;
-  o uuid := '92ace0b9-5de9-4568-8321-84169d3b5ca3';
+  o uuid := private.test_ephemeral_user('O');
   pc uuid := gen_random_uuid(); proj uuid := gen_random_uuid();
   board_p uuid := gen_random_uuid(); board_n uuid := gen_random_uuid(); sub uuid := gen_random_uuid();
   rec_p1 uuid := gen_random_uuid(); rec_p2 uuid := gen_random_uuid(); rec_s1 uuid := gen_random_uuid();
@@ -13,7 +13,7 @@ declare
   bp uuid := gen_random_uuid(); bs uuid := gen_random_uuid(); rp uuid := gen_random_uuid(); rs uuid := gen_random_uuid(); tp uuid := gen_random_uuid();
   failures int := 0; log text := ''; ok boolean; n bigint; d int; tt int; ms numeric; started timestamptz;
 begin
-  select id into c from auth.users where id::text like '151a54b2%' limit 1;
+  c := private.test_ephemeral_user('C');
   insert into public.conversations (id, type) values (pc, 'group');
   insert into public.conversation_participants (conversation_id, user_id) values (pc, a), (pc, b);
   insert into public.conversation_groups (conversation_id, owner_id, name) values (pc, a, 'Kênh dự án');

@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   Building2,
   CheckCircle2,
+  Link2,
   Mail,
   MessageCircle,
   Pencil,
@@ -25,6 +26,8 @@ import { OpportunitySection } from "@/components/contacts/OpportunitySection";
 import { UserAvatar } from "@/components/UserAvatar";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { openContactLinkManager } from "@/lib/contact-link-store";
+import { useFeature } from "@/lib/use-feature";
 import { chatKeys, createDirectConversation } from "@/lib/chat";
 import {
   businessDraftProblem,
@@ -74,6 +77,7 @@ const ContactDetail = () => {
   const { user } = useAuth();
 
   const contactsQuery = useContacts();
+  const canManageLink = useFeature("contact_link") === "stable";
   const channelsQuery = useContactChannels();
   const { saveIndividual, saveBusiness, isWorking } = useContactActions();
 
@@ -226,6 +230,17 @@ const ContactDetail = () => {
                 {isPerson ? "Cá nhân" : "Doanh nghiệp"}
               </span>
               {isPerson && contact.linkedUserId !== null ? <LinkedBadge /> : null}
+              {isPerson && contact.linkedUserId !== null && !isEditing && canManageLink ? (
+                <button
+                  type="button"
+                  data-manage-link=""
+                  onClick={() => openContactLinkManager({ kind: "manage", contactId: contact.id })}
+                  className="press inline-flex min-h-11 items-center gap-1 rounded-full px-2 text-[12.5px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline"
+                >
+                  <Link2 className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden="true" />
+                  Quản lý liên kết AVORA
+                </button>
+              ) : null}
               {!isPerson ? (
                 <span className="text-[13px] text-muted-foreground">{shortTaxCode(contact.taxCode)}</span>
               ) : null}

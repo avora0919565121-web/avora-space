@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-13T09:59:33.338Z",
+  "measuredAt": "2026-10-15T07:39:44.318Z",
   "threshold": "100% có trạng thái rõ: đang gửi, đã gửi, gửi lỗi (kèm nút thử lại)",
   "networkPath": [
     "Chờ gửi…",
@@ -12,7 +12,11 @@
     "Chờ gửi…",
     "Chưa gửi được · Gửi lại"
   ],
-  "blockedSendMsUntilFailedLabel": 16613,
-  "blockedSendServerAttempts": 5,
-  "note": "Nhãn đọc từ bong bóng của khung đo, cùng quy tắc chọn chữ với Messages.tsx."
+  "blockedSendMsUntilFailedLabel": 312,
+  "blockedSendServerAttempts": 1,
+  "before112C": {
+    "blockedSendMsUntilFailedLabel": 16590,
+    "blockedSendServerAttempts": 5
+  },
+  "note": "Nhãn đọc từ bong bóng của khung đo, cùng quy tắc chọn chữ với Messages.tsx. 112-C: lỗi vĩnh viễn dừng ở lần thử đầu."
 }

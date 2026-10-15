@@ -17,6 +17,7 @@ import { HabitTimerHost } from "@/components/habits/HabitTimerHost";
 import { ConfirmHost } from "@/components/ConfirmHost";
 import { AvatarEditorHost } from "@/components/AvatarEditor";
 import { PersonCardHost } from "@/components/PersonCard";
+import { ContactLinkHost } from "@/components/contacts/ContactLinkManager";
 import { FocusHost } from "@/components/chat/FocusHost";
 import { AppMapHost } from "@/components/nav/AppMapHost";
 import { NavGestures } from "@/components/nav/NavGestures";
@@ -38,6 +39,9 @@ import { useTrackHistory, useTrackScroll } from "@/lib/nav-history";
 import { useTabMemory } from "@/lib/tab-memory";
 import { useFocusHeaderValue } from "@/lib/focus-header";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
+import { RouteFeatureGate } from "@/components/features/FeatureGate";
+import { TimeZoneSync } from "@/components/TimeZoneSync";
+import { OfflineNotice } from "@/components/OfflineNotice";
 
 /** Gate for every signed-in screen; renders the shared site navigation around the page. */
 export function RequireAuth() {
@@ -101,13 +105,17 @@ export function RequireAuth() {
       <main data-app-main="" className="flex min-h-0 min-w-0 flex-1 flex-col short:pr-[var(--inset-r)]">
         {/* AVORA-54 · A: on a borrowed machine the reminder rides on top until closed. */}
         <GuestMachineBanner />
+        <OfflineNotice />
         <RecordingBar />
         <PinReminderBanner />
         {/* A fault in one screen stays in that screen; bars and bubble live outside (A6). */}
         <RouteErrorBoundary resetKey={location.pathname}>
           {/* K3: a tab whose code is still arriving keeps the app frame around it. */}
           <Suspense fallback={<LoadingOrRetry />}>
-            <Outlet />
+            {/* AVORA-112-B: a feature switched to soon/hidden is not reachable by tab or by link. */}
+            <RouteFeatureGate>
+              <Outlet />
+            </RouteFeatureGate>
           </Suspense>
         </RouteErrorBoundary>
       </main>
@@ -117,6 +125,7 @@ export function RequireAuth() {
       {inReader ? null : inThread ? <div className="hidden md:contents"><QuickActionBubble /></div> : <QuickActionBubble />}
       <InAppAlerts />
       <RestDaySync />
+      <TimeZoneSync />
       {/* AVORA-107 · PHẦN 2: the habit clock (full screen) or its waiting chip, on every tab. */}
       {inReader ? null : <HabitTimerHost />}
       <AvoraSearchHost />
@@ -124,6 +133,7 @@ export function RequireAuth() {
       <PushClickBridge />
       <ConfirmHost />
       <PersonCardHost />
+      <ContactLinkHost />
       <AvatarEditorHost />
       <GroupCardHost />
       <FocusHost />

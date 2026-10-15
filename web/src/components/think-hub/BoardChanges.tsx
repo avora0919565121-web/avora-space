@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { logError } from "@/lib/log";
 import { BellRing, History, Loader2, Megaphone, Table2, X } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
@@ -397,7 +398,7 @@ export function NudgeLines({ onOpen }: { onOpen: (nudge: BoardNudge) => void }) 
   if (list.length === 0) return null;
   const close = (id: string): void => {
     setHidden((current) => new Set([...current, id]));
-    void dismissNudge(id).catch(() => undefined);
+    void dismissNudge(id).catch((error: unknown) => logError("board-nudge", error));
   };
   return (
     <ul className="mt-3 space-y-1.5" aria-label="Thay đổi trên việc của bạn">

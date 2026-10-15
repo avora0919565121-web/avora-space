@@ -1,0 +1,17 @@
+{
+  "measuredAt": "2026-10-15T07:41:36.127Z",
+  "threshold": "Chuyển postgres_changes toàn bảng → Broadcast theo kênh người; giữ đúng người nhận",
+  "people": 50,
+  "changes": 100,
+  "legacy": {
+    "authChecksPerChange": 50,
+    "delivered": 200,
+    "wrongDeliveries": 0
+  },
+  "broadcast": {
+    "authChecksPerChange": 1,
+    "delivered": 200,
+    "wrongDeliveries": 0
+  },
+  "note": "Mô hình: legacy = RLS của dòng chạy cho mỗi người đang nghe bảng (50 lần mỗi thay đổi); broadcast = trigger tính người nhận một lần, mỗi kênh riêng được cấp quyền một lần lúc vào."
+}

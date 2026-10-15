@@ -1,4 +1,5 @@
 import { Lock } from "lucide-react";
+import { confirmSignOut } from "@/lib/unsynced";
 import { useState } from "react";
 
 import { ChatUnlockForm } from "@/components/chat-lock/ChatUnlockForm";
@@ -21,6 +22,8 @@ export function ChatLockScreen() {
       confirmLabel: "Đăng xuất",
     });
     if (!ok) return;
+    // 112-C: the lock hides nothing from the outbox — unsent messages are still lost on sign-out.
+    if (!(await confirmSignOut(user?.id))) return;
     setIsLeaving(true);
     await clearChatLock(user?.id ?? null);
     await signOut();

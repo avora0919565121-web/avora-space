@@ -4,6 +4,7 @@ import { Outlet } from "react-router-dom";
 import { InlineBack } from "@/components/nav/InlineBack";
 import { SectionNav } from "@/components/nav/SectionNav";
 import { SETTINGS_TABS } from "@/lib/navigation";
+import { useVisibleNav } from "@/lib/use-feature";
 
 /**
  * Cài đặt — four sibling halves: the account (Hồ sơ), the app's own settings (Tuỳ chọn chung),
@@ -11,14 +12,17 @@ import { SETTINGS_TABS } from "@/lib/navigation";
  * The section frames them and nothing more. Reached from elsewhere, it shows the way back
  * (AVORA-53 · 2.11), as Két sắt does.
  */
-const Settings = () => (
+const Settings = () => {
+  const visibleNav = useVisibleNav(SETTINGS_TABS);
+  return (
   <div className="flex min-h-0 flex-1 flex-col">
-    <SectionNav section="Cài đặt" tabs={SETTINGS_TABS} />
+    <SectionNav section="Cài đặt" tabs={visibleNav} />
     <InlineBack className="mx-auto w-full max-w-2xl px-6 md:px-10" />
     <Suspense fallback={null}>
           <Outlet />
         </Suspense>
   </div>
-);
+  );
+};
 
 export default Settings;

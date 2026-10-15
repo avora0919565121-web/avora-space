@@ -1,4 +1,5 @@
 import { logError } from "@/lib/log";
+import { withServerDetail } from "@/lib/server-error";
 import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
@@ -144,7 +145,7 @@ export function toVietnameseChatError(code: string | undefined, message: string)
 
 function fail(code: string | undefined, message: string): Error {
   logError("chat", { code, message });
-  return new Error(toVietnameseChatError(code, message));
+  return withServerDetail(new Error(toVietnameseChatError(code, message)), code, message);
 }
 
 /** Inbox list, newest activity first. Peer identity is resolved server-side. */

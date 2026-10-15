@@ -4,12 +4,13 @@ import { Link } from "react-router-dom";
 
 import { tallyText, todaySummary } from "@/lib/habits";
 import { useHabits } from "@/lib/use-habits";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 /**
  * Avora Space's one line for habits (AVORA-107 · 1.2 · 7, ADR-013): it only shows and opens —
  * ticking happens in Nhiệm vụ › Thói quen. No habit today → no line.
  */
-export function HabitSpaceLine({ href }: { href: string }) {
+function HabitSpaceLineInner({ href }: { href: string }) {
   const { habits, done, today } = useHabits();
   const summary = useMemo(() => todaySummary(habits, done, today), [habits, done, today]);
   if (summary.total === 0) return null;
@@ -26,5 +27,14 @@ export function HabitSpaceLine({ href }: { href: string }) {
       </span>
       <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
     </Link>
+  );
+}
+
+/** AVORA-112-B: behind the `habits` switch (stable · soon · hidden). */
+export function HabitSpaceLine(props: Parameters<typeof HabitSpaceLineInner>[0]) {
+  return (
+    <FeatureGate feature="habits" soon={null}>
+      <HabitSpaceLineInner {...props} />
+    </FeatureGate>
   );
 }

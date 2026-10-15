@@ -4,6 +4,7 @@ import { navIconFor } from "@/components/nav/nav-icons";
 import { useTabPress } from "@/components/nav/use-tab-press";
 import { formatUnreadBadge } from "@/lib/chat";
 import { NAV_ITEMS } from "@/lib/navigation";
+import { useVisibleNav } from "@/lib/use-feature";
 import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
 
@@ -13,6 +14,7 @@ import { cn } from "@/lib/utils";
  * tool-belt, stood up. Shown only on short landscape screens (`short:`), judged by height.
  */
 export function LandscapeRail() {
+  const visibleNav = useVisibleNav(NAV_ITEMS);
   const badges = useNavBadges();
   const pressTab = useTabPress();
   return (
@@ -23,7 +25,7 @@ export function LandscapeRail() {
       data-landscape-rail=""
       className="hidden h-[100dvh] w-[calc(56px+var(--inset-l))] shrink-0 flex-col items-center gap-1 overflow-y-auto border-r border-border bg-card/95 py-[max(env(safe-area-inset-top),8px)] pl-[var(--inset-l)] short:flex"
     >
-      {NAV_ITEMS.map((item) => {
+      {visibleNav.map((item) => {
         const Icon = navIconFor(item.to);
         const badge = badges[item.to];
         return (

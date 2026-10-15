@@ -4,7 +4,7 @@ declare
   a uuid := 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
   b uuid := 'ce09d234-af48-49a5-96f2-b2456ae4e5b0';
   c uuid;
-  o uuid := '92ace0b9-5de9-4568-8321-84169d3b5ca3';
+  o uuid := private.test_ephemeral_user('O');
   gx uuid := gen_random_uuid(); gy uuid := gen_random_uuid(); d uuid := gen_random_uuid(); pc uuid := gen_random_uuid();
   board_priv uuid := gen_random_uuid(); board_x uuid := gen_random_uuid(); board_x_view uuid := gen_random_uuid(); board_y uuid := gen_random_uuid(); board_p uuid := gen_random_uuid();
   rec_priv uuid := gen_random_uuid(); rec_x1 uuid := gen_random_uuid(); rec_x2 uuid := gen_random_uuid(); rec_x_view uuid := gen_random_uuid();
@@ -13,7 +13,7 @@ declare
   proj uuid := gen_random_uuid();
   failures int := 0; log text := ''; ok boolean; n bigint; msg text; r jsonb;
 begin
-  select id into c from auth.users where id::text like '151a54b2%' limit 1;
+  c := private.test_ephemeral_user('C');
   -- Two groups X (A, B, C) and Y (A, B); a project chat P (A, B) with its project; A's private board.
   insert into public.conversations (id, type) values (gx, 'group'), (gy, 'group'), (pc, 'group');
   insert into public.conversation_participants (conversation_id, user_id)

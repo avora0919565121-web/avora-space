@@ -3,7 +3,7 @@ do $test$
 declare
   a uuid := 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
   b uuid := 'ce09d234-af48-49a5-96f2-b2456ae4e5b0';
-  o uuid := '92ace0b9-5de9-4568-8321-84169d3b5ca3';
+  o uuid := private.test_ephemeral_user('O');
   journal uuid := '78a9b22f-d31d-474f-bfad-9b3f162cb4c1';
   d uuid := '5684d208-6942-46ef-9eaa-03594063556a';
   jm uuid := gen_random_uuid();

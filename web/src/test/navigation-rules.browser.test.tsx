@@ -446,6 +446,27 @@ describe.each(SIZES)("AVORA-94B / 100 · %i×%i", (w, h) => {
     await expect.poll(() => Math.round(scroller().scrollTop)).toBe(450);
   });
 
+  it("N.7b · 112-F · LOI-10: `‹` có nhãn đúng ngay từ lần vẽ đầu (không qua nhãn cũ)", async () => {
+    await start("/nhiem-vu");
+    await userEvent.click(visibleLogo());
+    await expect.poll(where).toBe("/tong-quan");
+    const seen: string[] = [];
+    const record = (): void => {
+      const button = document.querySelector<HTMLElement>("[data-back]");
+      const label = button?.getAttribute("aria-label") ?? button?.textContent ?? "";
+      if (label !== "" && seen[seen.length - 1] !== label) seen.push(label);
+    };
+    const observer = new MutationObserver(record);
+    observer.observe(document.body, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ["aria-label"] });
+    await userEvent.click(page.getByRole("link", { name: "Mở liên hệ" }));
+    await expect.poll(where).toBe("/lien-he/c1");
+    await settle(300);
+    observer.disconnect();
+    record();
+    expect(seen.length).toBe(1);
+    expect(seen[0]).toContain("Avora Space");
+  });
+
   it("N.8 · giữ logo A 450 ms → Toàn bộ AVORA; nhả tay không về Avora Space", async () => {
     await start("/nhiem-vu");
     await hold(visibleLogo(), w < 768 ? "touch" : "mouse");

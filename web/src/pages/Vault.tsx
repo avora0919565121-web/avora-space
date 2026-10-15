@@ -11,6 +11,7 @@ import { ChangeCodeDialog } from "@/components/vault/ChangeCodeDialog";
 import { VaultAboutText } from "@/components/vault/VaultAbout";
 import { VaultGate } from "@/components/vault/VaultGate";
 import { VAULT_TABS } from "@/lib/navigation";
+import { useVisibleNav } from "@/lib/use-feature";
 import { useVaultLock } from "@/lib/use-vault-lock";
 import { requestVaultAdd, VAULT_ADD_PARAM, vaultAddFor } from "@/lib/vault-add";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
@@ -66,6 +67,7 @@ function VaultBar() {
  * until the server says this session is unlocked, every sub-tab shows the lock screen instead.
  */
 const Vault = () => {
+  const visibleNav = useVisibleNav(VAULT_TABS);
   const vault = useVaultLock();
   const navigate = useNavigate();
 
@@ -104,7 +106,7 @@ const Vault = () => {
     <div className="flex min-h-0 flex-1 flex-col">
       <SectionNav
         section="Két sắt"
-        tabs={VAULT_TABS}
+        tabs={visibleNav}
         action={(current) => {
           // AVORA-57 · E: one `+` beside the title; none while locked or on a "Sắp có" sub-tab.
           const entry = vault.isUnlocked ? vaultAddFor(current) : null;

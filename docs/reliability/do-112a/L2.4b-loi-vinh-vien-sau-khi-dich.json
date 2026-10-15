@@ -1,95 +1,10 @@
 {
-  "measuredAt": "2026-10-13T10:02:46.611Z",
+  "measuredAt": "2026-10-15T07:38:07.448Z",
   "threshold": "lỗi không thể khỏi khi thử lại → hiện 'Chưa gửi được' ngay",
   "codes": 18,
-  "stopAtOnce": 1,
-  "retriedFiveTimesFirst": [
-    {
-      "code": "avora_contact_unavailable",
-      "text": "Không gửi được tin trong cuộc trò chuyện này.",
-      "file": "Không gửi được tin trong cuộc trò chuyện này."
-    },
-    {
-      "code": "avora_not_connected",
-      "text": "dừng ngay",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_verification_text_only",
-      "text": "Chỉ gửi được chữ khi chưa kết bạn.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_verification_quota",
-      "text": "Bạn đã dùng hết 5 tin. Chờ người kia trả lời nhé.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_project_chat_closed",
-      "text": "Có lỗi xảy ra. Vui lòng thử lại.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_attachment_type_blocked",
-      "text": "Có lỗi xảy ra. Vui lòng thử lại.",
-      "file": "dừng ngay"
-    },
-    {
-      "code": "avora_attachment_too_large",
-      "text": "Có lỗi xảy ra. Vui lòng thử lại.",
-      "file": "dừng ngay"
-    },
-    {
-      "code": "avora_attachment_total_too_large",
-      "text": "Có lỗi xảy ra. Vui lòng thử lại.",
-      "file": "Một tin gửi tối đa 100 MB tệp."
-    },
-    {
-      "code": "avora_video_too_long",
-      "text": "Có lỗi xảy ra. Vui lòng thử lại.",
-      "file": "Video tối đa 3 phút."
-    },
-    {
-      "code": "avora_attachment_too_many",
-      "text": "Có lỗi xảy ra. Vui lòng thử lại.",
-      "file": "Mỗi tin nhắn chỉ gửi được tối đa 10 tệp."
-    },
-    {
-      "code": "avora_mentions_too_many",
-      "text": "Một tin nhắc tối đa 20 người.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_reply_out_of_scope",
-      "text": "Tin được trả lời không thuộc cuộc này.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "messages_content_not_blank",
-      "text": "Tin nhắn không được để trống.",
-      "file": "Tin nhắn không được để trống."
-    },
-    {
-      "code": "messages_content_max_len",
-      "text": "Tin nhắn quá dài (tối đa 4000 ký tự).",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_urgent_daily_limit",
-      "text": "Hôm nay bạn đã gửi khẩn trong cuộc này.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_urgent_locked",
-      "text": "Gửi khẩn đang tạm khoá vì đã dùng 3 lần trong 7 ngày.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    },
-    {
-      "code": "avora_message_id_taken",
-      "text": "Có lỗi xảy ra. Vui lòng thử lại.",
-      "file": "Không gửi được tệp. Vui lòng thử lại."
-    }
-  ],
+  "stopAtOnce": 18,
+  "retriedFiveTimesFirst": [],
   "networkStillRecognised": true,
-  "note": "lib/chat.ts và lib/attachments.ts dịch mã lỗi trước khi hàng chờ (outbox.ts · isPermanentSendError) đọc; câu tiếng Việt nào không chứa từ khoá trong danh sách thì bị coi là lỗi tạm, thử lại 5 lần (1+2+4+8 s) rồi mới báo."
+  "before112C": "1/18 dừng ngay (112-A, 13/10): lib/chat.ts và lib/attachments.ts dịch mã lỗi trước khi hàng chờ đọc; 17 câu tiếng Việt bị coi là lỗi tạm, thử lại 5 lần (~16,6 s).",
+  "note": "112-C: lỗi dịch mang theo lời gốc của máy chủ (lib/server-error.ts); hàng chờ quyết định trên lời gốc."
 }

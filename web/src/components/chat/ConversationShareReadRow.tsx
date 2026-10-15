@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/lib/auth";
 import { fetchConversationShareRead, setConversationShareRead } from "@/lib/receipts";
 import { cn } from "@/lib/utils";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 const OPTIONS: readonly { value: boolean | null; label: string }[] = [
   { value: null, label: "Theo cài đặt chung" },
@@ -16,7 +17,7 @@ const OPTIONS: readonly { value: boolean | null; label: string }[] = [
  * AVORA-108 · 1 — in the conversation's own ⋯: `Cho người này biết khi tôi đã xem` (1-1) /
  * `Cho nhóm này biết…` (Nhóm). Easy with one person, a quiet distance with another.
  */
-export function ConversationShareReadRow({ conversationId, isGroup }: { conversationId: string; isGroup: boolean }) {
+function ConversationShareReadRowInner({ conversationId, isGroup }: { conversationId: string; isGroup: boolean }) {
   const { user } = useAuth();
   const userId = user?.id ?? "";
   const queryClient = useQueryClient();
@@ -57,5 +58,14 @@ export function ConversationShareReadRow({ conversationId, isGroup }: { conversa
         ))}
       </div>
     </div>
+  );
+}
+
+/** AVORA-112-B: behind the `read_receipts` switch (stable · soon · hidden). */
+export function ConversationShareReadRow(props: Parameters<typeof ConversationShareReadRowInner>[0]) {
+  return (
+    <FeatureGate feature="read_receipts">
+      <ConversationShareReadRowInner {...props} />
+    </FeatureGate>
   );
 }

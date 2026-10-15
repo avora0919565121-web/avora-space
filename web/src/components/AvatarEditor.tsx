@@ -9,6 +9,7 @@ import { Slider } from "@/components/ui/slider";
 import { registerAvatarEditor } from "@/lib/avatar-editor";
 import { useAuth } from "@/lib/auth";
 import { checkAvatarFile, clampCrop, prepareAvatarImage, useAvatar, useAvatarActions, type CropState } from "@/lib/avatars";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 
 type Picked = { file: File; url: string; natural: { width: number; height: number } };
@@ -16,7 +17,7 @@ type Picked = { file: File; url: string; natural: { width: number; height: numbe
 const START: CropState = { zoom: 1, dx: 0, dy: 0 };
 
 /** Mounted once for every signed-in screen. */
-export function AvatarEditorHost() {
+function AvatarEditorHostInner() {
   const { user } = useAuth();
   const current = useAvatar(user?.id ?? null);
   const { upload, remove } = useAvatarActions(user?.id);
@@ -213,5 +214,14 @@ function AvatarCropDialog({ picked, onClose, onSave }: { picked: Picked; onClose
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** AVORA-112-B: behind the `avatars` switch (stable · soon · hidden). */
+export function AvatarEditorHost() {
+  return (
+    <FeatureGate feature="avatars" soon={null}>
+      <AvatarEditorHostInner />
+    </FeatureGate>
   );
 }

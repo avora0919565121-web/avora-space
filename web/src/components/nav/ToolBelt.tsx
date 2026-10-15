@@ -8,6 +8,7 @@ import { activeFocus } from "@/lib/mute";
 import { useProfileSettings } from "@/lib/use-settings";
 import { formatUnreadBadge } from "@/lib/chat";
 import { TOOL_BELT_ITEMS } from "@/lib/navigation";
+import { useVisibleNav } from "@/lib/use-feature";
 import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +18,7 @@ import { cn } from "@/lib/utils";
  * Avora Space is deliberately absent — the logo at the top is the way home.
  */
 export function ToolBelt() {
+  const visibleNav = useVisibleNav(TOOL_BELT_ITEMS);
   const badges = useNavBadges();
   const pressTab = useTabPress();
   const { data: profile } = useProfileSettings();
@@ -42,7 +44,7 @@ export function ToolBelt() {
       className="hide-on-keyboard relative z-30 shrink-0 border-t border-border bg-card/95 pb-[max(env(safe-area-inset-bottom),10px)] backdrop-blur-md md:hidden short:hidden"
     >
       <ul className="grid grid-cols-5">
-        {TOOL_BELT_ITEMS.map((item) => {
+        {visibleNav.map((item) => {
           const Icon = navIconFor(item.to);
           const badge = badges[item.to];
           const isConnect = item.to === "/tin-nhan";

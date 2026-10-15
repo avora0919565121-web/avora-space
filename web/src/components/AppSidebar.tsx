@@ -1,4 +1,5 @@
 import { LogOut } from "lucide-react";
+import { confirmSignOut } from "@/lib/unsynced";
 import type { LucideIcon } from "lucide-react";
 import { useRef } from "react";
 import { Link, NavLink, useLocation, useNavigate } from "react-router-dom";
@@ -15,6 +16,7 @@ import { NAV_COLUMN, useColumnWidth } from "@/lib/column-width";
 import { formatUnreadBadge } from "@/lib/chat";
 import { maskEmail } from "@/lib/mask";
 import { HOME_ROUTE, LOGO_HOLD_MS, NAV_ITEMS } from "@/lib/navigation";
+import { useVisibleNav } from "@/lib/use-feature";
 import { useLongPress } from "@/hooks/use-long-press";
 import { openAppMap } from "@/components/nav/app-map-event";
 import { useLogoTap } from "@/components/nav/use-logo-tap";
@@ -29,6 +31,7 @@ import { cn } from "@/lib/utils";
  * the screen they chose to start on.
  */
 export function AppSidebar() {
+  const visibleNav = useVisibleNav(NAV_ITEMS);
   const { user, signOut } = useAuth();
   const displayName = useDisplayName();
   const navigate = useNavigate();
@@ -45,6 +48,8 @@ export function AppSidebar() {
   const isFocused = activeFocus(profile?.focusMode, profile?.focusUntil) !== null;
 
   const handleSignOut = async (): Promise<void> => {
+    // 112-C: never drop unsent messages or drafts without saying so.
+    if (!(await confirmSignOut(user?.id))) return;
     await signOut();
     navigate("/dang-nhap", { replace: true });
   };
@@ -92,7 +97,7 @@ export function AppSidebar() {
 
       <nav aria-label="Điều hướng chính" className="px-3">
         <ul className="space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {visibleNav.map((item) => {
             const Icon: LucideIcon = navIconFor(item.to);
             const badge = badges[item.to];
             return (

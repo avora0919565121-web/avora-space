@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { useAuth } from "@/lib/auth";
 import { formatUnreadBadge } from "@/lib/chat";
 import { activeNavEntry, APP_MAP_UPCOMING, HOME_ROUTE, NAV_ITEMS } from "@/lib/navigation";
+import { useVisibleNav } from "@/lib/use-feature";
 import { tabTarget } from "@/lib/tab-memory";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { placeLabel } from "@/lib/go-back";
@@ -17,6 +18,7 @@ import { OPEN_APP_MAP_EVENT } from "@/components/nav/app-map-event";
 
 /** One Toàn bộ AVORA sheet for the whole app (mounted once in the signed-in shell). */
 export function AppMapHost() {
+  const visibleNav = useVisibleNav(NAV_ITEMS);
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -39,7 +41,7 @@ export function AppMapHost() {
         </SheetDescription>
         <nav aria-label="Toàn bộ AVORA" className="mt-3">
           <ul className="space-y-0.5">
-            {NAV_ITEMS.map((item, index) => {
+            {visibleNav.map((item, index) => {
               const Icon = navIconFor(item.to);
               const isActive = current?.to === item.to;
               const badge = badges[item.to];

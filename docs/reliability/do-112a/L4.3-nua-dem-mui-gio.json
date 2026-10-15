@@ -1,6 +1,6 @@
 {
-  "measuredAt": "2026-10-13T10:02:46.613Z",
-  "threshold": "0 lỗi lệch ngày ở 23:30–00:30 (Asia/Saigon)",
+  "measuredAt": "2026-10-15T07:38:07.467Z",
+  "threshold": "0 lỗi lệch ngày ở 23:30–00:30 (múi giờ hồ sơ, mặc định Asia/Saigon); hai máy cùng tài khoản thấy cùng một ngày",
   "deviceInVietnam": [
     {
       "instant": "13/10 23:30 VN",
@@ -14,6 +14,13 @@
       "todayIso": "2026-10-13",
       "todayCorrect": true,
       "dueOn13Past": false,
+      "dueOn13Correct": true
+    },
+    {
+      "instant": "14/10 00:00:00 VN",
+      "todayIso": "2026-10-14",
+      "todayCorrect": true,
+      "dueOn13Past": true,
       "dueOn13Correct": true
     },
     {
@@ -48,20 +55,32 @@
       "dueOn13Correct": true
     },
     {
+      "instant": "14/10 00:00:00 VN",
+      "todayIso": "2026-10-14",
+      "todayCorrect": true,
+      "dueOn13Past": true,
+      "dueOn13Correct": true
+    },
+    {
       "instant": "14/10 00:00:30 VN",
-      "todayIso": "2026-10-13",
-      "todayCorrect": false,
-      "dueOn13Past": false,
-      "dueOn13Correct": false
+      "todayIso": "2026-10-14",
+      "todayCorrect": true,
+      "dueOn13Past": true,
+      "dueOn13Correct": true
     },
     {
       "instant": "14/10 00:30 VN",
-      "todayIso": "2026-10-13",
-      "todayCorrect": false,
-      "dueOn13Past": false,
-      "dueOn13Correct": false
+      "todayIso": "2026-10-14",
+      "todayCorrect": true,
+      "dueOn13Past": true,
+      "dueOn13Correct": true
     }
   ],
-  "deviceInUtcErrors": 2,
-  "note": "todayIso() và deadlineInstant() dùng giờ của máy, không dùng múi giờ trong hồ sơ (settings.timezone) hay deadline_tz của việc."
+  "deviceInUtcErrors": 0,
+  "deviceInLosAngelesWhileProfileIsVietnamErrors": 0,
+  "before112E": {
+    "deviceInVietnamErrors": 0,
+    "deviceInUtcErrors": 2
+  },
+  "note": "112-E: todayIso(), deadlineInstant(), ngày thói quen và hết ngày dùng múi giờ hồ sơ (lib/app-time-zone.ts), không dùng giờ máy."
 }

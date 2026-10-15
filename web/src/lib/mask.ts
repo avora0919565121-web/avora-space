@@ -6,7 +6,7 @@
 
 const DOTS = "•••";
 
-/** `vo.thanh@outlook.com` → `vo•••h@o•••k.com`. Short parts keep only their first character. */
+/** `vo.thanh@example.com` → `vo•••h@e•••e.com`. Short parts keep only their first character. */
 export function maskEmail(email: string | null | undefined): string {
   const value = (email ?? "").trim();
   const at = value.lastIndexOf("@");

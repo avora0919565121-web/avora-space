@@ -8,6 +8,8 @@
  * the app raised on purpose (`avora_*`), which is how most server refusals are named.
  */
 
+import { reportClientError } from "@/lib/client-errors";
+
 const CODE_PATTERN = /^[A-Za-z0-9_.-]{1,64}$/;
 const APP_CODE_PATTERN = /^avora_[a-z0-9_]{1,80}$/i;
 const NAME_PATTERN = /^[A-Za-z]{1,40}$/;
@@ -37,4 +39,6 @@ export function describeError(scope: string, error: unknown): LogFields {
 export function logError(scope: string, error: unknown): void {
   const { scope: safeScope, code, name } = describeError(scope, error);
   console.error(`[${safeScope}] ${code}${name !== null && name !== "Error" ? ` (${name})` : ""}`);
+  // 112-F: the same three fields — nothing more — reach the team's `client_errors` (once per error per session).
+  reportClientError({ scope: safeScope, code, name });
 }

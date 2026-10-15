@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { logError } from "@/lib/log";
 import { useCallback, useMemo } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -57,7 +58,7 @@ export function useDesk() {
 export function useArrangement(): { arrangement: Arrangement; setArrangement: (next: Arrangement) => void } {
   const { prefs, setPref } = useProfilePrefs();
   const arrangement: Arrangement = isArrangement(prefs.think_hub_arrangement) ? prefs.think_hub_arrangement : "noi";
-  const setArrangement = useCallback((next: Arrangement) => void setPref("think_hub_arrangement", next).catch(() => undefined), [setPref]);
+  const setArrangement = useCallback((next: Arrangement) => void setPref("think_hub_arrangement", next).catch((error: unknown) => logError("think-hub-desk", error)), [setPref]);
   return { arrangement, setArrangement };
 }
 

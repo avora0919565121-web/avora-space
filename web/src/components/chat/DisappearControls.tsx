@@ -19,6 +19,7 @@ import {
   type DisappearState,
 } from "@/lib/disappear";
 import { cn } from "@/lib/utils";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 const rowClass = "press flex min-h-11 w-full items-center gap-2.5 rounded-md px-2 py-2 text-left transition-colors hover:bg-accent/40";
 
@@ -26,7 +27,7 @@ const rowClass = "press flex min-h-11 w-full items-center gap-2.5 rounded-md px-
  * AVORA-109 · B1 + B4 — two rows in the conversation's ⋯, right after Không khí:
  * `Tin tự biến mất` (opens the choice) and `Ẩn dấu vết tin đã biến mất / thu hồi` (my screen only).
  */
-export function DisappearRows({
+function DisappearRowsInner({
   conversationId,
   kind,
   canChange,
@@ -176,5 +177,14 @@ export function DisappearProposalLine({
         <span className="mt-1 block" data-disappear-waiting="">Đang chờ người kia đồng ý.</span>
       ) : null}
     </div>
+  );
+}
+
+/** AVORA-112-B: behind the `disappearing` switch (stable · soon · hidden). */
+export function DisappearRows(props: Parameters<typeof DisappearRowsInner>[0]) {
+  return (
+    <FeatureGate feature="disappearing">
+      <DisappearRowsInner {...props} />
+    </FeatureGate>
   );
 }

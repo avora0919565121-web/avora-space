@@ -1,3 +1,4 @@
+import { appTimeZone, zonedInstant, zonedParts } from "@/lib/app-time-zone";
 /**
  * Phase 3B task scheduling: clocks, reminders and repeats. Everything here is pure — no
  * Supabase, no React — and mirrors the database triggers exactly, so an optimistic render
@@ -131,9 +132,10 @@ export function deadlineInstant(dateIso: string, time: string | null): Date | nu
   const p = parts(dateIso);
   if (p === null) return null;
   const clock = normalizeDeadlineTime(time);
-  if (clock === null) return new Date(p.year, p.month - 1, p.day, 23, 59, 59, 999);
+  // 112-E · LOI-03: a deadline is a wall-clock time in the profile's zone, whatever zone the device is in.
+  if (clock === null) return zonedInstant(p.year, p.month, p.day, 23, 59, 59, 999, appTimeZone());
   const [hours, minutes] = clock.split(":").map((piece) => Number.parseInt(piece, 10));
-  return new Date(p.year, p.month - 1, p.day, hours ?? 0, minutes ?? 0, 0, 0);
+  return zonedInstant(p.year, p.month, p.day, hours ?? 0, minutes ?? 0, 0, 0, appTimeZone());
 }
 
 /** Whether a deadline has actually passed, to the minute when a clock is set. */
@@ -231,7 +233,7 @@ export function reminderInstant(
   if (preset.minutesBefore === null) {
     const p = parts(dateIso);
     if (p === null) return null;
-    return new Date(p.year, p.month - 1, p.day, 9, 0, 0, 0);
+    return zonedInstant(p.year, p.month, p.day, 9, 0, 0, 0, appTimeZone());
   }
   return new Date(due.getTime() - preset.minutesBefore * 60_000);
 }
@@ -276,19 +278,16 @@ export function reminderPresetById(id: ReminderPresetId): ReminderPreset | null 
 
 /** `08:30, 9 thg 9` — enough to check a reminder without opening the task. */
 export function formatReminderAt(at: Date): string {
-  const clock = `${String(at.getHours()).padStart(2, "0")}:${String(at.getMinutes()).padStart(2, "0")}`;
-  return `${clock}, ${at.getDate()} thg ${at.getMonth() + 1}`;
+  const p = zonedParts(at, appTimeZone());
+  const clock = `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`;
+  return `${clock}, ${p.day} thg ${p.month}`;
 }
 
 /**
- * The zone the browser is in. Deadlines are wall-clock times, so a task typed as "09:00" in
- * Vietnam has to keep meaning 09:00 there; the zone is recorded rather than assumed to be UTC.
+ * Deadlines are wall-clock times, so a task typed as "09:00" has to keep meaning 09:00; the zone is
+ * recorded rather than assumed to be UTC. 112-E: the zone new tasks are stamped with (`deadline_tz`) — the profile's, so the server reminds at the
+ * same wall-clock time the app shows. The name stays for the callers; the device zone is `deviceTimeZone()`.
  */
 export function browserTimezone(): string {
-  try {
-    const zone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    return typeof zone === "string" && zone !== "" ? zone : "Asia/Ho_Chi_Minh";
-  } catch {
-    return "Asia/Ho_Chi_Minh";
-  }
+  return appTimeZone();
 }

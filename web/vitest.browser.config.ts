@@ -47,7 +47,9 @@ export default defineConfig({
     browser: {
       enabled: true,
       headless: true,
-      provider: playwright(),
+      // 112-E: the browser sits in the default profile zone (Asia/Ho_Chi_Minh) like the people Avora is for;
+      // otherwise every signed-in screen would open on the one-time "Đổi múi giờ hồ sơ?" question.
+      provider: playwright({ contextOptions: { timezoneId: "Asia/Ho_Chi_Minh" } }),
       instances: [{ browser: "chromium" }],
     },
   },

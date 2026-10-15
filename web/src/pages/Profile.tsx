@@ -1,4 +1,5 @@
 import { Camera, Check, Loader2, LogOut, MonitorX } from "lucide-react";
+import { confirmSignOut } from "@/lib/unsynced";
 import { useEffect, useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -58,6 +59,8 @@ const Profile = () => {
   };
 
   const handleSignOut = async (): Promise<void> => {
+    // 112-C: never drop unsent messages or drafts without saying so.
+    if (!(await confirmSignOut(user?.id))) return;
     await signOut();
     navigate("/dang-nhap", { replace: true });
   };

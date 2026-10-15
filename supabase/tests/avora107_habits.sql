@@ -5,7 +5,7 @@ declare
   a uuid := 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
   b uuid := 'ce09d234-af48-49a5-96f2-b2456ae4e5b0';
   c uuid;
-  o uuid := '92ace0b9-5de9-4568-8321-84169d3b5ca3';
+  o uuid := private.test_ephemeral_user('O');
   h uuid := gen_random_uuid(); h2 uuid := gen_random_uuid(); l1 uuid := gen_random_uuid(); l2 uuid;
   today date;
   failures int := 0; log text := ''; ok boolean; n bigint; v int; tz text; win text;
@@ -17,7 +17,7 @@ begin
   select name into tz from pg_timezone_names where name ~ '^Etc/GMT[+-][0-9]+$' and extract(hour from now() at time zone name) between 10 and 13 order by name limit 1;
   update public.profiles set timezone = tz where id = 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
   today := (now() at time zone tz)::date;
-  select id into c from auth.users where id::text like '151a54b2%' limit 1;
+  c := private.test_ephemeral_user('C');
 
   -- ---------------------------------------------------------------- A
   perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);

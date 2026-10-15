@@ -18,9 +18,11 @@ vi.mock("@/integrations/supabase/client", () => ({
 import { attachmentRejectionReason, sendMessageWithAttachments } from "@/lib/attachments";
 import { toVietnameseError } from "@/lib/auth-errors";
 import { sendMessage } from "@/lib/chat";
-import { isNetworkError, isPermanentSendError } from "@/lib/outbox";
+import { isNetworkError, isPermanentSendError, nextOutboxState, SEND_DEADLINE_MS } from "@/lib/outbox";
+import { serverText } from "@/lib/server-error";
 import { isDeadlinePast } from "@/lib/task-schedule";
 import { todayIso } from "@/lib/tasks";
+import { setAppTimeZone } from "@/lib/app-time-zone";
 
 const OUT = path.resolve(__dirname, "../../../docs/reliability/do-112a");
 const results: Record<string, unknown> = {};
@@ -57,12 +59,13 @@ const PERMANENT_CODES = [
   "avora_message_id_taken",
 ];
 
+/** What the outbox decides on since 112-C: the server's own words carried on the translated error. */
 async function errorOf(run: () => Promise<unknown>): Promise<string> {
   try {
     await run();
     return "";
   } catch (error) {
-    return error instanceof Error ? error.message : String(error);
+    return serverText(error);
   }
 }
 
@@ -91,9 +94,23 @@ describe("L2.4 · lỗi vĩnh viễn có dừng ngay không (sau khi lời báo 
       stopAtOnce: rows.length - notStopping.length,
       retriedFiveTimesFirst: notStopping.map((row) => ({ code: row.code, text: row.textStopsAtOnce ? "dừng ngay" : row.textPath, file: row.fileStopsAtOnce ? "dừng ngay" : row.filePath })),
       networkStillRecognised: isNetworkError(offline),
-      note: "lib/chat.ts và lib/attachments.ts dịch mã lỗi trước khi hàng chờ (outbox.ts · isPermanentSendError) đọc; câu tiếng Việt nào không chứa từ khoá trong danh sách thì bị coi là lỗi tạm, thử lại 5 lần (1+2+4+8 s) rồi mới báo.",
+      before112C: "1/18 dừng ngay (112-A, 13/10): lib/chat.ts và lib/attachments.ts dịch mã lỗi trước khi hàng chờ đọc; 17 câu tiếng Việt bị coi là lỗi tạm, thử lại 5 lần (~16,6 s).",
+      note: "112-C: lỗi dịch mang theo lời gốc của máy chủ (lib/server-error.ts); hàng chờ quyết định trên lời gốc.",
     });
     expect(rows.length).toBe(PERMANENT_CODES.length);
+    // 112-C · LOI-01 sửa xong: mọi mã vĩnh viễn dừng ngay, mạng rớt vẫn là lỗi tạm.
+    expect(notStopping).toEqual([]);
+    expect(isNetworkError(offline)).toBe(true);
+  });
+
+  test("112-C · hết giờ rõ ràng: trực tuyến mà 30 giây chưa đi được → gửi lỗi; ngoại tuyến → chờ mạng", () => {
+    const t0 = Date.parse("2026-10-14T03:00:00Z");
+    const started = new Date(t0).toISOString();
+    expect(nextOutboxState({ errorText: "TypeError: Failed to fetch", offline: false, attempts: 2, firstTriedAt: started, now: t0 + 5_000 })).toBe("waiting_network");
+    expect(nextOutboxState({ errorText: "boom", offline: false, attempts: 2, firstTriedAt: started, now: t0 + 5_000 })).toBe("queued");
+    expect(nextOutboxState({ errorText: "TypeError: Failed to fetch", offline: false, attempts: 3, firstTriedAt: started, now: t0 + SEND_DEADLINE_MS })).toBe("failed");
+    expect(nextOutboxState({ errorText: "timeout: không có trả lời", offline: true, attempts: 9, firstTriedAt: null, now: t0 + 600_000 })).toBe("waiting_network");
+    expect(nextOutboxState({ errorText: "avora_contact_unavailable", offline: true, attempts: 1, firstTriedAt: null })).toBe("failed");
   });
 });
 
@@ -114,6 +131,7 @@ describe("L4.3 · L7.4 · ngày và hạn chót quanh nửa đêm theo giờ Vi�
     const instants = [
       { label: "13/10 23:30 VN", at: "2026-10-13T16:30:00Z", vnDay: "2026-10-13", dueTodayPast: false, dueYesterdayPast: true },
       { label: "13/10 23:59:59 VN", at: "2026-10-13T16:59:59Z", vnDay: "2026-10-13", dueTodayPast: false, dueYesterdayPast: true },
+      { label: "14/10 00:00:00 VN", at: "2026-10-13T17:00:00Z", vnDay: "2026-10-14", dueTodayPast: true, dueYesterdayPast: true },
       { label: "14/10 00:00:30 VN", at: "2026-10-13T17:00:30Z", vnDay: "2026-10-14", dueTodayPast: true, dueYesterdayPast: true },
       { label: "14/10 00:30 VN", at: "2026-10-13T17:30:00Z", vnDay: "2026-10-14", dueTodayPast: true, dueYesterdayPast: true },
     ];
@@ -133,17 +151,38 @@ describe("L4.3 · L7.4 · ngày và hạn chót quanh nửa đêm theo giờ Vi�
           };
         }),
       );
+    setAppTimeZone("Asia/Ho_Chi_Minh");
     const deviceInVietnam = check("Asia/Ho_Chi_Minh");
     const deviceInUtc = check("UTC");
+    // A device that moved zone (trip): the profile is still Vietnam, so the day must not move with it.
+    const deviceInLosAngeles = check("America/Los_Angeles");
+    const errors = (rows: typeof deviceInVietnam): number => rows.filter((row) => !row.todayCorrect || !row.dueOn13Correct).length;
     record("L4.3-nua-dem-mui-gio", {
-      threshold: "0 lỗi lệch ngày ở 23:30–00:30 (Asia/Saigon)",
+      threshold: "0 lỗi lệch ngày ở 23:30–00:30 (múi giờ hồ sơ, mặc định Asia/Saigon); hai máy cùng tài khoản thấy cùng một ngày",
       deviceInVietnam,
-      deviceInVietnamErrors: deviceInVietnam.filter((row) => !row.todayCorrect || !row.dueOn13Correct).length,
+      deviceInVietnamErrors: errors(deviceInVietnam),
       deviceInUtcWhileProfileIsVietnam: deviceInUtc,
-      deviceInUtcErrors: deviceInUtc.filter((row) => !row.todayCorrect || !row.dueOn13Correct).length,
-      note: "todayIso() và deadlineInstant() dùng giờ của máy, không dùng múi giờ trong hồ sơ (settings.timezone) hay deadline_tz của việc.",
+      deviceInUtcErrors: errors(deviceInUtc),
+      deviceInLosAngelesWhileProfileIsVietnamErrors: errors(deviceInLosAngeles),
+      before112E: { deviceInVietnamErrors: 0, deviceInUtcErrors: 2 },
+      note: "112-E: todayIso(), deadlineInstant(), ngày thói quen và hết ngày dùng múi giờ hồ sơ (lib/app-time-zone.ts), không dùng giờ máy.",
     });
-    expect(deviceInVietnam.length).toBe(4);
+    expect(deviceInVietnam.length).toBe(5);
+    // 112-E · LOI-03 sửa xong: máy ở múi giờ nào cũng 0 lệch.
+    expect(errors(deviceInVietnam)).toBe(0);
+    expect(errors(deviceInUtc)).toBe(0);
+    expect(errors(deviceInLosAngeles)).toBe(0);
+    expect(deviceInUtc.map((row) => row.todayIso)).toEqual(deviceInLosAngeles.map((row) => row.todayIso));
+  });
+
+  test("112-E · hồ sơ đổi múi giờ: ngày và hạn đi theo hồ sơ mới", () => {
+    setAppTimeZone("Europe/Paris");
+    // 14/10 00:30 Paris (CEST, UTC+2) = 13/10 22:30 UTC.
+    const now = new Date("2026-10-13T22:30:00Z");
+    expect(inZone("Asia/Ho_Chi_Minh", () => todayIso(now))).toBe("2026-10-14");
+    expect(inZone("Asia/Ho_Chi_Minh", () => isDeadlinePast("2026-10-13", null, now))).toBe(true);
+    expect(inZone("Asia/Ho_Chi_Minh", () => isDeadlinePast("2026-10-14", "09:00", now))).toBe(false);
+    setAppTimeZone("Asia/Ho_Chi_Minh");
   });
 });
 
@@ -175,15 +214,19 @@ describe("L6.2 · vượt giới hạn dung lượng / loại tệp: báo trư�
     const rows = [
       { file: "tai-lieu.pdf (30 MB)", size: 30 * 1024 * 1024, type: "application/pdf" },
       { file: "anh.jpg (30 MB, sẽ nén)", size: 30 * 1024 * 1024, type: "image/jpeg" },
-      { file: "cai-dat.exe", size: 2048, type: "application/x-msdownload" },
-      { file: "trang.html", size: 2048, type: "text/html" },
+      { file: "cai-dat.exe", name: "cai-dat.exe", size: 2048, type: "application/x-msdownload" },
+      { file: "trang.html", name: "trang.html", size: 2048, type: "text/html" },
+      { file: "tro-choi.apk (không rõ loại)", name: "tro-choi.apk", size: 2048, type: "" },
       { file: "rong.txt", size: 0, type: "text/plain" },
     ].map((entry) => ({ ...entry, refusedBeforeUpload: attachmentRejectionReason(entry) }));
     record("L6.2-gioi-han-truoc-khi-tai", {
       threshold: "100% báo rõ trước khi tải lên",
       rows,
-      note: "Loại tệp bị chặn (.exe, .html…) chỉ bị kho từ chối khi tải lên (chính sách storage + private.attachment_blocked): người gửi thấy bong bóng 'Chưa gửi được' sau khi thử, không phải trước.",
+      before112F: "Loại tệp bị chặn (.exe, .html…) chỉ bị kho từ chối khi tải lên: bong bóng 'Chưa gửi được' sau khi thử.",
+      note: "112-F · LOI-05: cùng luật private.attachment_blocked chạy ở khung soạn, trước khi tải lên.",
     });
-    expect(rows.length).toBe(5);
+    expect(rows.length).toBe(6);
+    // 112-F: every row except the photo (compressed below the ceiling) is refused before any upload.
+    expect(rows.filter((row) => row.refusedBeforeUpload === null).map((row) => row.file)).toEqual(["anh.jpg (30 MB, sẽ nén)"]);
   });
 });

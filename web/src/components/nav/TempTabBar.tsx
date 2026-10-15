@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { navIconFor } from "@/components/nav/nav-icons";
 import { useTabPress } from "@/components/nav/use-tab-press";
 import { TOOL_BELT_ITEMS } from "@/lib/navigation";
+import { useVisibleNav } from "@/lib/use-feature";
 import { cn } from "@/lib/utils";
 
 /**
@@ -11,11 +12,12 @@ import { cn } from "@/lib/utils";
  * tab memory keeps the book page / board / open Hạng mục for the way back.
  */
 export function TempTabBar({ onHide }: { onHide: () => void }) {
+  const visibleNav = useVisibleNav(TOOL_BELT_ITEMS);
   const pressTab = useTabPress();
   return (
     <nav aria-label="Các tab" data-reader-tabs="" className="fixed inset-x-0 bottom-0 z-[45] border-t border-border bg-card/97 pb-[max(env(safe-area-inset-bottom),8px)] shadow-[0_-6px_20px_rgba(0,0,0,0.12)] animate-in slide-in-from-bottom-4 fade-in-0 duration-200">
       <ul className="grid grid-cols-5">
-        {TOOL_BELT_ITEMS.map((item) => {
+        {visibleNav.map((item) => {
           const Icon = navIconFor(item.to);
           const isHere = item.to === "/ke-hoach";
           return (

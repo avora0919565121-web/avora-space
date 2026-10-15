@@ -1,3 +1,4 @@
+import { logError } from "@/lib/log";
 import {
   BookOpen,
   ChevronLeft,
@@ -238,7 +239,7 @@ const ThinkHub = () => {
   const showCleanup = cleanupPrefs.isLoaded && (isCleanupAsked || cleanupPrefs.prefs.cleanup_seen_week !== thisWeek);
   const laterCleanup = (): void => {
     setIsCleanupAsked(false);
-    void cleanupPrefs.setPref("cleanup_seen_week", thisWeek).catch(() => undefined);
+    void cleanupPrefs.setPref("cleanup_seen_week", thisWeek).catch((error: unknown) => logError("think-hub-cleanup", error));
   };
   // V·3.3: hold a Hạng mục to choose several (Cất · Xoá · Huỷ).
   const [selectStart, setSelectStart] = useState<string | null>(null);

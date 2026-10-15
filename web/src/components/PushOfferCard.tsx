@@ -4,12 +4,13 @@ import { toast } from "sonner";
 
 import { currentPushSupport, currentSubscription, enablePush, PUSH_OFFER_EVENT, readAskState, rememberAskLater, shouldOfferPush } from "@/lib/push";
 import { isGuestMachine } from "@/lib/guest-machine";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 /**
  * "Bật thông báo để không lỡ tin và nhắc việc?" — shown after the first message sent or the first
  * reminder set (never on opening the app). The browser's own prompt comes only after "Bật".
  */
-export function PushOfferCard() {
+function PushOfferCardInner() {
   const [visible, setVisible] = useState<boolean>(false);
   const [busy, setBusy] = useState<boolean>(false);
   const support = currentPushSupport();
@@ -79,5 +80,14 @@ export function PushOfferCard() {
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** AVORA-112-B: behind the `push` switch (stable · soon · hidden). */
+export function PushOfferCard() {
+  return (
+    <FeatureGate feature="push" soon={null}>
+      <PushOfferCardInner />
+    </FeatureGate>
   );
 }

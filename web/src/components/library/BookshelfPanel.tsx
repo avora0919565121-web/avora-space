@@ -46,6 +46,7 @@ import { useShelfActions, useStars } from "@/lib/use-think-hub-shelf";
 import { cn } from "@/lib/utils";
 import { useBookshelf, useShelfCovers } from "@/components/library/use-bookshelf";
 import { OnDeviceList } from "@/components/library/OnDeviceList";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 /** Shelves in reading order (C6): what is being read first, what was finished last. */
 export const TIERS: readonly { key: string; label: string }[] = [
@@ -97,7 +98,7 @@ function markLessonAsked(recordId: string): void {
  * library (Wikisource in Vietnamese, Project Gutenberg). Books from the open library read inside
  * Avora; books I already own keep only their link.
  */
-export function BookshelfPanel({ addRequest }: { addRequest: number }) {
+function BookshelfPanelInner({ addRequest }: { addRequest: number }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { user } = useAuth();
@@ -806,5 +807,14 @@ function AddBookDialog({ open, onOpenChange, onAdd }: { open: boolean; onOpenCha
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** AVORA-112-B: behind the `books` switch (stable · soon · hidden). */
+export function BookshelfPanel(props: Parameters<typeof BookshelfPanelInner>[0]) {
+  return (
+    <FeatureGate feature="books">
+      <BookshelfPanelInner {...props} />
+    </FeatureGate>
   );
 }

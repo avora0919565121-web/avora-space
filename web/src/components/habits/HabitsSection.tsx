@@ -11,6 +11,7 @@ import { HABIT_PARAM, HABIT_SUGGESTIONS, habitsForDay, isRunning, readingRepeatT
 import { useTasks } from "@/lib/use-tasks";
 import { archiveHabit, pauseHabit, toggleHabitWindow, useHabits } from "@/lib/use-habits";
 import { useOnline } from "@/lib/use-online";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 const MOVE_DISMISSED_KEY = "avora-habit-reading-move-dismissed";
 
@@ -20,7 +21,7 @@ const MOVE_DISMISSED_KEY = "avora-habit-reading-move-dismissed";
  * round mark, `Hôm nay 2/3 · Tuần này 5/7` under each. Habits not asked for today and resting ones
  * sit below, quieter. Archived ones leave the list (their history stays in the detail / search).
  */
-export function HabitsSection({ createRequest, startWithCreate = false, onStarted }: { createRequest: number; startWithCreate?: boolean; onStarted?: () => void }) {
+function HabitsSectionInner({ createRequest, startWithCreate = false, onStarted }: { createRequest: number; startWithCreate?: boolean; onStarted?: () => void }) {
   const { habits, logs, done, today, isLoaded, loadFailed, pendingCount, totalOf, retry } = useHabits();
   const isOnline = useOnline();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -217,5 +218,14 @@ export function HabitsSection({ createRequest, startWithCreate = false, onStarte
       />
       {editor !== null ? <HabitEditor key={editor.key} open onOpenChange={(open) => (open ? undefined : setEditor(null))} habit={editor.habit} initial={editor.initial} /> : null}
     </div>
+  );
+}
+
+/** AVORA-112-B: behind the `habits` switch (stable · soon · hidden). */
+export function HabitsSection(props: Parameters<typeof HabitsSectionInner>[0]) {
+  return (
+    <FeatureGate feature="habits">
+      <HabitsSectionInner {...props} />
+    </FeatureGate>
   );
 }

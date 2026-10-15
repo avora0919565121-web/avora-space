@@ -19,8 +19,8 @@ import { reminderTitle } from "@/lib/finance";
 
 describe("AVORA-51 · mask (B3)", () => {
   it("shows only the ends of an email, domain middle hidden", () => {
-    expect(maskEmail("vo.thanh@outlook.com")).toBe("vo•••h@o•••k.com");
-    expect(maskEmail("vothanhn@outlook.com")).toBe("vo•••n@o•••k.com");
+    expect(maskEmail("vo.thanh@example.com")).toBe("vo•••h@e•••e.com");
+    expect(maskEmail("ngvanann@example.org")).toBe("ng•••n@e•••e.org");
     expect(maskEmail("abc@gmail.com")).toBe("a•••@g•••l.com");
     expect(maskEmail("me@ab.vn")).toBe("m•••@a•••.vn");
   });

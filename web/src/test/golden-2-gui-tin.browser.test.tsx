@@ -237,9 +237,14 @@ test("L2.4 · trạng thái bong bóng: Chờ gửi… → Đang chờ mạng (m
     permanentFailurePath: failedSeen,
     blockedSendMsUntilFailedLabel: Math.round(msToFailed),
     blockedSendServerAttempts: serverAttempts,
-    note: "Nhãn đọc từ bong bóng của khung đo, cùng quy tắc chọn chữ với Messages.tsx.",
+    before112C: { blockedSendMsUntilFailedLabel: 16590, blockedSendServerAttempts: 5 },
+    note: "Nhãn đọc từ bong bóng của khung đo, cùng quy tắc chọn chữ với Messages.tsx. 112-C: lỗi vĩnh viễn dừng ở lần thử đầu.",
   });
   expect(seen.length).toBeGreaterThan(0);
+  // 112-C · LOI-01: bị chặn → "Chưa gửi được" ở lần thử đầu, không thử lại 5 lần.
+  expect(serverAttempts).toBe(1);
+  expect(msToFailed).toBeGreaterThanOrEqual(0);
+  expect(msToFailed).toBeLessThan(2_000);
 });
 
 

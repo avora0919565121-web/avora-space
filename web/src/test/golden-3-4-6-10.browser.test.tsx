@@ -188,16 +188,18 @@ test("L6.3 · tệp mồ côi: tải lên xong rồi tin bị từ chối / ngư
   window.clearInterval(watcher);
   await lan.api.drop(second);
   lan.net.online();
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  // 112-F: the removal remembered offline runs when the outbox next runs online.
+  await until(() => world.server.orphans("chat-attachments").length === 0, 5_000, "orphans removed").catch(() => 0);
 
   const orphans = world.server.orphans("chat-attachments");
   await recordMeasure("L6.3-tep-mo-coi", {
     threshold: "0 tệp mồ côi",
     orphanFiles: orphans.length,
     orphanPaths: orphans.map((path) => path.split("/").slice(-1)[0]),
-    note: "use-outbox.ts · drop() chỉ xoá mục trong hàng chờ; tệp đã tải lên (storagePath) không bị xoá khỏi kho.",
+    before112F: { orphanFiles: 2 },
+    note: "112-F · LOI-02: Bỏ một tin đã tải tệp → xoá tệp ngay; đang ngoại tuyến thì nhớ trên máy và xoá khi có mạng.",
   });
-  expect(Array.isArray(orphans)).toBe(true);
+  expect(orphans).toEqual([]);
 });
 
 test("L10.1 · cuộc trò chuyện 5.000 tin: mở → 30 tin mới nhất hiện (4G mô phỏng)", { timeout: 60_000 }, async () => {

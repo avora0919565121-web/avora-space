@@ -6,6 +6,11 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 import { localDayOf } from "@/lib/space-blocks";
 import { myDayCardNote, myDayOption } from "@/lib/task-hub";
 import { todayIso, type TaskItem } from "@/lib/tasks";
+import { deviceTimeZone, setAppTimeZone } from "@/lib/app-time-zone";
+
+// 112-E: these cases are about the day boundary itself; the profile's zone is set to this machine's zone so
+// "local" means the same thing in both (profile ≠ device is covered in golden-units / avora112e).
+setAppTimeZone(deviceTimeZone());
 
 /**
  * AVORA-55 · 4 — the "Hôm nay" offer reads the task's own time first (VMT 01/10 16:33).

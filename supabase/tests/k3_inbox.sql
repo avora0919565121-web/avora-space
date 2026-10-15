@@ -3,7 +3,7 @@ do $test$
 declare
   a uuid := 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
   b uuid := 'ce09d234-af48-49a5-96f2-b2456ae4e5b0';
-  o uuid := '92ace0b9-5de9-4568-8321-84169d3b5ca3';
+  o uuid := private.test_ephemeral_user('O');
   d uuid := gen_random_uuid();
   failures int := 0; log text := ''; ok boolean; n int; n2 int; i int; total int; uc int; oldest uuid;
 begin

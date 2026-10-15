@@ -24,6 +24,11 @@ import {
   type MuteSetting,
   type NotificationEvent,
 } from "@/lib/mute";
+import { deviceTimeZone, setAppTimeZone } from "@/lib/app-time-zone";
+
+// 112-E: these cases are about the day boundary itself; the profile's zone is set to this machine's zone so
+// "local" means the same thing in both (profile ≠ device is covered in golden-units / avora112e).
+setAppTimeZone(deviceTimeZone());
 
 const NOW = new Date("2026-09-14T12:00:00Z");
 const LATER = new Date("2026-09-14T16:00:00Z").toISOString();

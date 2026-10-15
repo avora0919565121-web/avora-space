@@ -4,8 +4,8 @@ do $test$
 declare
   a uuid := 'be10844c-aefd-4ee9-b7ba-4a4a0f2fe00d';
   b uuid := 'ce09d234-af48-49a5-96f2-b2456ae4e5b0';
-  c uuid := '151a54b2-2ae1-4b0d-906c-08a1965461bd';
-  o uuid := '92ace0b9-5de9-4568-8321-84169d3b5ca3';
+  c uuid := private.test_ephemeral_user('C');
+  o uuid := private.test_ephemeral_user('O');
   rec_a uuid := '0fc02d25-5d93-4ca4-b445-3d643d28d7f2';
   path_a text;
   banned text[];
@@ -80,7 +80,7 @@ begin
   select count(*) into n from storage.objects where bucket_id = 'my-book-covers' and name = path_a;
   ok := ok and n = 1;
   reset role;
-  foreach o in array array[b, c, '92ace0b9-5de9-4568-8321-84169d3b5ca3'::uuid] loop
+  foreach o in array array[b, c, private.test_ephemeral_user('O2')] loop
     perform set_config('request.jwt.claims', json_build_object('sub', o, 'role', 'authenticated')::text, true);
     set local role authenticated;
     select count(*) into n from public.book_my_covers where record_id = rec_a;

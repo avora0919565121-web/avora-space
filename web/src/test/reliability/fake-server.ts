@@ -136,13 +136,33 @@ export class FakeAvoraServer {
     }
   }
 
-  /** A table change, streamed only to subscribers allowed to read the row (the RLS of the real table). */
+  /**
+   * 112-D: permission checks the realtime path costs, per change. `legacy` (postgres_changes): the RLS of the
+   * row is evaluated once for every subscriber of the table. `broadcast` (the 112-D triggers): the server
+   * computes the recipients once; each private topic was authorised once, when it was joined.
+   */
+  readonly authChecks = { legacy: 0, broadcast: 0, changes: 0 };
+
+  /** A table change: streamed to table subscribers allowed to read the row (legacy), and sent to each reader's own topic (112-D). */
   emitChange(table: string, eventType: "INSERT" | "UPDATE" | "DELETE", row: Row, canRead: (userId: string) => boolean): void {
+    this.authChecks.changes += 1;
+    this.authChecks.broadcast += 1;
+    const sentTo = new Set<string>();
     for (const sub of this.subscriptions) {
-      if (sub.topic.startsWith("user-")) continue;
+      if (sub.topic.startsWith("user-")) {
+        // The trigger's recipient list, delivered to every device of each recipient that is listening.
+        if (sub.topic !== `user-${sub.userId}` || !canRead(sub.userId)) continue;
+        const event = table === "tasks" ? "task" : table === "conversation_read_marks" ? "read_mark" : null;
+        if (event === null) continue;
+        sentTo.add(sub.userId);
+        sub.deliver({ type: "broadcast", topic: sub.topic, event, payload: { eventType, new: eventType === "DELETE" ? {} : row, old: { id: row.id } } });
+        continue;
+      }
+      this.authChecks.legacy += 1;
       if (!canRead(sub.userId)) continue;
       sub.deliver({ type: "postgres_changes", event: eventType, table, payload: { eventType, table, schema: "public", new: eventType === "DELETE" ? {} : row, old: eventType === "DELETE" ? row : {} } });
     }
+    void sentTo;
   }
 
   // ------------------------------------------------------------------ RPC

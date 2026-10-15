@@ -2,18 +2,20 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 
-import { attachmentKeys, sendMessageWithAttachments, uploadStagedAttachment, type StagedAttachment } from "@/lib/attachments";
+import { attachmentKeys, flushPendingRemovals, removeUnsentUploads, sendMessageWithAttachments, uploadStagedAttachment, type StagedAttachment } from "@/lib/attachments";
 import { chatKeys, mergeIncomingMessage, sendMessage, type ChatMessage } from "@/lib/chat";
 import { logError } from "@/lib/log";
+import { serverText } from "@/lib/server-error";
 import {
-  isNetworkError,
   isPermanentSendError,
+  nextOutboxState,
   nextSeq,
   outboxStore,
   retryDelayMs,
   runLimited,
   sendableHeads,
   type OutboxFile,
+  withTimeout,
   type OutboxItem,
 } from "@/lib/outbox";
 
@@ -60,22 +62,28 @@ export function useOutboxRunner(userId: string | undefined): {
     async (item: OutboxItem): Promise<void> => {
       if (runningRef.current.has(item.conversationId)) return;
       runningRef.current.add(item.conversationId);
-      let current: OutboxItem = { ...item, state: "sending", attempts: item.attempts + 1 };
+      let current: OutboxItem = {
+        ...item,
+        state: "sending",
+        attempts: item.attempts + 1,
+        firstTriedAt: item.firstTriedAt ?? new Date().toISOString(),
+      };
       await outboxStore.put(current);
-      showWaiting(current);
+      // A quiet background retry of a timed-out item keeps showing "Chưa gửi được · Gửi lại" until it goes.
+      if (item.state !== "failed") showWaiting(current);
       try {
         if (current.files.length > 0) {
           const files = await runLimited(
             current.files.map((file) => async (): Promise<OutboxFile> => {
               if (file.storagePath !== undefined) return file;
-              const uploaded = await uploadStagedAttachment(current.conversationId, outboxFileToStaged(file));
+              const uploaded = await withTimeout(uploadStagedAttachment(current.conversationId, outboxFileToStaged(file)), 120_000);
               return { ...file, storagePath: uploaded.storage_path };
             }),
             3,
           );
           current = { ...current, files };
           await outboxStore.put(current);
-          const sent = await sendMessageWithAttachments({
+          const sent = await withTimeout(sendMessageWithAttachments({
             messageId: current.id,
             conversationId: current.conversationId,
             content: current.content,
@@ -94,12 +102,12 @@ export function useOutboxRunner(userId: string | undefined): {
               permission: file.permission,
               capture_source: file.captureSource,
             })),
-          });
+          }));
           void sent;
           void queryClient.invalidateQueries({ queryKey: attachmentKeys.thread(current.conversationId) });
           void queryClient.invalidateQueries({ queryKey: chatKeys.messages(current.conversationId) });
         } else {
-          const row = await sendMessage(
+          const row = await withTimeout(sendMessage(
             current.conversationId,
             current.userId,
             current.content,
@@ -111,7 +119,7 @@ export function useOutboxRunner(userId: string | undefined): {
             current.refs,
             current.id,
             { effect: current.effect ?? null, stickerId: current.stickerId ?? null },
-          );
+          ));
           queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(current.conversationId), (thread) =>
             mergeIncomingMessage(thread ?? [], row),
           );
@@ -121,11 +129,17 @@ export function useOutboxRunner(userId: string | undefined): {
         await outboxStore.remove(current.id);
         void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
       } catch (error: unknown) {
-        const message = error instanceof Error ? error.message : String(error);
+        // LOI-01: decide on the server's own words, not on the Vietnamese sentence shown to the person.
+        const message = serverText(error);
         const offline = typeof navigator !== "undefined" && navigator.onLine === false;
-        const state: OutboxItem["state"] =
-          isPermanentSendError(message) ? "failed" : offline || isNetworkError(message) ? "waiting_network" : current.attempts >= 5 ? "failed" : "queued";
-        current = { ...current, state, lastError: message.slice(0, 160) };
+        const state = nextOutboxState({ errorText: message, offline, attempts: current.attempts, firstTriedAt: current.firstTriedAt });
+        current = {
+          ...current,
+          state,
+          permanent: state === "failed" ? isPermanentSendError(message) : undefined,
+          lastError: message.slice(0, 160),
+          firstTriedAt: offline ? null : current.firstTriedAt,
+        };
         await outboxStore.put(current);
         showWaiting(current);
         if (state === "failed") logError("outbox", { code: "send_failed", message: message.slice(0, 80) });
@@ -138,11 +152,12 @@ export function useOutboxRunner(userId: string | undefined): {
 
   const pump = useCallback(async (): Promise<void> => {
     if (!userId) return;
+    if (typeof navigator === "undefined" || navigator.onLine !== false) void flushPendingRemovals();
     const items = await outboxStore.all(userId);
     const heads = sendableHeads(items);
     if (heads.length === 0) return;
     if (typeof navigator !== "undefined" && navigator.onLine === false) {
-      for (const head of heads) if (head.state !== "waiting_network") await outboxStore.put({ ...head, state: "waiting_network" });
+      for (const head of heads) if (head.state !== "waiting_network") await outboxStore.put({ ...head, state: "waiting_network", firstTriedAt: null, permanent: undefined });
       return;
     }
     await Promise.all(heads.map((head) => sendOne(head)));
@@ -197,7 +212,7 @@ export function useOutboxRunner(userId: string | undefined): {
       if (!userId) return;
       const found = (await outboxStore.all(userId)).find((entry) => entry.id === id);
       if (found === undefined) return;
-      const next: OutboxItem = { ...found, state: "queued", attempts: 0 };
+      const next: OutboxItem = { ...found, state: "queued", attempts: 0, firstTriedAt: null, permanent: undefined };
       await outboxStore.put(next);
       showWaiting(next);
       void pump();
@@ -210,6 +225,8 @@ export function useOutboxRunner(userId: string | undefined): {
       if (!userId) return;
       const found = (await outboxStore.all(userId)).find((entry) => entry.id === id);
       await outboxStore.remove(id);
+      // LOI-02: what was already uploaded for this message goes too — no orphan files in storage.
+      if (found !== undefined) void removeUnsentUploads(found.files.map((file) => file.storagePath ?? ""));
       if (found !== undefined) {
         queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(found.conversationId), (thread) =>
           (thread ?? []).filter((message) => message.id !== id),

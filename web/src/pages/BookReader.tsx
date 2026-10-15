@@ -1,4 +1,5 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { logError } from "@/lib/log";
 import { BookCheck, ChevronLeft, Copy, Download, Languages, List, Loader2, Moon, MoreHorizontal, NotebookPen, Pin, Type, X } from "lucide-react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
@@ -361,7 +362,7 @@ const BookReader = () => {
     if (place.percent >= FINISHED_PERCENT) void offerLetGoRef.current();
     const label = positionLabel(chapter, place.percent);
     if (keys.position !== null && field(book, keys.position) !== label) {
-      actions.updateRecord(book.id, { extensionFields: { ...book.extensionFields, [keys.position]: label } }).catch(() => undefined);
+      actions.updateRecord(book.id, { extensionFields: { ...book.extensionFields, [keys.position]: label } }).catch((error: unknown) => logError("reader-position", error));
     }
   }, [currentPlace, book, chapter, keys.position, field, actions]);
 
@@ -717,7 +718,7 @@ const BookReader = () => {
     const next = { ...look, ...patch };
     anchorRef.current = currentPlace()?.block ?? anchorRef.current;
     setDraft(next);
-    void setPref("reader", next).catch(() => undefined);
+    void setPref("reader", next).catch((error: unknown) => logError("reader-prefs", error));
   };
 
   const togglePin = async (): Promise<void> => {

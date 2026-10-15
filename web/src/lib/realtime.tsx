@@ -9,6 +9,7 @@ import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 import { outboxStore } from "@/lib/outbox";
+import { readRealtimeMode, type RealtimeMode } from "@/lib/realtime-mode";
 import { forgetThreadCache } from "@/lib/thread-cache";
 import { INCOMING_MESSAGE_EVENT, type IncomingMessageSignal } from "@/lib/in-app-alerts";
 
@@ -398,12 +399,32 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       }
     };
 
+    /** 112-D: a (re)joined socket answers with SUBSCRIBED; after the first time, what was missed is read again. */
+    const onState = (state: string): void => {
+      if (isCancelled) return;
+      if (state === "SUBSCRIBED") {
+        setStatus("live");
+        if (hasBeenLiveRef.current) backfill();
+        hasBeenLiveRef.current = true;
+        return;
+      }
+      if (state === "CHANNEL_ERROR" || state === "TIMED_OUT" || state === "CLOSED") {
+        logError("realtime", { code: state });
+        setStatus("offline");
+      }
+    };
+
+    let mode: RealtimeMode = "broadcast";
+
     const start = async (): Promise<void> => {
       // The socket authorises RLS from the access token, so it must be set before joining.
       const { data } = await supabase.auth.getSession();
       const token: string | undefined = data.session?.access_token;
       if (token) await Promise.resolve(supabase.realtime.setAuth(token));
+      mode = await readRealtimeMode();
       if (isCancelled) return;
+      // 112-D: in `broadcast` mode every event rides the personal topic below; no table is subscribed.
+      if (mode === "broadcast") return;
 
       channel = supabase
         .channel(`avora-chat-${userId}`)
@@ -428,19 +449,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
           { event: "UPDATE", schema: "public", table: "group_removal_requests" },
           handleRemovalResolution,
         )
-        .subscribe((state: string) => {
-          if (isCancelled) return;
-          if (state === "SUBSCRIBED") {
-            setStatus("live");
-            if (hasBeenLiveRef.current) backfill();
-            hasBeenLiveRef.current = true;
-            return;
-          }
-          if (state === "CHANNEL_ERROR" || state === "TIMED_OUT" || state === "CLOSED") {
-            logError("realtime", { code: state });
-            setStatus("offline");
-          }
-        });
+        .subscribe(onState);
     };
 
     const startedRef: Promise<void> = start();
@@ -470,6 +479,30 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
           const about = (message as { payload?: { user_id?: unknown } }).payload?.user_id;
           if (typeof about === "string") invalidateAvatar(queryClient, about);
         })
+        // 112-D · ADR-091: what `postgres_changes` used to carry, now sent by the server to each recipient.
+        .on("broadcast", { event: "task" }, (message) => {
+          if (mode !== "broadcast") return;
+          const payload = (message as { payload?: RealtimePostgresChangesPayload<TaskRow> }).payload;
+          if (payload !== undefined) handleTaskChange(payload);
+        })
+        .on("broadcast", { event: "task_suggestion" }, (message) => {
+          if (mode !== "broadcast") return;
+          const payload = (message as { payload?: RealtimePostgresChangesPayload<SuggestionRow> }).payload;
+          if (payload !== undefined) handleSuggestionChange(payload);
+        })
+        .on("broadcast", { event: "read_mark" }, (message) => {
+          if (mode !== "broadcast") return;
+          const row = (message as { payload?: { new?: Partial<ReadMarkRow> } }).payload?.new;
+          if (row !== undefined) handleReadMark({ new: row });
+        })
+        .on("broadcast", { event: "removal_request" }, (message) => {
+          if (mode !== "broadcast") return;
+          const row = (message as { payload?: { new?: RemovalRequestRow } }).payload?.new;
+          if (row !== undefined) handleRemovalResolution({ new: row } as RealtimePostgresUpdatePayload<RemovalRequestRow>);
+        })
+        .on("broadcast", { event: "participant_added" }, () => {
+          if (mode === "broadcast") handleParticipantInsert();
+        })
         .on("broadcast", { event: "removed" }, (message) => {
           const payload = (message as { payload?: { conversation_id?: string; name?: string | null } }).payload;
           const removedId = payload?.conversation_id;
@@ -488,7 +521,10 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
           void forgetThreadCache(userId, removedId);
           if (wasGroup && payload?.name) toast(`Bạn không còn trong nhóm ${payload.name}`);
         })
-        .subscribe();
+        // In `broadcast` mode this topic is the connection: its state is the "Đang kết nối lại" state.
+        .subscribe((state: string) => {
+          if (mode === "broadcast") onState(state);
+        });
     };
     // Joined after start() has set the access token (private topic → RLS on realtime.messages).
     void startedRef.then(() => {
@@ -503,18 +539,42 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
     const ping = window.setInterval(() => {
       if (isCancelled || document.visibilityState !== "visible") return;
       const open = supabase.realtime.isConnected();
-      if (!open || (channel !== null && channel.state !== "joined")) {
+      const watched = mode === "broadcast" ? personal : channel;
+      if (!open || (watched !== null && watched.state !== "joined")) {
         logError("realtime", { code: "zombie_reconnect" });
         setStatus("offline");
         if (channel) void supabase.removeChannel(channel);
         channel = null;
-        void start();
+        if (mode === "broadcast") {
+          if (personal) void supabase.removeChannel(personal);
+          personal = null;
+          void start().then(() => {
+            if (!isCancelled) startPersonal();
+          });
+        } else void start();
       }
     }, 30_000);
+
+    /**
+     * 112-D: back from the background (≥ 30 s), events sent meanwhile may be gone even though the socket looks
+     * open — read again what may have been missed (messages, tasks, read state) instead of only waiting.
+     */
+    let hiddenAt: number | null = null;
+    const onVisibility = (): void => {
+      if (document.visibilityState === "hidden") {
+        hiddenAt = Date.now();
+        return;
+      }
+      if (hiddenAt !== null && Date.now() - hiddenAt > 30_000 && hasBeenLiveRef.current) backfill();
+      hiddenAt = null;
+    };
+    // (A device that lost its network also lost its socket: the SUBSCRIBED on rejoin backfills — no `online` hook needed.)
+    document.addEventListener("visibilitychange", onVisibility);
 
     return () => {
       isCancelled = true;
       window.clearInterval(ping);
+      document.removeEventListener("visibilitychange", onVisibility);
       if (channel) void supabase.removeChannel(channel);
       if (personal) void supabase.removeChannel(personal);
     };

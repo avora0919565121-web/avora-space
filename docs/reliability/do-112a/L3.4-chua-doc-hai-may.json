@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-13T09:59:02.044Z",
+  "measuredAt": "2026-10-15T07:40:09.757Z",
   "threshold": "100% khớp sau khi đọc ở máy khác",
   "unreadBefore": {
     "phone": 3,
@@ -7,5 +7,5 @@
   },
   "phoneUnreadAfter": 0,
   "laptopUnreadAfter": 0,
-  "phoneClearedAfterMs": 0
+  "phoneClearedAfterMs": 1
 }

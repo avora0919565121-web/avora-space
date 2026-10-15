@@ -10,6 +10,7 @@ import {
   type ReactionGroup,
 } from "@/lib/reactions";
 import { cn } from "@/lib/utils";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 /**
  * The reactions already on a message, and the way to add one.
@@ -18,7 +19,7 @@ import { cn } from "@/lib/utils";
  * your own reaction back. That is why the chip shows whether you are in it — a number alone
  * would leave "did I already react?" unanswerable without a tooltip.
  */
-export function MessageReactions({
+function MessageReactionsInner({
   groups,
   nameOf,
   viewerId,
@@ -69,7 +70,7 @@ export function MessageReactions({
  * real conversation as much as approval does. A bar that can only agree turns every reaction
  * into applause, and then people stop using it to say anything true.
  */
-export function ReactionPicker({
+function ReactionPickerInner({
   onPick,
   label,
   className,
@@ -181,5 +182,23 @@ export function ReactionPicker({
         ) : null}
       </PopoverContent>
     </Popover>
+  );
+}
+
+/** AVORA-112-B: behind the `reactions` switch (stable · soon · hidden). */
+export function MessageReactions(props: Parameters<typeof MessageReactionsInner>[0]) {
+  return (
+    <FeatureGate feature="reactions" soon={null}>
+      <MessageReactionsInner {...props} />
+    </FeatureGate>
+  );
+}
+
+/** AVORA-112-B: behind the `reactions` switch (stable · soon · hidden). */
+export function ReactionPicker(props: Parameters<typeof ReactionPickerInner>[0]) {
+  return (
+    <FeatureGate feature="reactions" soon={null}>
+      <ReactionPickerInner {...props} />
+    </FeatureGate>
   );
 }

@@ -217,7 +217,12 @@ export type NameRepairInput = {
  * spaces, then possible typos, then missing accents. `avoraName` is the display name of the
  * AVORA account a contact is linked to (bạn bè), when known.
  */
-export function findNameIssues(contacts: readonly NameRepairInput[], avoraName: (userId: string) => string | null): NameIssue[] {
+export function findNameIssues(
+  contacts: readonly NameRepairInput[],
+  avoraName: (userId: string) => string | null,
+  /** AVORA-117: contacts the owner linked by hand — the name they chose is not second-guessed from AVORA. */
+  handLinked: ReadonlySet<string> = new Set(),
+): NameIssue[] {
   const accentedByPhone = new Map<string, string[]>();
   for (const contact of contacts) {
     if (contact.phone === null || contact.phone === "") continue;
@@ -252,7 +257,7 @@ export function findNameIssues(contacts: readonly NameRepairInput[], avoraName: 
     }
 
     if (isUnaccentedVietnamese(name)) {
-      const linked = contact.linkedUserId === null ? null : avoraName(contact.linkedUserId);
+      const linked = contact.linkedUserId === null || handLinked.has(contact.id) ? null : avoraName(contact.linkedUserId);
       if (linked !== null && hasVietnameseMarks(linked) && !looksBroken(linked)) {
         issues.push({ contactId: contact.id, kind: "accents", current: name, suggestion: cleanContactName(linked), preselected: false, source: "avora" });
         continue;

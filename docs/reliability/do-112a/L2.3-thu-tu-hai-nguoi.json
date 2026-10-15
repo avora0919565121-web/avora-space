@@ -1,10 +1,10 @@
 {
-  "measuredAt": "2026-10-13T09:59:16.067Z",
+  "measuredAt": "2026-10-15T07:39:43.132Z",
   "threshold": "100% cùng thứ tự giữa hai người",
   "messages": 120,
   "personAEqualsPersonB": true,
-  "clientEqualsServerOrder": true,
-  "positionsDifferentFromServer": 0,
+  "clientEqualsServerOrder": false,
+  "positionsDifferentFromServer": 4,
   "differencesOnlyWithinSameMillisecond": true,
   "note": "Máy chủ xếp (created_at µs, id); app xếp theo mili-giây rồi id (chat-cache.ts compareMessages). Hai người luôn cùng thứ tự với nhau; chỉ tin trong cùng 1 ms có thể lệch so với máy chủ."
 }

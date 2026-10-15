@@ -2224,7 +2224,7 @@ const Messages = () => {
     onSuccess: (_result, messageId) => {
       toast.success("Đã thu hồi tin nhắn.");
       // Withdrawing IS the answer to any outstanding ask, so none should keep showing.
-      void resolveRecallAsk(messageId).catch(() => undefined);
+      void resolveRecallAsk(messageId).catch((error: unknown) => logError("recall-ask", error));
       if (conversationId) {
         void queryClient.invalidateQueries({ queryKey: chatKeys.messages(conversationId) });
       }

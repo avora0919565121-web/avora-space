@@ -1,10 +1,10 @@
 {
-  "measuredAt": "2026-10-13T09:59:48.297Z",
+  "measuredAt": "2026-10-15T07:39:59.793Z",
   "threshold": "0 mất · 0 trùng",
   "labelWhileExpired": "Chờ gửi…",
   "deliveredAfterRenew": true,
-  "msUntilDelivered": 3030,
+  "msUntilDelivered": 3051,
   "copiesOnServer": 1,
-  "expiredReplies": 2,
+  "expiredReplies": 3,
   "note": "JWT expired → câu 'Có lỗi xảy ra' → hàng chờ coi là lỗi tạm, thử lại 1/2/4/8 s; quá 5 lần thì 'Chưa gửi được · Gửi lại'."
 }

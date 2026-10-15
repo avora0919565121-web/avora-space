@@ -1,9 +1,9 @@
 {
-  "measuredAt": "2026-10-13T09:59:08.289Z",
+  "measuredAt": "2026-10-15T07:40:15.649Z",
   "threshold": "tìm ≤ 300 ms · cuộn ≥ 50 khung hình/giây",
   "contacts": 1000,
   "searches": 50,
-  "p95FilterMs": 3.7,
-  "maxFilterMs": 4.1,
+  "p95FilterMs": 4.4,
+  "maxFilterMs": 6.2,
   "scrolling": "thử tay (khung hình/giây không đo được trong trình duyệt không màn hình)"
 }

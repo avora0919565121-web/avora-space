@@ -1,4 +1,5 @@
 import type { Note } from "@/lib/notes";
+import { logError } from "@/lib/log";
 import { useProfilePrefs } from "@/lib/use-default-boards";
 
 /** AVORA-93 · PHẦN 2 (ADR-058) — helpers for kệ 2 / kệ 5 numbers (mine only, hideable). */
@@ -30,9 +31,9 @@ export function useStatsPrefs(): { hidden: boolean; setHidden: (next: boolean) =
   const { prefs, setPref } = useProfilePrefs();
   return {
     hidden: prefs[HIDDEN_KEY] === true,
-    setHidden: (next) => void setPref(HIDDEN_KEY, next).catch(() => undefined),
+    setHidden: (next) => void setPref(HIDDEN_KEY, next).catch((error: unknown) => logError("room-stats", error)),
     range: prefs[RANGE_KEY] === "today" ? "today" : "week",
-    setRange: (next) => void setPref(RANGE_KEY, next).catch(() => undefined),
+    setRange: (next) => void setPref(RANGE_KEY, next).catch((error: unknown) => logError("room-stats", error)),
   };
 }
 

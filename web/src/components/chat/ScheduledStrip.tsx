@@ -5,13 +5,14 @@ import { toast } from "sonner";
 import { ScheduleMessageDialog } from "@/components/chat/ScheduleMessageDialog";
 import { sendAtLine, useScheduleActions, type ScheduledMessage } from "@/lib/scheduled-messages";
 import { cn } from "@/lib/utils";
+import { FeatureGate } from "@/components/features/FeatureGate";
 
 /**
  * "🕒 2 tin hẹn giờ · gần nhất 20:00 hôm nay" above the composer — the sender's only. Opens the
  * list: Sửa · Gửi ngay · Huỷ; a failed one says why, with Sửa & hẹn lại · Xoá.
  */
 
-export function ScheduledStrip({
+function ScheduledStripInner({
   conversationId,
   items,
   embedded = false,
@@ -97,5 +98,14 @@ export function ScheduledStrip({
         }}
       />
     </div>
+  );
+}
+
+/** AVORA-112-B: behind the `scheduled_messages` switch (stable · soon · hidden). */
+export function ScheduledStrip(props: Parameters<typeof ScheduledStripInner>[0]) {
+  return (
+    <FeatureGate feature="scheduled_messages" soon={null}>
+      <ScheduledStripInner {...props} />
+    </FeatureGate>
   );
 }

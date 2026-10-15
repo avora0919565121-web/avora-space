@@ -39,6 +39,24 @@ export function previousEntryPath(): string | null {
   return hasInAppPrevious() ? (stack[stack.length - 2]?.path ?? null) : null;
 }
 
+/**
+ * 112-F · LOI-10: the in-app path behind the location with this router `key` — also during the first render of
+ * a new screen, before the tracker (a layout effect in the shell, which runs after its children) has pushed
+ * it. `undefined` when the key is unknown to the router. Without this the `‹` label showed the step before
+ * for one render ("Quay lại Nhiệm vụ…" then "Quay lại Avora Space…").
+ */
+export function previousPathFor(key: string | undefined, type: "PUSH" | "POP" | "REPLACE" = "PUSH"): string | null | undefined {
+  if (key === undefined) return undefined;
+  const at = stack.findIndex((item) => item.key === key);
+  if (at !== -1) return !stack[at].noBack && at > 0 ? stack[at - 1].path : null;
+  if (markNextNoBack || key === "default") return null;
+  if (type === "REPLACE") {
+    const top = stack[stack.length - 1];
+    return top !== undefined && !top.noBack && stack.length > 1 ? stack[stack.length - 2].path : null;
+  }
+  return stack[stack.length - 1]?.path ?? null;
+}
+
 /** AVORA-100 · C: the walked screens, oldest first (for `goToTabRoot`). */
 export function walkedEntries(): readonly { path: string; noBack: boolean }[] {
   return stack.map((item) => ({ path: item.path, noBack: item.noBack }));

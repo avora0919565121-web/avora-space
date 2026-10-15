@@ -1,10 +1,10 @@
 {
-  "measuredAt": "2026-10-13T09:59:07.251Z",
+  "measuredAt": "2026-10-15T07:40:14.823Z",
   "threshold": "0 tệp mồ côi",
-  "orphanFiles": 2,
-  "orphanPaths": [
-    "hop-dong.pdf",
-    "bao-gia.pdf"
-  ],
-  "note": "use-outbox.ts · drop() chỉ xoá mục trong hàng chờ; tệp đã tải lên (storagePath) không bị xoá khỏi kho."
+  "orphanFiles": 0,
+  "orphanPaths": [],
+  "before112F": {
+    "orphanFiles": 2
+  },
+  "note": "112-F · LOI-02: Bỏ một tin đã tải tệp → xoá tệp ngay; đang ngoại tuyến thì nhớ trên máy và xoá khi có mạng."
 }
