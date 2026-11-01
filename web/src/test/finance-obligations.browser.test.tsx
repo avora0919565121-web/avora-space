@@ -111,6 +111,13 @@ type Screen = Awaited<ReturnType<typeof mount>>;
  * Picks a day through the DateField button → Lịch panel (AVORA-39 · A1) — no typed dates:
  * the field is a button that opens a calendar, so the test walks the calendar like a person.
  */
+/** A due date always ahead of today (past days are closed in the picker), so the suite never expires. */
+const DUE: string = (() => {
+  const day = new Date(`${todayIso()}T12:00:00`);
+  day.setDate(day.getDate() + 20);
+  return `${day.getFullYear()}-${`${day.getMonth() + 1}`.padStart(2, "0")}-${`${day.getDate()}`.padStart(2, "0")}`;
+})();
+
 async function pickDate(screen: Screen, label: RegExp, iso: string): Promise<void> {
   await userEvent.click(screen.getByLabelText(label));
   const forward = iso >= todayIso();
@@ -159,7 +166,7 @@ describe("recording money that was promised rather than moved", () => {
   it("will not write a borrowing until a person has been chosen", async () => {
     const screen = await mount("vay");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "300");
-    await pickDate(screen, /Ngày đến hạn/, "2026-12-31");
+    await pickDate(screen, /Ngày đến hạn/, DUE);
 
     const submit = screen.getByRole("button", { name: /Ghi khoản vay/ });
     await expect.element(submit).toBeDisabled();
@@ -170,7 +177,7 @@ describe("recording money that was promised rather than moved", () => {
     const screen = await mount("vay");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "300");
     await pickContact(screen, /Vay từ ai/, "Anh Ba");
-    await pickDate(screen, /Ngày đến hạn/, "2026-12-31");
+    await pickDate(screen, /Ngày đến hạn/, DUE);
     await userEvent.click(screen.getByRole("button", { name: /Ghi khoản vay/ }));
 
     expect(state.written).toEqual([
@@ -178,7 +185,7 @@ describe("recording money that was promised rather than moved", () => {
         type: "vay",
         accountId: "acc-1",
         amountCents: 30_000,
-        dueDate: "2026-12-31",
+        dueDate: DUE,
         contactId: "c-ba",
       }),
     ]);
@@ -187,7 +194,7 @@ describe("recording money that was promised rather than moved", () => {
   it("sends no person on a tax bill even though the form shares the same code", async () => {
     const screen = await mount("thue_ca_nhan");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "120.50");
-    await pickDate(screen, /Ngày đến hạn/, "2026-10-31");
+    await pickDate(screen, /Ngày đến hạn/, DUE);
     await userEvent.click(screen.getByRole("button", { name: /Ghi khoản thuế cá nhân/ }));
 
     expect(state.written).toEqual([
@@ -198,7 +205,7 @@ describe("recording money that was promised rather than moved", () => {
   it("carries the tax period through when one is given", async () => {
     const screen = await mount("thue_kinh_doanh");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "500");
-    await pickDate(screen, /Ngày đến hạn/, "2026-10-31");
+    await pickDate(screen, /Ngày đến hạn/, DUE);
     await pickDate(screen, /Kỳ thuế từ ngày/, "2026-07-01");
     await pickDate(screen, /Kỳ thuế đến ngày/, "2026-09-30");
     await userEvent.click(screen.getByRole("button", { name: /Ghi khoản thuế kinh doanh/ }));
@@ -218,7 +225,7 @@ describe("recording money that was promised rather than moved", () => {
     const screen = await mount("cho_vay");
     await userEvent.fill(screen.getByLabelText(/Số tiền/), "ba trăm");
     await pickContact(screen, /Cho ai vay/, "Anh Ba");
-    await pickDate(screen, /Ngày đến hạn/, "2026-12-31");
+    await pickDate(screen, /Ngày đến hạn/, DUE);
 
     await expect.element(screen.getByRole("button", { name: /Ghi khoản cho vay/ })).toBeDisabled();
     expect(state.written).toHaveLength(0);

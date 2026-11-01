@@ -1,23 +1,23 @@
 {
-  "measuredAt": "2026-10-15T07:39:35.004Z",
+  "measuredAt": "2026-11-01T03:40:10.310Z",
   "threshold": "0 mất · 0 trùng · thứ tự 100%",
   "sent": 1000,
   "onServer": 1000,
   "lost": 0,
   "duplicated": 0,
   "orderSameAsWritten": true,
-  "senderViewLength": 95,
+  "senderViewLength": 104,
   "senderViewIsUnbrokenTailOfServer": true,
   "receiverViewEqualsServer": true,
   "senderPositionsDifferentFromServer": 0,
   "senderDifferencesOnlyWithinSameMillisecond": true,
   "network": {
-    "requests": 1321,
-    "droppedRequests": 33,
-    "droppedResponses": 34,
+    "requests": 1330,
+    "droppedRequests": 40,
+    "droppedResponses": 31,
     "expiredReplies": 0,
-    "offlineRefusals": 247
+    "offlineRefusals": 253
   },
-  "elapsedMs": 7816,
+  "elapsedMs": 8377,
   "seed": 112
 }

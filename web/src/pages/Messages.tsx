@@ -1184,10 +1184,18 @@ const Messages = () => {
     [openDiaryView],
   );
   // Kệ sách › Ghi chép (C): ?ghi-chep=<id> opens a note, ?sach=<id>&ten=<title> starts one.
+  // Lỗi 01/11: each ask is acted on once — the same address seen again never starts a second note.
+  // (Asking again on purpose — reader, back, the same passage — takes far longer than 5 s.)
+  const handledNotesAskRef = useRef<{ ask: string; at: number } | null>(null);
   useEffect(() => {
     if (activeKind !== "personal") return;
     const noteParam = searchParams.get("ghi-chep");
     const bookParam = searchParams.get("sach");
+    if (noteParam === null && bookParam === null) return;
+    const ask = ["ghi-chep", "sach", "ten", "trich", "cho", "o"].map((key) => searchParams.get(key) ?? "").join("\u0001");
+    const last = handledNotesAskRef.current;
+    if (last !== null && last.ask === ask && Date.now() - last.at < 5000) return;
+    handledNotesAskRef.current = { ask, at: Date.now() };
     if (noteParam !== null) setNotesRequest({ noteId: noteParam });
     else if (bookParam !== null) {
       // AVORA-77 · D3: `trich=` carries a passage chosen in the reader (≤ 2000 chars) and `cho=` its chapter.

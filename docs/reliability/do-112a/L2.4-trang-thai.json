@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-15T07:39:44.318Z",
+  "measuredAt": "2026-11-01T03:40:19.954Z",
   "threshold": "100% có trạng thái rõ: đang gửi, đã gửi, gửi lỗi (kèm nút thử lại)",
   "networkPath": [
     "Chờ gửi…",
@@ -12,7 +12,7 @@
     "Chờ gửi…",
     "Chưa gửi được · Gửi lại"
   ],
-  "blockedSendMsUntilFailedLabel": 312,
+  "blockedSendMsUntilFailedLabel": 315,
   "blockedSendServerAttempts": 1,
   "before112C": {
     "blockedSendMsUntilFailedLabel": 16590,

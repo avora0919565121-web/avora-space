@@ -11,6 +11,7 @@ declare
   r record;
   i int;
   summary jsonb;
+  summary0 jsonb;
 begin
   update public.app_config set value = jsonb_build_array(a::text) where key = 'ops_user_ids';
   delete from public.client_errors where user_id in (a, b);
@@ -59,12 +60,14 @@ begin
   -- ---------------------------------------------------------------- ops đọc + tóm tắt
   perform set_config('request.jwt.claims', json_build_object('sub', a, 'role', 'authenticated')::text, true);
   set local role authenticated;
+  -- Đếm chênh lệch: máy thật cũng ghi lỗi vào cùng bảng (vd. realtime 01/11), nên không so số tuyệt đối.
+  summary0 := public.ops_health_summary(7);
   perform public.log_client_error('1.12.0', 'web', '/tin-nhan', 'outbox', 'send_failed avora_x', 'of1');
   perform public.log_client_error('1.12.0', 'web', '/tin-nhan', 'realtime', 'zombie_reconnect', 'rt1');
   select count(*) into n from public.client_errors where user_id = b;
   summary := public.ops_health_summary(7);
   reset role;
-  ok := n >= 1 and (summary ->> 'sendFailed')::int = 1 and (summary ->> 'realtimeReconnects')::int = 1
+  ok := n >= 1 and (summary ->> 'sendFailed')::int - (summary0 ->> 'sendFailed')::int = 1 and (summary ->> 'realtimeReconnects')::int - (summary0 ->> 'realtimeReconnects')::int = 1
     and jsonb_array_length(summary -> 'top') between 1 and 10 and jsonb_array_length(summary -> 'byDay') >= 1;
   log := log || format(E'%s ops đọc mọi dòng; Sức khoẻ: tin gửi lỗi, nối lại realtime, 10 lỗi thường gặp\n', case when ok then 'ok  ' else 'FAIL' end); failures := failures + (not ok)::int;
 

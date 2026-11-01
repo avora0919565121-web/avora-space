@@ -40,6 +40,8 @@ import { isPreviousEntry } from "@/lib/nav-history";
 
 /** AVORA-94B: the note open in Ghi chép, in the address (`?gc=<id>`). */
 export const OPEN_NOTE_PARAM = "gc";
+/** Asks from elsewhere (Messages reads them once); an address the panel writes never keeps them. */
+export const NOTES_ONE_SHOT_PARAMS = ["ghi-chep", "sach", "ten", "trich", "cho", "o"] as const;
 
 function relative(iso: string | null, now: Date = new Date()): string {
   if (iso === null) return "";
@@ -153,15 +155,24 @@ export function NotesPanel({
   const navigate = useNavigate();
   const location = useLocation();
   const openParam: string | null = searchParams.get(OPEN_NOTE_PARAM);
+  /**
+   * Lỗi 01/11 · 100 bản ghi chép: the request effect below calls an older `setEditing`, whose
+   * `location.search` still carried `sach=…` — pushing it back made Messages start the note
+   * again, and again. Read the latest address, and never carry the one-shot params forward.
+   */
+  const locationRef = useRef(location);
+  locationRef.current = location;
   const setEditing = useCallback(
     (next: EditingNote | null): void => {
       setEditingState(next);
-      const current = new URLSearchParams(location.search);
+      const { pathname, search } = locationRef.current;
+      const current = new URLSearchParams(search);
+      for (const key of NOTES_ONE_SHOT_PARAMS) current.delete(key);
       if (next === null) {
         if (current.get(OPEN_NOTE_PARAM) === null) return;
         current.delete(OPEN_NOTE_PARAM);
         const query = current.toString();
-        if (isPreviousEntry(`${location.pathname}${query === "" ? "" : `?${query}`}`)) navigate(-1);
+        if (isPreviousEntry(`${pathname}${query === "" ? "" : `?${query}`}`)) navigate(-1);
         else setSearchParams(current, { replace: true });
         return;
       }
@@ -170,7 +181,7 @@ export function NotesPanel({
       current.set(OPEN_NOTE_PARAM, next.id);
       setSearchParams(current, { replace: hadOne });
     },
-    [location.pathname, location.search, navigate, setSearchParams],
+    [navigate, setSearchParams],
   );
   // The address moved (Back, a link): follow it — the note opens or closes with it.
   const seenParamRef = useRef<string | null>(openParam);
@@ -230,7 +241,8 @@ export function NotesPanel({
     setEditingState(toEditing(found));
     // The address says which note is open (replace: reopening is not a step deeper).
     if (openParam === null) {
-      const next = new URLSearchParams(location.search);
+      const next = new URLSearchParams(locationRef.current.search);
+      for (const key of NOTES_ONE_SHOT_PARAMS) next.delete(key);
       next.set(OPEN_NOTE_PARAM, found.id);
       seenParamRef.current = found.id;
       setSearchParams(next, { replace: true });

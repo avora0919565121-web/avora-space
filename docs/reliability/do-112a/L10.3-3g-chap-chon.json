@@ -1,12 +1,12 @@
 {
-  "measuredAt": "2026-10-15T07:41:18.251Z",
+  "measuredAt": "2026-11-01T03:41:51.764Z",
   "threshold": "0 treo, 0 mất",
   "sent": 50,
   "drained": true,
   "onServer": 50,
   "duplicates": 0,
   "longestTapToBubbleMs": 8,
-  "totalMs": 62425,
+  "totalMs": 62282,
   "network": {
     "requests": 59,
     "droppedRequests": 1,

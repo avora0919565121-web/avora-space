@@ -1,5 +1,5 @@
 {
-  "measuredAt": "2026-10-15T07:41:36.127Z",
+  "measuredAt": "2026-11-01T03:42:16.230Z",
   "threshold": "Chuyển postgres_changes toàn bảng → Broadcast theo kênh người; giữ đúng người nhận",
   "people": 50,
   "changes": 100,

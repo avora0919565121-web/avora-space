@@ -11,7 +11,7 @@ for f in supabase/tests/*.sql; do
   body=$(python3 -c 'import json,sys;print(json.dumps({"query":open(sys.argv[1]).read()}))' "$f")
   out=$(curl -s -X POST "https://api.supabase.com/v1/projects/$REF/database/query" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" --data "$body")
   msg=$(python3 -c 'import json,sys;d=json.loads(sys.stdin.read());print(d.get("message","") if isinstance(d,dict) else d)' <<<"$out")
-  if grep -qE "failures=0 |PROBE" <<<"$msg" && ! grep -q "^FAIL" <<<"$msg"; then
+  if grep -qE "failures=0([[:space:]]|$)|PROBE|.mismatches.: ?0[,}]" <<<"$msg" && ! grep -q "^FAIL" <<<"$msg"; then
     echo "✓ $(basename "$f")"
   else
     echo "✗ $(basename "$f")"; echo "$msg" | sed 's/\\n/\n/g' | grep -E "FAIL|ERROR" | head -20; status=1

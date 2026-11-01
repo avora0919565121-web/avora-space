@@ -1,9 +1,9 @@
 {
-  "measuredAt": "2026-10-15T07:39:55.948Z",
+  "measuredAt": "2026-11-01T03:40:31.787Z",
   "threshold": "p95 ≤ 2000 ms",
   "samples": 60,
-  "p50Ms": 147,
-  "p95Ms": 184,
-  "maxMs": 211,
+  "p50Ms": 145,
+  "p95Ms": 188,
+  "maxMs": 214,
   "note": "Mạng mô phỏng trong trình duyệt; đo phần app (outbox → máy chủ → broadcast → khung chat). Độ trễ Realtime thật đo lại ở 112-D và trên máy thật."
 }
