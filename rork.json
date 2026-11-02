@@ -10,6 +10,14 @@
       "name": "Backend",
       "path": "backend",
       "framework": "supabase"
+    },
+    {
+      "name": "AVORA iOS",
+      "path": "ios",
+      "framework": "swift",
+      "settings": {
+        "swiftSibling": false
+      }
     }
   ]
 }
