@@ -44,7 +44,7 @@ import { ReceiptsSheet } from "@/components/chat/ReceiptsSheet";
 import { ShareReadCard } from "@/components/ShareReadCard";
 import type { ReactionGroup } from "@/lib/reactions";
 
-const OUT = "../../../docs/screens/2026-10-11";
+const OUT = "../../.test-output/screens/2026-10-11";
 const SIZES = [[390, 844], [844, 390], [1280, 800]] as const;
 
 function Frame({ children, dark = false }: { children: ReactNode; dark?: boolean }) {

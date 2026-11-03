@@ -55,7 +55,7 @@ const { default: Contacts } = await import("@/pages/Contacts");
 const { DuplicatePairsSection } = await import("@/components/contacts/DuplicatePairsSection");
 const { Toaster } = await import("@/components/ui/sonner");
 
-const OUT = "../../../docs/screens/2026-10-08";
+const OUT = "../../.test-output/screens/2026-10-08";
 
 function person(i: number, name: string): Contact {
   return {

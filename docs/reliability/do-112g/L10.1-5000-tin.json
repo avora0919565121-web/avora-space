@@ -1,0 +1,12 @@
+{
+  "measuredAt": "2026-11-03T11:43:48.174Z",
+  "threshold": "≤ 1500 ms",
+  "messagesInConversation": 5000,
+  "runsMs": [
+    200,
+    248,
+    201
+  ],
+  "worstMs": 248,
+  "note": "Từ lúc mở bản app đến khi 30 bong bóng mới nhất có trên màn hình (gồm khởi động app). Máy chủ thật đọc theo chỉ mục (k3_speed.sql); máy thật đo tay."
+}

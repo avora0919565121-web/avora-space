@@ -1,0 +1,9 @@
+{
+  "measuredAt": "2026-11-03T11:43:19.124Z",
+  "threshold": "0 gửi nhầm cuộc",
+  "wrongConversation": 0,
+  "sentToSecond": [
+    "gửi cuộc hai"
+  ],
+  "firstDraftAfterReload": "nháp của cuộc một"
+}

@@ -62,7 +62,7 @@ import { todayIso } from "@/lib/tasks";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import ThinkHub from "@/pages/ThinkHub";
 
-const OUT = "../../../docs/screens/2026-10-10";
+const OUT = "../../.test-output/screens/2026-10-10";
 const now = new Date().toISOString();
 const today = todayIso();
 

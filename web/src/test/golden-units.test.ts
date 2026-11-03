@@ -24,7 +24,7 @@ import { isDeadlinePast } from "@/lib/task-schedule";
 import { todayIso } from "@/lib/tasks";
 import { setAppTimeZone } from "@/lib/app-time-zone";
 
-const OUT = path.resolve(__dirname, "../../../docs/reliability/do-112a");
+const OUT = path.resolve(__dirname, "../../.test-output/reliability/do-112a");
 const results: Record<string, unknown> = {};
 
 function record(name: string, data: Record<string, unknown>): void {

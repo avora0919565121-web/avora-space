@@ -39,3 +39,7 @@ src/test/__screenshots__
 *.njsproj
 *.sln
 *.sw?
+
+# 112-G · lưu ý 4: TypeScript build info and test output never go into git
+*.tsbuildinfo
+.test-output

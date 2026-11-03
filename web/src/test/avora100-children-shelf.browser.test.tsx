@@ -39,7 +39,7 @@ vi.mock("@/lib/book-catalog", async (importOriginal) => {
 import { ChildrenShelf } from "@/components/library/ChildrenShelf";
 import { BOOK_CATEGORIES, CHILDREN_SHELF, catalogLink, catalogRefOf, creditLines, parseCredits } from "@/lib/book-catalog";
 
-const OUT = "../../../docs/screens/2026-10-11";
+const OUT = "../../.test-output/screens/2026-10-11";
 
 function Frame({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));

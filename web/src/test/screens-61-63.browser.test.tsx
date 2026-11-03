@@ -76,7 +76,7 @@ import Tasks from "@/pages/Tasks";
 import ThinkHub from "@/pages/ThinkHub";
 import Vault from "@/pages/Vault";
 
-const OUT = "../../../docs/screens/2026-10-02";
+const OUT = "../../.test-output/screens/2026-10-02";
 const today = todayIso();
 const now = new Date().toISOString();
 const hoursAgo = (hours: number): string => new Date(Date.now() - hours * 3_600_000).toISOString();

@@ -42,7 +42,7 @@ import { LookSync } from "@/components/LookSync";
 import { Toaster } from "@/components/ui/sonner";
 import { LOOK_CACHE_KEY, TONES, toneVars } from "@/lib/theme";
 
-const OUT = "../../../docs/screens/2026-10-02";
+const OUT = "../../.test-output/screens/2026-10-02";
 
 /** A fresh "device": its own query cache, its own LookSync. */
 function Device({ children }: { children?: ReactNode }) {

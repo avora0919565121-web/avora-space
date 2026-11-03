@@ -53,8 +53,9 @@ export default defineConfig({
       instances: [{ browser: "chromium" }],
     },
   },
-  // 112-A: measurements are written to ../docs/reliability (recordMeasure), so the test server may reach it.
-  server: { fs: { allow: [path.resolve(__dirname), path.resolve(__dirname, "../docs/reliability")] } },
+  // 112-G · lưu ý 4: measurements and screenshots go to web/.test-output (gitignored), never over files
+  // kept in docs/. `bun run evidence:save` copies a chosen run into docs on purpose.
+  server: { fs: { allow: [path.resolve(__dirname)] } },
   optimizeDeps: {
     include: importedPackages(path.resolve(__dirname, "./src")),
   },

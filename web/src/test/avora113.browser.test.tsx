@@ -69,7 +69,7 @@ it("AVORA-113 · gõ PIN có L → dùng được → Lưu → lưu được", a
   await userEvent.click(saveButton());
   await expect.poll(() => claimed).toEqual(["A-LMNP23QL"]);
   await expect.element(page.getByText("PIN của bạn là A-LMNP23QL.")).toBeVisible();
-  await page.screenshot({ path: "../../../docs/screens/2026-10-13/113-pin-co-L-luu-duoc-390.png" });
+  await page.screenshot({ path: "../../.test-output/screens/2026-10-13/113-pin-co-L-luu-duoc-390.png" });
   await screen.unmount();
 });
 
@@ -111,6 +111,6 @@ it("AVORA-113 · máy chủ từ chối lạ → câu báo có mã ngắn, khôn
   await expect
     .element(page.getByText("Không lưu được PIN (mã P-23514-FORMAT). Thử PIN khác hoặc báo cho Avora."))
     .toBeVisible();
-  await page.screenshot({ path: "../../../docs/screens/2026-10-13/113-pin-loi-co-ma-390.png" });
+  await page.screenshot({ path: "../../.test-output/screens/2026-10-13/113-pin-loi-co-ma-390.png" });
   await screen.unmount();
 });

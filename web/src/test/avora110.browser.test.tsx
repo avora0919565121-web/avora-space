@@ -25,7 +25,7 @@ import { paintLook, resolveLook, setRestTone, setSavedLook, TONES, type FixedTon
 import { previewRestTone, RestDaySync, useRestScope } from "@/lib/use-rest-day";
 import type { RestInnerScope } from "@/lib/rest-day";
 
-const OUT = "../../../docs/screens/2026-10-12";
+const OUT = "../../.test-output/screens/2026-10-12";
 const settle = (ms = 300): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const today = new Date().getDay();
 const notToday = (today + 3) % 7;

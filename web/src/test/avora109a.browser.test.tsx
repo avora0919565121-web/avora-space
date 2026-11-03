@@ -32,7 +32,7 @@ import { clearChatLock, writeConfig, writeLocked, saveCode } from "@/lib/chat-lo
 import { ChatLockProvider } from "@/lib/use-chat-lock";
 import { useNavBadges } from "@/lib/use-nav-badges";
 
-const OUT = "../../../docs/screens/2026-10-12";
+const OUT = "../../.test-output/screens/2026-10-12";
 const settle = (ms = 300): Promise<void> => new Promise((r) => setTimeout(r, ms));
 
 function Badge() {

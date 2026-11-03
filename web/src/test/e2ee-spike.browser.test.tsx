@@ -6,7 +6,7 @@ import "@/index.css";
 /* AVORA-E0 — the hidden test page runs end to end on made-up data, with no network request while running. */
 import E2eeSpikePage from "@/spikes/e2ee/E2eeSpikePage";
 
-const OUT = "../../../docs/screens/2026-10-12";
+const OUT = "../../.test-output/screens/2026-10-12";
 const q = (selector: string): HTMLElement | null => document.querySelector(selector);
 
 test("Chạy thử: M1…M7 ra bảng kết quả; không có yêu cầu mạng trong lúc chạy; Chép kết quả", async () => {

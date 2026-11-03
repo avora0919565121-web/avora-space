@@ -94,7 +94,7 @@ import { CARD_ROW_ORDER } from "@/lib/task-card";
 import { todayIso, type TaskItem } from "@/lib/tasks";
 import type { ThinkRecord, ThinkTable } from "@/lib/think-hub";
 
-const OUT = "../../../docs/screens/2026-10-10";
+const OUT = "../../.test-output/screens/2026-10-10";
 const today = todayIso();
 const plusDays = (n: number): string => {
   const d = new Date(`${today}T12:00:00`);

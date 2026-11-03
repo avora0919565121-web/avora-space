@@ -32,7 +32,7 @@ import { ConfirmHost } from "@/components/ConfirmHost";
 import { Toaster } from "@/components/ui/sonner";
 import { VaultCompartment } from "@/components/vault/VaultCompartment";
 
-const OUT = "../../../docs/screens/2026-10-02";
+const OUT = "../../.test-output/screens/2026-10-02";
 const iso = (days: number): string => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
 
 function item(id: string, payload: Partial<VaultPayload>, files = 0, deletedAt: string | null = null): VaultItem {

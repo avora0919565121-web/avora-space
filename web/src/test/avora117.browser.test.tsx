@@ -198,7 +198,7 @@ import { useContacts } from "@/lib/use-contacts";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import ContactDetail from "@/pages/ContactDetail";
 
-const OUT = "../../../docs/screens/2026-10-14";
+const OUT = "../../.test-output/screens/2026-10-14";
 const WAIT = { timeout: 6_000, interval: 50 } as const;
 
 /**

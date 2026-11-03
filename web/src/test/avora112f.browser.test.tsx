@@ -53,7 +53,7 @@ import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
 import { resetClientErrorReportsForTests } from "@/lib/client-errors";
 import OpsHealth from "@/pages/OpsHealth";
 
-const OUT = "../../../docs/screens/2026-10-14";
+const OUT = "../../.test-output/screens/2026-10-14";
 
 function Frame({ children, at = "/nhiem-vu" }: { children: ReactNode; at?: string }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));

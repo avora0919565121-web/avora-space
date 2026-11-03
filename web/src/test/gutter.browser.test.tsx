@@ -325,7 +325,7 @@ for (const tab of TABS) {
       );
       await new Promise((resolve) => setTimeout(resolve, 1200));
       expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(w);
-      await page.screenshot({ path: `../../../docs/screens/2026-10-04/94-tab-${tab.name}-${w}.png` });
+      await page.screenshot({ path: `../../.test-output/screens/2026-10-04/94-tab-${tab.name}-${w}.png` });
     });
   }
 }

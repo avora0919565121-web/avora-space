@@ -76,7 +76,7 @@ import { NAV_ITEMS, VAULT_TABS } from "@/lib/navigation";
 import { useVisibleNav } from "@/lib/use-feature";
 import OpsFeatures from "@/pages/OpsFeatures";
 
-const OUT = "../../../docs/screens/2026-10-14";
+const OUT = "../../.test-output/screens/2026-10-14";
 const WAIT = { timeout: 5_000, interval: 50 } as const;
 
 let client: QueryClient | null = null;

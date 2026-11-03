@@ -58,7 +58,7 @@ import { VaultLockProvider, useVaultLock } from "@/lib/use-vault-lock";
 import { DEFAULT_KDF, VAULT_SECTIONS, createKeyring, newRecoveryEntropy, toB64, randomBytes } from "@/lib/vault-crypto";
 import { clearVaultKeys, hasMasterKey, keyForSection, openWithPassphrase, setupVault, type Keyring } from "@/lib/vault-keys";
 
-const OUT = "../../../docs/screens/2026-10-08";
+const OUT = "../../.test-output/screens/2026-10-08";
 
 function Frame({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));

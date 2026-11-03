@@ -68,7 +68,7 @@ import Messages from "@/pages/Messages";
 import Tasks from "@/pages/Tasks";
 import ThinkHub from "@/pages/ThinkHub";
 
-const OUT = "../../../docs/screens/2026-10-01";
+const OUT = "../../.test-output/screens/2026-10-01";
 const today = todayIso();
 const now = new Date().toISOString();
 const LONG_NOTE = Array.from({ length: 14 }, (_, index) => `${index + 1}. Ghi lại ý chính phần ${index + 1}, ai nói, ai nhận việc.`).join("\n");

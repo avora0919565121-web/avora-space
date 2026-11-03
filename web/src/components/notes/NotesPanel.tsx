@@ -37,11 +37,12 @@ import { BookCover } from "@/components/library/BookCover";
 import { useShelfCovers } from "@/components/library/use-bookshelf";
 import { cn } from "@/lib/utils";
 import { isPreviousEntry } from "@/lib/nav-history";
+import { NOTES_ASK_PARAMS } from "@/lib/notes-ask";
 
 /** AVORA-94B: the note open in Ghi chép, in the address (`?gc=<id>`). */
 export const OPEN_NOTE_PARAM = "gc";
 /** Asks from elsewhere (Messages reads them once); an address the panel writes never keeps them. */
-export const NOTES_ONE_SHOT_PARAMS = ["ghi-chep", "sach", "ten", "trich", "cho", "o"] as const;
+export const NOTES_ONE_SHOT_PARAMS = NOTES_ASK_PARAMS;
 
 function relative(iso: string | null, now: Date = new Date()): string {
   if (iso === null) return "";

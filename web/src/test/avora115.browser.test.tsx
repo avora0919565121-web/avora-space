@@ -149,7 +149,7 @@ import { invalidateAvatar, prepareAvatarImage, resetAvatarCacheForTests } from "
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import Profile from "@/pages/Profile";
 
-const OUT = "../../../docs/screens/2026-10-13";
+const OUT = "../../.test-output/screens/2026-10-13";
 /**
  * 112-A · 6: these waits cover compress → upload → set_avatar → delete old file → redraw. Under a full
  * parallel run that chain went past vi.waitFor's 1 s default once (the old-file delete, run 1 of 112-A).

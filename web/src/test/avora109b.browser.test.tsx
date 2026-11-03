@@ -23,7 +23,7 @@ import { DisappearProposalLine, DisappearRows } from "@/components/chat/Disappea
 import { useTidyTombstones } from "@/lib/use-tidy-tombstones";
 import { disappearKeys, type DisappearState } from "@/lib/disappear";
 
-const OUT = "../../../docs/screens/2026-10-12";
+const OUT = "../../.test-output/screens/2026-10-12";
 const settle = (ms = 300): Promise<void> => new Promise((r) => setTimeout(r, ms));
 const q = (selector: string): HTMLElement | null => document.querySelector(selector);
 

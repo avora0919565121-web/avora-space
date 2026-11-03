@@ -158,6 +158,7 @@ import { useBlocks } from "@/lib/use-blocks";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { PersonAvatarButton } from "@/components/PersonCard";
 import { CalendarPeekSheet } from "@/components/tasks/CalendarPeekSheet";
+import { hasNotesAsk, takeNotesAsk } from "@/lib/notes-ask";
 import {
   DIARY_VIEW_PARAM,
   DIARY_VIEWS,
@@ -1189,28 +1190,17 @@ const Messages = () => {
   const handledNotesAskRef = useRef<{ ask: string; at: number } | null>(null);
   useEffect(() => {
     if (activeKind !== "personal") return;
-    const noteParam = searchParams.get("ghi-chep");
-    const bookParam = searchParams.get("sach");
-    if (noteParam === null && bookParam === null) return;
-    const ask = ["ghi-chep", "sach", "ten", "trich", "cho", "o"].map((key) => searchParams.get(key) ?? "").join("\u0001");
+    if (!hasNotesAsk(searchParams)) return;
+    const { ask, key, rest } = takeNotesAsk(searchParams);
+    // 112-G · lưu ý 2: the ask leaves the address at once (replace — no extra Back step), acted on or not.
+    rest.set(DIARY_VIEW_PARAM, diaryViewSlug("notes"));
+    setSearchParams(rest, { replace: true });
+    if (ask === null) return;
     const last = handledNotesAskRef.current;
-    if (last !== null && last.ask === ask && Date.now() - last.at < 5000) return;
-    handledNotesAskRef.current = { ask, at: Date.now() };
-    if (noteParam !== null) setNotesRequest({ noteId: noteParam });
-    else if (bookParam !== null) {
-      // AVORA-77 · D3: `trich=` carries a passage chosen in the reader (≤ 2000 chars) and `cho=` its chapter.
-      const excerpt = searchParams.get("trich");
-      setNotesRequest({
-        book: {
-          recordId: bookParam,
-          title: searchParams.get("ten") ?? "Sách",
-          excerpt: excerpt === null || excerpt.trim() === "" ? undefined : { text: excerpt.slice(0, 2000), where: searchParams.get("cho") ?? null, locator: /^\d{1,5}:\d{1,6}$/.test(searchParams.get("o") ?? "") ? searchParams.get("o") : null },
-        },
-      });
-    }
-    else return;
-    if (conversationId !== undefined) navigate(`/tin-nhan/${conversationId}?${DIARY_VIEW_PARAM}=${diaryViewSlug("notes")}`, { replace: true });
-  }, [activeKind, searchParams, conversationId, navigate]);
+    if (last !== null && last.ask === key && Date.now() - last.at < 5000) return;
+    handledNotesAskRef.current = { ask: key, at: Date.now() };
+    setNotesRequest(ask);
+  }, [activeKind, searchParams, setSearchParams]);
   /**
    * Nguồn tạo việc: my tasks that came from Nhật ký — pasted in, or raised from an entry (its
    * `original_message_id` points at a journal row). Worked out on read; no column says so.

@@ -206,7 +206,7 @@ function overflowing(width: number): { offenders: string[]; documentWidth: numbe
   return { offenders, documentWidth: document.documentElement.scrollWidth };
 }
 
-const OUT = "../../../docs/screens/2026-10-13";
+const OUT = "../../.test-output/screens/2026-10-13";
 
 for (const [w, h] of [[390, 844], [360, 740]] as const) {
   for (const screen of SCREENS) {

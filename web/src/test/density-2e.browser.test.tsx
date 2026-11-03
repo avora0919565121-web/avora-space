@@ -82,7 +82,7 @@ import Tasks from "@/pages/Tasks";
 import ThinkHub from "@/pages/ThinkHub";
 import Vault from "@/pages/Vault";
 
-const OUT = "../../../docs/screens/2026-10-10";
+const OUT = "../../.test-output/screens/2026-10-10";
 const now = new Date().toISOString();
 
 function seed(): void {

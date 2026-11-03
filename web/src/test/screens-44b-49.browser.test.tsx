@@ -32,7 +32,7 @@ import { NotesPanel } from "@/components/notes/NotesPanel";
 import type { NotesData } from "@/lib/use-notes";
 import type { Note, NoteFolder } from "@/lib/notes";
 
-const OUT = "../../../docs/screens/2026-09-30";
+const OUT = "../../.test-output/screens/2026-09-30";
 
 function Frame({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));

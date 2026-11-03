@@ -36,7 +36,7 @@ import type { Note, NoteFolder } from "@/lib/notes";
 import { taskKeys } from "@/lib/tasks";
 import type { NotesData } from "@/lib/use-notes";
 
-const OUT = "../../../docs/screens/2026-10-01";
+const OUT = "../../.test-output/screens/2026-10-01";
 const CONVERSATION = "c1";
 
 function Frame({ children, seed }: { children: ReactNode; seed?: (client: QueryClient) => void }) {

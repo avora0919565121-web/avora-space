@@ -22,7 +22,7 @@ import type { OpportunityBoardRow } from "@/lib/opportunities";
 import { syncColumnDefs, withSyncValues } from "@/lib/opportunity-board";
 import type { ColumnDef, ThinkRecord, ThinkTable } from "@/lib/think-hub";
 
-const OUT = "../../../docs/screens/2026-10-02";
+const OUT = "../../.test-output/screens/2026-10-02";
 const now = "2026-10-02T03:00:00Z";
 const daysAgo = (d: number): string => new Date(Date.now() - d * 86_400_000).toISOString();
 

@@ -111,7 +111,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import ThinkHub from "@/pages/ThinkHub";
 
-const OUT = "../../../docs/screens/2026-10-03";
+const OUT = "../../.test-output/screens/2026-10-03";
 const now = new Date().toISOString();
 
 function seed(options: { vaultOpen?: boolean; empty?: boolean } = {}): void {

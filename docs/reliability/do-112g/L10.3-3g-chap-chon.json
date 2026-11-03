@@ -1,0 +1,18 @@
+{
+  "measuredAt": "2026-11-03T11:44:50.785Z",
+  "threshold": "0 treo, 0 mất",
+  "sent": 50,
+  "drained": true,
+  "onServer": 50,
+  "duplicates": 0,
+  "longestTapToBubbleMs": 11,
+  "totalMs": 62378,
+  "network": {
+    "requests": 59,
+    "droppedRequests": 1,
+    "droppedResponses": 4,
+    "expiredReplies": 0,
+    "offlineRefusals": 0
+  },
+  "note": "'Không treo' = bấm Gửi trả lời ngay (bong bóng hiện) dù mạng chậm; tin đi dần sau."
+}

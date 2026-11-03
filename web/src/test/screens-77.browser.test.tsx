@@ -122,7 +122,7 @@ import Dashboard from "@/pages/Dashboard";
 import Tasks from "@/pages/Tasks";
 import ThinkHub from "@/pages/ThinkHub";
 
-const OUT = "../../../docs/screens/2026-10-03";
+const OUT = "../../.test-output/screens/2026-10-03";
 const now = new Date().toISOString();
 const daysAgo = (days: number): string => new Date(Date.now() - days * 86_400_000).toISOString();
 const today = new Date().toISOString().slice(0, 10);
@@ -1152,7 +1152,7 @@ test("88.13 · 844×390 nằm ngang: kệ 2 không vỡ", async () => {
 });
 
 // ------------------------------------------------------------------ AVORA-94 · B2.4 (kệ 2 · kệ 5 · màn đọc, 3 khổ)
-const OUT94 = "../../../docs/screens/2026-10-04";
+const OUT94 = "../../.test-output/screens/2026-10-04";
 const SIZES94 = [
   [390, 844],
   [768, 1024],
@@ -1224,7 +1224,7 @@ for (const [w, h] of SIZES94) {
 }
 
 // ------------------------------------------------------------------ AVORA-101C · Kế hoạch trong khung chuẩn
-const OUT101C = "../../../docs/screens/2026-10-10";
+const OUT101C = "../../.test-output/screens/2026-10-10";
 
 let planStrip: { h: number; font: string; bar: string } | null = null;
 test("101C.1 · dải kệ = dải Nhiệm vụ: 40px, chữ 13px, gạch chân tông cá nhân; không phần tử nổi", async () => {
@@ -1331,7 +1331,7 @@ test("101C.1b · dải Nhiệm vụ đo bằng đúng dải kệ", async () => {
 });
 
 // ------------------------------------------------------------------ AVORA-103 · KHỐI 3A (bìa sách · 5 cuốn trên máy)
-const OUT_103 = "../../../docs/screens/2026-10-10";
+const OUT_103 = "../../.test-output/screens/2026-10-10";
 
 /** Pride and Prejudice has a kept cover and a Vietnamese title; Meditations has a Vietnamese title, no cover. */
 function seedCovers(): void {

@@ -13,7 +13,7 @@ import { confirmSignOut } from "@/lib/unsynced";
 
 /* 112-C · đăng xuất khi còn dữ liệu chưa lên máy chủ: cảnh báo rõ, cho chờ; không âm thầm xoá. */
 const USER = "0b1f7a2c-0000-4000-8000-0000000112cc";
-const OUT = "../../../docs/screens/2026-10-14";
+const OUT = "../../.test-output/screens/2026-10-14";
 
 function waiting(id: string): OutboxItem {
   return {

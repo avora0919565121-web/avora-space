@@ -54,7 +54,7 @@ import type { DiaryFileNote } from "@/lib/diary-views";
 import type { ThinkRecord, ThinkTable } from "@/lib/think-hub";
 import DeviceConfirm from "@/pages/DeviceConfirm";
 
-const OUT = "../../../docs/screens/2026-10-02";
+const OUT = "../../.test-output/screens/2026-10-02";
 const now = new Date().toISOString();
 const hoursAgo = (h: number): string => new Date(Date.now() - h * 3_600_000).toISOString();
 

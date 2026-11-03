@@ -49,7 +49,7 @@ import { SignUpRedirect } from "@/components/LegacyRedirect";
 import Auth from "@/pages/Auth";
 import PublicFeedback from "@/pages/PublicFeedback";
 
-const OUT = "../../../docs/screens/2026-10-11";
+const OUT = "../../.test-output/screens/2026-10-11";
 
 function Frame({ at, children }: { at: string; children: ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));

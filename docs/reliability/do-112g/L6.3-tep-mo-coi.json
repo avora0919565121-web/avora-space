@@ -1,0 +1,10 @@
+{
+  "measuredAt": "2026-11-03T11:43:47.505Z",
+  "threshold": "0 tệp mồ côi",
+  "orphanFiles": 0,
+  "orphanPaths": [],
+  "before112F": {
+    "orphanFiles": 2
+  },
+  "note": "112-F · LOI-02: Bỏ một tin đã tải tệp → xoá tệp ngay; đang ngoại tuyến thì nhớ trên máy và xoá khi có mạng."
+}

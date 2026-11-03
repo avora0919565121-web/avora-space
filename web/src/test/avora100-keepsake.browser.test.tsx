@@ -31,7 +31,7 @@ vi.mock("@/lib/use-keepsake", () => ({
 
 import { KeepsakeGreeting } from "@/components/space/KeepsakeGreeting";
 
-const OUT = "../../../docs/screens/2026-10-11";
+const OUT = "../../.test-output/screens/2026-10-11";
 
 function Frame({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient());

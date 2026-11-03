@@ -1,11 +1,12 @@
 import { commands } from "vitest/browser";
 
 /**
- * 112-A · 4 — every measurement lands as a small JSON next to the table that quotes it
- * (`docs/reliability/do-112a/<name>.json`), so "đạt / không đạt" always points at a number.
- * `commands.writeFile` resolves from the web/ root; the test server may write in ../docs only.
+ * 112-A · 4 — every measurement lands as a small JSON, so "đạt / không đạt" always points at a number.
+ * 112-G · lưu ý 4: a test run writes to `web/.test-output/` (gitignored), never over the files kept in
+ * `docs/reliability/`; `bun run evidence:save <dot>` copies a chosen run there on purpose.
+ * `commands.writeFile` resolves from the web/ root.
  */
-export const MEASURE_DIR = "../docs/reliability/do-112a";
+export const MEASURE_DIR = ".test-output/reliability/do-112a";
 
 export async function recordMeasure(name: string, data: Record<string, unknown>): Promise<void> {
   await commands.writeFile(`${MEASURE_DIR}/${name}.json`, `${JSON.stringify({ measuredAt: new Date().toISOString(), ...data }, null, 2)}\n`);

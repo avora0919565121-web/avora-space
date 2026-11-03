@@ -68,7 +68,7 @@ import { TaskCard } from "@/components/tasks/TaskCard";
 import { Toaster } from "@/components/ui/sonner";
 import { todayIso, type TaskItem } from "@/lib/tasks";
 
-const OUT = "../../../docs/screens/2026-10-10";
+const OUT = "../../.test-output/screens/2026-10-10";
 const today = todayIso();
 
 function task(part: Partial<TaskItem> = {}): TaskItem {

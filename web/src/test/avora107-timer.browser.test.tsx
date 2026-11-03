@@ -72,7 +72,7 @@ import { beginHabitTimer, openHabitTimer, resetHabitTimer } from "@/lib/use-habi
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 import Tasks from "@/pages/Tasks";
 
-const OUT = "../../../docs/screens/2026-10-10";
+const OUT = "../../.test-output/screens/2026-10-10";
 const today = localDateOf();
 const yesterday = addDays(today, -1);
 const created = new Date(Date.now() - 20 * 86_400_000).toISOString();

@@ -34,7 +34,7 @@ import { JournalForwardDialog } from "@/components/chat/JournalForwardDialog";
 import { NoteCardBubble } from "@/components/chat/NoteCardBubble";
 import { noteCardMarkers } from "@/lib/note-card";
 
-const OUT = "../../../docs/screens/2026-10-11";
+const OUT = "../../.test-output/screens/2026-10-11";
 
 function Frame({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient());

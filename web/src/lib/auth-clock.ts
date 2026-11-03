@@ -26,11 +26,30 @@ function isAuthSessionUrl(url: string): boolean {
   return /\/auth\/v1\/(token|verify|signup|otp|callback)(\?|$)/.test(url);
 }
 
+function isRefreshUrl(url: string): boolean {
+  return /\/auth\/v1\/token\?(.*&)?grant_type=refresh_token(&|$)/.test(url);
+}
+
+/**
+ * 112-G · lưu ý 1. supabase-js chỉ coi mất mạng và 5xx là lỗi tạm; 429 (quá nhiều yêu cầu) bị coi
+ * là "phiên hỏng" và phiên bị xoá nếu access token đã hết hạn — đúng chuỗi gây tự đăng xuất 01/11.
+ * 429 khi làm mới phiên không nói gì về refresh token, nên ta trình nó như 503: supabase-js giữ
+ * phiên, thử lại với giãn cách tăng dần, và nhịp tự làm mới kế tiếp thử tiếp. Lỗi 400/401 (refresh
+ * token sai, bị thu hồi) giữ nguyên nên vẫn đăng xuất đúng lúc.
+ */
+function asRetryable(res: Response): Response {
+  const headers = new Headers(res.headers);
+  headers.delete("content-length");
+  headers.delete("content-encoding");
+  return new Response(res.body, { status: 503, statusText: "Rate limited", headers });
+}
+
 /** A fetch for supabase-js that keeps session expiry on the device clock. */
 export function makeClockSafeFetch(base: typeof fetch = (input, init) => fetch(input, init)): typeof fetch {
   return async (input, init) => {
     const res = await base(input, init);
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (res.status === 429 && isRefreshUrl(url)) return asRetryable(res);
     if (!res.ok || !isAuthSessionUrl(url)) return res;
     const receivedAt = Date.now();
     try {

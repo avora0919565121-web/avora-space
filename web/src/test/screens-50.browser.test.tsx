@@ -36,7 +36,7 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { LongDialogBody, LongDialogFooter, LongDialogHeader, longDialogContentClass } from "@/components/ui/long-dialog";
 import { cn } from "@/lib/utils";
 
-const OUT = "../../../docs/screens/2026-09-30";
+const OUT = "../../.test-output/screens/2026-09-30";
 
 function Frame({ children }: { children: ReactNode }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));

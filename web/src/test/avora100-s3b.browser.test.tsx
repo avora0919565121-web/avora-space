@@ -24,7 +24,7 @@ import { treeIndent } from "@/lib/notes-tree";
 import { OPEN_FOLDERS_KEY, type Note, type NoteFolder } from "@/lib/notes";
 import type { NotesData } from "@/lib/use-notes";
 
-const OUT = "../../../docs/screens/2026-10-11";
+const OUT = "../../.test-output/screens/2026-10-11";
 const now = new Date().toISOString();
 const folder = (id: string, parentId: string | null, name: string): NoteFolder => ({ id, parentId, name, isSystem: false, systemKey: null, color: null, position: 0, createdAt: now });
 const LONG = "Bài giảng ngày 29/9 về chương ba sinh học"; // 40 ký tự

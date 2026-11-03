@@ -62,7 +62,7 @@ import { readSoundLog, recordSoundOutcome, SOUND_LOG_KEY, SOUND_STRINGS } from "
 import SettingsNotifications from "@/pages/SettingsNotifications";
 import { VaultLockProvider } from "@/lib/use-vault-lock";
 
-const OUT = "../../../docs/screens/2026-10-13";
+const OUT = "../../.test-output/screens/2026-10-13";
 
 type Fake = { started: string[]; allowResume: boolean; fileOk: boolean; startThrows: boolean };
 
