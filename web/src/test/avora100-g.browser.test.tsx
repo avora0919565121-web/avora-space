@@ -116,6 +116,8 @@ test("G.3 · `/dang-ky?moi=AVR-DE-01` → mã điền sẵn; mã hết lượt �
   await expect.element(input).toHaveValue("AVR-DE-01");
   await userEvent.type(screen.getByLabelText("Email"), "ban@example.com");
   await userEvent.type(screen.getByLabelText("Mật khẩu", { exact: false }), "matkhau123");
+  // 111-B: đăng ký cần đồng ý Điều khoản trước khi nút Tạo tài khoản bật.
+  await userEvent.click(screen.getByLabelText("Đồng ý Điều khoản sử dụng và Quy tắc cộng đồng"));
   await settle(300);
   await page.screenshot({ path: `${OUT}/G3-dang-ky-ma-moi-390.png` });
   await userEvent.click(document.querySelector("form button[type=submit]") as HTMLElement);

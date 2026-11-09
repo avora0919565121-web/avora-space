@@ -33,7 +33,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { VaultCompartment } from "@/components/vault/VaultCompartment";
 
 const OUT = "../../.test-output/screens/2026-10-02";
-const iso = (days: number): string => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+// LOI-18: ngày theo giờ Việt Nam (trình duyệt test chạy Asia/Ho_Chi_Minh), không theo UTC.
+const iso = (days: number): string => new Date(Date.now() + days * 86_400_000).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
 
 function item(id: string, payload: Partial<VaultPayload>, files = 0, deletedAt: string | null = null): VaultItem {
   return {

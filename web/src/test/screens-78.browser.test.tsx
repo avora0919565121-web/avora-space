@@ -69,8 +69,9 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/realtime", () => ({ useChatRealtime: () => ({ status: "live", isLive: true, setReadingConversation: () => undefined }) }));
 
 const dates = vi.hoisted(() => {
-  const today = new Date().toISOString().slice(0, 10);
-  const plus = (days: number): string => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+  // LOI-18: ngày theo giờ Việt Nam (trình duyệt test chạy Asia/Ho_Chi_Minh), không theo UTC.
+  const plus = (days: number): string => new Date(Date.now() + days * 86_400_000).toLocaleDateString("en-CA", { timeZone: "Asia/Ho_Chi_Minh" });
+  const today = plus(0);
   const d = new Date();
   d.setDate(1);
   d.setMonth(d.getMonth() - 1);
