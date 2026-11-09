@@ -75,6 +75,7 @@ export {
   THREAD_BOTTOM_TOLERANCE_PX,
   threadScrollDecision,
   toIsoTimestamp,
+  toIsoMicros,
   totalUnread,
   unreadForTab,
   unreadSummaryText,

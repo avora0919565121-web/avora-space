@@ -476,8 +476,38 @@ export function toIsoTimestamp(value: string): string {
   return new Date().toISOString();
 }
 
+/**
+ * LOI-04 · the server orders by `created_at` in microseconds, then id. `Date` keeps only
+ * milliseconds, so the fraction is read from the string itself. Accepts the PostgREST form
+ * (`…T15:00:00.123456+00:00`), the realtime form (`… 15:00:00.123456+00`) and the device's
+ * own ISO strings (`…Z`, milliseconds).
+ */
+export function serverTimeMicros(value: string): number {
+  const match = /^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})(?:\.(\d+))?(Z|[+-]\d{2}(?::?\d{2})?)?$/.exec(value.trim());
+  if (match === null) {
+    const ms = new Date(value).getTime();
+    return Number.isNaN(ms) ? 0 : ms * 1000;
+  }
+  const [, day, clock, fraction = "", zone = "Z"] = match;
+  const offset = zone === "Z" ? "Z" : zone.length === 3 ? `${zone}:00` : zone.includes(":") ? zone : `${zone.slice(0, 3)}:${zone.slice(3)}`;
+  const seconds = Date.parse(`${day}T${clock}${offset}`);
+  if (Number.isNaN(seconds)) return 0;
+  return seconds * 1000 + Number(fraction.padEnd(6, "0").slice(0, 6));
+}
+
+/**
+ * LOI-04 · `toIsoTimestamp` for a message's `created_at`: the same UTC ISO form, but the
+ * microseconds survive, so a message that arrives live sorts exactly like the fetched copy.
+ */
+export function toIsoMicros(value: string): string {
+  const micros = serverTimeMicros(value);
+  if (micros === 0) return toIsoTimestamp(value);
+  const whole = new Date(Math.floor(micros / 1000)).toISOString().slice(0, 19);
+  return `${whole}.${String(micros % 1_000_000).padStart(6, "0")}Z`;
+}
+
 function compareMessages(left: ChatMessage, right: ChatMessage): number {
-  const byTime = new Date(left.createdAt).getTime() - new Date(right.createdAt).getTime();
+  const byTime = serverTimeMicros(left.createdAt) - serverTimeMicros(right.createdAt);
   return byTime !== 0 ? byTime : left.id.localeCompare(right.id);
 }
 

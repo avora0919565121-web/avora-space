@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { WRONG_PASSWORD_MESSAGE, isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
+import { OTP_EXPIRED_MESSAGE } from "@/lib/auth-errors";
 
 /**
  * Every string below was captured from the live Supabase project, not invented — so these
@@ -89,5 +90,17 @@ describe("isActionableResendError", () => {
   it("stays silent on anything that would reveal whether an account exists", () => {
     expect(isActionableResendError("User not found")).toBe(false);
     expect(isActionableResendError("Email address already confirmed")).toBe(false);
+  });
+});
+
+describe("LOI-08 · mã OTP hết hạn không đọc như liên kết hết hạn", () => {
+  it("một mã 6 số hết hạn hoặc sai: bảo gửi lại mã", () => {
+    expect(toVietnameseError("Token has expired or is invalid", { context: "otp" })).toBe(OTP_EXPIRED_MESSAGE);
+    expect(OTP_EXPIRED_MESSAGE).toBe("Mã đã hết hạn hoặc không đúng. Hãy gửi lại mã.");
+  });
+  it("liên kết email hết hạn giữ câu cũ", () => {
+    expect(toVietnameseError("Token has expired or is invalid")).toBe(
+      "Liên kết đã hết hạn hoặc đã được dùng. Hãy yêu cầu gửi lại email.",
+    );
   });
 });

@@ -5,6 +5,8 @@
 // Called only by private.vault_send_mail() (pg_net), guarded by the same header secret as send-push.
 // The code is never logged.
 
+import { isTestMailAddress } from "./test-domains.ts";
+
 const cronSecret = Deno.env.get("PUSH_CRON_SECRET") ?? "";
 const resendKey = Deno.env.get("RESEND_API_KEY") ?? "";
 const FROM = "AVORA <no-reply@avorachat.com>";
@@ -272,6 +274,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "bad_json" }), { status: 400 });
   }
   if (!isBody(body)) return new Response(JSON.stringify({ error: "bad_body" }), { status: 400 });
+  // LOI-14: a test account never gets a real email (bounces count against avorachat.com).
+  if (isTestMailAddress(body.email)) return new Response(JSON.stringify({ ok: true, skipped: "test_domain" }), { status: 200 });
   const mail = compose(body);
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",

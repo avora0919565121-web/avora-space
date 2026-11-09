@@ -28,6 +28,7 @@ import {
   mergeIncomingMessage,
   toChatMessageRow,
   toIsoTimestamp,
+  toIsoMicros,
   type MessageRowShape,
   type ChatMessage,
   type ConversationSummary,
@@ -162,7 +163,8 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
       const message = toChatMessageRow(row as unknown as MessageRowShape);
       return {
         ...message,
-        createdAt: toIsoTimestamp(row.created_at),
+        // LOI-04: keep the microseconds — the server orders by them.
+        createdAt: toIsoMicros(row.created_at),
         editedAt: row.edited_at === null ? null : toIsoTimestamp(row.edited_at),
         deletedAt: row.deleted_at === null ? null : toIsoTimestamp(row.deleted_at),
       };

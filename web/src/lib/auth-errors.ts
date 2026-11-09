@@ -11,7 +11,14 @@
  */
 export const WRONG_PASSWORD_MESSAGE = "Sai email hoặc mật khẩu. Nếu trình duyệt tự điền, hãy gõ lại — mật khẩu đã lưu có thể là mật khẩu cũ.";
 
-export function toVietnameseError(message: string): string {
+/** LOI-08 · a 6-digit code that expired or does not match: ask for a new code, not a new email. */
+export const OTP_EXPIRED_MESSAGE = "Mã đã hết hạn hoặc không đúng. Hãy gửi lại mã.";
+
+export const GENERIC_AUTH_ERROR = "Có lỗi xảy ra. Vui lòng thử lại.";
+
+export type AuthErrorContext = { context?: "otp" | "link" };
+
+export function toVietnameseError(message: string, options: AuthErrorContext = {}): string {
   const normalized = message.toLowerCase();
 
   if (normalized.includes("invalid login credentials")) return WRONG_PASSWORD_MESSAGE;
@@ -46,10 +53,12 @@ export function toVietnameseError(message: string): string {
     normalized.includes("auth session missing") ||
     normalized.includes("session_not_found")
   )
-    return "Liên kết đã hết hạn hoặc đã được dùng. Hãy yêu cầu gửi lại email.";
+    return options.context === "otp"
+      ? OTP_EXPIRED_MESSAGE
+      : "Liên kết đã hết hạn hoặc đã được dùng. Hãy yêu cầu gửi lại email.";
 
   if (normalized.includes("failed to fetch")) return "Không kết nối được máy chủ. Kiểm tra mạng và thử lại.";
-  return "Có lỗi xảy ra. Vui lòng thử lại.";
+  return GENERIC_AUTH_ERROR;
 }
 
 /** True when the failure means the account exists but has not confirmed its email yet. */

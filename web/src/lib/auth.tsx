@@ -12,7 +12,7 @@ import { clearThreadCache } from "@/lib/thread-cache";
 import { resetComposerDrafts } from "@/lib/composer-draft";
 import { clearSignedUrlMemo } from "@/lib/attachments";
 import { clearCachedMedia } from "@/lib/media-cache";
-import { isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
+import { GENERIC_AUTH_ERROR, OTP_EXPIRED_MESSAGE, isActionableResendError, isEmailNotConfirmed, toVietnameseError } from "@/lib/auth-errors";
 import { getCaptchaToken } from "@/lib/turnstile";
 import { isSafeReturnPath } from "@/lib/return-to";
 import { clearTabMemory } from "@/lib/tab-memory";
@@ -294,7 +294,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { error } = await supabase.auth.verifyOtp({ email: email.trim(), token: token.trim(), type: "email" });
     if (error) {
       logError("auth", { code: error.code, message: error.message });
-      return { ok: false, message: "Mã chưa đúng hoặc đã hết hạn." };
+      const mapped = toVietnameseError(error.message, { context: "otp" });
+      // Anything GoTrue says about a code we do not recognise still means "this code did not work".
+      return { ok: false, message: mapped === GENERIC_AUTH_ERROR ? OTP_EXPIRED_MESSAGE : mapped };
     }
     return { ok: true };
   }, []);

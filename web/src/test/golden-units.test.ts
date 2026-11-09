@@ -197,7 +197,7 @@ describe("L1.4 · lời báo lỗi đăng nhập nói nguyên nhân và bước 
       { case: "lỗi lạ", message: "Database error saving new user" },
     ];
     const rows = cases.map((entry) => {
-      const text = toVietnameseError(entry.message);
+      const text = toVietnameseError(entry.message, entry.case === "mã OTP hết hạn" ? { context: "otp" } : {});
       return { ...entry, shown: text, isVietnamese: /[ăâđêôơưàáảãạ]/i.test(text), notRawEnglish: text !== entry.message };
     });
     record("L1.4-loi-dang-nhap", {

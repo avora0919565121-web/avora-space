@@ -193,9 +193,10 @@ test("L2.3 · hai người gửi xen kẽ cùng lúc 2×60 tin → hai bên th�
     clientEqualsServerOrder: lanView.join() === server.join(),
     positionsDifferentFromServer: misplaced.length,
     differencesOnlyWithinSameMillisecond: onlySameMillisecond,
-    note: "Máy chủ xếp (created_at µs, id); app xếp theo mili-giây rồi id (chat-cache.ts compareMessages). Hai người luôn cùng thứ tự với nhau; chỉ tin trong cùng 1 ms có thể lệch so với máy chủ.",
+    note: "Máy chủ xếp (created_at µs, id); từ LOI-04 app cũng xếp theo micro giây rồi id (chat-cache.ts serverTimeMicros). Phải trùng hẳn thứ tự máy chủ.",
   });
   expect(server.length).toBe(120);
+  expect(misplaced.length).toBe(0);
 });
 
 test("L2.4 · trạng thái bong bóng: Chờ gửi… → Đang chờ mạng (mất mạng) → Đã gửi; lỗi vĩnh viễn → Chưa gửi được · Gửi lại", { timeout: 45_000 }, async () => {

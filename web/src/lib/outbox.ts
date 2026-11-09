@@ -184,30 +184,61 @@ export async function runLimited<T>(tasks: readonly (() => Promise<T>)[], limit:
 const DB_NAME = "avora-outbox";
 const STORE = "items";
 
+/**
+ * LOI-09 · one connection, reused by every operation. It closes itself when another tab or a
+ * `deleteDatabase` asks for a version change (otherwise that request stays blocked and every later
+ * open queues behind it), and the next operation opens a fresh one.
+ */
+let connection: Promise<IDBDatabase | null> | null = null;
+
 function openDb(): Promise<IDBDatabase | null> {
   if (typeof indexedDB === "undefined") return Promise.resolve(null);
-  return new Promise((resolve) => {
+  if (connection !== null) return connection;
+  const opening = new Promise<IDBDatabase | null>((resolve) => {
     const request = indexedDB.open(DB_NAME, 1);
     request.onupgradeneeded = () => {
       const db = request.result;
       if (!db.objectStoreNames.contains(STORE)) db.createObjectStore(STORE, { keyPath: "id" });
     };
-    request.onsuccess = () => resolve(request.result);
+    request.onsuccess = () => {
+      const db = request.result;
+      const forget = () => {
+        if (connection === opening) connection = null;
+      };
+      db.onversionchange = () => {
+        db.close();
+        forget();
+      };
+      db.onclose = forget;
+      resolve(db);
+    };
     request.onerror = () => {
       logError("outbox", { code: "idb_open_failed" });
+      if (connection === opening) connection = null;
       resolve(null);
     };
   });
+  connection = opening;
+  return opening;
 }
 
 /** In-memory copy when IndexedDB is unavailable (private mode): still no duplicates, only no reload survival. */
 const memory = new Map<string, OutboxItem>();
 
 async function tx<T>(mode: IDBTransactionMode, run: (store: IDBObjectStore) => IDBRequest<T> | null): Promise<T | null> {
-  const db = await openDb();
+  let db = await openDb();
   if (db === null) return null;
+  let transaction: IDBTransaction;
+  try {
+    transaction = db.transaction(STORE, mode);
+  } catch {
+    // The kept connection was closed underneath us (version change, browser eviction): open again once.
+    connection = null;
+    db = await openDb();
+    if (db === null) return null;
+    transaction = db.transaction(STORE, mode);
+  }
   return new Promise((resolve) => {
-    const transaction = db.transaction(STORE, mode);
     const request = run(transaction.objectStore(STORE));
     transaction.oncomplete = () => resolve(request === null ? null : (request.result ?? null));
     transaction.onerror = () => {
