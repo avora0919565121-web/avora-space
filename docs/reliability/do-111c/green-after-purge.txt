@@ -1,0 +1,22 @@
+psql:supabase/tests/avora111c_purge_fixes.sql:166: ERROR:  AVORA111C_PURGE failures=0
+ok   group_board_own_record
+ok   record_on_others_board
+ok   meeting_note_draft
+ok   meeting_note_final
+ok   poll_closed
+ok   project_task_linked
+ok   closed_project_record
+ok   task_list
+ok   shared_task
+ok   vote_open_poll
+ok   vote_closed_poll
+ok   reading_folder
+ok   opportunity_record
+ok   contact_and_obligation
+ok   finance_transactions
+ok   archived_board_record
+ok   last_member_closed_poll
+ok   biểu quyết đã đóng vẫn bất biến
+ok   hàm xoá không mở cho client
+
+CONTEXT:  PL/pgSQL function inline_code_block line 162 at RAISE

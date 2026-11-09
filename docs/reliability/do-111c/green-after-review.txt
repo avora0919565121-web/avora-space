@@ -1,0 +1,16 @@
+psql:supabase/tests/avora111c_review.sql:141: ERROR:  AVORA111C failures=0
+ok   1 người thường gọi ops_mark_review_account → avora_not_allowed
+ok   2 ops đánh dấu (email không phân biệt hoa thường) → chỉ người duyệt là demo
+ok   3 khoá thiết bị: thường bị chặn trên máy lạ, demo vẫn vào
+ok   4 Két sắt trên máy lạ: thường bị chặn, demo mở được
+ok   5 thiếu mã mời: thường bị chặn, demo không
+ok   6 chờ xoá: demo 0 · thường 14 ngày
+ok   7 yêu cầu xoá: demo gọi thực thi ngay (0 → 1), thường không (0)
+ok   8 lịch riêng */5 cho demo; lịch chung 37 * * * * giữ nguyên
+ok   9 gieo: người thường bị từ chối; ops gieo 21 dòng; gieo lại vẫn 3 tin mẫu và giữ tin thật gõ giữa hai lần 
+ok   10 gieo cho tài khoản thường / người phụ trùng → từ chối
+ok   11 gỡ đánh dấu → mất ngoại lệ
+ok   12 quyền: anon không gọi RPC ops; client không đọc bảng demo
+ok   10b người duyệt xoá tài khoản sau khi gieo: xoá được ngay (không kẹt ở bảng dự án), việc riêng / thói quen 
+
+CONTEXT:  PL/pgSQL function inline_code_block line 138 at RAISE

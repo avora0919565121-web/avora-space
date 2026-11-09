@@ -1,0 +1,22 @@
+psql:supabase/tests/avora111c_purge_fixes.sql:166: ERROR:  AVORA111C_PURGE failures=13
+FAIL group_board_own_record: avora_think_hub_table_scope_immutable | PL/pgSQL function private.validate_think_hub_table() line 30 at RAISE S
+FAIL record_on_others_board: avora_think_hub_table_scope_immutable | PL/pgSQL function private.validate_think_hub_record() line 12 at RAISE 
+FAIL meeting_note_draft: avora_decision_identity_immutable | PL/pgSQL function enforce_decision_immutable() line 22 at RAISE SQL statement "
+FAIL meeting_note_final: avora_decision_settled_immutable | PL/pgSQL function enforce_decision_immutable() line 12 at RAISE SQL statement "u
+FAIL poll_closed: avora_decision_settled_immutable | PL/pgSQL function enforce_decision_immutable() line 16 at RAISE SQL statement "update p
+FAIL project_task_linked: avora_think_hub_table_scope_immutable | PL/pgSQL function private.validate_think_hub_table() line 30 at RAISE SQL 
+FAIL closed_project_record: avora_think_hub_table_scope_immutable | PL/pgSQL function private.validate_think_hub_table() line 30 at RAISE SQ
+ok   task_list
+ok   shared_task
+FAIL vote_open_poll: avora_decision_vote_immutable | PL/pgSQL function enforce_decision_vote_rules() line 27 at RAISE SQL statement "DELETE 
+FAIL vote_closed_poll: avora_decision_vote_immutable | PL/pgSQL function enforce_decision_vote_rules() line 27 at RAISE SQL statement "DELET
+ok   reading_folder
+FAIL opportunity_record: insert or update on table "crm_opportunity" violates foreign key constraint "crm_opportunity_owner_user_id_fkey" | 
+ok   contact_and_obligation
+FAIL finance_transactions: avora_category_in_use
+FAIL archived_board_record: avora_table_archived | PL/pgSQL function private.block_archived_record() line 3 at RAISE SQL statement "update p
+FAIL last_member_closed_poll: avora_decision_settled_immutable | PL/pgSQL function enforce_decision_immutable() line 6 at RAISE SQL statemen
+ok   biểu quyết đã đóng vẫn bất biến
+ok   hàm xoá không mở cho client
+
+CONTEXT:  PL/pgSQL function inline_code_block line 162 at RAISE
