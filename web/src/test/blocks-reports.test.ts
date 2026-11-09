@@ -49,10 +49,14 @@ describe("Chặn (AVORA-37 / A)", () => {
 });
 
 describe("Báo cáo (AVORA-37 / B)", () => {
-  it("offers exactly the five reasons the database accepts, in order", () => {
+  it("offers exactly the nine reasons the database accepts, in order (111-B adds four)", () => {
     expect(REPORT_REASONS.map((reason) => reason.value)).toEqual([
       "harassment",
       "scam",
+      "sexual",
+      "violence",
+      "minor_safety",
+      "self_harm",
       "inappropriate",
       "impersonation",
       "other",
@@ -60,7 +64,11 @@ describe("Báo cáo (AVORA-37 / B)", () => {
     expect(REPORT_REASONS.map((reason) => reason.label)).toEqual([
       "Quấy rối",
       "Lừa đảo",
-      "Nội dung không phù hợp",
+      "Nội dung khiêu dâm",
+      "Bạo lực hoặc đe doạ",
+      "Liên quan đến an toàn trẻ em",
+      "Tự làm hại bản thân",
+      "Nội dung không phù hợp khác",
       "Giả mạo",
       "Khác",
     ]);

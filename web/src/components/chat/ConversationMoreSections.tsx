@@ -79,6 +79,7 @@ export function ConversationMoreSections({
   onScheduleCall,
   trash,
   onNavigate,
+  onReportGroup,
   safety,
   roomSlot = null,
   diaryRow = null,
@@ -112,6 +113,8 @@ export function ConversationMoreSections({
   /** Nhật ký: its Thùng rác (AVORA-44 · việc 8). */
   trash?: { count: number | null; onOpen: () => void };
   onNavigate: () => void;
+  /** 111-B · Nhóm: "Báo cáo nhóm" at the foot of the panel. */
+  onReportGroup?: () => void;
   /** 1-1 only: Chặn / Báo cáo at the foot of the panel (AVORA-37). Omitted until the peer is known. */
   safety?: {
     peerName: string;
@@ -271,6 +274,15 @@ export function ConversationMoreSections({
               Chặn / Báo cáo — {NEEDS_NETWORK_MESSAGE}
             </p>
           )}
+        </section>
+      ) : null}
+
+      {kind === "group" && onReportGroup !== undefined ? (
+        <section aria-label="Báo cáo" className="mx-3 border-t border-border pt-3">
+          <button type="button" onClick={onReportGroup} disabled={!isOnline} className={`${rowClass} disabled:opacity-50`} data-report-group="">
+            <Flag className="h-3.5 w-3.5 shrink-0 text-destructive" strokeWidth={1.8} aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-[14px] text-destructive">Báo cáo nhóm</span>
+          </button>
         </section>
       ) : null}
 

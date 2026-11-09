@@ -8,6 +8,7 @@ import { AUTH_TAGLINE, BRAND_MOTTO, BRAND_PRODUCT } from "@/lib/brand";
 import { dismissGuestNotice, isGuestMachine, setGuestMachine } from "@/lib/guest-machine";
 import { checkInvite, inviteMessage, isInviteRequired, normalizeInviteCode } from "@/lib/invites";
 import { returnPathFrom } from "@/lib/navigation";
+import { SUPPORT_EMAIL } from "@/lib/safety";
 
 type Mode = "signin" | "signup" | "forgot" | "otp";
 
@@ -53,6 +54,8 @@ const Auth = () => {
   const [canResendConfirmation, setCanResendConfirmation] = useState<boolean>(false);
 
   // AVORA-54 · A — default unchecked. On the email-code path it is checked on arrival (B).
+  // 111-B: never pre-ticked; `Tạo tài khoản` waits for it.
+  const [termsChecked, setTermsChecked] = useState<boolean>(false);
   const [guestMachine, setGuestMachineChecked] = useState<boolean>(() => isGuestMachine());
   // AVORA-54 · B — the code flow: typing the email, then the 6-digit code.
   const [otpPhase, setOtpPhase] = useState<"email" | "code">("email");
@@ -205,6 +208,10 @@ const Auth = () => {
     }
 
     if (mode === "signup") {
+      if (!termsChecked) {
+        setError("Hãy đồng ý với Điều khoản sử dụng và Quy tắc cộng đồng.");
+        return;
+      }
       const code = normalizeInviteCode(inviteCode);
       if (code === "" && inviteRequired.data === true) {
         setError("Cần mã mời để đăng ký Avora lúc này.");
@@ -490,24 +497,34 @@ const Auth = () => {
               </p>
             ) : null}
 
+            {/* 111-B (was AVORA-66's line): an unticked box; the links open the public policy. */}
+            {isSignUp ? (
+              <label className="flex min-h-11 cursor-pointer items-start gap-3 text-[13px] leading-relaxed text-muted-foreground" data-signup-consent="">
+                <input
+                  type="checkbox"
+                  checked={termsChecked}
+                  onChange={(event) => setTermsChecked(event.target.checked)}
+                  className="mt-0.5 h-4 w-4 shrink-0 accent-primary"
+                  aria-label="Đồng ý Điều khoản sử dụng và Quy tắc cộng đồng"
+                />
+                <span>
+                  Tôi đồng ý với{" "}
+                  <a href="/chinh-sach#dieu-khoan" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Điều khoản sử dụng</a>{" "}
+                  và{" "}
+                  <a href="/chinh-sach#cong-dong" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Quy tắc cộng đồng</a>, và đã đọc{" "}
+                  <a href="/chinh-sach#bao-mat" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Chính sách bảo mật</a>.
+                </span>
+              </label>
+            ) : null}
+
             <button
               type="submit"
-              disabled={isSubmitting || (isOtp && otpPhase === "code" && otpCode.length < 6)}
+              disabled={isSubmitting || (isSignUp && !termsChecked) || (isOtp && otpPhase === "code" && otpCode.length < 6)}
               className="press flex h-12 w-full items-center justify-center gap-2 rounded-md bg-primary text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 disabled:opacity-60"
             >
               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {submitLabel}
             </button>
-
-            {/* AVORA-66: the consent line under `Tạo tài khoản`; both phrases open the public policy. */}
-            {isSignUp ? (
-              <p className="text-center text-[12.5px] leading-relaxed text-muted-foreground" data-signup-consent="">
-                Tạo tài khoản là bạn đồng ý với{" "}
-                <a href="/chinh-sach#dieu-khoan" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Điều khoản sử dụng</a>{" "}
-                và đã đọc{" "}
-                <a href="/chinh-sach#bao-mat" target="_blank" rel="noreferrer" className="font-medium text-foreground underline underline-offset-2">Chính sách bảo mật</a>.
-              </p>
-            ) : null}
 
             {isForgot ? (
               <button
@@ -541,9 +558,14 @@ const Auth = () => {
           {isForgot ? null : (
             <>
               {/* AVORA-54 · B: the email-code choice sits where the "hoặc" divider used to be. */}
-              <p className="mt-6 text-center text-[13px] leading-relaxed text-muted-foreground">
-                Bằng việc tiếp tục, bạn đồng ý với Điều khoản của AVORA
-              </p>
+              {/* 111-B: the three documents and a way to reach a person, before anyone signs in. */}
+              <nav aria-label="Chính sách và hỗ trợ" className="mt-6 flex flex-wrap items-center justify-center gap-x-1 text-[13px] text-muted-foreground" data-auth-links="">
+                <a href="/chinh-sach#bao-mat" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-1.5 underline-offset-2 hover:underline">Chính sách bảo mật</a>
+                <span aria-hidden="true">·</span>
+                <a href="/chinh-sach#dieu-khoan" target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center px-1.5 underline-offset-2 hover:underline">Điều khoản</a>
+                <span aria-hidden="true">·</span>
+                <a href={`mailto:${SUPPORT_EMAIL}`} className="inline-flex min-h-11 items-center px-1.5 underline-offset-2 hover:underline">Hỗ trợ</a>
+              </nav>
               <p className="mt-2 text-center text-[12px] text-muted-foreground md:hidden">© 2026 AVORA</p>
             </>
           )}

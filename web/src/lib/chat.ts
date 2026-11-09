@@ -1,3 +1,4 @@
+import { BLOCKED_TERM_MESSAGE } from "@/lib/safety";
 import { logError } from "@/lib/log";
 import { withServerDetail } from "@/lib/server-error";
 import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
@@ -113,6 +114,7 @@ export type ConversationPeer = {
 export function toVietnameseChatError(code: string | undefined, message: string): string {
   const normalized = message.toLowerCase();
   if (isContactUnavailable(normalized)) return BLOCKED_SEND_NOTICE;
+  if (normalized.includes("avora_blocked_term")) return BLOCKED_TERM_MESSAGE;
   if (normalized.includes("avora_not_connected")) return NOT_CONNECTED_NOTICE;
   if (normalized.includes("avora_rate_limited")) return "Bạn gửi hơi nhanh — đợi vài giây nhé";
   if (normalized.includes("avora_mentions_too_many")) return "Một tin nhắc tối đa 20 người.";

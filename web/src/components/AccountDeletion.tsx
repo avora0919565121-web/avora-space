@@ -119,7 +119,7 @@ export function AccountDeletionSection() {
   );
 }
 
-function DeleteAccountDialog({ open, onOpenChange, graceDays }: { open: boolean; onOpenChange: (open: boolean) => void; graceDays: number }) {
+export function DeleteAccountDialog({ open, onOpenChange, graceDays }: { open: boolean; onOpenChange: (open: boolean) => void; graceDays: number }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [step, setStep] = useState<Step>("info");

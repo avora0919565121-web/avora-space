@@ -8,12 +8,16 @@ export type PolicyItem = { id: string; text: string; status?: PolicyStatus; evid
 export type PolicySection = { id: string; title: string; items: PolicyItem[]; readyNote?: string; technical?: string[]; table?: { head: string[]; rows: string[][] } };
 export type PolicyDoc = { id: string; title: string; sections: PolicySection[] };
 
-export const POLICY_VERSION = "2026-10-02";
+export const POLICY_VERSION = "2026-11-10";
 export const POLICY_DRAFT_NOTE = "Bản thử nghiệm — đang được luật sư rà soát.";
-/** VMT fills these (F, I); a dash until then. */
-export const POLICY_CONTACT = "—";
+/** 111-B: Avora's addresses (also in web/src/lib/safety.ts). */
+export const POLICY_CONTACT = "support@avorachat.com";
+export const POLICY_PRIVACY_CONTACT = "privacy@avorachat.com";
+export const POLICY_ABUSE_CONTACT = "abuse@avorachat.com";
+export const POLICY_SECURITY_CONTACT = "security@avorachat.com";
 
 const M67 = "supabase/migrations/20261003090000_avora67_devices.sql";
+const M111B = "supabase/migrations/20261110090000_avora111b_safety.sql";
 const M68 = "supabase/migrations/20261003100000_avora68_vault_e2ee.sql";
 
 export const PRIVACY: PolicyDoc = {
@@ -139,7 +143,7 @@ export const PRIVACY: PolicyDoc = {
         },
         { id: "abandoned", text: "Tài khoản 2 năm không đăng nhập → nhắc 3 tháng rồi mới xoá (ADR-019) — chưa áp dụng.", status: "soon" },
         { id: "later", text: "Xuất toàn bộ dữ liệu; xoá vĩnh viễn thật từng mục trong Thùng rác; lưu trên máy bạn hoặc cloud bạn chọn.", status: "soon" },
-        { id: "ask", text: `Muốn lấy dữ liệu hoặc cần hỗ trợ khi xoá tài khoản: gửi yêu cầu tới ${POLICY_CONTACT}.` },
+        { id: "ask", text: `Muốn lấy dữ liệu, hỏi về quyền riêng tư hoặc cần hỗ trợ khi xoá tài khoản: gửi yêu cầu tới ${POLICY_PRIVACY_CONTACT}.` },
       ],
     },
     {
@@ -174,7 +178,10 @@ export const PRIVACY: PolicyDoc = {
       id: "lien-he",
       title: "I. Liên hệ",
       items: [
-        { id: "contact", text: `Câu hỏi, yêu cầu về dữ liệu, báo lỗ hổng bảo mật: ${POLICY_CONTACT}.` },
+        { id: "contact", text: `Hỗ trợ chung: ${POLICY_CONTACT} (hoặc Cài đặt › Hồ sơ › Hỗ trợ và liên hệ).`, status: "done", evidence: "web/src/components/SupportSection.tsx" },
+        { id: "privacy", text: `Quyền riêng tư và yêu cầu xoá dữ liệu: ${POLICY_PRIVACY_CONTACT}.` },
+        { id: "security", text: `Báo lỗ hổng bảo mật: ${POLICY_SECURITY_CONTACT}.` },
+        { id: "abuse", text: `Báo nội dung vi phạm Quy tắc cộng đồng: ${POLICY_ABUSE_CONTACT}.` },
         { id: "law", text: "Khi cơ quan có thẩm quyền yêu cầu dữ liệu theo pháp luật, AVORA chỉ cung cấp đúng phần bắt buộc và báo cho bạn nếu pháp luật cho phép. Giấy tờ đã mã hoá trong Két sắt thì AVORA không có chìa để mở." },
       ],
     },
@@ -193,7 +200,8 @@ export const TERMS: PolicyDoc = {
         { id: "notice", text: "Thay đổi ảnh hưởng tới dữ liệu của bạn sẽ được báo trước trong ứng dụng." },
         { id: "free", text: "AVORA miễn phí. Ủng hộ là tự nguyện, không mở khoá tính năng." },
         { id: "content", text: "Bạn chịu trách nhiệm với nội dung mình đăng và người mình mời." },
-        { id: "suspend", text: "AVORA có thể tạm khoá tài khoản vi phạm Quy tắc cộng đồng, và sẽ báo lý do." },
+        { id: "agree", text: "Khi tạo tài khoản, bạn đồng ý với Điều khoản này và Quy tắc cộng đồng. Khi Điều khoản đổi, AVORA hỏi lại bạn trong ứng dụng.", status: "done", evidence: `web/src/pages/Auth.tsx · web/src/components/SafetyGate.tsx · ${M111B}` },
+        { id: "zero", text: "AVORA không chấp nhận nội dung phản cảm hay người dùng lạm dụng. Tài khoản vi phạm Quy tắc cộng đồng có thể bị cảnh cáo, khoá tạm thời hoặc khoá vĩnh viễn.", status: "done", evidence: `${M111B} (ops_handle_report, account_suspensions)` },
         { id: "law", text: "Luật áp dụng, giới hạn trách nhiệm, giải quyết tranh chấp: đang chờ luật sư." },
       ],
     },
@@ -208,10 +216,26 @@ export const COMMUNITY: PolicyDoc = {
       id: "quy-tac",
       title: "Quy tắc",
       items: [
-        { id: "respect", text: "Tôn trọng người khác. Không quấy rối, đe doạ, lừa đảo hay mạo danh." },
+        { id: "respect", text: "Tôn trọng người khác. Không quấy rối, bắt nạt, đe doạ hay mạo danh." },
+        { id: "sexual", text: "Không nội dung khiêu dâm, không gửi hình ảnh nhạy cảm của người khác khi họ không đồng ý." },
+        { id: "violence", text: "Không cổ vũ bạo lực, khủng bố, tự làm hại bản thân; không đe doạ ai." },
+        { id: "scam", text: "Không lừa đảo, không xin tiền hay thông tin tài khoản bằng cách gian dối, không spam." },
+        { id: "minors", text: "Tuyệt đối không có nội dung gây hại cho trẻ em. Nội dung như vậy bị xử lý ngay và có thể được báo cho cơ quan chức năng." },
         { id: "legal", text: "Không gửi nội dung vi phạm pháp luật." },
-        { id: "block", text: "Gặp người làm phiền: `Chặn` ngay; cần thì `Báo cáo`." },
         { id: "shared", text: "Tài sản chung là của mọi người: đề nghị và trao đổi, không quyết một mình." },
+      ],
+    },
+    {
+      id: "bao-cao",
+      title: "Báo cáo và xử lý",
+      items: [
+        { id: "block", text: "Gặp người làm phiền: `Chặn` ngay. Người bị chặn không nhắn riêng, không mời bạn vào nhóm được nữa. Bỏ chặn trong Cài đặt.", status: "done", evidence: "AVORA-37 · private.is_blocked_between" },
+        { id: "report", text: "Báo cáo được một người, một tin nhắn, một tệp, một ảnh đại diện hoặc cả nhóm. Người bị báo cáo không biết ai báo cáo.", status: "done", evidence: `${M111B} (report_user)` },
+        { id: "review", text: "Đội ngũ AVORA xem báo cáo, ưu tiên báo cáo về an toàn trẻ em, cố gắng xử lý trong 24 giờ. Khi xử lý xong, người báo cáo được báo lại.", status: "done", evidence: `web/src/pages/OpsReports.tsx · ${M111B} (ops_list_reports)` },
+        { id: "actions", text: "Tuỳ mức độ: bỏ qua, cảnh cáo, khoá tạm thời hoặc khoá vĩnh viễn. Tài khoản bị khoá không xem hay gửi tin được, nhưng vẫn tự xoá tài khoản được.", status: "done", evidence: `${M111B} (session_allowed, account_suspensions)` },
+        { id: "filter", text: "Tên hiển thị, tên nhóm, tên dự án chia sẻ và tin nhắn khi chưa xác minh được lọc từ ngữ phản cảm.", status: "done", evidence: `${M111B} (blocked_terms, filter_public_text)` },
+        { id: "private", text: "AVORA không quét tin nhắn riêng. Nội dung trong cuộc trò chuyện chỉ được xem khi có người báo cáo — và chỉ đúng tin được báo cáo, nếu người báo cáo đồng ý gửi kèm." },
+        { id: "abuse", text: `Báo nội dung vi phạm qua email: ${POLICY_ABUSE_CONTACT}.` },
       ],
     },
   ],
@@ -220,7 +244,10 @@ export const COMMUNITY: PolicyDoc = {
 export const HISTORY: PolicyDoc = {
   id: "lich-su",
   title: "Lịch sử thay đổi",
-  sections: [{ id: "phien-ban", title: "Phiên bản", items: [{ id: POLICY_VERSION, text: `${POLICY_VERSION} — Bản đầu tiên.` }] }],
+  sections: [{ id: "phien-ban", title: "Phiên bản", items: [
+        { id: POLICY_VERSION, text: `${POLICY_VERSION} — Quy tắc cộng đồng đầy đủ hơn; báo cáo nhóm, tệp, ảnh đại diện; khoá tài khoản vi phạm; đồng ý Điều khoản khi đăng ký; địa chỉ liên hệ.` },
+        { id: "2026-10-02", text: "2026-10-02 — Bản đầu tiên." },
+      ] }],
 };
 
 export const POLICY_DOCS: readonly PolicyDoc[] = [PRIVACY, TERMS, COMMUNITY, HISTORY];

@@ -303,10 +303,16 @@ test("AVORA-115 · chỉ xem: ảnh người khác không kéo, không chọn, k
   await page.screenshot({ path: `${OUT}/115-xem-anh-ban-chi-xem-390x844.png` });
   (viewer.element() as HTMLElement).click();
 
+  // 111-B: the picture is its own report kind (no conversation travels), then "Đã nhận báo cáo".
   await page.getByRole("button", { name: "Báo cáo ảnh đại diện" }).click();
+  await expect.element(page.getByRole("dialog", { name: "Báo cáo ảnh đại diện" })).toBeVisible();
+  await page.getByRole("radio", { name: "Nội dung không phù hợp khác" }).click();
   await page.getByRole("button", { name: "Gửi báo cáo" }).click();
   await vi.waitFor(() => expect(server.reports).toHaveLength(1), WAIT);
-  expect(server.reports[0]).toMatchObject({ p_user_id: FRIEND, p_reason: "inappropriate", p_note: "Ảnh đại diện không phù hợp", p_also_block: false });
+  expect(server.reports[0]).toMatchObject({ p_user_id: FRIEND, p_reason: "inappropriate", p_target_kind: "avatar", p_also_block: false });
+  expect((server.reports[0] as { p_conversation_id?: unknown }).p_conversation_id).toBeUndefined();
+  await expect.element(page.getByRole("dialog", { name: "Đã nhận báo cáo" })).toBeVisible();
+  await expect.element(page.getByRole("button", { name: "Chặn Lan Anh" })).toBeVisible();
 });
 
 test("AVORA-115 · đổi ảnh ở Hồ sơ → hiện ngay ở thanh bên, 1-1, nhóm, Danh bạ, gán việc; xoá → chữ cái đầu", async () => {

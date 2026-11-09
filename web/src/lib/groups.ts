@@ -1,3 +1,4 @@
+import { BLOCKED_TERM_MESSAGE } from "@/lib/safety";
 import { logError } from "@/lib/log";
 import { CONTACT_UNAVAILABLE_MESSAGE, isContactUnavailable } from "@/lib/blocks";
 import { toVietnameseConnectionError } from "@/lib/connections";
@@ -202,6 +203,7 @@ export function canLeaveGroup(viewerRole: GroupRole): boolean {
 
 /** Maps the group RPC exceptions to short Vietnamese messages. */
 export function toVietnameseGroupError(code: string | undefined, message: string): string {
+  if (message.toLowerCase().includes("avora_blocked_term")) return BLOCKED_TERM_MESSAGE;
   const normalized = message.toLowerCase();
   if (isContactUnavailable(normalized)) return CONTACT_UNAVAILABLE_MESSAGE;
   // AVORA-38: "Chat riêng" with a non-bạn opens a verification frame, which has its own refusals.

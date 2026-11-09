@@ -1,3 +1,4 @@
+import { SupportSection } from "@/components/SupportSection";
 import { Camera, Check, Loader2, LogOut, MonitorX } from "lucide-react";
 import { confirmSignOut } from "@/lib/unsynced";
 import { useEffect, useState, type FormEvent } from "react";
@@ -245,6 +246,9 @@ const Profile = () => {
             Chính sách bảo mật <span aria-hidden="true">›</span>
           </a>
         </section>
+
+        {/* 111-B: Hỗ trợ và liên hệ — the support address and a short form. */}
+        <SupportSection defaultName={displayName} />
 
         {/* 111-A (ADR-092): Tài khoản › Xoá tài khoản — two taps from Cài đặt. */}
         <AccountDeletionSection />

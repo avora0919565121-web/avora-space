@@ -1,3 +1,4 @@
+import { BLOCKED_TERM_MESSAGE } from "@/lib/safety";
 import { logError } from "@/lib/log";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchAllRows } from "@/lib/fetch-all-rows";
@@ -203,6 +204,7 @@ function toProjectTaskLink(row: ProjectTaskRow): ProjectTaskLink {
 
 /** The database's refusals, in words the person reading them can act on. */
 export function toVietnameseProjectError(code: string | undefined, message: string): string {
+  if (message.toLowerCase().includes("avora_blocked_term")) return BLOCKED_TERM_MESSAGE;
   const normalized = message.toLowerCase();
 
   if (normalized.includes("avora_project_not_owner"))

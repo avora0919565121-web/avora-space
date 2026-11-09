@@ -153,7 +153,6 @@ import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
 import { VerificationPanel } from "@/components/chat/VerificationPanel";
 import { MessageDetailsDialog } from "@/components/chat/MessageDetailsDialog";
 import { ConnectionRequestsRow } from "@/components/contacts/ConnectionRequests";
-import { REPORT_SENT_TOAST, submitReport, type ReportReason } from "@/lib/reports";
 import { useBlocks } from "@/lib/use-blocks";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { PersonAvatarButton } from "@/components/PersonCard";
@@ -741,25 +740,6 @@ const Messages = () => {
     () => new Set((scheduledQuery.data ?? []).filter((item) => item.status === "sent" && item.sentMessageId !== null).map((item) => item.sentMessageId as string)),
     [scheduledQuery.data],
   );
-
-  const reportMutation = useMutation({
-    mutationFn: (input: { target: ReportTarget; reason: ReportReason; note: string; alsoBlock: boolean }) =>
-      submitReport({
-        reportedUserId: input.target.userId,
-        reason: input.reason,
-        note: input.note,
-        conversationId: input.target.conversationId,
-        messageId: input.target.message?.id ?? null,
-        includeMessage: input.target.message !== null,
-        alsoBlock: input.alsoBlock,
-      }),
-    onSuccess: (_id, input) => {
-      setReportTarget(null);
-      toast.success(REPORT_SENT_TOAST);
-      if (input.alsoBlock) void queryClient.invalidateQueries({ queryKey: ["user-blocks"] });
-    },
-    onError: (error: Error) => toast.error(error.message),
-  });
 
   const confirmBlock = useCallback((): void => {
     if (directPeerId === null) return;
@@ -2371,6 +2351,9 @@ const Messages = () => {
           name: senderNameOf(message),
           conversationId: message.conversationId,
           message: { id: message.id, content: message.content },
+          files: attachmentsOf(message.id)
+            .filter((file) => file.attachedBy === message.senderId)
+            .map((file) => ({ id: file.id, name: file.fileName })),
         });
         return;
       }
@@ -4850,12 +4833,6 @@ activeKind === "personal" ? (
         onOpenChange={(next) => {
           if (!next) setReportTarget(null);
         }}
-        isBlockedAlready={reportTarget !== null && isUserBlocked(reportTarget.userId)}
-        onSubmit={(input) => {
-          if (reportTarget === null) return;
-          reportMutation.mutate({ target: reportTarget, ...input });
-        }}
-        isWorking={reportMutation.isPending}
       />
 
       {/* Projects open only in a group (ADR-002); the strip that opens this dialog is group-only. */}
@@ -5133,6 +5110,19 @@ activeKind === "personal" ? (
                 }
                 onScheduleCall={activeKind === "group" && !isProjectChatClosed ? () => setIsScheduleCallOpen(true) : undefined}
                 onNavigate={() => setIsInfoOpen(false)}
+                onReportGroup={
+                  activeKind === "group" && conversationId
+                    ? () =>
+                        setReportTarget({
+                          kind: "group",
+                          userId: null,
+                          name: threadTitle,
+                          conversationId,
+                          groupId: conversationId,
+                          message: null,
+                        })
+                    : undefined
+                }
                 safety={
                   directPeerId !== null
                     ? {

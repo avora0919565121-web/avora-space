@@ -1,76 +1,171 @@
-import { Loader2 } from "lucide-react";
+import { Ban, Loader2, ShieldCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
-import { Switch } from "@/components/ui/switch";
 import { NEEDS_NETWORK_MESSAGE } from "@/lib/blocks";
 import {
   REPORT_CONSENT_TEXT,
   REPORT_NOTE_MAX,
   REPORT_REASONS,
   reportPreview,
+  submitReport,
+  type ReportKind,
   type ReportReason,
 } from "@/lib/reports";
+import { useBlocks } from "@/lib/use-blocks";
 import { useOnline } from "@/lib/use-online";
 import { cn } from "@/lib/utils";
 
 export type ReportTarget = {
-  userId: string;
+  /** 111-B · defaults to "message" when `message` is set, else "user". */
+  kind?: ReportKind;
+  /** Null for a group (no single person is reported). */
+  userId: string | null;
   name: string;
   conversationId: string | null;
   /** Present when one message is being reported. */
   message: { id: string; content: string } | null;
+  /** Files the sender attached to that message: each can be reported on its own. */
+  files?: { id: string; name: string }[];
+  /** Kind "group": the group's conversation. */
+  groupId?: string | null;
 };
 
 /**
- * Báo cáo a person, or one of their messages.
+ * Báo cáo a person, one of their messages or files, their picture, or a whole group (111-B).
  *
  * When a message is reported its first lines are shown next to the consent sentence, so the
  * reporter sees exactly what leaves the conversation. Only that one message travels, and the
- * server copies it itself. "Chặn luôn" starts on: someone reporting harm usually wants it to stop.
+ * server copies it itself. After sending, "Đã nhận báo cáo" offers to block the person too.
  */
 export function ReportDialog({
   target,
   open,
   onOpenChange,
-  isBlockedAlready,
-  onSubmit,
-  isWorking,
 }: {
   target: ReportTarget | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** True when the viewer already blocked this person: the switch is then pointless. */
-  isBlockedAlready: boolean;
-  onSubmit: (input: { reason: ReportReason; note: string; alsoBlock: boolean }) => void;
-  isWorking: boolean;
 }) {
   const isOnline = useOnline();
+  const { isBlocked, block, isWorking: isBlocking } = useBlocks();
   const [reason, setReason] = useState<ReportReason | null>(null);
   const [note, setNote] = useState<string>("");
-  const [alsoBlock, setAlsoBlock] = useState<boolean>(true);
+  const [fileId, setFileId] = useState<string | null>(null);
+  const [isSending, setIsSending] = useState<boolean>(false);
+  const [isSent, setIsSent] = useState<boolean>(false);
+  const [didBlock, setDidBlock] = useState<boolean>(false);
 
   useEffect(() => {
     if (!open) return;
     setReason(null);
     setNote("");
-    setAlsoBlock(true);
+    setFileId(null);
+    setIsSending(false);
+    setIsSent(false);
+    setDidBlock(false);
   }, [open]);
 
   if (target === null) return null;
 
-  const canSubmit = reason !== null && note.length <= REPORT_NOTE_MAX && isOnline && !isWorking;
+  const baseKind: ReportKind = target.kind ?? (target.message !== null ? "message" : "user");
+  const kind: ReportKind = fileId !== null ? "file" : baseKind;
+  const files = target.files ?? [];
+  const canSubmit = reason !== null && note.length <= REPORT_NOTE_MAX && isOnline && !isSending;
   const preview = target.message !== null ? reportPreview(target.message.content) : "";
+  const title =
+    baseKind === "group"
+      ? `Báo cáo nhóm ${target.name}`
+      : baseKind === "avatar"
+        ? "Báo cáo ảnh đại diện"
+        : target.message !== null
+          ? "Báo cáo tin nhắn"
+          : `Báo cáo ${target.name}`;
+  const canOfferBlock = target.userId !== null && !isBlocked(target.userId);
+
+  const send = async (): Promise<void> => {
+    if (reason === null) return;
+    setIsSending(true);
+    try {
+      await submitReport({
+        kind,
+        reportedUserId: baseKind === "group" ? null : target.userId,
+        groupId: baseKind === "group" ? target.groupId ?? target.conversationId : null,
+        fileId,
+        reason,
+        note,
+        conversationId: baseKind === "avatar" ? null : target.conversationId,
+        messageId: kind === "message" ? target.message?.id ?? null : null,
+        includeMessage: kind === "message" && target.message !== null,
+        alsoBlock: false,
+      });
+      setIsSent(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Chưa gửi được báo cáo. Vui lòng thử lại.");
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  if (isSent) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[420px] gap-0 rounded-card border-border bg-card p-0" data-report-received="">
+          <div className="flex flex-col items-center px-6 pb-2 pt-7 text-center">
+            <span className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary">
+              <ShieldCheck className="h-6 w-6" strokeWidth={1.8} aria-hidden="true" />
+            </span>
+            <DialogTitle className="mt-3 text-[18px] font-semibold tracking-tight text-foreground">Đã nhận báo cáo</DialogTitle>
+            <DialogDescription className="mt-1.5 text-[13.5px] leading-5 text-muted-foreground">
+              Cảm ơn bạn. Avora sẽ xem xét và báo lại khi đã xử lý.
+              {target.userId !== null ? ` ${target.name} không biết ai đã báo cáo.` : ""}
+            </DialogDescription>
+          </div>
+          <div className="flex flex-col gap-2 px-5 pb-5 pt-4">
+            {didBlock ? (
+              <p className="text-center text-[13px] text-muted-foreground">Đã chặn {target.name}.</p>
+            ) : canOfferBlock && target.userId !== null ? (
+              <button
+                type="button"
+                disabled={isBlocking || !isOnline}
+                onClick={() => {
+                  const id = target.userId;
+                  if (id === null) return;
+                  void block(id)
+                    .then(() => setDidBlock(true))
+                    .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Chưa chặn được."));
+                }}
+                className="press flex h-11 items-center justify-center gap-2 rounded-[10px] border border-destructive/40 px-4 text-[14px] font-medium text-destructive transition-colors hover:bg-destructive/5 disabled:opacity-50"
+              >
+                {isBlocking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Ban className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />}
+                Chặn {target.name}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="press h-11 rounded-[10px] bg-primary px-4 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+            >
+              Xong
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[92dvh] max-w-[460px] gap-0 overflow-y-auto rounded-card border-border bg-card p-0">
         <div className="px-5 pb-3 pt-5">
           <DialogTitle className="text-[18px] font-semibold tracking-tight text-foreground">
-            {target.message !== null ? "Báo cáo tin nhắn" : `Báo cáo ${target.name}`}
+            {title}
           </DialogTitle>
           <DialogDescription className="mt-1 text-[13px] leading-5 text-muted-foreground">
-            AVORA sẽ xem xét. {target.name} không nhận thông báo nào.
+            {baseKind === "group"
+              ? "Avora sẽ xem xét nhóm này. Các thành viên không được biết ai báo cáo."
+              : `Avora sẽ xem xét. ${target.name} không nhận thông báo nào.`}
           </DialogDescription>
         </div>
 
@@ -117,7 +212,25 @@ export function ReportDialog({
           />
         </div>
 
-        {target.message !== null ? (
+        {files.length > 0 ? (
+          <fieldset className="mx-5 mt-3 space-y-1" data-report-file-choice="">
+            <legend className="mb-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Báo cáo phần nào</legend>
+            {[{ id: null as string | null, name: "Cả tin nhắn" }, ...files].map((file) => (
+              <label key={file.id ?? "message"} className="flex min-h-10 cursor-pointer items-center gap-2.5 text-[14px] text-foreground">
+                <input
+                  type="radio"
+                  name="report-file"
+                  checked={fileId === file.id}
+                  onChange={() => setFileId(file.id)}
+                  className="h-4 w-4 accent-personal"
+                />
+                <span className="min-w-0 truncate">{file.id === null ? file.name : `Tệp: ${file.name}`}</span>
+              </label>
+            ))}
+          </fieldset>
+        ) : null}
+
+        {target.message !== null && kind === "message" ? (
           <div className="mx-5 mt-3 rounded-[10px] border border-border bg-secondary/40 px-3 py-2.5">
             <p className="text-[12.5px] font-medium text-foreground">{REPORT_CONSENT_TEXT}</p>
             <p className="mt-1.5 line-clamp-2 whitespace-pre-line border-l-2 border-primary/50 pl-2 text-[13px] leading-5 text-muted-foreground">
@@ -125,13 +238,6 @@ export function ReportDialog({
             </p>
           </div>
         ) : null}
-
-        {isBlockedAlready ? null : (
-          <label className="mx-5 mt-3 flex min-h-11 cursor-pointer items-center justify-between gap-3">
-            <span className="text-[14px] font-medium text-foreground">Chặn {target.name}</span>
-            <Switch checked={alsoBlock} onCheckedChange={setAlsoBlock} aria-label={`Chặn ${target.name}`} />
-          </label>
-        )}
 
         <div className="flex items-center justify-end gap-2 px-5 pb-5 pt-4">
           {!isOnline ? <span className="mr-auto text-[12.5px] text-muted-foreground">{NEEDS_NETWORK_MESSAGE}</span> : null}
@@ -145,13 +251,10 @@ export function ReportDialog({
           <button
             type="button"
             disabled={!canSubmit}
-            onClick={() => {
-              if (reason === null) return;
-              onSubmit({ reason, note, alsoBlock: !isBlockedAlready && alsoBlock });
-            }}
+            onClick={() => void send()}
             className="press flex h-11 items-center gap-2 rounded-[10px] bg-primary px-4 text-[14px] font-semibold text-primary-foreground transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-40"
           >
-            {isWorking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
+            {isSending ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" /> : null}
             Gửi báo cáo
           </button>
         </div>

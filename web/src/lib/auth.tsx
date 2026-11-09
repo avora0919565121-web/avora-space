@@ -1,3 +1,4 @@
+import { BLOCKED_TERM_MESSAGE, TERMS_VERSION } from "@/lib/safety";
 import { logError } from "@/lib/log";
 import { disablePushHere } from "@/lib/push";
 import type { Session, User } from "@supabase/supabase-js";
@@ -98,6 +99,7 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 
 /** Maps Postgres/PostgREST errors on the profiles table to short Vietnamese messages. */
 function toVietnameseDbError(code: string | undefined, message: string): string {
+  if (message.toLowerCase().includes("avora_blocked_term")) return BLOCKED_TERM_MESSAGE;
   // 42501 = missing table privilege, 42P01 = missing table: both are backend setup problems.
   if (code === "42501" || code === "42P01") return "Máy chủ chưa cho phép ghi hồ sơ. Vui lòng báo lại cho chúng tôi.";
   // RLS row check failed: the row does not belong to this account.
@@ -189,7 +191,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         email: email.trim(),
         password,
         options: {
-          data: inviteCode !== undefined && inviteCode.trim() !== "" ? { display_name: displayName.trim(), invite_code: inviteCode.trim().toUpperCase() } : { display_name: displayName.trim() },
+          // 111-B: the version the person ticked; the new-user trigger records the agreement.
+          data:
+            inviteCode !== undefined && inviteCode.trim() !== ""
+              ? { display_name: displayName.trim(), invite_code: inviteCode.trim().toUpperCase(), terms_version: TERMS_VERSION }
+              : { display_name: displayName.trim(), terms_version: TERMS_VERSION },
           emailRedirectTo: confirmationRedirect(redirectPath),
           captchaToken,
         },

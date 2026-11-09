@@ -9,12 +9,28 @@ import { supabase } from "@/integrations/supabase/client";
  * The message text, when included, is copied by the server — never taken from what the client
  * sends — and only for the one message being reported, only if the reporter agreed.
  */
-export type ReportReason = "harassment" | "scam" | "inappropriate" | "impersonation" | "other";
+export type ReportReason =
+  | "harassment"
+  | "scam"
+  | "inappropriate"
+  | "sexual"
+  | "violence"
+  | "minor_safety"
+  | "self_harm"
+  | "impersonation"
+  | "other";
+
+/** 111-B: what is being reported. Groups have no single person; files and pictures point at their owner. */
+export type ReportKind = "user" | "message" | "group" | "file" | "avatar";
 
 export const REPORT_REASONS: readonly { value: ReportReason; label: string }[] = [
   { value: "harassment", label: "Quấy rối" },
   { value: "scam", label: "Lừa đảo" },
-  { value: "inappropriate", label: "Nội dung không phù hợp" },
+  { value: "sexual", label: "Nội dung khiêu dâm" },
+  { value: "violence", label: "Bạo lực hoặc đe doạ" },
+  { value: "minor_safety", label: "Liên quan đến an toàn trẻ em" },
+  { value: "self_harm", label: "Tự làm hại bản thân" },
+  { value: "inappropriate", label: "Nội dung không phù hợp khác" },
   { value: "impersonation", label: "Giả mạo" },
   { value: "other", label: "Khác" },
 ] as const;
@@ -26,11 +42,12 @@ export const REPORT_CONSENT_TEXT = "Nội dung tin nhắn này sẽ được g�
 
 export const REPORT_SENT_TOAST = "Đã gửi báo cáo. Cảm ơn bạn.";
 
-/** AVORA-115 · 7: the reason line of a picture report (until 111-B adds `target_kind = 'avatar'`). */
-export const AVATAR_REPORT_NOTE = "Ảnh đại diện không phù hợp";
-
 export type ReportInput = {
-  reportedUserId: string;
+  kind: ReportKind;
+  /** Null only for a group report. */
+  reportedUserId: string | null;
+  groupId?: string | null;
+  fileId?: string | null;
   reason: ReportReason;
   note: string;
   conversationId: string | null;
@@ -48,6 +65,8 @@ export function toVietnameseReportError(code: string | undefined, message: strin
   if (normalized.includes("avora_report_reason_invalid")) return "Hãy chọn một lý do.";
   if (normalized.includes("avora_report_note_max_len"))
     return `Ghi chú tối đa ${REPORT_NOTE_MAX} ký tự.`;
+  if (normalized.includes("avora_report_target_invalid") || normalized.includes("avora_report_kind_invalid"))
+    return "Không thể báo cáo nội dung này.";
   if (normalized.includes("avora_user_not_found")) return "Không tìm thấy người dùng này trên AVORA.";
   if (normalized.includes("avora_not_signed_in")) return "Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.";
   if (normalized.includes("failed to fetch")) return `${NEEDS_NETWORK_MESSAGE}.`;
@@ -68,18 +87,21 @@ export function reportPreview(content: string, maxLines = 2): string {
 export async function submitReport(input: ReportInput): Promise<string> {
   const note = input.note.trim();
   if (note.length > REPORT_NOTE_MAX) throw new Error(`Ghi chú tối đa ${REPORT_NOTE_MAX} ký tự.`);
-  const { data, error } = await supabase.rpc("report_user", {
-    p_user_id: input.reportedUserId,
+  const { data, error } = await supabase.rpc("report_user" as never, {
+    p_user_id: input.reportedUserId ?? undefined,
     p_reason: input.reason,
     p_note: note === "" ? undefined : note,
     p_conversation_id: input.conversationId ?? undefined,
     p_message_id: input.messageId ?? undefined,
     p_include_message: input.messageId !== null && input.includeMessage,
-    p_also_block: input.alsoBlock,
-  });
+    p_also_block: input.alsoBlock && input.reportedUserId !== null,
+    p_target_kind: input.kind,
+    p_group_id: input.groupId ?? null,
+    p_file_id: input.fileId ?? null,
+  } as never);
   if (error) {
     logError("reports", { code: error.code, message: error.message });
     throw new Error(toVietnameseReportError(error.code, error.message));
   }
-  return data;
+  return data as unknown as string;
 }

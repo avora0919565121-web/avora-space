@@ -61,6 +61,7 @@ const SettingsStorage = lazy(() => import("./pages/SettingsStorage"));
 const SettingsFeedback = lazy(() => import("./pages/SettingsFeedback"));
 const OpsFeatures = lazy(() => import("./pages/OpsFeatures"));
 const OpsHealth = lazy(() => import("./pages/OpsHealth"));
+const OpsReports = lazy(() => import("./pages/OpsReports"));
 const PublicFeedback = lazy(() => import("./pages/PublicFeedback"));
 const SettingsPreferences = lazy(() => import("./pages/SettingsPreferences"));
 const Tasks = lazy(() => import("./pages/Tasks"));
@@ -153,6 +154,7 @@ const App = () => (
 
                 <Route path="/quan-tri/tinh-nang" element={<OpsFeatures />} />
                 <Route path="/quan-tri/suc-khoe" element={<OpsHealth />} />
+                <Route path="/quan-tri/bao-cao" element={<OpsReports />} />
                 <Route path="/lien-he" element={<Contacts />} />
                 {/* Above the :contactId route on purpose — otherwise it reads as a contact id. */}
                 <Route path="/lien-he/can-xem-lai" element={<ContactChannelReview />} />

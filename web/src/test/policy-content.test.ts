@@ -47,6 +47,6 @@ describe("AVORA-66 policy content", () => {
   it("has the anchors the app links to", () => {
     const ids = PRIVACY.sections.map((s) => s.id);
     for (const id of ["tai-khoan", "ket-noi", "nhiem-vu", "ket-sat", "ai", "du-lieu", "ben-thu-ba", "cua-ban", "lien-he"]) expect(ids).toContain(id);
-    expect(POLICY_VERSION).toBe("2026-10-02");
+    expect(POLICY_VERSION).toBe("2026-11-10");
   });
 });

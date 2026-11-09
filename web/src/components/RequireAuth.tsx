@@ -6,6 +6,7 @@ import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { DeviceGuard } from "@/components/DeviceGuard";
 import { AccountDeletionGate } from "@/components/AccountDeletion";
+import { SafetyGate } from "@/components/SafetyGate";
 import { InviteGate } from "@/components/InviteGate";
 import { DeviceRankPrompt } from "@/components/DeviceSecurity";
 import { NewAddressNotice } from "@/components/NewAddressNotice";
@@ -87,6 +88,8 @@ export function RequireAuth() {
     <DeviceGuard>
     {/* 111-A: a pending deletion greets every sign-in first — Giữ tài khoản / Tiếp tục xoá. */}
     <AccountDeletionGate>
+    {/* 111-B: a suspended account sees only the restricted screen; Điều khoản are agreed once. */}
+    <SafetyGate>
     {/* AVORA-100 · G.3: an account held for an invite code sees only the code screen. */}
     <InviteGate>
     {/* AVORA 33: the PIN blocks only after its 30-day window; until then a quiet banner reminds. */}
@@ -149,6 +152,7 @@ export function RequireAuth() {
     </VaultLockProvider>
     </PinGate>
     </InviteGate>
+    </SafetyGate>
     </AccountDeletionGate>
     </DeviceGuard>
   );

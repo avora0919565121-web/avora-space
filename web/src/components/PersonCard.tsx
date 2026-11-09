@@ -21,7 +21,6 @@ import { formatPhoneForDisplay } from "@/lib/contact-clean";
 import { createContactQuick } from "@/lib/contacts";
 import { startGroupConnection, startPinConnection } from "@/lib/connections";
 import { personCardView, type PersonRef } from "@/lib/person-card";
-import { AVATAR_REPORT_NOTE, REPORT_SENT_TOAST, submitReport } from "@/lib/reports";
 import { OPEN_TASK_PARAM } from "@/lib/task-scope";
 import { isSharedTask } from "@/lib/tasks";
 import { fetchMyPin } from "@/lib/user-pin";
@@ -175,7 +174,6 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
   const [isInviteOpen, setIsInviteOpen] = useState<boolean>(false);
   const [isSharedOpen, setIsSharedOpen] = useState<boolean>(false);
   const [report, setReport] = useState<ReportTarget | null>(null);
-  const [isReporting, setIsReporting] = useState<boolean>(false);
 
   const shared = useMemo(
     () =>
@@ -230,30 +228,6 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
       onClose();
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Không chặn được.");
-    }
-  };
-
-  /** AVORA-115 · 7: the existing report flow, reason "Ảnh đại diện không phù hợp" (111-B adds the target kind). */
-  const reportPicture = async (): Promise<void> => {
-    const yes = await askConfirm({
-      title: "Báo cáo ảnh đại diện?",
-      body: `Ảnh đại diện của ${view.name} không phù hợp. Avora sẽ xem xét; ${view.name} không được biết ai báo cáo.`,
-      confirmLabel: "Gửi báo cáo",
-    });
-    if (!yes) return;
-    try {
-      await submitReport({
-        reportedUserId: view.userId,
-        reason: "inappropriate",
-        note: AVATAR_REPORT_NOTE,
-        conversationId: null,
-        messageId: null,
-        includeMessage: false,
-        alsoBlock: false,
-      });
-      toast.success(REPORT_SENT_TOAST);
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "Không gửi được báo cáo.");
     }
   };
 
@@ -420,7 +394,7 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
           {picture !== null ? (
             <button
               type="button"
-              onClick={() => void reportPicture()}
+              onClick={() => setReport({ kind: "avatar", userId: view.userId, name: view.name, conversationId: null, message: null })}
               className="press inline-flex min-h-11 items-center gap-1.5 text-[13px] text-muted-foreground hover:text-foreground"
             >
               <Flag className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" />
@@ -463,27 +437,6 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
         target={report}
         open={report !== null}
         onOpenChange={(next) => (next ? undefined : setReport(null))}
-        isBlockedAlready={isBlocked(view.userId)}
-        isWorking={isReporting}
-        onSubmit={(input) => {
-          if (report === null) return;
-          setIsReporting(true);
-          void submitReport({
-            reportedUserId: report.userId,
-            reason: input.reason,
-            note: input.note,
-            conversationId: null,
-            messageId: null,
-            includeMessage: false,
-            alsoBlock: input.alsoBlock,
-          })
-            .then(() => {
-              toast.success(REPORT_SENT_TOAST);
-              setReport(null);
-            })
-            .catch((error: unknown) => toast.error(error instanceof Error ? error.message : "Không gửi được báo cáo."))
-            .finally(() => setIsReporting(false));
-        }}
       />
     </div>
   );
