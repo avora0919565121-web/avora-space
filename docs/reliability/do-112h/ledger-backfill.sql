@@ -1,5 +1,5 @@
 -- 112-H · LOI-16: ghi sổ supabase_migrations.schema_migrations cho các tệp trong supabase/migrations
--- đã áp lên live bằng SQL nhưng chưa ghi sổ (đối chiếu 09/11/2026: 59 tệp + tệp của 112-H).
+-- đã áp lên live bằng SQL nhưng chưa ghi sổ (đối chiếu 09/11/2026: 59 tệp + 111-C + 112-H).
 -- CHỈ ghi version + name; không chạy lại nội dung. Chạy lại an toàn (on conflict do nothing).
 -- Lưu ý: sổ live còn 152 version tạo từ dashboard không có tệp trong repo → không dùng `supabase db push`;
 -- migration tiếp tục áp bằng SQL như hiện nay.
@@ -64,5 +64,6 @@ values
   ('20261109091100', 'avora111a_push_account'),
   ('20261109092000', 'avora111a_feature_stable'),
   ('20261110090000', 'avora111b_safety'),
+  ('20261111090000', 'avora111c_review_accounts'),
   ('20261111150000', 'avora112h_terms_version_grant')
 on conflict (version) do nothing;
