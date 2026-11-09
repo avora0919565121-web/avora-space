@@ -4,7 +4,8 @@
  * An item without evidence is `soon`. Words copied as written; nothing promised beyond what runs.
  */
 export type PolicyStatus = "done" | "soon";
-export type PolicyItem = { id: string; text: string; status?: PolicyStatus; evidence?: string };
+/** `payments`: mentions money (Ủng hộ, plans, prices) — hidden in the native app (111-D, `canShowPayments`). */
+export type PolicyItem = { id: string; text: string; status?: PolicyStatus; evidence?: string; payments?: true };
 export type PolicySection = { id: string; title: string; items: PolicyItem[]; readyNote?: string; technical?: string[]; table?: { head: string[]; rows: string[][] } };
 export type PolicyDoc = { id: string; title: string; sections: PolicySection[] };
 
@@ -198,7 +199,7 @@ export const TERMS: PolicyDoc = {
       items: [
         { id: "beta", text: "AVORA đang thử nghiệm với nhóm người dùng đầu tiên. Có thể còn lỗi; tính năng có thể đổi." },
         { id: "notice", text: "Thay đổi ảnh hưởng tới dữ liệu của bạn sẽ được báo trước trong ứng dụng." },
-        { id: "free", text: "AVORA miễn phí. Ủng hộ là tự nguyện, không mở khoá tính năng." },
+        { id: "free", text: "AVORA miễn phí. Ủng hộ là tự nguyện, không mở khoá tính năng.", payments: true },
         { id: "content", text: "Bạn chịu trách nhiệm với nội dung mình đăng và người mình mời." },
         { id: "agree", text: "Khi tạo tài khoản, bạn đồng ý với Điều khoản này và Quy tắc cộng đồng. Khi Điều khoản đổi, AVORA hỏi lại bạn trong ứng dụng.", status: "done", evidence: `web/src/pages/Auth.tsx · web/src/components/SafetyGate.tsx · ${M111B}` },
         { id: "zero", text: "AVORA không chấp nhận nội dung phản cảm hay người dùng lạm dụng. Tài khoản vi phạm Quy tắc cộng đồng có thể bị cảnh cáo, khoá tạm thời hoặc khoá vĩnh viễn.", status: "done", evidence: `${M111B} (ops_handle_report, account_suspensions)` },
@@ -262,3 +263,9 @@ export function policyShortTitle(title: string): string {
   if (title.startsWith("Điều khoản")) return "Điều khoản";
   return title.split(" — ")[0];
 }
+
+/** 111-D · the items this build may show: in the native app, nothing about money. */
+export function visiblePolicyItems(items: readonly PolicyItem[], showPayments: boolean): PolicyItem[] {
+  return showPayments ? [...items] : items.filter((item) => item.payments !== true);
+}
+

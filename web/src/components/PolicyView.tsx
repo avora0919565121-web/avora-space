@@ -2,7 +2,8 @@ import { Check, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useLocation, useSearchParams } from "react-router-dom";
 
-import { POLICY_DOCS, POLICY_DRAFT_NOTE, policyShortTitle, POLICY_VERSION, type PolicyDoc, type PolicyItem, type PolicySection } from "@/lib/policy-content";
+import { POLICY_DOCS, POLICY_DRAFT_NOTE, policyShortTitle, POLICY_VERSION, visiblePolicyItems, type PolicyDoc, type PolicyItem, type PolicySection } from "@/lib/policy-content";
+import { canShowPayments } from "@/lib/platform";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/lib/auth";
 import { ChevronLeft } from "lucide-react";
@@ -39,7 +40,7 @@ function Section({ section, openTech }: { section: PolicySection; openTech: bool
     <section id={section.id} className="scroll-mt-28 border-t border-border pt-6 first:border-t-0 first:pt-0" data-policy-section={section.id}>
       <h3 className="text-[17px] font-semibold tracking-tight text-foreground">{section.title}</h3>
       <ul className="mt-3 space-y-2.5">
-        {section.items.map((item) => (
+        {visiblePolicyItems(section.items, canShowPayments()).map((item) => (
           <li key={item.id} className="flex gap-2.5 text-[15px] leading-relaxed text-foreground">
             <span className="mt-[11px] h-1 w-1 shrink-0 rounded-full bg-muted-foreground/60" aria-hidden="true" />
             <span>
