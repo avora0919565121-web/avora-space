@@ -36,6 +36,8 @@ export const FEATURE_KEYS = [
   { key: "avatars", label: "Ảnh đại diện" },
   { key: "avora_ai", label: "Avora AI" },
   { key: "push", label: "Thông báo đẩy" },
+  // 111-A (ADR-092): Cài đặt › Hồ sơ › Tài khoản › Xoá tài khoản. The pending screen and `Giữ tài khoản` never hide.
+  { key: "account_deletion", label: "Xoá tài khoản" },
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number]["key"];

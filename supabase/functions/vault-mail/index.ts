@@ -11,8 +11,13 @@ const FROM = "AVORA <no-reply@avorachat.com>";
 
 type DeviceAction = "new" | "rank_code" | "rank_taken" | "lost_report" | "lost_result" | "lock_on" | "lock_attempt" | "lock_escape";
 
+type AccountAction = "requested" | "reminder" | "cancelled" | "done";
+
 type Body =
   | { kind: "reset_code"; email: string; code: string }
+  // 111-A · xoá tài khoản: mã xác nhận và các thư theo vòng đời yêu cầu xoá.
+  | { kind: "account_code"; email: string; code: string }
+  | { kind: "account"; action: AccountAction; email: string; when: string; link?: string }
   | { kind: "alarm"; action: "reset" | "change" | "signout"; email: string; when: string }
   | {
       // AVORA-67: device emails. Only labels, times and one-use links — never a PIN or a full name.
@@ -131,8 +136,65 @@ function composeDevice(body: Extract<Body, { kind: "device" }>): { subject: stri
   return { subject, html: frame(vi, en, footer), text };
 }
 
+function composeAccount(body: Extract<Body, { kind: "account" }>): { subject: string; html: string; text: string } {
+  const email = escapeHtml(body.email);
+  const when = escapeHtml(body.when);
+  const link = body.link !== undefined && /^https:\/\//.test(body.link) ? body.link : null;
+  const keep = link === null ? "" : button(link, "Huỷ xoá — giữ tài khoản");
+  const keepEn = link === null ? "" : button(link, "Cancel deletion — keep my account");
+  const footer = `Email này được gửi tới ${email} về yêu cầu xoá tài khoản AVORA.`;
+  let subject = "";
+  let vi = "";
+  let en = "";
+  switch (body.action) {
+    case "requested":
+      subject = "AVORA: tài khoản của bạn sẽ bị xoá";
+      vi = p("Chào bạn,") + p(`Chúng tôi đã nhận yêu cầu xoá tài khoản AVORA của bạn. Tài khoản sẽ bị xoá vào <strong>${when}</strong>.`) +
+        p("Trước ngày đó bạn vẫn dùng bình thường và có thể đổi ý bất cứ lúc nào: đăng nhập rồi bấm <strong>Giữ tài khoản</strong>.") + keep +
+        p("Không phải bạn yêu cầu? Bấm nút trên ngay và đổi mật khẩu tài khoản.", "font-size:14px;");
+      en = p("Hi,") + p(`We received a request to delete your AVORA account. It will be deleted at <strong>${when}</strong>.`) +
+        p("Until then everything works as usual and you can change your mind: sign in and press <strong>Keep account</strong>.") + keepEn;
+      break;
+    case "reminder":
+      subject = "AVORA: còn 3 ngày trước khi xoá tài khoản";
+      vi = p("Chào bạn,") + p(`Tài khoản AVORA của bạn sẽ bị xoá vào <strong>${when}</strong>. Sau thời điểm đó không thể khôi phục.`) +
+        p("Muốn giữ lại? Đăng nhập và bấm <strong>Giữ tài khoản</strong>.") + keep;
+      en = p("Hi,") + p(`Your AVORA account will be deleted at <strong>${when}</strong>. After that it cannot be restored.`) + keepEn;
+      break;
+    case "cancelled":
+      subject = "AVORA: đã huỷ xoá tài khoản";
+      vi = p("Chào bạn,") + p("Yêu cầu xoá tài khoản AVORA đã được huỷ. Tài khoản và dữ liệu của bạn vẫn nguyên.") +
+        p("Không phải bạn huỷ? Đổi mật khẩu tài khoản ngay.", "font-size:14px;");
+      en = p("Hi,") + p("The request to delete your AVORA account was cancelled. Your account and data are unchanged.");
+      break;
+    case "done":
+      subject = "AVORA: tài khoản đã được xoá";
+      vi = p("Chào bạn,") + p("Tài khoản AVORA của bạn đã được xoá theo yêu cầu. Dữ liệu riêng, Két sắt và tệp của bạn đã bị xoá vĩnh viễn; mã PIN sẽ không được cấp cho ai khác.") +
+        p("Tin nhắn chữ bạn đã gửi trong cuộc trò chuyện chung vẫn còn với người khác, hiện tên <strong>Người dùng đã xoá</strong>.") +
+        p("Cảm ơn bạn đã dùng AVORA.");
+      en = p("Hi,") + p("Your AVORA account has been deleted as requested. Your private data, Vault and files are gone for good.") +
+        p("Text messages you sent in shared conversations remain for the other people, shown as <strong>Deleted user</strong>.");
+      break;
+  }
+  return { subject, html: frame(vi, en, footer), text: `${subject}\n${body.when}${link === null ? "" : `\n${link}`}` };
+}
+
 function compose(body: Body): { subject: string; html: string; text: string } {
   if (body.kind === "device") return composeDevice(body);
+  if (body.kind === "account") return composeAccount(body);
+  if (body.kind === "account_code") {
+    const email = escapeHtml(body.email);
+    const vi = p("Chào bạn,") + p("Đây là mã xác nhận để <strong>xoá tài khoản AVORA</strong>:") + codeBox(body.code) +
+      p("Mã dùng được một lần, hết hạn sau 10 phút.", "font-size:13px;color:#6B655B;") +
+      p("Không phải bạn yêu cầu? Đừng đưa mã này cho ai, và hãy đổi mật khẩu tài khoản AVORA ngay.", "font-size:14px;");
+    const en = p("Hi,") + p("Here is the code to confirm <strong>deleting your AVORA account</strong>:") + codeBox(body.code) +
+      p("It works once and expires in 10 minutes.", "font-size:13px;color:#6B655B;");
+    return {
+      subject: `${body.code} là mã xác nhận xoá tài khoản AVORA`,
+      html: frame(vi, en, `Email này được gửi tới ${email} vì có yêu cầu xoá tài khoản.`),
+      text: `Mã xác nhận xoá tài khoản AVORA: ${body.code}\nDùng một lần, hết hạn sau 10 phút.`,
+    };
+  }
   const email = escapeHtml(body.email);
   if (body.kind === "reset_code") {
     const vi = p("Chào bạn,") + p("Đây là mã xác nhận để đặt lại mã Két sắt trong AVORA:") + codeBox(body.code) +
@@ -180,7 +242,10 @@ function isBody(value: unknown): value is Body {
   if (typeof value !== "object" || value === null) return false;
   const v = value as Record<string, unknown>;
   if (typeof v.email !== "string" || !v.email.includes("@")) return false;
-  if (v.kind === "reset_code") return typeof v.code === "string" && /^[0-9]{6}$/.test(v.code);
+  if (v.kind === "reset_code" || v.kind === "account_code") return typeof v.code === "string" && /^[0-9]{6}$/.test(v.code);
+  if (v.kind === "account") {
+    return ["requested", "reminder", "cancelled", "done"].includes(String(v.action)) && typeof v.when === "string";
+  }
   if (v.kind === "alarm") {
     return (
       (v.action === "reset" || v.action === "change" || v.action === "signout") && typeof v.when === "string"

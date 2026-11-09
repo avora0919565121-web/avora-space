@@ -4,7 +4,16 @@ import { BLOCKED_SEND_NOTICE, isContactUnavailable } from "@/lib/blocks";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 import { isSendEffect, type ChatMessage, type ConversationKind, type ConversationSummary, type SendEffect } from "@/lib/chat-cache";
-import { peerLabel } from "@/lib/initials";
+import { DELETED_USER_NAME, peerLabel, senderIdOf } from "@/lib/initials";
+
+/**
+ * 111-A: a 1-1 whose other person deleted their account has no peer left — it is named for that,
+ * not as someone without a name.
+ */
+export function directPeerName(type: string | null, peerId: string | null, displayName: string | null): string {
+  if ((type ?? "direct") === "direct" && (peerId === null || peerId === undefined)) return DELETED_USER_NAME;
+  return peerLabel(displayName);
+}
 import { parseForwardBundle } from "@/lib/chat-transcript";
 import { NOT_CONNECTED_NOTICE } from "@/lib/connections";
 
@@ -220,7 +229,7 @@ export async function fetchConversations(): Promise<ConversationSummary[]> {
     conversationId: row.conversation_id,
     kind: (row.conversation_type as ConversationKind | null) ?? "direct",
     peerId: row.peer_id,
-    peerName: peerLabel(row.peer_display_name),
+    peerName: directPeerName(row.conversation_type, row.peer_id, row.peer_display_name),
     peerEmail: row.peer_email,
     groupName: (row.group_name as string | null) ?? null,
     memberCount: (row.member_count as number | null) ?? 1,
@@ -309,7 +318,7 @@ export async function fetchConversationDiary(conversationId: string): Promise<Di
     .order("created_at", { ascending: false })
     .limit(1000);
   if (error) throw fail(error.code, error.message);
-  return (data ?? []).map((row) => ({ id: row.id, senderId: row.sender_id, content: row.content, createdAt: row.created_at }));
+  return (data ?? []).map((row) => ({ id: row.id, senderId: senderIdOf(row.sender_id), content: row.content, createdAt: row.created_at }));
 }
 
 /** Puts the caller's read mark back where it was (the Hoàn tác of Xem sau). */
@@ -392,7 +401,8 @@ export const MESSAGE_PAGE_SIZE = 50;
 export type MessageRowShape = {
   id: string;
   conversation_id: string;
-  sender_id: string;
+  /** 111-A: null once the sender deleted their account. */
+  sender_id: string | null;
   content: string;
   created_at: string;
   edited_at: string | null;
@@ -423,7 +433,7 @@ export function toChatMessageRow(row: MessageRowShape): ChatMessage {
   return {
     id: row.id,
     conversationId: row.conversation_id,
-    senderId: row.sender_id,
+    senderId: senderIdOf(row.sender_id),
     content: row.content,
     createdAt: row.created_at,
     editedAt: row.edited_at,
@@ -558,7 +568,7 @@ export async function searchMessages(
   return (data ?? []).map((row) => ({
     id: row.id,
     conversationId: row.conversation_id,
-    senderId: row.sender_id,
+    senderId: senderIdOf(row.sender_id),
     content: row.content,
     createdAt: row.created_at,
     editedAt: row.edited_at,

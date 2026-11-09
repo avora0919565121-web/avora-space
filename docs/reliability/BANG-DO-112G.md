@@ -16,7 +16,7 @@ Ngưỡng, ký hiệu và giới hạn của khung hai người: xem `BANG-DO-11
 | 6 Ảnh, tệp | Không đạt | Một phần | 6.2 đạt (6/6), 6.3 đạt (0 tệp mồ côi); 6.1 còn thiếu tiến độ (LOI-06, hoãn) |
 | 7 Thói quen | Đạt (phần T) | Đạt (phần T) | — |
 | 8 Két sắt | Đạt (phần T) | Đạt (phần T) | — |
-| 9 Sao lưu, xoá | Chưa có / Một phần | Chưa có / Một phần | 9.3 làm ở 111-A |
+| 9 Sao lưu, xoá | Chưa có / Một phần | Chưa có / Một phần → **9.3 Đạt (phần T)** ở 111-A | 9.3: xoá tài khoản trong app, SQL 9/9, browser 8/8, thử đầu-cuối thật 09/11 (367 cột uuid quét, 0 sót). Máy thật: `THU-MAY-THAT.md` mục D. |
 | 10 Tải nặng | Đạt (phần T) | Đạt (phần T) | — |
 
 ## Số đo cạnh nhau
@@ -63,7 +63,7 @@ Trạng thái hiện tại (đọc máy chủ 03/11): **29/29 khoá đều `stab
 | 5.4 Mở lại khi mất mạng (tab ngoài Kết nối) | LOI-07 (một phần) | `tasks`, `think_hub`, `contacts`, `finance`… | Giữ `stable` | App nói rõ "Ngoại tuyến"; không báo rỗng sai. Lưu dữ liệu trên máy thuộc AVORA-116. |
 | 9.1 Sao lưu / khôi phục | Chưa có | — (không có giao diện) | Không cần cờ | Không có màn nào hứa sao lưu. |
 | 9.2 Xuất tất cả | Một phần | `finance`, `contacts` | Giữ `stable` | Xuất từng phần đúng như đang ghi. |
-| 9.3 Xoá tài khoản | Chưa có | — | Làm ở 111-A | — |
+| 9.3 Xoá tài khoản | **Đạt (phần T)** · 111-A | `account_deletion` | **`stable`** (09/11, sau khi đạt cổng) | Chờ VMT thử mục D trên máy thật. Demo xoá ≤ 5 phút làm ở 111-C. |
 | 1.4 OTP hết hạn gọi là "liên kết" | LOI-08 | — | Giữ | Câu vẫn có nguyên nhân + bước kế tiếp. |
 
 ## Thử trên máy thật

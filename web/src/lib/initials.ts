@@ -17,3 +17,27 @@ export function peerLabel(displayName: string | null): string {
   if (name && name.length > 0) return name;
   return FALLBACK_PEER_NAME;
 }
+
+/**
+ * 111-A (ADR-092): a sender whose account was deleted. The server sets `messages.sender_id` to
+ * null; the client maps that to this one id so every `senderId === me` check stays a plain string
+ * comparison, and every place that names a person says the same thing — never "Người dùng AVORA"
+ * (someone who has not set a name) and never "Thành viên" (a role).
+ */
+export const DELETED_USER_ID = "00000000-0000-0000-0000-000000000000";
+export const DELETED_USER_NAME = "Người dùng đã xoá";
+
+export function isDeletedUser(userId: string | null | undefined): boolean {
+  return userId === null || userId === undefined || userId === DELETED_USER_ID;
+}
+
+/** A sender id as the server sends it (null once the account is gone) → the id the client keeps. */
+export function senderIdOf(raw: string | null | undefined): string {
+  return raw === null || raw === undefined || raw === "" ? DELETED_USER_ID : raw;
+}
+
+/** The name for someone in a shared room: their known name, the deleted label, or the neutral fallback. */
+export function memberNameOf(names: ReadonlyMap<string, string>, userId: string | null | undefined, fallback: string = FALLBACK_PEER_NAME): string {
+  if (isDeletedUser(userId)) return DELETED_USER_NAME;
+  return names.get(userId as string) ?? fallback;
+}

@@ -1,0 +1,13 @@
+Failed to run sql query: ERROR:  P0001: AVORA111A failures=0 
+ok   1 chưa xác nhận danh tính → avora_account_reauth_required
+ok   2 mật khẩu sai → false, không có lần xác nhận
+ok   3 OTP sai/đúng; yêu cầu pending +14 ngày; gọi lặp không nhân đôi; 1 push account
+ok   4 huỷ → cancelled; thực thi khi không đến hạn → avora_account_purge_not_due
+ok   5 thực thi 2 lần không lỗi; auth.users đã xoá; nhật ký có dòng
+ok   6 mục 1: B thấy 5+5 tin, người gửi rỗng; tệp vào hàng đợi; tin hẹn xoá; báo cáo giữ bản sao
+ok   7 mục 2: admin nhận chủ (2 nơi); nhóm 1 người + Nhật ký xoá; dự án → C, việc nhóm → B
+ok   8 mục 3: PIN A-BZPALVSZ nghỉ hưu, check_user_pin → taken
+ok   9 quét uuid: không còn uid cũ
+
+CONTEXT:  PL/pgSQL function inline_code_block line 153 at RAISE
+

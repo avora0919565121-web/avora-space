@@ -1,4 +1,4 @@
-# Thử trên máy thật (AVORA-112-G)
+# Thử trên máy thật (AVORA-112-G · thêm mục D ở 111-A)
 
 Những dòng ở đây **không thử tự động được**: push của hệ điều hành, âm thanh thật, Face ID, mạng thật, đồng hồ thật, vòng đời app trên điện thoại.
 Danh sách gộp từ `THU-TAY-112A.md` (112-A), `docs/AM-BAO-THU-MAY.md` (114) và các lỗi mới tìm thấy ngày 01/11 (lệch đồng hồ, 429, ghi chú nhân bản).
@@ -77,8 +77,21 @@ Tài khoản thử: **testera** và **testerb**. Không dùng tài khoản ngư�
 | C9 | 112A · 10.5 | testera mở trên iPhone **và** máy tính cùng lúc. Gửi xen kẽ 10 tin từ hai máy; testerb trả lời. | Hai máy thấy cùng thứ tự, không thiếu, không trùng; đã đọc ở máy này thì máy kia cập nhật. | |
 | C10 | 01/11 · ghi chú nhân bản | Như A23 trên Chrome, thêm: bấm Hỏi Avora rồi bấm F5 ngay. | Vẫn đúng 1 ghi chú. | |
 
+## D. Xoá tài khoản (111-A)
+
+**Không dùng testera / testerb để xoá thật.** D1–D4 chỉ gửi yêu cầu rồi **Giữ tài khoản** (testerc). D5 cần một tài khoản dùng một lần do VMT tạo riêng (ví dụ `testere`), vì sau 14 ngày tài khoản đó mất hẳn. Demo xoá trong ≤ 5 phút làm ở 111-C.
+
+| # | Nguồn | Bước làm | Kết quả mong đợi | Đạt / Không / Ghi chú |
+|---|---|---|---|---|
+| D1 | 111-A · A.1 | iPhone PWA, testerc: Hồ sơ › mục **Tài khoản** › **Xoá tài khoản**. Đọc màn xác nhận. Nhập mật khẩu sai rồi đúng, gõ `XOA`, bấm **Xoá tài khoản**. | ≤ 2 chạm tới màn xác nhận; nút đỏ nhạt (không cam); Enter không gửi; mục Tài khoản đổi sang "Tài khoản sẽ bị xoá vào ngày …" (hôm nay + 14). Email "đã nhận yêu cầu" có nút **Huỷ xoá — giữ tài khoản**. | |
+| D2 | 111-A · A.3 | Ngay sau D1, xem **Android / máy tính** đang đăng nhập testerc. | Có thông báo đẩy loại tài khoản trên máy khác (không trên máy vừa gửi). | |
+| D3 | 111-A · A.3 | Đăng xuất testerc trên máy tính rồi đăng nhập lại. | Màn chiếm toàn màn "Tài khoản sẽ bị xoá vào ngày …". **Tiếp tục xoá** → dùng app bình thường; tải lại trang không hiện lại; lần đăng nhập sau hiện lại. | |
+| D4 | 111-A · A.3 | Bấm **Giữ tài khoản** (trên màn chờ, trong Hồ sơ, hoặc nút trong email). | Báo "Đã giữ tài khoản. Không có gì bị xoá."; email "đã huỷ"; dữ liệu còn nguyên. | |
+| D5 | 111-A · A.1 | Tài khoản dùng một lần: **Tôi quên mật khẩu** → mã email (thử 1 mã sai trước), gõ `XOA`, xác nhận. Sau 11 ngày kiểm hộp thư; sau 14 ngày thử đăng nhập. | Mã đến ≤ 60 giây; ngày 11 có email nhắc; ngày 14 có email "đã xoá", đăng nhập báo sai tài khoản; tin đã gửi cho testera hiện "Người dùng đã xoá". | |
+| D6 | 111-A · A.2 | Sau D5, testera mở cuộc 1-1 và một nhóm có tài khoản đó. | Tin chữ còn, người gửi "Người dùng đã xoá"; ảnh / tệp của người đó không còn; nhóm do người đó làm chủ đã có chủ mới. | |
+
 ## Ghi kết quả
 
 - Người thử · ngày · máy: ……………………
-- Số dòng Đạt / tổng: …… / 47
+- Số dòng Đạt / tổng: …… / 53
 - Dòng Không (ghi số dòng + ảnh): ……………………

@@ -213,7 +213,8 @@ test("112B.5 · màn quản trị: người thường bị chặn", async () => 
 test("112B.5b · màn quản trị: ops đổi được và thấy lịch sử", async () => {
   srv.ops = true;
   const ops = await render(<Frame><OpsFeatures /></Frame>);
-  await vi.waitFor(() => expect(document.querySelectorAll("[data-ops-features] li").length).toBe(29), WAIT);
+  // 29 khoá AVORA-112-B + `account_deletion` (111-A).
+  await vi.waitFor(() => expect(document.querySelectorAll("[data-ops-features] li").length).toBe(30), WAIT);
   await expect.element(ops.getByText("Chưa đổi lần nào.").or(ops.getByText("thử"))).toBeInTheDocument();
   await page.screenshot({ path: `${OUT}/112B-quan-tri-tinh-nang-390.png` });
   await page.viewport(1280, 800);

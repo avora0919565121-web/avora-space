@@ -1,0 +1,3 @@
+Failed to run sql query: ERROR:  P0001: PROBE 111A checked_columns=367 hits=[]
+CONTEXT:  PL/pgSQL function inline_code_block line 25 at RAISE
+

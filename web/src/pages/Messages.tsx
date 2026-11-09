@@ -294,7 +294,7 @@ import { GroupTree } from "@/components/chat/GroupTree";
 import { CallMenu } from "@/components/chat/CallMenu";
 import { ScheduleCallDialog } from "@/components/chat/ScheduleCallDialog";
 import { splitLinks } from "@/lib/calls";
-import { peerLabel } from "@/lib/initials";
+import { DELETED_USER_NAME, isDeletedUser, memberNameOf, peerLabel } from "@/lib/initials";
 import {
   CONTEXT_TASK_PARAM,
   DELETED_MESSAGE_NOTE,
@@ -940,7 +940,7 @@ const Messages = () => {
     (assigneeId: string | null): string => {
       if (assigneeId === null) return threadTitle;
       if (assigneeId === userId) return "Bạn";
-      if (activeKind === "group") return senderNames.get(assigneeId) ?? "Thành viên";
+      if (activeKind === "group") return memberNameOf(senderNames, assigneeId, "Thành viên");
       return threadTitle;
     },
     [userId, activeKind, senderNames, threadTitle],
@@ -951,7 +951,8 @@ const Messages = () => {
     (message: ChatMessage | null): string => {
       if (message === null) return "";
       if (message.senderId === userId) return "Bạn";
-      if (activeKind === "group") return senderNames.get(message.senderId) ?? "Thành viên";
+      if (isDeletedUser(message.senderId)) return DELETED_USER_NAME;
+      if (activeKind === "group") return memberNameOf(senderNames, message.senderId, "Thành viên");
       return threadTitle;
     },
     [userId, activeKind, senderNames, threadTitle],
@@ -1025,7 +1026,7 @@ const Messages = () => {
   const typingLine: string | null = useMemo(
     () =>
       typingText(typingUserIds, (id) =>
-        activeKind === "group" ? (senderNames.get(id) ?? "Thành viên") : threadTitle,
+        activeKind === "group" ? (memberNameOf(senderNames, id, "Thành viên")) : threadTitle,
       ),
     [typingUserIds, activeKind, senderNames, threadTitle],
   );
@@ -3782,7 +3783,7 @@ const Messages = () => {
                             const showsMeta = run.end || peekTimeId === message.id;
                             const showsSender = !outgoing && activeKind === "group";
                             const senderLabel = showsSender
-                              ? (senderNames.get(message.senderId) ?? "Thành viên")
+                              ? (memberNameOf(senderNames, message.senderId, "Thành viên"))
                               : null;
                             // Work is agreed as often by the reply as by the request, so a task
                             // can be raised from either side's bubble. A journal note counts too:
@@ -4072,7 +4073,7 @@ const Messages = () => {
                                             groups={reactionGroupsFor(message.id)}
                                             outgoing={outgoing}
                                             viewerId={userId}
-                                            nameOf={(id) => (activeKind === "group" ? (senderNames.get(id) ?? "Thành viên") : threadTitle)}
+                                            nameOf={(id) => (activeKind === "group" ? (memberNameOf(senderNames, id, "Thành viên")) : threadTitle)}
                                             onRemoveMine={(emoji) => toggleReaction(message.id, emoji)}
                                           />
                                         ) : undefined
@@ -4133,7 +4134,7 @@ const Messages = () => {
                                           urlOf={attachmentUrlOf}
                                         />
                                       ) : message.contactCardUserId != null ? (
-                                        <ContactCardBubble messageId={message.id} senderName={senderNames.get(message.senderId) ?? ""} outgoing={outgoing} />
+                                        <ContactCardBubble messageId={message.id} senderName={memberNameOf(senderNames, message.senderId, "")} outgoing={outgoing} />
                                       ) : message.noteCard != null ? (
                                         // AVORA-100 · S.3 (a): a forwarded ghi chép — read-only, `Lưu vào Nhật ký`.
                                         <NoteCardBubble card={message.noteCard} messageId={message.id} outgoing={outgoing} />

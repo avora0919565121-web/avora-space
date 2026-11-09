@@ -59,7 +59,10 @@ describe("AVORA-112-B · công tắc tính năng", () => {
 
   test("khoá trong mã khớp khoá đã gieo ở migration", async () => {
     const sql = (await import("../../../supabase/migrations/20261014100000_avora112b_feature_flags.sql?raw")).default;
-    const seeded = [...sql.matchAll(/\('([a-z_]+)', 'stable', '/g)].map((match) => match[1]).sort();
+    // 111-A trở đi: khoá mới được gieo bằng migration riêng (`insert into public.app_features (key, status, note) values ('…'`).
+    const later = (await import("../../../supabase/migrations/20261109091000_avora111a_account_deletion.sql?raw")).default;
+    const added = [...later.matchAll(/insert into public\.app_features \(key, status, note\) values \('([a-z_]+)'/g)].map((match) => match[1]);
+    const seeded = [...[...sql.matchAll(/\('([a-z_]+)', 'stable', '/g)].map((match) => match[1]), ...added].sort();
     expect(seeded).toEqual(FEATURE_KEYS.map((entry) => entry.key).sort());
   });
 });

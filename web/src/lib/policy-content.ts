@@ -131,8 +131,15 @@ export const PRIVACY: PolicyDoc = {
         { id: "trash", text: "Xoá → vào Thùng rác, khôi phục được.", status: "done", evidence: "deleted_at + restore RPCs" },
         { id: "logs", text: "Nhật ký hệ thống không ghi nội dung tin, số tiền, email, PIN hay mã phiên.", status: "done", evidence: "web/src/lib/log.ts" },
         { id: "export", text: "Xuất báo cáo tài chính ra CSV / Excel.", status: "done", evidence: "V4: web/src/lib/finance-export.ts" },
-        { id: "later", text: "Xuất toàn bộ dữ liệu; tự xoá tài khoản trong Cài đặt; xoá vĩnh viễn thật; lưu trên máy bạn hoặc cloud bạn chọn; tài khoản 2 năm không đăng nhập → nhắc 3 tháng rồi mới xoá.", status: "soon" },
-        { id: "ask", text: `Hiện muốn xoá tài khoản hoặc lấy dữ liệu: gửi yêu cầu tới ${POLICY_CONTACT}.` },
+        {
+          id: "self-delete",
+          text: "Tự xoá tài khoản trong Cài đặt › Hồ sơ › Tài khoản: xác nhận bằng mật khẩu (hoặc mã gửi qua email), có 14 ngày để đổi ý, email báo khi yêu cầu, nhắc trước 3 ngày và khi xoá xong. Khi xoá: dữ liệu riêng, Két sắt và tệp của bạn bị xoá vĩnh viễn; tin chữ trong cuộc chung còn với người kia dưới tên “Người dùng đã xoá”; PIN không cấp lại cho ai.",
+          status: "done",
+          evidence: "111-A · ADR-092 · public.request_account_deletion · private.account_purge · Edge delete-account",
+        },
+        { id: "abandoned", text: "Tài khoản 2 năm không đăng nhập → nhắc 3 tháng rồi mới xoá (ADR-019) — chưa áp dụng.", status: "soon" },
+        { id: "later", text: "Xuất toàn bộ dữ liệu; xoá vĩnh viễn thật từng mục trong Thùng rác; lưu trên máy bạn hoặc cloud bạn chọn.", status: "soon" },
+        { id: "ask", text: `Muốn lấy dữ liệu hoặc cần hỗ trợ khi xoá tài khoản: gửi yêu cầu tới ${POLICY_CONTACT}.` },
       ],
     },
     {

@@ -1719,7 +1719,7 @@ export type Database = {
           refs: Json | null
           reply_to_daily_thought_id: string | null
           reply_to_message_id: string | null
-          sender_id: string
+          sender_id: string | null
           system_kind: string | null
           trashed_at: string | null
         }
@@ -1748,7 +1748,7 @@ export type Database = {
           refs?: Json | null
           reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
-          sender_id: string
+          sender_id?: string | null
           system_kind?: string | null
           trashed_at?: string | null
         }
@@ -1777,7 +1777,7 @@ export type Database = {
           refs?: Json | null
           reply_to_daily_thought_id?: string | null
           reply_to_message_id?: string | null
-          sender_id?: string
+          sender_id?: string | null
           system_kind?: string | null
           trashed_at?: string | null
         }
@@ -4377,8 +4377,8 @@ export type Database = {
           note: string | null
           reason: string
           reported_content: string | null
-          reported_user_id: string
-          reporter_id: string
+          reported_user_id: string | null
+          reporter_id: string | null
           status: string
         }
         Insert: {

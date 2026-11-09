@@ -1,0 +1,8 @@
+   × tin của người đã xoá (sender_id null) không thành senderId null 6ms
+   × Chính sách không còn ghi tự xoá tài khoản là 'sắp có' 2ms
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 2 ⎯⎯⎯⎯⎯⎯⎯
+ FAIL  src/test/zz-111a-red.test.ts > tin của người đã xoá (sender_id null) không thành senderId null
+AssertionError: expected 'object' to be 'string' // Object.is equality
+ FAIL  src/test/zz-111a-red.test.ts > Chính sách không còn ghi tự xoá tài khoản là 'sắp có'
+AssertionError: expected true to be false // Object.is equality
+      Tests  2 failed (2)

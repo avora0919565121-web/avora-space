@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { UserAvatar } from "@/components/UserAvatar";
 import { openAvatarEditor } from "@/lib/avatar-editor";
 import { DeviceSecuritySection } from "@/components/DeviceSecurity";
+import { AccountDeletionSection } from "@/components/AccountDeletion";
 import { askConfirm } from "@/components/ConfirmHost";
 import { PinSetup, usePinStatus } from "@/components/PinGate";
 import { RevealButton, useReveal } from "@/components/RevealContact";
@@ -27,11 +28,14 @@ const Profile = () => {
   const reveal = useReveal();
 
   // AVORA-102: `Cho phép mở trên máy khác` from Két sắt lands on Bảo mật (#bao-mat).
+  // 111-A: account emails and the `account` push open `?muc=tai-khoan` (or `#tai-khoan`).
   useEffect(() => {
-    if (location.hash !== "#bao-mat") return;
-    const id = window.setTimeout(() => document.getElementById("bao-mat")?.scrollIntoView({ block: "start" }), 120);
+    const target =
+      location.hash === "#bao-mat" ? "bao-mat" : location.hash === "#tai-khoan" || new URLSearchParams(location.search).get("muc") === "tai-khoan" ? "tai-khoan" : null;
+    if (target === null) return;
+    const id = window.setTimeout(() => document.getElementById(target)?.scrollIntoView({ block: "start" }), 120);
     return () => window.clearTimeout(id);
-  }, [location.hash]);
+  }, [location.hash, location.search]);
 
   const [nameDraft, setNameDraft] = useState<string>("");
   const [isSaving, setIsSaving] = useState<boolean>(false);
@@ -241,6 +245,9 @@ const Profile = () => {
             Chính sách bảo mật <span aria-hidden="true">›</span>
           </a>
         </section>
+
+        {/* 111-A (ADR-092): Tài khoản › Xoá tài khoản — two taps from Cài đặt. */}
+        <AccountDeletionSection />
 
         <button
           type="button"
