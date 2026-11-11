@@ -57,7 +57,10 @@ begin
   log := log || format(E'%s 6 chờ xoá: demo 0 · thường 14 ngày\n', case when ok then 'ok  ' else 'FAIL' end); failures := failures + (not ok)::int;
 
   -- 7. Gửi yêu cầu xoá: demo gọi thực thi ngay (một lệnh gọi Edge Function); thường thì không.
-  insert into vault.secrets (name, secret) values ('avora_push_cron_secret', 'test-secret') on conflict do nothing;
+  -- Supabase chỉ cho tạo khoá qua vault.create_secret (ghi thẳng vault.secrets bị từ chối trên dự án thật).
+  if not exists (select 1 from vault.secrets where name = 'avora_push_cron_secret') then
+    perform vault.create_secret('test-secret', 'avora_push_cron_secret');
+  end if;
   select count(*) into v_q from net.http_request_queue where url like '%/delete-account';
   insert into public.account_deletion_requests (user_id, requested_at, execute_after, status, method)
     values (nu, now(), now() + private.account_deletion_grace(nu), 'pending', 'password');
