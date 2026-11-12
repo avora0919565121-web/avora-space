@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { Outlet } from "react-router-dom";
 
+import { SectionFeatureGate } from "@/components/features/FeatureGate";
 import { InlineBack } from "@/components/nav/InlineBack";
 import { SectionNav } from "@/components/nav/SectionNav";
 import { SETTINGS_TABS } from "@/lib/navigation";
@@ -16,11 +17,13 @@ const Settings = () => {
   const visibleNav = useVisibleNav(SETTINGS_TABS);
   return (
   <div className="flex min-h-0 flex-1 flex-col">
-    <SectionNav section="Cài đặt" tabs={visibleNav} />
+    <SectionNav section="Cài đặt" tabs={visibleNav} keepReturn />
     <InlineBack className="mx-auto w-full max-w-2xl px-6 md:px-10" />
-    <Suspense fallback={null}>
-          <Outlet />
-        </Suspense>
+    <SectionFeatureGate>
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
+    </SectionFeatureGate>
   </div>
   );
 };

@@ -24,7 +24,8 @@ export const InitialsAvatar = memo(({ name, size = "md", online = false, classNa
         sizeClasses[size],
       )}
     >
-      {initialsOf(name)}
+      {/* QA01-09: no name yet (your own profile still loading) → an empty circle, not "?" then letters. */}
+      {name.trim() === "" ? null : initialsOf(name)}
     </span>
     {online ? (
       <span

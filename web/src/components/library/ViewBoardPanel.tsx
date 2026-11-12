@@ -8,13 +8,14 @@ import { Money } from "@/components/finance/primitives";
 import { TaskCard } from "@/components/tasks/TaskCard";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
-import { vnDate, isVaultViewBoard, viewBoardOf, type ViewBoardKey, type ViewRow } from "@/lib/avora-default-boards";
+import { vnDate, isVaultViewBoard, vaultBoardLock, viewBoardOf, type ViewBoardKey, type ViewRow } from "@/lib/avora-default-boards";
 import { normalizeSearch } from "@/lib/normalize-search";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { useHiddenBoards, useRowMeta } from "@/lib/use-default-boards";
 import { useComposerActions } from "@/lib/use-task-composer";
 import { archiveHabit } from "@/lib/use-habits";
 import { useViewBoardRows } from "@/lib/use-view-board-rows";
+import { useVaultLock } from "@/lib/use-vault-lock";
 import { cn } from "@/lib/utils";
 
 /**
@@ -37,6 +38,8 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
   const { hide } = useHiddenBoards();
   const board = boards[boardKey];
   const isVault = isVaultViewBoard(boardKey);
+  const vault = useVaultLock() as ReturnType<typeof useVaultLock> | undefined;
+  const lockNote = vaultBoardLock(boardKey, vault?.status?.hasCode !== false);
 
   const rows = useMemo(() => {
     const needle = normalizeSearch(query);
@@ -101,9 +104,9 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
       {board.locked ? (
         <div data-vault-locked="" className="mt-5 flex items-center gap-3 rounded-card border border-border bg-card px-4 py-4 text-muted-foreground">
           <Lock className="h-5 w-5 shrink-0" aria-hidden="true" />
-          <span className="min-w-0 flex-1 text-[14.5px]">Đang khoá · Mở Két sắt để xem</span>
-          <button type="button" onClick={() => navigate(withReturn("/ket-sat", here))} className="press h-10 rounded-md border border-border px-3 text-[13.5px] text-foreground">
-            Mở Két sắt
+          <span className="min-w-0 flex-1 text-[14.5px]">{lockNote.text}</span>
+          <button type="button" onClick={() => navigate(withReturn(lockNote.to, here))} className="press h-10 rounded-md border border-border px-3 text-[13.5px] text-foreground">
+            {lockNote.action}
           </button>
         </div>
       ) : (

@@ -3,6 +3,7 @@ import { useLocation } from "react-router-dom";
 
 import { isGuestMachine } from "@/lib/guest-machine";
 import { activeNavEntry, NAV_ITEMS } from "@/lib/navigation";
+import { ROOM_HOME, ROOM_PARAM } from "@/lib/room";
 
 /**
  * AVORA-77 · G — every tab remembers where you stood.
@@ -90,8 +91,10 @@ export function rememberPlace(userId: string | undefined, path: string, scroll: 
  * its root the first time.
  */
 export function tabTarget(tab: string, currentPathname: string, userId: string | undefined): { path: string; scroll: number; remembered: boolean } {
-  // AVORA-89 · 2.2: pressing Kế hoạch while inside goes back to kệ 2 Tổng quan.
-  if (activeNavEntry(currentPathname)?.to === tab) return { path: tab === "/ke-hoach" ? "/ke-hoach?ke=2" : tab, scroll: 0, remembered: false };
+  // QA01-02 (Nhà mới): pressing Thư phòng while inside goes to its top — Đọc (kệ 5), the same place the
+  // first visit opens — not the old AVORA-89 kệ 2 Tổng quan. The shelf is named, because a bare
+  // `/ke-hoach` would reopen the shelf saved last.
+  if (activeNavEntry(currentPathname)?.to === tab) return { path: tab === "/ke-hoach" ? `/ke-hoach?${ROOM_PARAM}=${ROOM_HOME}` : tab, scroll: 0, remembered: false };
   const place = readTabMemory(userId)[tab];
   if (place === undefined || place.path === tab) return { path: tab, scroll: 0, remembered: false };
   return { path: place.path, scroll: place.scroll, remembered: true };

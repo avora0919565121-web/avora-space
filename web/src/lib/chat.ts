@@ -67,6 +67,7 @@ export {
   PLACEHOLDER_TABS,
   isPlaceholderTab,
   isProjectTab,
+  topSearchButtons,
   quotePreview,
   RECALLED_MESSAGE_NOTE,
   sendReceiptLabel,

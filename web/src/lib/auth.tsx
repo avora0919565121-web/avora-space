@@ -17,6 +17,7 @@ import { getCaptchaToken } from "@/lib/turnstile";
 import { isSafeReturnPath } from "@/lib/return-to";
 import { clearTabMemory } from "@/lib/tab-memory";
 import { clearChatLock } from "@/lib/chat-lock";
+import { ownDisplayName } from "@/lib/initials";
 
 export type Profile = {
   id: string;
@@ -39,6 +40,8 @@ type AuthContextValue = {
   profile: Profile | null;
   /** Vietnamese message when the profile could not be read (e.g. backend privileges). */
   profileError: string | null;
+  /** QA01-09: signed in and the profile has not answered yet (first read of this account). */
+  isProfileLoading: boolean;
   isLoading: boolean;
   /** True while the session came from a password-recovery link and no new password is set yet. */
   isRecovering: boolean;
@@ -113,6 +116,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [profileError, setProfileError] = useState<string | null>(null);
+  /** The account whose profile has answered at least once (with a row, none, or an error). */
+  const [profileLoadedFor, setProfileLoadedFor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRecovering, setIsRecovering] = useState<boolean>(() => readRecoveryFlag());
 
@@ -148,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const userId: string | undefined = session?.user.id;
+  const isProfileLoading: boolean = userId !== undefined && profileLoadedFor !== userId;
 
   const loadProfile = useCallback(async (id: string): Promise<void> => {
     const { data, error } = await supabase
@@ -159,10 +165,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (error) {
       logError("auth", error);
       setProfileError(toVietnameseDbError(error.code, error.message));
+      setProfileLoadedFor(id);
       return;
     }
     setProfileError(null);
     setProfile(data ?? null);
+    setProfileLoadedFor(id);
   }, []);
 
   useEffect(() => {
@@ -406,6 +414,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       user: session?.user ?? null,
       profile,
       profileError,
+      isProfileLoading,
       isLoading,
       isRecovering,
       signUp,
@@ -424,6 +433,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       profile,
       profileError,
+      isProfileLoading,
       isLoading,
       isRecovering,
       signUp,
@@ -449,10 +459,11 @@ export function useAuth(): AuthContextValue {
   return context;
 }
 
-/** Display name, or "Bạn" — never the email (AVORA-51 · B3: an address is not a name, and it is private). */
+/**
+ * Display name, or "Bạn" — never the email (AVORA-51 · B3: an address is not a name, and it is private).
+ * QA01-09: "" while the profile is still loading, so nothing shows "Bạn" / "BẠ" and then changes.
+ */
 export function useDisplayName(): string {
-  const { profile } = useAuth();
-  const fromProfile = profile?.display_name?.trim();
-  if (fromProfile && fromProfile.length > 0) return fromProfile;
-  return "Bạn";
+  const { profile, isProfileLoading } = useAuth();
+  return ownDisplayName(profile?.display_name, isProfileLoading === true);
 }

@@ -1451,7 +1451,7 @@ const ThinkHub = () => {
       <div className="paper min-h-0 flex-1 scroll-y-free">
         <div className="mx-auto max-w-2xl px-6 py-16 text-center md:px-10">
           <p role="alert" className="text-[15px] text-muted-foreground">
-            {error?.message ?? "Không tải được Kế hoạch."}
+            {error?.message ?? "Không tải được Thư phòng."}
           </p>
           {/* AVORA-53 · 3.3: a failed load always offers a way to try again. */}
           <button

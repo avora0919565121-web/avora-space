@@ -144,7 +144,7 @@ export function RoomMapSheet({ open, shelf, summaries, onOpenChange, onGo }: { o
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="top" className="mx-auto max-w-xl rounded-b-[22px] px-3 pb-4 pt-[calc(env(safe-area-inset-top)+16px)]" data-room-sheet="">
         <SheetTitle className="px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Kệ treo tường</SheetTitle>
-        <SheetDescription className="sr-only">Cả phòng Kế hoạch — chạm một ô để tới.</SheetDescription>
+        <SheetDescription className="sr-only">Cả Thư phòng — chạm một ô để tới.</SheetDescription>
         <div className="mt-2">{row("wall")}</div>
         <p className="mt-3 px-1 text-[12px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Mặt bàn</p>
         <div className="mt-2">{row("desk")}</div>
@@ -717,7 +717,7 @@ export function WorkDesk({
         <h2 className="font-medium text-muted-foreground">
           Trên bàn <span className="tabular" data-desk-count="">{onDesk.length}/{DESK_LIMIT}</span>
         </h2>
-        <button type="button" onClick={() => onGo(3)} className="press min-h-11 font-medium text-personal">Lấy từ kệ 3 ›</button>
+        <button type="button" onClick={() => onGo(3)} className="press min-h-11 font-medium text-personal">Lấy từ Tiến trình ›</button>
       </div>
       <ul className="mt-2 grid grid-cols-[minmax(0,1fr)] gap-2.5 lg:grid-cols-[repeat(2,minmax(0,1fr))]" data-desk-cards="">
         {onDesk.map((board) => (
@@ -736,7 +736,7 @@ export function WorkDesk({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onSelect={() => void desk.remove.mutateAsync(board.id).then(() => toast.success("Đã đặt xuống — về kệ 3."))}>Đặt xuống</DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => void desk.remove.mutateAsync(board.id).then(() => toast.success("Đã đặt xuống — về Tiến trình."))}>Đặt xuống</DropdownMenuItem>
                 {canEditHead(board, user?.id, false)
                   ? LIFECYCLES.filter((item) => item.id !== laneOf(board)).map((item) => (
                       <DropdownMenuItem key={item.id} onSelect={() => void change(board, item.id)}>
@@ -770,8 +770,9 @@ export function WorkDesk({
           data-desk-input=""
           className="h-11 min-w-0 flex-1 rounded-control border border-border bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]"
         />
-        <button type="submit" disabled={text.trim() === "" || isSaving} className="press inline-flex h-11 shrink-0 items-center gap-1 rounded-control bg-personal px-3.5 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">
-          <Plus className="h-4 w-4" aria-hidden="true" /> Đặt lên bàn
+        {/* QA01-06: on a phone the button says just "Đặt" so the question in the box is not cut. */}
+        <button type="submit" aria-label="Đặt lên bàn" disabled={text.trim() === "" || isSaving} data-desk-submit="" className="press inline-flex h-11 shrink-0 items-center gap-1 rounded-control bg-personal px-3.5 text-[14px] font-semibold text-personal-foreground disabled:opacity-50">
+          <Plus className="h-4 w-4" aria-hidden="true" /> <span className="sm:hidden">Đặt</span><span className="hidden sm:inline">Đặt lên bàn</span>
         </button>
       </form>
     </div>

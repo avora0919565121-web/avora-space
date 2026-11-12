@@ -74,6 +74,17 @@ export function isProjectTab(tab: MessageTab): tab is "projects" {
   return tab === "projects";
 }
 
+/**
+ * The 🔍 buttons on Kết nối's top row. A tab with its own list search (1-1, Nhóm, Dự án) gets only
+ * that one — its box already offers "trong toàn AVORA" — so the row never carries two identical
+ * magnifiers (QA01-04: on a phone the second one squeezed the title to "K…"). Nhật ký and the
+ * Sắp có tabs have no list to search and keep Avora Search.
+ */
+export function topSearchButtons(tab: MessageTab, isPlaceholder: boolean): { list: boolean; avora: boolean } {
+  const list = tab !== "journal" && !isPlaceholder;
+  return { list, avora: !list };
+}
+
 export const JOURNAL_TITLE = "Nhật ký của tôi";
 export const JOURNAL_SUBTITLE = "Chỉ mình bạn xem";
 

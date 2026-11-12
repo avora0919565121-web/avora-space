@@ -15,7 +15,7 @@ import {
   projectRows,
   summaryRows,
   type AssignedItem,
-  viewBoardOf,
+  vaultBoardLocks,
   type ViewBoardKey,
   type ViewRow,
 } from "@/lib/avora-default-boards";
@@ -27,7 +27,7 @@ import { useHabits } from "@/lib/use-habits";
 import { useConversations } from "@/lib/use-conversations";
 import { useLedger } from "@/lib/use-finance";
 import { useHasMasterKey, useKeyring, useVaultItems } from "@/lib/use-vault-e2ee";
-import { useVaultUnlocked } from "@/lib/use-vault-lock";
+import { useFinanceOpen, useVaultUnlocked } from "@/lib/use-vault-lock";
 
 export type BoardRows = { rows: ViewRow[]; locked: boolean; isLoading: boolean; error: string | null };
 
@@ -39,6 +39,8 @@ export type BoardRows = { rows: ViewRow[]; locked: boolean; isLoading: boolean; 
 export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {}) {
   const today = todayIso();
   const isVaultOpen = useVaultUnlocked();
+  // QA01-03 (Nhà mới, VMT 12/11): Tài chính is open until a code is set — its boards follow Tài chính, not the lock.
+  const isFinanceOpen = useFinanceOpen();
   const hasKey = useHasMasterKey();
   const { ring } = useKeyring();
   const decisions = useMyDecisions(true);
@@ -66,8 +68,7 @@ export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {
   const paymentMonth = options.paymentMonth ?? "this";
 
   const boards: Record<ViewBoardKey, BoardRows> = useMemo(() => {
-    const financeLocked = !isVaultOpen;
-    const itemsLocked = !isVaultOpen || !hasKey;
+    const { finance: financeLocked, items: itemsLocked } = vaultBoardLocks({ isVaultOpen, isFinanceOpen, hasKey });
     const fin = (rows: () => ViewRow[]): BoardRows =>
       financeLocked ? { rows: [], locked: true, isLoading: false, error: null } : { rows: ledger.isLoading ? [] : rows(), locked: false, isLoading: ledger.isLoading, error: ledger.error?.message ?? null };
     const vault = (rows: () => ViewRow[]): BoardRows =>
@@ -85,9 +86,9 @@ export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {
       expiring_docs: vault(() => expiringRows(vaultItems, today)),
       assets: vault(() => assetResult.rows),
     };
-  }, [isVaultOpen, hasKey, ledger, decisions.data, decisions.isPending, decisions.error, contacts.data, contacts.isPending, contacts.error, projects.data, projects.isPending, projects.error, assigned.data, assigned.isPending, assigned.error, placeOf, contactName, today, vaultItems, assetResult, paymentMonth, certificates.isPending, documents.isPending, assets.isPending, habitState.habits, habitState.done, habitState.today, habitState.totalOf, habitState.isLoaded, habitState.loadFailed]);
+  }, [isVaultOpen, isFinanceOpen, hasKey, ledger, decisions.data, decisions.isPending, decisions.error, contacts.data, contacts.isPending, contacts.error, projects.data, projects.isPending, projects.error, assigned.data, assigned.isPending, assigned.error, placeOf, contactName, today, vaultItems, assetResult, paymentMonth, certificates.isPending, documents.isPending, assets.isPending, habitState.habits, habitState.done, habitState.today, habitState.totalOf, habitState.isLoaded, habitState.loadFailed]);
 
-  const byMonth = useMemo(() => (isVaultOpen ? cashflowByMonth(ledger.baseEntries) : []), [isVaultOpen, ledger.baseEntries]);
+  const byMonth = useMemo(() => (isFinanceOpen ? cashflowByMonth(ledger.baseEntries) : []), [isFinanceOpen, ledger.baseEntries]);
   const byPerson = useMemo(() => assignedByPerson((assigned.data ?? []) as AssignedItem[], today), [assigned.data, today]);
 
   return { boards, byMonth, byPerson, currency: ledger.currency, assetsValued: assetResult.totalCents !== null };
@@ -95,10 +96,9 @@ export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {
 
 /** Whether any system board needs attention now — the Avora lập sẵn line turns accent. */
 export function useDefaultShelfAttention(): boolean {
-  const isVaultOpen = useVaultUnlocked();
   const { boards } = useViewBoardRows();
   const { hidden } = useHiddenBoards();
   return (Object.keys(boards) as ViewBoardKey[]).some(
-    (key) => !hidden.includes(key) && (isVaultOpen || viewBoardOf(key).zone !== "ket-sat") && boards[key].rows.some((row) => row.hot === true),
+    (key) => !hidden.includes(key) && !boards[key].locked && boards[key].rows.some((row) => row.hot === true),
   );
 }

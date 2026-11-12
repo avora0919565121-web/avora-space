@@ -48,6 +48,14 @@ export function startSteps(choices: readonly WelcomeChoice[], needsPin: boolean)
   return needsPin ? [...head, "pin"] : head;
 }
 
+/**
+ * QA01-01: the "Viết dòng đầu tiên vào Nhật ký" step opens Nhật ký (ghi nhanh) itself, never whatever
+ * view the device opened last — on a new device that is Sổ ghi chép (long notes).
+ */
+export function journalStepPath(journalId: string | null): string {
+  return journalId === null ? "/tin-nhan" : `/tin-nhan/${journalId}?xem=nhat-ky`;
+}
+
 /** The welcome is for newcomers: an account made in the last 14 days. Unknown age → not new. */
 export function isRecentAccount(createdAt: string | null | undefined, now: Date = new Date()): boolean {
   if (createdAt == null || createdAt === "") return false;

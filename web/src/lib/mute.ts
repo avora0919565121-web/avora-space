@@ -33,7 +33,7 @@ export const MUTE_SCOPE_LABELS: Record<MuteScope, string> = {
   messages: "Tin nhắn",
   direct: "Chat 1-1",
   group: "Chat nhóm",
-  project: "Project",
+  project: "Dự án",
   conversation: "cuộc này",
 };
 
@@ -43,7 +43,7 @@ export const MUTE_SCOPE_NOTES: Record<MuteScope, string> = {
   messages: "Tắt thông báo tin nhắn — Gia đình vẫn qua được",
   direct: "Chỉ các cuộc trò chuyện 1-1",
   group: "Chỉ các nhóm — người nhắc tên bạn vẫn qua được",
-  project: "Chỉ các Project",
+  project: "Chỉ các dự án",
   conversation: "Chỉ một cuộc trò chuyện — người nhắc tên bạn trong nhóm vẫn qua được",
 };
 

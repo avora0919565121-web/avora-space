@@ -23,7 +23,7 @@ export function WelcomeHome({ name, onDone }: { name: string; onDone: (choices: 
     >
       <div className="animate-rise-in mx-auto flex w-full max-w-[480px] flex-1 flex-col">
         <img src="/icon.png" alt="" aria-hidden="true" width={44} height={44} className="h-11 w-11 rounded-control" />
-        <p className="mt-6 text-[15px] text-muted-foreground">Chào mừng {name} về nhà.</p>
+        <p className="mt-6 text-[15px] text-muted-foreground">{name === "" ? "Chào mừng bạn về nhà." : `Chào mừng ${name} về nhà.`}</p>
         <h1 id="welcome-title" className="mt-1 text-[26px] font-semibold leading-[1.2] tracking-tight text-foreground">
           Bạn muốn Avora là nơi để làm gì?
         </h1>

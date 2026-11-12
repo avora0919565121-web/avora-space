@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import { Navigate, useLocation } from "react-router-dom";
 
 import { HOME_ROUTE } from "@/lib/navigation";
-import { FEATURE_KEYS, routeFeature, statusOf, type FeatureKey } from "@/lib/features";
+import { FEATURE_KEYS, routeFeature, soonInsideSection, statusOf, type FeatureKey } from "@/lib/features";
 import { useFeature, useFeatures } from "@/lib/use-feature";
 import { cn } from "@/lib/utils";
 
@@ -37,16 +37,28 @@ export function RouteFeatureGate({ children }: { children: ReactNode }) {
   if (key === null) return <>{children}</>;
   const status = statusOf(features, key);
   if (status === "hidden") return <Navigate to={HOME_ROUTE} replace />;
-  if (status === "soon") {
-    const label = FEATURE_KEYS.find((entry) => entry.key === key)?.label ?? "";
-    return (
-      <div className="paper min-h-0 flex-1 scroll-y-free">
-        <div className="mx-auto max-w-3xl px-6 py-14 text-center md:px-10">
-          <h1 className="text-[22px] font-semibold tracking-tight text-foreground">{label}</h1>
-          <FeatureSoon className="mt-2" />
-        </div>
+  // QA01-10: a sub-tab of Cài đặt keeps the section's title and strip; its own frame shows the line.
+  if (status === "soon" && !soonInsideSection(location.pathname)) return <RouteSoonPage featureKey={key} />;
+  return <>{children}</>;
+}
+
+function RouteSoonPage({ featureKey }: { featureKey: FeatureKey }) {
+  const label = FEATURE_KEYS.find((entry) => entry.key === featureKey)?.label ?? "";
+  return (
+    <div className="paper min-h-0 flex-1 scroll-y-free">
+      <div className="mx-auto max-w-3xl px-6 py-14 text-center md:px-10">
+        <h1 className="text-[22px] font-semibold tracking-tight text-foreground">{label}</h1>
+        <FeatureSoon className="mt-2" />
       </div>
-    );
-  }
+    </div>
+  );
+}
+
+/** Inside a section's frame (around its `<Outlet />`): a `soon` sub-tab shows the quiet line there. */
+export function SectionFeatureGate({ children }: { children: ReactNode }) {
+  const location = useLocation();
+  const features = useFeatures();
+  const key = routeFeature(location.pathname);
+  if (key !== null && statusOf(features, key) === "soon" && soonInsideSection(location.pathname)) return <RouteSoonPage featureKey={key} />;
   return <>{children}</>;
 }

@@ -9,6 +9,8 @@ export const EDGE_PX = 20;
 export const EDGE_TRAVEL_PX = 60;
 export const EDGE_DRIFT_PX = 30;
 const HINT_KEY = "avora.nav.hold-back-hint-seen.v2";
+/** Clear of the tool-belt (52 px + its safe-area pad) and of a conversation's composer. */
+const HOLD_BACK_HINT_BOTTOM = "calc(env(safe-area-inset-bottom) + 96px)";
 
 function isStandalone(): boolean {
   return typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(display-mode: standalone)").matches;
@@ -96,7 +98,9 @@ export function NavGestures() {
           role="status"
           data-hold-back-hint=""
           className="animate-rise-in pointer-events-none fixed inset-x-0 z-[70] mx-auto w-fit rounded-full bg-foreground/85 px-3.5 py-1.5 text-[12.5px] font-medium text-background shadow-md"
-          style={{ top: "calc(env(safe-area-inset-top) + 60px)" }}
+          // QA01-11: low on the screen, above the tool-belt / composer — under the top row it covered the
+          // first strip of a screen (Ghi chép · Nhật ký · File) for its whole life.
+          style={{ bottom: HOLD_BACK_HINT_BOTTOM }}
         >
           Chạm ‹ để lùi · Giữ ‹ để về đầu {rootLabel}
         </p>

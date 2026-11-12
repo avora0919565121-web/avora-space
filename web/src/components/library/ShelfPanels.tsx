@@ -15,10 +15,10 @@ import { hereFrom, withReturn } from "@/lib/return-to";
 import type { ThinkTable } from "@/lib/think-hub";
 import { useConversations } from "@/lib/use-conversations";
 import { useNotes } from "@/lib/use-notes";
-import { useVaultUnlocked } from "@/lib/use-vault-lock";
+import { useVaultLock } from "@/lib/use-vault-lock";
 import { cn } from "@/lib/utils";
 import { useConclusions, useLifecycleChange } from "@/components/library/BoardHead";
-import { DEFAULT_BOARDS, viewBoardOf, ZONES, type ViewBoardKey } from "@/lib/avora-default-boards";
+import { DEFAULT_BOARDS, vaultZoneLockText, viewBoardOf, ZONES, type ViewBoardKey } from "@/lib/avora-default-boards";
 import { useHiddenBoards } from "@/lib/use-default-boards";
 import { useViewBoardRows } from "@/lib/use-view-board-rows";
 import { boardQuestion, sameWords } from "@/lib/desk";
@@ -47,17 +47,21 @@ export function DefaultShelf({
   onOpen: (id: string) => void;
   onOpenView: (key: ViewBoardKey) => void;
 }) {
-  const isVaultOpen = useVaultUnlocked();
+  const vault = useVaultLock() as ReturnType<typeof useVaultLock> | undefined;
+  const hasCode = vault?.status?.hasCode !== false;
   const { boards: live } = useViewBoardRows();
   const { hidden } = useHiddenBoards();
+  // QA01-03: a board is shut only when its own rows say so — Tài chính stays open while there is no code.
+  const isZoneShut = (zone: string): boolean =>
+    DEFAULT_BOARDS.some((def) => def.kind === "view" && def.zone === zone && !hidden.includes(def.key) && live[def.key].locked);
   return (
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3" data-shelf-panel="mac-dinh">
       {ZONES.map((zone) => (
         <section key={zone.id} aria-label={zone.label} data-zone={zone.id} className="rounded-card border border-border bg-card">
           <h3 className="border-b border-border/70 px-4 py-2 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{zone.label}</h3>
-          {zone.id === "ket-sat" && !isVaultOpen ? (
+          {zone.id === "ket-sat" && isZoneShut(zone.id) ? (
             <p data-vault-locked="" className="flex items-center gap-2 border-b border-border/50 px-4 py-2 text-[12.5px] text-muted-foreground">
-              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> Đang khoá · Mở Két sắt để xem
+              <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> {vaultZoneLockText(hasCode)}
             </p>
           ) : null}
           <ul>
@@ -79,7 +83,7 @@ export function DefaultShelf({
               }
               if (hidden.includes(def.key)) return null;
               const rows = live[def.key];
-              const locked = zone.id === "ket-sat" && (!isVaultOpen || rows.locked);
+              const locked = zone.id === "ket-sat" && rows.locked;
               const hot = !locked && rows.rows.some((row) => row.hot === true);
               return (
                 <li key={def.key} className="border-b border-border/50 last:border-b-0">

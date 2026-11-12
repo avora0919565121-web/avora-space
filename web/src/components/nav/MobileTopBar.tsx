@@ -44,7 +44,7 @@ export function MobileTopBar() {
         <div className="flex h-[52px] items-center gap-1 pl-[calc(var(--tab-inset)-8px)] pr-[60px]" data-mobile-top-row="">
           {focus !== null ? (
             <>
-              <button type="button" {...focusPress} aria-label="Quay lại. Giữ để về đầu Kế hoạch" data-focus-back="" data-back="" className="press no-callout -ml-1 flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full text-foreground [touch-action:manipulation]">
+              <button type="button" {...focusPress} aria-label="Quay lại. Giữ để về đầu Thư phòng" data-focus-back="" data-back="" className="press no-callout -ml-1 flex h-11 w-11 shrink-0 select-none items-center justify-center rounded-full text-foreground [touch-action:manipulation]">
                 <ChevronLeft className="h-6 w-6" strokeWidth={2} aria-hidden="true" />
               </button>
               <div className="min-w-0 flex-1" data-focus-title="">

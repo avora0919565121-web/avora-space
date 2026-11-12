@@ -19,7 +19,7 @@ import {
   unlockVault,
   vaultKeys,
 } from "@/lib/vault-api";
-import { VAULT_TOUCH_MS, leftTooLong, type VaultAttempt, type VaultStatus } from "@/lib/vault-lock";
+import { VAULT_TOUCH_MS, leftTooLong, lockThenStatus, type VaultAttempt, type VaultStatus } from "@/lib/vault-lock";
 import { clearVaultKeys, openWithDeviceShare } from "@/lib/vault-keys";
 
 /** Everything the Két sắt keeps in the query cache — dropped the moment it locks. */
@@ -52,10 +52,11 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
     queryFn: async () => {
       // AVORA-102 · A1.3: tie this session to this device before the server is asked anything.
       await ensureDeviceProven();
-      // The first look in this app start locks whatever an earlier tab of this session left open.
+      // The first look in this app start locks whatever an earlier tab of this session left open —
+      // sent together with the status read (QA01-08), not one round trip after the other.
       if (startedFor.current !== userId) {
         startedFor.current = userId ?? null;
-        await lockVault().catch((error: unknown) => logError("vault", error));
+        return lockThenStatus(lockVault, fetchVaultStatus, (error: unknown) => logError("vault", error));
       }
       return fetchVaultStatus();
     },

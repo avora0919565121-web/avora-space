@@ -162,7 +162,7 @@ export function AppSidebar() {
         <div className="flex items-center gap-3">
           <UserAvatar userId={user?.id ?? null} name={displayName} size="sm" />
           <div className="min-w-0">
-            <p className="truncate text-[14px] font-semibold text-foreground">{displayName}</p>
+            <p className="truncate text-[14px] font-semibold text-foreground">{displayName === "" ? "\u00a0" : displayName}</p>
             <p className="truncate text-[12px] text-muted-foreground">{maskEmail(user?.email)}</p>
           </div>
         </div>

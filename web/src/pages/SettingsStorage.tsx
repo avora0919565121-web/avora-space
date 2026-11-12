@@ -225,7 +225,7 @@ const SettingsStorage = () => {
 
             <button type="button" className={row} onClick={() => navigate("/ke-hoach?ke=3&don=1")} data-storage-cleanup="">
               <span className="min-w-0 flex-1">
-                <span className="block text-[15px] text-foreground">Dọn kệ Kế hoạch</span>
+                <span className="block text-[15px] text-foreground">Dọn bảng ở Thư phòng › Kế hoạch</span>
                 <span className="block text-[12.5px] text-muted-foreground">Avora chỉ gợi ý — bạn chọn rồi mới dọn</span>
               </span>
               <ChevronRight className="h-4 w-4 text-muted-foreground" />

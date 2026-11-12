@@ -10,7 +10,7 @@ import { WelcomeHome } from "@/components/space/WelcomeHome";
 import { UserAvatar } from "@/components/UserAvatar";
 import { usePinStatus } from "@/components/PinGate";
 import { pinPhase } from "@/lib/user-pin";
-import { isRecentAccount, readWelcome, saveWelcome, startSteps, type StartStepKey } from "@/lib/welcome";
+import { isRecentAccount, journalStepPath, readWelcome, saveWelcome, startSteps, type StartStepKey } from "@/lib/welcome";
 import { useHabits } from "@/lib/use-habits";
 import { useVaultLock } from "@/lib/use-vault-lock";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
@@ -231,7 +231,12 @@ export default function Dashboard() {
             <div className="flex items-start gap-2">
             <h1 className="min-w-0 flex-1 text-[19px] leading-snug text-foreground">
               <span className="font-normal text-muted-foreground">{greeting(opened.getHours())}, </span>
-              <span className="font-semibold">{displayName}</span>
+              {displayName === "" ? (
+                // QA01-09: the name's place, held quietly while the profile loads (no "Bạn" → real name flicker).
+                <span className="inline-block h-[0.9em] w-20 rounded bg-muted align-middle" aria-hidden="true" data-name-pending="" />
+              ) : (
+                <span className="font-semibold">{displayName}</span>
+              )}
               <span className="font-normal text-muted-foreground">
                 <span className="text-task-idle" aria-hidden="true">
                   {" · "}
@@ -242,7 +247,7 @@ export default function Dashboard() {
             {/* AVORA-44 · việc 5: the one search, from Avora Space too. */}
             <AvoraSearchButton here={{ tab: "avora-space", label: "Avora Space" }} />
             {/* Nhà mới: Cài đặt left the tool-belt; it opens from your own picture here. */}
-            <Link to="/cai-dat" aria-label="Hồ sơ và Cài đặt" data-space-avatar="" className="press -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+            <Link to={withReturn("/cai-dat", SPACE_ORIGIN)} aria-label="Hồ sơ và Cài đặt" data-space-avatar="" className="press -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
               <UserAvatar userId={userId ?? null} name={displayName} size="sm" />
             </Link>
             </div>
@@ -254,7 +259,8 @@ export default function Dashboard() {
                 {thought.speaker === null ? null : (
                   <p className="mt-1.5 text-[13px] text-muted-foreground">— {thought.speaker}</p>
                 )}
-                <p className="mt-3 text-[12px] text-task-idle">{SPACE_BLOCK_COPY.greeting.hint}</p>
+                {/* QA01-13: the house's quiet meta grey at 13px — task-idle at 12px all but vanished on a light page. */}
+                <p data-thought-hint="" className="mt-3 text-[13px] text-muted-foreground">{SPACE_BLOCK_COPY.greeting.hint}</p>
                 <ThoughtNote thought={thought} thoughtKey={thoughtKey} />
               </section>
             )}
@@ -413,7 +419,7 @@ export default function Dashboard() {
               <div
                 role="link"
                 tabIndex={0}
-                aria-label="Mở Kế hoạch"
+                aria-label="Mở Thư phòng"
                 data-plan-row=""
                 onClick={() => navigate(withReturn("/ke-hoach", SPACE_ORIGIN))}
                 onKeyDown={(event) => event.key === "Enter" && navigate(withReturn("/ke-hoach", SPACE_ORIGIN))}
@@ -515,7 +521,7 @@ export default function Dashboard() {
     journal: {
       isDone: (conversations ?? []).some((item) => item.kind === "personal" && item.lastMessageAt !== null),
       label: "Viết dòng đầu tiên vào Nhật ký",
-      to: withReturn(journalId === null ? "/tin-nhan" : `/tin-nhan/${journalId}`, SPACE_ORIGIN),
+      to: withReturn(journalStepPath(journalId), SPACE_ORIGIN),
       icon: <BookOpen className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
     },
     task: {

@@ -272,6 +272,29 @@ export function isVaultViewBoard(key: ViewBoardKey): boolean {
   return viewBoardOf(key).zone === "ket-sat";
 }
 
+/**
+ * QA01-03 (Nhà mới, VMT 12/11): what a locked Két sắt board says, and where its button leads. With no
+ * code yet Tài chính is open, so only the Giấy tờ / Tài sản boards stay shut — and "Mở Két sắt" would
+ * ask for a code the person never set, so they are invited to set one in the compartment instead.
+ */
+export function vaultBoardLock(key: ViewBoardKey, hasCode: boolean): { text: string; action: string; to: string } {
+  if (hasCode) return { text: "Đang khoá · Mở Két sắt để xem", action: "Mở Két sắt", to: "/ket-sat" };
+  return { text: "Chưa có mã · Đặt mã Két sắt để xem", action: "Đặt mã", to: key === "assets" ? "/ket-sat/tai-san" : "/ket-sat/tai-lieu" };
+}
+
+/**
+ * QA01-03: which Két sắt boards are shut. Tài chính's four follow Tài chính (open while the Két sắt
+ * is unlocked, or while no code is set yet); Giấy tờ / Tài sản need the open Két sắt and its key.
+ */
+export function vaultBoardLocks(state: { isVaultOpen: boolean; isFinanceOpen: boolean; hasKey: boolean }): { finance: boolean; items: boolean } {
+  return { finance: !state.isFinanceOpen, items: !state.isVaultOpen || !state.hasKey };
+}
+
+/** The one line over the Két sắt group on Lập sẵn while some of its boards are shut. */
+export function vaultZoneLockText(hasCode: boolean): string {
+  return hasCode ? "Đang khoá · Mở Két sắt để xem" : "Giấy tờ, tài sản cần mã · Đặt mã Két sắt để xem";
+}
+
 /** Search across Kế hoạch: board names and goals — never a Két sắt board (ADR-032). */
 export function searchViewBoards(query: string): ViewBoardDef[] {
   const needle = normalizeSearch(query);

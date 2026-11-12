@@ -170,6 +170,14 @@ export async function setFeatureStatus(key: FeatureKey, status: FeatureStatus, n
   }
 }
 
+/**
+ * QA01-10: sections whose frame (title + sub-tab strip) stays while one of their sub-tabs is `soon` —
+ * the quiet line is shown inside it, so there is still a way to the other sub-tabs.
+ */
+export function soonInsideSection(pathname: string): boolean {
+  return pathname.startsWith("/cai-dat/");
+}
+
 /** Which feature owns a route, for the route gate (hidden → not reachable by link either). */
 export function routeFeature(pathname: string): FeatureKey | null {
   const rules: readonly [RegExp, FeatureKey][] = [

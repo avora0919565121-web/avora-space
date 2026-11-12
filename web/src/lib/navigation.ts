@@ -73,6 +73,16 @@ export const SETTINGS_ROUTE = "/cai-dat";
 export const TOOL_BELT_ITEMS: readonly NavEntry[] = NAV_ITEMS.filter((item) => item.to !== SETTINGS_ROUTE);
 
 /**
+ * QA01-10: which tool-belt tab is lit for a path. Cài đặt has no tab on the phone — it opens from the
+ * avatar on Avora Space — so while it is open Avora Space stays lit, and the belt always says where
+ * you are.
+ */
+export function toolBeltTabOf(pathname: string): string | null {
+  const owner = activeNavEntry(pathname)?.to ?? null;
+  return owner === SETTINGS_ROUTE ? HOME_ROUTE : owner;
+}
+
+/**
  * Named at the end of the full map (hold the logo on a phone) so the shape of AVORA is complete,
  * but not built: no route, no screen, only the "Sắp ra mắt" pill.
  */

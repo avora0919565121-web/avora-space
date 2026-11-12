@@ -49,6 +49,22 @@ function text(value: unknown): string | null {
   return typeof value === "string" && value !== "" ? value : null;
 }
 
+/**
+ * QA01-08: the first look of an app start locks whatever an earlier tab left open, then reads the
+ * status. The two used to run one after the other — a whole extra round trip on every cold open of
+ * Két sắt, Tài chính included. They now go out together. The usual answer ("locked") is final at
+ * once; only when that read says "open" — it may have reached the server before the lock — is the
+ * status read once more after the lock has landed, so the server stays the one who decides.
+ */
+export async function lockThenStatus(
+  lock: () => Promise<void>,
+  status: () => Promise<VaultStatus>,
+  onLockError: (error: unknown) => void,
+): Promise<VaultStatus> {
+  const [, first] = await Promise.all([lock().catch((error: unknown) => onLockError(error)), status()]);
+  return first.unlocked ? status() : first;
+}
+
 /** Reads `vault_status()`; anything malformed reads as locked, never as open. */
 export function parseVaultStatus(raw: unknown): VaultStatus {
   const row = record(raw);

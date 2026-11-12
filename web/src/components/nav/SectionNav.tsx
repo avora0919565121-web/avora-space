@@ -1,9 +1,10 @@
 import type { ReactNode } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 
 import { MobileTopActions } from "@/components/nav/HubTitle";
 import { SubTabs } from "@/components/nav/SubTabs";
 import { activeSectionTab, type NavEntry } from "@/lib/navigation";
+import { carryReturn } from "@/lib/return-to";
 
 /**
  * The head of a sectioned area (Két sắt, Cài đặt): the title + `+` on wide screens, the `+` in the
@@ -16,8 +17,11 @@ export function SectionNav({
   tabs,
   action,
   notice,
+  keepReturn = false,
 }: {
   section: string;
+  /** QA01-10: moving between sub-tabs keeps the way back (`tu`) — Cài đặt has no tab of its own on a phone. */
+  keepReturn?: boolean;
   /** Nhà mới: one quiet line about the area (Két sắt chưa có mã), beside the title — never a card under it. */
   notice?: ReactNode;
   tabs: readonly NavEntry[];
@@ -26,7 +30,12 @@ export function SectionNav({
 }) {
   const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const current: string = activeSectionTab(location.pathname, tabs);
+  const go = (to: string): void => {
+    const query = keepReturn ? carryReturn(searchParams, new URLSearchParams()).toString() : "";
+    navigate(query === "" ? to : `${to}?${query}`);
+  };
 
   return (
     <header data-section-nav="" className="shrink-0 md:bg-card short:bg-card">
@@ -49,7 +58,7 @@ export function SectionNav({
         ariaLabel={`Mục ${section}`}
         items={tabs.map((tab) => ({ id: tab.to, label: tab.label }))}
         value={current}
-        onChange={(to) => navigate(to)}
+        onChange={go}
       />
     </header>
   );

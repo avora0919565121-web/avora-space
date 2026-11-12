@@ -41,3 +41,15 @@ export function memberNameOf(names: ReadonlyMap<string, string>, userId: string 
   if (isDeletedUser(userId)) return DELETED_USER_NAME;
   return names.get(userId as string) ?? fallback;
 }
+
+/**
+ * QA01-09: your own name as the app shows it. While the profile is still on its way the answer is
+ * "" (the screens hold its place quietly) — never "Bạn" first and the real name a moment later,
+ * which made the greeting and the avatar's letters ("BẠ" → "NM") flicker on every cold start.
+ * Once the profile is known: its name, or "Bạn" when none is set (never the email — AVORA-51 · B3).
+ */
+export function ownDisplayName(displayName: string | null | undefined, isProfileLoading: boolean): string {
+  const name = displayName?.trim();
+  if (name && name.length > 0) return name;
+  return isProfileLoading ? "" : "Bạn";
+}

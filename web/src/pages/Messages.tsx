@@ -253,6 +253,7 @@ import {
   isNearThreadBottom,
   isPlaceholderTab,
   isProjectTab,
+  topSearchButtons,
   isRecalled,
   lastOutgoingId,
   ORIGIN_GROUP_PARAM,
@@ -378,6 +379,7 @@ const Messages = () => {
   const isPlaceholder = isPlaceholderTab(activeTab);
   /** Dự án lists projects rather than threads, so the pane below the strip changes entirely. */
   const isProjects = isProjectTab(activeTab);
+  const topSearch = topSearchButtons(activeTab, isPlaceholder);
   // Desktop only: the list column's width, as the reader last dragged it.
   const listColumn = useColumnWidth(LIST_COLUMN);
   const listSectionRef = useRef<HTMLElement | null>(null);
@@ -2769,7 +2771,7 @@ const Messages = () => {
             <MobileTopActions>
             <div className="flex min-w-0 shrink items-center gap-1.5 [&>*]:shrink-0 sm:gap-2">
               {/* 1.5: 1-1 and Nhóm search from their own box (with "trong toàn AVORA"); 🔍 stays where there is none. */}
-              {activeTab === "journal" || isPlaceholder ? null : (
+              {!topSearch.list ? null : (
                 <button
                   type="button"
                   onClick={() => setIsListSearchOpen(true)}
@@ -2780,7 +2782,7 @@ const Messages = () => {
                   <Search className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
                 </button>
               )}
-              {activeTab === "direct" || activeTab === "group" ? null : (
+              {!topSearch.avora ? null : (
                 <AvoraSearchButton
                   here={{ tab: activeTab === "journal" ? "nhat-ky" : "ket-noi", conversationId: conversationId ?? null, label: activeTab === "journal" ? "Nhật ký" : "Kết nối" }}
                 />

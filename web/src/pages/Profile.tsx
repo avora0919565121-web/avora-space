@@ -248,7 +248,7 @@ const Profile = () => {
         </section>
 
         {/* 111-B: Hỗ trợ và liên hệ — the support address and a short form. */}
-        <SupportSection defaultName={displayName} />
+        <SupportSection key={displayName === "" ? "name-pending" : "name-known"} defaultName={displayName} />
 
         {/* 111-A (ADR-092): Tài khoản › Xoá tài khoản — two taps from Cài đặt. */}
         <AccountDeletionSection />

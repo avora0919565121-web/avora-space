@@ -131,7 +131,8 @@ export function FinanceHeader({ subtitle, action }: { subtitle: string; action?:
       </div>
 
       <nav aria-label="Mục tài chính" className="mt-5">
-        <ul className="flex flex-wrap gap-1">
+        {/* QA01-12: one line on a phone — tighter pads there, and a sideways scroll before any wrap. */}
+        <ul data-finance-tabs="" data-h-scroll="" className="flex gap-0.5 overflow-x-auto [scrollbar-width:none] sm:flex-wrap sm:gap-1 sm:overflow-visible">
           {TABS.map((tab) => (
             <li key={tab.to}>
               <NavLink
@@ -139,7 +140,7 @@ export function FinanceHeader({ subtitle, action }: { subtitle: string; action?:
                 end={tab.end}
                 className={({ isActive }) =>
                   cn(
-                    "press inline-block rounded-md px-3.5 py-2 text-[14px] font-medium transition-colors",
+                    "press inline-block whitespace-nowrap rounded-md px-2 py-2 text-[14px] font-medium transition-colors sm:px-3.5",
                     isActive
                       ? "bg-accent/70 text-accent-foreground"
                       : "text-muted-foreground hover:bg-accent/35 hover:text-foreground",
