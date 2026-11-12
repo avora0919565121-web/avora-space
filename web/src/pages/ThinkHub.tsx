@@ -148,6 +148,8 @@ import {
   filledCountOf,
   HUB_RECORD_PARAM,
   isTableFull,
+  fetchThinkRecord,
+  isRecordConflict,
   RECORD_LIMIT,
   recordCountOf,
   recordsOf,
@@ -988,19 +990,21 @@ const ThinkHub = () => {
   }, [requestedRecordId, isPending, records, tables, searchParams, setSearchParams, openRecord]);
 
   const handleSaveRecord = useCallback(
-    async (patch: RecordPatch): Promise<void> => {
+    async (patch: RecordPatch, options?: { expectedUpdatedAt?: string | null }): Promise<void> => {
       if (editing !== null) {
+        // KT-08 · QA04-06: the version the dialog opened with (or the newer one "Vẫn lưu của tôi" accepted).
+        const expected = { expectedUpdatedAt: options?.expectedUpdatedAt ?? editing.updatedAt };
         const row = editing.opportunityId == null ? undefined : opportunityBoard.byId.get(editing.opportunityId);
         if (row !== undefined) {
           // AVORA-72: synced cells go back to Danh bạ / the opportunity; the rest stays on the board.
           const split = splitSyncPatch(patch);
           await saveSyncEdits(row, split.contact, split.opportunity);
-          await actions.updateRecord(editing.id, split.board);
+          await actions.updateRecord(editing.id, split.board, expected);
           invalidateOpportunityBoard();
           toast.success("Đã lưu.");
           return;
         }
-        await actions.updateRecord(editing.id, patch);
+        await actions.updateRecord(editing.id, patch, expected);
         toast.success("Đã lưu.");
         return;
       }
@@ -1027,6 +1031,40 @@ const ThinkHub = () => {
     [actions, editing, targetTable, records, opportunityBoard.byId, invalidateOpportunityBoard],
   );
 
+  /** KT-08 · QA04-06: "Xem bản mới" in the open Hạng mục — the row as it is now. */
+  const reloadEditing = useCallback(async (): Promise<void> => {
+    if (editing === null) return;
+    setEditing(await fetchThinkRecord(editing.id));
+  }, [editing]);
+
+  /**
+   * KT-08 · QA04-06: a quick edit (one cell, one status) whose row changed since this screen read it.
+   * Nothing was written. "Vẫn lưu của tôi" re-applies only this one change on top of the newer row.
+   */
+  const askOnConflict = useCallback(
+    (caught: unknown, record: ThinkRecord, apply: (fresh: ThinkRecord) => RecordPatch, done?: () => void): void => {
+      if (!isRecordConflict(caught)) {
+        toast.error(caught instanceof Error ? caught.message : "Không lưu được.");
+        return;
+      }
+      toast(caught.message, {
+        description: "Thay đổi của bạn chưa được lưu.",
+        duration: 12_000,
+        cancel: { label: "Xem bản mới", onClick: () => undefined },
+        action: {
+          label: "Vẫn lưu của tôi",
+          onClick: () => {
+            void fetchThinkRecord(record.id)
+              .then((fresh) => actions.updateRecord(fresh.id, apply(fresh), { expectedUpdatedAt: fresh.updatedAt }))
+              .then(() => done?.())
+              .catch((again: unknown) => askOnConflict(again, record, apply, done));
+          },
+        },
+      });
+    },
+    [actions],
+  );
+
   /**
    * AVORA-75 · 72: dragging a card to another column in `Theo trạng thái` changes its status. On the
    * synced board the status is the opportunity's stage — the server trigger carries it over.
@@ -1034,25 +1072,28 @@ const ThinkHub = () => {
   const handleMoveRecord = useCallback(
     (record: ThinkRecord, status: string): void => {
       const isSynced = record.opportunityId != null;
+      const done = (): void => {
+        if (isSynced) invalidateOpportunityBoard();
+        toast.success("Đã chuyển trạng thái.");
+      };
       actions
-        .updateRecord(record.id, { status })
-        .then(() => {
-          if (isSynced) invalidateOpportunityBoard();
-          toast.success("Đã chuyển trạng thái.");
-        })
-        .catch((caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không chuyển được."));
+        .updateRecord(record.id, { status }, { expectedUpdatedAt: record.updatedAt })
+        .then(done)
+        .catch((caught: unknown) => askOnConflict(caught, record, () => ({ status }), done));
     },
-    [actions, invalidateOpportunityBoard],
+    [actions, invalidateOpportunityBoard, askOnConflict],
   );
 
   /** AVORA-61 · D: a Có / Không cell ticks in place; the rest of the record's fields stay as they are. */
   const handleToggleCheckbox = useCallback(
     (record: ThinkRecord, column: ColumnDef, next: boolean): void => {
+      // KT-08 · QA04-06: the cell map is sent whole, so a stale copy would wipe others' cells — send the version.
+      const apply = (base: ThinkRecord): RecordPatch => ({ extensionFields: { ...base.extensionFields, [column.key]: next ? "1" : null } });
       actions
-        .updateRecord(record.id, { extensionFields: { ...record.extensionFields, [column.key]: next ? "1" : null } })
-        .catch((caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không lưu được."));
+        .updateRecord(record.id, apply(record), { expectedUpdatedAt: record.updatedAt })
+        .catch((caught: unknown) => askOnConflict(caught, record, apply));
     },
-    [actions],
+    [actions, askOnConflict],
   );
 
   /** AVORA-61 · E: every column action, in the ⋯ at the column's head. */
@@ -2703,6 +2744,7 @@ const ThinkHub = () => {
         record={editing !== null && editing.opportunityId != null ? (withSyncValues([editing], opportunityBoard.rows, () => "", () => 0)[0] ?? editing) : editing}
         knownStatuses={editing !== null && editing.opportunityId != null ? ["lead", "tiem_nang", "dang_cham_soc", "doi_tac", "khong_thanh"] : knownStatuses}
         onSave={handleSaveRecord}
+        onReloadRecord={reloadEditing}
         isWorking={actions.isWorking}
         tableChoices={tableChoices}
         selectedTableId={targetTable?.id}

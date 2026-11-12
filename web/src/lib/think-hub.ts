@@ -934,6 +934,8 @@ export function toVietnameseHubError(code: string | undefined, message: string):
     return "Độ ưu tiên này không hợp lệ.";
   if (normalized.includes("avora_think_hub_record_deleted"))
     return "Mục này đã được cất đi.";
+  if (normalized.includes("avora_think_hub_record_conflict"))
+    return conflictMessage(null, false);
   if (
     normalized.includes("avora_think_hub_table_not_yours") ||
     normalized.includes("avora_think_hub_table_missing")
@@ -1373,6 +1375,51 @@ export type RecordPatch = {
 };
 
 /**
+ * KT-08 · QA04-06: someone saved this row after the viewer opened it. Nothing was written; the screen
+ * asks "Xem bản mới / Vẫn lưu của tôi" instead of overwriting quietly.
+ */
+export class RecordConflictError extends Error {
+  readonly updatedAt: string;
+  readonly byName: string | null;
+  readonly byMe: boolean;
+  constructor(updatedAt: string, byName: string | null, byMe: boolean) {
+    super(conflictMessage(byName, byMe));
+    this.name = "RecordConflictError";
+    this.updatedAt = updatedAt;
+    this.byName = byName;
+    this.byMe = byMe;
+  }
+}
+
+export function conflictMessage(byName: string | null, byMe: boolean): string {
+  if (byMe) return "Dòng này vừa được bạn cập nhật ở nơi khác.";
+  return `Dòng này vừa được ${byName !== null && byName.trim() !== "" ? byName.trim() : "người khác"} cập nhật.`;
+}
+
+export function isRecordConflict(error: unknown): error is RecordConflictError {
+  return error instanceof RecordConflictError;
+}
+
+/** Reads the conflict the server describes in the error's DETAIL (JSON); null when it is another error. */
+export function recordConflictOf(error: { message?: string; details?: string | null } | null | undefined): RecordConflictError | null {
+  if (error == null || !(error.message ?? "").includes("avora_think_hub_record_conflict")) return null;
+  try {
+    const detail = JSON.parse(error.details ?? "{}") as { updated_at?: unknown; by_name?: unknown; by_me?: unknown };
+    if (typeof detail.updated_at !== "string") return null;
+    return new RecordConflictError(detail.updated_at, typeof detail.by_name === "string" ? detail.by_name : null, detail.by_me === true);
+  } catch {
+    return null;
+  }
+}
+
+/** One record as it is now — for "Xem bản mới" after a conflict. */
+export async function fetchThinkRecord(recordId: string): Promise<ThinkRecord> {
+  const { data, error } = await supabase.from("think_hub_record").select("*").eq("id", recordId).single();
+  if (error) throw fail(error.code, error.message);
+  return toRecord(data as RecordRow);
+}
+
+/**
  * Edits a record.
  *
  * A key that is present is written — including written empty — and a key that is absent is
@@ -1382,6 +1429,7 @@ export type RecordPatch = {
 export async function updateThinkRecord(
   recordId: string,
   patch: RecordPatch,
+  options: { expectedUpdatedAt?: string | null } = {},
 ): Promise<ThinkRecord> {
   const body: Record<string, Json> = {};
 
@@ -1402,8 +1450,14 @@ export async function updateThinkRecord(
   const { data, error } = await supabase.rpc("update_think_hub_record", {
     p_record_id: recordId,
     p_patch: body,
+    // KT-08 · QA04-06: the version the edit started from; the server refuses to overwrite a newer one.
+    ...(options.expectedUpdatedAt != null ? { p_expected_updated_at: options.expectedUpdatedAt } : {}),
   });
-  if (error) throw fail(error.code, error.message);
+  if (error) {
+    const conflict = recordConflictOf(error);
+    if (conflict !== null) throw conflict;
+    throw fail(error.code, error.message);
+  }
   return toRecord(data as unknown as RecordRow);
 }
 

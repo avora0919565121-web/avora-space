@@ -9425,7 +9425,7 @@ export type Database = {
         }
       }
       update_think_hub_record: {
-        Args: { p_patch: Json; p_record_id: string }
+        Args: { p_expected_updated_at?: string; p_patch: Json; p_record_id: string }
         Returns: {
           archived_at: string | null
           category: string | null

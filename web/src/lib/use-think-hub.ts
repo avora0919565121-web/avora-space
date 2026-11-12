@@ -28,6 +28,7 @@ import {
   rootTables,
   setThinkTablePurpose,
   updateThinkRecord,
+  isRecordConflict,
   visibleTables,
   type ThinkRecord,
   type ThinkTable,
@@ -187,7 +188,7 @@ export function useThinkHubActions(): {
   restoreColumn: (input: { tableId: string; columnId: string }) => Promise<ThinkTable>;
   requestColumnDelete: (input: { tableId: string; columnId: string; reason: string }) => Promise<void>;
   createRecord: (input: NewRecordInput) => Promise<ThinkRecord>;
-  updateRecord: (recordId: string, patch: RecordPatch) => Promise<ThinkRecord>;
+  updateRecord: (recordId: string, patch: RecordPatch, options?: { expectedUpdatedAt?: string | null }) => Promise<ThinkRecord>;
   removeRecord: (recordId: string) => Promise<ThinkRecord>;
   restoreRecord: (recordId: string) => Promise<ThinkRecord>;
   isWorking: boolean;
@@ -278,9 +279,18 @@ export function useThinkHubActions(): {
   });
 
   const updateRecordMutation = useMutation({
-    mutationFn: ({ recordId, patch }: { recordId: string; patch: RecordPatch }) =>
-      updateThinkRecord(recordId, patch),
-    onSuccess: invalidate,
+    mutationFn: ({ recordId, patch, options }: { recordId: string; patch: RecordPatch; options?: { expectedUpdatedAt?: string | null } }) =>
+      updateThinkRecord(recordId, patch, options),
+    onSuccess: (saved) => {
+      // KT-08 · QA04-06: the list holds the new version at once, so reopening the row right away
+      // starts from it (no false "vừa được bạn cập nhật") before the refetch lands.
+      queryClient.setQueryData<ThinkRecord[]>(thinkHubKeys.records, (rows) => rows?.map((row) => (row.id === saved.id ? saved : row)));
+      invalidate();
+    },
+    // KT-08 · QA04-06: a conflict means the list is behind — bring the newer row in.
+    onError: (error) => {
+      if (isRecordConflict(error)) invalidate();
+    },
   });
 
   const removeRecordMutation = useMutation({
@@ -358,8 +368,8 @@ export function useThinkHubActions(): {
       [createRecordMutation],
     ),
     updateRecord: useCallback(
-      (recordId: string, patch: RecordPatch) =>
-        updateRecordMutation.mutateAsync({ recordId, patch }),
+      (recordId: string, patch: RecordPatch, options?: { expectedUpdatedAt?: string | null }) =>
+        updateRecordMutation.mutateAsync({ recordId, patch, options }),
       [updateRecordMutation],
     ),
     removeRecord: useCallback(

@@ -23,6 +23,7 @@ import {
   type RecordPatch,
   type ThinkRecord,
   type ThinkTable,
+  fetchThinkRecord,
 } from "@/lib/think-hub";
 import { deadlineLabel, taskStatusLabel, todayIso, type TaskItem } from "@/lib/tasks";
 import { TYPE } from "@/lib/type-scale";
@@ -160,13 +161,19 @@ function PeekBody({
   }, [newTitle, allRecords, table, guard, actions]);
 
   const saveRecord = useCallback(
-    async (patch: RecordPatch): Promise<void> => {
+    async (patch: RecordPatch, options?: { expectedUpdatedAt?: string | null }): Promise<void> => {
       if (editing === null) return;
-      await actions.updateRecord(editing.id, patch);
+      // KT-08 · QA04-06: send the version this dialog opened with; a newer one is never overwritten quietly.
+      await actions.updateRecord(editing.id, patch, { expectedUpdatedAt: options?.expectedUpdatedAt ?? editing.updatedAt });
       toast.success("Đã lưu.");
     },
     [editing, actions],
   );
+
+  const reloadEditing = useCallback(async (): Promise<void> => {
+    if (editing === null) return;
+    setEditing(await fetchThinkRecord(editing.id));
+  }, [editing]);
 
   return (
     <>
@@ -257,6 +264,7 @@ function PeekBody({
         record={editing}
         knownStatuses={knownStatuses}
         onSave={saveRecord}
+        onReloadRecord={reloadEditing}
         isWorking={actions.isWorking}
         subTables={editing === null ? undefined : subTablesOf(allTables, editing.id)}
         onQuickTask={

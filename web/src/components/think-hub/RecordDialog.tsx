@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
 import { DateField } from "@/components/calendar/DateField";
 import { DateTimeField } from "@/components/calendar/DateTimeField";
@@ -11,6 +11,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 
 import {
   DEPTH_LIMIT_MESSAGE,
+  isRecordConflict,
   parseColumnInput,
   priorityLabel,
   RECORD_PRIORITIES,
@@ -23,6 +24,7 @@ import {
   type ExtensionValue,
   type RecordPatch,
   type RecordPriority,
+  type RecordConflictError,
 } from "@/lib/think-hub";
 import { deadlineLabel, taskStatusLabel, todayIso, type TaskItem } from "@/lib/tasks";
 import { ExtensionField } from "@/components/think-hub/ExtensionField";
@@ -37,7 +39,13 @@ type RecordDialogProps = {
   record: ThinkRecord | null;
   /** The statuses already used in this table, so a person's own words come back to them. */
   knownStatuses: readonly string[];
-  onSave: (patch: RecordPatch) => Promise<void>;
+  /**
+   * KT-08 · QA04-06: `expectedUpdatedAt` is set only by "Vẫn lưu của tôi" — the newer version the
+   * person has been told about. Otherwise the caller sends the version the dialog opened with.
+   */
+  onSave: (patch: RecordPatch, options?: { expectedUpdatedAt?: string | null }) => Promise<void>;
+  /** KT-08 · QA04-06: "Xem bản mới" — load the row as it is now into this dialog. */
+  onReloadRecord?: () => Promise<void>;
   isWorking: boolean;
   /**
    * For a new Hạng mục: the tables it may be filed into — only those in the current scope, the
@@ -260,16 +268,26 @@ export function RecordDialog({
   isSharedBoard = false,
   syncNote,
   guideQuestion = null,
+  onReloadRecord,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   const [notice, setNotice] = useState<string | null>(null);
+  // KT-08 · QA04-06: the row changed under this form — nothing was written; the person chooses.
+  const [conflict, setConflict] = useState<{ error: RecordConflictError; patch: RecordPatch; then?: () => void } | null>(null);
+  const conflictRef = useRef<HTMLDivElement | null>(null);
   const { isSubmitting, guard } = useSubmitGuard();
 
   useEffect(() => {
     if (!open) return;
     setDraft(draftOf(record, columns));
     setNotice(null);
+    setConflict(null);
   }, [open, record, columns]);
+
+  // The question sits at the end of a long form — bring it into view (the Lưu row is pinned below it).
+  useEffect(() => {
+    if (conflict !== null) conflictRef.current?.scrollIntoView({ block: "nearest" });
+  }, [conflict]);
 
   const statuses: string[] = useMemo(() => {
     const all = [...SUGGESTED_STATUSES, ...knownStatuses, draft.status];
@@ -335,12 +353,47 @@ export function RecordDialog({
         await onSave(patch);
         onOpenChange(false);
       } catch (error) {
+        if (isRecordConflict(error)) {
+          setConflict({ error, patch });
+          return;
+        }
         setNotice(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
       });
     },
     [buildPatch, onSave, onOpenChange, guard],
   );
+
+  /** "Vẫn lưu của tôi": write this form over the newer version the person was just told about. */
+  const keepMine = useCallback(async (): Promise<void> => {
+    if (conflict === null) return;
+    const { error, patch, then } = conflict;
+    await guard(async () => {
+      try {
+        await onSave(patch, { expectedUpdatedAt: error.updatedAt });
+        setConflict(null);
+        if (then !== undefined) then();
+        else onOpenChange(false);
+      } catch (again) {
+        if (isRecordConflict(again)) setConflict({ error: again, patch, then });
+        else setNotice(again instanceof Error ? again.message : "Có lỗi xảy ra. Vui lòng thử lại.");
+      }
+    });
+  }, [conflict, guard, onSave, onOpenChange]);
+
+  /** "Xem bản mới": the form shows the row as it is now; what was typed here is set aside. */
+  const seeNewer = useCallback(async (): Promise<void> => {
+    if (onReloadRecord === undefined) {
+      setConflict(null);
+      return;
+    }
+    try {
+      await onReloadRecord();
+      setConflict(null);
+    } catch (error) {
+      setNotice(error instanceof Error ? error.message : "Chưa tải được bản mới. Thử lại nhé.");
+    }
+  }, [onReloadRecord]);
 
   /**
    * AVORA-53 · 5.3 — Di chuyển / Sao chép / Tạo nhiệm vụ save what was typed first; a save that
@@ -361,9 +414,10 @@ export function RecordDialog({
             }
             const patch = buildPatch();
             if (patch === null) return;
-            void onSave(patch).then(action, (error: unknown) =>
-              setNotice(error instanceof Error ? error.message : "Chưa lưu được nên chưa làm tiếp. Thử lại nhé."),
-            );
+            void onSave(patch).then(action, (error: unknown) => {
+              if (isRecordConflict(error)) setConflict({ error, patch, then: action });
+              else setNotice(error instanceof Error ? error.message : "Chưa lưu được nên chưa làm tiếp. Thử lại nhé.");
+            });
           },
     [buildPatch, isDirty, isReadOnly, onSave],
   );
@@ -612,6 +666,21 @@ export function RecordDialog({
             <p role="alert" className="text-[13.5px] text-destructive">
               {notice}
             </p>
+          ) : null}
+
+          {conflict !== null ? (
+            <div ref={conflictRef} role="alert" data-record-conflict="" className="rounded-md border border-border bg-secondary/70 px-3.5 py-3">
+              <p className="text-[14px] font-medium text-foreground">{conflict.error.message}</p>
+              <p className="mt-0.5 text-[13px] text-muted-foreground">Bản bạn đang sửa chưa được lưu — chọn giữ bản nào.</p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <Button type="button" variant="outline" size="sm" onClick={() => void seeNewer()} disabled={isSubmitting}>
+                  Xem bản mới
+                </Button>
+                <Button type="button" size="sm" onClick={() => void keepMine()} disabled={isSubmitting}>
+                  Vẫn lưu của tôi
+                </Button>
+              </div>
+            </div>
           ) : null}
 
         </form>
