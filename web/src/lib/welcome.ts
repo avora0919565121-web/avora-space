@@ -48,6 +48,13 @@ export function startSteps(choices: readonly WelcomeChoice[], needsPin: boolean)
   return needsPin ? [...head, "pin"] : head;
 }
 
+/** The welcome is for newcomers: an account made in the last 14 days. Unknown age → not new. */
+export function isRecentAccount(createdAt: string | null | undefined, now: Date = new Date()): boolean {
+  if (createdAt == null || createdAt === "") return false;
+  const made = new Date(createdAt).getTime();
+  return Number.isFinite(made) && now.getTime() - made <= 14 * 86_400_000;
+}
+
 const KEY = "avora.welcome";
 
 export type WelcomeState = { seen: boolean; choices: WelcomeChoice[] };

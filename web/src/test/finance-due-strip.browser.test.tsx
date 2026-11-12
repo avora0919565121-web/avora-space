@@ -19,7 +19,7 @@ const state = vi.hoisted(() => ({
 vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-me" } }) }));
 
 // AVORA-51: Két sắt is closed outside its provider — these tests look at an open ledger.
-vi.mock("@/lib/use-vault-lock", () => ({ useVaultUnlocked: () => true }));
+vi.mock("@/lib/use-vault-lock", () => ({ useVaultUnlocked: () => true, useFinanceOpen: () => true }));
 
 const WALLET_ID = "acc-1";
 

@@ -87,12 +87,14 @@ import { useResumePlace } from "@/lib/use-resume-place";
 type Mode = "phone" | "installed-computer" | "computer";
 const MODES: readonly Mode[] = ["phone", "installed-computer", "computer"];
 const TABS: readonly { to: string; label: string }[] = [
+  // Nhà mới: the five rooms of the tool-belt (Cài đặt opens from the avatar on Avora Space).
   { to: "/tin-nhan", label: "Kết nối" },
   { to: "/nhiem-vu", label: "Nhiệm vụ" },
-  { to: "/ke-hoach", label: "Kế hoạch" },
+  { to: "/ke-hoach", label: "Thư phòng" },
   { to: "/ket-sat", label: "Két sắt" },
-  { to: "/cai-dat", label: "Cài đặt" },
 ];
+/** The real tool-belt / rail: the four rooms and Avora Space, the way home. */
+const SMOKE_TABS: readonly { to: string; label: string }[] = [...TABS, { to: "/tong-quan", label: "Avora Space" }];
 // Noon, so "2 hours ago" is the same resume day and "yesterday evening" is not.
 const NOON = new Date(2026, 9, 4, 12, 0, 0).getTime();
 const MINUTE = 60_000;
@@ -264,7 +266,7 @@ describe.each(MODES)("AVORA-94 · %s", (mode) => {
     setVisibility("visible");
     await settle();
     expect(where()).toBe(mode === "phone" ? "/tin-nhan?tab=1-1" : "/nhiem-vu");
-    await tapTab("Kế hoạch");
+    await tapTab("Thư phòng");
     await settle();
     expect(where()).toBe("/ke-hoach");
   });
@@ -272,7 +274,7 @@ describe.each(MODES)("AVORA-94 · %s", (mode) => {
   it("94.5 · hidden, back on a new day (after 04:00) → Avora Space once (phone only), then tabs stay", async () => {
     renderShell("/tong-quan", "/");
     await settle();
-    await tapTab("Kế hoạch");
+    await tapTab("Thư phòng");
     await settle();
     setVisibility("hidden");
     // 05:00 the next morning.
@@ -342,7 +344,7 @@ describe.each(["phone", "installed-computer"] as const)("AVORA-94 · smoke · %s
     renderApp();
     await settle(500);
     const navName = mode === "phone" ? "Các Hub" : "Điều hướng chính";
-    for (const tab of TABS) {
+    for (const tab of SMOKE_TABS) {
       await userEvent.click(page.getByRole("navigation", { name: navName }).getByRole("link", { name: new RegExp(`^${tab.label}`) }));
       await expect.poll(() => new URL(where(), "http://x").pathname).toBe(tab.to);
       await settle(1000);

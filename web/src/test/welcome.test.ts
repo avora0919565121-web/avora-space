@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { readWelcome, saveWelcome, startSteps } from "@/lib/welcome";
+import { isRecentAccount, readWelcome, saveWelcome, startSteps } from "@/lib/welcome";
 import { nextStudyPart, studyPartOf } from "@/lib/room";
 
 describe("Nhà mới · màn chào", () => {
@@ -23,6 +23,16 @@ describe("Nhà mới · màn chào", () => {
     expect(readWelcome("u1", storage)).toEqual({ seen: true, choices: ["keep"] });
     store.set("avora.welcome:u2", "{hỏng");
     expect(readWelcome("u2", storage)).toEqual({ seen: false, choices: [] });
+  });
+});
+
+describe("Nhà mới · màn chào chỉ cho tài khoản mới", () => {
+  it("≤ 14 ngày là mới; không rõ ngày tạo thì không hỏi", () => {
+    const now = new Date("2026-11-12T10:00:00Z");
+    expect(isRecentAccount("2026-11-10T10:00:00Z", now)).toBe(true);
+    expect(isRecentAccount("2026-10-01T10:00:00Z", now)).toBe(false);
+    expect(isRecentAccount(undefined, now)).toBe(false);
+    expect(isRecentAccount("", now)).toBe(false);
   });
 });
 

@@ -135,7 +135,7 @@ async function settle(ms = 600): Promise<void> {
 const TABS = [
   { name: "ket-noi", at: "/tin-nhan?tab=1-1", strip: "[data-sub-tabs]" },
   { name: "nhiem-vu", at: "/nhiem-vu", strip: "[data-sub-tabs]" },
-  { name: "ke-hoach", at: "/ke-hoach?ke=2", strip: "[data-room-bar] [data-sub-tabs]" },
+  { name: "ke-hoach", at: "/ke-hoach?ke=5", strip: "[data-study-bar] [data-sub-tabs]" },
   { name: "ket-sat", at: "/ket-sat", strip: "[data-sub-tabs]" },
   { name: "cai-dat", at: "/cai-dat/huong-dan", strip: "[data-sub-tabs]" },
 ] as const;

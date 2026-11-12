@@ -99,7 +99,7 @@ export function StudyStrip({ part, shelf, onPart, onPlanView }: { part: StudyPar
     <div data-study-bar={part}>
       <SubTabs ariaLabel="Thư phòng" items={items} value={part} onChange={(id) => onPart(id as StudyPart)} />
       {part === "ke" ? (
-        <nav aria-label="Kế hoạch" data-plan-views="" className="flex gap-1 overflow-x-auto border-b border-border/60 px-[calc(var(--tab-inset)-8px)] py-1.5 [scrollbar-width:none]">
+        <nav aria-label="Kế hoạch" data-plan-views="" data-h-scroll="" className="flex gap-1 overflow-x-auto border-b border-border/60 px-[calc(var(--tab-inset)-8px)] py-1.5 [scrollbar-width:none]">
           {PLAN_VIEWS.map((view) => (
             <button
               key={view.id}

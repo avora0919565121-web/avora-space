@@ -10,7 +10,7 @@ import { WelcomeHome } from "@/components/space/WelcomeHome";
 import { UserAvatar } from "@/components/UserAvatar";
 import { usePinStatus } from "@/components/PinGate";
 import { pinPhase } from "@/lib/user-pin";
-import { readWelcome, saveWelcome, startSteps, type StartStepKey } from "@/lib/welcome";
+import { isRecentAccount, readWelcome, saveWelcome, startSteps, type StartStepKey } from "@/lib/welcome";
 import { useHabits } from "@/lib/use-habits";
 import { useVaultLock } from "@/lib/use-vault-lock";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
@@ -166,7 +166,9 @@ export default function Dashboard() {
   const pinStatus = usePinStatus();
   const needsPin = pinStatus.data !== undefined && pinPhase(pinStatus.data) !== "has-pin";
   // Nhà mới: the welcome question, once per account on this device.
-  const [welcome, setWelcome] = useState(() => (userId === undefined ? { seen: true, choices: [] } : readWelcome(userId)));
+  // Only for a new account (≤ 14 days): someone already living here is not asked at the door again.
+  const isNewAccount = isRecentAccount(user?.created_at, opened);
+  const [welcome, setWelcome] = useState(() => (userId === undefined || !isNewAccount ? { seen: true, choices: [] } : readWelcome(userId)));
   const [visited, setVisited] = useState<string[]>(() => {
     try {
       return JSON.parse(window.localStorage.getItem(`avora.start-visited:${userId ?? ""}`) ?? "[]") as string[];
