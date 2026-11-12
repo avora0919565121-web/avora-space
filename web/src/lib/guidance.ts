@@ -72,7 +72,9 @@ export async function fetchDismissedGuidance(): Promise<GuidanceKey[]> {
 export async function dismissGuidance(userId: string, key: GuidanceKey): Promise<void> {
   const { error } = await supabase
     .from("dismissed_guidance")
-    .upsert({ user_id: userId, guidance_key: key }, { onConflict: "user_id,guidance_key" });
+    // ON CONFLICT DO NOTHING: authenticated may INSERT here but not UPDATE (production grants, export 9/11), and a
+    // plain upsert asks for UPDATE too — it failed with 42501, so a hint read once kept coming back.
+    .upsert({ user_id: userId, guidance_key: key }, { onConflict: "user_id,guidance_key", ignoreDuplicates: true });
   if (error) throw fail(error.code, error.message);
 }
 

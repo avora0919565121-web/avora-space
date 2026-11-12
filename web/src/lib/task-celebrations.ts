@@ -119,7 +119,7 @@ export async function markCelebrationsSeen(
     .from("task_celebration_views")
     .upsert(
       taskIds.map((taskId) => ({ task_id: taskId, user_id: userId })),
-      { onConflict: "task_id,user_id" },
+      { onConflict: "task_id,user_id", ignoreDuplicates: true }, // INSERT-only grant: DO NOTHING, not DO UPDATE (42501).
     );
   if (error) throw fail(error.code, error.message);
 }

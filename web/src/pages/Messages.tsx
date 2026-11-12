@@ -2676,6 +2676,18 @@ const Messages = () => {
     if (tab !== null) setActiveTab(tab);
   }, [searchParams]);
 
+  /**
+   * Nhà mới: someone with nobody to talk to yet lands on Nhật ký — the one conversation they can have right
+   * away — not on an empty 1-1 list. Once, on arrival; an explicit `?tab=` or an open thread wins.
+   */
+  const landedRef = useRef<boolean>(false);
+  useEffect(() => {
+    if (landedRef.current || conversationsQuery.data === undefined) return;
+    landedRef.current = true;
+    if (conversationId !== undefined || searchParams.get("tab") !== null) return;
+    if (!conversationsQuery.data.some((item) => item.kind === "direct" || item.kind === "group")) setActiveTab("journal");
+  }, [conversationsQuery.data, conversationId, searchParams]);
+
   /** AVORA-53 · 6.1: `?ket-ban=1` (Avora Space › Bắt đầu) opens "find a friend by PIN" once. */
   useEffect(() => {
     if (searchParams.get("ket-ban") !== "1") return;
