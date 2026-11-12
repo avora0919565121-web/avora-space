@@ -160,6 +160,35 @@ export function resumedItem(item: OutboxItem): OutboxItem {
   return item.state === "sending" ? { ...item, state: "queued" } : item;
 }
 
+/**
+ * KT-08 · QA04-07: at most this many words go in one `send_messages` call — the server's own limit is
+ * 5 messages a second per person, so a bigger batch would only be cut at the 6th.
+ */
+export const BATCH_MAX = 5;
+
+/**
+ * KT-08 · QA04-07: the head of a conversation plus the plain-text items queued right behind it, in
+ * order (by seq), stopping at the first one with files or one that is not waiting to go. Sent in one
+ * request instead of one round trip each — the receiver then sees ten quick messages in about a
+ * second instead of one per round trip.
+ */
+export function batchRun(items: readonly OutboxItem[], head: OutboxItem, max: number = BATCH_MAX): OutboxItem[] {
+  if (head.files.length > 0) return [head];
+  const run: OutboxItem[] = [head];
+  const after = items.filter((item) => item.conversationId === head.conversationId && item.seq > head.seq).sort((a, b) => a.seq - b.seq);
+  for (const item of after) {
+    if (run.length >= max) break;
+    if (item.files.length > 0 || (item.state !== "queued" && item.state !== "waiting_network")) break;
+    run.push(item);
+  }
+  return run;
+}
+
+/** KT-08 · QA04-07: the server's 5-a-second limit — wait a moment, it is not the item's fault. */
+export function isRateLimited(message: string): boolean {
+  return message.toLowerCase().includes("avora_rate_limited");
+}
+
 /** The order to send: per conversation by seq; conversations independent. Returns the head of each. */
 export function sendableHeads(items: readonly OutboxItem[]): OutboxItem[] {
   const heads = new Map<string, OutboxItem>();

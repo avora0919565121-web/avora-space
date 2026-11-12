@@ -3,12 +3,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useCallback, useEffect, useRef } from "react";
 
 import { attachmentKeys, flushPendingRemovals, removeUnsentUploads, sendMessageWithAttachments, uploadStagedAttachment, type StagedAttachment } from "@/lib/attachments";
-import { chatKeys, mergeIncomingMessage, sendMessage, type ChatMessage } from "@/lib/chat";
+import { chatKeys, mergeIncomingMessage, sendMessage, sendMessages, type ChatMessage } from "@/lib/chat";
 import { compareThreadOrder } from "@/lib/chat-cache";
 import { logError } from "@/lib/log";
 import { serverText } from "@/lib/server-error";
 import {
+  batchRun,
   isPermanentSendError,
+  isRateLimited,
   nextOutboxState,
   resumedItem,
   nextSeq,
@@ -34,6 +36,8 @@ export function useOutboxRunner(userId: string | undefined): {
   const queryClient = useQueryClient();
   const runningRef = useRef<Set<string>>(new Set());
   const timerRef = useRef<number | null>(null);
+  /** KT-08 · QA04-07: the server said "5 a second" — nothing is sent before this moment. */
+  const rateWaitUntilRef = useRef<number>(0);
 
   const showWaiting = useCallback(
     (item: OutboxItem): void => {
@@ -133,6 +137,7 @@ export function useOutboxRunner(userId: string | undefined): {
       } catch (error: unknown) {
         // LOI-01: decide on the server's own words, not on the Vietnamese sentence shown to the person.
         const message = serverText(error);
+        if (isRateLimited(message)) rateWaitUntilRef.current = Date.now() + 1000;
         const offline = typeof navigator !== "undefined" && navigator.onLine === false;
         const state = nextOutboxState({ errorText: message, offline, attempts: current.attempts, firstTriedAt: current.firstTriedAt });
         current = {
@@ -154,8 +159,79 @@ export function useOutboxRunner(userId: string | undefined): {
     [queryClient, showWaiting],
   );
 
+  /**
+   * KT-08 · QA04-07: the head and the plain-text items right behind it go in ONE request (`send_messages`),
+   * in order. What went is confirmed at once; the first that did not keeps its place with the ones after it.
+   */
+  const sendRun = useCallback(
+    async (run: OutboxItem[]): Promise<void> => {
+      const conversationId = run[0].conversationId;
+      if (runningRef.current.has(conversationId)) return;
+      runningRef.current.add(conversationId);
+      const now = new Date().toISOString();
+      let current: OutboxItem[] = run.map((item) => ({ ...item, state: "sending", attempts: item.attempts + 1, firstTriedAt: item.firstTriedAt ?? now }));
+      for (const [index, item] of current.entries()) {
+        await outboxStore.put(item);
+        if (run[index].state !== "failed") showWaiting(item);
+      }
+      const fail = async (item: OutboxItem, original: OutboxItem, message: string): Promise<void> => {
+        const offline = typeof navigator !== "undefined" && navigator.onLine === false;
+        const state = nextOutboxState({ errorText: message, offline, attempts: item.attempts, firstTriedAt: item.firstTriedAt });
+        const next: OutboxItem = {
+          ...item,
+          state,
+          permanent: state === "failed" ? isPermanentSendError(message) : undefined,
+          lastError: message.slice(0, 160),
+          firstTriedAt: offline ? null : item.firstTriedAt,
+        };
+        await outboxStore.put(next);
+        showWaiting(next);
+        if (state === "failed") logError("outbox", { code: "send_failed", message: message.slice(0, 80) });
+        if (state === "failed" && original.state !== "failed") toast.error("Tin chưa gửi được. Chạm “Gửi lại” ở tin đó để thử lần nữa.");
+      };
+      try {
+        const result = await withTimeout(sendMessages(current));
+        const sentIds = new Set(result.sent.map((row) => row.id));
+        queryClient.setQueryData<ChatMessage[]>(chatKeys.messages(conversationId), (thread) =>
+          result.sent.reduce((acc, row) => mergeIncomingMessage(acc, row), thread ?? []),
+        );
+        for (const item of current) if (sentIds.has(item.id)) await outboxStore.remove(item.id);
+        current = current.filter((item) => !sentIds.has(item.id));
+        if (result.failedId !== null && current.length > 0) {
+          const message = result.error ?? "";
+          const at = current.findIndex((item) => item.id === result.failedId);
+          for (const [index, item] of current.entries()) {
+            const original = run.find((entry) => entry.id === item.id) ?? item;
+            if (index === at && !isRateLimited(message)) {
+              await fail(item, original, message);
+            } else {
+              // Not tried (behind the one that stopped), or only "too fast": back in line, no attempt counted.
+              const back: OutboxItem = { ...original, state: original.state === "failed" ? original.state : "queued" };
+              await outboxStore.put(back);
+              showWaiting(back);
+            }
+          }
+          if (isRateLimited(message)) rateWaitUntilRef.current = Date.now() + 1000;
+        }
+        void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+      } catch (error: unknown) {
+        const message = serverText(error);
+        for (const [index, item] of current.entries()) await fail(item, run[index] ?? item, message);
+      } finally {
+        runningRef.current.delete(conversationId);
+      }
+    },
+    [queryClient, showWaiting],
+  );
+
   const pump = useCallback(async (): Promise<void> => {
     if (!userId) return;
+    const wait = rateWaitUntilRef.current - Date.now();
+    if (wait > 0) {
+      if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+      timerRef.current = window.setTimeout(() => void pump(), wait);
+      return;
+    }
     if (typeof navigator === "undefined" || navigator.onLine !== false) void flushPendingRemovals();
     const items = await outboxStore.all(userId);
     const heads = sendableHeads(items);
@@ -164,15 +240,24 @@ export function useOutboxRunner(userId: string | undefined): {
       for (const head of heads) if (head.state !== "waiting_network") await outboxStore.put({ ...head, state: "waiting_network", firstTriedAt: null, permanent: undefined });
       return;
     }
-    await Promise.all(heads.map((head) => sendOne(head)));
+    // KT-08 · QA04-07: plain words queued behind a head go with it in one request.
+    await Promise.all(
+      heads.map((head) => {
+        const run = batchRun(items, head);
+        return run.length > 1 ? sendRun(run) : sendOne(head);
+      }),
+    );
     // Something is still queued (next in line, or a transient failure): run again after back-off.
     const left = sendableHeads(await outboxStore.all(userId));
     if (left.length > 0) {
       if (timerRef.current !== null) window.clearTimeout(timerRef.current);
-      const delay = Math.min(...left.map((entry) => (entry.attempts === 0 ? 0 : retryDelayMs(entry.attempts))));
+      const delay = Math.max(
+        rateWaitUntilRef.current - Date.now(),
+        Math.min(...left.map((entry) => (entry.attempts === 0 ? 0 : retryDelayMs(entry.attempts)))),
+      );
       timerRef.current = window.setTimeout(() => void pump(), delay);
     }
-  }, [userId, sendOne]);
+  }, [userId, sendOne, sendRun]);
 
   // Resume after a reload: everything still waiting shows again and is sent.
   useEffect(() => {

@@ -126,6 +126,11 @@ vi.mock("@/lib/chat", async () => {
       sendState.sent.push(id);
       return { id, conversationId, senderId, content, createdAt: new Date().toISOString() };
     },
+    // KT-08 · QA04-07: plain words queued behind the head now go in one request.
+    sendMessages: async (items: { id: string; conversationId: string; content: string }[]) => {
+      for (const item of items) sendState.sent.push(item.id);
+      return { sent: items.map((item) => ({ id: item.id, conversationId: item.conversationId, senderId: "u-a2", content: item.content, createdAt: new Date().toISOString() })), failedId: null, error: null };
+    },
   };
 });
 

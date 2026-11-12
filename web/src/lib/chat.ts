@@ -713,6 +713,66 @@ export async function sendMessage(
   return toChatMessageRow(data as unknown as MessageRowShape);
 }
 
+/**
+ * KT-08 · QA04-07: several plain-text messages of one conversation in one request, in order. The server
+ * sends each through `send_message` (same checks, same id rule) and stops at the first that fails:
+ * `sent` are the rows that went, `failedId` / `error` the one that did not (the rest were not tried).
+ */
+export async function sendMessages(
+  items: readonly {
+    id: string;
+    conversationId: string;
+    content: string;
+    replyToMessageId: string | null;
+    mentionedUserIds: readonly string[];
+    originGroupId: string | null;
+    isUrgent: boolean;
+    refs: readonly { type: string; id: string }[];
+    effect?: SendEffect | null;
+    stickerId?: string | null;
+  }[],
+): Promise<{ sent: ChatMessage[]; failedId: string | null; error: string | null }> {
+  const { data, error } = await supabase.rpc("send_messages" as never, {
+    p_items: items.map((item) => ({
+      id: item.id,
+      conversation_id: item.conversationId,
+      content: item.content.trim(),
+      reply_to: item.replyToMessageId,
+      mentioned: [...item.mentionedUserIds],
+      origin_group: item.originGroupId,
+      urgent: item.isUrgent,
+      refs: item.refs.map((ref) => ({ type: ref.type, id: ref.id })),
+      effect: item.effect ?? null,
+      sticker: item.stickerId ?? null,
+    })),
+  } as never);
+  if (error) throw fail((error as { code?: string }).code, (error as { message: string }).message);
+  const out = (data ?? {}) as { sent?: unknown[]; failed_id?: string | null; error?: string | null };
+  return {
+    sent: (out.sent ?? []).map((row) => toChatMessageRow(row as MessageRowShape)),
+    failedId: out.failed_id ?? null,
+    error: out.error ?? null,
+  };
+}
+
+let deliveredQueue: string[] = [];
+let deliveredTimer: ReturnType<typeof setTimeout> | null = null;
+
+/**
+ * KT-08 · QA04-07: "Đã nhận" for lines arriving in a burst goes in one request (after 150 ms) instead of
+ * one request per line — ten quick messages no longer queue ten calls behind each other on the receiver.
+ */
+export function markDeliveredSoon(messageId: string): void {
+  deliveredQueue.push(messageId);
+  if (deliveredTimer !== null) return;
+  deliveredTimer = setTimeout(() => {
+    const ids = deliveredQueue;
+    deliveredQueue = [];
+    deliveredTimer = null;
+    void markMessagesDelivered(ids);
+  }, 150);
+}
+
 /** Exact-email lookup. AVORA has no browsable member list by design. */
 export async function findUserByEmail(email: string): Promise<DirectoryMatch | null> {
   const { data, error } = await supabase.rpc("find_user_by_email", { p_email: email.trim() });

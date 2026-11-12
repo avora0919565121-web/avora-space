@@ -24,7 +24,7 @@ import {
   applyMessageUpdate,
   chatKeys,
   clearUnread,
-  markMessagesDelivered,
+  markDeliveredSoon,
   mergeIncomingMessage,
   toChatMessageRow,
   toIsoTimestamp,
@@ -217,7 +217,7 @@ export function ChatRealtimeProvider({ children }: { children: ReactNode }) {
 
       // Đã nhận (AVORA-47 · E): this device has the line now. The server keeps it to 1-1s.
       if (incoming.senderId !== userId && incoming.systemKind == null) {
-        void markMessagesDelivered([incoming.id]);
+        markDeliveredSoon(incoming.id);
       }
 
       // The message row arrives on its own stream; the files hanging off it do not. Without
