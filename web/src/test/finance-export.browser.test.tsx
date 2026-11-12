@@ -172,8 +172,9 @@ test("the dashboard charts paint real geometry rather than an empty box", async 
       <SpendingTrendChart points={trend} currency="USD" />
     </div>,
   );
-  // Recharts measures its container, so a drawn line proves the chart got a real size.
-  await expect.poll(() => screen.container.querySelectorAll("path.recharts-line-curve").length).toBeGreaterThan(0);
+  // Recharts measures its container, so a drawn line (or, KT-07c, the dot of a single month with data —
+  // empty months before it are no longer drawn) proves the chart got a real size.
+  await expect.poll(() => screen.container.querySelectorAll("path.recharts-line-curve, .recharts-line-dot, .recharts-dot").length).toBeGreaterThan(0);
 });
 
 test("the category doughnut draws one wedge per category and lists them beside it", async () => {

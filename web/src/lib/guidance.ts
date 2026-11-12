@@ -16,6 +16,12 @@ export const GUIDANCE_KEYS = [
   "plan_plus_hold",
   "task_plus_hold",
   "group_receipts_intro",
+  // KT-07c (CEO 12/11 · 17): the sample book of each Két sắt compartment is hidden / shown per account.
+  "sample_hidden_finance",
+  "sample_hidden_passwords",
+  "sample_hidden_certificates",
+  "sample_hidden_documents",
+  "sample_hidden_assets",
 ] as const;
 
 export type GuidanceKey = (typeof GUIDANCE_KEYS)[number];
@@ -29,6 +35,11 @@ export type GuidanceKey = (typeof GUIDANCE_KEYS)[number];
  * list.
  */
 export const GUIDANCE_TEXT: Record<GuidanceKey, string> = {
+  sample_hidden_finance: "Sổ mẫu Tài chính đã ẩn.",
+  sample_hidden_passwords: "Mẫu Mật khẩu đã ẩn.",
+  sample_hidden_certificates: "Mẫu Chứng chỉ đã ẩn.",
+  sample_hidden_documents: "Mẫu Tài liệu đã ẩn.",
+  sample_hidden_assets: "Mẫu Tài sản đã ẩn.",
   plan_plus_hold: "Giữ nút + để tạo bảng mới.",
   task_plus_hold: "Giữ nút + để chọn loại.",
   // AVORA-108 · 3.4: once per account, the first time a group of ≤ 100 is opened after the change.

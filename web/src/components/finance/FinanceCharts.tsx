@@ -25,6 +25,7 @@ import {
   type LedgerEntry,
 } from "@/lib/finance";
 import { balanceCheckpoints, CHART_PALETTE, type ComparisonPoint, type TrendPoint } from "@/lib/finance-reports";
+import { incomeExpenseBars, trendFromFirstData } from "@/lib/finance-trend";
 import { balanceAt, formatDayVi } from "@/lib/finance";
 
 /**
@@ -112,7 +113,9 @@ export function SpendingTrendChart({
   currency: string;
   onSelectMonth?: (month: string) => void;
 }) {
-  const hasData = points.some((point) => point.expense > 0);
+  // KT-07c (CEO 12/11 · 18, B): "có thông tin thì mới vẽ" — from the first month that has something.
+  const drawn = useMemo(() => trendFromFirstData(points), [points]);
+  const hasData = drawn.some((point) => point.expense > 0);
   const Tip = useMemo(() => makeTooltip(currency), [currency]);
 
   return (
@@ -123,13 +126,13 @@ export function SpendingTrendChart({
         <div className="px-2 py-4">
           <ResponsiveContainer width="100%" height={230}>
             <LineChart
-              data={[...points]}
+              data={drawn}
               margin={{ top: 6, right: 14, bottom: 0, left: 4 }}
               // Tapping a month filters the list, so the pointer says it is clickable.
               style={{ cursor: onSelectMonth ? "pointer" : "default" }}
               onClick={(state) => {
                 const index = typeof state?.activeTooltipIndex === "number" ? state.activeTooltipIndex : -1;
-                if (index >= 0 && points[index] && onSelectMonth) onSelectMonth(points[index].month);
+                if (index >= 0 && drawn[index] && onSelectMonth) onSelectMonth(drawn[index].month);
               }}
             >
               <CartesianGrid stroke={GRID} vertical={false} />
@@ -153,7 +156,52 @@ export function SpendingTrendChart({
               />
             </LineChart>
           </ResponsiveContainer>
-          <p className="px-3 pt-1 text-[12px] text-muted-foreground">12 tháng gần nhất · bấm vào một tháng để xem giao dịch</p>
+          <p className="px-3 pt-1 text-[12px] text-muted-foreground">Từ tháng có giao dịch đầu tiên (tối đa 12 tháng) · bấm vào một tháng để xem giao dịch</p>
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+/**
+ * KT-07c (CEO 12/11 · 18, A): thu và chi theo tháng — the first question people ask, "tháng này dư
+ * hay hụt". Bars only for months that have something in them.
+ */
+export function IncomeExpenseChart({ points, currency, onSelectMonth }: { points: readonly TrendPoint[]; currency: string; onSelectMonth?: (month: string) => void }) {
+  const bars = useMemo(() => incomeExpenseBars(points), [points]);
+  const Tip = useMemo(() => makeTooltip(currency), [currency]);
+  const last = bars[bars.length - 1];
+  return (
+    <Panel title="Thu và chi theo tháng">
+      {bars.length === 0 ? (
+        <ChartEmpty>Có giao dịch thì biểu đồ mới hiện. Bạn ghi khoản thu hoặc chi đầu tiên nhé.</ChartEmpty>
+      ) : (
+        <div className="px-2 py-4" data-income-expense-chart="">
+          <ResponsiveContainer width="100%" height={230}>
+            <BarChart
+              data={bars}
+              margin={{ top: 6, right: 14, bottom: 0, left: 4 }}
+              style={{ cursor: onSelectMonth ? "pointer" : "default" }}
+              onClick={(state) => {
+                const index = typeof state?.activeTooltipIndex === "number" ? state.activeTooltipIndex : -1;
+                if (index >= 0 && bars[index] && onSelectMonth) onSelectMonth(bars[index].month);
+              }}
+            >
+              <CartesianGrid stroke={GRID} vertical={false} />
+              <XAxis dataKey="label" tickLine={false} axisLine={{ stroke: GRID }} tick={AXIS} />
+              <YAxis tickLine={false} axisLine={false} tick={AXIS} width={52} tickFormatter={(value: number) => compactAxis(value, currency)} />
+              <Tooltip content={<Tip />} cursor={{ fill: "hsl(30 20% 50% / 0.06)" }} />
+              <Legend wrapperStyle={{ fontSize: 12 }} />
+              <Bar dataKey="income" name="Thu" fill="#3F8F6B" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="expense" name="Chi" fill="#E0603C" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+          {last !== undefined ? (
+            <p className="px-3 pt-1 text-[12.5px] text-muted-foreground">
+              {last.label}: {last.left >= 0 ? "còn dư " : "hụt "}
+              <Money cents={Math.abs(last.left)} currency={currency} tone="ink" />
+            </p>
+          ) : null}
         </div>
       )}
     </Panel>

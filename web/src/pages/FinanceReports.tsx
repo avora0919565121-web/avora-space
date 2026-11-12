@@ -50,7 +50,7 @@ import {
   type ReportId,
   type ReportResult,
 } from "@/lib/finance-reports";
-import { useLedger } from "@/lib/use-finance";
+import { useBookLedger } from "@/lib/use-finance-book";
 import { cn } from "@/lib/utils";
 
 const AXIS = { stroke: "#6B635A", fontSize: 11 } as const;
@@ -215,7 +215,8 @@ function ReportTable({ report, currency }: { report: ReportResult; currency: str
 const FinanceReports = () => {
   // Reports total across accounts, so they are built from the base-converted ledger. Every
   // report stays a pure function of "entries plus a range" — it never learns about rates.
-  const { accounts, baseEntries, currency, rates, unvalued, isLoading, isUnavailable } = useLedger();
+  const book = useBookLedger();
+  const { accounts, baseEntries, currency, rates, unvalued, isLoading, isUnavailable } = book;
 
   const today = todayIso();
   const thisMonth = monthKey(today);
@@ -317,7 +318,7 @@ const FinanceReports = () => {
   // KT-06 · B: a report of an empty ledger would read as zeros; offline with nothing read, say so.
   if (isUnavailable) {
     return (
-      <FinancePage>
+      <FinancePage book={book}>
         <FinanceHeader subtitle="Tám báo cáo, tải về CSV hoặc Excel để giữ trên máy của bạn." />
         <FinanceUnavailable what="dữ liệu báo cáo" />
       </FinancePage>
@@ -325,7 +326,7 @@ const FinanceReports = () => {
   }
 
   return (
-    <FinancePage>
+    <FinancePage book={book}>
       <FinanceHeader subtitle="Tám báo cáo, tải về CSV hoặc Excel để giữ trên máy của bạn." />
 
       <div className="mt-6">

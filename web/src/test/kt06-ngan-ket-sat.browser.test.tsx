@@ -1,7 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
-import { page } from "vitest/browser";
+import { page, userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { beforeEach, expect, test, vi } from "vitest";
 
@@ -157,7 +157,9 @@ test("KT06-D5 · đã có sổ Tài chính, chưa có mã: bước 'Về khoá' 
   window.localStorage.removeItem("avora.vault.intro.me");
   db.rpc.vault_enter = () => ({ data: { ...STATUS, has_data: true }, error: null });
   const screen = await render(<App path="/ket-sat/tai-lieu" />);
+  // KT-07c (CEO 12/11 · 19): on a phone the compartment invites first; the keypad comes up in a sheet.
+  await userEvent.click(screen.getByRole("button", { name: /Đặt mã để cất giấy tờ thật/ }));
   await expect.element(screen.getByRole("heading", { name: "Đặt mã để cất giấy tờ đầu tiên" })).toBeVisible();
-  await expect.element(screen.getByText(COMPARTMENT_INTRO["tai-lieu"].purpose)).toBeVisible();
+  await expect.element(screen.getByText(COMPARTMENT_INTRO["tai-lieu"].purpose).last()).toBeVisible();
   await expect.element(screen.getByRole("button", { name: "Tôi đã hiểu" })).toBeVisible();
 });

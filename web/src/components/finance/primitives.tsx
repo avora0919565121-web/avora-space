@@ -2,7 +2,7 @@ import { Plus } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 import { StickyBar } from "@/components/nav/StickyBar";
-import type { ReactNode } from "react";
+import { createContext, useContext, type ReactNode } from "react";
 
 import { OBLIGATION_STATUS_LABELS, formatMoney, type ObligationStatus } from "@/lib/finance";
 import { knownAtLine } from "@/lib/last-known";
@@ -174,6 +174,7 @@ export function FinanceHeader({ subtitle, action }: { subtitle: string; action?:
       <p data-finance-subtitle="" className="mt-3 text-[13.5px] text-muted-foreground">
         {subtitle}
       </p>
+      <FinanceBookSlot />
     </>
   );
 }
@@ -194,11 +195,100 @@ export function RowAction({ label, onClick }: { label: string; onClick: () => vo
   );
 }
 
-/** The page shell every finance screen sits in. */
-export function FinancePage({ children }: { children: ReactNode }) {
+/** What the shell needs to know about which book is open (KT-07c). */
+export type FinanceBookState = {
+  isSample: boolean;
+  canShowSample: boolean;
+  setBook: (mode: "mine" | "sample") => void;
+  hideSample: () => void;
+};
+
+/**
+ * The page shell every finance screen sits in.
+ *
+ * KT-07c (CEO 12/11 · 17): with a `book`, it carries the two-step switch "Sổ của tôi · Sổ mẫu"
+ * and, on the sample, a strip saying it is not the person's data (with "Ẩn sổ mẫu"). The sample is
+ * read-only: everything inside sits in a disabled fieldset, so no button can write, edit or export.
+ */
+export function FinancePage({ children, book }: { children: ReactNode; book?: FinanceBookState }) {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
-      <div className="animate-rise-in mx-auto max-w-6xl px-4 pb-10 sm:px-6 md:px-10">{children}</div>
+      <div className="animate-rise-in mx-auto max-w-6xl px-4 pb-10 sm:px-6 md:px-10">
+        <FinanceBookContext.Provider value={book ?? null}>
+          {book?.isSample === true ? (
+            // Read-only: every control inside is switched off (the switch itself carries data-sample-ok).
+            <div
+              data-sample-book=""
+              onClickCapture={(event) => {
+                const control = (event.target as HTMLElement).closest("button, input, select, textarea, label");
+                if (control !== null && control.closest("[data-sample-ok]") === null) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }
+              }}
+              onKeyDownCapture={(event) => {
+                const control = (event.target as HTMLElement).closest("button, input, select, textarea");
+                if (control !== null && control.closest("[data-sample-ok]") === null && (event.key === "Enter" || event.key === " ")) {
+                  event.preventDefault();
+                  event.stopPropagation();
+                }
+              }}
+              className="[&_:is(button,input,select,textarea):not([data-sample-ok]_*,[data-sample-ok])]:pointer-events-none [&_:is(button,input,select,textarea):not([data-sample-ok]_*,[data-sample-ok])]:opacity-60"
+            >
+              {children}
+            </div>
+          ) : (
+            children
+          )}
+        </FinanceBookContext.Provider>
+      </div>
+    </div>
+  );
+}
+
+const FinanceBookContext = createContext<FinanceBookState | null>(null);
+
+/** KT-07c: the switch sits right after the page's own header line — never between the two strips. */
+function FinanceBookSlot() {
+  const book = useContext(FinanceBookContext);
+  if (book === null || !(book.isSample || book.canShowSample)) return null;
+  return <FinanceBookBar book={book} />;
+}
+
+function FinanceBookBar({ book }: { book: FinanceBookState }) {
+  return (
+    <div className="mt-3" data-sample-ok="" data-finance-book={book.isSample ? "sample" : "mine"}>
+      <div role="radiogroup" aria-label="Sổ đang xem" className="inline-flex rounded-full border border-border bg-secondary/60 p-0.5">
+        {(["mine", "sample"] as const).map((mode) => {
+          const on = (mode === "sample") === book.isSample;
+          return (
+            <button
+              key={mode}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => book.setBook(mode)}
+              className={cn(
+                "press h-9 rounded-full px-3.5 text-[13.5px] font-medium transition-colors",
+                on ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {mode === "mine" ? "Sổ của tôi" : "Sổ mẫu"}
+            </button>
+          );
+        })}
+      </div>
+      {book.isSample ? (
+        <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-card border border-amber-500/30 bg-amber-500/[0.07] px-3.5 py-2.5" data-sample-banner="">
+          <span className="rounded-full bg-amber-500/20 px-2 py-0.5 text-[12px] font-semibold text-amber-800 dark:text-amber-200">Mẫu</span>
+          <p className="min-w-0 flex-1 text-[13.5px] text-foreground">
+            Đây là sổ mẫu để bạn hình dung Tài chính dùng thế nào. Không phải dữ liệu của bạn, không cộng vào số thật.
+          </p>
+          <button type="button" onClick={book.hideSample} className="press min-h-9 px-1 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+            Ẩn sổ mẫu
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }

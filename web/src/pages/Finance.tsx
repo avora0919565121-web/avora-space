@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -8,6 +8,7 @@ import {
   GivingRatioGauge,
   MonthlyComparisonChart,
   SpendingTrendChart,
+  IncomeExpenseChart,
   type PieDatum,
 } from "@/components/finance/FinanceCharts";
 import { DueStrip } from "@/components/finance/DueStrip";
@@ -39,7 +40,7 @@ import {
 } from "@/lib/finance";
 import { convertCents } from "@/lib/currency";
 import { monthlyComparison, spendingTrend } from "@/lib/finance-reports";
-import { useLedger } from "@/lib/use-finance";
+import { useBookLedger } from "@/lib/use-finance-book";
 import { useKnownFigures } from "@/lib/use-known-figures";
 import { onVaultAdd, VAULT_ADD_PARAM } from "@/lib/vault-add";
 
@@ -81,7 +82,7 @@ const Finance = () => {
   const navigate = useNavigate();
   // Totals and charts read `baseEntries`: every figure on this screen is a sum across
   // accounts, and adding VND to USD would produce a number that means nothing.
-  const ledger = useLedger();
+  const ledger = useBookLedger();
   const { accounts, categories, entries, baseEntries, currency, rates, unvalued, isLoading, isUnavailable, error } = ledger;
 
   const [isAdding, setIsAdding] = useState<boolean>(false);
@@ -89,9 +90,22 @@ const Finance = () => {
   const [isQuick, setIsQuick] = useState<boolean>(false);
   // AVORA-57 · E: `+ Giao dịch` lives beside the Két sắt title now, not in this page's body.
   const [searchParams, setSearchParams] = useSearchParams();
-  useEffect(() => onVaultAdd(() => setIsQuick(true)), []);
+  // KT-07c: `+` always writes to the person's own book — on the sample it switches to "Sổ của tôi" first.
+  const setBookRef = useRef(ledger.setBook);
+  setBookRef.current = ledger.setBook;
+  const isSampleRef = useRef(ledger.isSample);
+  isSampleRef.current = ledger.isSample;
+  useEffect(
+    () =>
+      onVaultAdd(() => {
+        if (isSampleRef.current) setBookRef.current("mine");
+        setIsQuick(true);
+      }),
+    [],
+  );
   useEffect(() => {
     if (searchParams.get(VAULT_ADD_PARAM) !== "1") return;
+    if (isSampleRef.current) setBookRef.current("mine");
     setIsQuick(true);
     const next = new URLSearchParams(searchParams);
     next.delete(VAULT_ADD_PARAM);
@@ -208,7 +222,7 @@ const Finance = () => {
   );
 
   return (
-    <FinancePage>
+    <FinancePage book={ledger}>
       <FinanceHeader
         subtitle={
           isUnavailable
@@ -327,6 +341,7 @@ const Finance = () => {
           ) : null}
 
           <div className="mt-3 grid gap-3 lg:grid-cols-2">
+            <IncomeExpenseChart points={trend} currency={currency} onSelectMonth={(month) => goToTransactions({ thang: month })} />
             <SpendingTrendChart
               points={trend}
               currency={currency}

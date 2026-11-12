@@ -20,7 +20,8 @@ import {
   type LedgerEntry,
 } from "@/lib/finance";
 import { convertCents, type RateTable } from "@/lib/currency";
-import { useFinanceActions, useLedger } from "@/lib/use-finance";
+import { useFinanceActions } from "@/lib/use-finance";
+import { useBookLedger } from "@/lib/use-finance-book";
 import { useKnownFigures } from "@/lib/use-known-figures";
 import { cn } from "@/lib/utils";
 
@@ -146,7 +147,7 @@ function AccountCard({
 
 const FinanceAccounts = () => {
   const navigate = useNavigate();
-  const ledger = useLedger();
+  const ledger = useBookLedger();
   const { accounts, categories, entries, currency, rates, isLoading, isUnavailable } = ledger;
   // Arriving from "Thùng rác (n)" on Giao dịch: bring the bin into view once the page has drawn.
   useEffect(() => {
@@ -268,7 +269,7 @@ const FinanceAccounts = () => {
   );
 
   return (
-    <FinancePage>
+    <FinancePage book={ledger}>
       <FinanceHeader
         subtitle="Nơi tiền của bạn đang nằm, và cách bạn phân loại nó."
         action={<RowAction label="Thêm tài khoản" onClick={() => setAccountDialog({ open: true, editing: null })} />}

@@ -1,3 +1,5 @@
+import type { VaultSection } from "@/lib/vault-crypto";
+
 /**
  * KT-06 · D (CEO 12/11 23:36): an encrypted compartment opened before any code is set says what it is for
  * and invites the first thing in — never an empty room. SP-04's sample list will sit right under it.
@@ -9,6 +11,11 @@ export const COMPARTMENT_INTRO: Record<"mat-khau" | "chung-chi" | "tai-lieu" | "
   "tai-san": { noun: "tài sản", purpose: "Nơi ghi nhà, xe, vàng, bảo hiểm… cùng giấy tờ đi kèm, để cả nhà biết của cải nằm ở đâu." },
 };
 export type CompartmentKey = keyof typeof COMPARTMENT_INTRO;
+
+/** KT-07c: the encrypted section behind each compartment address. */
+export function compartmentSection(key: CompartmentKey): VaultSection {
+  return ({ "mat-khau": "passwords", "chung-chi": "certificates", "tai-lieu": "documents", "tai-san": "assets" } as const)[key];
+}
 
 export function compartmentOf(pathname: string): CompartmentKey | null {
   const key = /^\/ket-sat\/(mat-khau|chung-chi|tai-lieu|tai-san)\/?$/.exec(pathname)?.[1];

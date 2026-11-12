@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChangeCodeDialog } from "@/components/vault/ChangeCodeDialog";
 import { VaultAboutText } from "@/components/vault/VaultAbout";
 import { VaultGate } from "@/components/vault/VaultGate";
+import { VaultNoCode } from "@/components/vault/VaultNoCode";
 import { compartmentOf } from "@/lib/vault-compartments";
 import { VAULT_TABS } from "@/lib/navigation";
 import { useVisibleNav } from "@/lib/use-feature";
@@ -171,7 +172,13 @@ const Vault = () => {
     // Giấy tờ · Mật khẩu · Chứng chỉ · Tài sản are encrypted with the code: it is asked here, at the first one.
     // KT-06 · D: no code yet → the compartment says what it keeps and invites the first one in.
     const compartment = vault.status?.hasCode === true ? null : compartmentOf(location.pathname);
-    body = <VaultGate key={vault.status?.hasCode === true ? "has-code" : `no-code-${compartment ?? ""}`} compartment={compartment} />;
+    // KT-07c (CEO 12/11 · 19): no code yet → keypad + the compartment's samples (phone: invitation + sheet).
+    body =
+      compartment !== null ? (
+        <VaultNoCode key={`no-code-${compartment}`} compartment={compartment} />
+      ) : (
+        <VaultGate key={vault.status?.hasCode === true ? "has-code" : "no-code"} compartment={compartment} />
+      );
   } else {
     body = (
       <>

@@ -79,7 +79,8 @@ import { taskKeys } from "@/lib/tasks";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { taskLink } from "@/lib/task-scope";
 import { useContacts } from "@/lib/use-contacts";
-import { useDismissedRecurring, useFinanceActions, useFinanceTrash, useLedger } from "@/lib/use-finance";
+import { useDismissedRecurring, useFinanceActions, useFinanceTrash } from "@/lib/use-finance";
+import { useBookLedger } from "@/lib/use-finance-book";
 
 /** Thùng rác Tài chính lives at the end of Tài khoản; this is the way there from Giao dịch. */
 const TRASH_LINK = "/ket-sat/tai-khoan#thung-rac";
@@ -254,7 +255,8 @@ function EntryRow({
 const FinanceTransactions = () => {
   const isSideBySide = useMediaQuery(DESKTOP_QUERY);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { accounts, categories, allEntries, entries, currency, isLoading, isUnavailable } = useLedger();
+  const book = useBookLedger();
+  const { accounts, categories, allEntries, entries, currency, isLoading, isUnavailable } = book;
   const { voidTransaction, addTransaction, settleTransaction, binTransaction, unbinTransaction } = useFinanceActions();
   const navigate = useNavigate();
   const trashQuery = useFinanceTrash();
@@ -462,7 +464,7 @@ const FinanceTransactions = () => {
   }
 
   return (
-    <FinancePage>
+    <FinancePage book={book}>
       <FinanceHeader subtitle="Ghi thu chi và xem lại toàn bộ sổ." />
 
       {obligations.owedCents > 0 || obligations.dueToYouCents > 0 ? (
@@ -491,7 +493,7 @@ const FinanceTransactions = () => {
         </div>
       ) : null}
 
-      <div className="mt-6 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-start">
+      <div className="mt-6 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,420px)] lg:items-start [&>*]:min-w-0">
         <div className="order-2 lg:order-1">
           <Panel
             title="Giao dịch gần đây"

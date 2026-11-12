@@ -18,6 +18,7 @@ import { daysLeft, isSecretField, SECTION_LABEL, strongPassword, templateOf, VAU
 import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
+import { VaultSampleList } from "@/components/vault/VaultSamples";
 
 const field = "mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[15px]";
 
@@ -456,6 +457,8 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
               {isTextOnly(section) ? "Tài khoản, Wi-Fi, mã khoá cửa… Mọi thứ được mã hoá ngay trên máy này." : "Chụp ảnh, chọn PDF hoặc gõ tay. Mọi thứ được mã hoá ngay trên máy này."}
             </p>
             <button type="button" onClick={startAdd} className="press mx-auto mt-s-2 inline-flex h-11 items-center gap-2 rounded-control bg-primary px-5 text-[14.5px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> Thêm</button>
+            {/* KT-07c: an empty compartment shows its samples (read-only, "Mẫu"); never on a load error. */}
+            <div className="mt-8"><VaultSampleList section={section} /></div>
           </div>
         ) : null}
         {view === "life" && section === "certificates" ? (

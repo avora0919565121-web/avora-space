@@ -7,6 +7,7 @@ import { useAuth } from "@/lib/auth";
 import { NavRulesCard } from "@/components/nav/NavRules";
 import { GUIDE_CARDS } from "@/lib/guide-content";
 import { GUIDANCE_TEXT, guidanceKeys, REPLAYABLE_GUIDANCE, restoreGuidance } from "@/lib/guidance";
+import { useRestoreSamples } from "@/lib/use-samples";
 
 const ICONS: Readonly<Record<string, LucideIcon>> = {
   space: LayoutGrid,
@@ -21,6 +22,7 @@ const ICONS: Readonly<Record<string, LucideIcon>> = {
 function ReplayHints() {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const restoreSamples = useRestoreSamples();
   return (
     <section aria-labelledby="guide-hints" className="rounded-card border border-border bg-card p-s-4">
       <h2 id="guide-hints" className="text-[15px] font-semibold tracking-tight text-foreground">
@@ -50,6 +52,23 @@ function ReplayHints() {
             </button>
           </li>
         ))}
+        {/* KT-07c (SP-04 §1): the samples of every Két sắt compartment, hidden with "Ẩn mẫu", come back here. */}
+        <li className="flex items-center gap-3 text-[14.5px]">
+          <span className="min-w-0 flex-1">Sổ mẫu và mẫu trong các ngăn Két sắt.</span>
+          <button
+            type="button"
+            data-replay-samples=""
+            onClick={() =>
+              void restoreSamples().then(
+                () => toast.success("Mẫu Két sắt đã hiện lại."),
+                (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."),
+              )
+            }
+            className="press shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium"
+          >
+            Xem lại mẫu Két sắt
+          </button>
+        </li>
       </ul>
     </section>
   );
