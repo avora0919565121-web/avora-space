@@ -80,12 +80,37 @@ export function formatAmountTyping(raw: string, currency: string | null | undefi
   return raw.replace(/[^\d.,]/g, "");
 }
 
+/**
+ * CC-17b: an amount box that keeps the plain number (`45000`, `-1500`, `12.50`) but shows VND the way
+ * people write it — "45.000" as they type. `raw` may be a stored "45000.00"; whole currencies drop the cents.
+ */
+export function amountShown(raw: string, currency: string | null | undefined): string {
+  if (!isWholeCurrency(currency)) return raw;
+  const sign = raw.trim().startsWith("-") ? "-" : "";
+  return sign + formatAmountTyping(raw.replace(/,/g, "").split(".")[0] ?? "", currency);
+}
+
+/** What an amount box stores from what was typed into it (the reverse of `amountShown`). */
+export function amountTyped(display: string, currency: string | null | undefined, allowNegative: boolean = false): string {
+  if (!isWholeCurrency(currency)) return display;
+  const sign = allowNegative && display.trim().startsWith("-") ? "-" : "";
+  return sign + display.replace(/\D/g, "").replace(/^0+(?=\d)/, "");
+}
+
+/** The placeholder of an amount box: "0" for VND, "0.00" where cents exist. */
+export function amountPlaceholder(currency: string | null | undefined): string {
+  return isWholeCurrency(currency) ? "0" : "0.00";
+}
+
 /** The plain number `validateAmount` reads. */
 export function amountForValidation(display: string, currency: string | null | undefined): string {
   return isWholeCurrency(currency) ? display.replace(/\D/g, "") : display;
 }
 
-/** "Còn thiếu: Số tiền, Người vay" — what a greyed-out save button is waiting for. */
-export function missingLine(missing: readonly string[]): string | null {
-  return missing.length === 0 ? null : `Còn thiếu: ${missing.join(", ")}`;
+/**
+ * "Còn thiếu: Số tiền, Người vay" — what a greyed-out save button is waiting for.
+ * CC-08: only once the person has started (`hasStarted`); on a form just opened the dim button is enough.
+ */
+export function missingLine(missing: readonly string[], hasStarted: boolean = true): string | null {
+  return missing.length === 0 || !hasStarted ? null : `Còn thiếu: ${missing.join(", ")}`;
 }

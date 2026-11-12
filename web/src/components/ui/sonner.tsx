@@ -10,6 +10,9 @@ const Toaster = ({ ...props }: ToasterProps) => {
     <Sonner
       theme={theme as ToasterProps["theme"]}
       className="toaster group"
+      // CC-04: never over the phone's tab bar (`--above-tool-belt`, index.css).
+      offset={{ bottom: "var(--above-tool-belt)" }}
+      mobileOffset={{ bottom: "var(--above-tool-belt)" }}
       toastOptions={{
         classNames: {
           toast:

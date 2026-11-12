@@ -2,6 +2,7 @@ import { Check, Timer, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useCoversToolBelt } from "@/hooks/use-covers-tool-belt";
 import { elapsedMs, minutesText, passedLine, type HabitSession } from "@/lib/habit-timer";
 import { abandonHabitTimer, checkHabitTimer, completeHabitTimer, dismissHabitTimerScreen } from "@/lib/use-habit-timer";
 
@@ -11,6 +12,7 @@ import { abandonHabitTimer, checkHabitTimer, completeHabitTimer, dismissHabitTim
  * ceiling) or `Bỏ phiên` (optional note). Closing it leaves the clock running in the corner chip.
  */
 export function HabitTimerBackCard({ session, today }: { session: HabitSession; today: string }) {
+  useCoversToolBelt();
   const [now, setNow] = useState<number>(() => Date.now());
   const [isAbandoning, setIsAbandoning] = useState<boolean>(false);
   const [note, setNote] = useState<string>("");

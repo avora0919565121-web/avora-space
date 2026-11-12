@@ -77,6 +77,7 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
   if (accountId === "") missing.push("Tài khoản");
   if (dueDate === "") missing.push("Ngày đến hạn");
 
+  const hasStarted = touched || amount !== "" || contactId !== "" || dueDate !== "" || description !== "";
   const complete =
     accountId !== "" &&
     dueDate !== "" &&
@@ -268,8 +269,9 @@ export function ObligationForm({ type, accounts, contacts, onDone, onCancel }: O
         />
       </div>
 
-      {!complete && missingLine(missing) !== null ? (
-        <p className="mt-4 text-[12.5px] text-muted-foreground">{missingLine(missing)}</p>
+      {/* CC-08: the dim button is enough until the person has started. */}
+      {!complete && missingLine(missing, hasStarted) !== null ? (
+        <p className="mt-4 text-[12.5px] text-muted-foreground">{missingLine(missing, hasStarted)}</p>
       ) : null}
       <div className="mt-3 flex gap-2">
         <button

@@ -93,6 +93,13 @@ function Section({ section, openTech }: { section: PolicySection; openTech: bool
  * `/chinh-sach`. Desktop: a contents column on the left; phone: a sliding row of chips. Anchors
  * (`#ket-sat`) open the right document and scroll there; `?chi-tiet=1` opens every technical layer.
  */
+
+/** CC-17c: "2026-11-10" → "10/11/2026", the way dates read everywhere else. */
+function viDate(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return year !== undefined && month !== undefined && day !== undefined ? `${day}/${month}/${year}` : iso;
+}
+
 export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
   const { session } = useAuth();
   const location = useLocation();
@@ -129,7 +136,7 @@ export function PolicyView({ isPublic = false }: { isPublic?: boolean }) {
         ) : null}
         {/* AVORA-93 · 3.3: inside Cài đặt on a phone the section strip already says `Chính sách`. */}
         <h1 className={cn("text-[26px] font-semibold tracking-tight text-foreground", isPublic ? "mt-4" : "hidden md:block short:block")}>Chính sách</h1>
-        <p className={cn("text-muted-foreground", isPublic ? "mt-1 text-[13px]" : "text-[11.5px] opacity-80 md:mt-1 md:text-[13px] md:opacity-100")} data-policy-updated="">Cập nhật lần cuối: {POLICY_VERSION} · {POLICY_DRAFT_NOTE}</p>
+        <p className={cn("text-muted-foreground", isPublic ? "mt-1 text-[13px]" : "text-[11.5px] opacity-80 md:mt-1 md:text-[13px] md:opacity-100")} data-policy-updated="">Cập nhật lần cuối: {viDate(POLICY_VERSION)} · {POLICY_DRAFT_NOTE}</p>
 
         <div data-h-scroll="" role="tablist" aria-label="Bộ chính sách" className="mt-3 flex gap-2 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] [scrollbar-width:none] md:mt-5 md:[mask-image:none]">
           {POLICY_DOCS.map((d) => (

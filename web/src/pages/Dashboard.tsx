@@ -8,9 +8,10 @@ import { ThoughtNote } from "@/components/space/ThoughtNote";
 import { RestDayCard } from "@/components/space/RestDayCard";
 import { WelcomeHome } from "@/components/space/WelcomeHome";
 import { UserAvatar } from "@/components/UserAvatar";
+import { Skeleton } from "@/components/ui/skeleton";
 import { usePinStatus } from "@/components/PinGate";
 import { pinPhase } from "@/lib/user-pin";
-import { isRecentAccount, journalStepPath, readWelcome, saveWelcome, startSteps, type StartStepKey } from "@/lib/welcome";
+import { isRecentAccount, isStartSettled, journalStepPath, readWelcome, saveWelcome, startSteps, type StartStepKey } from "@/lib/welcome";
 import { useHabits } from "@/lib/use-habits";
 import { useVaultLock } from "@/lib/use-vault-lock";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
@@ -147,8 +148,8 @@ export default function Dashboard() {
   const { user } = useAuth();
   const displayName = useDisplayName();
   // A failed load is said as a failure, never shown as "nothing here" (Đợt gộp 2 · A6).
-  const { data: tasks, isLoading, isError: tasksFailed, refetch: refetchTasks } = useTasks();
-  const { data: conversations, isError: conversationsFailed, refetch: refetchConversations } = useConversations();
+  const { data: tasks, isLoading, isError: tasksFailed, fetchStatus: tasksFetch, refetch: refetchTasks } = useTasks();
+  const { data: conversations, isError: conversationsFailed, fetchStatus: conversationsFetch, refetch: refetchConversations } = useConversations();
   const { data: reminders, isError: remindersFailed, refetch: refetchReminders } = useTaskReminders();
   const { data: hubRecords, isError: recordsFailed, refetch: refetchRecords } = useThinkRecords();
   const { data: hubTables, isError: tablesFailed, refetch: refetchTables } = useThinkTables();
@@ -573,6 +574,17 @@ export default function Dashboard() {
         .map((key) => ({ key, ...allSteps[key] }))
         .filter((step) => !step.isDone);
 
+  const startSettled = isStartSettled(
+    {
+      // Not fetching any more (offline: paused) also counts — the page never waits on a network that is not there.
+      conversations: conversations !== undefined || conversationsFailed || conversationsFetch !== "fetching",
+      tasks: tasks !== undefined || tasksFailed || tasksFetch !== "fetching",
+      pin: pinStatus.data !== undefined || pinStatus.isError || pinStatus.fetchStatus !== "fetching",
+      habits: habitsApi.isLoaded || habitsApi.loadFailed,
+    },
+    welcome.choices,
+  );
+
   const startCard: ReactNode = starts.length > 0 ? (
           <section aria-labelledby="space-start" className="mt-6 rounded-[14px] border border-primary/25 bg-card p-4 shadow-[0_8px_30px_-18px_hsl(13_73%_56%/0.45)]">
             <h2 id="space-start" className={cn(TYPE.blockTitle)}>Bắt đầu</h2>
@@ -610,6 +622,8 @@ export default function Dashboard() {
           />
         )}
         {SPACE_BLOCK_ORDER.map((id) => {
+          // CC-02: below the greeting, nothing is drawn until Bắt đầu is known — one placeholder instead.
+          if (id !== "greeting" && !startSettled) return null;
           const block = renderBlock(id);
           if (block === null) return null;
           // Each block in its own boundary: a fault in one leaves the others standing.
@@ -617,10 +631,18 @@ export default function Dashboard() {
           return (
             <BlockErrorBoundary key={id} name={SPACE_BLOCK_COPY[id].title}>
               {block}
-              {id === "greeting" ? startCard : null}
+              {id === "greeting" && startSettled ? startCard : null}
             </BlockErrorBoundary>
           );
         })}
+        {startSettled ? null : (
+          <div role="status" aria-label="Đang chuẩn bị Avora Space" data-space-pending="" className="mt-8 space-y-3">
+            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-[74px] rounded-[12px]" />
+            <Skeleton className="h-4 w-32" />
+            <Skeleton className="h-12 rounded-[12px]" />
+          </div>
+        )}
       </div>
     </div>
   );

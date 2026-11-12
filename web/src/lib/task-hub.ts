@@ -243,3 +243,29 @@ export function invitationRows(
     .filter((row) => row.userId === userId && row.status === "pending")
     .map((participant) => ({ participant, task: byId.get(participant.taskId) ?? null }));
 }
+
+// ------------------------------------------------------------------ CC-05 · where a new task went
+
+export type CreatedTaskHome = { section: TaskHubSectionId; label: string; text: string };
+
+/**
+ * CC-05: a task just created on Nhiệm vụ may not belong to the tab on screen (a deadline tomorrow is
+ * not in Hôm nay). Then the toast says where it went — "Đã thêm vào Sắp tới · T6 13/11" — and offers
+ * Xem. Null when the open tab already shows it (it appears right there).
+ */
+export function createdTaskHome(
+  created: { deadline: string | null; startAt: string | null; myDay: boolean },
+  current: TaskHubSectionId,
+  today: string,
+): CreatedTaskHome | null {
+  const day = created.startAt !== null ? localDayOf(created.startAt) : created.deadline;
+  // Tất cả holds every open task; Lịch draws it on its day.
+  const shows: TaskHubSectionId[] = ["tasks", "calendar"];
+  if (created.myDay || day === today) shows.push("my_day");
+  if (day !== null && day >= today && day <= addDays(today, 6)) shows.push("upcoming");
+  if (shows.includes(current)) return null;
+  const section: TaskHubSectionId = shows.includes("my_day") ? "my_day" : shows.includes("upcoming") ? "upcoming" : "tasks";
+  const label = TASK_HUB_SECTIONS.find((item) => item.id === section)?.label ?? "Tất cả";
+  const when = day === null ? "" : ` · ${day === today ? "Hôm nay" : `${WEEKDAY_SHORT[new Date(`${day}T00:00:00`).getDay()] ?? ""} ${shortDay(day)}`}`;
+  return { section, label, text: `Đã thêm vào ${label}${when}` };
+}

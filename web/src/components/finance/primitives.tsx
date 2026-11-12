@@ -198,8 +198,10 @@ export function FieldLabel({
 export const inputClass =
   "h-10 w-full rounded-md border border-border bg-card px-3 text-[14px] text-foreground outline-none transition-colors placeholder:text-muted-foreground/70 focus:border-personal/60 disabled:opacity-60";
 
+// CC-06: `bg-[position:…]`, not `bg-[right_…]` — tailwind-merge read the bare form as a colour and dropped
+// `bg-card`, leaving the browser's grey select beside white inputs (glaring in dark mode).
 export const selectClass =
-  "h-10 w-full appearance-none rounded-md border border-border bg-card bg-[length:16px] bg-[right_0.6rem_center] bg-no-repeat pl-3 pr-9 text-[14px] text-foreground outline-none transition-colors focus:border-personal/60 disabled:opacity-60";
+  "h-10 w-full appearance-none rounded-md border border-border bg-card bg-[length:16px] bg-[position:right_0.6rem_center] bg-no-repeat pl-3 pr-9 text-[14px] text-foreground outline-none transition-colors focus:border-personal/60 disabled:opacity-60";
 
 /** Chevron drawn in the border colour, so a native select still reads as AVORA paper. */
 export const selectChevron: string =

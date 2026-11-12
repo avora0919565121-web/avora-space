@@ -22,7 +22,7 @@ import { toast } from "sonner";
 
 import { celebrate } from "@/lib/confetti";
 import { SubTabs } from "@/components/nav/SubTabs";
-import { TASK_HUB_SECTIONS, TASK_HUB_TOP } from "@/lib/task-hub";
+import { createdTaskHome, TASK_HUB_SECTIONS, TASK_HUB_TOP } from "@/lib/task-hub";
 import { TaskHubSectionView } from "@/components/tasks/TaskHubSectionView";
 import { CalendarView } from "@/components/tasks/CalendarView";
 import {
@@ -1713,9 +1713,10 @@ export default function Tasks() {
             <AvoraSearchButton here={{ tab: "nhiem-vu", label: "Nhiệm vụ" }} />
             {/* AVORA-61 · A: the shared `+` — click = a task for me, hold / right-click = what kind. */}
             <PlusMenuButton
-              label="Thêm nhiệm vụ"
+              // CC-21: on Thói quen the + makes a habit, and says so (screen readers too).
+              label={hubSection.id === "habits" ? "Tạo thói quen" : "Thêm nhiệm vụ"}
               tapLabel="giữ để chọn loại"
-              tapAction="nhiệm vụ cho tôi"
+              tapAction={hubSection.id === "habits" ? "thói quen mới" : "nhiệm vụ cho tôi"}
               onTap={() => (hubSection.id === "habits" ? setHabitCreateRequest((count) => count + 1) : openNew("task"))}
               hintKey="task_plus_hold"
               entries={[
@@ -1887,6 +1888,13 @@ export default function Tasks() {
         onCreateMine={async (values) => {
           if (!user) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
           return createPersonal(user.id, values, null);
+        }}
+        createdToast={(values) => {
+          // CC-05: not on the tab in view → say where it went, and offer to go there.
+          const home = createdTaskHome({ deadline: values.deadline, startAt: values.startAt, myDay: values.extras?.myDay === true }, hubSection.id, today);
+          if (home === null) return null;
+          const target = TASK_HUB_SECTIONS.find((section) => section.id === home.section);
+          return { text: home.text, onView: () => (target === undefined ? undefined : selectHubSection(target)) };
         }}
       />
       <TaskCard

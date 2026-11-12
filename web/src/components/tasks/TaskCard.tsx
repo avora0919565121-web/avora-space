@@ -16,6 +16,7 @@ import {
   Repeat,
   Sun,
   Trash2,
+  User,
   Users,
   X,
 } from "lucide-react";
@@ -23,6 +24,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } fro
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+import { askConfirm } from "@/components/ConfirmHost";
 import { RecordPicker } from "@/components/tasks/LinkPickers";
 import { RecipientPicker } from "@/components/tasks/RecipientPicker";
 import {
@@ -145,6 +147,11 @@ export type TaskCardCreateProps = {
   onCreateMine?: (values: ComposerValues) => Promise<unknown>;
   onPropose?: (assigneeId: string, values: ComposerValues) => Promise<unknown>;
   onCreated?: (recipients: Recipients) => void;
+  /**
+   * CC-05: the place says where the person's own new task went when it is not on screen — the
+   * toast then reads "Đã thêm vào Sắp tới · T6 13/11" with a Xem. Null keeps the usual toast.
+   */
+  createdToast?: (values: ComposerValues) => { text: string; onView: () => void } | null;
   /** `+ › Sự kiện`: open full with Ngày diễn ra unfolded. */
   startWithEvent?: boolean;
   startChoice?: RecipientChoice;
@@ -669,6 +676,8 @@ function CardPanel({
   modalOnDesktop = false,
   mode,
   embedded = false,
+  onOpenAutoFocus,
+  onEscapeKeyDown,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -682,6 +691,10 @@ function CardPanel({
   modalOnDesktop?: boolean;
   mode: "task" | "suggestion" | "create";
   embedded?: boolean;
+  /** CC-08: where the cursor lands when the card opens (the create card: its title). */
+  onOpenAutoFocus?: (event: Event) => void;
+  /** CC-19: Esc first closes what is open inside the card, and never drops a draft silently. */
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
 }) {
   const isMobile = useIsMobile();
   const isModal = isMobile || modalOnDesktop;
@@ -731,6 +744,8 @@ function CardPanel({
           // Computer: the list beside the card stays usable (2.2 · 7).
           if (!isModal) event.preventDefault();
         }}
+        onOpenAutoFocus={onOpenAutoFocus}
+        onEscapeKeyDown={onEscapeKeyDown}
         className="flex w-full flex-col gap-0 bg-background p-0 pt-[env(safe-area-inset-top)] sm:max-w-none md:w-[460px] md:max-w-[460px] md:shadow-xl [&>button.absolute]:hidden"
       >
         <SheetTitle className="sr-only">{heading}</SheetTitle>
@@ -740,7 +755,8 @@ function CardPanel({
           <button
             type="button"
             {...hold}
-            aria-label={backLabel}
+            // CC-17j: the create card's back reads "Tạo nhiệm vụ" like its title; its name stays "Đóng" so it is never taken for the submit.
+            aria-label={mode === "create" ? "Đóng" : backLabel}
             className="press no-callout flex min-h-11 min-w-0 items-center gap-1 rounded-md px-2 text-[15px] text-foreground/80 hover:bg-accent/40 md:hidden"
           >
             <ChevronLeft className="h-5 w-5 shrink-0" strokeWidth={2} aria-hidden="true" />
@@ -1454,6 +1470,7 @@ function CreateTaskCardBody({
   onCreateMine,
   onPropose,
   onCreated,
+  createdToast,
   startWithEvent = false,
   startChoice,
   startExpanded = false,
@@ -1489,7 +1506,12 @@ function CreateTaskCardBody({
   // Giao cho is required where there is a choice, so the quick sheet shows it straight away.
   const [quickOpen, setQuickOpen] = useState<"date" | "people" | null>(() => (place !== "personal" && (startChoice ?? initialChoice(place)) === "none" ? "people" : null));
   const [isSourceOpen, setIsSourceOpen] = useState<boolean>(source?.defaultOpen ?? false);
-  const patch = (part: Partial<CreateDraft>): void => setDraft((current) => ({ ...current, ...part }));
+  // CC-08: "Còn thiếu…" waits until the person has started; a form just opened is not told off.
+  const [hasStarted, setHasStarted] = useState<boolean>(false);
+  const patch = (part: Partial<CreateDraft>): void => {
+    setHasStarted(true);
+    setDraft((current) => ({ ...current, ...part }));
+  };
 
   const eligibleIds = useMemo(() => members.map((member) => member.userId), [members]);
   const nameOf = (userId: string): string => (userId === peerId ? peerName : memberName(members, userId, peerName || "Thành viên"));
@@ -1505,7 +1527,7 @@ function CreateTaskCardBody({
   if (draft.when.day === "") missing.push("ngày diễn ra");
   if (draft.requiresPresence && draft.when.time === "") missing.push("giờ ở Ngày diễn ra");
   // ADR-030: nobody chosen yet → no send button at all, only the line asking to choose.
-  const missingText = chosen ? missingLine(missing) : copy.description;
+  const missingText = chosen ? missingLine(missing, hasStarted) : copy.description;
   const canSubmit = chosen && missing.length === 0 && !isSubmitting;
   const startIso = draft.when.time !== "" && draft.when.day !== "" ? localInstant(draft.when.day, draft.when.time) : null;
 
@@ -1570,7 +1592,9 @@ function CreateTaskCardBody({
       toast.error(composerPartialFailure(result.done, result.total, result.error.message));
       return;
     }
-    toast.success(composerSuccess(recipients, nameOf));
+    const placed = recipients.includesSelf && recipients.others.length === 0 ? (createdToast?.(clean) ?? null) : null;
+    if (placed !== null) toast.success(placed.text, { action: { label: "Xem", onClick: placed.onView } });
+    else toast.success(composerSuccess(recipients, nameOf));
     if (extrasError !== null) toast.error((extrasError as Error).message);
     onCreated?.(recipients);
     onOpenChange(false);
@@ -1699,7 +1723,8 @@ function CreateTaskCardBody({
             onClick={() => setQuickOpen(quickOpen === "people" ? null : "people")}
           />
         ) : (
-          <QuickChip icon={<Users className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />} label="Chỉ tôi" isActive={false} onClick={() => undefined} />
+          // CC-17f: one person — the one-person icon.
+          <QuickChip icon={<User className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />} label="Chỉ tôi" isActive={false} onClick={() => undefined} />
         )}
       </div>
       {quickOpen === "date" ? (
@@ -1764,11 +1789,39 @@ function CreateTaskCardBody({
     </div>
   );
 
+  // CC-08: the cursor goes to "Việc cần làm là gì?" (the keyboard comes up), not to ✕.
+  const focusTitle = (event: Event): void => {
+    const title = document.getElementById("task-card-title");
+    if (title === null) return;
+    event.preventDefault();
+    title.focus({ preventScroll: true });
+  };
+  const hasDraft =
+    draft.title.trim() !== "" ||
+    draft.description.trim() !== "" ||
+    draft.steps.length > 0 ||
+    draft.files.length > 0 ||
+    draft.location.trim() !== "";
+  // CC-19: Esc closes the calendar / row that is open first; a card with something written asks before it goes.
+  const onEscape = (event: KeyboardEvent): void => {
+    if (quickOpen !== null || openRow !== null) {
+      event.preventDefault();
+      setQuickOpen(null);
+      setOpenRow(null);
+      return;
+    }
+    if (!hasDraft || isSubmitting) return;
+    event.preventDefault();
+    void askConfirm({ title: "Bỏ nhiệm vụ đang viết?", body: "Những gì bạn vừa viết sẽ không được lưu.", confirmLabel: "Bỏ", cancelLabel: "Viết tiếp", danger: true }).then((ok) => {
+      if (ok) onOpenChange(false);
+    });
+  };
+
   // Phone, quick: a sheet from below (màn 1). Expanded — or any computer — the full card (màn 2).
   if (isMobile && !isExpanded) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" data-task-card="create" data-card-size="quick" className="flex max-h-[92dvh] flex-col gap-0 rounded-t-[18px] border-border bg-background p-0 [&>button:last-child]:hidden">
+        <SheetContent side="bottom" data-task-card="create" data-card-size="quick" onOpenAutoFocus={focusTitle} onEscapeKeyDown={onEscape} className="flex max-h-[92dvh] flex-col gap-0 rounded-t-[18px] border-border bg-background p-0 [&>button:last-child]:hidden">
           <div className="mx-auto mt-2 h-1 w-10 rounded-full bg-border" aria-hidden="true" />
           <div className="flex items-center gap-2 px-4 pt-2">
             <SheetTitle className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">{copy.title}</SheetTitle>
@@ -1791,12 +1844,15 @@ function CreateTaskCardBody({
     <CardPanel
       open={open}
       onOpenChange={onOpenChange}
-      backLabel="Nhiệm vụ mới"
+      // CC-17j: one name from the quick sheet to the full card.
+      backLabel={copy.title}
       heading={copy.title}
       description="Thẻ nhiệm vụ mới: đủ các dòng như khi sửa."
       footer={footer}
       modalOnDesktop
       mode="create"
+      onOpenAutoFocus={focusTitle}
+      onEscapeKeyDown={onEscape}
     >
       {chosen ? <p data-card-copy="" className="mb-2 text-[12.5px] text-muted-foreground">{copy.description}</p> : null}
       {isExpanded ? full : quick}

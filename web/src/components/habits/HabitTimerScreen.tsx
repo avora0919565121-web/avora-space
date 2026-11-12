@@ -2,6 +2,7 @@ import { Check, Minimize2, Pause, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 
+import { useCoversToolBelt } from "@/hooks/use-covers-tool-belt";
 import { clockText, elapsedMs, minutesText, remainingMs, stoppedLine, type HabitSession } from "@/lib/habit-timer";
 import { currentRhythm } from "@/lib/motion";
 import {
@@ -28,6 +29,7 @@ const CIRCLE = 2 * Math.PI * RADIUS;
  * ring steps once a second and nothing breathes.
  */
 export function HabitTimerScreen({ screen, session, today, onFinished }: { screen: Screen; session: HabitSession | null; today: string; onFinished: () => void }) {
+  useCoversToolBelt();
   const [now, setNow] = useState<number>(() => Date.now());
   const [isAbandoning, setIsAbandoning] = useState<boolean>(false);
   const [note, setNote] = useState<string>("");

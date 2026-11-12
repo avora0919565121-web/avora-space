@@ -319,7 +319,8 @@ const FinanceReports = () => {
 
       <div className="mt-6">
         <Panel title="Chọn báo cáo">
-          <div className="grid gap-4 px-5 py-5 md:grid-cols-2 lg:grid-cols-4">
+          {/* CC-07: `grid-cols-1` + `min-w-0` — a long date no longer pushes the boxes 9px past the card on a phone. */}
+          <div className="grid grid-cols-1 gap-4 px-5 py-5 md:grid-cols-2 lg:grid-cols-4 [&>*]:min-w-0">
             <div className="md:col-span-2">
               <FieldLabel htmlFor="report-type" required>
                 Báo cáo

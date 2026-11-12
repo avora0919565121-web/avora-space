@@ -309,7 +309,7 @@ export function ProjectList({
       </section>
 
       <section className="mt-1">
-        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Danh sách Bảng" count={mineCount + projectTables.length} />
+        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Danh sách bảng" count={mineCount + projectTables.length} />
         {tablesOpen ? (
           tablesQuery.isError ? (
             // AVORA-49 · 1.8: a failed load says so; it never passes for an empty list.

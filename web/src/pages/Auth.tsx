@@ -274,12 +274,24 @@ const Auth = () => {
       <section className="paper flex flex-col justify-center border-b border-border px-6 py-6 md:w-1/2 md:border-b-0 md:border-r md:px-16 md:py-12 lg:px-24">
         <div className="animate-rise-in">
           {/* Full lockup: intrinsic size given so the column never reflows as it loads. */}
+          {/* CC-11: the dark look gets the lockup with a light "AVORA" (the dark one all but vanished on near-black). */}
           <img
             src="/avora-logo-full-v2.png"
             alt="AVORA"
             width={1425}
             height={1052}
-            className="h-auto w-[104px] max-w-full md:w-[240px]"
+            loading="lazy"
+            data-logo="light"
+            className="h-auto w-[104px] max-w-full dark:hidden md:w-[240px]"
+          />
+          <img
+            src="/avora-logo-full-v2-dark.png"
+            alt="AVORA"
+            width={1425}
+            height={1052}
+            loading="lazy"
+            data-logo="dark"
+            className="hidden h-auto w-[104px] max-w-full dark:block md:w-[240px]"
           />
           {/* AVORA-50 · A: the two brand lines stay in English in every language (translate="no");
               only the explaining sentence below is translated. */}

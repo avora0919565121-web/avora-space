@@ -97,7 +97,7 @@ export const HabitRow = memo(function HabitRow({
         </div>
         {!compact ? (
           <p data-habit-tally="" className="mt-1.5 text-[12px] tabular text-muted-foreground">
-            Hôm nay {tallyText(day)} · Tuần này {tallyText(week)}
+            Hôm nay {tallyText(day)} lần · Tuần này {tallyText(week)} ngày
           </p>
         ) : null}
       </div>

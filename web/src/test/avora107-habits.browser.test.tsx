@@ -192,7 +192,7 @@ test("107.1 · 390: Thói quen hôm nay — đánh dấu, bỏ được trong ng
   // Today's three, by first window; Vận động rests below, quieter.
   expect([...document.querySelectorAll('[data-habits-part="today"] [data-habit-id]')].map((row) => row.getAttribute("data-habit-id"))).toEqual(["h-early", "h-water", "h-read"]);
   expect(q('[data-habits-part="resting"]')?.textContent).toContain("Vận động");
-  expect(q('[data-habits-head="today"]')?.textContent).toBe("Hôm nay · 1/3");
+  expect(q('[data-habits-head="today"]')?.textContent).toBe("Hôm nay · 1/3 thói quen");
   await settle(300);
   await page.screenshot({ path: `${OUT}/107-P1-thoi-quen-hom-nay-390.png` });
 

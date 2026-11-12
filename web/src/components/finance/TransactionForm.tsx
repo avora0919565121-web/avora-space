@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type
 import { toast } from "sonner";
 
 import { DateField } from "@/components/calendar/DateField";
+import { amountPlaceholder, amountShown, amountTyped, isWholeCurrency } from "@/lib/contact-picker";
 import {
   FieldLabel,
   inputClass,
@@ -60,7 +61,8 @@ export type TransactionFormProps = {
   editing?: LedgerEntry | null;
   /** Pre-filled values, used by the recurring reminders. */
   seed?: Partial<TransactionDraft> | null;
-  onDone?: () => void;
+  /** `saved` is the row just written (CC-05: the list can bring it into view). */
+  onDone?: (saved?: { id: string }) => void;
   onCancel?: () => void;
   onRequestCategory?: (scope: MovementType) => void;
 };
@@ -216,11 +218,14 @@ export function TransactionForm({
       };
 
       try {
+        let saved: { id: string } | undefined;
         if (editing) {
           await editTransaction.mutateAsync({ transactionId: editing.id, input });
           toast.success("Đã cập nhật giao dịch.");
+          saved = { id: editing.id };
         } else {
-          await addTransaction.mutateAsync(input);
+          const created = await addTransaction.mutateAsync(input);
+          saved = { id: created.id };
           toast.success(draft.type === "income" ? "Đã ghi khoản thu." : "Đã ghi khoản chi.");
           // Clearing keeps the account and the date: the next entry is usually the same day.
           setDraft((current) => ({
@@ -231,7 +236,7 @@ export function TransactionForm({
           }));
           setTouched(false);
         }
-        onDone?.();
+        onDone?.(saved);
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Không lưu được giao dịch.");
       }
@@ -323,11 +328,11 @@ export function TransactionForm({
           <div className="relative mt-1.5">
             <input
               id="txn-amount"
-              inputMode="decimal"
-              value={draft.amount}
-              onChange={(event) => update("amount", event.target.value)}
+              inputMode={isWholeCurrency(amountCurrency) ? "numeric" : "decimal"}
+              value={amountShown(draft.amount, amountCurrency)}
+              onChange={(event) => update("amount", amountTyped(event.target.value, amountCurrency))}
               onBlur={() => setTouched(true)}
-              placeholder="0.00"
+              placeholder={amountPlaceholder(amountCurrency)}
               aria-describedby={amountCurrency !== null ? "txn-amount-currency" : undefined}
               className={cn(inputClass, "tabular", amountCurrency !== null && "pr-16", amountError !== null && "border-money-out")}
             />

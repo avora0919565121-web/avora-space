@@ -132,7 +132,7 @@ describe("the Dự án tab: my tables, then group projects", () => {
 
   test("shows exactly two sections — the empty Cá nhân and 1-1 project sections are gone", async () => {
     const screen = await renderList([]);
-    await expect.element(screen.getByText("Danh sách Bảng", { exact: true })).toBeInTheDocument();
+    await expect.element(screen.getByText("Danh sách bảng", { exact: true })).toBeInTheDocument();
     await expect.element(screen.getByText("Trò chuyện dự án", { exact: true })).toBeInTheDocument();
     expect(document.body.textContent).not.toContain("Cá nhân");
     expect(document.body.textContent).not.toContain("Chưa có dự án nào với một người");

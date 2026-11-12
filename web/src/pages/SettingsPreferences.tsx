@@ -16,11 +16,14 @@ import {
   type DailyThoughtCategory,
 } from "@/lib/daily-thoughts";
 import { Switch } from "@/components/ui/switch";
+import { cn } from "@/lib/utils";
+import { selectChevron, selectClass } from "@/components/finance/primitives";
 import { TIMEZONE_OPTIONS } from "@/lib/settings";
 import { useCurrencyRates, useProfileSettings, useSettingsActions } from "@/lib/use-settings";
 
-const SELECT_CLASS =
-  "h-12 w-full rounded-md border border-border bg-card px-4 text-[15px] text-foreground outline-none transition-colors focus:border-personal/70";
+// CC-06: the same select as Két sắt (`selectClass`, AVORA paper and chevron), not the browser's grey one.
+const SELECT_CLASS = cn(selectClass, "h-12 pl-4 text-[15px]");
+const SMALL_SELECT_CLASS = cn(selectClass, "w-auto bg-background pl-2 text-[16px] md:text-[14px]");
 
 /**
  * Thiết lập — reporting currency, timezone, and the daily thought.
@@ -125,6 +128,7 @@ const SettingsPreferences = () => {
                   disabled={isWorking}
                   onChange={(event) => void changeBase(event.target.value)}
                   className={SELECT_CLASS}
+                  style={{ backgroundImage: selectChevron }}
                 >
                   {currenciesByRegion().map((group) => (
                     <optgroup key={group.region} label={REGION_LABELS[group.region]}>
@@ -153,6 +157,7 @@ const SettingsPreferences = () => {
                   disabled={isWorking}
                   onChange={(event) => void changeZone(event.target.value)}
                   className={SELECT_CLASS}
+                  style={{ backgroundImage: selectChevron }}
                 >
                   {TIMEZONE_OPTIONS.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -179,6 +184,7 @@ const SettingsPreferences = () => {
                   disabled={isWorking}
                   onChange={(event) => void changeThought(event.target.value)}
                   className={SELECT_CLASS}
+                  style={{ backgroundImage: selectChevron }}
                 >
                   {thoughtOptions.map((option) => (
                     <option key={option.value} value={option.value}>
@@ -243,7 +249,8 @@ const SettingsPreferences = () => {
                 value={settings?.restWeekday ?? 0}
                 disabled={settings === undefined || isWorking}
                 onChange={(event) => saveReview({ restWeekday: Number(event.target.value) })}
-                className="h-10 rounded-md border border-border bg-background px-2 text-[16px] md:text-[14px]"
+                className={SMALL_SELECT_CLASS}
+                  style={{ backgroundImage: selectChevron }}
               >
                 {["Chủ nhật", "Thứ Hai", "Thứ Ba", "Thứ Tư", "Thứ Năm", "Thứ Sáu", "Thứ Bảy"].map((label, index) => (
                   <option key={label} value={index}>{label}</option>
@@ -298,7 +305,8 @@ const SettingsPreferences = () => {
                   disabled={settings === undefined || settings.reviewDailyEnabled === false}
                   onChange={(event) => saveReview({ reviewDailyHour: Number(event.target.value) })}
                   aria-label="Giờ hiện"
-                  className="h-10 rounded-md border border-border bg-background px-2 text-[16px] md:text-[14px]"
+                  className={SMALL_SELECT_CLASS}
+                  style={{ backgroundImage: selectChevron }}
                 >
                   {Array.from({ length: 12 }, (_, i) => i + 12).map((hour) => (
                     <option key={hour} value={hour}>từ {hour}:00</option>

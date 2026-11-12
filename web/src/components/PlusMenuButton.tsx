@@ -107,6 +107,37 @@ export function PlusMenuButton({
   const name = hasMenu && tapLabel !== undefined ? `${label} (${tapLabel})` : label;
   const caption = hasMenu ? plusCaption(tapAction ?? label.toLowerCase()) : label;
 
+  const plus = (
+    <button
+      type="button"
+      {...hold}
+      onPointerDown={(event) => {
+        // Radix opens the menu on pointerdown; the + must stay a plain click.
+        event.preventDefault();
+        hold.onPointerDown(event);
+      }}
+      onKeyDown={(event) => {
+        // Enter / Space is the click; ArrowDown (or the menu key) opens the menu.
+        if ((event.key === "ArrowDown" || event.key === "ContextMenu") && hasMenu) {
+          event.preventDefault();
+          openMenu();
+        } else if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          onTap();
+        }
+      }}
+      onClick={(event) => {
+        event.preventDefault();
+        onClick(event);
+      }}
+      aria-label={name}
+      data-plus-button=""
+      className="icon-btn icon-btn-primary no-callout h-11 w-11"
+    >
+      <Plus className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden="true" />
+    </button>
+  );
+
   return (
     <div
       className="no-callout relative"
@@ -124,39 +155,15 @@ export function PlusMenuButton({
         if (hasMenu) openMenu();
       }}
     >
-      <DropdownMenu open={isMenuOpen} onOpenChange={(next) => (next ? openMenu() : setIsMenuOpen(false))} modal={false}>
-        {/* The trigger is the + itself, so the menu anchors to it; it never opens on a tap. */}
-        <DropdownMenuTrigger asChild disabled={!hasMenu}>
-          <button
-            type="button"
-            {...hold}
-            onPointerDown={(event) => {
-              // Radix opens the menu on pointerdown; the + must stay a plain click.
-              event.preventDefault();
-              hold.onPointerDown(event);
-            }}
-            onKeyDown={(event) => {
-              // Enter / Space is the click; ArrowDown (or the menu key) opens the menu.
-              if ((event.key === "ArrowDown" || event.key === "ContextMenu") && hasMenu) {
-                event.preventDefault();
-                openMenu();
-              } else if (event.key === "Enter" || event.key === " ") {
-                event.preventDefault();
-                onTap();
-              }
-            }}
-            onClick={(event) => {
-              event.preventDefault();
-              onClick(event);
-            }}
-            aria-label={name}
-            data-plus-button=""
-            className="icon-btn icon-btn-primary no-callout h-11 w-11"
-          >
-            <Plus className="h-[18px] w-[18px]" strokeWidth={2.2} aria-hidden="true" />
-          </button>
-        </DropdownMenuTrigger>
-        {hasMenu ? (
+      {/*
+       * CC-01: with nothing to choose (Thêm sách, Viết ghi chép, Thêm giao dịch…) the + is a plain
+       * button. It used to sit inside a trigger marked `disabled`, which disabled the button itself:
+       * it looked ready but a tap did nothing.
+       */}
+      {hasMenu ? (
+        <DropdownMenu open={isMenuOpen} onOpenChange={(next) => (next ? openMenu() : setIsMenuOpen(false))} modal={false}>
+          {/* The trigger is the + itself, so the menu anchors to it; it never opens on a tap. */}
+          <DropdownMenuTrigger asChild>{plus}</DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
             side="bottom"
@@ -175,8 +182,10 @@ export function PlusMenuButton({
               );
             })}
           </DropdownMenuContent>
-        ) : null}
-      </DropdownMenu>
+        </DropdownMenu>
+      ) : (
+        plus
+      )}
       {/* Mouse only: a small caption after a short rest; never on touch, never over the open menu. */}
       {isCaptionShown && !isMenuOpen && !showHint ? (
         <span

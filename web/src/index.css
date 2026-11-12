@@ -250,6 +250,30 @@
     --inset-l: env(safe-area-inset-left, 0px);
     --inset-r: env(safe-area-inset-right, 0px);
   }
+  /* CC-04: what floats at the bottom (toasts, the "máy chính" question) sits above the phone's tab bar
+     (52px + 1px border + its own bottom padding), 8px clear of it. No tab bar on screen (a thread, the
+     reader, the habit clock, a computer, the keyboard up) → just a small margin, as before. */
+  :root {
+    --above-tool-belt: max(env(safe-area-inset-bottom), 16px);
+  }
+  @media (min-width: 768px) {
+    :root {
+      --above-tool-belt: 24px;
+    }
+  }
+  @media (max-width: 767px) {
+    html[data-tool-belt]:not([data-covers-tool-belt]) {
+      --above-tool-belt: calc(61px + max(env(safe-area-inset-bottom), 10px));
+    }
+  }
+  @media (max-height: 500px) and (orientation: landscape) {
+    html[data-tool-belt] {
+      --above-tool-belt: max(env(safe-area-inset-bottom), 16px);
+    }
+  }
+  html[data-tool-belt][data-keyboard="open"] {
+    --above-tool-belt: max(env(safe-area-inset-bottom), 16px);
+  }
   html[data-notch="left"] {
     --inset-r: 0px;
   }

@@ -3611,7 +3611,7 @@ const Messages = () => {
                 ) : messages.length === 0 ? (
                   <p className="mx-auto max-w-sm text-center text-[14px] text-muted-foreground">
                     {activeKind === "personal"
-                      ? "Chưa có ghi chú nào. Viết dòng đầu tiên cho riêng bạn."
+                      ? "Nhật ký còn trống. Bạn viết một dòng về hôm nay nhé — chỉ mình bạn đọc."
                       : activeKind === "group"
                         ? `Chưa có tin nhắn nào trong ${threadTitle}. Mở lời đầu tiên nhé.`
                         : `Chưa có tin nhắn nào. Gửi lời chào đầu tiên tới ${threadTitle}.`}

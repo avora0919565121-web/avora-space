@@ -151,7 +151,8 @@ function HabitsSectionInner({ createRequest, startWithCreate = false, onStarted 
           <section aria-label="Thói quen hôm nay" data-habits-part="today">
             <div className="mb-1.5 flex items-center justify-between gap-2">
               <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground" data-habits-head="today">
-                Hôm nay · {tallyText(summary)}
+                {/* CC-17h: the head counts habits, each row counts times — each says its unit. */}
+                Hôm nay · {tallyText(summary)} thói quen
               </h3>
               <button type="button" onClick={() => setEditor({ key: Date.now(), habit: null })} className="press flex h-10 items-center gap-1 rounded-[8px] px-2 text-[13px] font-medium text-foreground hover:bg-secondary">
                 <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />

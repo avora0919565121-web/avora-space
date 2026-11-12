@@ -59,7 +59,8 @@ export function PinGate({ children }: { children: ReactNode }) {
     return (
       <div className="paper flex min-h-[100dvh] items-start justify-center scroll-y px-5 py-10 md:items-center">
         <div className="animate-rise-in w-full max-w-[460px]">
-          <img src="/avora-logo-full-v2.png" alt="AVORA" width={1425} height={1052} className="h-auto w-[120px]" />
+          <img src="/avora-logo-full-v2.png" alt="AVORA" width={1425} height={1052} loading="lazy" className="h-auto w-[120px] dark:hidden" />
+          <img src="/avora-logo-full-v2-dark.png" alt="AVORA" width={1425} height={1052} loading="lazy" className="hidden h-auto w-[120px] dark:block" />
           <p className="mt-8 text-[12px] font-semibold uppercase tracking-[0.14em] text-primary">
             Một việc trước khi tiếp tục
           </p>

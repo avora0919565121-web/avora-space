@@ -281,7 +281,9 @@ function StartGently() {
     <div data-start-gently="" className="rounded-[14px] bg-personal-soft/60 px-4 py-4">
       <p className="text-[15px] font-semibold text-foreground">Bắt đầu nhẹ nhàng</p>
       <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
-        Một việc cần nhớ? Bấm <span className="font-semibold text-foreground">+</span> ở trên. Việc người khác giao cho bạn trong Kết nối cũng hiện ở đây.
+        Một việc cần nhớ? {/* CC-17g: a finger taps, a mouse clicks. */}
+        <span className="md:hidden">Chạm</span>
+        <span className="hidden md:inline">Bấm</span> <span className="font-semibold text-foreground">+</span> ở trên. Việc người khác giao cho bạn trong Kết nối cũng hiện ở đây.
       </p>
     </div>
   );

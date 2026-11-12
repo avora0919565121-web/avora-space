@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { FieldLabel, inputClass, selectChevron, selectClass } from "@/components/finance/primitives";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { currenciesByRegion, REGION_LABELS } from "@/lib/currency";
+import { amountPlaceholder, amountShown, amountTyped } from "@/lib/contact-picker";
 import {
   ACCOUNT_TYPES,
   ACCOUNT_TYPE_LABELS,
@@ -191,9 +192,9 @@ export function AccountDialog({
               <input
                 id="acc-opening"
                 inputMode="decimal"
-                value={opening}
-                onChange={(event) => setOpening(event.target.value)}
-                placeholder="0.00"
+                value={amountShown(opening, currency)}
+                onChange={(event) => setOpening(amountTyped(event.target.value, currency, true))}
+                placeholder={amountPlaceholder(currency)}
                 className={cn(inputClass, "tabular mt-1.5", openingCheck.error !== null && "border-money-out")}
               />
               {openingCheck.error !== null ? (
@@ -277,7 +278,8 @@ export function AccountDialog({
             </div>
           </div>
 
-          <div className="flex justify-end gap-2 pt-1">
+          {/* CC-23: on a short phone screen the buttons stay at the bottom edge; only the fields scroll. */}
+          <div data-dialog-footer="" className="sticky -bottom-6 z-10 -mx-6 -mb-6 flex justify-end gap-2 border-t border-border bg-background px-6 pb-[max(1rem,env(safe-area-inset-bottom))] pt-3">
             <button
               type="button"
               onClick={() => onOpenChange(false)}

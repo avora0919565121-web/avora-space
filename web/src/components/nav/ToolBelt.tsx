@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 
 import { openFocusSheet } from "@/components/chat/FocusHost";
@@ -18,6 +18,11 @@ import { cn } from "@/lib/utils";
  * Nhà mới: Avora Space is the first tab; Cài đặt lives behind the avatar on Avora Space.
  */
 export function ToolBelt() {
+  // CC-04: while the tab bar is on screen, toasts and bottom sheets stand above it (`--above-tool-belt`).
+  useEffect(() => {
+    document.documentElement.setAttribute("data-tool-belt", "");
+    return () => document.documentElement.removeAttribute("data-tool-belt");
+  }, []);
   const visibleNav = useVisibleNav(TOOL_BELT_ITEMS);
   const badges = useNavBadges();
   const pressTab = useTabPress();

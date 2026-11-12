@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import { ObligationForm } from "@/components/finance/ObligationForm";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { TransactionForm } from "@/components/finance/TransactionForm";
+import { spotlight } from "@/lib/spotlight";
+import { DESKTOP_QUERY, useMediaQuery } from "@/hooks/use-media-query";
 import { CategoryDialog } from "@/components/finance/dialogs";
 import {
   EmptyNote,
@@ -116,7 +118,7 @@ function EntryRow({
   const title = entry.description ?? entryCategoryName(entry);
 
   return (
-    <li className={cn("group border-b border-border last:border-b-0", voided && "bg-background/50")}>
+    <li data-entry-id={entry.id} className={cn("group border-b border-border last:border-b-0", voided && "bg-background/50")}>
       <div className="flex items-center gap-3 px-5 py-3">
         <span
           aria-hidden="true"
@@ -250,6 +252,7 @@ function EntryRow({
 }
 
 const FinanceTransactions = () => {
+  const isSideBySide = useMediaQuery(DESKTOP_QUERY);
   const [searchParams, setSearchParams] = useSearchParams();
   const { accounts, categories, allEntries, entries, currency, isLoading } = useLedger();
   const { voidTransaction, addTransaction, settleTransaction, binTransaction, unbinTransaction } = useFinanceActions();
@@ -554,7 +557,8 @@ const FinanceTransactions = () => {
             ) : days.length === 0 ? (
               <EmptyNote>
                 {entries.length === 0
-                  ? "Chưa có giao dịch nào. Dùng biểu mẫu bên cạnh để ghi khoản đầu tiên."
+                  ? // CC-17a: on a phone the form sits above the list, on a wide screen beside it.
+                    `Chưa có giao dịch nào. Bạn ghi khoản đầu tiên ở biểu mẫu ${isSideBySide ? "bên cạnh" : "phía trên"} nhé.`
                   : "Không tìm thấy giao dịch nào khớp."}
               </EmptyNote>
             ) : (
@@ -641,7 +645,11 @@ const FinanceTransactions = () => {
               accounts={accounts}
               categories={usable}
               editing={editing}
-              onDone={() => setEditing(null)}
+              onDone={(saved) => {
+                setEditing(null);
+                // CC-05: the row just written comes into view and lights for a moment (on a phone the form sits below the list).
+                if (saved !== undefined) spotlight("data-entry-id", saved.id, { durationMs: 1200, attempts: 25 });
+              }}
               onCancel={editing ? () => setEditing(null) : undefined}
               onRequestCategory={(scope) => setCategoryScope(scope)}
             />

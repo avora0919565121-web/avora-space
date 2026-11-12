@@ -67,7 +67,7 @@ const ResetPassword = () => {
         <div className="animate-rise-in">
           <span className="wordmark text-[22px] text-foreground">AVORA</span>
           <h1 className="mt-10 max-w-md text-[34px] font-semibold leading-[1.15] tracking-tight text-foreground md:text-[40px]">
-            Đặt lại mật khẩu.
+            Đặt lại mật khẩu
           </h1>
           <p className="mt-4 max-w-sm text-[16px] leading-relaxed text-muted-foreground">
             Chọn một mật khẩu mới để tiếp tục trò chuyện.

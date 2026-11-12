@@ -185,8 +185,9 @@ export function missingFields(fields: ComposerFields): string[] {
   return missing;
 }
 
-export function missingLine(missing: readonly string[]): string | null {
-  return missing.length === 0 ? null : `Còn thiếu: ${missing.join(", ")}`;
+/** CC-08: said only once the person has started — a form just opened does not open on "Còn thiếu". */
+export function missingLine(missing: readonly string[], hasStarted: boolean = true): string | null {
+  return missing.length === 0 || !hasStarted ? null : `Còn thiếu: ${missing.join(", ")}`;
 }
 
 /** Members for "Chọn người": the chooser pinned first as "Tôi", everyone else as they are. */

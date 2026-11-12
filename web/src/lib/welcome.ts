@@ -49,6 +49,19 @@ export function startSteps(choices: readonly WelcomeChoice[], needsPin: boolean)
 }
 
 /**
+ * CC-02: whether Avora Space knows yet if the Bắt đầu card shows and how many steps it holds. Until
+ * then the blocks under the greeting wait (a quiet placeholder holds their place), so the card never
+ * lands ~1.5 s later and pushes "Cần chú ý hôm nay" down under a finger about to tap it.
+ * A failed load counts as known: the block says so itself. The Két sắt step is not waited for: its
+ * status comes after proving the device (seconds), and a newcomer rarely has a code yet.
+ */
+export function isStartSettled(known: { conversations: boolean; tasks: boolean; pin: boolean; habits: boolean }, choices: readonly WelcomeChoice[]): boolean {
+  if (!known.conversations || !known.tasks || !known.pin) return false;
+  // Thói quen only matters when the person asked for it (its step is one of theirs).
+  return known.habits || !startSteps(choices, true).includes("habit");
+}
+
+/**
  * QA01-01: the "Viết dòng đầu tiên vào Nhật ký" step opens Nhật ký (ghi nhanh) itself, never whatever
  * view the device opened last — on a new device that is Sổ ghi chép (long notes).
  */
