@@ -271,6 +271,22 @@ export function VaultLoadFailed({ onRetry, inline = false }: { onRetry: () => vo
   );
 }
 
+/**
+ * KT-08 · QA05-02: no network and nothing of this compartment on the device yet. Said plainly; it opens by
+ * itself when the network is back (the paused read resumes), and "Thử lại" is there too.
+ */
+export function VaultOffline({ section, onRetry, inline = false }: { section: VaultSection; onRetry: () => void; inline?: boolean }) {
+  return (
+    <div data-vault-offline="" role="status" className={cn("flex flex-col items-center justify-center px-6 text-center", inline ? "mt-14" : "flex-1 py-10")}>
+      <p className="text-[16px] font-semibold text-foreground">Cần có mạng để mở {SECTION_LABEL[section]}</p>
+      <p className="mt-1 max-w-sm text-[14px] text-muted-foreground">Máy đang không có mạng. Đồ của bạn vẫn còn nguyên — AVORA tự mở lại khi có mạng.</p>
+      <button type="button" onClick={onRetry} className="press mt-4 min-h-11 rounded-md border border-border bg-card px-5 text-[14px] font-medium text-foreground">
+        Thử lại
+      </button>
+    </div>
+  );
+}
+
 type Mode = { kind: "list" } | { kind: "detail"; id: string } | { kind: "form"; id: string | null; startPage: number } | { kind: "trash" };
 
 /**
@@ -279,9 +295,9 @@ type Mode = { kind: "list" } | { kind: "detail"; id: string } | { kind: "form"; 
  */
 export function VaultCompartment({ section }: { section: VaultSection }) {
   const { user } = useAuth();
-  const { ring, isPending: ringPending, isError: ringFailed, refetch: refetchRing } = useKeyring();
+  const { ring, isPending: ringPending, isError: ringFailed, isOffline: ringOffline, refetch: refetchRing } = useKeyring();
   const hasKey = useHasMasterKey();
-  const { items, isPending, error: itemsError, refetch: refetchItems } = useVaultItems(section, ring);
+  const { items, isPending, isOffline: itemsOffline, error: itemsError, refetch: refetchItems } = useVaultItems(section, ring);
   const actions = useVaultItemActions(section, ring);
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   const [query, setQuery] = useState<string>("");
@@ -338,6 +354,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
 
   // KT-06 · D (SP-04 B2): the keyring could not be read → say so, with Thử lại; never a spinner that stays.
   if (ringFailed) return <VaultLoadFailed onRetry={refetchRing} />;
+  if (ringOffline) return <VaultOffline section={section} onRetry={refetchRing} />;
   if (ringPending) return <LoadingOrRetry label={`Đang mở ${SECTION_LABEL[section]}`} showLabel onRetry={refetchRing} />;
   if (ring === null) return <VaultSetupFlow />;
   if (ring !== undefined && (!hasKey || recovered)) {
@@ -450,7 +467,8 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
         {isPending ? <Loader2 className="mx-auto mt-s-4 h-5 w-5 animate-spin text-muted-foreground" /> : null}
         {/* KT-06 · D (SP-04 B3): a failed read is never shown as "Chưa có gì" — that reads as lost papers. */}
         {!isPending && itemsError !== null ? <VaultLoadFailed onRetry={refetchItems} inline /> : null}
-        {!isPending && itemsError === null && live.length === 0 ? (
+        {itemsOffline ? <VaultOffline section={section} onRetry={refetchItems} inline /> : null}
+        {!isPending && !itemsOffline && itemsError === null && live.length === 0 ? (
           <div className="mt-14 text-center">
             <p className="text-[17px] font-semibold">Chưa có gì trong {SECTION_LABEL[section]}</p>
             <p className="mt-1 text-[14px] text-muted-foreground">

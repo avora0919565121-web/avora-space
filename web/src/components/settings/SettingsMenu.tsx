@@ -14,7 +14,7 @@ import {
 import { Link, useLocation, useSearchParams } from "react-router-dom";
 
 import { activeSectionTab, SETTINGS_ROUTE, type NavEntry } from "@/lib/navigation";
-import { PROFILE_ROUTE, settingsGroups } from "@/lib/settings-groups";
+import { PROFILE_ROUTE, settingsGroups, settingsPageTitle } from "@/lib/settings-groups";
 import { carryReturn } from "@/lib/return-to";
 import { TYPE } from "@/lib/type-scale";
 import { cn } from "@/lib/utils";
@@ -83,7 +83,9 @@ export function SettingsMenu({ tabs, variant }: { tabs: readonly NavEntry[]; var
 /** On a phone, every page under Cài đặt starts with the way back to the list. */
 export function BackToSettings() {
   const [searchParams] = useSearchParams();
+  const { pathname } = useLocation();
   const query = carryReturn(searchParams, new URLSearchParams()).toString();
+  const title = settingsPageTitle(pathname);
   return (
     <div className="px-4 pt-1 md:hidden short:hidden">
       <Link
@@ -94,6 +96,12 @@ export function BackToSettings() {
         <ChevronLeft className="h-5 w-5" strokeWidth={2} aria-hidden="true" />
         Cài đặt
       </Link>
+      {/* KT-08 · QA05-05: on the phone the page says which page it is (the top bar still reads "Cài đặt"). */}
+      {title !== null ? (
+        <h1 data-settings-page-title="" className="pb-1 pt-0.5 text-[24px] font-semibold leading-tight tracking-tight text-foreground">
+          {title}
+        </h1>
+      ) : null}
     </div>
   );
 }

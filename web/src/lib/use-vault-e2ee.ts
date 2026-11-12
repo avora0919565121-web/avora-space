@@ -49,18 +49,20 @@ export function useHasMasterKey(): boolean {
   return useSyncExternalStore(subscribeVaultKeys, hasMasterKey, () => false);
 }
 
-export function useKeyring(): { ring: Keyring | null | undefined; isPending: boolean; isError: boolean; refetch: () => void } {
+export function useKeyring(): { ring: Keyring | null | undefined; isPending: boolean; isError: boolean; isOffline: boolean; refetch: () => void } {
   const { user } = useAuth();
   const isUnlocked = useVaultUnlocked();
   const query = useQuery({ queryKey: vaultE2eeKeys.keyring(user?.id), queryFn: fetchKeyring, enabled: Boolean(user?.id) && isUnlocked, staleTime: 60_000 });
   // KT-06 · D (SP-04 B2): a failed read is said as such (with Thử lại), never a spinner that stays.
-  return { ring: query.data, isPending: query.isPending && !query.isError, isError: query.isError && query.data === undefined, refetch: () => void query.refetch() };
+  // KT-08 · QA05-02: offline, React Query pauses the read — that is "needs the network", not "loading".
+  const isOffline = query.isPending && query.fetchStatus === "paused";
+  return { ring: query.data, isPending: query.isPending && !query.isError && !isOffline, isError: query.isError && query.data === undefined, isOffline, refetch: () => void query.refetch() };
 }
 
 const TABLE = "vault_items" as never;
 const FILES = "vault_files" as never;
 
-export function useVaultItems(section: VaultSection, ring: Keyring | null | undefined): { items: VaultItem[]; isPending: boolean; error: Error | null; refetch: () => void } {
+export function useVaultItems(section: VaultSection, ring: Keyring | null | undefined): { items: VaultItem[]; isPending: boolean; isOffline: boolean; error: Error | null; refetch: () => void } {
   const { user } = useAuth();
   const hasKey = useHasMasterKey();
   const query = useQuery<VaultItem[], Error>({
@@ -100,7 +102,9 @@ export function useVaultItems(section: VaultSection, ring: Keyring | null | unde
       return out;
     },
   });
-  return { items: query.data ?? [], isPending: query.isPending && hasKey && !query.isError, error: query.data === undefined ? query.error : null, refetch: () => void query.refetch() };
+  // KT-08 · QA05-02: a paused read (no network) shows "Cần có mạng", never a spinner that turns for ever.
+  const isOffline = query.isPending && hasKey && query.fetchStatus === "paused";
+  return { items: query.data ?? [], isPending: query.isPending && hasKey && !query.isError && !isOffline, isOffline, error: query.data === undefined ? query.error : null, refetch: () => void query.refetch() };
 }
 
 export type NewPage = { bytes: Uint8Array; mimeClass: "image" | "pdf" };

@@ -12,14 +12,57 @@ export function retryLazyLoads(): void {
   generation += 1;
 }
 
+/** The chunk URL inside the browser's "failed to fetch dynamically imported module: <url>" message. */
+export function chunkUrlOf(error: unknown): string | null {
+  if (!(error instanceof Error)) return null;
+  const found = /(https?:\/\/[^\s'"]+?\.(?:m?js|jsx|tsx?))(?:[?#][^\s'"]*)?/i.exec(error.message);
+  return found === null ? null : found[1];
+}
+
+const RELOAD_KEY = "avora.chunk-reload-at";
+
+/**
+ * KT-08 · QA05-03: the browser keeps a failed module import for the life of the page, so asking for the
+ * same URL again fails at once even when the network is back. A retry therefore asks for the chunk under
+ * a fresh URL (`?retry=N`). If even that fails while online (a dependency that failed to preload is kept
+ * failed too), the page reloads once — at most once a minute, never in a loop.
+ */
+async function loadAgain<T>(load: () => Promise<T>, attempt: number): Promise<T> {
+  try {
+    return await load();
+  } catch (first: unknown) {
+    const url = chunkUrlOf(first);
+    if (url === null || !isChunkLoadError(first)) throw first;
+    try {
+      return (await import(/* @vite-ignore */ `${url}?retry=${attempt}-${Date.now()}`)) as T;
+    } catch (second: unknown) {
+      const online = typeof navigator === "undefined" || navigator.onLine !== false;
+      if (online && isChunkLoadError(second) && typeof window !== "undefined") {
+        let last = 0;
+        try {
+          last = Number(sessionStorage.getItem(RELOAD_KEY) ?? "0");
+          sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+        } catch {
+          last = Date.now(); // no storage: never risk a reload loop
+        }
+        if (Date.now() - last > 60_000) window.location.reload();
+      }
+      throw second;
+    }
+  }
+}
+
 export function lazyRetry<P extends object>(load: () => Promise<{ default: ComponentType<P> }>): ComponentType<P> {
   let failed = false;
   let madeAt = generation;
+  let attempts = 0;
   const make = (): LazyExoticComponent<ComponentType<P>> => {
     madeAt = generation;
     failed = false;
+    const attempt = attempts;
+    attempts += 1;
     return lazy(() =>
-      load().catch((error: unknown) => {
+      (attempt === 0 ? load() : loadAgain(load, attempt)).catch((error: unknown) => {
         failed = true;
         throw error;
       }),
