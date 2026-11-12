@@ -362,14 +362,14 @@ const PLACEHOLDER_CONTENT: Readonly<
 };
 
 /**
- * KT-08 · QA05-04: a waiting bubble says so legibly — 12px, medium weight, full strength, with an icon —
- * instead of an 11px line at 70% that read as part of the faded bubble. Same words as before.
+ * KT-08 · QA05-04: a waiting bubble says so legibly — under the bubble, 12px, medium weight, grey on the page,
+ * with an icon — instead of an 11px white line at 70% inside the faded bubble. Same words as before.
  */
 function PendingLabel({ state }: { state: ChatMessage["outboxState"] }) {
   const offline = state === "waiting_network";
   const Icon = offline ? WifiOff : Clock3;
   return (
-    <span data-pending-label={offline ? "network" : "sending"} className="inline-flex items-center gap-1 text-[12px] font-medium leading-none opacity-100">
+    <span data-pending-label={offline ? "network" : "sending"} className="inline-flex items-center gap-1 text-[12px] font-medium leading-none text-muted-foreground">
       <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
       {offline ? "Đang chờ mạng" : "Chờ gửi…"}
     </span>
@@ -3816,7 +3816,9 @@ const Messages = () => {
                               bigEmoji === 0 &&
                               message.content.trim() !== "";
                             const effectScope = effectScopeFor(message);
-                            const metaInside = showsMeta && rendersTextBubble && message.failed !== true;
+                            // KT-08 · QA05-04: a waiting line says so UNDER the bubble, in the readable grey of the meta row —
+                            // inside, it was white on a faded bubble and wrapped out onto the page (unreadable).
+                            const metaInside = showsMeta && rendersTextBubble && message.failed !== true && message.pending !== true;
                             const taskMarkHere = taskMarkFor(message.id);
                             const receiptDelivered =
                               showsReceipt && activeKind === "direct" && deliveredAt !== null && message.pending !== true;
@@ -4277,12 +4279,9 @@ const Messages = () => {
                                         {metaInside ? (
                                           <span
                                             data-bubble-meta=""
-                                            className={cn(
-                                              "tabular float-right ml-2 mt-[5px] inline-flex translate-y-[3px] items-center gap-1 text-[11px] leading-none",
-                                              message.pending ? "opacity-100" : "opacity-70",
-                                            )}
+                                            className="tabular float-right ml-2 mt-[5px] inline-flex translate-y-[3px] items-center gap-1 text-[11px] leading-none opacity-70"
                                           >
-                                            {message.pending ? <PendingLabel state={message.outboxState} /> : formatClock(message.createdAt)}
+                                            {formatClock(message.createdAt)}
                                             {/* B6: a tiny clock beside the time — no countdown on each message. */}
                                             {message.expiresAt != null ? <Timer className="h-3 w-3" strokeWidth={1.8} aria-label="Tin tự biến mất" data-disappear-mark="" /> : null}
                                             {outgoing && scheduledSentIds.has(message.id) ? (
