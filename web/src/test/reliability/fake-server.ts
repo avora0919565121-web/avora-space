@@ -174,6 +174,8 @@ export class FakeAvoraServer {
     switch (name) {
       case "send_message":
         return this.sendMessage(userId, args as unknown as SendArgs);
+      case "send_messages":
+        return this.sendMessages(userId, (args.p_items ?? []) as Record<string, unknown>[]);
       case "edit_message":
         return this.editMessage(userId, String(args.p_message_id), String(args.p_content));
       case "recall_message":
@@ -242,6 +244,33 @@ export class FakeAvoraServer {
     }
     for (const member of this.members(args.p_conversation)) this.broadcastTo(member, "message", { message: { ...row } });
     return { data: { ...row }, error: null };
+  }
+
+  /**
+   * KT-08 · QA04-07: as `public.send_messages` — each item through `send_message` in order, stopping at the
+   * first refusal: `{ sent, failed_id, error }` (what went before it stays sent).
+   */
+  private sendMessages(userId: string, items: readonly Record<string, unknown>[]): ServerReply {
+    if (items.length > 10) return { data: null, error: { message: "avora_batch_too_large", code: "P0001" } };
+    const sent: Row[] = [];
+    for (const item of items) {
+      const args: SendArgs = {
+        p_id: String(item.id),
+        p_conversation: String(item.conversation_id),
+        p_content: String(item.content ?? ""),
+        p_reply_to: (item.reply_to as string | null | undefined) ?? null,
+        p_mentioned: (item.mentioned as string[] | undefined) ?? [],
+        p_urgent: item.urgent === true,
+        p_sticker: (item.sticker as string | null | undefined) ?? null,
+      };
+      const refused = this.refuse?.(userId, "send_message", args as unknown as Record<string, unknown>) ?? null;
+      const reply = refused !== null ? { data: null, error: refused } : this.sendMessage(userId, args);
+      if (reply.error !== null && reply.error !== undefined) {
+        return { data: { sent, failed_id: args.p_id, error: reply.error.message }, error: null };
+      }
+      sent.push(reply.data as Row);
+    }
+    return { data: { sent, failed_id: null, error: null }, error: null };
   }
 
   private editMessage(userId: string, id: string, content: string): ServerReply {
