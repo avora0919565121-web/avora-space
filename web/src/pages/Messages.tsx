@@ -34,6 +34,7 @@ import {
   X,
   type LucideIcon,
   Palette,
+  WifiOff,
 } from "lucide-react";
 
 /** The one "Sắp ra mắt" screen the remaining placeholder tab shows, in both panes. */
@@ -359,6 +360,21 @@ const PLACEHOLDER_CONTENT: Readonly<
       "Đọc email của bạn ngay trong AVORA, biến một email thành việc, mục trong Két sắt, hoặc tham chiếu vào cuộc trò chuyện — trả lời vẫn mở đúng email thật của bạn. Đang được xây, chưa mở ở đây.",
   },
 };
+
+/**
+ * KT-08 · QA05-04: a waiting bubble says so legibly — 12px, medium weight, full strength, with an icon —
+ * instead of an 11px line at 70% that read as part of the faded bubble. Same words as before.
+ */
+function PendingLabel({ state }: { state: ChatMessage["outboxState"] }) {
+  const offline = state === "waiting_network";
+  const Icon = offline ? WifiOff : Clock3;
+  return (
+    <span data-pending-label={offline ? "network" : "sending"} className="inline-flex items-center gap-1 text-[12px] font-medium leading-none opacity-100">
+      <Icon className="h-3.5 w-3.5" strokeWidth={2} aria-hidden="true" />
+      {offline ? "Đang chờ mạng" : "Chờ gửi…"}
+    </span>
+  );
+}
 
 const Messages = () => {
   const { conversationId } = useParams<{ conversationId: string }>();
@@ -4261,13 +4277,12 @@ const Messages = () => {
                                         {metaInside ? (
                                           <span
                                             data-bubble-meta=""
-                                            className="tabular float-right ml-2 mt-[5px] inline-flex translate-y-[3px] items-center gap-1 text-[11px] leading-none opacity-70"
+                                            className={cn(
+                                              "tabular float-right ml-2 mt-[5px] inline-flex translate-y-[3px] items-center gap-1 text-[11px] leading-none",
+                                              message.pending ? "opacity-100" : "opacity-70",
+                                            )}
                                           >
-                                            {message.pending
-                                              ? message.outboxState === "waiting_network"
-                                                ? "Đang chờ mạng"
-                                                : "Chờ gửi…"
-                                              : formatClock(message.createdAt)}
+                                            {message.pending ? <PendingLabel state={message.outboxState} /> : formatClock(message.createdAt)}
                                             {/* B6: a tiny clock beside the time — no countdown on each message. */}
                                             {message.expiresAt != null ? <Timer className="h-3 w-3" strokeWidth={1.8} aria-label="Tin tự biến mất" data-disappear-mark="" /> : null}
                                             {outgoing && scheduledSentIds.has(message.id) ? (
@@ -4384,7 +4399,7 @@ const Messages = () => {
                                         </button>
                                       </>
                                     ) : metaInside || !showsMeta ? null : message.pending ? (
-                                      message.outboxState === "waiting_network" ? "Đang chờ mạng" : "Chờ gửi…"
+                                      <PendingLabel state={message.outboxState} />
                                     ) : (
                                       formatClock(message.createdAt)
                                     )}

@@ -79,9 +79,14 @@ export function StatCard({
   hint?: ReactNode;
   tone?: "ink" | "in" | "out";
 }) {
+  // KT-08 · QA05-06: on the sample book every number card says "Mẫu" itself — the strip above scrolls away.
+  const isSample = useContext(FinanceBookContext)?.isSample === true;
   return (
-    <div className="rounded-card border border-border bg-card px-5 py-4">
-      <p className="text-[13px] font-medium text-muted-foreground">{label}</p>
+    <div className="rounded-card border border-border bg-card px-5 py-4" data-stat-sample={isSample ? "" : undefined}>
+      <p className="flex items-center gap-2 text-[13px] font-medium text-muted-foreground">
+        <span className="min-w-0">{label}</span>
+        {isSample ? <span className="shrink-0 rounded-full bg-amber-500/20 px-1.5 py-px text-[11px] font-semibold text-amber-800 dark:text-amber-200">Mẫu</span> : null}
+      </p>
       <p
         className={cn(
           "tabular mt-1.5 text-[24px] font-semibold tracking-tight",
