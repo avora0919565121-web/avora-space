@@ -38,7 +38,7 @@ test("the Nhật ký tab lists its five readings as rows, with counts (AVORA-44)
   const screen = await renderList(false);
   await expect.element(screen.getByRole("link", { name: /Nhật ký của tôi/ })).toBeVisible();
   await expect.element(screen.getByRole("link", { name: /File của tôi\s*\(3\)/ })).toBeVisible();
-  await expect.element(screen.getByRole("link", { name: /Ghi chép\s*\(2\)/ })).toBeVisible();
+  await expect.element(screen.getByRole("link", { name: /Sổ ghi chép\s*\(2\)/ })).toBeVisible();
   await expect.element(screen.getByRole("link", { name: /Liên kết\s*\(1\)/ })).toBeVisible();
   await expect.element(screen.getByRole("link", { name: /Nguồn tạo việc\s*\(0\)/ })).toBeVisible();
   // AVORA-49 · chặng 5: "from what was copied" lives only in Nguồn tạo việc, not under this list.

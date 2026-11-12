@@ -1,4 +1,4 @@
-import { Info, KeyRound, Lock, MoreHorizontal, Plus } from "lucide-react";
+import { Info, KeyRound, Lock, MoreHorizontal, Plus, X } from "lucide-react";
 import { Suspense, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
@@ -68,59 +68,52 @@ function isFinancePath(pathname: string): boolean {
 }
 
 /**
- * Nhà mới (VMT 12/11): "nhắc đặt mã thì được, ép đặt mã là sai". One quiet card above an open Tài chính
- * while the Két sắt has no code; `Để sau` hides it on this device for 30 days.
+ * Nhà mới (VMT 12/11): "nhắc đặt mã thì được, ép đặt mã là sai". One small chip beside the title while the
+ * Két sắt has no code (VMT 12/11 16:57: lên ngang chữ Két sắt, không chiếm chỗ bên dưới). Computer: the full
+ * line + ✕ (hides it 30 days on this device). Phone: just `🔑 Đặt mã` in the top row.
  */
-function SetCodeReminder() {
+function SetCodeChip() {
   const [isSettingUp, setIsSettingUp] = useState<boolean>(false);
   const [isHidden, setIsHidden] = useState<boolean>(() => {
     try {
-      const until = Number(window.localStorage.getItem("avora.vault.remind-later") ?? "0");
-      return until > Date.now();
+      return Number(window.localStorage.getItem("avora.vault.remind-later") ?? "0") > Date.now();
     } catch {
       return false;
     }
   });
   if (isHidden) return null;
   return (
-    <div data-under-tabs="" className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 md:px-10 short:px-4">
-      <section data-vault-remind="" className="flex items-start gap-3 rounded-[14px] border border-border bg-card p-4">
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
-          <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
-        </span>
-        <div className="min-w-0 flex-1">
-          <p className="text-[14.5px] font-medium text-foreground">Két sắt chưa có mã</p>
-          <p className="mt-0.5 text-[13.5px] leading-snug text-muted-foreground">
-            Tài chính đang mở như các phòng khác. Đặt mã khi bạn muốn khoá lại, hoặc khi cất giấy tờ, mật khẩu đầu tiên.
-          </p>
-          <div className="mt-3 flex gap-2">
-            <button type="button" onClick={() => setIsSettingUp(true)} className="press min-h-10 rounded-md bg-primary px-4 text-[13.5px] font-semibold text-primary-foreground">
-              Đặt mã
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                try {
-                  window.localStorage.setItem("avora.vault.remind-later", String(Date.now() + 30 * 86_400_000));
-                } catch {
-                  // Shown again next time; harmless.
-                }
-                setIsHidden(true);
-              }}
-              className="press min-h-10 rounded-md px-3 text-[13.5px] font-medium text-muted-foreground"
-            >
-              Để sau
-            </button>
-          </div>
-        </div>
-      </section>
+    <>
+      <span data-vault-remind="" className="inline-flex min-w-0 items-center gap-0.5 rounded-full border border-border bg-card pl-1 text-[13px] text-muted-foreground">
+        <button type="button" onClick={() => setIsSettingUp(true)} className="press inline-flex min-h-9 min-w-0 items-center gap-1.5 rounded-full px-2.5" title="Két sắt chưa có mã. Đặt mã khi bạn muốn khoá lại.">
+          <KeyRound className="h-3.5 w-3.5 shrink-0 text-primary" strokeWidth={2} aria-hidden="true" />
+          <span className="hidden truncate md:inline">Chưa có mã ·</span>
+          <span className="font-semibold text-foreground">Đặt mã</span>
+        </button>
+        <button
+          type="button"
+          aria-label="Để sau"
+          title="Để sau (ẩn 30 ngày)"
+          onClick={() => {
+            try {
+              window.localStorage.setItem("avora.vault.remind-later", String(Date.now() + 30 * 86_400_000));
+            } catch {
+              // Shown again next time; harmless.
+            }
+            setIsHidden(true);
+          }}
+          className="press hidden h-9 w-8 items-center justify-center rounded-full hover:text-foreground md:inline-flex"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </span>
       <Dialog open={isSettingUp} onOpenChange={setIsSettingUp}>
         <DialogContent className="max-h-[92dvh] scroll-y p-0 sm:max-w-[460px]">
           <DialogTitle className="sr-only">Đặt mã Két sắt</DialogTitle>
           <VaultGate key="no-code" />
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
 
@@ -157,7 +150,6 @@ const Vault = () => {
     // Nhà mới: no code yet → Tài chính opens straight away, with a reminder (never a wall).
     body = (
       <>
-        <SetCodeReminder />
         <Suspense fallback={null}>
           <Outlet />
         </Suspense>
@@ -182,6 +174,7 @@ const Vault = () => {
       <SectionNav
         section="Két sắt"
         tabs={visibleNav}
+        notice={vault.status !== null && !vault.status.hasCode && !vault.isUnlocked ? <SetCodeChip /> : undefined}
         action={(current) => {
           // AVORA-57 · E: one `+` beside the title; none while locked or on a "Sắp có" sub-tab.
           const entry = vault.isUnlocked || (vault.isFinanceOpen && current === "/ket-sat") ? vaultAddFor(current) : null;

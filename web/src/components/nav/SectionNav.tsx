@@ -15,8 +15,11 @@ export function SectionNav({
   section,
   tabs,
   action,
+  notice,
 }: {
   section: string;
+  /** Nhà mới: one quiet line about the area (Két sắt chưa có mã), beside the title — never a card under it. */
+  notice?: ReactNode;
   tabs: readonly NavEntry[];
   /** AVORA-57 · E: the area's main `+`, outermost on the right of the title. */
   action?: (current: string) => ReactNode;
@@ -28,10 +31,20 @@ export function SectionNav({
   return (
     <header data-section-nav="" className="shrink-0 md:bg-card short:bg-card">
       <div className="hidden items-center justify-between gap-3 pb-2 pl-tab pr-4 pt-6 md:flex md:pr-[4.5rem] short:flex short:pr-[4.25rem] short:pb-1 short:pt-2">
-        <h1 className="text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
+        <div className="flex min-w-0 items-center gap-3">
+          <h1 className="shrink-0 text-[28px] font-semibold leading-tight tracking-tight text-foreground md:text-[30px]">{section}</h1>
+          {notice ?? null}
+        </div>
         {action?.(current) ?? null}
       </div>
-      <PhoneActions>{action?.(current) ?? null}</PhoneActions>
+      <PhoneActions>
+        {notice === undefined && action === undefined ? null : (
+          <>
+            {notice ?? null}
+            {action?.(current) ?? null}
+          </>
+        )}
+      </PhoneActions>
       <SubTabs
         ariaLabel={`Mục ${section}`}
         items={tabs.map((tab) => ({ id: tab.to, label: tab.label }))}
