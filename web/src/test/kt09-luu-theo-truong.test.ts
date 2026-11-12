@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
 
+import { isOnServer } from "@/lib/chat-cache";
 import { changedFields, changedPatch, conflictSummary, type RecordDraft } from "@/lib/record-merge";
 import type { ColumnDef } from "@/lib/think-hub";
 
@@ -37,5 +38,16 @@ describe("KT-09 · QA06-02 — chỉ gửi trường đã đổi", () => {
     const apart = conflictSummary({ base, mine: { ...base, title: "Tiêu đề QA" }, latest, columns, byName: "Phòng Kỹ thuật", byMe: false });
     expect(apart.replaced).toEqual([]);
     expect(apart.text).toBe("Trạng thái và Ghi chú Phòng Kỹ thuật vừa sửa vẫn giữ nguyên. Chỉ lưu Tiêu đề bạn đã đổi.");
+  });
+});
+
+describe("KT-09 · gợi ý QA-06 — không hỏi Đã xem cho tin chưa lên máy chủ", () => {
+  it("tin trong hộp chờ có uuid thật vẫn chưa được tính là đã lên máy chủ", () => {
+    const id = "3f1c2b9a-0000-4000-8000-000000000001";
+    expect(isOnServer({ id })).toBe(true);
+    expect(isOnServer({ id, pending: true })).toBe(false);
+    expect(isOnServer({ id, outboxState: "waiting_network" })).toBe(false);
+    expect(isOnServer({ id: `failed-${id}` })).toBe(false);
+    expect(isOnServer(undefined)).toBe(false);
   });
 });

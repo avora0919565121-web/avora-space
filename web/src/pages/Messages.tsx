@@ -326,7 +326,7 @@ import { myNameFor } from "@/lib/user-aliases";
 import { useUserAliases } from "@/lib/use-user-aliases";
 import { useContacts } from "@/lib/use-contacts";
 import { useOnline } from "@/lib/use-online";
-import { emptyPaneCopy } from "@/lib/chat-cache";
+import { emptyPaneCopy, isOnServer } from "@/lib/chat-cache";
 import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 import { transcriptText } from "@/lib/chat-transcript";
@@ -833,7 +833,8 @@ const Messages = () => {
   );
 
   // Đã nhận (AVORA-47 · E, ADR-028): only in a 1-1, only for my newest line. Never "Đã xem".
-  const lastOwnIsSent = lastOwnMessageId !== null && !lastOwnMessageId.startsWith("pending-") && !lastOwnMessageId.startsWith("failed-");
+  // KT-09: a line still waiting for the network has a real uuid too — look at the line, not its id.
+  const lastOwnIsSent = lastOwnMessageId !== null && isOnServer(messages.find((message) => message.id === lastOwnMessageId));
   const deliveryQuery = useQuery<Map<string, string>, Error>({
     queryKey: ["chat", "delivery", lastOwnMessageId ?? ""],
     queryFn: () => fetchDeliveries(lastOwnMessageId ? [lastOwnMessageId] : []),

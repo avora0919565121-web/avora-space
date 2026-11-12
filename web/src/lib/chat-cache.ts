@@ -333,6 +333,17 @@ export function failedSendIdOf(message: Pick<ChatMessage, "id">): string | null 
   return message.id.slice(FAILED_SEND_ID_PREFIX.length);
 }
 
+/**
+ * KT-09 (QA-06 gợi ý): true only for a line the server already holds. A line still in the outbox
+ * carries a real uuid, so the id alone does not say it — asking the server about it (Đã nhận,
+ * Đã xem) only earns a 400.
+ */
+export function isOnServer(message: Pick<ChatMessage, "id" | "pending" | "failed" | "outboxState"> | null | undefined): boolean {
+  if (message == null) return false;
+  if (message.pending === true || message.failed === true || message.outboxState !== undefined) return false;
+  return !message.id.startsWith("pending-") && !message.id.startsWith(FAILED_SEND_ID_PREFIX);
+}
+
 /** Stands in for the words of a withdrawn message, wherever they would have been shown. */
 export const RECALLED_MESSAGE_NOTE = "Tin nhắn đã được thu hồi.";
 /** AVORA-109 · B3: the words of a message that disappeared on its timer. */
