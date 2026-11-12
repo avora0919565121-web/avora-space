@@ -320,7 +320,7 @@ export function ProjectList({
             </p>
           ) : mineCount + projectTables.length === 0 ? (
             <p className={cn(TYPE.blockDescription, "px-9 pb-3 text-[12.5px]")}>
-              Chưa có bảng nào. Mở Kế hoạch để dựng bảng đầu tiên.
+              Chưa có bảng nào. Mở Thư phòng › Kế hoạch để dựng bảng đầu tiên.
             </p>
           ) : (
             // AVORA-52 · E: the four shelves, named the same way as in Kế hoạch.

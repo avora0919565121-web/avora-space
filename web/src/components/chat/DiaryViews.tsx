@@ -116,7 +116,7 @@ export function DiaryCountRow({
                 <Icon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden="true" />
                 <span>{view.short}</span>
                 {count !== null ? (
-                  <span className={cn("tabular text-[12px]", isActive ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                  <span className={cn("tabular text-[12px]", isActive ? "text-personal-soft-foreground/80" : "text-muted-foreground")}>
                     {count}
                   </span>
                 ) : null}
