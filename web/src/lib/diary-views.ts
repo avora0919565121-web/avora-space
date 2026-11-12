@@ -10,7 +10,8 @@ export type DiaryView = "journal" | "notes" | "files" | "links" | "sources";
 
 export const DIARY_VIEWS: readonly { id: DiaryView; label: string; short: string }[] = [
   // AVORA-71 · A: Ghi chép first — used most, and shaped differently (a tree of folders).
-  { id: "notes", label: "Ghi chép", short: "Ghi chép" },
+  // Nhà mới (VMT 12/11): Nhật ký = lịch sử ghi nhanh; Sổ ghi chép = nơi giữ nội dung dài.
+  { id: "notes", label: "Sổ ghi chép", short: "Ghi chép" },
   { id: "journal", label: "Nhật ký của tôi", short: "Nhật ký" },
   { id: "files", label: "File của tôi", short: "File" },
   { id: "links", label: "Liên kết", short: "Liên kết" },

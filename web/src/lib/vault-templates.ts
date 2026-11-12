@@ -4,7 +4,7 @@ import type { VaultSection } from "@/lib/vault-crypto";
  * AVORA-68 · 4.4 — the kinds of paper in each compartment and their fields. Adding a kind needs no
  * migration: everything here lives inside the ciphertext.
  */
-export type FieldKind = "text" | "date" | "number" | "note";
+export type FieldKind = "text" | "date" | "number" | "note" | "secret";
 export type FieldDef = { key: string; label: string; kind: FieldKind; expiry?: boolean; remember?: boolean };
 export type TemplateDef = { type: string; label: string; group: string; fields: readonly FieldDef[]; leadDays: number };
 
@@ -40,18 +40,45 @@ export const VAULT_TEMPLATES: Readonly<Record<VaultSection, readonly TemplateDef
     { type: "device", label: "Thiết bị", group: "Tài sản quý", fields: [{ key: "serial", label: "Số máy", kind: "text" }, { key: "bought_on", label: "Ngày mua", kind: "date" }, { key: "warranty_until", label: "Bảo hành đến", kind: "date", expiry: true }], leadDays: 30 },
     { type: "other-asset", label: "Tài sản khác", group: "Khác", fields: [{ key: "value", label: "Giá trị ước tính (₫)", kind: "number" }], leadDays: 30 },
   ],
+  // Nhà mới (VMT 12/11): Mật khẩu làm thật. Không có mẫu cho số thẻ ngân hàng; ai cần thì dùng "Bí mật khác".
+  passwords: [
+    { type: "login", label: "Tài khoản web · app", group: "Đăng nhập", fields: [{ key: "site", label: "Trang / ứng dụng", kind: "text" }, { key: "username", label: "Tên đăng nhập / email", kind: "text" }, { key: "password", label: "Mật khẩu", kind: "secret" }], leadDays: 0 },
+    { type: "wifi", label: "Wi-Fi", group: "Nhà", fields: [{ key: "ssid", label: "Tên mạng", kind: "text" }, { key: "password", label: "Mật khẩu", kind: "secret" }], leadDays: 0 },
+    { type: "lock-code", label: "Mã khoá cửa · thiết bị", group: "Nhà", fields: [{ key: "where", label: "Dùng cho", kind: "text" }, { key: "code", label: "Mã", kind: "secret" }], leadDays: 0 },
+    { type: "other-secret", label: "Bí mật khác", group: "Khác", fields: [{ key: "secret", label: "Nội dung cần giữ", kind: "secret" }], leadDays: 0 },
+  ],
 };
+
+/** Fields never shown in a list, never searched, masked until asked for. */
+export function isSecretField(section: VaultSection, type: string, key: string): boolean {
+  return templateOf(section, type).fields.some((f) => f.key === key && f.kind === "secret");
+}
+
+/** A strong password made on the device: 20 characters, no look-alikes (0/O, 1/l/I). */
+export function strongPassword(length = 20, random: (n: number) => Uint8Array = (n) => crypto.getRandomValues(new Uint8Array(n))): string {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789-_.!@#";
+  const out: string[] = [];
+  while (out.length < length) {
+    for (const byte of random(length * 2)) {
+      // Rejection sampling: no bias toward the first characters of the alphabet.
+      if (byte < 256 - (256 % alphabet.length) && out.length < length) out.push(alphabet[byte % alphabet.length]);
+    }
+  }
+  return out.join("");
+}
 
 export const SECTION_LABEL: Readonly<Record<VaultSection, string>> = {
   certificates: "Chứng chỉ",
   documents: "Tài liệu",
   assets: "Tài sản",
+  passwords: "Mật khẩu",
 };
 
 export const SECTION_PATH: Readonly<Record<VaultSection, string>> = {
   certificates: "/ket-sat/chung-chi",
   documents: "/ket-sat/tai-lieu",
   assets: "/ket-sat/tai-san",
+  passwords: "/ket-sat/mat-khau",
 };
 
 export function templateOf(section: VaultSection, type: string): TemplateDef {

@@ -45,9 +45,9 @@ import { cn } from "@/lib/utils";
 
 /** What each Nhật ký view holds, in one line under its name. */
 export const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
-  journal: "Ý nghĩ, thu nhanh, tin chuyển tiếp — chỉ mình bạn xem",
-  notes: "Bài bạn tự viết, xếp theo thư mục",
-  files: "Mọi ảnh và tệp trong Nhật ký và Ghi chép",
+  journal: "Ghi nhanh từng dòng theo ngày — lịch sử của bạn, chỉ mình bạn xem",
+  notes: "Nội dung dài bạn tự viết, xếp theo thư mục",
+  files: "Mọi ảnh và tệp trong Nhật ký và Sổ ghi chép",
   links: "Mọi đường link bạn đã lưu",
   sources: "Việc tạo từ Nhật ký",
 };

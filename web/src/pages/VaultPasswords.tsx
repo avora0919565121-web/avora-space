@@ -1,14 +1,6 @@
-import { KeyRound } from "lucide-react";
+import { VaultCompartment } from "@/components/vault/VaultCompartment";
 
-import { ComingSoon } from "@/components/ComingSoon";
-
-/** The vault's second half: announced, not yet built. Nothing is stored here. */
-const VaultPasswords = () => (
-  <ComingSoon
-    icon={KeyRound}
-    title="Mật khẩu"
-    description="Nơi giữ mật khẩu và thông tin đăng nhập của bạn — đang được xây, chưa lưu gì ở đây."
-  />
-);
+/** Mật khẩu — encrypted on the device like the other compartments (AVORA-68, ADR-041; Nhà mới 12/11). */
+const VaultPasswords = () => <VaultCompartment section="passwords" />;
 
 export default VaultPasswords;

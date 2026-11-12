@@ -1,4 +1,4 @@
-import { ChevronLeft, Camera, Download, FileText, ImagePlus, Keyboard, Loader2, Pencil, Plus, RotateCcw, Search, Trash2 } from "lucide-react";
+import { ChevronLeft, Camera, Copy, Download, Eye, EyeOff, FileText, ImagePlus, Keyboard, Loader2, Pencil, Plus, RotateCcw, Search, Sparkles, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, type DragEvent } from "react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -14,7 +14,7 @@ import { openPage, useHasMasterKey, useKeyring, useVaultItemActions, useVaultIte
 import { onVaultAdd } from "@/lib/vault-add";
 import type { VaultSection } from "@/lib/vault-crypto";
 import { prepareVaultFile, VAULT_MAX_PAGES } from "@/lib/vault-image";
-import { daysLeft, SECTION_LABEL, templateOf, VAULT_TEMPLATES, type VaultPayload } from "@/lib/vault-templates";
+import { daysLeft, isSecretField, SECTION_LABEL, strongPassword, templateOf, VAULT_TEMPLATES, type VaultPayload } from "@/lib/vault-templates";
 import { cn } from "@/lib/utils";
 
 const field = "mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[15px]";
@@ -54,6 +54,69 @@ function usePages(item: VaultItem | null, section: VaultSection) {
   return pages;
 }
 
+/** Mật khẩu: typed text only — no photos, no reminder. */
+function isTextOnly(section: VaultSection): boolean {
+  return section === "passwords";
+}
+
+/** A secret on the detail page: dots until asked for; copy without showing. */
+function SecretValue({ value }: { value: string }) {
+  const [isShown, setIsShown] = useState<boolean>(false);
+  return (
+    <dd className="flex min-w-0 flex-1 items-center gap-1" data-vault-secret="">
+      <span className={cn("min-w-0 flex-1 truncate text-[15px]", !isShown && "tracking-[0.2em]")}>{isShown ? value : "••••••••"}</span>
+      <button type="button" onClick={() => setIsShown((on) => !on)} aria-label={isShown ? "Ẩn" : "Hiện"} className="icon-btn h-10 w-10 shrink-0">
+        {isShown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        aria-label="Chép"
+        onClick={() =>
+          void navigator.clipboard.writeText(value).then(
+            () => toast.success("Đã chép. Dán xong nhớ chép thứ khác đè lên."),
+            () => toast.error("Máy chưa cho chép."),
+          )
+        }
+        className="icon-btn h-10 w-10 shrink-0"
+      >
+        <Copy className="h-4 w-4" />
+      </button>
+    </dd>
+  );
+}
+
+/** A secret in the form: hidden while typing, with a strong one made on the device on request. */
+function SecretInput({ value, onChange, label }: { value: string; onChange: (next: string) => void; label: string }) {
+  const [isShown, setIsShown] = useState<boolean>(false);
+  return (
+    <span className="mt-1 flex items-center gap-1">
+      <input
+        type={isShown ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        autoComplete="new-password"
+        aria-label={label}
+        className={cn(field, "mt-0 min-w-0 flex-1")}
+      />
+      <button type="button" onClick={() => setIsShown((on) => !on)} aria-label={isShown ? "Ẩn" : "Hiện"} className="icon-btn h-11 w-11 shrink-0">
+        {isShown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+      </button>
+      <button
+        type="button"
+        onClick={() => {
+          onChange(strongPassword());
+          setIsShown(true);
+        }}
+        aria-label="Tạo mật khẩu mạnh"
+        title="Tạo mật khẩu mạnh"
+        className="icon-btn h-11 w-11 shrink-0"
+      >
+        <Sparkles className="h-4 w-4" />
+      </button>
+    </span>
+  );
+}
+
 function ItemDetail({ item, section, onBack, onEdit, onTrash }: { item: VaultItem; section: VaultSection; onBack: () => void; onEdit: () => void; onTrash: () => void }) {
   const pages = usePages(item, section);
   const template = templateOf(section, item.payload.type);
@@ -78,7 +141,11 @@ function ItemDetail({ item, section, onBack, onEdit, onTrash }: { item: VaultIte
         {template.fields.filter((f) => (item.payload.fields[f.key] ?? "") !== "").map((f) => (
           <div key={f.key} className="flex min-h-12 items-center gap-3 px-4">
             <dt className="w-32 shrink-0 text-[13px] text-muted-foreground">{f.label}</dt>
-            <dd className="min-w-0 flex-1 truncate text-[15px]">{item.payload.fields[f.key]}</dd>
+            {f.kind === "secret" ? (
+              <SecretValue value={item.payload.fields[f.key] ?? ""} />
+            ) : (
+              <dd className="min-w-0 flex-1 truncate text-[15px]">{item.payload.fields[f.key]}</dd>
+            )}
           </div>
         ))}
         {item.payload.note !== "" ? <p className="whitespace-pre-wrap px-4 py-3 text-[14.5px]">{item.payload.note}</p> : null}
@@ -123,7 +190,11 @@ function ItemForm({ section, initial, pages, onAddPages, onSave, onCancel, isSav
   const set = (patch: Partial<VaultPayload>): void => setPayload((p) => ({ ...p, ...patch }));
   return (
     <form className="mx-auto w-full max-w-xl space-y-s-2 px-4 pb-16 pt-3 md:px-8" onSubmit={(e) => { e.preventDefault(); onSave(payload); }} data-vault-form="">
-      <p className="text-[13px] text-muted-foreground">Điền giúp vài ô chính. Sắp có: tự đọc chữ trên ảnh.</p>
+      {isTextOnly(section) ? (
+        <p className="text-[13px] text-muted-foreground">Mã hoá ngay trên máy này; máy chủ chỉ giữ bản đã khoá.</p>
+      ) : (
+        <p className="text-[13px] text-muted-foreground">Điền giúp vài ô chính. Sắp có: tự đọc chữ trên ảnh.</p>
+      )}
       {pages.length > 0 ? (
         <div className="flex items-center gap-2 text-[13.5px]">
           <span className="rounded-full bg-secondary px-3 py-1">{pages.length} trang đính kèm</span>
@@ -152,12 +223,17 @@ function ItemForm({ section, initial, pages, onAddPages, onSave, onCancel, isSav
       </label>
       {template.fields.map((f) => (
         <label key={f.key} className="block"><span className="text-[13px] font-medium">{f.label}</span>
-          <input type={f.kind === "date" ? "date" : f.kind === "number" ? "number" : "text"} value={payload.fields[f.key] ?? ""} onChange={(e) => set({ fields: { ...payload.fields, [f.key]: e.target.value } })} className={field} />
+          {f.kind === "secret" ? (
+            <SecretInput label={f.label} value={payload.fields[f.key] ?? ""} onChange={(next) => set({ fields: { ...payload.fields, [f.key]: next } })} />
+          ) : (
+            <input type={f.kind === "date" ? "date" : f.kind === "number" ? "number" : "text"} value={payload.fields[f.key] ?? ""} onChange={(e) => set({ fields: { ...payload.fields, [f.key]: e.target.value } })} className={field} />
+          )}
         </label>
       ))}
       <label className="block"><span className="text-[13px] font-medium">Ghi chú</span>
         <textarea value={payload.note} onChange={(e) => set({ note: e.target.value })} rows={3} className="mt-1 w-full rounded-lg border border-input bg-card px-3 py-2 text-[16px] outline-none focus:border-personal md:text-[15px]" />
       </label>
+      {isTextOnly(section) ? null : (
       <label className="flex items-start gap-3 rounded-lg border border-border px-3 py-3">
         <span className="min-w-0 flex-1">
           <span className="block text-[14px] font-medium">Hiện tên giấy tờ trong việc nhắc</span>
@@ -165,6 +241,7 @@ function ItemForm({ section, initial, pages, onAddPages, onSave, onCancel, isSav
         </span>
         <Switch checked={payload.show_name_in_reminder} onCheckedChange={(on) => set({ show_name_in_reminder: on })} aria-label="Hiện tên giấy tờ trong việc nhắc" />
       </label>
+      )}
       <div className="flex justify-end gap-2">
         <button type="button" onClick={onCancel} className="press h-11 rounded-lg px-4 text-[14px] text-muted-foreground">Huỷ</button>
         <button type="submit" disabled={isSaving || payload.title.trim() === ""} className="press flex h-11 items-center gap-2 rounded-lg bg-primary px-5 text-[14px] font-semibold text-primary-foreground disabled:opacity-50">
@@ -197,7 +274,14 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
   const cameraRef = useRef<HTMLInputElement | null>(null);
   const pickRef = useRef<HTMLInputElement | null>(null);
 
-  useEffect(() => onVaultAdd(() => setIsAddOpen(true)), []);
+  // Mật khẩu has nothing to photograph: `+` opens the form straight away.
+  const startAdd = useCallback((): void => {
+    if (isTextOnly(section)) {
+      setPages([]);
+      setMode({ kind: "form", id: null, startPage: 1 });
+    } else setIsAddOpen(true);
+  }, [section]);
+  useEffect(() => onVaultAdd(startAdd), [startAdd]);
   // AVORA-89 · 1.4: `?mo=<id>` opens that one item once the vault is open (the gate asks first). Id only.
   const [searchParams, setSearchParams] = useSearchParams();
   const openId = searchParams.get("mo");
@@ -229,7 +313,8 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
   const shown = useMemo(() => {
     const q = normalizeSearch(query);
     if (q === "") return live;
-    return live.filter((i) => normalizeSearch([i.payload.title, i.payload.owner_label, templateOf(section, i.payload.type).label, ...Object.values(i.payload.fields)].join(" ")).includes(q));
+    // A secret is never searched: typing part of a password must not find (and so reveal) its entry.
+    return live.filter((i) => normalizeSearch([i.payload.title, i.payload.owner_label, templateOf(section, i.payload.type).label, ...Object.entries(i.payload.fields).filter(([key]) => !isSecretField(section, i.payload.type, key)).map(([, value]) => value)].join(" ")).includes(q));
   }, [live, query, section]);
 
   if (ringPending) return <div className="flex flex-1 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
@@ -321,9 +406,9 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
   return (
     <div
       className={cn("paper relative min-h-0 flex-1 scroll-y-free", dragging && "ring-2 ring-inset ring-primary")}
-      onDragOver={(e: DragEvent) => { e.preventDefault(); setDragging(true); }}
+      onDragOver={(e: DragEvent) => { if (isTextOnly(section)) return; e.preventDefault(); setDragging(true); }}
       onDragLeave={() => setDragging(false)}
-      onDrop={(e: DragEvent) => { e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length > 0) void addFiles(e.dataTransfer.files, true); }}
+      onDrop={(e: DragEvent) => { if (isTextOnly(section)) return; e.preventDefault(); setDragging(false); if (e.dataTransfer.files.length > 0) void addFiles(e.dataTransfer.files, true); }}
       data-vault-section={section}
     >
       <div className="mx-auto w-full max-w-3xl px-4 pb-24 pt-3 md:px-8">
@@ -345,8 +430,10 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
         {!isPending && live.length === 0 ? (
           <div className="mt-14 text-center">
             <p className="text-[17px] font-semibold">Chưa có gì trong {SECTION_LABEL[section]}</p>
-            <p className="mt-1 text-[14px] text-muted-foreground">Chụp ảnh, chọn PDF hoặc gõ tay. Mọi thứ được mã hoá ngay trên máy này.</p>
-            <button type="button" onClick={() => setIsAddOpen(true)} className="press mx-auto mt-s-2 inline-flex h-11 items-center gap-2 rounded-control bg-primary px-5 text-[14.5px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> Thêm</button>
+            <p className="mt-1 text-[14px] text-muted-foreground">
+              {isTextOnly(section) ? "Tài khoản, Wi-Fi, mã khoá cửa… Mọi thứ được mã hoá ngay trên máy này." : "Chụp ảnh, chọn PDF hoặc gõ tay. Mọi thứ được mã hoá ngay trên máy này."}
+            </p>
+            <button type="button" onClick={startAdd} className="press mx-auto mt-s-2 inline-flex h-11 items-center gap-2 rounded-control bg-primary px-5 text-[14.5px] font-semibold text-primary-foreground"><Plus className="h-4 w-4" /> Thêm</button>
           </div>
         ) : null}
         {view === "life" && section === "certificates" ? (

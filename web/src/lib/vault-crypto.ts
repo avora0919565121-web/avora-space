@@ -25,8 +25,8 @@ export const DEFAULT_KDF: KdfParams = { alg: "argon2id", v: 19, m: 32768, t: 4, 
 
 export type Sealed = { iv: Uint8Array; ct: Uint8Array };
 
-export type VaultSection = "certificates" | "documents" | "assets";
-export const VAULT_SECTIONS: readonly VaultSection[] = ["certificates", "documents", "assets"];
+export type VaultSection = "certificates" | "documents" | "assets" | "passwords";
+export const VAULT_SECTIONS: readonly VaultSection[] = ["certificates", "documents", "assets", "passwords"];
 
 const enc = new TextEncoder();
 const dec = new TextDecoder();
@@ -280,6 +280,15 @@ export async function newDeviceKey(): Promise<CryptoKey> {
 }
 
 // ------------------------------------------------------------------ items & files
+
+/** Nhà mới: a section key made on the device for a keyring older than the section (sealed with MK). */
+export async function newSectionKey(userId: string, mk: CryptoKey, section: VaultSection): Promise<{ wrapped: string; key: CryptoKey }> {
+  const sk = randomBytes(32);
+  const wrapped = packSealed(await seal(mk, sk, aadFor(userId, "section", section)));
+  const key = await importAesKey(sk);
+  wipe(sk);
+  return { wrapped, key };
+}
 
 export async function sectionKey(userId: string, mk: CryptoKey, section: VaultSection, wrapped: string): Promise<CryptoKey> {
   const raw = await open(mk, unpackSealed(wrapped), aadFor(userId, "section", section));

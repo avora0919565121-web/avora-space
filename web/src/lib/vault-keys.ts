@@ -12,6 +12,7 @@ import {
   recProofFor,
   rewrapForPassphrase,
   rewrapForRecovery,
+  newSectionKey,
   sectionKey,
   unwrapFromDevice,
   unwrapWithPassphrase,
@@ -241,7 +242,17 @@ export async function keyForSection(userId: string, ring: Keyring, section: Vaul
   const cached = sectionKeys.get(section);
   if (cached !== undefined) return cached;
   const wrapped = ring.section_keys[section];
-  if (wrapped === undefined) throw new Error("vault_section_missing");
+  if (wrapped === undefined) {
+    // Nhà mới · Mật khẩu: a keyring made before this section existed gets its key now, once. The server
+    // only adds a missing key (never replaces one), so two devices racing cannot orphan any item.
+    const made = await newSectionKey(userId, mkKey, section);
+    const added = await rpc<boolean>("vault_add_section_key", { p_section: section, p_wrapped: made.wrapped });
+    // false: another device added it first — the keyring must be read again before anything is sealed.
+    if (added !== true) throw new VaultUserError("Két sắt vừa được cập nhật ở máy khác. Mở lại ngăn này nhé.");
+    ring.section_keys[section] = made.wrapped;
+    sectionKeys.set(section, made.key);
+    return made.key;
+  }
   const key = await sectionKey(userId, mkKey, section, wrapped);
   sectionKeys.set(section, key);
   return key;

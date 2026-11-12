@@ -53,3 +53,27 @@ describe("Nhà mới · Thư phòng ba phần", () => {
     expect(nextStudyPart("ghi", "up")).toBeNull();
   });
 });
+
+import { isSecretField, strongPassword, VAULT_TEMPLATES } from "@/lib/vault-templates";
+import { VAULT_SECTIONS } from "@/lib/vault-crypto";
+
+describe("Nhà mới · Két sắt › Mật khẩu", () => {
+  it("là ngăn thứ tư, có khoá ngăn riêng khi tạo keyring mới", () => {
+    expect(VAULT_SECTIONS).toContain("passwords");
+    expect(VAULT_TEMPLATES.passwords.map((t) => t.type)).toEqual(["login", "wifi", "lock-code", "other-secret"]);
+  });
+
+  it("ô bí mật không bao giờ là ô thường; không có mẫu cho số thẻ ngân hàng", () => {
+    expect(isSecretField("passwords", "login", "password")).toBe(true);
+    expect(isSecretField("passwords", "login", "username")).toBe(false);
+    expect(isSecretField("certificates", "cccd", "number")).toBe(false);
+    expect(VAULT_TEMPLATES.passwords.some((t) => /thẻ|card/i.test(t.label))).toBe(false);
+  });
+
+  it("mật khẩu tạo trên máy: đủ dài, không ký tự dễ nhầm, không lặp lại", () => {
+    const a = strongPassword();
+    expect(a).toHaveLength(20);
+    expect(a).not.toMatch(/[0O1lI]/);
+    expect(strongPassword()).not.toBe(a);
+  });
+});
