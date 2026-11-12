@@ -130,7 +130,7 @@ function BookshelfPanelInner({ addRequest }: { addRequest: number }) {
     bookshelf.mutate();
   }, [isPending, shelf, bookshelf]);
 
-  const here = hereFrom(location, "Kế hoạch");
+  const here = hereFrom(location, "Thư phòng");
   const openNotes = async (params: string): Promise<void> => {
     try {
       const journalId = findJournal(conversations)?.conversationId ?? (await ensureJournalConversation());

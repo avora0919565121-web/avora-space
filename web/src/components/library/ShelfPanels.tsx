@@ -307,7 +307,7 @@ export function DiaryShelf() {
     try {
       const journalId = findJournal(conversations)?.conversationId ?? (await ensureJournalConversation());
       const path = view === null ? `/tin-nhan/${journalId}` : `/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view)}`;
-      navigate(withReturn(path, hereFrom(location, "Kế hoạch")));
+      navigate(withReturn(path, hereFrom(location, "Thư phòng")));
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Chưa mở được Nhật ký.");
     }

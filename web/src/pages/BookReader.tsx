@@ -566,7 +566,7 @@ const BookReader = () => {
   }, [quiet.quiet]);
 
   // AVORA-94B · luật 1: one way back (history → `tu` → Kế hoạch kệ 5), never a push.
-  const readerBack = useBack({ path: "/ke-hoach?ke=5", label: "Kế hoạch" });
+  const readerBack = useBack({ path: "/ke-hoach?ke=5", label: "Thư phòng" });
   const back = (): void => {
     save();
     readerBack.back();

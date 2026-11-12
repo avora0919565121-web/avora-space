@@ -48,7 +48,7 @@ export function tabRootOf(where: Where, threadSection?: BackPlace): BackPlace {
   if (pathname.startsWith("/ke-hoach")) {
     // The shelf the board opened on; none → `/ke-hoach`, which opens the shelf remembered on the account.
     const ke = params.get("ke");
-    return { path: ke !== null && /^[1-6]$/.test(ke) ? `/ke-hoach?ke=${ke}` : "/ke-hoach", label: "Kế hoạch" };
+    return { path: ke !== null && /^[1-6]$/.test(ke) ? `/ke-hoach?ke=${ke}` : "/ke-hoach", label: "Thư phòng" };
   }
   if (pathname.startsWith("/nhiem-vu")) return { path: "/nhiem-vu", label: "Nhiệm vụ" };
   const area = /^\/(ket-sat|cai-dat)(\/|$)/.exec(pathname);

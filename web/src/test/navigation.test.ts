@@ -22,7 +22,7 @@ describe("the main navigation", () => {
       "Avora Space",
       "Kết nối",
       "Nhiệm vụ",
-      "Kế hoạch",
+      "Thư phòng",
       "Két sắt",
       "Cài đặt",
     ]);
@@ -35,8 +35,8 @@ describe("the main navigation", () => {
    */
   it("puts Think Hub with the doing screens, above Két sắt", () => {
     const labels = NAV_ITEMS.map((item) => item.label);
-    expect(labels.indexOf("Kế hoạch")).toBeGreaterThan(labels.indexOf("Nhiệm vụ"));
-    expect(labels.indexOf("Kế hoạch")).toBeLessThan(labels.indexOf("Két sắt"));
+    expect(labels.indexOf("Thư phòng")).toBeGreaterThan(labels.indexOf("Nhiệm vụ"));
+    expect(labels.indexOf("Thư phòng")).toBeLessThan(labels.indexOf("Két sắt"));
   });
 
   it("keeps the dashboard on the route it was published under", () => {
@@ -172,9 +172,11 @@ describe("links saved before the rename", () => {
 });
 
 describe("native-style navigation (AVORA 30)", () => {
-  it("puts exactly the five Hubs in the phone's tool-belt, without Avora Space", () => {
-    expect(TOOL_BELT_ITEMS.map((item) => item.label)).toEqual(["Kết nối", "Nhiệm vụ", "Kế hoạch", "Két sắt", "Cài đặt"]);
-    expect(TOOL_BELT_ITEMS.some((item) => item.to === HOME_ROUTE)).toBe(false);
+  // Nhà mới (VMT 12/11): Avora Space takes Cài đặt's place; Cài đặt opens from the avatar on Avora Space.
+  it("puts the five rooms in the phone's tool-belt, Avora Space first, Cài đặt not among them", () => {
+    expect(TOOL_BELT_ITEMS.map((item) => item.label)).toEqual(["Avora Space", "Kết nối", "Nhiệm vụ", "Thư phòng", "Két sắt"]);
+    expect(TOOL_BELT_ITEMS[0]?.to).toBe(HOME_ROUTE);
+    expect(TOOL_BELT_ITEMS.some((item) => item.to === "/cai-dat")).toBe(false);
   });
 
   it("names Ủng hộ AVORA at the end of the full map, with no route behind it", () => {

@@ -108,6 +108,9 @@ export function PinReminderBanner() {
   // AVORA-53 · 6.6: Cài đặt › Hồ sơ already holds the PIN form; one ask per screen is enough.
   if (location.pathname.startsWith("/cai-dat")) return null;
   const daysLeft = pinDaysLeft(status.requiredAt);
+  // Nhà mới (VMT 12/11): no countdown on every tab. The PIN is a step in Avora Space › Bắt đầu; this
+  // line comes back only in the last 3 days, so nobody meets the blocking screen by surprise.
+  if (daysLeft === null || daysLeft > 3) return null;
 
   return (
     <>

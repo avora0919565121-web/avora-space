@@ -37,7 +37,7 @@ export function QuickTransactionDialog({ open, onOpenChange }: { open: boolean; 
             Ghi một khoản thu hoặc chi, chọn sổ ngay tại đây.
           </DialogDescription>
         </div>
-        {!vault.isUnlocked ? (
+        {!vault.isFinanceOpen ? (
           <div className="flex max-h-[78vh] min-h-[540px] flex-col">
             {vault.isLoading ? (
               <div className="flex flex-1 justify-center px-5 py-12" role="status" aria-label="Đang kiểm tra khoá Két sắt">

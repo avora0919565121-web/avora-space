@@ -1,12 +1,12 @@
-import { Briefcase, LayoutGrid, ListTodo, MessageSquareText, Settings, Vault, type LucideIcon } from "lucide-react";
+import { BookOpen, House, LayoutGrid, ListTodo, MessageSquareText, Settings, Vault, type LucideIcon } from "lucide-react";
 
 /** One icon per destination, shared by the desktop rail, the tool-belt and the full map. */
 export const NAV_ICONS: Readonly<Record<string, LucideIcon>> = {
-  "/tong-quan": LayoutGrid,
+  "/tong-quan": House,
   "/tin-nhan": MessageSquareText,
   "/nhiem-vu": ListTodo,
-  // A briefcase, shared with nothing else: Vault keeps the safe, ListTodo the task list.
-  "/ke-hoach": Briefcase,
+  // Thư phòng: an open book, the room's quiet core.
+  "/ke-hoach": BookOpen,
   "/ket-sat": Vault,
   "/cai-dat": Settings,
 };

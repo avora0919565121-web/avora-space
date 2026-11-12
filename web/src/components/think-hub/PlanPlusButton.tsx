@@ -1,4 +1,4 @@
-import { BookPlus, LayoutGrid, ListPlus } from "lucide-react";
+import { LayoutGrid, ListPlus } from "lucide-react";
 
 import { PlusMenuButton } from "@/components/PlusMenuButton";
 
@@ -14,27 +14,22 @@ export function PlanPlusButton({
   onNewRecord,
   onNewTable,
   onAddBook,
+  onWrite,
 }: {
   canAddRecord: boolean;
   onNewRecord: () => void;
   onNewTable: () => void;
   /** Set while standing among the books: tap = `Thêm sách`. */
   onAddBook?: () => void;
+  /** Nhà mới · Thư phòng › Ghi chép: tap = write a line in Nhật ký. */
+  onWrite?: () => void;
 }) {
+  // Nhà mới: in Đọc and Ghi chép the `+` does the one thing of that part — no hold menu, no hint about boards.
   if (onAddBook !== undefined) {
-    return (
-      <PlusMenuButton
-        label="Thêm sách"
-        tapLabel="giữ để tạo bảng mới"
-        tapAction="Thêm sách"
-        onTap={onAddBook}
-        hintKey="plan_plus_hold"
-        entries={[
-          { id: "book", label: "Thêm sách", icon: BookPlus, onSelect: onAddBook },
-          { id: "table", label: "Bảng mới", icon: LayoutGrid, onSelect: onNewTable },
-        ]}
-      />
-    );
+    return <PlusMenuButton label="Thêm sách" onTap={onAddBook} entries={[]} />;
+  }
+  if (onWrite !== undefined) {
+    return <PlusMenuButton label="Viết ghi chép" onTap={onWrite} entries={[]} />;
   }
   return (
     <PlusMenuButton

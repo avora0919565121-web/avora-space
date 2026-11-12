@@ -72,9 +72,9 @@ import { BottomTabStrip } from "@/components/nav/TempTabBar";
 /** AVORA-93 · 4.3: the Hạng mục open on a focused board (`?hm=<record id>`). */
 const OPEN_RECORD_PARAM = "hm";
 import { BookNotes, BooksCard, ReadingTime, RoomNumbers, StatsMenu } from "@/components/library/RoomStats";
-import { EdgeArrows, OverviewShelf, ProgressMatrix, RoomMapSheet, RoomStage, RoomStrip, ShelfZone, ThinkingOverview, WorkDesk, type SpinePreview } from "@/components/library/PlanRoom";
+import { EdgeArrows, OverviewShelf, ProgressMatrix, RoomMapSheet, RoomStage, ShelfZone, StudyStrip, ThinkingOverview, WorkDesk, type SpinePreview } from "@/components/library/PlanRoom";
 import { AudienceAsk, PlacePicker, TemplateLibrary } from "@/components/library/TemplateLibrary";
-import { lastShelfOfRow, neighbour, rememberShelf, ROOM_HOME, ROOM_PARAM, roomFromParams, rowOf, shelfOfRoom, startsInHorizontalScroller, swipeDirection, type RoomShelf } from "@/lib/room";
+import { lastShelfOfRow, nextStudyPart, neighbour, rememberShelf, ROOM_HOME, ROOM_PARAM, roomFromParams, rowOf, shelfOfRoom, startsInHorizontalScroller, STUDY_PARAM, studyPartOf, swipeDirection, type RoomShelf, type StudyPart } from "@/lib/room";
 import { templateUsage, useOpenQuestions, useRoomPrefs } from "@/lib/use-room";
 import { useFocusHeader } from "@/lib/focus-header";
 import { libraryTemplates, type BoardTemplate } from "@/lib/think-hub-shelf";
@@ -250,6 +250,10 @@ const ThinkHub = () => {
   };
   const roomFromUrl = roomFromParams(searchParams);
   const room: RoomShelf = roomFromUrl?.shelf ?? roomPrefs.savedRoom ?? ROOM_HOME;
+  // Nhà mới: which of Đọc · Ghi chép · Kế hoạch the room stands in; the last plan view is kept for the way back.
+  const studyPart: StudyPart = studyPartOf(room, searchParams);
+  const lastPlanRoom = useRef<RoomShelf>(room === 5 ? 6 : room);
+  if (room !== 5) lastPlanRoom.current = room;
   // AVORA-110 · gộp 5: Kệ 5 (Sách · Nhật ký) is an inward place; the other shelves and an open Bảng are work.
   useRestScope(room === 5 && activeId === null ? "reading" : null);
   const [roomDir, setRoomDir] = useState<"left" | "right" | "up" | "down" | null>(null);
@@ -1162,7 +1166,7 @@ const ThinkHub = () => {
         } : undefined}
         columnActions={columnActionsFor(sub)}
         onToggleCheckbox={isReadOnly ? undefined : handleToggleCheckbox}
-        onOpenContact={(contactId) => navigate(withReturn(`/lien-he/${contactId}`, hereFrom(location, "Kế hoạch")))}
+        onOpenContact={(contactId) => navigate(withReturn(`/lien-he/${contactId}`, hereFrom(location, "Thư phòng")))}
         onQuickTask={isReadOnly ? undefined : setQuickTaskRecord}
         taskCountByRecord={taskCountByRecord}
         today={today}
@@ -1311,15 +1315,16 @@ const ThinkHub = () => {
     try {
       const journalId = findJournal(conversationsQuery.data)?.conversationId ?? (await ensureJournalConversation());
       const query = onlyBookNotes ? `?${DIARY_VIEW_PARAM}=${diaryViewSlug("notes")}&${NOTES_BOOKS_PARAM}=${NOTES_BOOKS_VALUE}` : "";
-      navigate(withReturn(`/tin-nhan/${journalId}${query}`, hereFrom(location, "Kế hoạch")));
+      navigate(withReturn(`/tin-nhan/${journalId}${query}`, hereFrom(location, "Thư phòng")));
     } catch (caught) {
       toast.error(caught instanceof Error ? caught.message : "Chưa mở được Nhật ký.");
     }
   };
 
-  const goRoom = (to: RoomShelf, dir: "left" | "right" | "up" | "down" | null = null): void => {
+  const goRoom = (to: RoomShelf, dir: "left" | "right" | "up" | "down" | null = null, part: StudyPart | null = null): void => {
     const params = carryReturn(searchParams, new URLSearchParams());
     params.set(ROOM_PARAM, String(to));
+    if (part === "ghi") params.set(STUDY_PARAM, "ghi");
     setActiveId(null);
     setIsLibraryOpen(false);
     setIsStoreOpen(false);
@@ -1330,6 +1335,13 @@ const ThinkHub = () => {
     roomPrefs.saveRoom(to);
   };
   const inRoom = active === null && activeView === null && !isLibraryOpen && !isFullscreen;
+  const order = (part: StudyPart): number => (part === "doc" ? 0 : part === "ghi" ? 1 : 2);
+  const goStudy = (to: StudyPart): void => {
+    if (to === studyPart) return;
+    const dir = order(to) > order(studyPart) ? "right" : "left";
+    if (to === "ke") goRoom(lastPlanRoom.current, dir);
+    else goRoom(5, dir, to);
+  };
   useEffect(() => {
     if (active === null && activeView === null) roomPrefs.saveRoom(room);
     rememberShelf(room);
@@ -1415,7 +1427,7 @@ const ThinkHub = () => {
           count: bookshelfData.books.length,
           items: bookshelfData.books.slice(0, 5).map((book) => ({ key: book.id, label: book.title, tone: coverColor(book.title) })),
           primary: { label: "Mở mặt bàn 5 ›", onPress: () => goRoom(5) },
-          secondary: deskBook !== null ? { label: "Đọc tiếp", onPress: () => navigate(withReturn(`/ke-hoach/ke-sach/doc/${deskBook.id}`, hereFrom(location, "Kế hoạch"))) } : undefined,
+          secondary: deskBook !== null ? { label: "Đọc tiếp", onPress: () => navigate(withReturn(`/ke-hoach/ke-sach/doc/${deskBook.id}`, hereFrom(location, "Thư phòng"))) } : undefined,
         };
       case "diary":
         return {
@@ -1694,7 +1706,7 @@ const ThinkHub = () => {
                   }
                 }}
                 placeholder="Tìm Bảng, sách, câu hỏi…"
-                aria-label="Tìm trong Kế hoạch"
+                aria-label="Tìm trong Thư phòng"
                 className="min-w-0 flex-1 bg-transparent text-[16px] outline-none md:text-[14.5px]"
               />
             </label>
@@ -1742,10 +1754,10 @@ const ThinkHub = () => {
       ) : null}
       {isFullscreen || isSearchOpen ? null : (
       <HubTitle
-        title="Kế hoạch"
+        title="Thư phòng"
         action={
           <div className="flex items-center gap-2">
-            <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Tìm trong Kế hoạch" data-plan-search-button="" className="icon-btn h-11 w-11 text-foreground">
+            <button type="button" onClick={() => setIsSearchOpen(true)} aria-label="Tìm trong Thư phòng" data-plan-search-button="" className="icon-btn h-11 w-11 text-foreground">
               <Search className="h-[18px] w-[18px]" strokeWidth={1.6} aria-hidden="true" />
             </button>
             {/* AVORA-57 · E: one `+` — tap adds a Hạng mục, hold (or ▾) offers Hạng mục / Bảng.
@@ -1759,7 +1771,7 @@ const ThinkHub = () => {
                 setIsLibraryOpen(true);
               }}
               onAddBook={
-                active === null && activeView === null && (drawer === "sach" || (inRoom && room === 5))
+                active === null && activeView === null && (drawer === "sach" || (inRoom && room === 5 && studyPart === "doc"))
                   ? () => {
                       setIsShelfOpen(true);
                       setIsBooksOpen(true);
@@ -1767,12 +1779,13 @@ const ThinkHub = () => {
                     }
                   : undefined
               }
+              onWrite={active === null && activeView === null && inRoom && studyPart === "ghi" ? () => void openJournal(false) : undefined}
             />
           </div>
         }
       />
       )}
-      {inRoom && !isSearchOpen ? <RoomStrip shelf={room} onGo={(to, dir) => goRoom(to, dir)} onOpenMap={() => setIsRoomMapOpen(true)} /> : null}
+      {inRoom && !isSearchOpen ? <StudyStrip part={studyPart} shelf={room} onPart={goStudy} onPlanView={(to) => goRoom(to)} /> : null}
       <div
         ref={scrollRef}
         data-scroll-memory=""
@@ -1798,8 +1811,9 @@ const ThinkHub = () => {
           roomSwipeRef.current = null;
           if (begin === null || begin.skip || touch === undefined) return;
           const side = swipeDirection(touch.clientX - begin.x, touch.clientY - begin.y);
-          const to = side === null ? null : neighbour(room, side);
-          if (side !== null && to !== null) goRoom(to, side);
+          // Nhà mới: a sideways swipe moves between Đọc · Ghi chép · Kế hoạch.
+          const to = side === null ? null : nextStudyPart(studyPart, side);
+          if (to !== null) goStudy(to);
         }}
       >
       {/* AVORA-93 · 4.3: a focused Bảng has no tab bar; this strip brings it up for a moment. */}
@@ -1846,12 +1860,12 @@ const ThinkHub = () => {
               <RoomNumbers
                 isWide={!isPhoneUpright}
                 onOpenBoard={(key) => (/^[0-9a-f]{8}-/.test(key) ? openTable(key, 2) : navigate(`/ke-hoach?ke=4&bang=${key}`))}
-                onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
+                onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Thư phòng")))}
                 onOpenLane={(lane) => {
                   setFocusLane(lane);
                   goRoom(3);
                 }}
-                onOpenTasks={() => navigate(withReturn("/nhiem-vu?muc=viec", hereFrom(location, "Kế hoạch")))}
+                onOpenTasks={() => navigate(withReturn("/nhiem-vu?muc=viec", hereFrom(location, "Thư phòng")))}
               />
               <ThinkingOverview
                 boards={planned}
@@ -1890,22 +1904,27 @@ const ThinkHub = () => {
                 <div className="flex justify-end"><StatsMenu /></div>
                 {/* AVORA-93 · PHẦN 2 · 3 / AVORA-94 · B2.3: computer = two columns as in Ke2-Ke5-So-Lieu.png
                     (left: reading time + books · right: book notes); a phone reads time → notes → books. */}
-                {/* AVORA-101C · two zones, no second strip: Sách open, Nhật ký one folded row. */}
-                <ShelfZone id="books" label="Sách" count={bookshelfData.books.length} open={isBooksOpen} onToggle={() => setIsBooksOpen((open) => !open)}>
+                {/* Nhà mới: Đọc shows the books, Ghi chép the notes — two parts of the strip, not two folded rows. */}
+                {studyPart === "ghi" ? (
+                  <section id="room-diary" data-room-section="diary" data-study-notes="" className="min-w-0">
+                    <DiaryShelf />
+                  </section>
+                ) : (
+                <div data-study-books="">
                 <div className="flex flex-col gap-6 md:grid md:grid-cols-2 md:items-start md:gap-4" data-room-five-top="">
                   <div className="contents md:flex md:min-w-0 md:flex-col md:gap-4" data-room-five-col="left">
                     <div className="order-1 min-w-0">
                       <ReadingTime
                         books={bookshelfData.books.map((book) => ({ id: book.id, title: book.title, percent: lastRead.percentOf.get(book.id) ?? null }))}
                         continueBook={lastRead.latest !== null ? { id: lastRead.latest.id, title: lastRead.latest.title } : null}
-                        onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
+                        onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Thư phòng")))}
                       />
                     </div>
                     {isShelfOpen ? null : (
                       <div className="order-3 hidden min-w-0 md:block">
                         <BooksCard
                           books={bookshelfData.books}
-                          onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Kế hoạch")))}
+                          onOpenBook={(id) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${id}`, hereFrom(location, "Thư phòng")))}
                           onOpenShelf={() => setIsShelfOpen(true)}
                         />
                       </div>
@@ -1919,18 +1938,14 @@ const ThinkHub = () => {
                         notes={notesData.liveNotes}
                         onShelf={new Set(bookshelfData.books.map((book) => book.id))}
                         isWide={!isPhoneUpright}
-                        onOpenAt={(note) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${note.bookRecordId ?? ""}${note.bookLocator != null ? `?o=${note.bookLocator}` : ""}`, hereFrom(location, "Kế hoạch")))}
+                        onOpenAt={(note) => navigate(withReturn(`/ke-hoach/ke-sach/doc/${note.bookRecordId ?? ""}${note.bookLocator != null ? `?o=${note.bookLocator}` : ""}`, hereFrom(location, "Thư phòng")))}
                         onOpenAll={() => void openJournal(true)}
                       />
                     </div>
                   </div>
                 </div>
-                </ShelfZone>
-                <ShelfZone id="diary" label="Nhật ký" count={notesData.liveNotes.length} open={isDiaryOpen} onToggle={() => setIsDiaryOpen((open) => !open)}>
-                  <section id="room-diary" data-room-section="diary" className="min-w-0">
-                    <DiaryShelf />
-                  </section>
-                </ShelfZone>
+                </div>
+                )}
               </div>
             ) : (
               <WorkDesk boards={tables} placeOf={placeOf} countOf={(id) => recordCount.get(id) ?? 0} onOpen={(id) => openTable(id, 6)} onCreate={createOnDesk} onFull={setWantedDesk} onGo={(to) => goRoom(to)} />
@@ -2177,7 +2192,7 @@ const ThinkHub = () => {
                   const where =
                     active?.projectId != null ? projectById.get(active.projectId)?.conversationId : active?.conversationId;
                   if (where == null) return;
-                  navigate(withReturn(`/tin-nhan/${where}`, hereFrom(location, "Kế hoạch")));
+                  navigate(withReturn(`/tin-nhan/${where}`, hereFrom(location, "Thư phòng")));
                 }}
                 className="press mt-3 w-full rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-left text-[13px] text-amber-800 dark:text-amber-200"
               >
@@ -2343,7 +2358,7 @@ const ThinkHub = () => {
                 onResizeColumn={isOwner && !isReadOnly ? handleResizeColumn : undefined}
                 onShowColumn={isOwner && !isReadOnly ? (column) => handleToggleColumnHidden(column, false) : undefined}
                 onToggleCheckbox={isReadOnly ? undefined : handleToggleCheckbox}
-                onOpenContact={(contactId) => navigate(withReturn(`/lien-he/${contactId}`, hereFrom(location, "Kế hoạch")))}
+                onOpenContact={(contactId) => navigate(withReturn(`/lien-he/${contactId}`, hereFrom(location, "Thư phòng")))}
                 onQuickTask={isReadOnly ? undefined : setQuickTaskRecord}
                 taskCountByRecord={taskCountByRecord}
                 today={today}
@@ -2652,7 +2667,7 @@ const ThinkHub = () => {
         onLinkTask={editing === null || isReadOnly ? undefined : () => setLinkTaskRecord(editing)}
         onOpenTask={(taskId) => {
           setIsRecordOpen(false);
-          navigate(withReturn(taskLink(taskId), hereFrom(location, "Kế hoạch")));
+          navigate(withReturn(taskLink(taskId), hereFrom(location, "Thư phòng")));
         }}
         isStarred={editing !== null && stars.has(editing.id)}
         onToggleStar={editing === null ? undefined : () => shelfActions.star.mutate(editing.id)}

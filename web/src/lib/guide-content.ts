@@ -60,11 +60,11 @@ export const GUIDE_CARDS: readonly GuideCard[] = [
   },
   {
     id: "plan",
-    title: "Kế hoạch",
+    title: "Thư phòng",
     to: "/ke-hoach",
     lines: [
-      "Mỗi bảng là một việc lớn bạn đang theo dõi; mỗi dòng trong bảng là một hạng mục.",
-      "Bấm + để thêm hạng mục vào bảng đang mở; giữ + để tạo bảng mới.",
+      "Thư phòng có ba phần: Đọc (sách của bạn và Thư viện mở), Ghi chép (những dòng bạn ghi lại) và Kế hoạch (các bảng bạn đang suy nghĩ).",
+      "Ở Kế hoạch, mỗi bảng là một việc lớn bạn đang suy nghĩ, mỗi dòng là một hạng mục. Bấm + để thêm hạng mục; giữ + để tạo bảng mới.",
       "Cùng dữ liệu xem được dạng Bảng, Theo trạng thái hoặc Cây.",
       "Bắt đầu nhanh từ một mẫu có sẵn. Bảng đã xong cất lên Kệ sách.",
       "Kệ sách: chỉ sách thuộc phạm vi công cộng; tải về tối đa 5 cuốn trên máy. Bìa sách: Project Gutenberg, Open Library.",

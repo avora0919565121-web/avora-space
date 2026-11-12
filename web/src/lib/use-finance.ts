@@ -44,14 +44,14 @@ import {
   type TransactionInput,
 } from "@/lib/finance-api";
 import { useCurrencyRates, useProfileSettings } from "@/lib/use-settings";
-import { useVaultUnlocked } from "@/lib/use-vault-lock";
+import { useFinanceOpen } from "@/lib/use-vault-lock";
 
 export { financeKeys };
 
 export function useAccounts(): UseQueryResult<Account[], Error> {
   const { user } = useAuth();
   // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
-  const isUnlocked = useVaultUnlocked();
+  const isUnlocked = useFinanceOpen();
   return useQuery<Account[], Error>({
     queryKey: financeKeys.accounts,
     queryFn: fetchAccounts,
@@ -62,7 +62,7 @@ export function useAccounts(): UseQueryResult<Account[], Error> {
 export function useCategories(): UseQueryResult<Category[], Error> {
   const { user } = useAuth();
   // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
-  const isUnlocked = useVaultUnlocked();
+  const isUnlocked = useFinanceOpen();
   return useQuery<Category[], Error>({
     queryKey: financeKeys.categories,
     queryFn: fetchCategories,
@@ -74,7 +74,7 @@ export function useCategories(): UseQueryResult<Category[], Error> {
 export function useTransactions(): UseQueryResult<Transaction[], Error> {
   const { user } = useAuth();
   // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
-  const isUnlocked = useVaultUnlocked();
+  const isUnlocked = useFinanceOpen();
   return useQuery<Transaction[], Error>({
     queryKey: financeKeys.transactions,
     queryFn: fetchTransactions,
@@ -86,7 +86,7 @@ export function useTransactions(): UseQueryResult<Transaction[], Error> {
 export function useFinanceTrash(enabled: boolean = true): UseQueryResult<FinanceTrash, Error> {
   const { user } = useAuth();
   // AVORA-51: nothing of Két sắt is asked for while it is locked (the server would refuse anyway).
-  const isUnlocked = useVaultUnlocked();
+  const isUnlocked = useFinanceOpen();
   return useQuery<FinanceTrash, Error>({
     queryKey: financeKeys.trash,
     queryFn: fetchFinanceTrash,

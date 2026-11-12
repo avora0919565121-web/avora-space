@@ -10,8 +10,41 @@
 export type RoomShelf = 1 | 2 | 3 | 4 | 5 | 6;
 
 export const ROOM_PARAM = "ke";
-/** First visit, and a press on the Kế hoạch tab while inside. */
-export const ROOM_HOME: RoomShelf = 2;
+/** First visit, and a press on the tab while inside. Nhà mới: Thư phòng opens on reading (kệ 5). */
+export const ROOM_HOME: RoomShelf = 5;
+
+/**
+ * Nhà mới (VMT 12/11) — Thư phòng in three plain parts, one strip, no `Kệ | Bàn`:
+ *   Đọc (kệ 5, books) · Ghi chép (kệ 5, the notes) · Kế hoạch (kệ 6 Bàn làm việc, with 2 · 3 · 4 a tap away).
+ * The six shelves stay underneath, so every saved `?ke=` link still lands where it did.
+ */
+export type StudyPart = "doc" | "ghi" | "ke";
+export const STUDY_PARAM = "phan";
+export const STUDY_PARTS: readonly { id: StudyPart; label: string }[] = [
+  { id: "doc", label: "Đọc" },
+  { id: "ghi", label: "Ghi chép" },
+  { id: "ke", label: "Kế hoạch" },
+];
+/** Inside Kế hoạch: the desk first, then the views of it. Kệ 1 (Toàn cảnh) opens from `+ › Mẫu`. */
+export const PLAN_VIEWS: readonly { id: RoomShelf; label: string }[] = [
+  { id: 6, label: "Bàn làm việc" },
+  { id: 2, label: "Tổng quan" },
+  { id: 3, label: "Tiến trình" },
+  { id: 4, label: "Lập sẵn" },
+];
+
+export function studyPartOf(shelf: RoomShelf, params: URLSearchParams): StudyPart {
+  if (shelf !== 5) return "ke";
+  return params.get(STUDY_PARAM) === "ghi" || params.get(ROOM_PARAM) === "nhat-ky" ? "ghi" : "doc";
+}
+
+/** A sideways swipe moves one part along; null at the ends. */
+export function nextStudyPart(part: StudyPart, side: "left" | "right" | "up" | "down"): StudyPart | null {
+  if (side === "up" || side === "down") return null;
+  const index = STUDY_PARTS.findIndex((item) => item.id === part);
+  const to = STUDY_PARTS[side === "right" ? index + 1 : index - 1];
+  return to === undefined ? null : to.id;
+}
 
 export const ROOM_SHELVES: readonly { id: RoomShelf; name: string; short: string; row: "wall" | "desk" }[] = [
   { id: 1, name: "Toàn cảnh", short: "Toàn cảnh", row: "wall" },

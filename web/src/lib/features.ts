@@ -16,7 +16,7 @@ export const FEATURE_KEYS = [
   { key: "projects", label: "Dự án" },
   { key: "tasks", label: "Nhiệm vụ" },
   { key: "calendar", label: "Lịch" },
-  { key: "think_hub", label: "Kế hoạch" },
+  { key: "think_hub", label: "Thư phòng" },
   { key: "meeting_notes", label: "Biên bản họp" },
   { key: "habits", label: "Thói quen" },
   { key: "finance", label: "Tài chính" },

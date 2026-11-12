@@ -1,4 +1,4 @@
-import { Bell, BookOpen, CalendarClock, CalendarDays, ChevronRight, ListChecks, Loader2, MailOpen, MessagesSquare, Table2, UserPlus } from "lucide-react";
+import { Bell, BookOpen, CalendarClock, CalendarDays, ChevronRight, KeyRound, Library, ListChecks, Loader2, MailOpen, MessagesSquare, Repeat, Table2, UserPlus, Vault, Wallet } from "lucide-react";
 import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -6,7 +6,13 @@ import { BlockErrorBoundary, BlockLoadError } from "@/components/RouteErrorBound
 import { KeepsakeGreeting } from "@/components/space/KeepsakeGreeting";
 import { ThoughtNote } from "@/components/space/ThoughtNote";
 import { RestDayCard } from "@/components/space/RestDayCard";
-import { NavRulesIntro } from "@/components/nav/NavRules";
+import { WelcomeHome } from "@/components/space/WelcomeHome";
+import { UserAvatar } from "@/components/UserAvatar";
+import { usePinStatus } from "@/components/PinGate";
+import { pinPhase } from "@/lib/user-pin";
+import { readWelcome, saveWelcome, startSteps, type StartStepKey } from "@/lib/welcome";
+import { useHabits } from "@/lib/use-habits";
+import { useVaultLock } from "@/lib/use-vault-lock";
 import { ReviewPrompt } from "@/components/review/ReviewSheet";
 import { HabitSpaceLine } from "@/components/habits/HabitSpaceLine";
 import { useReview } from "@/lib/use-review";
@@ -155,6 +161,28 @@ export default function Dashboard() {
   const [tone] = useState(() => ambientTone(opened));
   const today = todayIso(opened);
   const review = useReview();
+  const habitsApi = useHabits();
+  const vault = useVaultLock();
+  const pinStatus = usePinStatus();
+  const needsPin = pinStatus.data !== undefined && pinPhase(pinStatus.data) !== "has-pin";
+  // Nhà mới: the welcome question, once per account on this device.
+  const [welcome, setWelcome] = useState(() => (userId === undefined ? { seen: true, choices: [] } : readWelcome(userId)));
+  const [visited, setVisited] = useState<string[]>(() => {
+    try {
+      return JSON.parse(window.localStorage.getItem(`avora.start-visited:${userId ?? ""}`) ?? "[]") as string[];
+    } catch {
+      return [];
+    }
+  });
+  const markVisited = (key: string): void => {
+    const next = visited.includes(key) ? visited : [...visited, key];
+    setVisited(next);
+    try {
+      window.localStorage.setItem(`avora.start-visited:${userId ?? ""}`, JSON.stringify(next));
+    } catch {
+      // Shown once more next time; harmless.
+    }
+  };
 
   const thought = useMemo(() => dailyThoughtView(thoughtCategory, opened), [thoughtCategory, opened]);
   const thoughtKey = useMemo(() => dailyThoughtKey(thoughtCategory, opened), [thoughtCategory, opened]);
@@ -211,6 +239,10 @@ export default function Dashboard() {
             </h1>
             {/* AVORA-44 · việc 5: the one search, from Avora Space too. */}
             <AvoraSearchButton here={{ tab: "avora-space", label: "Avora Space" }} />
+            {/* Nhà mới: Cài đặt left the tool-belt; it opens from your own picture here. */}
+            <Link to="/cai-dat" aria-label="Hồ sơ và Cài đặt" data-space-avatar="" className="press -mr-1 flex h-11 w-11 shrink-0 items-center justify-center rounded-full">
+              <UserAvatar userId={userId ?? null} name={displayName} size="sm" />
+            </Link>
             </div>
             </KeepsakeGreeting>
             {thought === null ? null : (
@@ -474,33 +506,82 @@ export default function Dashboard() {
     }
   };
 
-  // AVORA-53 · 6.1: a newcomer's three first steps; each hides once done, the card once all are.
+  // AVORA-53 · 6.1 / Nhà mới: a newcomer's first steps, ordered by what they chose on the welcome screen;
+  // each hides once done, the card once all are. The PIN is one of them now — no banner on every tab.
   const journalId: string | null = (conversations ?? []).find((item) => item.kind === "personal")?.conversationId ?? null;
+  const allSteps: Record<StartStepKey, { isDone: boolean; label: string; to: string; icon: ReactNode }> = {
+    journal: {
+      isDone: (conversations ?? []).some((item) => item.kind === "personal" && item.lastMessageAt !== null),
+      label: "Viết dòng đầu tiên vào Nhật ký",
+      to: withReturn(journalId === null ? "/tin-nhan" : `/tin-nhan/${journalId}`, SPACE_ORIGIN),
+      icon: <BookOpen className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+    task: {
+      isDone: (tasks ?? []).length > 0,
+      label: "Tạo nhiệm vụ đầu tiên",
+      to: withReturn("/nhiem-vu?moi=1", SPACE_ORIGIN),
+      icon: <ListChecks className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+    friend: {
+      isDone: (conversations ?? []).some((item) => item.kind === "direct" || item.kind === "group"),
+      label: "Kết bạn qua PIN / QR",
+      to: withReturn("/tin-nhan?ket-ban=1", SPACE_ORIGIN),
+      icon: <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+    habit: {
+      isDone: habitsApi.habits.length > 0,
+      label: "Tạo thói quen đầu tiên",
+      to: withReturn("/nhiem-vu?muc=thoi-quen", SPACE_ORIGIN),
+      icon: <Repeat className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+    book: {
+      isDone: visited.includes("book"),
+      label: "Chọn một cuốn sách ở Thư phòng",
+      to: withReturn("/ke-hoach?ke=5", SPACE_ORIGIN),
+      icon: <Library className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+    vault: {
+      isDone: vault.status?.hasCode === true,
+      label: "Đặt mã Két sắt, cất giấy tờ đầu tiên",
+      to: withReturn("/ket-sat/tai-lieu", SPACE_ORIGIN),
+      icon: <Vault className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+    spend: {
+      isDone: visited.includes("spend"),
+      label: "Ghi khoản chi đầu tiên",
+      to: withReturn("/ket-sat?them=1", SPACE_ORIGIN),
+      icon: <Wallet className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+    pin: {
+      isDone: !needsPin,
+      label: "Tạo PIN để người thân tìm bạn",
+      to: withReturn("/cai-dat", SPACE_ORIGIN),
+      icon: <KeyRound className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
+    },
+  };
   const starts = conversations === undefined || tasks === undefined
     ? []
-    : [
-        {
-          key: "journal",
-          isDone: (conversations ?? []).some((item) => item.kind === "personal" && item.lastMessageAt !== null),
-          label: "Viết dòng đầu tiên vào Nhật ký",
-          to: withReturn(journalId === null ? "/tin-nhan" : `/tin-nhan/${journalId}`, SPACE_ORIGIN),
-          icon: <BookOpen className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
-        },
-        {
-          key: "task",
-          isDone: tasks.length > 0,
-          label: "Tạo nhiệm vụ đầu tiên",
-          to: withReturn("/nhiem-vu?moi=1", SPACE_ORIGIN),
-          icon: <ListChecks className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
-        },
-        {
-          key: "friend",
-          isDone: (conversations ?? []).some((item) => item.kind === "direct" || item.kind === "group"),
-          label: "Kết bạn qua PIN / QR",
-          to: withReturn("/tin-nhan?ket-ban=1", SPACE_ORIGIN),
-          icon: <UserPlus className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />,
-        },
-      ].filter((step) => !step.isDone);
+    : startSteps(welcome.choices, needsPin)
+        .map((key) => ({ key, ...allSteps[key] }))
+        .filter((step) => !step.isDone);
+
+  const startCard: ReactNode = starts.length > 0 ? (
+          <section aria-labelledby="space-start" className="mt-6 rounded-[14px] border border-primary/25 bg-card p-4 shadow-[0_8px_30px_-18px_hsl(13_73%_56%/0.45)]">
+            <h2 id="space-start" className={cn(TYPE.blockTitle)}>Bắt đầu</h2>
+            <p className={cn(TYPE.blockDescription, "mt-0.5")}>Vài bước nhỏ để ngôi nhà có điều để kể với bạn.</p>
+            <ul className="mt-3 space-y-2">
+              {starts.map((step) => (
+                <li key={step.key}>
+                  <Link to={step.to} onClick={() => markVisited(step.key)} data-start-step={step.key} className={cn(rowClass, "rounded-[12px] border border-border bg-background/60")}>
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">{step.icon}</span>
+                    <span className="min-w-0 flex-1 text-[14.5px] font-medium text-foreground">{step.label}</span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ) : null;
 
   return (
     <div
@@ -511,31 +592,24 @@ export default function Dashboard() {
       <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
         {/* C7 · AVORA-50 B: one line when a review is due; never pushed. */}
         <ReviewPrompt review={review} variant="line" />
-        <NavRulesIntro />
-        {starts.length > 0 ? (
-          <section aria-labelledby="space-start" className="mt-2 rounded-[14px] border border-primary/25 bg-card p-4 shadow-[0_8px_30px_-18px_hsl(13_73%_56%/0.45)]">
-            <h2 id="space-start" className={cn(TYPE.blockTitle)}>Bắt đầu</h2>
-            <p className={cn(TYPE.blockDescription, "mt-0.5")}>Ba bước nhỏ để Avora Space có điều để kể với bạn.</p>
-            <ul className="mt-3 space-y-2">
-              {starts.map((step) => (
-                <li key={step.key}>
-                  <Link to={step.to} className={cn(rowClass, "rounded-[12px] border border-border bg-background/60")}>
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent text-accent-foreground">{step.icon}</span>
-                    <span className="min-w-0 flex-1 text-[14.5px] font-medium text-foreground">{step.label}</span>
-                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        ) : null}
+        {welcome.seen || userId === undefined ? null : (
+          <WelcomeHome
+            name={displayName}
+            onDone={(choices) => {
+              saveWelcome(userId, choices);
+              setWelcome({ seen: true, choices });
+            }}
+          />
+        )}
         {SPACE_BLOCK_ORDER.map((id) => {
           const block = renderBlock(id);
           if (block === null) return null;
           // Each block in its own boundary: a fault in one leaves the others standing.
+          // Nhà mới: the greeting and the day's thought come first; Bắt đầu right under them.
           return (
             <BlockErrorBoundary key={id} name={SPACE_BLOCK_COPY[id].title}>
               {block}
+              {id === "greeting" ? startCard : null}
             </BlockErrorBoundary>
           );
         })}

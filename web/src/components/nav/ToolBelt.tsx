@@ -13,9 +13,9 @@ import { useNavBadges } from "@/lib/use-nav-badges";
 import { cn } from "@/lib/utils";
 
 /**
- * The phone's tool-belt: five Hubs pinned to the bottom, icon over a small label.
+ * The phone's tool-belt: five rooms pinned to the bottom, icon over a small label.
  *
- * Avora Space is deliberately absent — the logo at the top is the way home.
+ * Nhà mới: Avora Space is the first tab; Cài đặt lives behind the avatar on Avora Space.
  */
 export function ToolBelt() {
   const visibleNav = useVisibleNav(TOOL_BELT_ITEMS);

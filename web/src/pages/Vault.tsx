@@ -1,6 +1,6 @@
 import { Info, KeyRound, Lock, MoreHorizontal, Plus } from "lucide-react";
 import { Suspense, useState } from "react";
-import { Outlet, useNavigate } from "react-router-dom";
+import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { InlineBack } from "@/components/nav/InlineBack";
 import { SectionNav } from "@/components/nav/SectionNav";
@@ -62,6 +62,68 @@ function VaultBar() {
   );
 }
 
+/** The Tài chính part of Két sắt (its own sub-routes included). */
+function isFinancePath(pathname: string): boolean {
+  return /^\/ket-sat(\/(giao-dich|tai-khoan|bao-cao))?\/?$/.test(pathname);
+}
+
+/**
+ * Nhà mới (VMT 12/11): "nhắc đặt mã thì được, ép đặt mã là sai". One quiet card above an open Tài chính
+ * while the Két sắt has no code; `Để sau` hides it on this device for 30 days.
+ */
+function SetCodeReminder() {
+  const [isSettingUp, setIsSettingUp] = useState<boolean>(false);
+  const [isHidden, setIsHidden] = useState<boolean>(() => {
+    try {
+      const until = Number(window.localStorage.getItem("avora.vault.remind-later") ?? "0");
+      return until > Date.now();
+    } catch {
+      return false;
+    }
+  });
+  if (isHidden) return null;
+  return (
+    <div data-under-tabs="" className="mx-auto w-full max-w-6xl px-4 pt-4 sm:px-6 md:px-10 short:px-4">
+      <section data-vault-remind="" className="flex items-start gap-3 rounded-[14px] border border-border bg-card p-4">
+        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-secondary text-foreground">
+          <KeyRound className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[14.5px] font-medium text-foreground">Két sắt chưa có mã</p>
+          <p className="mt-0.5 text-[13.5px] leading-snug text-muted-foreground">
+            Tài chính đang mở như các phòng khác. Đặt mã khi bạn muốn khoá lại, hoặc khi cất giấy tờ, mật khẩu đầu tiên.
+          </p>
+          <div className="mt-3 flex gap-2">
+            <button type="button" onClick={() => setIsSettingUp(true)} className="press min-h-10 rounded-md bg-primary px-4 text-[13.5px] font-semibold text-primary-foreground">
+              Đặt mã
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                try {
+                  window.localStorage.setItem("avora.vault.remind-later", String(Date.now() + 30 * 86_400_000));
+                } catch {
+                  // Shown again next time; harmless.
+                }
+                setIsHidden(true);
+              }}
+              className="press min-h-10 rounded-md px-3 text-[13.5px] font-medium text-muted-foreground"
+            >
+              Để sau
+            </button>
+          </div>
+        </div>
+      </section>
+      <Dialog open={isSettingUp} onOpenChange={setIsSettingUp}>
+        <DialogContent className="max-h-[92dvh] scroll-y p-0 sm:max-w-[460px]">
+          <DialogTitle className="sr-only">Đặt mã Két sắt</DialogTitle>
+          <VaultGate key="no-code" />
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
 /**
  * Két sắt — the place where what is yours is kept. Locked by its own code (AVORA-51, ADR-034):
  * until the server says this session is unlocked, every sub-tab shows the lock screen instead.
@@ -70,6 +132,8 @@ const Vault = () => {
   const visibleNav = useVisibleNav(VAULT_TABS);
   const vault = useVaultLock();
   const navigate = useNavigate();
+  const location = useLocation();
+  const onFinance = isFinancePath(location.pathname);
 
   let body;
   if (vault.isLoading) {
@@ -89,7 +153,18 @@ const Vault = () => {
         </button>
       </div>
     );
+  } else if (!vault.isUnlocked && vault.isFinanceOpen && onFinance) {
+    // Nhà mới: no code yet → Tài chính opens straight away, with a reminder (never a wall).
+    body = (
+      <>
+        <SetCodeReminder />
+        <Suspense fallback={null}>
+          <Outlet />
+        </Suspense>
+      </>
+    );
   } else if (!vault.isUnlocked) {
+    // Giấy tờ · Mật khẩu · Chứng chỉ · Tài sản are encrypted with the code: it is asked here, at the first one.
     body = <VaultGate key={vault.status?.hasCode === true ? "has-code" : "no-code"} />;
   } else {
     body = (
@@ -109,7 +184,7 @@ const Vault = () => {
         tabs={visibleNav}
         action={(current) => {
           // AVORA-57 · E: one `+` beside the title; none while locked or on a "Sắp có" sub-tab.
-          const entry = vault.isUnlocked ? vaultAddFor(current) : null;
+          const entry = vault.isUnlocked || (vault.isFinanceOpen && current === "/ket-sat") ? vaultAddFor(current) : null;
           if (entry === null) return null;
           // AVORA-60 · D / 61 · A: the shared `+`. Tap = the sub-tab's own thing; no menu while each
           // sub-tab has a single kind to add (the other sub-tabs are still "Sắp có").

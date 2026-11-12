@@ -56,18 +56,21 @@ export const NAV_ITEMS: readonly NavEntry[] = [
   { to: "/tong-quan", label: "Avora Space" },
   { to: "/tin-nhan", label: "Kết nối" },
   { to: "/nhiem-vu", label: "Nhiệm vụ" },
-  // Above Két sắt, below Nhiệm vụ: the HUB is work being done, and it belongs beside the
-  // other doing screens rather than beside the one that keeps things safe.
-  { to: "/ke-hoach", label: "Kế hoạch" },
+  // Nhà mới (VMT 12/11): the quiet room — books, notes and plans. Route kept so every saved link still opens it.
+  { to: "/ke-hoach", label: "Thư phòng" },
   { to: "/ket-sat", label: "Két sắt" },
   { to: "/cai-dat", label: "Cài đặt" },
 ];
 
+/** Cài đặt: on a phone it opens from the avatar on Avora Space, not from the tool-belt. */
+export const SETTINGS_ROUTE = "/cai-dat";
+
 /**
- * The phone's tool-belt: the five Hubs, pinned to the bottom of the screen. Avora Space is not
- * among them — it is reached by tapping the logo, which is where "home" lives.
+ * The phone's tool-belt (Nhà mới, VMT 12/11): Avora Space takes Cài đặt's place, so the way home is
+ * a tab like any other — Avora Space · Kết nối · Nhiệm vụ · Thư phòng · Két sắt. Cài đặt moves to the
+ * avatar at the top of Avora Space.
  */
-export const TOOL_BELT_ITEMS: readonly NavEntry[] = NAV_ITEMS.filter((item) => item.to !== HOME_ROUTE);
+export const TOOL_BELT_ITEMS: readonly NavEntry[] = NAV_ITEMS.filter((item) => item.to !== SETTINGS_ROUTE);
 
 /**
  * Named at the end of the full map (hold the logo on a phone) so the shape of AVORA is complete,

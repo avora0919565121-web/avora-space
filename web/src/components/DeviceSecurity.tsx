@@ -147,6 +147,9 @@ function useSetRank() {
 /** 3.2 — asked once per device: a phone suggests Ưu tiên 1, a computer Ưu tiên 2. `Để sau` never asks again. */
 export function DeviceRankPrompt() {
   const { status } = useDeviceStatus();
+  // Nhà mới: "máy chính" only means something once there is a second machine — ask then, not at the door.
+  const { devices } = useMyDevices();
+  const hasSecondDevice = devices.filter((device) => !device.guest).length >= 2;
   const setRank = useSetRank();
   const [dismissed, setDismissed] = useState<boolean>(() => {
     try {
@@ -167,7 +170,7 @@ export function DeviceRankPrompt() {
     }
   };
   if (dismissed || status === undefined || !status.allowed || status.device === null || status.guest || isGuestMachine()) return null;
-  if (status.myRank !== 3 || status.rankTaken[suggested] || kind === "unknown") return null;
+  if (status.myRank !== 3 || status.rankTaken[suggested] || kind === "unknown" || !hasSecondDevice) return null;
   return (
     <>
       <div role="dialog" aria-labelledby="rank-prompt-title" data-rank-prompt="" className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-50 mx-auto max-w-md rounded-card border border-border bg-card p-5 shadow-xl md:bottom-6">

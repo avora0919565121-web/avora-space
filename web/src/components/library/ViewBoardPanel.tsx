@@ -45,7 +45,7 @@ export function ViewBoardPanel({ boardKey, isFullscreen, onFullscreen, onClose }
     return [...list].sort((a, b) => Number(meta.get(b.key)?.starred === true) - Number(meta.get(a.key)?.starred === true));
   }, [board.rows, query, meta]);
 
-  const here = hereFrom(location, "Kế hoạch");
+  const here = hereFrom(location, "Thư phòng");
   const open = (row: ViewRow): void => navigate(withReturn(row.href, here));
   const toggleStar = (row: ViewRow): void => {
     const current = meta.get(row.key);

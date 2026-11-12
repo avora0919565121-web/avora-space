@@ -9,7 +9,7 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { useAuth } from "@/lib/auth";
 import { canEditHead, latestConclusions, lifecycleLabel, LIFECYCLES, type Lifecycle } from "@/lib/board-head";
 import { boardQuestion, DESK_LIMIT, isDusty, openedAgo, sameWords, type PlaceKind } from "@/lib/desk";
-import { lastShelfOfRow, neighbour, ROOM_SHELVES, rowOf, shelfOfRoom, shelvesOfRow, SPINES, type RoomRow, type RoomShelf } from "@/lib/room";
+import { lastShelfOfRow, neighbour, PLAN_VIEWS, ROOM_SHELVES, rowOf, shelfOfRoom, shelvesOfRow, SPINES, STUDY_PARTS, type RoomRow, type RoomShelf, type StudyPart } from "@/lib/room";
 import type { ThinkTable } from "@/lib/think-hub";
 import { THINKING_TYPES, type BoardTemplate } from "@/lib/think-hub-shelf";
 import { DeskFullError, useBoardOpened, useDesk } from "@/lib/use-desk";
@@ -85,6 +85,38 @@ export function RoomStrip({ shelf, onGo, onOpenMap }: { shelf: RoomShelf; onGo: 
         </button>
       }
     />
+    </div>
+  );
+}
+
+/**
+ * Nhà mới — Thư phòng's one strip: `Đọc · Ghi chép · Kế hoạch`. Inside Kế hoạch a quiet second line
+ * of words (not tabs) moves between the desk and its views; it is text, so the room still reads as one.
+ */
+export function StudyStrip({ part, shelf, onPart, onPlanView }: { part: StudyPart; shelf: RoomShelf; onPart: (to: StudyPart) => void; onPlanView: (to: RoomShelf) => void }) {
+  const items = useMemo(() => STUDY_PARTS.map((item) => ({ id: item.id, label: item.label })), []);
+  return (
+    <div data-study-bar={part}>
+      <SubTabs ariaLabel="Thư phòng" items={items} value={part} onChange={(id) => onPart(id as StudyPart)} />
+      {part === "ke" ? (
+        <nav aria-label="Kế hoạch" data-plan-views="" className="flex gap-1 overflow-x-auto border-b border-border/60 px-[calc(var(--tab-inset)-8px)] py-1.5 [scrollbar-width:none]">
+          {PLAN_VIEWS.map((view) => (
+            <button
+              key={view.id}
+              type="button"
+              aria-current={view.id === shelf ? "page" : undefined}
+              data-plan-view={view.id}
+              onClick={() => onPlanView(view.id)}
+              className={cn(
+                "press min-h-9 shrink-0 rounded-full px-3 text-[13.5px] transition-colors",
+                view.id === shelf ? "bg-secondary font-semibold text-foreground" : "font-medium text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {view.label}
+            </button>
+          ))}
+        </nav>
+      ) : null}
     </div>
   );
 }

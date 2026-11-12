@@ -24,6 +24,8 @@ import { clearVaultKeys, openWithDeviceShare } from "@/lib/vault-keys";
 
 /** Everything the Két sắt keeps in the query cache — dropped the moment it locks. */
 const VAULT_QUERY_ROOTS: readonly (readonly string[])[] = [financeKeys.all, ["obligation-reminders"], ["vault-items"], ["vault-keyring"]];
+/** Tài chính's part of it: kept while there is no code (Nhà mới: Tài chính is open until a code is set). */
+const FINANCE_QUERY_ROOTS: readonly (readonly string[])[] = [financeKeys.all, ["obligation-reminders"]];
 
 export function isVaultPath(pathname: string): boolean {
   return pathname === "/ket-sat" || pathname.startsWith("/ket-sat/");
@@ -63,6 +65,9 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
 
   const status: VaultStatus | null = statusQuery.data ?? null;
   const isUnlocked: boolean = status?.unlocked === true;
+  // Nhà mới (VMT 12/11): no code yet → Tài chính is open like any room; the server says the same (finance_is_open).
+  const hasCode: boolean = status?.hasCode === true;
+  const isFinanceOpen: boolean = isUnlocked || (status !== null && !hasCode);
 
   const putStatus = useCallback(
     (patch: Partial<VaultStatus>): void => {
@@ -80,10 +85,13 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
   // Locked: nothing of the Két sắt stays in memory, on any screen.
   useEffect(() => {
     if (isUnlocked) return;
-    for (const key of VAULT_QUERY_ROOTS) queryClient.removeQueries({ queryKey: key });
+    for (const key of VAULT_QUERY_ROOTS) {
+      if (isFinanceOpen && FINANCE_QUERY_ROOTS.includes(key)) continue;
+      queryClient.removeQueries({ queryKey: key });
+    }
     // AVORA-68: the master key and every section key leave memory with the lock.
     clearVaultKeys();
-  }, [isUnlocked, queryClient]);
+  }, [isUnlocked, isFinanceOpen, queryClient]);
 
   // The finance layer heard "locked" from the server: believe it.
   useEffect(() => {
@@ -170,6 +178,8 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
       isLoading: statusQuery.isPending,
       error: statusQuery.error,
       isUnlocked,
+      hasCode,
+      isFinanceOpen,
       lock,
       refresh,
       unlock,
@@ -177,7 +187,7 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
       changeCode,
       confirmReset,
     }),
-    [status, statusQuery.isPending, statusQuery.error, isUnlocked, lock, refresh, unlock, setCode, changeCode, confirmReset],
+    [status, statusQuery.isPending, statusQuery.error, isUnlocked, hasCode, isFinanceOpen, lock, refresh, unlock, setCode, changeCode, confirmReset],
   );
 });
 
@@ -185,4 +195,10 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
 export function useVaultUnlocked(): boolean {
   const vault = useVaultLock() as ReturnType<typeof useVaultLock> | undefined;
   return vault?.isUnlocked === true;
+}
+
+/** Whether Tài chính can be read now: the Két sắt is open, or it has no code yet. False outside the provider. */
+export function useFinanceOpen(): boolean {
+  const vault = useVaultLock() as ReturnType<typeof useVaultLock> | undefined;
+  return vault?.isFinanceOpen === true;
 }
