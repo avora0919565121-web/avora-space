@@ -450,6 +450,31 @@ export async function createTransaction(userId: string, input: TransactionInput)
   return toTransaction(data);
 }
 
+/**
+ * KT-08 · QA05-01: the first expense of an empty book. The "Tiền mặt" wallet and the expense are written in
+ * ONE database transaction (`record_first_expense`), so a refused expense never leaves a wallet behind.
+ */
+export async function recordFirstExpense(input: {
+  categoryId: string;
+  amountCents: number;
+  date: string;
+  description: string | null;
+  currency: string;
+  walletName: string;
+}): Promise<{ account: Account; transaction: Transaction }> {
+  const { data, error } = await supabase.rpc("record_first_expense", {
+    p_category_id: input.categoryId,
+    p_amount: input.amountCents / 100,
+    p_date: input.date,
+    p_description: input.description ?? undefined,
+    p_currency: input.currency,
+    p_wallet_name: input.walletName,
+  });
+  if (error) throw fail(error.code, error.message);
+  const out = data as unknown as { account: AccountRow; transaction: TransactionRow };
+  return { account: toAccount(out.account), transaction: toTransaction(out.transaction) };
+}
+
 export async function updateTransaction(transactionId: string, input: TransactionInput): Promise<Transaction> {
   const { data, error } = await supabase
     .from("transactions")

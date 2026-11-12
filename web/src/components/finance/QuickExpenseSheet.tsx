@@ -30,7 +30,7 @@ export function QuickExpenseSheet({
   currency: string;
   onMore: () => void;
 }) {
-  const { addAccount, addTransaction } = useFinanceActions();
+  const { addFirstExpense, addTransaction } = useFinanceActions();
   const target = quickExpenseAccount(accounts);
   const money = target?.currency ?? currency;
   const choices = useMemo(() => categoriesFor(categories, "expense").filter((category) => category.deletedAt === null).slice(0, 8), [categories]);
@@ -52,32 +52,29 @@ export function QuickExpenseSheet({
     if (!canSave || chosen === null) return;
     setIsSaving(true);
     try {
-      const account =
-        target ??
-        (await addAccount.mutateAsync({
-          name: CASH_WALLET_NAME,
-          type: "cash",
-          openingBalanceCents: 0,
-          currency,
-          otherPersonName: null,
-          accountNumber: null,
-          tags: [],
-        }));
-      await addTransaction.mutateAsync({
-        type: "expense",
-        accountId: account.id,
-        categoryId: chosen,
-        amountCents: cents,
-        date: todayIso(),
-        description: note.trim() === "" ? null : note.trim(),
-        businessRelated: false,
-        businessPurpose: null,
-        receiptPath: null,
-        isRecurring: false,
-        recurringFrequency: null,
-        recurringLabel: null,
-      });
-      toast.success(target === null ? `Đã ghi khoản chi vào ví ${CASH_WALLET_NAME}.` : `Đã ghi khoản chi vào ${account.name}.`);
+      const description = note.trim() === "" ? null : note.trim();
+      // KT-08 · QA05-01: an empty book gets "Tiền mặt" in the same database transaction as the expense —
+      // a refused expense no longer leaves a wallet behind.
+      if (target === null) {
+        await addFirstExpense.mutateAsync({ categoryId: chosen, amountCents: cents, date: todayIso(), description, currency, walletName: CASH_WALLET_NAME });
+        toast.success(`Đã ghi khoản chi vào ví ${CASH_WALLET_NAME}.`);
+      } else {
+        await addTransaction.mutateAsync({
+          type: "expense",
+          accountId: target.id,
+          categoryId: chosen,
+          amountCents: cents,
+          date: todayIso(),
+          description,
+          businessRelated: false,
+          businessPurpose: null,
+          receiptPath: null,
+          isRecurring: false,
+          recurringFrequency: null,
+          recurringLabel: null,
+        });
+        toast.success(`Đã ghi khoản chi vào ${target.name}.`);
+      }
       reset();
       onOpenChange(false);
     } catch (error) {

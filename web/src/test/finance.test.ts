@@ -346,9 +346,12 @@ describe("the submit button stays inert until the required four are filled", () 
 // ---------------------------------------------------------------- dates
 
 describe("calendar helpers", () => {
-  it("reads a local day, not a UTC instant", () => {
-    expect(todayIso(new Date(2026, 8, 7, 23, 45))).toBe("2026-09-07");
-    expect(todayIso(new Date(2026, 8, 7, 0, 15))).toBe("2026-09-07");
+  it("reads the day in the profile's zone, not a UTC instant", () => {
+    // Default profile zone Asia/Ho_Chi_Minh (112-E · LOI-03).
+    expect(todayIso(new Date("2026-09-07T23:45:00+07:00"))).toBe("2026-09-07");
+    expect(todayIso(new Date("2026-09-07T00:15:00+07:00"))).toBe("2026-09-07");
+    // KT-08 · QA05-01: 00:30 VN on 13/11 is still 12/11 in UTC — the ledger day is 13/11.
+    expect(todayIso(new Date("2026-11-12T17:30:00Z"))).toBe("2026-11-13");
   });
 
   it("walks months across a year boundary", () => {

@@ -7423,6 +7423,17 @@ export type Database = {
         }
         Returns: undefined
       }
+      record_first_expense: {
+        Args: {
+          p_amount: number
+          p_category_id: string
+          p_currency?: string
+          p_date: string
+          p_description?: string
+          p_wallet_name?: string
+        }
+        Returns: Json
+      }
       record_project_success_criterion: {
         Args: {
           p_actual_percent?: number

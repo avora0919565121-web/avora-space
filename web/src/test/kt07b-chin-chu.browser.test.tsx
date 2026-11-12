@@ -6,7 +6,7 @@ import { vi } from "vitest";
 
 import type { Account, Category } from "@/lib/finance";
 
-const state = vi.hoisted(() => ({ accounts: [] as unknown[], transactions: [] as unknown[] }));
+const state = vi.hoisted(() => ({ accounts: [] as unknown[], transactions: [] as unknown[], firsts: [] as unknown[], refuse: false }));
 
 vi.mock("@/lib/use-finance", async () => {
   const actual = await vi.importActual<typeof import("@/lib/use-finance")>("@/lib/use-finance");
@@ -15,6 +15,14 @@ vi.mock("@/lib/use-finance", async () => {
     useFinanceActions: () => ({
       addAccount: { mutateAsync: async (draft: { name: string; type: string; currency: string }) => { state.accounts.push(draft); return { id: "new-cash", name: draft.name, type: draft.type, currency: draft.currency }; } },
       addTransaction: { mutateAsync: async (input: unknown) => { state.transactions.push(input); return input; } },
+      // KT-08 · QA05-01: wallet + expense in one database transaction.
+      addFirstExpense: {
+        mutateAsync: async (input: unknown) => {
+          if (state.refuse) throw new Error("Ngày giao dịch không thể ở tương lai.");
+          state.firsts.push(input);
+          return input;
+        },
+      },
     }),
   };
 });
@@ -28,6 +36,8 @@ afterEach(async () => {
   await page.viewport(414, 896);
   state.accounts = [];
   state.transactions = [];
+  state.firsts = [];
+  state.refuse = false;
 });
 
 test("KT-07b · 3: Cài đặt là danh sách nhóm; trên điện thoại hàng Hồ sơ mở /cai-dat/ho-so", async () => {
@@ -78,9 +88,26 @@ test("KT-07b · 6: khoản chi đầu tiên — 3 ô, tự tạo ví Tiền mặ
   await userEvent.click(screen.getByRole("button", { name: "Đi lại" }));
   await userEvent.fill(screen.getByRole("textbox", { name: "Ghi chú" }), "xe ôm");
   await userEvent.click(screen.getByRole("button", { name: "Ghi khoản chi" }));
-  await vi.waitFor(() => expect(state.transactions).toHaveLength(1));
-  expect(state.accounts).toEqual([expect.objectContaining({ name: "Tiền mặt", type: "cash", currency: "VND" })]);
-  expect(state.transactions[0]).toEqual(expect.objectContaining({ type: "expense", accountId: "new-cash", categoryId: "go", amountCents: 4_500_000, description: "xe ôm" }));
+  await vi.waitFor(() => expect(state.firsts).toHaveLength(1));
+  // KT-08 · QA05-01: no separate "create wallet" call — the server makes it with the expense, or not at all.
+  expect(state.accounts).toEqual([]);
+  expect(state.transactions).toEqual([]);
+  expect(state.firsts[0]).toEqual(expect.objectContaining({ walletName: "Tiền mặt", currency: "VND", categoryId: "go", amountCents: 4_500_000, description: "xe ôm" }));
+});
+
+test("KT-08 · QA05-01: khoản chi đầu tiên bị từ chối → không có lệnh tạo ví riêng, báo lỗi, giữ số đã nhập", async () => {
+  state.refuse = true;
+  const screen = await render(
+    <QueryClientProvider client={new QueryClient()}>
+      <QuickExpenseSheet open onOpenChange={() => undefined} accounts={[]} categories={categories} currency="VND" onMore={() => undefined} />
+    </QueryClientProvider>,
+  );
+  await userEvent.fill(screen.getByRole("textbox", { name: "Số tiền" }), "45000");
+  await userEvent.click(screen.getByRole("button", { name: "Ghi khoản chi" }));
+  await expect.element(screen.getByRole("button", { name: "Ghi khoản chi" })).toBeEnabled();
+  expect(state.accounts).toEqual([]);
+  expect(state.firsts).toEqual([]);
+  await expect.element(screen.getByRole("textbox", { name: "Số tiền" })).toHaveValue("45.000");
 });
 
 test("KT-07b · 6: đã có ví thì ghi vào ví đó, không tạo thêm", async () => {

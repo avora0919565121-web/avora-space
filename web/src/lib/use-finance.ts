@@ -19,6 +19,7 @@ import {
   createCategory,
   createObligation,
   createTransaction,
+  recordFirstExpense,
   deleteCategory,
   fetchAccounts,
   fetchCategories,
@@ -259,6 +260,11 @@ export function useFinanceActions() {
     onSuccess: refreshLedger,
   });
 
+  const addFirstExpense = useMutation({
+    mutationFn: recordFirstExpense,
+    onSuccess: refreshLedger,
+  });
+
   const editTransaction = useMutation({
     mutationFn: ({ transactionId, input }: { transactionId: string; input: TransactionInput }) =>
       updateTransaction(transactionId, input),
@@ -307,6 +313,7 @@ export function useFinanceActions() {
     editCategory,
     removeCategory,
     addTransaction,
+    addFirstExpense,
     editTransaction,
     voidTransaction,
     addObligation,

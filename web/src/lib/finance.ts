@@ -1,4 +1,5 @@
 import type { Database } from "@/integrations/supabase/types";
+import { appTimeZone, zonedDayIso } from "@/lib/app-time-zone";
 import { convertCents, minorUnitsOf, type RateTable } from "@/lib/currency";
 
 /**
@@ -288,12 +289,10 @@ export function formatPercent(ratio: number, digits: number = 1): string {
 
 // ---------------------------------------------------------------- dates
 
-/** Local calendar day as `YYYY-MM-DD`. A ledger day must read the same at 08:00 and 23:00. */
+/** Today in the profile's zone as `YYYY-MM-DD`. A ledger day must read the same at 08:00 and 23:00. */
 export function todayIso(now: Date = new Date()): string {
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, "0");
-  const day = String(now.getDate()).padStart(2, "0");
-  return `${year}-${month}-${day}`;
+  // KT-08 · QA05-01: the profile's zone (112-E · LOI-03), the same calendar the server checks against.
+  return zonedDayIso(now, appTimeZone());
 }
 
 /** `YYYY-MM` bucket of a calendar day. */
