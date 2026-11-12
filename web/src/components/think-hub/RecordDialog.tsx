@@ -271,9 +271,13 @@ export function RecordDialog({
   onReloadRecord,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
+  // KT-09 · QA06-01: the form as it is at this instant — "Vẫn lưu của tôi" reads it at the click, never a copy.
+  const draftRef = useRef<Draft>(draft);
+  draftRef.current = draft;
   const [notice, setNotice] = useState<string | null>(null);
   // KT-08 · QA04-06: the row changed under this form — nothing was written; the person chooses.
-  const [conflict, setConflict] = useState<{ error: RecordConflictError; patch: RecordPatch; then?: () => void } | null>(null);
+  // KT-09 · QA06-01: no patch is kept here — the form stays editable and is read again at the choice.
+  const [conflict, setConflict] = useState<{ error: RecordConflictError; then?: () => void } | null>(null);
   const conflictRef = useRef<HTMLDivElement | null>(null);
   const { isSubmitting, guard } = useSubmitGuard();
 
@@ -285,9 +289,10 @@ export function RecordDialog({
   }, [open, record, columns]);
 
   // The question sits at the end of a long form — bring it into view (the Lưu row is pinned below it).
+  const hasConflict = conflict !== null;
   useEffect(() => {
-    if (conflict !== null) conflictRef.current?.scrollIntoView({ block: "nearest" });
-  }, [conflict]);
+    if (hasConflict) conflictRef.current?.scrollIntoView({ block: "nearest" });
+  }, [hasConflict]);
 
   const statuses: string[] = useMemo(() => {
     const all = [...SUGGESTED_STATUSES, ...knownStatuses, draft.status];
@@ -299,8 +304,8 @@ export function RecordDialog({
   }, []);
 
   /** The form as a patch, or null (with a notice) when something in it cannot be saved. */
-  const buildPatch = useCallback((): RecordPatch | null => {
-      const title = draft.title.trim();
+  const buildPatch = useCallback((current: Draft): RecordPatch | null => {
+      const title = current.title.trim();
       if (title.length === 0) {
         setNotice("Hạng mục này cần một tiêu đề.");
         return null;
@@ -310,7 +315,7 @@ export function RecordDialog({
       // and storing it as an empty string would make a Số column hold a word.
       const extension: Record<string, ExtensionValue> = {};
       for (const column of columns) {
-        const raw = (draft.extension[column.key] ?? "").trim();
+        const raw = (current.extension[column.key] ?? "").trim();
         if (raw.length === 0) {
           extension[column.key] = null;
           continue;
@@ -329,24 +334,24 @@ export function RecordDialog({
       setNotice(null);
       return {
           title,
-          status: draft.status,
-          priority: draft.priority,
-          category: draft.category.trim().length === 0 ? null : draft.category.trim(),
-          nextActionDate: draft.nextActionDate.length === 0 ? null : draft.nextActionDate,
-          remindAt: draft.remindAt.length === 0 ? null : new Date(draft.remindAt).toISOString(),
-          tags: draft.tags
+          status: current.status,
+          priority: current.priority,
+          category: current.category.trim().length === 0 ? null : current.category.trim(),
+          nextActionDate: current.nextActionDate.length === 0 ? null : current.nextActionDate,
+          remindAt: current.remindAt.length === 0 ? null : new Date(current.remindAt).toISOString(),
+          tags: current.tags
             .split(",")
             .map((tag) => tag.trim())
             .filter((tag) => tag.length > 0),
-          notes: draft.notes.trim().length === 0 ? null : draft.notes.trim(),
+          notes: current.notes.trim().length === 0 ? null : current.notes.trim(),
           extensionFields: extension,
       };
-  }, [draft, columns]);
+  }, [columns]);
 
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>): Promise<void> => {
       event.preventDefault();
-      const patch = buildPatch();
+      const patch = buildPatch(draftRef.current);
       if (patch === null) return;
       await guard(async () => {
       try {
@@ -354,7 +359,7 @@ export function RecordDialog({
         onOpenChange(false);
       } catch (error) {
         if (isRecordConflict(error)) {
-          setConflict({ error, patch });
+          setConflict({ error });
           return;
         }
         setNotice(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
@@ -364,10 +369,15 @@ export function RecordDialog({
     [buildPatch, onSave, onOpenChange, guard],
   );
 
-  /** "Vẫn lưu của tôi": write this form over the newer version the person was just told about. */
+  /**
+   * "Vẫn lưu của tôi": write this form over the newer version the person was just told about.
+   * KT-09 · QA06-01: the form as it is at the click — what was typed while the box was open counts.
+   */
   const keepMine = useCallback(async (): Promise<void> => {
     if (conflict === null) return;
-    const { error, patch, then } = conflict;
+    const { error, then } = conflict;
+    const patch = buildPatch(draftRef.current);
+    if (patch === null) return;
     await guard(async () => {
       try {
         await onSave(patch, { expectedUpdatedAt: error.updatedAt });
@@ -375,11 +385,11 @@ export function RecordDialog({
         if (then !== undefined) then();
         else onOpenChange(false);
       } catch (again) {
-        if (isRecordConflict(again)) setConflict({ error: again, patch, then });
+        if (isRecordConflict(again)) setConflict({ error: again, then });
         else setNotice(again instanceof Error ? again.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
     });
-  }, [conflict, guard, onSave, onOpenChange]);
+  }, [conflict, buildPatch, guard, onSave, onOpenChange]);
 
   /** "Xem bản mới": the form shows the row as it is now; what was typed here is set aside. */
   const seeNewer = useCallback(async (): Promise<void> => {
@@ -412,10 +422,10 @@ export function RecordDialog({
               action();
               return;
             }
-            const patch = buildPatch();
+            const patch = buildPatch(draftRef.current);
             if (patch === null) return;
             void onSave(patch).then(action, (error: unknown) => {
-              if (isRecordConflict(error)) setConflict({ error, patch, then: action });
+              if (isRecordConflict(error)) setConflict({ error, then: action });
               else setNotice(error instanceof Error ? error.message : "Chưa lưu được nên chưa làm tiếp. Thử lại nhé.");
             });
           },
