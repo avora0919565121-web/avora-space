@@ -70,7 +70,10 @@ export function useViewBoardRows(options: { paymentMonth?: "this" | "next" } = {
   const boards: Record<ViewBoardKey, BoardRows> = useMemo(() => {
     const { finance: financeLocked, items: itemsLocked } = vaultBoardLocks({ isVaultOpen, isFinanceOpen, hasKey });
     const fin = (rows: () => ViewRow[]): BoardRows =>
-      financeLocked ? { rows: [], locked: true, isLoading: false, error: null } : { rows: ledger.isLoading ? [] : rows(), locked: false, isLoading: ledger.isLoading, error: ledger.error?.message ?? null };
+      financeLocked ? { rows: [], locked: true, isLoading: false, error: null } : ledger.isUnavailable
+        ? // KT-06 · B: offline with nothing read — "chưa tải được", never a table of 0 ₫.
+          { rows: [], locked: false, isLoading: false, error: "Chưa tải được số liệu Tài chính · cần mạng." }
+        : { rows: ledger.isLoading ? [] : rows(), locked: false, isLoading: ledger.isLoading, error: ledger.error?.message ?? null };
     const vault = (rows: () => ViewRow[]): BoardRows =>
       itemsLocked ? { rows: [], locked: true, isLoading: false, error: null } : { rows: rows(), locked: false, isLoading: certificates.isPending || documents.isPending || assets.isPending, error: null };
     return {

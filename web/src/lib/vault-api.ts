@@ -28,6 +28,22 @@ export async function fetchVaultStatus(): Promise<VaultStatus> {
   return parseVaultStatus(data);
 }
 
+/**
+ * KT-06 · A: `vault_enter` — the lock of a first look (`lock`) and the status in ONE call, one transaction,
+ * plus whether the server already holds a fresh proof that this session belongs to `deviceId`.
+ * `null` when the server does not have `vault_enter` yet (older backend, test doubles): the caller then
+ * takes the old road (prove → lock + status). A refusal (e.g. a blocked session) still throws.
+ */
+export async function enterVault(deviceId: string | null, lock: boolean): Promise<{ status: VaultStatus; deviceProven: boolean } | null> {
+  const { data, error } = await supabase.rpc("vault_enter" as never, { p_device_id: deviceId, p_lock: lock } as never);
+  if (error) {
+    if (error.code === "PGRST202" || error.code === "42883") return null;
+    throw fail(error);
+  }
+  if (typeof data !== "object" || data === null || Array.isArray(data) || !("has_code" in data)) return null;
+  return { status: parseVaultStatus(data), deviceProven: (data as { device_proven?: unknown }).device_proven === true };
+}
+
 export async function lockVault(): Promise<void> {
   const { error } = await supabase.rpc("vault_lock");
   if (error) throw fail(error);

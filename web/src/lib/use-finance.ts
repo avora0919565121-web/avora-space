@@ -117,8 +117,30 @@ export type Ledger = {
   /** True while the rate table or the base currency preference is still loading. */
   isConverting: boolean;
   isLoading: boolean;
+  /**
+   * KT-06 · B (QA03-04): nothing has been fetched and nothing can be right now (offline — React Query
+   * pauses — or the read failed). Screens must then say so, never draw the empty arrays as "0 ₫".
+   */
+  isUnavailable: boolean;
+  /** When the oldest of the three tables was last read from the server (0 = never). */
+  updatedAt: number;
   error: Error | null;
 };
+
+type QueryState = { data: unknown; fetchStatus: "fetching" | "paused" | "idle"; isError: boolean; failureCount?: number };
+
+/**
+ * KT-06 · B: the ledger has no data to show and is not about to get it — a table never read that is
+ * paused (offline), failed, or already failed once and is only retrying (a dead network the browser
+ * still calls "online": supabase-js and React Query retries would otherwise hold a skeleton ~35 s).
+ * A first read still in flight is "loading", not this.
+ */
+export function ledgerUnavailable(queries: readonly QueryState[]): boolean {
+  const missing = queries.filter((query) => query.data === undefined);
+  if (missing.length === 0) return false;
+  if (missing.some((query) => query.isError || query.fetchStatus === "paused" || (query.failureCount ?? 0) > 0)) return true;
+  return false;
+}
 
 /** One join of the three queries, shared by every finance screen. */
 export function useLedger(): Ledger {
@@ -171,6 +193,8 @@ export function useLedger(): Ledger {
     unvalued,
     isConverting: settingsQuery.isLoading || ratesQuery.isLoading,
     isLoading: accountsQuery.isLoading || categoriesQuery.isLoading || transactionsQuery.isLoading,
+    isUnavailable: ledgerUnavailable([accountsQuery, categoriesQuery, transactionsQuery]),
+    updatedAt: Math.min(accountsQuery.dataUpdatedAt, categoriesQuery.dataUpdatedAt, transactionsQuery.dataUpdatedAt),
     error: accountsQuery.error ?? categoriesQuery.error ?? transactionsQuery.error ?? null,
   };
 }

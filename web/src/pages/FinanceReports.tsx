@@ -22,6 +22,7 @@ import {
   EmptyNote,
   FieldLabel,
   FinanceHeader,
+  FinanceUnavailable,
   FinancePage,
   Panel,
   inputClass,
@@ -214,7 +215,7 @@ function ReportTable({ report, currency }: { report: ReportResult; currency: str
 const FinanceReports = () => {
   // Reports total across accounts, so they are built from the base-converted ledger. Every
   // report stays a pure function of "entries plus a range" — it never learns about rates.
-  const { accounts, baseEntries, currency, rates, unvalued, isLoading } = useLedger();
+  const { accounts, baseEntries, currency, rates, unvalued, isLoading, isUnavailable } = useLedger();
 
   const today = todayIso();
   const thisMonth = monthKey(today);
@@ -312,6 +313,16 @@ const FinanceReports = () => {
 
   const definition = available.find((item) => item.id === draft.reportId) ?? available[0];
   const rangeInvalid = draft.from > draft.to;
+
+  // KT-06 · B: a report of an empty ledger would read as zeros; offline with nothing read, say so.
+  if (isUnavailable) {
+    return (
+      <FinancePage>
+        <FinanceHeader subtitle="Tám báo cáo, tải về CSV hoặc Excel để giữ trên máy của bạn." />
+        <FinanceUnavailable what="dữ liệu báo cáo" />
+      </FinancePage>
+    );
+  }
 
   return (
     <FinancePage>

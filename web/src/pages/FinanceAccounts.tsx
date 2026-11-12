@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { AccountDialog, CategoryDialog } from "@/components/finance/dialogs";
 import { FinanceTrashPanel, RemoveAccountDialog } from "@/components/finance/FinanceTrash";
-import { EmptyNote, FinanceHeader, FinancePage, Money, Panel } from "@/components/finance/primitives";
+import { EmptyNote, FiguresStamp, FinanceHeader, FinancePage, FinanceUnavailable, Money, Panel } from "@/components/finance/primitives";
 import {
   ACCOUNT_TYPE_LABELS,
   activeAccounts,
@@ -21,6 +21,7 @@ import {
 } from "@/lib/finance";
 import { convertCents, type RateTable } from "@/lib/currency";
 import { useFinanceActions, useLedger } from "@/lib/use-finance";
+import { useKnownFigures } from "@/lib/use-known-figures";
 import { cn } from "@/lib/utils";
 
 function AccountCard({
@@ -145,7 +146,8 @@ function AccountCard({
 
 const FinanceAccounts = () => {
   const navigate = useNavigate();
-  const { accounts, categories, entries, currency, rates, isLoading } = useLedger();
+  const ledger = useLedger();
+  const { accounts, categories, entries, currency, rates, isLoading, isUnavailable } = ledger;
   // Arriving from "Thùng rác (n)" on Giao dịch: bring the bin into view once the page has drawn.
   useEffect(() => {
     if (isLoading || window.location.hash !== "#thung-rac") return;
@@ -173,6 +175,17 @@ const FinanceAccounts = () => {
     () => netWorthInBase(accounts, entries, today, currency, rates),
     [accounts, entries, today, currency, rates],
   );
+
+  // KT-06 · B (QA03-04): offline with nothing read → the last totals seen here, or "chưa tải được"; never 0 ₫.
+  const liveFigures = useMemo(
+    () =>
+      isLoading || isUnavailable
+        ? null
+        : { assetsCents: worth.assetsCents, liabilitiesCents: worth.liabilitiesCents, netCents: worth.netCents, currency },
+    [isLoading, isUnavailable, worth.assetsCents, worth.liabilitiesCents, worth.netCents, currency],
+  );
+  const figures = useKnownFigures("finance.accounts.totals", liveFigures, ledger);
+  const shown = figures.kind === "live" || figures.kind === "known" ? figures.value : null;
 
   const incomeCategories = useMemo(() => categoriesFor(categories, "income"), [categories]);
   const expenseCategories = useMemo(() => categoriesFor(categories, "expense"), [categories]);
@@ -270,25 +283,38 @@ const FinanceAccounts = () => {
         }
       />
 
+      {figures.kind === "unknown" ? (
+        <FinanceUnavailable what="số dư tài khoản" />
+      ) : shown === null ? (
+        <div aria-hidden="true" className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[0, 1, 2].map((cell) => (
+            <div key={cell} className="h-[86px] animate-pulse rounded-card border border-border bg-card" />
+          ))}
+        </div>
+      ) : (
+        <>
       <div className="mt-6 grid gap-3 sm:grid-cols-3">
         <div className="rounded-card border border-border bg-card px-5 py-4">
           <p className="text-[13px] font-medium text-muted-foreground">Tài sản</p>
-          <Money cents={worth.assetsCents} currency={currency} tone="ink" className="mt-1.5 block text-[22px] font-semibold" />
+          <Money cents={shown.assetsCents} currency={shown.currency} tone="ink" className="mt-1.5 block text-[22px] font-semibold" />
         </div>
         <div className="rounded-card border border-border bg-card px-5 py-4">
           <p className="text-[13px] font-medium text-muted-foreground">Nợ</p>
           <Money
-            cents={worth.liabilitiesCents}
-            currency={currency}
-            tone={worth.liabilitiesCents > 0 ? "out" : "muted"}
+            cents={shown.liabilitiesCents}
+            currency={shown.currency}
+            tone={shown.liabilitiesCents > 0 ? "out" : "muted"}
             className="mt-1.5 block text-[22px] font-semibold"
           />
         </div>
         <div className="rounded-card border border-border bg-card px-5 py-4">
           <p className="text-[13px] font-medium text-muted-foreground">Giá trị ròng</p>
-          <Money cents={worth.netCents} currency={currency} tone="ink" className="mt-1.5 block text-[22px] font-semibold" />
+          <Money cents={shown.netCents} currency={shown.currency} tone="ink" className="mt-1.5 block text-[22px] font-semibold" />
         </div>
       </div>
+          <FiguresStamp figures={figures} className="mt-2" />
+        </>
+      )}
 
       <div className="mt-3">
         <Panel title="Tài khoản">
@@ -304,6 +330,8 @@ const FinanceAccounts = () => {
                 </li>
               ))}
             </ul>
+          ) : isUnavailable ? (
+            <EmptyNote>Danh sách tài khoản cần mạng để tải.</EmptyNote>
           ) : open.length === 0 ? (
             <EmptyNote>Chưa có tài khoản nào. Tạo một cái để bắt đầu ghi sổ.</EmptyNote>
           ) : (

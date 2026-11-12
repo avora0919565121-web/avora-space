@@ -2,6 +2,9 @@ import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 
 import { OBLIGATION_STATUS_LABELS, formatMoney, type ObligationStatus } from "@/lib/finance";
+import { knownAtLine } from "@/lib/last-known";
+import type { Figures } from "@/lib/use-known-figures";
+import { useOnline } from "@/lib/use-online";
 import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { TYPE } from "@/lib/type-scale";
 import { cn } from "@/lib/utils";
@@ -166,6 +169,36 @@ export function FinancePage({ children }: { children: ReactNode }) {
     <div className="paper min-h-0 flex-1 overflow-y-auto">
       <div className="animate-rise-in mx-auto max-w-6xl px-6 py-10 md:px-10">{children}</div>
     </div>
+  );
+}
+
+/**
+ * KT-06 · B: the small line under totals that are not fresh — "Đang ngoại tuyến · cập nhật lúc 14:05".
+ * Nothing when the figures are live and online.
+ */
+export function FiguresStamp({ figures, className }: { figures: Figures<unknown>; className?: string }) {
+  if (figures.kind === "live" && !figures.offline) return null;
+  if (figures.kind !== "live" && figures.kind !== "known") return null;
+  const at = figures.at > 0 ? ` · ${knownAtLine(figures.at)}` : "";
+  return (
+    <p data-figures-stamp={figures.kind} role="status" className={cn("text-[12.5px] text-muted-foreground", className)}>
+      Đang ngoại tuyến{at}
+    </p>
+  );
+}
+
+/** KT-06 · B: nothing read yet and no network — said plainly, instead of a ledger of zeros. */
+export function FinanceUnavailable({ what = "số liệu Tài chính", className }: { what?: string; className?: string }) {
+  const online = useOnline();
+  return (
+    <Panel className={cn("mt-6", className)}>
+      <div data-finance-unavailable="" role="status" className="px-6 py-10 text-center">
+        <p className="text-[16px] font-semibold text-foreground">Chưa tải được {what}</p>
+        <p className="mx-auto mt-2 max-w-md text-[14px] text-muted-foreground">
+          {online ? "Máy chủ chưa trả lời. Thử lại sau ít phút nhé." : "Máy đang không có mạng. Có mạng lại, các con số sẽ tự hiện."}
+        </p>
+      </div>
+    </Panel>
   );
 }
 

@@ -156,7 +156,7 @@ const proveOnce = new Map<string, Promise<void>>();
  * `device-prove` landed, and the server saw "no device" — a main device read as a stranger.
  * Resolves `false` (never throws) when the device could not be proven; the caller says so.
  */
-export async function ensureDeviceProven(): Promise<boolean> {
+export async function ensureDeviceProven(options: { fresh?: boolean } = {}): Promise<boolean> {
   try {
     const { data } = await supabase.auth.getSession();
     const session = data.session;
@@ -169,6 +169,8 @@ export async function ensureDeviceProven(): Promise<boolean> {
     } catch {
       // A token without a session id cannot be bound; the server treats it as unbound.
     }
+    // KT-06: the server said its proof for this session lapsed (12 h) — ask again, not the memo.
+    if (options.fresh === true) proveOnce.delete(sessionKey);
     await proveDevice(session.user.id, token, sessionKey);
     return true;
   } catch (caught: unknown) {
@@ -177,14 +179,35 @@ export async function ensureDeviceProven(): Promise<boolean> {
   }
 }
 
-/** Signs the server's nonce and binds this device to the current session. Once per session. */
+/**
+ * KT-06 · A: asks the server whether this session already carries a fresh proof for this device
+ * (`device_session`). Yes → nothing to sign (the server remembers it per session, 12 h). No → the
+ * same answer carries the nonce, so a proof costs one call less than before. An older backend without
+ * `device_session` → `device_challenge` as before.
+ */
+export async function deviceNonce(deviceId: string): Promise<{ proven: true } | { proven: false; nonce: string }> {
+  const { data, error } = await supabase.rpc("device_session" as never, { p_device_id: deviceId } as never);
+  const reply = (data ?? null) as { proven?: unknown; nonce?: unknown } | null;
+  const missing = error !== null && (error.code === "PGRST202" || error.code === "42883");
+  if (error !== null && !missing) throw new Error(error.message);
+  if (!missing && reply !== null && typeof reply === "object" && !Array.isArray(reply) && "proven" in reply) {
+    if (reply.proven === true) return { proven: true };
+    if (typeof reply.nonce === "string") return { proven: false, nonce: reply.nonce };
+  }
+  const { data: nonce, error: challengeError } = await supabase.rpc("device_challenge" as never, { p_device_id: deviceId } as never);
+  if (challengeError) throw new Error(challengeError.message);
+  return { proven: false, nonce: String(nonce) };
+}
+
+/** Signs the server's nonce and binds this device to the current session. Once per page load, and only when the server asks. */
 export async function proveDevice(userId: string, accessToken: string, sessionKey: string): Promise<void> {
   const existing = proveOnce.get(sessionKey);
   if (existing !== undefined) return existing;
   const run = (async () => {
     const device = await thisDevice();
-    const { data: nonce, error } = await supabase.rpc("device_challenge" as never, { p_device_id: device.deviceId } as never);
-    if (error) throw new Error(error.message);
+    const asked = await deviceNonce(device.deviceId);
+    if (!("nonce" in asked)) return;
+    const nonce = asked.nonce;
     const signature = await crypto.subtle.sign(
       { name: "ECDSA", hash: "SHA-256" },
       device.privateKey,

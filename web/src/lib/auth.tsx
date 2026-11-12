@@ -5,6 +5,7 @@ import type { Session, User } from "@supabase/supabase-js";
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 
 import { supabase } from "@/integrations/supabase/client";
+import { lastKnown } from "@/lib/last-known";
 import { clearAllDrafts } from "@/lib/chat-drafts";
 import { APP_ORIGIN } from "@/lib/app-origin";
 import { outboxStore } from "@/lib/outbox";
@@ -338,6 +339,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     clearCachedMedia();
     // AVORA-77 · G: where each tab stood is forgotten on sign-out.
     clearTabMemory();
+    // KT-06 · B: the last totals seen (Tài chính offline) belong to this account only.
+    await lastKnown.clearAll().catch(() => undefined);
     // AVORA-109 · A2: signing in again is how a forgotten Khoá Kết nối is reset.
     await clearChatLock(null);
     writeRecoveryFlag(false);

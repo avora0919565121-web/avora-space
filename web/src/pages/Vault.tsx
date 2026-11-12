@@ -1,5 +1,5 @@
 import { Info, KeyRound, Lock, MoreHorizontal, Plus, X } from "lucide-react";
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 
 import { InlineBack } from "@/components/nav/InlineBack";
@@ -12,7 +12,7 @@ import { VaultAboutText } from "@/components/vault/VaultAbout";
 import { VaultGate } from "@/components/vault/VaultGate";
 import { VAULT_TABS } from "@/lib/navigation";
 import { useVisibleNav } from "@/lib/use-feature";
-import { useVaultLock } from "@/lib/use-vault-lock";
+import { isFinancePath, useVaultLock } from "@/lib/use-vault-lock";
 import { requestVaultAdd, VAULT_ADD_PARAM, vaultAddFor } from "@/lib/vault-add";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 
@@ -62,10 +62,6 @@ function VaultBar() {
   );
 }
 
-/** The Tài chính part of Két sắt (its own sub-routes included). */
-function isFinancePath(pathname: string): boolean {
-  return /^\/ket-sat(\/(giao-dich|tai-khoan|bao-cao))?\/?$/.test(pathname);
-}
 
 /**
  * Nhà mới (VMT 12/11): "nhắc đặt mã thì được, ép đặt mã là sai". One small chip beside the title while the
@@ -127,6 +123,12 @@ const Vault = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const onFinance = isFinancePath(location.pathname);
+  // KT-06 · A: no waterfall — the Tài chính screens download while the lock is still being asked.
+  useEffect(() => {
+    if (!onFinance) return;
+    void import("./Finance").catch(() => undefined);
+    void import("./FinanceAccounts").catch(() => undefined);
+  }, [onFinance]);
 
   let body;
   if (vault.isLoading) {

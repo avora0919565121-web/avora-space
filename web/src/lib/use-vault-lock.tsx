@@ -4,14 +4,15 @@ import { useCallback, useEffect, useMemo, useRef } from "react";
 import { useLocation } from "react-router-dom";
 
 import { useAuth } from "@/lib/auth";
-import { ensureDeviceProven } from "@/lib/device";
-import { financeKeys } from "@/lib/finance-api";
+import { ensureDeviceProven, thisDeviceId } from "@/lib/device";
+import { fetchAccounts, fetchCategories, fetchTransactions, financeKeys } from "@/lib/finance-api";
 import { logError } from "@/lib/log";
 import { useDocumentVisible } from "@/lib/use-document-visible";
 import {
   VAULT_LOCKED_EVENT,
   changeVaultCode,
   confirmVaultReset,
+  enterVault,
   fetchVaultStatus,
   lockVault,
   setVaultCode,
@@ -19,7 +20,7 @@ import {
   unlockVault,
   vaultKeys,
 } from "@/lib/vault-api";
-import { VAULT_TOUCH_MS, leftTooLong, lockThenStatus, type VaultAttempt, type VaultStatus } from "@/lib/vault-lock";
+import { VAULT_MAIN_ONLY, VAULT_TOUCH_MS, leftTooLong, lockThenStatus, type VaultAttempt, type VaultStatus } from "@/lib/vault-lock";
 import { clearVaultKeys, openWithDeviceShare } from "@/lib/vault-keys";
 
 /** Everything the Két sắt keeps in the query cache — dropped the moment it locks. */
@@ -29,6 +30,29 @@ const FINANCE_QUERY_ROOTS: readonly (readonly string[])[] = [financeKeys.all, ["
 
 export function isVaultPath(pathname: string): boolean {
   return pathname === "/ket-sat" || pathname.startsWith("/ket-sat/");
+}
+
+/** The Tài chính part of Két sắt (its own sub-routes included). */
+export function isFinancePath(pathname: string): boolean {
+  return /^\/ket-sat(\/(giao-dich|tai-khoan|bao-cao))?\/?$/.test(pathname);
+}
+
+/**
+ * KT-06 · A: Tài chính's three tables, fetched while `vault_enter` is in flight. Only what came back
+ * without an error is kept, and only placed in the cache after the server said Tài chính is open.
+ */
+async function prefetchFinance(): Promise<(readonly [readonly string[], unknown])[]> {
+  const jobs = [
+    [financeKeys.accounts, fetchAccounts],
+    [financeKeys.categories, fetchCategories],
+    [financeKeys.transactions, fetchTransactions],
+  ] as const;
+  const settled = await Promise.allSettled(jobs.map(([, fetcher]) => fetcher()));
+  const out: (readonly [readonly string[], unknown])[] = [];
+  settled.forEach((result, index) => {
+    if (result.status === "fulfilled") out.push([jobs[index][0], result.value] as const);
+  });
+  return out;
 }
 
 /**
@@ -45,20 +69,42 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
   const location = useLocation();
   const isVisible = useDocumentVisible();
   const startedFor = useRef<string | null>(null);
+  // Where the app stands when the status is asked (read inside queryFn, so a ref rather than a dependency).
+  const pathAtAsk = useRef<string>(location.pathname);
+  pathAtAsk.current = location.pathname;
 
   const statusQuery = useQuery<VaultStatus, Error>({
     queryKey: vaultKeys.status(userId),
     enabled: Boolean(userId),
     queryFn: async () => {
-      // AVORA-102 · A1.3: tie this session to this device before the server is asked anything.
-      await ensureDeviceProven();
-      // The first look in this app start locks whatever an earlier tab of this session left open —
-      // sent together with the status read (QA01-08), not one round trip after the other.
-      if (startedFor.current !== userId) {
-        startedFor.current = userId ?? null;
-        return lockThenStatus(lockVault, fetchVaultStatus, (error: unknown) => logError("vault", error));
+      // The first look in this app start locks whatever an earlier tab of this session left open.
+      const isFirstLook = startedFor.current !== userId;
+      startedFor.current = userId ?? null;
+      // KT-06 · A: opened straight on Tài chính → its rows are asked for alongside the lock, never shown
+      // before the server's answer says Tài chính is open (RLS decides what comes back either way).
+      const finance = isFinancePath(pathAtAsk.current) ? prefetchFinance() : null;
+      const deviceId = await thisDeviceId().catch(() => null);
+      // KT-06 · A: one call — lock (first look) + status + "is this session already proven for this device?".
+      let entered = await enterVault(deviceId, isFirstLook);
+      if (entered !== null && !entered.deviceProven) {
+        // AVORA-102 · A1.3: not proven (new session, or the 12 h proof lapsed): sign, then read again.
+        if (await ensureDeviceProven({ fresh: true })) entered = (await enterVault(deviceId, false)) ?? entered;
       }
-      return fetchVaultStatus();
+      let status: VaultStatus;
+      if (entered !== null) {
+        status = entered.status;
+      } else {
+        // Older backend without vault_enter: the road of KT-04.
+        await ensureDeviceProven();
+        status = isFirstLook
+          ? await lockThenStatus(lockVault, fetchVaultStatus, (error: unknown) => logError("vault", error))
+          : await fetchVaultStatus();
+      }
+      if (finance !== null && (status.unlocked || !status.hasCode)) {
+        const rows = await finance;
+        for (const [key, data] of rows) queryClient.setQueryData(key, data);
+      }
+      return status;
     },
     staleTime: 30_000,
     refetchOnWindowFocus: true,
@@ -150,12 +196,20 @@ export const [VaultLockProvider, useVaultLock] = createContextHook(() => {
 
   const unlock = useCallback(
     async (code: string) => {
-      const attempt = afterAttempt(await unlockVault(code));
+      let raw: VaultAttempt;
+      try {
+        raw = await unlockVault(code);
+      } catch (caught: unknown) {
+        // KT-06: the 12 h device proof lapsed while this screen stayed open — read again (which re-proves).
+        if (caught instanceof Error && caught.message === VAULT_MAIN_ONLY) void refresh();
+        throw caught;
+      }
+      const attempt = afterAttempt(raw);
       // AVORA-68 · 2.3: a right code on a device that holds a share opens the master key too.
       if (attempt.ok === true && userId !== undefined) await openWithDeviceShare(userId);
       return attempt;
     },
-    [afterAttempt, userId],
+    [afterAttempt, refresh, userId],
   );
   const setCode = useCallback(
     async (code: string): Promise<void> => {

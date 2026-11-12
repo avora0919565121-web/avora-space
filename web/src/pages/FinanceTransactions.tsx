@@ -254,7 +254,7 @@ function EntryRow({
 const FinanceTransactions = () => {
   const isSideBySide = useMediaQuery(DESKTOP_QUERY);
   const [searchParams, setSearchParams] = useSearchParams();
-  const { accounts, categories, allEntries, entries, currency, isLoading } = useLedger();
+  const { accounts, categories, allEntries, entries, currency, isLoading, isUnavailable } = useLedger();
   const { voidTransaction, addTransaction, settleTransaction, binTransaction, unbinTransaction } = useFinanceActions();
   const navigate = useNavigate();
   const trashQuery = useFinanceTrash();
@@ -554,6 +554,9 @@ const FinanceTransactions = () => {
                   </li>
                 ))}
               </ul>
+            ) : isUnavailable ? (
+              // KT-06 · B: offline with nothing read — not "chưa có giao dịch".
+              <EmptyNote>Danh sách giao dịch cần mạng để tải.</EmptyNote>
             ) : days.length === 0 ? (
               <EmptyNote>
                 {entries.length === 0

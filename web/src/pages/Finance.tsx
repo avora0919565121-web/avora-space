@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 
 import {
@@ -13,7 +13,7 @@ import {
 import { DueStrip } from "@/components/finance/DueStrip";
 import { TransactionForm } from "@/components/finance/TransactionForm";
 import { CategoryDialog } from "@/components/finance/dialogs";
-import { FinanceHeader, FinancePage, Money, Panel, StatCard } from "@/components/finance/primitives";
+import { FiguresStamp, FinanceHeader, FinancePage, FinanceUnavailable, Money, Panel, StatCard } from "@/components/finance/primitives";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import {
   activeAccounts,
@@ -39,18 +39,49 @@ import {
 import { convertCents } from "@/lib/currency";
 import { monthlyComparison, spendingTrend } from "@/lib/finance-reports";
 import { useLedger } from "@/lib/use-finance";
+import { useKnownFigures } from "@/lib/use-known-figures";
 import { onVaultAdd, VAULT_ADD_PARAM } from "@/lib/vault-add";
 
 /**
  * The finance dashboard: four numbers that answer "how am I doing", then the charts that
  * explain them. Everything reads the same ledger, so no two figures can disagree.
  */
+type OverviewFigures = {
+  currency: string;
+  month: string;
+  openCount: number;
+  assetsCents: number;
+  incomeCents: number;
+  expenseCents: number;
+  monthNetCents: number;
+  netCents: number;
+  liabilitiesCents: number;
+  receivableCents: number;
+};
+
+/** KT-06 · B: the four totals as last seen on this device (offline, nothing read this time). */
+function KnownOverview({ figures, stamp }: { figures: OverviewFigures; stamp: ReactNode }) {
+  const c = figures.currency;
+  return (
+    <div data-finance-known="">
+      <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Tổng tài sản" value={<Money cents={figures.assetsCents} currency={c} tone="ink" />} hint={`${figures.openCount} tài khoản đang mở`} />
+        <StatCard label="Thu tháng này" value={<Money cents={figures.incomeCents} currency={c} tone="in" />} hint={formatMonthShort(figures.month)} tone="in" />
+        <StatCard label="Chi tháng này" value={<Money cents={figures.expenseCents} currency={c} tone="out" />} hint={formatMonthShort(figures.month)} tone="out" />
+        <StatCard label="Giá trị ròng" value={<Money cents={figures.netCents} currency={c} tone="ink" />} />
+      </div>
+      {stamp}
+      <p className="mt-3 text-[13px] text-muted-foreground">Biểu đồ và danh sách sẽ hiện khi có mạng.</p>
+    </div>
+  );
+}
+
 const Finance = () => {
   const navigate = useNavigate();
   // Totals and charts read `baseEntries`: every figure on this screen is a sum across
   // accounts, and adding VND to USD would produce a number that means nothing.
-  const { accounts, categories, entries, baseEntries, currency, rates, unvalued, isLoading, error } =
-    useLedger();
+  const ledger = useLedger();
+  const { accounts, categories, entries, baseEntries, currency, rates, unvalued, isLoading, isUnavailable, error } = ledger;
 
   const [isAdding, setIsAdding] = useState<boolean>(false);
   // AVORA-57 · E: `+ Giao dịch` lives beside the Két sắt title now, not in this page's body.
@@ -99,6 +130,28 @@ const Finance = () => {
   );
 
   const business = hasBusinessActivity(baseEntries);
+
+  // KT-06 · B (QA03-04): only these totals are remembered (last-known.ts), so the overview can still say
+  // what was last seen when the network is gone — never a row of 0 ₫.
+  const liveFigures = useMemo<OverviewFigures | null>(
+    () =>
+      isLoading || isUnavailable
+        ? null
+        : {
+            currency,
+            month: thisMonth,
+            openCount: open.length,
+            assetsCents: assetsOnly,
+            incomeCents: monthTotals.incomeCents,
+            expenseCents: monthTotals.expenseCents,
+            monthNetCents: monthTotals.netCents,
+            netCents: netWorth.netCents,
+            liabilitiesCents: netWorth.liabilitiesCents,
+            receivableCents: position.receivableCents,
+          },
+    [isLoading, isUnavailable, currency, thisMonth, open.length, assetsOnly, monthTotals, netWorth, position.receivableCents],
+  );
+  const figures = useKnownFigures<OverviewFigures>("finance.overview.totals", liveFigures, ledger);
 
   const trend = useMemo(() => spendingTrend(baseEntries, thisMonth, 12), [baseEntries, thisMonth]);
   const comparison = useMemo(() => monthlyComparison(baseEntries, thisMonth), [baseEntries, thisMonth]);
@@ -155,9 +208,11 @@ const Finance = () => {
     <FinancePage>
       <FinanceHeader
         subtitle={
-          isLoading
-            ? "Đang tải sổ của bạn…"
-            : open.length === 0
+          isUnavailable
+            ? "Thu chi cá nhân và kinh doanh hộ gia đình, trong một cuốn sổ."
+            : isLoading
+              ? "Đang tải sổ của bạn…"
+              : open.length === 0
               ? "Bắt đầu bằng một tài khoản, rồi ghi khoản thu chi đầu tiên."
               : "Thu chi cá nhân và kinh doanh hộ gia đình, trong một cuốn sổ."
         }
@@ -169,7 +224,19 @@ const Finance = () => {
         </p>
       ) : null}
 
-      {open.length === 0 && !isLoading ? (
+      {isLoading || isUnavailable ? (
+        figures.kind === "known" ? (
+          <KnownOverview figures={figures.value} stamp={<FiguresStamp figures={figures} className="mt-2" />} />
+        ) : figures.kind === "unknown" ? (
+          <FinanceUnavailable />
+        ) : (
+          <div aria-hidden="true" data-finance-skeleton="" className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {[0, 1, 2, 3].map((cell) => (
+              <div key={cell} className="h-[104px] animate-pulse rounded-card border border-border bg-card" />
+            ))}
+          </div>
+        )
+      ) : open.length === 0 ? (
         <Panel className="mt-6">
           <div className="px-6 py-12 text-center">
             <p className="text-[16px] font-semibold text-foreground">Sổ của bạn còn trống</p>
@@ -242,6 +309,7 @@ const Finance = () => {
               }
             />
           </div>
+          <FiguresStamp figures={figures} className="mt-2" />
 
           {business ? (
             <div className="mt-3">
