@@ -602,32 +602,50 @@ export type Database = {
       contact_invite: {
         Row: {
           accepted_at: string | null
-          contact_id: string
+          contact_id: string | null
+          declined_at: string | null
+          expires_at: string
           id: string
+          in_batch: boolean
           invite_token: string
           invited_at: string
           invited_by: string
+          is_reinvite: boolean
           method: string
+          note: string | null
+          sent_at: string | null
           status: string
         }
         Insert: {
           accepted_at?: string | null
-          contact_id: string
+          contact_id?: string | null
+          declined_at?: string | null
+          expires_at?: string
           id?: string
+          in_batch?: boolean
           invite_token: string
           invited_at?: string
           invited_by: string
+          is_reinvite?: boolean
           method: string
+          note?: string | null
+          sent_at?: string | null
           status?: string
         }
         Update: {
           accepted_at?: string | null
-          contact_id?: string
+          contact_id?: string | null
+          declined_at?: string | null
+          expires_at?: string
           id?: string
+          in_batch?: boolean
           invite_token?: string
           invited_at?: string
           invited_by?: string
+          is_reinvite?: boolean
           method?: string
+          note?: string | null
+          sent_at?: string | null
           status?: string
         }
         Relationships: [
@@ -5357,6 +5375,45 @@ export type Database = {
       create_contact_invite: {
         Args: { p_contact_id: string; p_method: string }
         Returns: string
+      }
+      confirm_invite_sent: {
+        Args: { p_invite_id: string }
+        Returns: {
+          expires_at: string
+          invite_id: string
+          sent_at: string | null
+          status: string
+        }[]
+      }
+      decline_invite: { Args: { p_token: string }; Returns: string }
+      discard_invite_draft: { Args: { p_invite_id: string }; Returns: undefined }
+      prepare_contact_invite: {
+        Args: {
+          p_batch?: boolean
+          p_contact_id: string
+          p_method: string
+          p_note?: string
+          p_reinvite?: boolean
+        }
+        Returns: {
+          expires_at: string
+          invite_id: string
+          invite_token: string
+          reused: boolean
+          status: string
+        }[]
+      }
+      preview_invite_public: {
+        Args: { p_token: string }
+        Returns: {
+          already_linked: boolean
+          expires_at: string
+          note: string | null
+          inviter_name: string
+          is_own_invite: boolean
+          signed_in: boolean
+          status: string
+        }[]
       }
       create_contact_quick: {
         Args: { p_email?: string; p_name: string; p_phone?: string }

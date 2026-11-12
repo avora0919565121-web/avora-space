@@ -464,12 +464,12 @@ describe("an invitation on its way", () => {
 
   it("builds a link whose token is the whole secret", () => {
     expect(buildContactInviteLink("https://avora.app", "tok-123")).toBe(
-      "https://avora.app/loi-moi-lien-he/tok-123",
+      "https://avora.app/moi/tok-123",
     );
   });
 
   it("tolerates a trailing slash on the origin", () => {
-    expect(buildContactInviteLink("https://avora.app/", "tok")).toBe("https://avora.app/loi-moi-lien-he/tok");
+    expect(buildContactInviteLink("https://avora.app/", "tok")).toBe("https://avora.app/moi/tok");
   });
 
   /**
@@ -663,7 +663,7 @@ describe("opening an invitation link", () => {
 
   it("round-trips the link the sender handed over", () => {
     const link = buildContactInviteLink("https://avora.app", "tok-abc");
-    expect(link.endsWith("/loi-moi-lien-he/tok-abc")).toBe(true);
+    expect(link.endsWith("/moi/tok-abc")).toBe(true);
   });
 });
 

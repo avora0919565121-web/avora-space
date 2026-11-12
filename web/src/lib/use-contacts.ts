@@ -20,6 +20,16 @@ import {
   type IndividualDraft,
   type InviteMethod,
 } from "@/lib/contacts";
+import {
+  confirmInviteSent,
+  declineInvite,
+  discardInviteDraft,
+  fetchPublicInvitePreview,
+  prepareInvite,
+  type PrepareOptions,
+  type PreparedInvite,
+  type PublicInvitePreview,
+} from "@/lib/contact-invites";
 
 /**
  * The viewer's whole address book, in one query.
@@ -70,6 +80,62 @@ export function useContactInvitePreview(
     retry: false,
     staleTime: 0,
   });
+}
+
+/**
+ * KT-07a: the public page of an invitation — works signed out. Keyed by the viewer too, because a
+ * signed-in viewer is told more (their own link, a blocked pair).
+ */
+export function usePublicInvitePreview(token: string): UseQueryResult<PublicInvitePreview | null, Error> {
+  const { user, isLoading } = useAuth() as { user?: { id: string } | null; isLoading?: boolean };
+  return useQuery<PublicInvitePreview | null, Error>({
+    queryKey: ["contact-invite-public", token, user?.id ?? "anon"],
+    queryFn: () => fetchPublicInvitePreview(token),
+    enabled: token.length > 0 && isLoading !== true,
+    retry: false,
+    staleTime: 0,
+  });
+}
+
+/** KT-07a: "Không, cảm ơn" from the public page. */
+export function useDeclineInvite(): { decline: (token: string) => Promise<void>; isDeclining: boolean } {
+  const mutation = useMutation({ mutationFn: (token: string) => declineInvite(token) });
+  return {
+    decline: useCallback((token: string) => mutation.mutateAsync(token), [mutation]),
+    isDeclining: mutation.isPending,
+  };
+}
+
+/**
+ * KT-07a: the three steps of "Avora soạn, bạn gửi" — prepare a draft, then the sender says
+ * `Đã gửi` (confirm) or `Chưa gửi` (discard). Each refreshes the invitations every screen reads.
+ */
+export function useInviteActions(): {
+  prepare: (contactId: string, method: InviteMethod, options?: PrepareOptions) => Promise<PreparedInvite>;
+  confirmSent: (inviteId: string) => Promise<void>;
+  discardDraft: (inviteId: string) => Promise<void>;
+  isWorking: boolean;
+} {
+  const queryClient = useQueryClient();
+  const invalidate = useCallback((): void => {
+    void queryClient.invalidateQueries({ queryKey: contactKeys.all });
+  }, [queryClient]);
+  const prepareMutation = useMutation({
+    mutationFn: (args: { contactId: string; method: InviteMethod; options?: PrepareOptions }) =>
+      prepareInvite(args.contactId, args.method, args.options),
+  });
+  const confirmMutation = useMutation({ mutationFn: (inviteId: string) => confirmInviteSent(inviteId), onSuccess: invalidate });
+  const discardMutation = useMutation({ mutationFn: (inviteId: string) => discardInviteDraft(inviteId), onSuccess: invalidate });
+  return {
+    prepare: useCallback(
+      (contactId: string, method: InviteMethod, options?: PrepareOptions) =>
+        prepareMutation.mutateAsync({ contactId, method, options }),
+      [prepareMutation],
+    ),
+    confirmSent: useCallback((inviteId: string) => confirmMutation.mutateAsync(inviteId), [confirmMutation]),
+    discardDraft: useCallback((inviteId: string) => discardMutation.mutateAsync(inviteId), [discardMutation]),
+    isWorking: prepareMutation.isPending || confirmMutation.isPending || discardMutation.isPending,
+  };
 }
 
 /** Accepting an invitation, which writes a contact into the accepter's own book. */

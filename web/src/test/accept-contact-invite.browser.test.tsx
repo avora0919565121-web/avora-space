@@ -4,24 +4,36 @@ import { userEvent } from "vitest/browser";
 import { render } from "vitest-browser-react";
 import { vi } from "vitest";
 
-import type { ContactInvitePreview } from "@/lib/contacts";
+import type { PublicInvitePreview } from "@/lib/contact-invites";
 
 const state = vi.hoisted(() => ({
-  preview: null as ContactInvitePreview | null,
+  preview: null as PublicInvitePreview | null,
   acceptError: null as string | null,
   accepted: [] as string[],
-  navigated: [] as string[],
+  declined: [] as string[],
+  navigated: [] as { to: string; state?: unknown }[],
+  signedIn: true,
 }));
 
-vi.mock("@/lib/auth", () => ({ useAuth: () => ({ user: { id: "u-guest" } }) }));
+vi.mock("@/lib/auth", () => ({
+  useAuth: () => (state.signedIn ? { user: { id: "u-guest" }, session: { user: { id: "u-guest" } }, isLoading: false } : { user: null, session: null, isLoading: false }),
+}));
 
-// The screen's two data calls are the boundary being tested: everything above them is the
-// reasoning about what an invitation link should say, which is what these tests exercise.
+// KT-07a: the page reads the public preview (works signed out) and can decline without an account.
+vi.mock("@/lib/contact-invites", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/contact-invites")>("@/lib/contact-invites");
+  return {
+    ...actual,
+    fetchPublicInvitePreview: async () => state.preview,
+    declineInvite: async (token: string) => {
+      state.declined.push(token);
+    },
+  };
+});
 vi.mock("@/lib/contacts", async () => {
   const actual = await vi.importActual<typeof import("@/lib/contacts")>("@/lib/contacts");
   return {
     ...actual,
-    fetchContactInvitePreview: async () => state.preview,
     acceptContactInvite: async (token: string) => {
       if (state.acceptError !== null) throw new Error(state.acceptError);
       state.accepted.push(token);
@@ -34,25 +46,35 @@ vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual<typeof import("react-router-dom")>("react-router-dom");
   return {
     ...actual,
-    useNavigate: () => (to: string) => {
-      state.navigated.push(to);
+    useNavigate: () => (to: string, options?: { state?: unknown }) => {
+      state.navigated.push({ to, state: options?.state });
     },
   };
 });
 
 const { default: AcceptContactInvite } = await import("@/pages/AcceptContactInvite");
 
-function preview(over: Partial<ContactInvitePreview> = {}): ContactInvitePreview {
-  return { inviterName: "Minh", status: "pending", isOwnInvite: false, alreadyLinked: false, ...over };
+function preview(over: Partial<PublicInvitePreview> = {}): PublicInvitePreview {
+  return {
+    inviterName: "Minh",
+    status: "pending",
+    expiresAt: "2026-11-26T10:00:00Z",
+    note: null,
+    isOwnInvite: false,
+    alreadyLinked: false,
+    signedIn: state.signedIn,
+    ...over,
+  };
 }
 
-async function open() {
+async function open(path = "/loi-moi-lien-he/tok-123") {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return await render(
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/loi-moi-lien-he/tok-123"]}>
+      <MemoryRouter initialEntries={[path]}>
         <Routes>
           <Route path="/loi-moi-lien-he/:token" element={<AcceptContactInvite />} />
+          <Route path="/moi/:token" element={<AcceptContactInvite />} />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -63,7 +85,9 @@ beforeEach(() => {
   state.preview = null;
   state.acceptError = null;
   state.accepted = [];
+  state.declined = [];
   state.navigated = [];
+  state.signedIn = true;
 });
 
 test("the person invited is told who is asking, by name", async () => {
@@ -72,8 +96,7 @@ test("the person invited is told who is asking, by name", async () => {
 
   // The name is the heading and also opens the sentence below it, so the heading is matched
   // by its role rather than by a substring that legitimately appears twice.
-  await expect.element(screen.getByRole("heading")).toHaveTextContent("Trần Thị Hoa");
-  expect(screen.container.textContent).toContain("muốn kết nối với bạn trên AVORA");
+  await expect.element(screen.getByRole("heading")).toHaveTextContent("Trần Thị Hoa mời bạn vào AVORA");
   await expect.element(screen.getByRole("button", { name: "Chấp nhận" })).toBeInTheDocument();
 });
 
@@ -86,7 +109,7 @@ test("accepting links the two accounts and lands on the address book", async () 
   await vi.waitFor(() => {
     expect(state.accepted).toEqual(["tok-123"]);
     // Landing on the list is the point: the contact just created is what proves it worked.
-    expect(state.navigated).toContain("/lien-he");
+    expect(state.navigated.map((entry) => entry.to)).toContain("/lien-he");
   });
 });
 
@@ -149,6 +172,7 @@ test("a dead end offers one way out, and it is not an acceptance", async () => {
 
   await expect.element(screen.getByRole("button", { name: "Về danh bạ" })).toBeInTheDocument();
   expect(screen.container.querySelectorAll("button").length).toBe(1);
+  expect(screen.container.textContent).not.toContain("Chấp nhận");
 });
 
 /**
@@ -163,5 +187,49 @@ test("a rule that changed since the page opened is reported in plain Vietnamese"
   await userEvent.click(screen.getByRole("button", { name: "Chấp nhận" }));
 
   await expect.element(screen.getByRole("alert")).toHaveTextContent("Lời mời này đã được chấp nhận.");
-  expect(state.navigated).not.toContain("/lien-he");
+  expect(state.navigated.map((entry) => entry.to)).not.toContain("/lien-he");
+});
+
+// ── KT-07a: người chưa có tài khoản ─────────────────────────────────────────────────────────────
+
+test("KT-07a · signed out: the link opens with no sign-in wall — name, note, deadline, sign-up", async () => {
+  state.signedIn = false;
+  state.preview = preview({ note: "Cô ơi, con dùng AVORA để giữ ảnh cả nhà." });
+  const screen = await open("/moi/tok-123");
+
+  await expect.element(screen.getByRole("heading")).toHaveTextContent("Minh mời bạn vào AVORA");
+  expect(screen.container.textContent).toContain("Cô ơi, con dùng AVORA");
+  expect(screen.container.textContent).toContain("Lời mời dùng được đến 26/11/2026");
+  expect(screen.container.textContent).not.toContain("Chấp nhận");
+
+  await userEvent.click(screen.getByRole("button", { name: "Vào nhà cùng Minh" }));
+  expect(state.navigated[0]).toEqual({ to: "/dang-nhap?mode=dang-ky", state: { from: "/moi/tok-123" } });
+
+  await userEvent.click(screen.getByRole("button", { name: "Tôi đã có tài khoản · Đăng nhập" }));
+  expect(state.navigated[1]).toEqual({ to: "/dang-nhap", state: { from: "/moi/tok-123" } });
+});
+
+test("KT-07a · Không, cảm ơn: asks once, then declines without an account", async () => {
+  state.signedIn = false;
+  state.preview = preview();
+  const screen = await open("/moi/tok-123");
+
+  await userEvent.click(screen.getByRole("button", { name: "Không, cảm ơn" }));
+  await expect.element(screen.getByRole("heading")).toHaveTextContent("Bạn không nhận lời mời của Minh?");
+  expect(screen.container.textContent).toContain("không gửi thêm lời nhắc");
+  expect(state.declined).toEqual([]);
+
+  await userEvent.click(screen.getByRole("button", { name: "Không nhận lời" }));
+  await expect.element(screen.getByRole("heading")).toHaveTextContent("Bạn đã từ chối lời mời này");
+  expect(state.declined).toEqual(["tok-123"]);
+  expect(screen.container.textContent).toContain("tìm Minh bằng mã PIN");
+});
+
+test("KT-07a · a declined invitation reads as declined, never as an offer", async () => {
+  state.signedIn = false;
+  state.preview = preview({ status: "declined" });
+  const screen = await open("/moi/tok-123");
+
+  await expect.element(screen.getByRole("heading")).toHaveTextContent("Bạn đã từ chối lời mời này");
+  expect(screen.container.textContent).not.toContain("Vào nhà cùng");
 });

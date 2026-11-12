@@ -115,6 +115,9 @@ const App = () => (
               <Route path="/chinh-sach" element={<PublicPolicy />} />
               {/* AVORA-100 · G.2: feedback without an account. */}
               <Route path="/gop-y" element={<PublicFeedback />} />
+              {/* KT-07a: an invitation link opens without an account — read, sign up, or say "Không, cảm ơn". */}
+              <Route path="/moi/:token" element={<AcceptContactInvite />} />
+              <Route path="/loi-moi-lien-he/:token" element={<AcceptContactInvite />} />
               {/* AVORA-E0: hidden test page — off unless VITE_E2EE_SPIKE=1 or signed in + ?spike=e2ee; lazy chunk. */}
               <Route path="/spike/e2ee" element={<SpikeGate fallback={<NotFound />} />} />
               <Route element={<RequireAuth />}>
@@ -161,8 +164,6 @@ const App = () => (
                 <Route path="/lien-he/can-xem-lai" element={<ContactChannelReview />} />
                 <Route path="/lien-he/sua-ten" element={<ContactNameRepair />} />
                 <Route path="/lien-he/:contactId" element={<ContactDetail />} />
-                {/* Signed-in on purpose: accepting links two accounts, so there must be a second one. */}
-                <Route path="/loi-moi-lien-he/:token" element={<AcceptContactInvite />} />
 
                 {/* Routes that were published under their old names keep working. */}
                 <Route path="/tai-chinh" element={<LegacyRedirect />} />

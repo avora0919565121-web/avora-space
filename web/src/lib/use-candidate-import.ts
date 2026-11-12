@@ -29,7 +29,6 @@ import {
   fetchContactsByIds,
   type BulkContactRow,
   type Contact,
-  type InviteMethod,
 } from "@/lib/contacts";
 import { useContactActions } from "@/lib/use-contacts";
 
@@ -396,61 +395,3 @@ async function fileChannels(
   return stored;
 }
 
-/** How far the invitations have got, counted the same way as the import itself. */
-export type InviteProgress = { done: number; total: number } | null;
-
-export type BulkInviteOutcome = {
-  sent: number;
-  failed: { name: string; reason: string }[];
-};
-
-/**
- * Sending invitations to the people just imported, one at a time.
- *
- * `create_contact_invite` refuses a channel the contact has no address for, so each target
- * carries the channel it was offered rather than one choice applied to everyone — and a refusal
- * for one person is reported against their name instead of failing the batch.
- */
-export function useBulkInvite(): {
-  send: (
-    targets: readonly { contactId: string; name: string; method: InviteMethod }[],
-  ) => Promise<BulkInviteOutcome>;
-  progress: InviteProgress;
-  isSending: boolean;
-} {
-  const { invite } = useContactActions();
-  const [progress, setProgress] = useState<InviteProgress>(null);
-  const [isSending, setIsSending] = useState<boolean>(false);
-
-  const send = useCallback(
-    async (
-      targets: readonly { contactId: string; name: string; method: InviteMethod }[],
-    ): Promise<BulkInviteOutcome> => {
-      const outcome: BulkInviteOutcome = { sent: 0, failed: [] };
-
-      setIsSending(true);
-      setProgress({ done: 0, total: targets.length });
-
-      try {
-        for (const [index, target] of targets.entries()) {
-          try {
-            await invite(target.contactId, target.method);
-            outcome.sent += 1;
-          } catch (error) {
-            outcome.failed.push({ name: target.name, reason: (error as Error).message });
-          } finally {
-            setProgress({ done: index + 1, total: targets.length });
-          }
-        }
-      } finally {
-        setIsSending(false);
-        setProgress(null);
-      }
-
-      return outcome;
-    },
-    [invite],
-  );
-
-  return { send, progress, isSending };
-}

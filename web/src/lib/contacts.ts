@@ -41,14 +41,26 @@ export type Contact = {
 /** How an invitation was sent. QR exists in the database but has no screen yet. */
 export type InviteMethod = "sms" | "email" | "link" | "qr";
 
+/**
+ * KT-07a: `draft` = Avora đã soạn, người mời chưa xác nhận đã gửi (chưa tính là "Đã mời");
+ * `declined` = người nhận bấm "Không, cảm ơn".
+ */
+export type InviteStatus = "draft" | "pending" | "accepted" | "declined" | "expired" | "revoked";
+
 export type ContactInvite = {
   id: string;
-  contactId: string;
+  /** Null once the contact was deleted — the invitation's history stays (KT-07a). */
+  contactId: string | null;
   method: InviteMethod;
   inviteToken: string;
-  status: "pending" | "accepted" | "expired";
+  status: InviteStatus;
   invitedAt: string;
   acceptedAt: string | null;
+  expiresAt?: string | null;
+  sentAt?: string | null;
+  declinedAt?: string | null;
+  note?: string | null;
+  isReinvite?: boolean;
 };
 
 /** What the person filling in the individual form has typed so far. */
@@ -115,8 +127,10 @@ export const contactKeys = {
   linkSuggestion: (contactId: string) => ["contacts", "link-suggestion", contactId] as const,
 };
 
-/** Where an invited person lands when they open the link. */
-export const CONTACT_INVITE_PATH = "/loi-moi-lien-he";
+/** Where an invited person lands when they open the link (public — no account needed, KT-07a). */
+export const CONTACT_INVITE_PATH = "/moi";
+/** The address links sent before KT-07a used; it still opens the same page. */
+export const LEGACY_CONTACT_INVITE_PATH = "/loi-moi-lien-he";
 
 /**
  * How long an invitation stays good for. Mirrors `contact_invite_timed_out` in the database,
@@ -133,7 +147,11 @@ export const CONTACT_INVITE_TTL_DAYS = 14;
  * whether someone happened to open the link.
  */
 export function contactInviteTimedOut(invite: ContactInvite, now: Date = new Date()): boolean {
-  if (invite.status !== "pending") return false;
+  if (invite.status !== "pending" && invite.status !== "draft") return false;
+  if (invite.expiresAt) {
+    const until = new Date(invite.expiresAt).getTime();
+    if (!Number.isNaN(until)) return now.getTime() >= until;
+  }
   const sent = new Date(invite.invitedAt).getTime();
   if (Number.isNaN(sent)) return false;
   return now.getTime() - sent > CONTACT_INVITE_TTL_DAYS * 24 * 60 * 60 * 1000;
@@ -294,6 +312,31 @@ export function toVietnameseContactError(code: string | undefined, message: stri
     return "Đã quá lâu hoặc danh bạ đã đổi, nên không hoàn tác được nữa.";
   if (normalized.includes("avora_contact_link_server_only"))
     return "Liên kết chỉ đổi được qua mục Quản lý liên kết AVORA.";
+  if (normalized.includes("avora_invite_declined_not_in_batch"))
+    return "Người này đã từ chối lời mời trước đây. Muốn mời lại thì mở liên hệ của họ và viết vài lời — mỗi lần một người.";
+  if (normalized.includes("avora_invite_declined"))
+    return "Người này đã từ chối lời mời trước đây. Nếu bạn muốn mời lại, hãy viết vài lời cho họ.";
+  if (normalized.includes("avora_invite_note_required")) return "Lời nhắn cần ít nhất 10 ký tự.";
+  if (normalized.includes("avora_invite_note_invalid")) return "Lời nhắn tối đa 200 ký tự và không chứa liên kết.";
+  if (normalized.includes("avora_invite_reinvite_too_soon"))
+    return "Bạn vừa mời lại người này. Bạn có thể mời lại sau 30 ngày kể từ lần trước.";
+  if (normalized.includes("avora_invite_already_linked")) return "Người này đã kết nối với bạn trên AVORA.";
+  if (normalized.includes("avora_invite_no_phone"))
+    return "Liên hệ này chưa có số điện thoại. Hãy thêm số, hoặc mời bằng liên kết.";
+  if (normalized.includes("avora_invite_no_email"))
+    return "Liên hệ này chưa có email. Hãy thêm email, hoặc mời bằng liên kết.";
+  if (normalized.includes("avora_invite_individual_only"))
+    return "Chỉ mời được liên hệ cá nhân — doanh nghiệp không đăng nhập vào AVORA.";
+  if (normalized.includes("avora_invite_missing")) return "Lời mời này không còn hiệu lực.";
+  if (normalized.includes("avora_invite_expired")) return "Lời mời này đã hết hạn.";
+  if (normalized.includes("avora_invite_accepted")) return "Lời mời này đã được chấp nhận.";
+  if (normalized.includes("avora_invite_own")) return "Đây là lời mời do chính bạn gửi.";
+  if (normalized.includes("lời mời này đã được từ chối")) return "Bạn đã từ chối lời mời này.";
+  if (normalized.includes("avora_invite_key_missing") || normalized.includes("avora_invite_bad_method"))
+    return "Chưa mời được lúc này. Bạn thử lại sau nhé.";
+  if (normalized.includes("avora_contact_not_found")) return "Liên hệ này không còn nữa.";
+  if (normalized.includes("avora_rate_limited") && normalized.includes("invite"))
+    return "Hôm nay bạn đã mời nhiều người rồi. Bạn thử lại vào ngày mai nhé.";
   if (normalized.includes("avora_rate_limited"))
     return "Bạn đổi liên kết hơi nhiều. Hãy đợi một lúc rồi thử lại.";
   if (normalized.includes("chưa đăng nhập") || normalized.includes("avora_not_signed_in"))
@@ -538,13 +581,43 @@ export function buildContactInviteLink(origin: string, token: string): string {
   return `${origin.replace(/\/+$/, "")}${CONTACT_INVITE_PATH}/${token}`;
 }
 
-/** What an invitation says when it travels by itself, in a message the sender can still edit. */
-export function inviteMessage(inviterName: string, link: string): string {
-  return `${inviterName} muốn kết nối với bạn trên AVORA: ${link}`;
+/**
+ * What an invitation says when it travels by itself, in a message the sender can still edit.
+ * KT-07a / SP-03 4a: có chủ ngữ, không xưng hô sẵn (người mời tự sửa lời nhắn cho hợp quan hệ),
+ * lời nhắn của người mời nếu có, và hạn dùng của lời mời.
+ */
+export function inviteMessage(
+  inviterName: string,
+  link: string,
+  extra: { note?: string | null; expiresAt?: string | null } = {},
+): string {
+  const lines: string[] = [`Tôi là ${inviterName}. Tôi mời bạn vào AVORA — nơi riêng cho bạn và người thân.`];
+  const note = extra.note?.trim();
+  if (note) lines.push(note);
+  const until = extra.expiresAt ? inviteDayMonth(extra.expiresAt) : null;
+  lines.push(until ? `Lời mời dùng được đến ${until}: ${link}` : `Lời mời: ${link}`);
+  return lines.join("\n");
+}
+
+/** The subject line of an invitation email. */
+export function inviteSubject(inviterName: string): string {
+  return `${inviterName} mời bạn vào AVORA`;
+}
+
+/** dd/MM of an ISO time, in the viewer's own time zone. */
+export function inviteDayMonth(iso: string): string | null {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return null;
+  return `${String(at.getDate()).padStart(2, "0")}/${String(at.getMonth() + 1).padStart(2, "0")}`;
 }
 
 /** The `sms:` / `mailto:` address an invitation opens, or null when the channel has no address. */
-export function inviteHref(method: InviteMethod, contact: Contact, body: string): string | null {
+export function inviteHref(
+  method: InviteMethod,
+  contact: Contact,
+  body: string,
+  subjectOverride?: string,
+): string | null {
   if (method === "sms") {
     const phone = given(contact.phone);
     if (phone === null) return null;
@@ -553,7 +626,8 @@ export function inviteHref(method: InviteMethod, contact: Contact, body: string)
   if (method === "email") {
     const email = given(contact.email);
     if (email === null) return null;
-    return `mailto:${email}?subject=${encodeURIComponent("Lời mời kết nối trên AVORA")}&body=${encodeURIComponent(body)}`;
+    const subject = subjectOverride ?? "Lời mời kết nối trên AVORA";
+    return `mailto:${email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
   }
   return null;
 }
@@ -592,7 +666,8 @@ export function pendingInviteLabel(invite: ContactInvite): string {
     link: "liên kết",
     qr: "mã QR",
   };
-  return `Đã mời qua ${channel[invite.method]} — đang chờ`;
+  const day = invite.sentAt ? inviteDayMonth(invite.sentAt) : null;
+  return day ? `Đã mời qua ${channel[invite.method]} · ${day} — đang chờ` : `Đã mời qua ${channel[invite.method]} — đang chờ`;
 }
 
 /** Every contact the viewer owns. RLS returns nobody else's, so there is no filter to forget. */
@@ -613,7 +688,7 @@ export async function fetchContacts(): Promise<Contact[]> {
 export async function fetchContactInvites(contactId: string): Promise<ContactInvite[]> {
   const { data, error } = await supabase
     .from("contact_invite")
-    .select("*")
+    .select("id, contact_id, method, invite_token, status, invited_at, accepted_at, expires_at, sent_at, declined_at, note, is_reinvite")
     .eq("contact_id", contactId)
     .order("invited_at", { ascending: false });
 
@@ -627,6 +702,11 @@ export async function fetchContactInvites(contactId: string): Promise<ContactInv
     status: row.status as ContactInvite["status"],
     invitedAt: row.invited_at,
     acceptedAt: row.accepted_at,
+    expiresAt: row.expires_at,
+    sentAt: row.sent_at,
+    declinedAt: row.declined_at,
+    note: row.note,
+    isReinvite: row.is_reinvite,
   }));
 }
 
@@ -644,6 +724,17 @@ export function pendingInvite(
   return (
     invites.find((entry) => entry.status === "pending" && !contactInviteTimedOut(entry, now)) ?? null
   );
+}
+
+/** KT-07a: an invitation Avora prepared that the sender has not yet said they sent. */
+export function draftInvite(invites: readonly ContactInvite[], now: Date = new Date()): ContactInvite | null {
+  return invites.find((entry) => entry.status === "draft" && !contactInviteTimedOut(entry, now)) ?? null;
+}
+
+/** KT-07a: the newest invitation was answered "Không, cảm ơn". */
+export function declinedInvite(invites: readonly ContactInvite[]): ContactInvite | null {
+  const newest = invites[0];
+  return newest !== undefined && newest.status === "declined" ? newest : null;
 }
 
 /**

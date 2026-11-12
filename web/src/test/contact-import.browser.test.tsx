@@ -61,13 +61,25 @@ vi.mock("@/lib/use-contacts", () => ({
       state.saved.push({ contactId, draft });
       return { ...blank(contactId, draft.name), contactType: "business" as const };
     },
-    invite: async (contactId: string, method: InviteMethod) => {
+    isWorking: false,
+  }),
+  // KT-07a: the bulk panel prepares one draft per person and asks "Bạn đã gửi chưa?".
+  useInviteActions: () => ({
+    prepare: async (contactId: string, method: InviteMethod) => {
       state.invited.push({ contactId, method });
-      return "tok";
+      return { inviteId: `inv-${contactId}`, token: "tok", status: "draft", expiresAt: "2026-11-27T00:00:00Z", reused: false };
     },
+    confirmSent: async () => undefined,
+    discardDraft: async () => undefined,
     isWorking: false,
   }),
 }));
+
+// Handing over must not leave the test page (a real sms:/mailto: would).
+vi.mock("@/lib/contacts", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/contacts")>("@/lib/contacts");
+  return { ...actual, inviteHref: (method: InviteMethod) => `#da-mo-${method}` };
+});
 
 // The channel table is reached through these two calls only: one to read what the book already
 // holds, one to file a value that did not fit on the contact row.
@@ -516,7 +528,7 @@ describe("inviting the people just imported", () => {
     const screen = await importTwoPeople();
 
     await expect.element(screen.getByText(/2 người chưa dùng AVORA/)).toBeInTheDocument();
-    await expect.element(screen.getByRole("button", { name: "Gửi lời mời cho 2 người" })).toBeEnabled();
+    await expect.element(screen.getByRole("button", { name: "Mời 2 người" })).toBeEnabled();
   });
 
   /** The same rule the RPC enforces: a channel with no address is never drawn. */
@@ -532,7 +544,12 @@ describe("inviting the people just imported", () => {
   test("sends each invitation by the channel that person's row was offered", async () => {
     const screen = await importTwoPeople();
 
-    await userEvent.click(screen.getByRole("button", { name: /Gửi lời mời cho 2 người/ }));
+    // KT-07a: one person at a time — Avora opens the app, the sender says it was sent.
+    await userEvent.click(screen.getByRole("button", { name: "Mời 2 người" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mở Mail cho Chị Email" }));
+    await userEvent.click(screen.getByRole("button", { name: "Đã gửi" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mở Tin nhắn cho Anh Phone" }));
+    await userEvent.click(screen.getByRole("button", { name: "Đã gửi" }));
 
     expect(state.invited).toEqual([
       { contactId: "new-1", method: "email" },
@@ -544,7 +561,8 @@ describe("inviting the people just imported", () => {
     const screen = await importTwoPeople();
 
     await userEvent.click(screen.getByRole("checkbox", { name: "Mời Anh Phone" }));
-    await userEvent.click(screen.getByRole("button", { name: /Gửi lời mời cho 1 người/ }));
+    await userEvent.click(screen.getByRole("button", { name: "Mời 1 người" }));
+    await userEvent.click(screen.getByRole("button", { name: "Mở Mail cho Chị Email" }));
 
     expect(state.invited).toEqual([{ contactId: "new-1", method: "email" }]);
   });
