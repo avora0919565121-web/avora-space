@@ -490,3 +490,41 @@ test("opening a record edits that record rather than writing a new one", async (
 
 // The "Tổng quan kế hoạch" overview region left the page with the 52 · E shelf redesign; the
 // sentence it carried is covered by the attentionSentence unit tests in think-hub.test.ts.
+
+/**
+ * KT-06 · C (CEO 12/11 23:29): scrolling a long board never loses the way around it — the view strip
+ * sticks to the top of Thư phòng's scroller and, once stuck, carries `‹ Kệ` · the board's name ·
+ * Toàn cảnh/Chỉ bảng on one solid bar.
+ */
+test("KT06-C1 · cuộn bảng dài: ‹ Kệ + tên bảng + Toàn cảnh/Chỉ bảng + dải kiểu xem vẫn ở trên cùng", async () => {
+  state.tables = [businessTable({ id: "t-1", name: "Danh sách cơ hội" })];
+  state.records = Array.from({ length: 60 }, (_, index) => record({ id: `r-${index}`, tableId: "t-1", title: `Hạng mục ${index + 1}`, status: "moi" }));
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  const screen = await render(
+    <div style={{ width: 1100, height: 700, display: "flex", flexDirection: "column", overflow: "hidden" }}>
+      <QueryClientProvider client={client}>
+        <MemoryRouter initialEntries={["/ke-hoach?bang=t-1"]}>
+          <ThinkHub />
+        </MemoryRouter>
+      </QueryClientProvider>
+    </div>,
+  );
+  await expect.element(screen.getByText("Hạng mục 60")).toBeInTheDocument();
+  const bar = document.querySelector<HTMLElement>('[data-sticky-bar="board"]');
+  expect(bar).not.toBeNull();
+  let scroller: HTMLElement | null = bar?.parentElement ?? null;
+  while (scroller !== null && !/(auto|scroll)/.test(getComputedStyle(scroller).overflowY)) scroller = scroller.parentElement;
+  expect(scroller).not.toBeNull();
+  scroller!.scrollTop = scroller!.scrollHeight;
+  await expect.poll(() => bar?.dataset.stuck).toBe("true");
+  const top = scroller!.getBoundingClientRect().top;
+  const box = bar!.getBoundingClientRect();
+  expect(Math.abs(box.top - top)).toBeLessThan(2);
+  const head = bar!.querySelector<HTMLElement>("[data-board-stuck-head]");
+  expect(head?.innerText).toContain("Kệ");
+  expect(head?.innerText).toContain("Danh sách cơ hội");
+  expect(head?.querySelector('[data-overview-toggle]')).not.toBeNull();
+  expect(bar!.querySelector('[aria-label="Kiểu xem"]')).not.toBeNull();
+  // Solid, not see-through: the bar paints its own background.
+  expect(getComputedStyle(bar!).backgroundColor).not.toMatch(/rgba\(0, 0, 0, 0\)|transparent/);
+});

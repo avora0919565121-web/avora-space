@@ -10,7 +10,10 @@ export const OverviewToggle = memo(function OverviewToggle({
   onChange,
   taskColumnHidden = false,
   onShowTaskColumn,
+  className = "mt-5",
 }: {
+  /** KT-06 · C: the sticky board bar places it without the top margin. */
+  className?: string;
   mode: OverviewMode;
   onChange: (mode: OverviewMode) => void;
   taskColumnHidden?: boolean;
@@ -21,7 +24,7 @@ export const OverviewToggle = memo(function OverviewToggle({
     { id: "board", label: "Chỉ bảng" },
   ];
   return (
-    <div className="mt-5 flex items-center gap-2">
+    <div className={cn("flex shrink-0 items-center gap-2", className)}>
       {taskColumnHidden && onShowTaskColumn !== undefined ? (
         <button type="button" onClick={onShowTaskColumn} className="press min-h-9 rounded-md px-2 text-[12.5px] font-medium text-muted-foreground hover:text-foreground">
           Hiện cột Việc

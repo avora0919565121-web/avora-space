@@ -33,6 +33,7 @@ import { OverviewColumns } from "@/components/think-hub/overview/OverviewColumns
 import { OverviewTaskPane } from "@/components/think-hub/overview/OverviewTaskPane";
 import { OverviewTree } from "@/components/think-hub/overview/OverviewTree";
 import { OverviewToggle } from "@/components/think-hub/overview/OverviewToggle";
+import { StickyBar } from "@/components/nav/StickyBar";
 import { useProjectOverview } from "@/components/think-hub/overview/use-project-overview";
 import { NewTableDialog, type TablePlace } from "@/components/think-hub/NewTableDialog";
 import { askConfirm, askText } from "@/components/ConfirmHost";
@@ -2060,7 +2061,7 @@ const ThinkHub = () => {
         ) : (
           <div
             data-overview-desk={overview.isOn ? "" : undefined}
-            className={cn(overview.isOn && "mt-3 grid grid-cols-[300px_minmax(0,1fr)_420px] items-start gap-0 overflow-hidden rounded-card border border-border bg-card/40")}
+            className={cn(overview.isOn && "mt-3 grid grid-cols-[300px_minmax(0,1fr)_420px] items-start gap-0 overflow-clip rounded-card border border-border bg-card/40")}
           >
           {overview.isOn && overview.tree !== null ? (
             <aside className="sticky top-2 max-h-[calc(100dvh-7rem)] overflow-y-auto border-r border-border/70 bg-secondary/30 px-2 py-3">
@@ -2248,87 +2249,118 @@ const ThinkHub = () => {
             ) : null}
             <NudgeLines onOpen={(nudge) => openTable(nudge.tableId)} />
 
-            <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
-              {/* AVORA-65 · C: one row. A phone held upright adds `Thẻ` in front; the computer keeps three. */}
-              <div data-h-scroll="" role="group" aria-label="Kiểu xem" className="inline-flex max-w-full overflow-x-auto rounded-md border border-border p-0.5">
-                {(
-                  [
-                    ...(isPhoneUpright ? ([["cards", "Thẻ", LayoutList]] as const) : []),
-                    ["table", "Bảng", Table2],
-                    ["kanban", "Theo trạng thái", KanbanSquare],
-                    ["mindmap", "Cây", Network],
-                  ] as const
-                ).map(([value, label, Icon]) => {
-                  const isOn =
-                    value === "cards"
-                      ? view === "table" && phoneMode === "cards"
-                      : value === "table"
-                        ? view === "table" && (!isPhoneUpright || phoneMode === "table")
-                        : view === value;
-                  return (
-                    <button
-                      key={value}
-                      type="button"
-                      aria-pressed={isOn}
-                      onClick={() => {
-                        if (value === "cards" || (value === "table" && isPhoneUpright)) {
-                          setView("table");
-                          setPhoneMode(value);
-                          if (active !== null) writePhoneMode(active.id, value);
-                          return;
-                        }
-                        setView(value);
-                      }}
-                      className={cn(
-                        "press inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-2.5 py-1.5 text-[14px] font-medium transition-colors sm:px-3",
-                        isOn ? "bg-accent/70 text-foreground" : "text-muted-foreground hover:text-foreground",
+            {/* KT-06 · C (CEO 12/11 23:29): the view strip sticks; once scrolled it carries `‹ Kệ` · the board's name · Toàn cảnh/Chỉ bảng. */}
+            <StickyBar name="board" className="-mx-2 mt-5 px-2 py-1.5">
+              {(stuck) => (
+                <>
+                  {/* Phone: the top row already says `‹ name`; the strip folds into one sideways row below. */}
+                  {stuck && !isFullscreen ? (
+                    <div data-board-stuck-head="" className="hidden min-w-0 items-center gap-2 pb-1.5 md:flex">
+                      <button type="button" onClick={closeBoard} className="press inline-flex min-h-9 shrink-0 items-center gap-0.5 rounded-md pr-1 text-[13.5px] font-medium text-personal">
+                        <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Kệ
+                      </button>
+                      <span className="min-w-0 flex-1 truncate text-[15px] font-semibold text-foreground">{active.name}</span>
+                      {active.kind === "bookshelf" ? null : (
+                        <OverviewToggle
+                          mode={overview.mode}
+                          onChange={overview.setMode}
+                          taskColumnHidden={overview.isOn && overview.isWide && overview.isTaskColumnHidden}
+                          onShowTaskColumn={overview.showTaskColumn}
+                          className="mt-0"
+                        />
                       )}
-                    >
-                      <Icon className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
-                      {label}
-                    </button>
-                  );
-                })}
-              </div>
+                    </div>
+                  ) : null}
+                <div
+                  data-h-scroll={stuck ? "" : undefined}
+                  className={cn("flex items-center justify-between gap-3", stuck ? "flex-nowrap overflow-x-auto [scrollbar-width:none] md:overflow-visible" : "flex-wrap")}
+                >
+                  {/* AVORA-65 · C: one row. A phone held upright adds `Thẻ` in front; the computer keeps three. */}
+                  <div data-h-scroll="" role="group" aria-label="Kiểu xem" className="inline-flex max-w-full overflow-x-auto rounded-md border border-border p-0.5">
+                    {(
+                      [
+                        ...(isPhoneUpright ? ([["cards", "Thẻ", LayoutList]] as const) : []),
+                        ["table", "Bảng", Table2],
+                        ["kanban", "Theo trạng thái", KanbanSquare],
+                        ["mindmap", "Cây", Network],
+                      ] as const
+                    ).map(([value, label, Icon]) => {
+                      const isOn =
+                        value === "cards"
+                          ? view === "table" && phoneMode === "cards"
+                          : value === "table"
+                            ? view === "table" && (!isPhoneUpright || phoneMode === "table")
+                            : view === value;
+                      return (
+                        <button
+                          key={value}
+                          type="button"
+                          aria-pressed={isOn}
+                          onClick={() => {
+                            if (value === "cards" || (value === "table" && isPhoneUpright)) {
+                              setView("table");
+                              setPhoneMode(value);
+                              if (active !== null) writePhoneMode(active.id, value);
+                              return;
+                            }
+                            setView(value);
+                          }}
+                          className={cn(
+                            "press inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded px-2.5 py-1.5 text-[14px] font-medium transition-colors sm:px-3",
+                            isOn ? "bg-accent/70 text-foreground" : "text-muted-foreground hover:text-foreground",
+                          )}
+                        >
+                          <Icon className="h-[16px] w-[16px]" strokeWidth={1.8} aria-hidden="true" />
+                          {label}
+                        </button>
+                      );
+                    })}
+                  </div>
 
-              <div className="flex flex-wrap items-center gap-1.5">
-                <button
-                  type="button"
-                  aria-pressed={onlyStarred}
-                  onClick={() => setOnlyStarred(!onlyStarred)}
-                  className={cn("press inline-flex min-h-9 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium", onlyStarred ? "bg-amber-400/20 text-foreground" : "text-muted-foreground hover:text-foreground")}
-                >
-                  <Star className={cn("h-4 w-4", onlyStarred && "fill-amber-400 text-amber-400")} aria-hidden="true" />
-                  <span className="hidden sm:inline">Chỉ quan trọng</span>
-                </button>
-                {isReadOnly ? null : (
-                  <button
-                    type="button"
-                    onClick={openNewRecord}
-                    className="press inline-flex min-h-9 items-center gap-1 rounded-md bg-personal px-3 text-[13.5px] font-semibold text-personal-foreground"
-                  >
-                    <Plus className="h-4 w-4" aria-hidden="true" /> {isSynced ? "Cơ hội mới" : "Hạng mục"}
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setFullscreen(!isFullscreen)}
-                  aria-label={isFullscreen ? "Thu nhỏ" : "Mở to tập trung"}
-                  title={isFullscreen ? "Thu nhỏ (Esc)" : "Mở to tập trung"}
-                  className="press inline-flex min-h-9 items-center gap-1 rounded-md border border-border px-2.5 text-[13px]"
-                >
-                  {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                  {isFullscreen ? <span>Thu nhỏ</span> : null}
-                </button>
-              </div>
-              {isTableFull(records, active.id) ? (
-                <p role="status" className="w-full text-[13.5px] text-destructive">
-                  {active.syncSource === "contact_opportunities"
-                    ? `Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục. Cơ hội tạo từ Danh bạ vẫn được lưu và vẫn lên bảng này; chỉ thêm tay ở đây là bị chặn.`
-                    : `Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục — tạo bảng con hoặc bảng mới.`}
-                </p>
-              ) : null}
-            </div>
+                  {stuck && !isFullscreen && active.kind !== "bookshelf" ? (
+                    <OverviewToggle mode={overview.mode} onChange={overview.setMode} className="mt-0 md:hidden" />
+                  ) : null}
+                  <div className={cn("flex items-center gap-1.5", stuck ? "shrink-0 flex-nowrap" : "flex-wrap")}>
+                    <button
+                      type="button"
+                      aria-pressed={onlyStarred}
+                      onClick={() => setOnlyStarred(!onlyStarred)}
+                      className={cn("press inline-flex min-h-9 items-center gap-1 rounded-md px-2.5 text-[13px] font-medium", onlyStarred ? "bg-amber-400/20 text-foreground" : "text-muted-foreground hover:text-foreground", stuck && "hidden md:inline-flex")}
+                    >
+                      <Star className={cn("h-4 w-4", onlyStarred && "fill-amber-400 text-amber-400")} aria-hidden="true" />
+                      <span className="hidden sm:inline">Chỉ quan trọng</span>
+                    </button>
+                    {isReadOnly ? null : (
+                      <button
+                        type="button"
+                        onClick={openNewRecord}
+                        className="press inline-flex min-h-9 items-center gap-1 rounded-md bg-personal px-3 text-[13.5px] font-semibold text-personal-foreground"
+                      >
+                        <Plus className="h-4 w-4" aria-hidden="true" /> <span className={cn(stuck && "sr-only md:not-sr-only")}>{isSynced ? "Cơ hội mới" : "Hạng mục"}</span>
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setFullscreen(!isFullscreen)}
+                      aria-label={isFullscreen ? "Thu nhỏ" : "Mở to tập trung"}
+                      title={isFullscreen ? "Thu nhỏ (Esc)" : "Mở to tập trung"}
+                      className={cn("press inline-flex min-h-9 items-center gap-1 rounded-md border border-border px-2.5 text-[13px]", stuck && "hidden md:inline-flex")}
+                    >
+                      {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                      {isFullscreen ? <span>Thu nhỏ</span> : null}
+                    </button>
+                  </div>
+                  {isTableFull(records, active.id) ? (
+                    <p role="status" className="w-full text-[13.5px] text-destructive">
+                      {active.syncSource === "contact_opportunities"
+                        ? `Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục. Cơ hội tạo từ Danh bạ vẫn được lưu và vẫn lên bảng này; chỉ thêm tay ở đây là bị chặn.`
+                        : `Bảng đã đủ ${RECORD_LIMIT.toLocaleString("vi-VN")} Hạng mục — tạo bảng con hoặc bảng mới.`}
+                    </p>
+                  ) : null}
+                </div>
+                </>
+              )}
+            </StickyBar>
 
             {visibleRecords.length === 0 && !onlyStarred && (active.purpose !== null || active.sourceTemplateKey !== null) ? (
               <div className="mt-4 rounded-card border border-dashed border-border px-5 py-5 text-center">
