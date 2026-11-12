@@ -2017,6 +2017,9 @@ const Messages = () => {
   const outbox = useOutboxRunner(userId);
 
   const sendMutation = useMutation({
+    // KT-07a2 · QA04-02: never paused offline — the message must reach the outbox (IndexedDB) the
+    // moment Gửi is pressed, show its waiting bubble, and leave the box free for the next one.
+    networkMode: "always",
     mutationFn: async (payload: SendPayload): Promise<void> => {
       if (!userId) throw new Error("Phiên đăng nhập đã hết hạn. Hãy đăng nhập lại.");
       // AVORA-46: after a first message the push card may offer itself (it decides; never on app open).

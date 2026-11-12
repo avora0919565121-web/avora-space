@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Hourglass, KeyRound, Users } from "lucide-react";
-import { memo, useState } from "react";
+import { memo, useState, useEffect } from "react";
 
 import { chatKeys, type ConversationVerification } from "@/lib/chat";
 import { celebrate } from "@/lib/confetti";
@@ -21,6 +21,9 @@ function daysLeft(expiresAt: string, now: Date = new Date()): number {
  * Text only, 5 messages per side, 7 days. Both press Đồng ý → bạn; either presses Từ chối →
  * the frame closes for both, with no reason shown.
  */
+/** KT-07a2 · QA04-08: how often the waiting side re-reads whether the other said yes. */
+const VERIFICATION_POLL_MS = 4000;
+
 export const VerificationPanel = memo(function VerificationPanel({ conversationId, verification, viewerId }: VerificationPanelProps) {
   const queryClient = useQueryClient();
   const [notice, setNotice] = useState<string | null>(null);
@@ -47,6 +50,22 @@ export const VerificationPanel = memo(function VerificationPanel({ conversationI
   });
 
   const isOpener = verification.openedBy === viewerId;
+  // KT-07a2 · QA04-08: the one who asked learns the answer without reloading — while waiting, the
+  // frame re-reads every few seconds (and on coming back to the tab); it unmounts once connected.
+  useEffect(() => {
+    if (!isOpener) return;
+    const tick = (): void => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") return;
+      void queryClient.invalidateQueries({ queryKey: chatKeys.conversations });
+      void queryClient.invalidateQueries({ queryKey: connectionKeys.all });
+    };
+    const timer = window.setInterval(tick, VERIFICATION_POLL_MS);
+    document.addEventListener("visibilitychange", tick);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", tick);
+    };
+  }, [isOpener, queryClient]);
   const Icon = verification.viaGroupId !== null ? Users : KeyRound;
   const isBusy = confirmMutation.isPending || declineMutation.isPending;
 

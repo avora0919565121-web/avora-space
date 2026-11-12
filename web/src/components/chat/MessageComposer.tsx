@@ -24,6 +24,7 @@ import {
 } from "@/lib/mentions";
 import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
+import { enterSends } from "@/lib/enter-sends";
 import {
   activeTrigger,
   applyRef,
@@ -91,9 +92,9 @@ export type MessageComposerProps = {
 /**
  * The one composer behind every thread — 1-1, group and Nhật ký all render this.
  *
- * AVORA-55 · 1 (cancels AVORA-49 · 2.5): a message leaves only through the Gửi button, on every
- * device. Enter — plain, Shift, Ctrl or Cmd — always writes a new line; no keyboard shortcut
- * sends. While an IME is still composing a Vietnamese letter (Telex / VNI), Enter finishes the
+ * AVORA-55 · 1: on a phone a message leaves only through the Gửi button — Enter writes a new line.
+ * KT-07a2 (QA-04): on a computer Enter sends and Shift+Enter writes a new line; Ctrl/Cmd+Enter
+ * do nothing. While an IME is still composing a Vietnamese letter (Telex / VNI), Enter finishes the
  * letter.
  */
 export function MessageComposer({
@@ -274,7 +275,15 @@ export function MessageComposer({
    */
   const handleFieldKeyDown = useCallback(
     (event: KeyboardEvent<HTMLTextAreaElement>): void => {
-      if (mentionRange === null || suggestions.length === 0) return;
+      if (mentionRange === null || suggestions.length === 0) {
+        // KT-07a2 (QA-04, G-01): on a computer Enter sends and Shift+Enter writes a new line. A phone
+        // keeps Enter = new line (AVORA-55 · 1). Never while an IME is still composing a letter.
+        if (event.key === "Enter" && !event.shiftKey && !event.ctrlKey && !event.metaKey && !event.altKey && !event.nativeEvent.isComposing && enterSends()) {
+          event.preventDefault();
+          submit();
+        }
+        return;
+      }
 
       if (event.key === "ArrowDown") {
         event.preventDefault();
@@ -298,7 +307,7 @@ export function MessageComposer({
         setMentionRange(null);
       }
     },
-    [mentionRange, suggestions, highlighted, choose],
+    [mentionRange, suggestions, highlighted, choose, submit],
   );
 
   return (
@@ -328,6 +337,8 @@ export function MessageComposer({
                   role="option"
                   aria-selected={index === highlighted}
                   onMouseEnter={() => setHighlighted(index)}
+                  // KT-07a2 · QA04-05: keep focus in the text, or onBlur clears the range and choose() does nothing.
+                  onMouseDown={(event) => event.preventDefault()}
                   onClick={() => choose(candidate)}
                   className={cn(
                     "press w-full truncate rounded-[7px] px-2.5 py-2 text-left text-[13.5px] transition-colors",

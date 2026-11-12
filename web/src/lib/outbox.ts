@@ -150,6 +150,16 @@ export function retryDelayMs(attempts: number): number {
   return Math.min(30_000, 1000 * 2 ** Math.max(0, attempts - 1));
 }
 
+/**
+ * KT-07a2 · QA04-01: an item left `sending` by a reload (or a closed tab) was never sent again —
+ * `sendableHeads` skips `sending`, so it blocked its whole conversation forever. On start-up it goes
+ * back to `queued` *in storage*. Sending it again is safe: the id is fixed on the device and
+ * `send_message` returns the existing row for an id it already has (no duplicate).
+ */
+export function resumedItem(item: OutboxItem): OutboxItem {
+  return item.state === "sending" ? { ...item, state: "queued" } : item;
+}
+
 /** The order to send: per conversation by seq; conversations independent. Returns the head of each. */
 export function sendableHeads(items: readonly OutboxItem[]): OutboxItem[] {
   const heads = new Map<string, OutboxItem>();

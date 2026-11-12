@@ -4,11 +4,13 @@ import { useCallback, useEffect, useRef } from "react";
 
 import { attachmentKeys, flushPendingRemovals, removeUnsentUploads, sendMessageWithAttachments, uploadStagedAttachment, type StagedAttachment } from "@/lib/attachments";
 import { chatKeys, mergeIncomingMessage, sendMessage, type ChatMessage } from "@/lib/chat";
+import { compareThreadOrder } from "@/lib/chat-cache";
 import { logError } from "@/lib/log";
 import { serverText } from "@/lib/server-error";
 import {
   isPermanentSendError,
   nextOutboxState,
+  resumedItem,
   nextSeq,
   outboxStore,
   retryDelayMs,
@@ -52,7 +54,7 @@ export function useOutboxRunner(userId: string | undefined): {
       };
       queryClient.setQueryData<ChatMessage[]>(key, (current) => {
         const rest = (current ?? []).filter((message) => message.id !== item.id);
-        return [...rest, bubble].sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.id.localeCompare(b.id));
+        return [...rest, bubble].sort(compareThreadOrder);
       });
     },
     [queryClient],
@@ -143,6 +145,8 @@ export function useOutboxRunner(userId: string | undefined): {
         await outboxStore.put(current);
         showWaiting(current);
         if (state === "failed") logError("outbox", { code: "send_failed", message: message.slice(0, 80) });
+        // KT-07a2 · QA04-01: say it once, when it first stops — the bubble itself carries "Gửi lại".
+        if (state === "failed" && item.state !== "failed") toast.error("Tin chưa gửi được. Chạm “Gửi lại” ở tin đó để thử lần nữa.");
       } finally {
         runningRef.current.delete(item.conversationId);
       }
@@ -174,9 +178,13 @@ export function useOutboxRunner(userId: string | undefined): {
   useEffect(() => {
     if (!userId) return;
     let cancelled = false;
-    void outboxStore.all(userId).then((items) => {
+    void outboxStore.all(userId).then(async (items) => {
       if (cancelled) return;
-      items.forEach((entry) => showWaiting(entry.state === "sending" ? { ...entry, state: "queued" } : entry));
+      // KT-07a2 · QA04-01: `sending` left by the reload goes back to `queued` in storage, not only on screen.
+      const resumed = items.map(resumedItem);
+      for (const [index, entry] of resumed.entries()) if (entry !== items[index]) await outboxStore.put(entry);
+      if (cancelled) return;
+      resumed.forEach((entry) => showWaiting(entry));
       void pump();
     });
     const online = (): void => void pump();

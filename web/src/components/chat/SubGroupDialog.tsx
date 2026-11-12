@@ -41,8 +41,10 @@ export function SubGroupDialog({
     if (!open) return;
     setName("");
     setNotice(null);
-    setPicked(new Set(members.filter((member) => member.userId !== selfId).map((member) => member.userId)));
-  }, [open, members, selfId]);
+    // KT-07a2 · QA04-04: nobody is ticked to start with — each person is added on purpose
+    // (ticked-by-default made the office build the opposite of the group it meant).
+    setPicked(new Set());
+  }, [open]);
 
   const submit = useCallback(async (): Promise<void> => {
     if (name.trim().length === 0) {
@@ -82,7 +84,17 @@ export function SubGroupDialog({
         </label>
         {others.length > 0 ? (
           <fieldset className="mt-1">
-            <legend className="text-[13px] font-medium text-muted-foreground">Thành viên</legend>
+            <legend className="flex w-full items-center justify-between text-[13px] font-medium text-muted-foreground">
+              <span>Chọn người vào nhóm con · {picked.size}/{others.length}</span>
+              <button
+                type="button"
+                data-subgroup-all=""
+                onClick={() => setPicked(picked.size === others.length ? new Set() : new Set(others.map((member) => member.userId)))}
+                className="press min-h-9 px-1 text-[13px] font-medium text-personal underline-offset-4 hover:underline"
+              >
+                {picked.size === others.length ? "Bỏ chọn tất cả" : "Chọn tất cả"}
+              </button>
+            </legend>
             <ul className="mt-1.5 max-h-56 space-y-0.5 overflow-y-auto">
               {others.map((member) => (
                 <li key={member.userId}>

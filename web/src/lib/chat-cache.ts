@@ -517,7 +517,20 @@ export function toIsoMicros(value: string): string {
   return `${whole}.${String(micros % 1_000_000).padStart(6, "0")}Z`;
 }
 
+/**
+ * KT-07a2 · QA04-07: a bubble still waiting in this device's outbox sorts after every row the server
+ * has confirmed. The outbox sends one at a time per conversation, so confirmed rows are always the
+ * first ones written; mixing the device clock (waiting) with the server clock (confirmed) is what
+ * showed 6,7,8,9,1,10,2… while ten quick messages went out.
+ */
+export function compareThreadOrder(left: ChatMessage, right: ChatMessage): number {
+  return compareMessages(left, right);
+}
+
 function compareMessages(left: ChatMessage, right: ChatMessage): number {
+  // A failed send keeps the place it was written (it is no longer "on its way").
+  const waitingLeft = left.pending === true && left.failed !== true;
+  if (waitingLeft !== (right.pending === true && right.failed !== true)) return waitingLeft ? 1 : -1;
   const byTime = serverTimeMicros(left.createdAt) - serverTimeMicros(right.createdAt);
   return byTime !== 0 ? byTime : left.id.localeCompare(right.id);
 }
