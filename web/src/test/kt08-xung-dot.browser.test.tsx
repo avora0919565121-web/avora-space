@@ -21,7 +21,7 @@ for (const [width, height] of [[390, 844], [1440, 900]] as const) {
     });
     const onOpenChange = vi.fn();
     const screen = await render(
-      <RecordDialog open onOpenChange={onOpenChange} columns={[]} record={base} knownStatuses={[]} onSave={onSave} isWorking={false} onReloadRecord={async () => undefined} />,
+      <RecordDialog open onOpenChange={onOpenChange} columns={[]} record={base} knownStatuses={[]} onSave={onSave} isWorking={false} onReloadRecord={async () => undefined} loadLatest={async () => ({ ...base, updatedAt: "2026-11-13T02:00:00.000002+00:00" })} />,
     );
     await userEvent.fill(screen.getByRole("textbox", { name: "Tiêu đề" }), "Đèn sảnh chính");
     await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
@@ -47,7 +47,7 @@ test("KT-08 · QA04-06: Xem bản mới nạp dòng hiện tại vào form", asy
     throw new RecordConflictError("2026-11-13T02:00:00+00:00", null, true);
   });
   const screen = await render(
-    <RecordDialog open onOpenChange={() => undefined} columns={[]} record={record} knownStatuses={[]} onSave={onSave} isWorking={false} onReloadRecord={reload} />,
+    <RecordDialog open onOpenChange={() => undefined} columns={[]} record={record} knownStatuses={[]} onSave={onSave} isWorking={false} onReloadRecord={reload} loadLatest={async () => ({ ...base, updatedAt: "2026-11-13T02:00:00+00:00" })} />,
   );
   await userEvent.fill(screen.getByRole("textbox", { name: "Tiêu đề" }), "Bản của tôi");
   await userEvent.click(screen.getByRole("button", { name: "Lưu" }));
@@ -56,7 +56,7 @@ test("KT-08 · QA04-06: Xem bản mới nạp dòng hiện tại vào form", asy
   expect(reload).toHaveBeenCalledTimes(1);
   record = { ...base, title: "Bản mới của người khác", updatedAt: "2026-11-13T02:00:00+00:00" };
   await screen.rerender(
-    <RecordDialog open onOpenChange={() => undefined} columns={[]} record={record} knownStatuses={[]} onSave={onSave} isWorking={false} onReloadRecord={reload} />,
+    <RecordDialog open onOpenChange={() => undefined} columns={[]} record={record} knownStatuses={[]} onSave={onSave} isWorking={false} onReloadRecord={reload} loadLatest={async () => ({ ...base, updatedAt: "2026-11-13T02:00:00+00:00" })} />,
   );
   await expect.element(screen.getByRole("textbox", { name: "Tiêu đề" })).toHaveValue("Bản mới của người khác");
   expect(document.querySelector("[data-record-conflict]")).toBeNull();

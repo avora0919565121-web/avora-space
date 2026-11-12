@@ -25,9 +25,11 @@ import {
   type RecordPatch,
   type RecordPriority,
   type RecordConflictError,
+  fetchThinkRecord,
 } from "@/lib/think-hub";
 import { deadlineLabel, taskStatusLabel, todayIso, type TaskItem } from "@/lib/tasks";
 import { ExtensionField } from "@/components/think-hub/ExtensionField";
+import { changedPatch, conflictSummary, type RecordDraft } from "@/lib/record-merge";
 import { cn } from "@/lib/utils";
 
 type RecordDialogProps = {
@@ -46,6 +48,11 @@ type RecordDialogProps = {
   onSave: (patch: RecordPatch, options?: { expectedUpdatedAt?: string | null }) => Promise<void>;
   /** KT-08 · QA04-06: "Xem bản mới" — load the row as it is now into this dialog. */
   onReloadRecord?: () => Promise<void>;
+  /**
+   * KT-09 · QA06-02: reads the row as the server has it now, without touching the form — to name the
+   * fields the other person changed and to merge "Vẫn lưu của tôi" onto them. Defaults to the server.
+   */
+  loadLatest?: (recordId: string) => Promise<ThinkRecord>;
   isWorking: boolean;
   /**
    * For a new Hạng mục: the tables it may be filed into — only those in the current scope, the
@@ -191,18 +198,7 @@ function SubTableSection({
   );
 }
 
-type Draft = {
-  title: string;
-  status: string;
-  priority: RecordPriority;
-  category: string;
-  nextActionDate: string;
-  /** `YYYY-MM-DDTHH:MM` in local time, as a datetime-local input speaks it. */
-  remindAt: string;
-  tags: string;
-  notes: string;
-  extension: Record<string, string>;
-};
+type Draft = RecordDraft;
 
 /** An ISO instant as the local `YYYY-MM-DDTHH:MM` a datetime-local field shows. */
 function toLocalInput(iso: string | null | undefined): string {
@@ -269,15 +265,19 @@ export function RecordDialog({
   syncNote,
   guideQuestion = null,
   onReloadRecord,
+  loadLatest = fetchThinkRecord,
 }: RecordDialogProps) {
   const [draft, setDraft] = useState<Draft>(() => draftOf(record, columns));
   // KT-09 · QA06-01: the form as it is at this instant — "Vẫn lưu của tôi" reads it at the click, never a copy.
   const draftRef = useRef<Draft>(draft);
   draftRef.current = draft;
   const [notice, setNotice] = useState<string | null>(null);
-  // KT-08 · QA04-06: the row changed under this form — nothing was written; the person chooses.
-  // KT-09 · QA06-01: no patch is kept here — the form stays editable and is read again at the choice.
-  const [conflict, setConflict] = useState<{ error: RecordConflictError; then?: () => void } | null>(null);
+  /**
+   * KT-08 · QA04-06: the row changed under this form — nothing was written; the person chooses.
+   * KT-09: `latest` is the row as the server has it (null while it loads / when it could not be read).
+   * No patch is kept here: the form stays editable and is read again when the person chooses.
+   */
+  const [conflict, setConflict] = useState<{ error: RecordConflictError; latest: ThinkRecord | null; then?: () => void } | null>(null);
   const conflictRef = useRef<HTMLDivElement | null>(null);
   const { isSubmitting, guard } = useSubmitGuard();
 
@@ -303,8 +303,11 @@ export function RecordDialog({
     setDraft((current) => ({ ...current, [key]: value }));
   }, []);
 
-  /** The form as a patch, or null (with a notice) when something in it cannot be saved. */
-  const buildPatch = useCallback((current: Draft): RecordPatch | null => {
+  /** KT-09 · QA06-02: the version this form was opened with — what "changed" is measured against. */
+  const baseDraft: Draft = useMemo(() => draftOf(record, columns), [record, columns]);
+
+  /** The whole form as a patch, or null (with a notice) when something in it cannot be saved. */
+  const fullPatchOf = useCallback((current: Draft): RecordPatch | null => {
       const title = current.title.trim();
       if (title.length === 0) {
         setNotice("Hạng mục này cần một tiêu đề.");
@@ -348,48 +351,111 @@ export function RecordDialog({
       };
   }, [columns]);
 
+  /**
+   * KT-09 · QA06-02: what to send — a new Hạng mục gets the whole form; an existing one only the
+   * fields changed since it was opened, the cell map rebuilt on `latest` (the server's row now;
+   * the opened version when saving normally). `{}` means nothing changed.
+   */
+  const buildPatch = useCallback(
+    (current: Draft, latest: ThinkRecord | null): RecordPatch | null => {
+      const full = fullPatchOf(current);
+      if (full === null || record === null) return full;
+      return changedPatch(baseDraft, current, full, columns, (latest ?? record).extensionFields);
+    },
+    [fullPatchOf, record, baseDraft, columns],
+  );
+
+  /** KT-09: a conflict was reported — show it at once, then read the row to say which fields it touches. */
+  const reportConflict = useCallback(
+    (error: RecordConflictError, then?: () => void): void => {
+      setConflict({ error, latest: null, then });
+      if (record === null) return;
+      loadLatest(record.id).then(
+        (latest) => setConflict((current) => (current !== null && current.error === error ? { ...current, latest } : current)),
+        () => undefined,
+      );
+    },
+    [loadLatest, record],
+  );
+
   const handleSubmit = useCallback(
     async (event: FormEvent<HTMLFormElement>): Promise<void> => {
       event.preventDefault();
-      const patch = buildPatch(draftRef.current);
+      const patch = buildPatch(draftRef.current, null);
       if (patch === null) return;
+      if (Object.keys(patch).length === 0) {
+        // Nothing changed since it was opened: nothing to write.
+        onOpenChange(false);
+        return;
+      }
       await guard(async () => {
       try {
         await onSave(patch);
         onOpenChange(false);
       } catch (error) {
         if (isRecordConflict(error)) {
-          setConflict({ error });
+          reportConflict(error);
           return;
         }
         setNotice(error instanceof Error ? error.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
       });
     },
-    [buildPatch, onSave, onOpenChange, guard],
+    [buildPatch, onSave, onOpenChange, guard, reportConflict],
   );
 
   /**
-   * "Vẫn lưu của tôi": write this form over the newer version the person was just told about.
-   * KT-09 · QA06-01: the form as it is at the click — what was typed while the box was open counts.
+   * "Vẫn lưu của tôi" (KT-09): the form as it is at the click (QA06-01), only the fields this person
+   * changed, merged onto the row as the server has it (QA06-02). A field both changed takes this
+   * person's value; the box has already named it.
    */
   const keepMine = useCallback(async (): Promise<void> => {
-    if (conflict === null) return;
+    if (conflict === null || record === null) return;
     const { error, then } = conflict;
-    const patch = buildPatch(draftRef.current);
-    if (patch === null) return;
     await guard(async () => {
-      try {
-        await onSave(patch, { expectedUpdatedAt: error.updatedAt });
+      let latest: ThinkRecord | null = conflict.latest;
+      if (latest === null) {
+        try {
+          latest = await loadLatest(record.id);
+          setConflict((current) => (current !== null && current.error === error ? { ...current, latest } : current));
+        } catch {
+          setNotice("Chưa tải được bản mới nên chưa lưu. Thử lại nhé.");
+          return;
+        }
+      }
+      const patch = buildPatch(draftRef.current, latest);
+      if (patch === null) return;
+      const finish = (): void => {
         setConflict(null);
         if (then !== undefined) then();
         else onOpenChange(false);
+      };
+      if (Object.keys(patch).length === 0) {
+        finish();
+        return;
+      }
+      try {
+        await onSave(patch, { expectedUpdatedAt: latest.updatedAt });
+        finish();
       } catch (again) {
-        if (isRecordConflict(again)) setConflict({ error: again, then });
+        if (isRecordConflict(again)) reportConflict(again, then);
         else setNotice(again instanceof Error ? again.message : "Có lỗi xảy ra. Vui lòng thử lại.");
       }
     });
-  }, [conflict, buildPatch, guard, onSave, onOpenChange]);
+  }, [conflict, record, guard, loadLatest, buildPatch, onSave, onOpenChange, reportConflict]);
+
+  /** KT-09: the line under the conflict message — which fields "Vẫn lưu của tôi" replaces, live as the person types. */
+  const conflictLine: string | null = useMemo(() => {
+    if (conflict === null) return null;
+    return conflictSummary({
+      base: baseDraft,
+      mine: draft,
+      latest: conflict.latest === null ? null : draftOf(conflict.latest, columns),
+      columns,
+      byName: conflict.error.byName,
+      byMe: conflict.error.byMe,
+    }).text;
+  }, [conflict, baseDraft, draft, columns]);
 
   /** "Xem bản mới": the form shows the row as it is now; what was typed here is set aside. */
   const seeNewer = useCallback(async (): Promise<void> => {
@@ -410,8 +476,8 @@ export function RecordDialog({
    * fails keeps the person here with the reason, nothing is lost.
    */
   const isDirty: boolean = useMemo(
-    () => JSON.stringify(draft) !== JSON.stringify(draftOf(record, columns)),
-    [draft, record, columns],
+    () => JSON.stringify(draft) !== JSON.stringify(baseDraft),
+    [draft, baseDraft],
   );
   const thenAct = useCallback(
     (action: (() => void) | undefined) =>
@@ -422,14 +488,18 @@ export function RecordDialog({
               action();
               return;
             }
-            const patch = buildPatch(draftRef.current);
+            const patch = buildPatch(draftRef.current, null);
             if (patch === null) return;
+            if (Object.keys(patch).length === 0) {
+              action();
+              return;
+            }
             void onSave(patch).then(action, (error: unknown) => {
-              if (isRecordConflict(error)) setConflict({ error, then: action });
+              if (isRecordConflict(error)) reportConflict(error, action);
               else setNotice(error instanceof Error ? error.message : "Chưa lưu được nên chưa làm tiếp. Thử lại nhé.");
             });
           },
-    [buildPatch, isDirty, isReadOnly, onSave],
+    [buildPatch, isDirty, isReadOnly, onSave, reportConflict],
   );
 
   const fieldClass =
@@ -682,6 +752,11 @@ export function RecordDialog({
             <div ref={conflictRef} role="alert" data-record-conflict="" className="rounded-md border border-border bg-secondary/70 px-3.5 py-3">
               <p className="text-[14px] font-medium text-foreground">{conflict.error.message}</p>
               <p className="mt-0.5 text-[13px] text-muted-foreground">Bản bạn đang sửa chưa được lưu — chọn giữ bản nào.</p>
+              {conflictLine !== null ? (
+                <p data-record-conflict-fields="" className="mt-1 text-[13px] text-foreground">
+                  {conflictLine}
+                </p>
+              ) : null}
               <div className="mt-2.5 flex flex-wrap gap-2">
                 <Button type="button" variant="outline" size="sm" onClick={() => void seeNewer()} disabled={isSubmitting}>
                   Xem bản mới
