@@ -18,6 +18,18 @@ export const DIARY_VIEWS: readonly { id: DiaryView; label: string; short: string
   { id: "sources", label: "Nguồn tạo việc", short: "Nguồn tạo việc" },
 ];
 
+/**
+ * KT-07b (CEO 12/11 · 2): Kết nối › Nhật ký chỉ giữ phần ghi nhanh. "Sổ ghi chép" vẫn có nhãn
+ * trong Nhật ký nhưng là lối sang Thư phòng › Ghi chép — nên đứng cuối, sau các phần ghi nhanh.
+ */
+export const CONNECT_DIARY_VIEWS: readonly { id: DiaryView; label: string; short: string }[] = [
+  ...DIARY_VIEWS.filter((view) => view.id !== "notes"),
+  ...DIARY_VIEWS.filter((view) => view.id === "notes"),
+];
+
+/** Where "Sổ ghi chép" leads from Kết nối › Nhật ký: Thư phòng › Ghi chép. */
+export const STUDY_NOTES_PATH = "/ke-hoach?ke=5&phan=ghi";
+
 /** The address-bar key naming which Nhật ký view is open (`?xem=`). */
 export const DIARY_VIEW_PARAM = "xem";
 
@@ -49,13 +61,16 @@ export function diaryViewFromSlug(slug: string | null): DiaryView | null {
 const LAST_VIEW_KEY = "avora.diary.lastView";
 const SEEN_KEY_PREFIX = "avora.diary.seen.";
 
-/** The view used last on this device; the first visit opens Ghi chép (AVORA-71 · A). */
+/**
+ * The view used last on this device. KT-07b: Nhật ký opens on ghi nhanh — Sổ ghi chép lives in
+ * Thư phòng now, so it is never the place Kết nối › Nhật ký lands on by itself.
+ */
 export function readLastDiaryView(): DiaryView {
   try {
-    const stored = window.localStorage.getItem(LAST_VIEW_KEY);
-    return diaryViewFromSlug(stored) ?? "notes";
+    const stored = diaryViewFromSlug(window.localStorage.getItem(LAST_VIEW_KEY));
+    return stored === null || stored === "notes" ? "journal" : stored;
   } catch {
-    return "notes";
+    return "journal";
   }
 }
 

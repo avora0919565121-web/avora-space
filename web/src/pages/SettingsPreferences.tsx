@@ -106,7 +106,7 @@ const SettingsPreferences = () => {
     <div className="paper min-h-0 flex-1 scroll-y">
       <div data-under-tabs="" className="mx-auto max-w-2xl animate-rise-in px-6 pb-12 pt-4 md:px-10">
         <div className="rounded-card border border-border bg-card p-s-4">
-          <h2 className="text-[17px] font-semibold text-foreground">Tiền tệ, múi giờ và Góc suy ngẫm</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">Tiền tệ, múi giờ và Góc suy ngẫm</h2>
           <p className="mt-1 text-[13px] text-muted-foreground">
             Loại tiền dùng để cộng gộp báo cáo, múi giờ dùng cho giờ hạn của nhiệm vụ, và câu suy ngẫm
             mở đầu ngày.
@@ -246,7 +246,7 @@ const SettingsPreferences = () => {
         <ShareReadCard />
 
         <section aria-labelledby="review-heading" className="rounded-card border border-border bg-card p-s-4">
-          <h2 id="review-heading" className="text-[17px] font-semibold tracking-tight text-foreground">Nhìn lại</h2>
+          <h2 id="review-heading" className="text-[15px] font-semibold tracking-tight text-foreground">Nhìn lại</h2>
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
             Thói quen ôn lại điều đã nghĩ, đã đọc, đã làm. Không chấm điểm, không thông báo đẩy.
           </p>

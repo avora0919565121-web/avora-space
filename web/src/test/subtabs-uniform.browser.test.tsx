@@ -137,7 +137,7 @@ const TABS = [
   { name: "nhiem-vu", at: "/nhiem-vu", strip: "[data-sub-tabs]" },
   { name: "ke-hoach", at: "/ke-hoach?ke=5", strip: "[data-study-bar] [data-sub-tabs]" },
   { name: "ket-sat", at: "/ket-sat", strip: "[data-sub-tabs]" },
-  { name: "cai-dat", at: "/cai-dat/huong-dan", strip: "[data-sub-tabs]" },
+  // KT-07b: Cài đặt has no strip any more — it is a grouped list (CEO 12/11 · 3).
 ] as const;
 
 type Measure = {
@@ -214,7 +214,7 @@ beforeEach(() => {
 });
 
 for (const width of [360, 390, 430] as const) {
-  test(`một dải SubTabs cho 5 tab · ${width}px — cùng vị trí, cỡ, lề, khoảng cách, màu; không tràn ngang`, async () => {
+  test(`một dải SubTabs cho 4 tab · ${width}px — cùng vị trí, cỡ, lề, khoảng cách, màu; không tràn ngang`, async () => {
     await page.viewport(width, 844);
     await expect.poll(() => window.innerWidth).toBe(width);
     const all: Record<string, Measure> = {};
@@ -273,7 +273,7 @@ for (const width of [360, 390, 430] as const) {
   });
 }
 
-test("máy tính 1280 · tên tab lớn và chữ đầu dải cùng một lề (--tab-inset) ở cả 5 tab", async () => {
+test("máy tính 1280 · tên tab lớn và chữ đầu dải cùng một lề (--tab-inset) ở cả 4 tab", async () => {
   await page.viewport(1280, 800);
   await expect.poll(() => window.innerWidth).toBe(1280);
   const rows: Record<string, { titleLeft: number; firstLeft: number }> = {};

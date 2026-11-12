@@ -22,7 +22,7 @@ export function BlockedPeopleCard() {
 
   return (
     <section aria-labelledby="blocked-people-title" className="mt-s-4 rounded-card border border-border bg-card p-s-4">
-      <h2 id="blocked-people-title" className="flex items-center gap-2 text-[17px] font-semibold text-foreground">
+      <h2 id="blocked-people-title" className="flex items-center gap-2 text-[15px] font-semibold text-foreground">
         <Ban className="h-4 w-4 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
         Người đã chặn
       </h2>

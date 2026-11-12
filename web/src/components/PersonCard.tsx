@@ -289,7 +289,7 @@ function PersonCardBody({ personRef, onClose }: { personRef: PersonRef; onClose:
 
       <div className="mt-4 flex gap-2">
         {view.isSelf ? (
-          <ActionTile icon={<Settings2 className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />} label="Sửa hồ sơ" onClick={() => go("/cai-dat")} />
+          <ActionTile icon={<Settings2 className="h-5 w-5" strokeWidth={1.7} aria-hidden="true" />} label="Sửa hồ sơ" onClick={() => go("/cai-dat/ho-so")} />
         ) : (
           <>
             {view.isFriend ? (

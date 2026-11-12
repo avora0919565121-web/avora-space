@@ -202,7 +202,7 @@ const ContactChannelReview = () => {
           item that cannot be done. */}
       {groups.length > 0 ? (
         <section className="mt-7">
-          <h2 className="text-[16px] font-semibold text-foreground">
+          <h2 className="text-[15px] font-semibold text-foreground">
             {groups.length} liên hệ có nhiều số điện thoại hoặc email
           </h2>
           <p className="mt-1 max-w-xl text-[13.5px] leading-relaxed text-muted-foreground">
@@ -229,7 +229,7 @@ const ContactChannelReview = () => {
 
       {shared.groups.length > 0 ? (
         <section className="mt-9">
-          <h2 className="text-[16px] font-semibold text-foreground">
+          <h2 className="text-[15px] font-semibold text-foreground">
             {shared.groups.length} số điện thoại hoặc email đang dùng chung
           </h2>
           <p className="mt-1 max-w-xl text-[13.5px] leading-relaxed text-muted-foreground">

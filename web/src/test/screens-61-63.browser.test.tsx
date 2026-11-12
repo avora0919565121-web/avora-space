@@ -1084,12 +1084,14 @@ test("70.6 · chat 1-1 không đổi: vẫn bong bóng", async () => {
 
 // ------------------------------------------------------------------ 71
 for (const [width, height, label] of [[390, 844, "390"], [1280, 800, "1280"]] as const) {
-  test(`71.1 · Nhật ký: Ghi chép đứng đầu · ${label}`, async () => {
+  // KT-07b (CEO 12/11 · 2): Nhật ký giữ phần ghi nhanh trước; Sổ ghi chép đứng cuối và dẫn sang Thư phòng › Ghi chép.
+  test(`71.1 · Nhật ký: ghi nhanh đứng đầu, Sổ ghi chép là lối sang Thư phòng · ${label}`, async () => {
     await viewport(width, height);
     await render(<Diary />);
     await settle(300);
     const order = [...document.querySelectorAll("a, button")].map((node) => node.textContent?.trim() ?? "").filter((text) => /^(Ghi chép|Nhật ký của tôi|File của tôi|Liên kết|Nguồn tạo việc)/.test(text));
-    expect(order[0]?.startsWith("Ghi chép")).toBe(true);
+    expect(order[0]?.startsWith("Ghi chép")).toBe(false);
+    expect(document.querySelector('a[href="/ke-hoach?ke=5&phan=ghi"]')).not.toBeNull();
     await page.screenshot({ path: `${OUT2}/71-1-thu-tu-nhat-ky-${label}.png` });
   });
 }

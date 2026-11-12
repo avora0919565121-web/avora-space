@@ -82,7 +82,7 @@ export function AccountDeletionSection() {
 
   return (
     <section id="tai-khoan" aria-labelledby="account-heading" data-testid="account-section" className="mt-s-4 scroll-mt-4 rounded-card border border-border bg-card p-s-4">
-      <h2 id="account-heading" className="text-[17px] font-semibold text-foreground">Tài khoản</h2>
+      <h2 id="account-heading" className="text-[15px] font-semibold text-foreground">Tài khoản</h2>
       {pending ? (
         <div className="mt-s-2 rounded-md border border-destructive/25 bg-destructive/[0.06] p-s-2" data-testid="account-pending">
           <p className="flex items-center gap-2 text-[15px] font-semibold text-destructive">

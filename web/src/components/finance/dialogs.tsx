@@ -141,7 +141,7 @@ export function AccountDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[540px]">
+      <DialogContent phoneSheet className="max-w-[540px]">
         <DialogTitle className="text-[20px] font-semibold tracking-tight">
           {editing ? "Sửa tài khoản" : "Tài khoản mới"}
         </DialogTitle>
@@ -383,7 +383,7 @@ export function CategoryDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[460px]">
+      <DialogContent phoneSheet className="max-w-[460px]">
         <DialogTitle className="text-[20px] font-semibold tracking-tight">
           {editing ? "Sửa danh mục" : "Danh mục mới"}
         </DialogTitle>

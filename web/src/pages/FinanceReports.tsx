@@ -417,7 +417,7 @@ const FinanceReports = () => {
           <Panel>
             <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-5 py-4">
               <div>
-                <h2 className="text-[17px] font-semibold tracking-tight text-foreground">{report.title}</h2>
+                <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{report.title}</h2>
                 <p className="mt-0.5 text-[13px] text-muted-foreground">{report.subtitle}</p>
               </div>
               <div className="flex gap-2">

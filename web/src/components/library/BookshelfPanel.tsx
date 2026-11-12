@@ -770,7 +770,7 @@ function AddBookDialog({ open, onOpenChange, onAdd }: { open: boolean; onOpenCha
   const input = "mt-1 h-10 w-full rounded-md border border-border bg-background px-3 text-[16px] outline-none focus:border-personal md:text-[14.5px]";
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[440px]">
+      <DialogContent phoneSheet className="max-w-[440px]">
         <DialogTitle className="text-[18px]">Thêm sách tôi đang có</DialogTitle>
         <DialogDescription className="text-[13px]">Sách bạn đọc ở nơi khác. Avora giữ chỗ đọc và ghi chép, không mở nội dung.</DialogDescription>
         <label className="block"><span className="text-[13px] font-medium">Tên sách</span><input value={title} autoFocus onChange={(e) => setTitle(e.target.value)} className={input} /></label>

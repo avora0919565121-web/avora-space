@@ -31,7 +31,8 @@ import type { MessageAttachment } from "@/lib/attachments";
 import { formatClock, formatDayLabel } from "@/lib/chat";
 import {
   DIARY_VIEW_PARAM,
-  DIARY_VIEWS,
+  CONNECT_DIARY_VIEWS,
+  STUDY_NOTES_PATH,
   diaryFileSourceLabel,
   diaryViewSlug,
   type DiaryFileNote,
@@ -44,10 +45,10 @@ import type { TaskItem } from "@/lib/tasks";
 import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
-/** What each Nhật ký view holds, in one line under its name. */
+/** What each Nhật ký view holds, in one line under its name (Kết nối › Nhật ký). */
 export const DIARY_HINTS: Readonly<Record<DiaryView, string>> = {
   journal: "Ghi nhanh từng dòng theo ngày — lịch sử của bạn, chỉ mình bạn xem",
-  notes: "Nội dung dài bạn tự viết, xếp theo thư mục",
+  notes: "Nội dung dài, xếp theo thư mục — mở ở Thư phòng › Ghi chép",
   files: "Mọi ảnh và tệp trong Nhật ký và Sổ ghi chép",
   links: "Mọi đường link bạn đã lưu",
   sources: "Việc tạo từ Nhật ký",
@@ -95,16 +96,18 @@ export function DiaryCountRow({
   return (
     <nav aria-label="Các mục Nhật ký" className="border-b border-border bg-card/80">
       <ul data-h-scroll="" className="no-scrollbar flex gap-1.5 overflow-x-auto px-4 py-2 md:px-8">
-        {DIARY_VIEWS.map((view) => {
+        {CONNECT_DIARY_VIEWS.map((view) => {
           const isActive = view.id === active;
           const count = counts[view.id];
           const Icon = DIARY_ICONS[view.id];
+          // KT-07b: Sổ ghi chép is a way across to Thư phòng › Ghi chép, not a view of Nhật ký.
+          const toStudy = view.id === "notes" && !isActive;
           return (
             <li key={view.id} className="shrink-0">
               <Link
                 ref={isActive ? activeRef : undefined}
-                to={`/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
-                replace
+                to={toStudy ? STUDY_NOTES_PATH : `/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
+                replace={!toStudy}
                 aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "press relative flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors",
@@ -167,10 +170,11 @@ export function DiaryList({
   return (
     <div className="px-3 pb-6">
       <ul aria-label="Nhật ký">
-        {DIARY_VIEWS.map((view) => {
+        {CONNECT_DIARY_VIEWS.map((view) => {
           const Icon = DIARY_ICONS[view.id];
           const count = counts[view.id];
           const isActive = isWide && view.id === active;
+          const toStudy = view.id === "notes";
           return (
             <li key={view.id}>
               {journalId === null ? (
@@ -181,8 +185,9 @@ export function DiaryList({
               ) : (
                 <div className="flex items-center">
                 <Link
-                  to={`/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
-                  replace={isWide}
+                  to={toStudy ? STUDY_NOTES_PATH : `/tin-nhan/${journalId}?${DIARY_VIEW_PARAM}=${diaryViewSlug(view.id)}`}
+                  replace={isWide && !toStudy}
+                  data-diary-to-study={toStudy ? "" : undefined}
                   aria-current={isActive ? "page" : undefined}
                   className={cn(
                     "flex min-w-0 flex-1 items-center gap-3 rounded-lg px-3 py-3 transition-colors",

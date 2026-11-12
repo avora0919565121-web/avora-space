@@ -66,7 +66,7 @@ const SettingsFeedback = () => {
         ) : (
           <>
             <section aria-labelledby="feedback-heading" className="rounded-card border border-border bg-card p-s-4">
-              <h2 id="feedback-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
+              <h2 id="feedback-heading" className="text-[15px] font-semibold tracking-tight text-foreground">
                 Góp ý cho Avora
               </h2>
               <p className="mt-1 text-[14px] text-muted-foreground">Một lỗi, một ý tưởng, một chỗ khó dùng — đội Avora đọc từng góp ý.</p>
@@ -151,7 +151,7 @@ function TeamView() {
   return (
     <>
       <section aria-labelledby="team-feedback" className="rounded-card border border-border bg-card p-s-4" data-team-feedback="">
-        <h2 id="team-feedback" className="text-[17px] font-semibold tracking-tight text-foreground">
+        <h2 id="team-feedback" className="text-[15px] font-semibold tracking-tight text-foreground">
           Mọi góp ý
         </h2>
         <div className="mt-s-2 flex flex-wrap gap-2">
@@ -251,7 +251,7 @@ function InviteAdmin() {
 
   return (
     <section aria-labelledby="team-invites" className="rounded-card border border-border bg-card p-s-4" data-team-invites="">
-      <h2 id="team-invites" className="text-[17px] font-semibold tracking-tight text-foreground">
+      <h2 id="team-invites" className="text-[15px] font-semibold tracking-tight text-foreground">
         Mã mời
       </h2>
       <label className="mt-s-2 flex min-h-12 items-center justify-between gap-3">

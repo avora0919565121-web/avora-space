@@ -147,6 +147,8 @@ const App = () => (
 
                 <Route path="/cai-dat" element={<Settings />}>
                   <Route index element={<Profile />} />
+                  {/* KT-07b: on a phone `/cai-dat` is the grouped list; Hồ sơ opens here. */}
+                  <Route path="ho-so" element={<Profile />} />
                   <Route path="chinh-sach" element={<SettingsPolicy />} />
                   <Route path="thiet-lap" element={<SettingsPreferences />} />
                   <Route path="thong-bao" element={<SettingsNotifications />} />

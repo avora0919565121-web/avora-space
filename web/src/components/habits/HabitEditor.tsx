@@ -90,7 +90,7 @@ export function HabitEditor({ open, onOpenChange, habit, initial, onSaved }: { o
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className={cn(longDialogContentClass, "max-w-[520px]")} data-habit-editor="">
+      <DialogContent phoneSheet className={cn(longDialogContentClass, "max-w-[520px]")} data-habit-editor="">
         <LongDialogHeader>
           <DialogTitle className="text-[18px]">{isEdit ? "Sửa thói quen" : "Tạo thói quen"}</DialogTitle>
           <DialogDescription className="text-[13px]">Chọn một giờ cụ thể — nghĩ trước lúc làm giúp bắt đầu dễ hơn.</DialogDescription>

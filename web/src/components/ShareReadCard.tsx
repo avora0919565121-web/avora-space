@@ -27,7 +27,7 @@ export function ShareReadCard() {
 
   return (
     <section aria-labelledby="privacy-heading" className="rounded-card border border-border bg-card p-s-4" data-share-read-card="">
-      <h2 id="privacy-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
+      <h2 id="privacy-heading" className="text-[15px] font-semibold tracking-tight text-foreground">
         Riêng tư
       </h2>
       <label className="mt-s-2 flex min-h-12 items-start justify-between gap-3">

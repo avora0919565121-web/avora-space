@@ -143,8 +143,9 @@ describe("CC-17 · lời chữ", () => {
     expect(src("components/habits/HabitsSection.tsx")).toContain("Hôm nay · {tallyText(summary)} thói quen");
     expect(src("components/habits/HabitRow.tsx")).toContain("Hôm nay {tallyText(day)} lần · Tuần này {tallyText(week)} ngày");
   });
-  it("i · Danh sách bảng", () => {
-    expect(src("components/projects/ProjectList.tsx")).toContain('label="Danh sách bảng"');
+  it("i · Danh sách bảng (KT-07b / CC-33: không còn trong Kết nối › Dự án)", () => {
+    expect(src("components/projects/ProjectList.tsx")).not.toContain('label="Danh sách Bảng"');
+    expect(src("components/projects/ProjectList.tsx")).not.toContain('label="Danh sách bảng"');
   });
   it("j · một tên Tạo nhiệm vụ từ tấm nhanh tới thẻ đầy đủ", () => {
     expect(src("components/tasks/TaskCard.tsx")).not.toContain('backLabel="Nhiệm vụ mới"');
@@ -295,7 +296,6 @@ describe("CC-16 · Dự án dùng biểu tượng nét", () => {
     const code = src("components/projects/ProjectList.tsx");
     expect(code).not.toMatch(/💬|📊|🗑/);
     expect(code).toContain("icon={MessagesSquare}");
-    expect(code).toContain("icon={Table2}");
   });
 });
 

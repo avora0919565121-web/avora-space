@@ -180,10 +180,10 @@ export function MuteSettingsCard() {
     <div className="mt-6 rounded-card border border-border bg-card p-6">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h2 className="text-[17px] font-semibold text-foreground">Tắt thông báo</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">Bạn muốn tắt thông báo một thời gian?</h2>
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
-            Tắt theo tầng, và luôn có thời hạn — thông báo tự bật lại, bạn không cần nhớ quay lại
-            đây.
+            Chọn chỗ muốn tắt và tắt bao lâu. Hết giờ, thông báo tự bật lại — bạn không phải nhớ quay
+            lại đây.
           </p>
         </div>
         {isWorking ? (
@@ -203,11 +203,10 @@ export function MuteSettingsCard() {
       */}
       <div className="mt-4 space-y-1.5 border-t border-border pt-4">
         <p className="text-[12px] leading-5 text-muted-foreground">
-          Tắt toàn bộ AVORA là tuyệt đối — kể cả Gia đình và cả khi có người nhắc tên bạn.
+          Nếu bạn tắt cả AVORA thì không có thông báo nào, kể cả của người nhà hay khi có người nhắc tên bạn.
         </p>
         <p className="text-[12px] leading-5 text-muted-foreground">
-          Nhiệm vụ không có tuỳ chọn tắt thông báo: đó là việc người khác đang chờ ở bạn, và cách
-          làm nó im lặng là hoàn thành nó.
+          Nhiệm vụ thì không tắt được: đó là việc người khác đang chờ bạn. Bạn làm xong là hết nhắc.
         </p>
       </div>
     </div>

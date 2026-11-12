@@ -716,7 +716,7 @@ const FinanceTransactions = () => {
           if (!next) setViewing(null);
         }}
       >
-        <DialogContent className="max-w-[520px]">
+        <DialogContent phoneSheet className="max-w-[520px]">
           <DialogTitle className="text-[20px] font-semibold tracking-tight">
             {viewing?.description ?? viewing?.category.name ?? "Giao dịch"}
           </DialogTitle>
@@ -826,7 +826,7 @@ const FinanceTransactions = () => {
           if (!next) setObligationType(null);
         }}
       >
-        <DialogContent className="max-w-[520px] p-0">
+        <DialogContent phoneSheet className="max-w-[520px] p-0">
           <div className="border-b border-border px-5 py-4">
             <DialogTitle className="text-[19px] font-semibold tracking-tight">
               Ghi khoản {obligationType !== null ? TRANSACTION_TYPE_LABELS[obligationType].toLowerCase() : ""}
@@ -856,7 +856,7 @@ const FinanceTransactions = () => {
           if (!next) setSettling(null);
         }}
       >
-        <DialogContent className="max-w-[440px]">
+        <DialogContent phoneSheet className="max-w-[440px]">
           <DialogTitle className="text-[19px] font-semibold tracking-tight">Ghi nhận thanh toán</DialogTitle>
           <DialogDescription className="text-[13.5px] text-muted-foreground">
             {settling !== null

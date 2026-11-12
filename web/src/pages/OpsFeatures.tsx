@@ -106,7 +106,7 @@ const OpsFeatures = () => {
                 );
               })}
             </ul>
-            <h2 className="mt-8 text-[16px] font-semibold tracking-tight text-foreground">Lịch sử đổi</h2>
+            <h2 className="mt-8 text-[15px] font-semibold tracking-tight text-foreground">Lịch sử đổi</h2>
             <ul className="mt-3 space-y-2" data-ops-changes="">
               {(changes.data ?? []).length === 0 ? (
                 <li className="text-[13.5px] text-muted-foreground">{changes.isPending ? "Đang tải…" : "Chưa đổi lần nào."}</li>

@@ -2941,7 +2941,7 @@ const Messages = () => {
               isWide={isWide}
               onPaste={() => void startPaste()}
               isPasting={isReadingClipboard}
-              notesTree={isWide ? notesTreeNode : undefined}
+              /* KT-07b: Sổ ghi chép lives in Thư phòng — its tree no longer unfolds inside Nhật ký. */
             />
           </div>
         ) : (

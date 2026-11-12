@@ -34,12 +34,13 @@ const SettingsNotifications = () => {
           <div className="flex items-start gap-3">
             <Moon className="mt-0.5 h-5 w-5 shrink-0 text-primary" strokeWidth={1.7} aria-hidden="true" />
             <div className="min-w-0 flex-1">
-              <h2 id="focus-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
-                Chế độ tập trung
+              <p className="text-[12px] font-medium text-muted-foreground">Chế độ tập trung</p>
+              <h2 id="focus-heading" className="mt-0.5 text-[15px] font-semibold tracking-tight text-foreground">
+                Bạn muốn yên tĩnh một lúc?
               </h2>
               <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
                 {rhythm.focus === null
-                  ? "Yên lặng hoặc Ngắt kết nối. Gia đình và tin Khẩn vẫn báo; nhắc việc luôn kêu. Mở nhanh: giữ tab Kết nối."
+                  ? "Bấm Bật, AVORA sẽ im lặng cho tới khi bạn tắt hoặc hết giờ. Người nhà và tin Khẩn vẫn báo cho bạn. Nhắc việc vẫn kêu."
                   : `${rhythm.focus === "disconnect" ? "Đang ngắt kết nối" : "Đang tập trung"}${rhythm.focusUntil !== null ? ` tới ${shortUntil(rhythm.focusUntil)}` : " tới khi bạn tắt"}.`}
               </p>
             </div>
@@ -55,11 +56,11 @@ const SettingsNotifications = () => {
         {/* AVORA-57 · A: Chế độ tập trung first, then the "Tắt trong…" layers, then sounds. */}
         <MuteSettingsCard />
         <section aria-labelledby="sound-heading" className="rounded-card border border-border bg-card p-s-4">
-          <h2 id="sound-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
-            Âm báo khi đang mở AVORA
+          <h2 id="sound-heading" className="text-[15px] font-semibold tracking-tight text-foreground">
+            Bạn muốn nghe tiếng báo khi đang mở AVORA?
           </h2>
           <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
-            Một âm ngắn, nhẹ. Theo đúng các tầng Tắt thông báo ở trên.
+            Một tiếng ngắn, nhẹ. Chỗ nào bạn đã tắt thông báo ở trên thì cũng không kêu.
           </p>
           <div className="mt-s-2 divide-y divide-border">
             <label className="flex min-h-12 items-center justify-between gap-3 text-[14.5px] text-foreground">

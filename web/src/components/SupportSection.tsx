@@ -22,7 +22,7 @@ export function SupportSection({ defaultName }: { defaultName: string }) {
 
   return (
     <section id="ho-tro" aria-labelledby="support-heading" data-testid="support-section" className="mt-s-4 scroll-mt-4 rounded-card border border-border bg-card p-s-4">
-      <h2 id="support-heading" className="text-[17px] font-semibold text-foreground">Hỗ trợ và liên hệ</h2>
+      <h2 id="support-heading" className="text-[15px] font-semibold text-foreground">Hỗ trợ và liên hệ</h2>
       <a href={`mailto:${SUPPORT_EMAIL}`} className="press mt-s-2 flex min-h-11 items-center gap-2 text-[14px] font-medium text-foreground">
         <Mail className="h-[18px] w-[18px] text-muted-foreground" strokeWidth={1.6} aria-hidden="true" />
         {SUPPORT_EMAIL}

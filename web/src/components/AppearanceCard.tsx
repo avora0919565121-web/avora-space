@@ -83,7 +83,7 @@ export function AppearanceCard() {
 
   return (
     <section aria-labelledby="appearance-heading" className="rounded-card border border-border bg-card p-s-4" data-appearance="">
-      <h2 id="appearance-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
+      <h2 id="appearance-heading" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
         <Palette className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
         Giao diện
       </h2>

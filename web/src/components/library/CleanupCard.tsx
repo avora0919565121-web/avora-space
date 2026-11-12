@@ -50,7 +50,7 @@ export function CleanupCard({ onLater }: { onLater: () => void }) {
 
   return (
     <section aria-labelledby="cleanup-card-title" data-cleanup-card="" className="mb-4 rounded-card border border-border bg-card p-4 shadow-sm">
-      <h2 id="cleanup-card-title" className="text-[17px] font-semibold tracking-tight text-foreground">Dọn kệ tuần này</h2>
+      <h2 id="cleanup-card-title" className="text-[15px] font-semibold tracking-tight text-foreground">Dọn kệ tuần này</h2>
       <p className="mt-0.5 text-[12.5px] leading-snug text-muted-foreground">Avora chỉ gợi ý. Không gì bị xoá nếu bạn không chọn.</p>
       <ul className="mt-3">
         {groups.map((group) => {

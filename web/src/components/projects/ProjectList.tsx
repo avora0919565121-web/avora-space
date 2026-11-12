@@ -1,24 +1,17 @@
-import { ChevronRight, FolderKanban, MessagesSquare, RotateCcw, Table2, Trash2, type LucideIcon } from "lucide-react";
+import { ChevronRight, FolderKanban, MessagesSquare, RotateCcw, Trash2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 
-import { TablePeekSheet } from "@/components/projects/TablePeekSheet";
-
 import { UserAvatar } from "@/components/UserAvatar";
-import { StatusPill } from "@/components/StatusPill";
-import { useAuth } from "@/lib/auth";
 import { conversationTitle, type ConversationSummary } from "@/lib/chat";
 import { useSubmitGuard } from "@/hooks/use-submit-guard";
 import { projectChatLink, projectStatusLabel, type Project } from "@/lib/projects";
-import { recordsOf, subTablesOf, TABLE_LAYERS, tablesByLayer, type ThinkRecord, type ThinkTable } from "@/lib/think-hub";
-import { TYPE } from "@/lib/type-scale";
 import { groupProjectsOnly, useDeletedProjects, useProjectActions } from "@/lib/use-projects";
-import { useThinkRecords, useThinkTables } from "@/lib/use-think-hub";
 import { matchesSearch } from "@/lib/normalize-search";
 import { cn } from "@/lib/utils";
 
-type SectionKey = "tables" | "groups" | "trash";
+type SectionKey = "groups" | "trash";
 
 function BranchHeader({
   open,
@@ -54,109 +47,11 @@ function BranchHeader({
 }
 
 /**
- * One folder in the "Bảng của tôi" tree: a table that unfolds into its Hạng mục in place, and
- * each Hạng mục into the sub-tables grown from it. "Xem bảng" opens a quick look on top of this
- * tab — Hạng mục and their tasks can be added and edited there without leaving.
- */
-function TableNode({
-  table,
-  tables,
-  records,
-  subtitle,
-  level,
-  onPeek,
-}: {
-  table: ThinkTable;
-  tables: readonly ThinkTable[];
-  records: readonly ThinkRecord[];
-  subtitle: string | null;
-  level: number;
-  onPeek: (table: ThinkTable) => void;
-}) {
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const items = useMemo(() => (isOpen ? recordsOf(records, table.id) : []), [isOpen, records, table.id]);
-  const count = useMemo(() => recordsOf(records, table.id).length, [records, table.id]);
-
-  return (
-    <li>
-      <div className="flex items-center gap-1 rounded-lg pr-2 transition-colors hover:bg-accent/30" style={{ paddingLeft: `${level * 16}px` }}>
-        <button
-          type="button"
-          onClick={() => setIsOpen((current) => !current)}
-          aria-expanded={isOpen}
-          className="press flex min-h-11 min-w-0 flex-1 items-center gap-2.5 px-2 py-2 text-left"
-        >
-          <ChevronRight
-            aria-hidden="true"
-            strokeWidth={2.2}
-            className={cn("h-3.5 w-3.5 shrink-0 text-muted-foreground", isOpen && "rotate-90")}
-          />
-          <Table2 className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.8} aria-hidden="true" />
-          <span className="min-w-0 flex-1">
-            <span className={cn(TYPE.body, "block truncate text-[14px] font-medium")}>{table.name}</span>
-            {subtitle !== null ? <span className={cn(TYPE.meta, "block truncate")}>{subtitle}</span> : null}
-          </span>
-          <span className={cn(TYPE.meta, "tabular shrink-0")}>{count}</span>
-        </button>
-        <button
-          type="button"
-          onClick={() => onPeek(table)}
-          aria-label={`Xem bảng ${table.name}`}
-          className="press shrink-0 rounded-md px-2 py-1.5 text-[12px] font-medium text-muted-foreground transition-colors hover:bg-accent/50 hover:text-foreground"
-        >
-          Xem bảng
-        </button>
-      </div>
-
-      {isOpen ? (
-        items.length === 0 ? (
-          <p className="py-2 text-[12.5px] text-muted-foreground" style={{ paddingLeft: `${level * 16 + 44}px` }}>
-            Chưa có Hạng mục nào.
-          </p>
-        ) : (
-          <ul>
-            {items.map((record) => {
-              const children = subTablesOf(tables, record.id);
-              return (
-                <li key={record.id}>
-                  <p
-                    className="flex min-h-9 items-center gap-2 py-1.5 pr-3 text-[13.5px] text-foreground"
-                    style={{ paddingLeft: `${level * 16 + 44}px` }}
-                  >
-                    <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-muted-foreground/40" />
-                    <span className="min-w-0 flex-1 truncate">{record.title}</span>
-                  </p>
-                  {children.length > 0 ? (
-                    <ul>
-                      {children.map((child) => (
-                        <TableNode
-                          key={child.id}
-                          table={child}
-                          tables={tables}
-                          records={records}
-                          subtitle={null}
-                          level={level + 2}
-                          onPeek={onPeek}
-                        />
-                      ))}
-                    </ul>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        )
-      ) : null}
-    </li>
-  );
-}
-
-/**
  * The Dự án tab.
  *
- * AVORA-52 · E, Kết nối first: "Trò chuyện dự án" lists each project's chat (projects only ever
- * live in a group, ADR-002), then "Danh sách Bảng" holds the four shelves named as everywhere
- * else in AVORA: Bảng của tôi · Bảng 1-1 · Bảng nhóm · Bảng dự án.
+ * AVORA-52 · E: "Trò chuyện dự án" lists each project's chat (projects only ever live in a group,
+ * ADR-002). KT-07b (CEO 12/11 · 4, QA-02 CC-33): this tab shows projects only — the boards
+ * ("Danh sách bảng", Kệ sách…) live in Thư phòng › Kế hoạch, not inside Kết nối.
  */
 export function ProjectList({
   projects,
@@ -172,9 +67,6 @@ export function ProjectList({
   /** The tab's search box: narrows the projects by name, accent-free (AVORA-44 · việc 5). */
   query?: string;
 }) {
-  const { user } = useAuth();
-  const tablesQuery = useThinkTables();
-  const recordsQuery = useThinkRecords();
   const [closed, setClosed] = useState<ReadonlySet<SectionKey>>(new Set(["trash"]));
   const deletedQuery = useDeletedProjects();
   const { restore } = useProjectActions();
@@ -187,23 +79,6 @@ export function ProjectList({
     return map;
   }, [conversations]);
 
-  const allTables = useMemo(() => tablesQuery.data ?? [], [tablesQuery.data]);
-  const records = useMemo(() => recordsQuery.data ?? [], [recordsQuery.data]);
-
-  const layers = useMemo(
-    () => tablesByLayer(allTables, user?.id, (id) => conversationById.get(id)?.kind),
-    [allTables, user?.id, conversationById],
-  );
-  const mineCount = layers.personal.length + layers.direct.length + layers.group.length;
-  /** Bảng dự án: the root tables of projects the viewer can see (RLS already narrowed them). */
-  const projectTables = useMemo(
-    () => allTables.filter((table) => table.projectId !== null && table.parentRecordId === null),
-    [allTables],
-  );
-  const projectTitleById = useMemo(() => new Map(projects.map((project) => [project.id, project.title] as const)), [projects]);
-  const [peeking, setPeeking] = useState<ThinkTable | null>(null);
-  const peekConversation =
-    peeking?.conversationId == null ? undefined : conversationById.get(peeking.conversationId);
 
   const groupProjects = useMemo(
     () =>
@@ -221,7 +96,7 @@ export function ProjectList({
       return next;
     });
 
-  if (isPending || tablesQuery.isPending) {
+  if (isPending) {
     return (
       <ul className="space-y-1 px-3 pt-1" aria-hidden="true">
         {[0, 1, 2].map((row) => (
@@ -237,7 +112,6 @@ export function ProjectList({
     );
   }
 
-  const tablesOpen = !closed.has("tables");
   const trashOpen = !closed.has("trash");
   const groupsOpen = !closed.has("groups");
 
@@ -307,89 +181,6 @@ export function ProjectList({
         ) : null}
       </section>
 
-      <section className="mt-1">
-        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} icon={Table2} label="Danh sách bảng" count={mineCount + projectTables.length} />
-        {tablesOpen ? (
-          tablesQuery.isError ? (
-            // AVORA-49 · 1.8: a failed load says so; it never passes for an empty list.
-            <p className="flex items-center gap-2 px-9 pb-3 text-[12.5px] text-muted-foreground">
-              Không tải được
-              <button type="button" onClick={() => void tablesQuery.refetch()} className="press rounded-md border border-border px-2 py-0.5 font-medium text-foreground hover:bg-accent/40">
-                Thử lại
-              </button>
-            </p>
-          ) : mineCount + projectTables.length === 0 ? (
-            <p className={cn(TYPE.blockDescription, "px-9 pb-3 text-[12.5px]")}>
-              Chưa có bảng nào. Mở Thư phòng › Kế hoạch để dựng bảng đầu tiên.
-            </p>
-          ) : (
-            // AVORA-52 · E: the four shelves, named the same way as in Kế hoạch.
-            <div className="space-y-1 pb-1">
-              {TABLE_LAYERS.map((layer) => {
-                const list = layers[layer.id];
-                return (
-                  <div key={layer.id} role="group" aria-label={layer.label}>
-                    <p className="flex items-center gap-2 px-9 pb-0.5 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                      {layer.label}
-                      <span className="tabular font-medium normal-case tracking-normal text-muted-foreground/80">{list.length}</span>
-                    </p>
-                    {list.length === 0 ? (
-                      <p className={cn(TYPE.meta, "px-9 pb-1.5")}>{layer.empty}</p>
-                    ) : (
-                      <ul>
-                        {list.map((table) => {
-                          const conversation = table.conversationId === null ? undefined : conversationById.get(table.conversationId);
-                          return (
-                            <TableNode
-                              key={table.id}
-                              table={table}
-                              tables={allTables}
-                              records={records}
-                              subtitle={
-                                conversation === undefined
-                                  ? "Chỉ mình bạn"
-                                  : conversation.kind === "group"
-                                    ? conversationTitle(conversation)
-                                    : `1-1 với ${conversationTitle(conversation)}`
-                              }
-                              level={1}
-                              onPeek={setPeeking}
-                            />
-                          );
-                        })}
-                      </ul>
-                    )}
-                  </div>
-                );
-              })}
-              <div role="group" aria-label="Bảng dự án">
-                <p className="flex items-center gap-2 px-9 pb-0.5 pt-1.5 text-[11.5px] font-semibold uppercase tracking-[0.06em] text-muted-foreground">
-                  Bảng dự án
-                  <span className="tabular font-medium normal-case tracking-normal text-muted-foreground/80">{projectTables.length}</span>
-                </p>
-                {projectTables.length === 0 ? (
-                  <p className={cn(TYPE.meta, "px-9 pb-1.5")}>Chưa có bảng nào trong dự án.</p>
-                ) : (
-                  <ul>
-                    {projectTables.map((table) => (
-                      <TableNode
-                        key={table.id}
-                        table={table}
-                        tables={allTables}
-                        records={records}
-                        subtitle={projectTitleById.get(table.projectId ?? "") ?? "Dự án"}
-                        level={1}
-                        onPeek={setPeeking}
-                      />
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </div>
-          )
-        ) : null}
-      </section>
-
       {deleted.length > 0 ? (
         <section className="mt-1">
           <BranchHeader open={trashOpen} onToggle={() => toggle("trash")} icon={Trash2} label="Dự án đã xoá" count={deleted.length} />
@@ -430,13 +221,6 @@ export function ProjectList({
           ) : null}
         </section>
       ) : null}
-      <TablePeekSheet
-        table={peeking}
-        conversation={peekConversation}
-        onOpenChange={(open) => {
-          if (!open) setPeeking(null);
-        }}
-      />
     </div>
   );
 }

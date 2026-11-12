@@ -141,7 +141,8 @@ async function settle(ms = 250): Promise<void> {
 /** Opens Ngày diễn ra (row or quick chip) and taps `day` in the in-card calendar. */
 async function pickDay(day: string): Promise<void> {
   const row = document.querySelector<HTMLElement>('[data-card-row="when"] button');
-  const chip = document.querySelector<HTMLElement>('[aria-label^="Ngày diễn ra"]');
+  // KT-07b: the quick card's one chip is "Hạn: …" (CEO 12/11 · 5).
+  const chip = document.querySelector<HTMLElement>('[aria-label^="Hạn"]');
   await userEvent.click((row ?? chip) as HTMLElement);
   for (let i = 0; i < 3; i += 1) {
     const cell = document.querySelector<HTMLButtonElement>(`[data-card-day="${day}"]:not([disabled])`);
@@ -158,7 +159,7 @@ async function pickDay(day: string): Promise<void> {
 }
 
 function shownDay(): string {
-  return (document.querySelector('[data-card-row="when"]')?.textContent ?? document.querySelector('[aria-label^="Ngày diễn ra"]')?.getAttribute("aria-label") ?? "");
+  return (document.querySelector('[data-card-row="when"]')?.textContent ?? document.querySelector('[aria-label^="Hạn"]')?.getAttribute("aria-label") ?? "");
 }
 
 const SIZES: readonly [number, number][] = [

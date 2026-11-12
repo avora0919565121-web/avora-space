@@ -8,7 +8,7 @@ export function ChatBackdropCard() {
   const current = useChatBackdrop();
   return (
     <section aria-labelledby="chat-backdrop-heading" className="rounded-card border border-border bg-card p-s-4">
-      <h2 id="chat-backdrop-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
+      <h2 id="chat-backdrop-heading" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
         <MessageSquare className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
         Nền trò chuyện
       </h2>

@@ -227,7 +227,7 @@ test("một font gốc: body đọc --font-sans; đổi phông ở Cài đặt �
   (document.querySelector('[data-font-option="be-vietnam"]') as HTMLElement).click();
   await expect.poll(family).toContain("Be Vietnam Pro");
   expect(getComputedStyle(title).fontFamily).toContain("Be Vietnam Pro");
-  expect(getComputedStyle(document.querySelector("[data-sub-tab]") as HTMLElement).fontFamily).toContain("Be Vietnam Pro");
+  expect(getComputedStyle(document.querySelector("[data-settings-back]") as HTMLElement).fontFamily).toContain("Be Vietnam Pro");
   expect(window.localStorage.getItem("avora.font")).toBe("be-vietnam");
   await page.screenshot({ path: `${OUT}/2E-phong-chu-390.png` });
   (document.querySelector('[data-font-option="inter-tight"]') as HTMLElement).click();

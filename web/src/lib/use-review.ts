@@ -35,6 +35,11 @@ export type ReviewState = {
   summaryOf: (kind: ReviewKind) => { range: ReviewRange; summary: ReviewSummary };
   today: string;
   isReady: boolean;
+  /**
+   * KT-07b (CEO 12/11 · 10): still reading, but the hour and the switches say a line may come — Avora
+   * Space keeps its place under the greeting so nothing jumps when it arrives (CLS ≈ 0).
+   */
+  couldBeDue: boolean;
   /** Re-reads "Để sau" after it was set on this device. */
   refresh: () => void;
 };
@@ -102,5 +107,12 @@ export function useReview(): ReviewState {
     }
   }
 
-  return { due, dayLine, summaryOf, today, isReady, refresh: () => setVersion((current) => current + 1) };
+  const couldBeDue =
+    !isReady &&
+    settings !== undefined &&
+    (weeklyDay
+      ? settings.reviewWeeklyEnabled && !isReviewDismissed(userId, "week", today)
+      : settings.reviewDailyEnabled && now.getHours() >= settings.reviewDailyHour && !isReviewDismissed(userId, "day", today));
+
+  return { due, dayLine, summaryOf, today, isReady, couldBeDue, refresh: () => setVersion((current) => current + 1) };
 }

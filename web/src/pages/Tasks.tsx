@@ -714,7 +714,7 @@ function PersonalSection({
   return (
     <section aria-labelledby="tasks-personal" className="rounded-[10px] border border-border bg-card">
       <BranchHeader open={open} onToggle={() => toggle("personal", auto)} className="px-5 py-4">
-        <h2 id="tasks-personal" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
+        <h2 id="tasks-personal" className="min-w-0 flex-1 text-[15px] font-semibold text-foreground">
           {TASK_SCOPE_LABELS.personal}
         </h2>
         <OpenCounter count={openCount} tone={tone} suffix="nhiệm vụ đang mở" />
@@ -797,7 +797,7 @@ function SharedSection({
   return (
     <section aria-labelledby={`tasks-${sectionKey}`} className="rounded-[10px] border border-border bg-card">
       <BranchHeader open={sectionOpen} onToggle={() => toggle(sectionKey, sectionAuto)} className="px-5 py-4">
-        <h2 id={`tasks-${sectionKey}`} className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
+        <h2 id={`tasks-${sectionKey}`} className="min-w-0 flex-1 text-[15px] font-semibold text-foreground">
           {TASK_SCOPE_LABELS[layer]}
         </h2>
         <OpenCounter count={openCount} tone={sectionTone} suffix="nhiệm vụ đang mở" />
@@ -921,7 +921,7 @@ function ProposedSection({
   return (
     <section aria-labelledby="tasks-proposed" className="rounded-[10px] border border-border bg-card">
       <BranchHeader open={open} onToggle={() => toggle("proposed", false)} className="px-5 py-4">
-        <h2 id="tasks-proposed" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
+        <h2 id="tasks-proposed" className="min-w-0 flex-1 text-[15px] font-semibold text-foreground">
           Đã gợi ý, đang chờ
         </h2>
         <span className="tabular shrink-0 text-[13px] text-muted-foreground">
@@ -1066,7 +1066,7 @@ function ReportsSection({
   return (
     <section aria-labelledby="tasks-reports" className="rounded-[10px] border border-border bg-card">
       <BranchHeader open={open} onToggle={() => toggle("reports", false)} className="px-5 py-4">
-        <h2 id="tasks-reports" className="min-w-0 flex-1 text-[16px] font-semibold text-foreground">
+        <h2 id="tasks-reports" className="min-w-0 flex-1 text-[15px] font-semibold text-foreground">
           Báo cáo
         </h2>
         <span className="tabular shrink-0 text-[13px] text-muted-foreground">{tasks.length} kết quả</span>

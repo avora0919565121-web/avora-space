@@ -23,7 +23,7 @@ function ReplayHints() {
   const queryClient = useQueryClient();
   return (
     <section aria-labelledby="guide-hints" className="rounded-card border border-border bg-card p-s-4">
-      <h2 id="guide-hints" className="text-[17px] font-semibold tracking-tight text-foreground">
+      <h2 id="guide-hints" className="text-[15px] font-semibold tracking-tight text-foreground">
         Gợi ý một lần
       </h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">Mỗi gợi ý chỉ hiện một lần. Muốn xem lại thì bấm để nó hiện thêm một lần nữa.</p>
@@ -73,7 +73,7 @@ const SettingsGuide = () => (
               <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
                 <Icon className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
               </span>
-              <h2 id={`guide-${card.id}`} className="min-w-0 flex-1 text-[17px] font-semibold tracking-tight text-foreground">
+              <h2 id={`guide-${card.id}`} className="min-w-0 flex-1 text-[15px] font-semibold tracking-tight text-foreground">
                 {card.title}
               </h2>
               <Link

@@ -58,11 +58,11 @@ export function PushSettingsCard() {
 
   return (
     <section aria-labelledby="push-heading" className="rounded-card border border-border bg-card p-5">
-      <h2 id="push-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
-        <BellRing className="h-[18px] w-[18px] text-primary" /> Thông báo khi AVORA đang đóng
+      <h2 id="push-heading" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
+        <BellRing className="h-[18px] w-[18px] text-primary" /> Bạn muốn nhận thông báo cả khi đã đóng AVORA?
       </h2>
       <p className="mt-1 text-[13px] leading-5 text-muted-foreground">
-        Mặc định chỉ hiện tên người gửi hoặc tên cuộc — không hiện nội dung. Bấm vào thông báo là mở đúng chỗ.
+        Thông báo chỉ hiện tên người gửi hoặc tên cuộc trò chuyện, không hiện nội dung. Chạm vào là mở đúng chỗ.
       </p>
       {support === "ios-needs-install" ? (
         <ol className="mt-4 space-y-2 rounded-lg border border-dashed border-border p-3 text-[13.5px] text-foreground">

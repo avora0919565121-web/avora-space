@@ -12,7 +12,7 @@ export function PlanBoardsCard() {
   const { hidden, show } = useHiddenBoards();
   return (
     <section aria-labelledby="plan-boards-heading" className="rounded-card border border-border bg-card p-s-4" data-plan-boards-card="">
-      <h2 id="plan-boards-heading" className="text-[16px] font-semibold text-foreground">Kế hoạch</h2>
+      <h2 id="plan-boards-heading" className="text-[15px] font-semibold text-foreground">Kế hoạch</h2>
       <p className="mt-1 text-[13.5px] text-muted-foreground">Bảng Avora lập sẵn bạn đã ẩn.</p>
       {hidden.length === 0 ? (
         <p className="mt-s-2 text-[14px] text-muted-foreground">Không có bảng nào đang ẩn.</p>

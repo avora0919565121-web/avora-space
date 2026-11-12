@@ -281,7 +281,7 @@ export function OverviewShelf({
       ) : open === "templates" ? (
         <section className="mt-3 animate-rise-in rounded-card border border-border bg-card p-4" data-spine-preview="templates">
           <div className="flex items-baseline justify-between">
-            <h3 className="text-[16px] font-semibold">Mẫu bảng · {templateCount} mẫu</h3>
+            <h3 className="text-[15px] font-semibold">Mẫu bảng · {templateCount} mẫu</h3>
             <span className="text-[12px] text-muted-foreground">dùng gần đây</span>
           </div>
           <ul className="mt-2">
@@ -308,7 +308,7 @@ export function OverviewShelf({
           const preview = previewOf(open as Exclude<(typeof SPINES)[number]["id"], "templates">);
           return (
             <section className="mt-3 animate-rise-in rounded-card border border-border bg-card p-4" data-spine-preview={open}>
-              <h3 className="text-[16px] font-semibold">
+              <h3 className="text-[15px] font-semibold">
                 {preview.title} <span className="font-normal text-muted-foreground">· {preview.count}</span>
               </h3>
               {preview.items.length === 0 ? (

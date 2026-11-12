@@ -9,7 +9,7 @@ import { useAuth } from "@/lib/auth";
 export function NavRulesCard() {
   return (
     <section aria-labelledby="guide-nav" data-nav-rules="" className="rounded-card border border-border bg-card p-5">
-      <h2 id="guide-nav" className="text-[17px] font-semibold tracking-tight text-foreground">Cách đi trong AVORA</h2>
+      <h2 id="guide-nav" className="text-[15px] font-semibold tracking-tight text-foreground">Cách đi trong AVORA</h2>
       <ul className="mt-3 space-y-3">
         {NAV_RULES.map((rule) => (
           <li key={rule.title} className="flex gap-3">

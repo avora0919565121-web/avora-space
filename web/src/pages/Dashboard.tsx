@@ -610,8 +610,6 @@ export default function Dashboard() {
       style={{ backgroundImage: `${tone.wash}, radial-gradient(hsl(38 28% 86% / 0.55) 0.5px, transparent 0.5px)`, backgroundSize: "100% 100%, 22px 22px" }}
     >
       <div className="mx-auto w-full max-w-[720px] px-4 py-6 sm:px-6 sm:py-8">
-        {/* C7 · AVORA-50 B: one line when a review is due; never pushed. */}
-        <ReviewPrompt review={review} variant="line" />
         {welcome.seen || userId === undefined ? null : (
           <WelcomeHome
             name={displayName}
@@ -625,12 +623,22 @@ export default function Dashboard() {
           // CC-02: below the greeting, nothing is drawn until Bắt đầu is known — one placeholder instead.
           if (id !== "greeting" && !startSettled) return null;
           const block = renderBlock(id);
-          if (block === null) return null;
+          const reviewNode =
+            id === "greeting" ? (
+              <div className="mt-4" data-space-review="">
+                <ReviewPrompt review={review} variant="line" />
+                {review.due === null && review.couldBeDue ? <div aria-hidden="true" data-review-slot="" className="mb-5 h-12" /> : null}
+              </div>
+            ) : null;
+          if (block === null) return id === "greeting" ? <div key={id}>{reviewNode}</div> : null;
           // Each block in its own boundary: a fault in one leaves the others standing.
           // Nhà mới: the greeting and the day's thought come first; Bắt đầu right under them.
           return (
             <BlockErrorBoundary key={id} name={SPACE_BLOCK_COPY[id].title}>
               {block}
+              {/* KT-07b (CEO 12/11 · 10): "Nhìn lại hôm nay" sits under the greeting, never above it; its
+                  place is kept while it is still being worked out, so the page does not jump. */}
+              {reviewNode}
               {id === "greeting" && startSettled ? startCard : null}
             </BlockErrorBoundary>
           );

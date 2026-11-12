@@ -46,7 +46,7 @@ export function LookPrefsCard() {
   return (
     <>
       <section aria-labelledby="celebration-heading" className="rounded-card border border-border bg-card p-s-4">
-        <h2 id="celebration-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
+        <h2 id="celebration-heading" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
           <Sparkles className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
           Hiệu ứng khi hoàn thành
         </h2>
@@ -108,7 +108,7 @@ export function LookPrefsCard() {
       </section>
 
       <section aria-labelledby="button-style-heading" className="rounded-card border border-border bg-card p-s-4">
-        <h2 id="button-style-heading" className="text-[17px] font-semibold tracking-tight text-foreground">
+        <h2 id="button-style-heading" className="text-[15px] font-semibold tracking-tight text-foreground">
           Kiểu nút
         </h2>
         <p className="mt-1 text-[13px] leading-5 text-muted-foreground">

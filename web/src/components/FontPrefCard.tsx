@@ -11,7 +11,7 @@ export function FontPrefCard() {
   const font = useFont();
   return (
     <section aria-labelledby="font-heading" className="rounded-card border border-border bg-card p-s-4" data-font-pref="">
-      <h2 id="font-heading" className="flex items-center gap-2 text-[17px] font-semibold tracking-tight text-foreground">
+      <h2 id="font-heading" className="flex items-center gap-2 text-[15px] font-semibold tracking-tight text-foreground">
         <Type className="h-4 w-4 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
         Phông chữ
       </h2>

@@ -123,45 +123,22 @@ async function renderList(projects: Project[]) {
   );
 }
 
-describe("the Dự án tab: my tables, then group projects", () => {
+describe("the Dự án tab: group projects only", () => {
   beforeEach(() => {
     document.body.innerHTML = "";
     state.tables = [];
     state.records = [];
   });
 
-  test("shows exactly two sections — the empty Cá nhân and 1-1 project sections are gone", async () => {
+  // KT-07b (CEO 12/11 · 4, QA-02 CC-33): this tab shows projects only — boards live in Thư phòng › Kế hoạch.
+  test("shows projects only — no Danh sách bảng, no personal or 1-1 sections", async () => {
+    state.tables = [table({ id: "t-mine", name: "Sổ riêng" }), table({ id: "t-project", name: "Bảng của dự án", projectId: "p1" })];
     const screen = await renderList([]);
-    await expect.element(screen.getByText("Danh sách bảng", { exact: true })).toBeInTheDocument();
     await expect.element(screen.getByText("Trò chuyện dự án", { exact: true })).toBeInTheDocument();
+    expect(document.body.textContent).not.toContain("Danh sách bảng");
+    expect(document.body.textContent).not.toContain("Sổ riêng");
+    expect(document.body.textContent).not.toContain("Bảng của dự án");
     expect(document.body.textContent).not.toContain("Cá nhân");
-    expect(document.body.textContent).not.toContain("Chưa có dự án nào với một người");
-  });
-
-  test("lists every table in its own drawer — mine, 1-1, the group's, the project's — but not another person's", async () => {
-    state.tables = [
-      table({ id: "t-mine", name: "Sổ riêng" }),
-      table({ id: "t-direct", name: "Bảng với Ngọc", conversationId: "c-direct" }),
-      table({ id: "t-group", name: "Bảng của nhóm", conversationId: "c-group" }),
-      table({ id: "t-project", name: "Bảng của dự án", projectId: "p1" }),
-      table({ id: "t-other", name: "Bảng người khác", ownerUserId: "u-other" }),
-    ];
-    const screen = await renderList([]);
-    await expect.element(screen.getByText("Sổ riêng")).toBeInTheDocument();
-    await expect.element(screen.getByText("Bảng với Ngọc")).toBeInTheDocument();
-    await expect.element(screen.getByText("1-1 với Ngọc")).toBeInTheDocument();
-    await expect.element(screen.getByText("Bảng của nhóm")).toBeInTheDocument();
-    await expect.element(screen.getByText("Bảng của dự án")).toBeInTheDocument();
-    expect(document.body.textContent).not.toContain("Bảng người khác");
-  });
-
-  test("unfolds a table into its Hạng mục in place, without leaving the tab", async () => {
-    state.tables = [table({ id: "t-mine", name: "Sổ riêng" })];
-    state.records = [record({ id: "r1", tableId: "t-mine", title: "Gọi nhà cung cấp" })];
-    const screen = await renderList([]);
-    expect(document.body.textContent).not.toContain("Gọi nhà cung cấp");
-    await userEvent.click(screen.getByRole("button", { name: "Sổ riêng Chỉ mình bạn" }));
-    await expect.element(screen.getByText("Gọi nhà cung cấp")).toBeInTheDocument();
   });
 
   test("lists only projects living in a group, each pointing at its conversation (52 · E)", async () => {

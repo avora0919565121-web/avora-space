@@ -12,6 +12,7 @@ import {
 } from "@/components/finance/FinanceCharts";
 import { DueStrip } from "@/components/finance/DueStrip";
 import { TransactionForm } from "@/components/finance/TransactionForm";
+import { QuickExpenseSheet } from "@/components/finance/QuickExpenseSheet";
 import { CategoryDialog } from "@/components/finance/dialogs";
 import { FiguresStamp, FinanceHeader, FinancePage, FinanceUnavailable, Money, Panel, StatCard } from "@/components/finance/primitives";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
@@ -84,12 +85,14 @@ const Finance = () => {
   const { accounts, categories, entries, baseEntries, currency, rates, unvalued, isLoading, isUnavailable, error } = ledger;
 
   const [isAdding, setIsAdding] = useState<boolean>(false);
+  // KT-07b (CEO 12/11 · 6): `+` opens the three-box quick expense; the full form is "Thêm chi tiết".
+  const [isQuick, setIsQuick] = useState<boolean>(false);
   // AVORA-57 · E: `+ Giao dịch` lives beside the Két sắt title now, not in this page's body.
   const [searchParams, setSearchParams] = useSearchParams();
-  useEffect(() => onVaultAdd(() => setIsAdding(true)), []);
+  useEffect(() => onVaultAdd(() => setIsQuick(true)), []);
   useEffect(() => {
     if (searchParams.get(VAULT_ADD_PARAM) !== "1") return;
-    setIsAdding(true);
+    setIsQuick(true);
     const next = new URLSearchParams(searchParams);
     next.delete(VAULT_ADD_PARAM);
     setSearchParams(next, { replace: true });
@@ -368,8 +371,16 @@ const Finance = () => {
         </>
       )}
 
+      <QuickExpenseSheet
+        open={isQuick}
+        onOpenChange={setIsQuick}
+        accounts={accounts}
+        categories={categories}
+        currency={currency}
+        onMore={() => setIsAdding(true)}
+      />
       <Dialog open={isAdding} onOpenChange={setIsAdding}>
-        <DialogContent className="max-w-[640px] p-0">
+        <DialogContent phoneSheet className="max-w-[640px] p-0">
           <div className="border-b border-border px-5 py-4">
             <DialogTitle className="text-[20px] font-semibold tracking-tight">Thêm giao dịch</DialogTitle>
             <DialogDescription className="text-[14px] text-muted-foreground">

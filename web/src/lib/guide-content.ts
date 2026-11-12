@@ -30,9 +30,9 @@ export const GUIDE_CARDS: readonly GuideCard[] = [
     lines: [
       "Nhật ký là chỗ viết cho riêng bạn. 1-1, Nhóm và Dự án là nơi trò chuyện với người khác.",
       "Kết bạn bằng PIN hoặc mã QR, kèm một lời nhắn. Người nhận thấy lời mời ở đầu Kết nối và tự quyết định.",
-      "Tin chỉ gửi khi bấm nút Gửi; Enter là xuống dòng.",
+      "Trên máy tính, Enter là gửi, Shift+Enter là xuống dòng. Trên điện thoại, bạn bấm nút Gửi.",
       "Nhấn giữ một tin để trả lời, chép, lưu vào Nhật ký hay tạo nhiệm vụ. Chọn nhiều tin để chuyển tiếp thành một đoạn hội thoại.",
-      "Nhấn giữ một cuộc trò chuyện để Ghim, Xem sau, Tắt thông báo hoặc Lưu trữ.",
+      "Nhấn giữ một cuộc trò chuyện để Ghim, Xem sau, Tắt thông báo hoặc Lưu trữ. Giữ tab Kết nối để bật nhanh Chế độ tập trung.",
     ],
   },
   {

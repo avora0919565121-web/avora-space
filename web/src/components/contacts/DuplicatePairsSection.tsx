@@ -55,7 +55,7 @@ export function DuplicatePairsSection({ onOpenContact }: { onOpenContact: (conta
 
   return (
     <section className="mt-9" data-duplicate-pairs="">
-      <h2 className="text-[16px] font-semibold text-foreground">Có thể trùng ({pairs.length.toLocaleString("vi-VN")})</h2>
+      <h2 className="text-[15px] font-semibold text-foreground">Có thể trùng ({pairs.length.toLocaleString("vi-VN")})</h2>
       <p className="mt-1 max-w-xl text-[13.5px] leading-relaxed text-muted-foreground">
         Hai liên hệ có cùng số điện thoại hoặc email. Gộp thì giữ liên hệ cũ và chuyển số, email, cơ hội, việc sang. AVORA không tự gộp.
       </p>

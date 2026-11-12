@@ -39,7 +39,7 @@ function Section({ section, openTech }: { section: PolicySection; openTech: bool
   useEffect(() => setIsTech(openTech), [openTech]);
   return (
     <section id={section.id} className="scroll-mt-28 border-t border-border pt-6 first:border-t-0 first:pt-0" data-policy-section={section.id}>
-      <h3 className="text-[17px] font-semibold tracking-tight text-foreground">{section.title}</h3>
+      <h3 className="text-[15px] font-semibold tracking-tight text-foreground">{section.title}</h3>
       <ul className="mt-3 space-y-2.5">
         {visiblePolicyItems(section.items, canShowPayments()).map((item) => (
           <li key={item.id} className="flex gap-2.5 text-[15px] leading-relaxed text-foreground">

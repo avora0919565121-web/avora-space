@@ -160,7 +160,7 @@ test("CC-19 · máy tính: Esc đóng lịch trước; có chữ rồi thì hỏ
     </Frame>,
   );
   await vi.waitFor(() => expect(document.querySelector('[data-task-card="create"]')).not.toBeNull(), WAIT);
-  await userEvent.click(document.querySelector('[aria-label^="Ngày diễn ra"]') as HTMLElement);
+  await userEvent.click(document.querySelector('[aria-label^="Hạn"]') as HTMLElement);
   await vi.waitFor(() => expect(document.querySelector("[data-card-day]")).not.toBeNull(), WAIT);
   await userEvent.keyboard("{Escape}");
   await settle();

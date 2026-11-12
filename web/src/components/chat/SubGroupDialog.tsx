@@ -67,7 +67,7 @@ export function SubGroupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent phoneSheet className="max-w-md">
         <DialogTitle className="text-[19px] font-semibold tracking-tight">Tạo nhóm con</DialogTitle>
         <DialogDescription className="text-[14.5px] text-muted-foreground">
           Nằm dưới {parentName}. Bạn là chủ nhóm của nhóm con; chỉ mời được người đang ở nhóm này.

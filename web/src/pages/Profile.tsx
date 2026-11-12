@@ -127,7 +127,7 @@ const Profile = () => {
         </div>
 
         <div className="mt-s-4 rounded-card border border-border bg-card p-s-4">
-          <h2 className="text-[17px] font-semibold text-foreground">Hồ sơ của bạn</h2>
+          <h2 className="text-[15px] font-semibold text-foreground">Hồ sơ của bạn</h2>
           {/* AVORA-55 · 3.2 (ADR-020 / ADR-034): never promise more than is true — others still see name and photo. */}
           <p className="mt-1 text-[13px] text-muted-foreground">Chỉ bạn sửa được hồ sơ này.</p>
 
@@ -226,7 +226,7 @@ const Profile = () => {
 
         {/* AVORA-54 · C: sign out everywhere else, right where the account lives. */}
         <section id="bao-mat" aria-labelledby="security-heading" className="mt-s-4 scroll-mt-4 rounded-card border border-border bg-card p-s-4">
-          <h2 id="security-heading" className="text-[17px] font-semibold text-foreground">Bảo mật</h2>
+          <h2 id="security-heading" className="text-[15px] font-semibold text-foreground">Bảo mật</h2>
           {/* AVORA-67 · 3.1: lock strip · Thiết bị · Đăng xuất mọi thiết bị khác · Khoá thiết bị · Két sắt. */}
           <DeviceSecuritySection
             signOutOthers={

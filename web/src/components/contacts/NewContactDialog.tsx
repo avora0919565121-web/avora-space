@@ -79,7 +79,7 @@ export function NewContactDialog({ open, onOpenChange, onCreated }: NewContactDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
+      <DialogContent phoneSheet
         showCloseButton={false}
         className="max-h-[88vh] max-w-[560px] gap-0 overflow-hidden rounded-card border-border bg-card p-0"
       >

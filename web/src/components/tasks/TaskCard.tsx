@@ -512,7 +512,10 @@ function CardRows({
   people,
   files,
   note,
+  whenLabel = "Ngày diễn ra",
 }: {
+  /** KT-07b: the create card says "Hạn" (CEO 12/11 · 5); the task's own card keeps its word. */
+  whenLabel?: string;
   readOnly: boolean;
   today: string;
   folds: ReturnType<typeof useFolds>;
@@ -580,7 +583,7 @@ function CardRows({
         <CardRow
           rowId="when"
           icon={<CalendarDays className={ICON} strokeWidth={1.8} aria-hidden="true" />}
-          label="Ngày diễn ra"
+          label={whenLabel}
           value={whenText !== null ? `${whenText}${openRow === "when" ? " · đang chọn" : ""}` : "Bắt buộc"}
           tone={whenText === null ? "plain" : "set"}
           onClick={readOnly ? undefined : () => toggle("when")}
@@ -1507,6 +1510,8 @@ function CreateTaskCardBody({
   const [isExpanded, setIsExpanded] = useState<boolean>(startExpanded || startWithEvent);
   const [openRow, setOpenRow] = useState<OpenRow>(startWithEvent ? "when" : null);
   // Giao cho is required where there is a choice, so the quick sheet shows it straight away.
+  // KT-07b (CEO 12/11 · 5): Hiện diện is a second fold of Mở rộng — shown when asked for (or for an event).
+  const [showPresence, setShowPresence] = useState<boolean>(startWithEvent);
   const [quickOpen, setQuickOpen] = useState<"date" | "people" | null>(() => (place !== "personal" && (startChoice ?? initialChoice(place)) === "none" ? "people" : null));
   const [isSourceOpen, setIsSourceOpen] = useState<boolean>(source?.defaultOpen ?? false);
   // CC-08: "Còn thiếu…" waits until the person has started; a form just opened is not told off.
@@ -1528,7 +1533,7 @@ function CreateTaskCardBody({
   const missing: string[] = [];
   if (draft.title.trim() === "") missing.push("tên việc");
   if (draft.when.day === "") missing.push("ngày diễn ra");
-  if (draft.requiresPresence && draft.when.time === "") missing.push("giờ ở Ngày diễn ra");
+  if (draft.requiresPresence && draft.when.time === "") missing.push("giờ ở Hạn");
   // ADR-030: nobody chosen yet → no send button at all, only the line asking to choose.
   const missingText = chosen ? missingLine(missing, hasStarted) : copy.description;
   const canSubmit = chosen && missing.length === 0 && !isSubmitting;
@@ -1671,9 +1676,10 @@ function CreateTaskCardBody({
           set: (recurrence, pattern) => patch({ recurrence, pattern }),
           disabledNote: onlyMe ? undefined : "Người nhận tự đặt khi đồng ý",
         }}
-        presence={{
+        whenLabel="Hạn"
+        presence={showPresence || draft.requiresPresence ? {
           summary: presenceLine(draft.requiresPresence, draft.location, draft.travelMinutes, startIso, draft.reminderOffset),
-          disabledNote: draft.when.time === "" ? "Cần giờ ở Ngày diễn ra" : null,
+          disabledNote: draft.when.time === "" ? "Cần giờ ở Hạn" : null,
           node: (
             <PresenceFields
               readOnly={false}
@@ -1694,7 +1700,7 @@ function CreateTaskCardBody({
               }
             />
           ),
-        }}
+        } : null}
         people={{ node: hasChoices ? picker : <LockedPeople label="Chỉ tôi" />, summary: peopleSummary }}
         files={{
           node: <DraftFiles files={draft.files} onChange={(files) => patch({ files })} disabledNote={recipients.includesSelf || !chosen ? null : "Người nhận tự thêm tệp khi đồng ý"} />,
@@ -1702,6 +1708,17 @@ function CreateTaskCardBody({
         }}
         note={{ value: draft.description, onChange: (description) => patch({ description }), onBlur: () => undefined }}
       />
+      {showPresence || draft.requiresPresence ? null : (
+        <button
+          type="button"
+          data-card-more-presence=""
+          onClick={() => setShowPresence(true)}
+          className="press mx-auto mt-3 flex min-h-11 items-center gap-1.5 px-3 text-[14px] font-medium text-muted-foreground hover:text-foreground"
+        >
+          <MapPin className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
+          Thêm: Hiện diện (cần có mặt, địa điểm)
+        </button>
+      )}
     </>
   );
 
@@ -1710,18 +1727,11 @@ function CreateTaskCardBody({
     <>
       {titleRow}
       <div className="mt-3 flex flex-wrap gap-2 pl-10">
-        {onlyMe || !hasChoices ? (
-          <QuickChip
-            icon={<Sun className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />}
-            label="Hôm nay"
-            isActive={draft.myDay}
-            onClick={() => patch({ myDay: !draft.myDay })}
-          />
-        ) : null}
+        {/* KT-07b (CEO 12/11 · 5, QA-02 CC-34): one chip "Hạn: …" — not "Hôm nay" beside a bare date. */}
         <QuickChip
           icon={<CalendarDays className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />}
-          label={dateLabel ?? "Ngày"}
-          ariaLabel={`Ngày diễn ra: ${dateLabel ?? "chưa chọn"}`}
+          label={dateLabel !== null ? `Hạn: ${dateLabel}` : "Hạn"}
+          ariaLabel={`Hạn: ${dateLabel ?? "chưa chọn"}`}
           isActive={dateLabel !== null}
           onClick={() => setQuickOpen(quickOpen === "date" ? null : "date")}
         />
@@ -1740,7 +1750,7 @@ function CreateTaskCardBody({
       {quickOpen === "date" ? (
         <div className="mt-3 rounded-[12px] border border-border bg-card p-3.5">
           <InlineCalendar
-            label="Chọn ngày diễn ra"
+            label="Chọn hạn"
             value={draft.when.day}
             today={today}
             minDay={today}

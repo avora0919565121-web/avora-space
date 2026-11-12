@@ -112,7 +112,7 @@ export function RoomNumbers({
   return (
     <div data-room-numbers="" className="space-y-3">
       <div className="flex items-center justify-between gap-2">
-        <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Kế hoạch của bạn</h2>
+        <h2 className="text-[15px] font-semibold tracking-tight text-foreground">Kế hoạch của bạn</h2>
         <div role="tablist" aria-label="Khoảng thời gian" className="flex rounded-full bg-muted p-0.5 text-[12.5px]">
           {(["today", "week"] as const).map((id) => (
             <button key={id} type="button" role="tab" aria-selected={range === id} onClick={() => setRange(id)} className={cn("press h-8 rounded-full px-3", range === id ? "bg-card font-semibold text-foreground shadow-sm" : "text-muted-foreground")}>

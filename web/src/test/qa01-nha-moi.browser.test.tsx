@@ -165,6 +165,8 @@ test("QA01-09 · ảnh chữ viết tắt không hiện '?' hay 'BẠ' khi tên 
 
 test("QA01-10 · Cài đặt › Avora AI (Sắp có) giữ tiêu đề và dải tab; đổi tab con vẫn giữ đường về", async () => {
   srv.features = [{ key: "avora_ai", status: "soon" }];
+  // KT-07b: the grouped list is the left column on a computer.
+  await page.viewport(1280, 800);
   const screen = await render(
     <Frame at="/cai-dat/avora-ai?tu=%2Ftong-quan&tu_ten=Avora+Space">
       <RouteFeatureGate>
@@ -180,11 +182,13 @@ test("QA01-10 · Cài đặt › Avora AI (Sắp có) giữ tiêu đề và dả
   );
   await vi.waitFor(() => expect(document.querySelector("[data-feature-soon]")?.textContent).toBe("Sắp có"), WAIT);
   expect(document.body.textContent).not.toContain("Trang Avora AI thật");
-  const strip = screen.getByRole("tablist", { name: "Mục Cài đặt" });
+  // KT-07b: Cài đặt is a grouped list now (CEO 12/11 · 3), not a strip of tabs.
+  const strip = screen.getByRole("navigation", { name: "Mục Cài đặt" }).first();
   await expect.element(strip).toBeInTheDocument();
-  await userEvent.click(strip.getByText("Thông báo"));
+  await userEvent.click(strip.getByText("Thông báo", { exact: true }));
   await vi.waitFor(() => expect(document.querySelector("[data-where]")?.textContent).toBe("/cai-dat/thong-bao?tu=%2Ftong-quan&tu_ten=Avora+Space"), WAIT);
   await expect.element(screen.getByText("Trang Thông báo")).toBeInTheDocument();
+  await page.viewport(414, 896);
 });
 
 test("QA01-11 · gợi ý 'Chạm ‹ để lùi' nằm thấp, không đè dải chip dưới hàng trên", async () => {
