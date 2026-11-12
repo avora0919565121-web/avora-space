@@ -24,14 +24,16 @@ function VaultBar() {
   const [isAbout, setIsAbout] = useState<boolean>(false);
 
   return (
-    <div data-under-tabs="" className="mx-auto flex w-full max-w-6xl items-center justify-end gap-1 px-4 pt-4 sm:px-6 md:px-10 short:px-4">
+    // KT-06 · E: beside the title (phone: the top row), never a row of its own between the two tab strips.
+    <div data-vault-bar="" className="inline-flex items-center gap-0.5">
       <button
         type="button"
         onClick={() => void vault.lock()}
+        aria-label="Khoá ngay"
         className="press inline-flex min-h-11 items-center gap-1.5 rounded-full px-3 text-[13.5px] font-medium text-foreground transition-colors hover:bg-secondary"
       >
         <Lock className="h-4 w-4" strokeWidth={1.8} aria-hidden="true" />
-        Khoá ngay
+        <span className="hidden sm:inline">Khoá ngay</span>
       </button>
       <DropdownMenu>
         <DropdownMenuTrigger
@@ -173,7 +175,6 @@ const Vault = () => {
   } else {
     body = (
       <>
-        <VaultBar />
         <Suspense fallback={null}>
           <Outlet />
         </Suspense>
@@ -186,7 +187,9 @@ const Vault = () => {
       <SectionNav
         section="Két sắt"
         tabs={visibleNav}
-        notice={vault.status !== null && !vault.status.hasCode && !vault.isUnlocked ? <SetCodeChip /> : undefined}
+        notice={
+          vault.isUnlocked ? <VaultBar /> : vault.status !== null && !vault.status.hasCode ? <SetCodeChip /> : undefined
+        }
         action={(current) => {
           // AVORA-57 · E: one `+` beside the title; none while locked or on a "Sắp có" sub-tab.
           const entry = vault.isUnlocked || (vault.isFinanceOpen && current === "/ket-sat") ? vaultAddFor(current) : null;

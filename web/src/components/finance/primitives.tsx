@@ -1,4 +1,7 @@
+import { Plus } from "lucide-react";
 import { NavLink } from "react-router-dom";
+
+import { StickyBar } from "@/components/nav/StickyBar";
 import type { ReactNode } from "react";
 
 import { OBLIGATION_STATUS_LABELS, formatMoney, type ObligationStatus } from "@/lib/finance";
@@ -126,40 +129,68 @@ const TABS = [
   { to: "/ket-sat/bao-cao", label: "Báo cáo", end: false },
 ] as const;
 
-/** One header for the whole finance section: title, section tabs, and a right-hand slot. */
+/**
+ * One header for the whole finance section (KT-06 · E, CEO 12/11 23:41): the four tabs sit right under
+ * the Két sắt strip and stick there while the page scrolls; the page's own action (e.g. `+ Tài khoản`)
+ * rides at the end of that same row; the one-line description comes after, as a quiet line that opens
+ * the content — never between two strips of navigation.
+ */
 export function FinanceHeader({ subtitle, action }: { subtitle: string; action?: ReactNode }) {
   return (
-    <header className="border-b border-border pb-4">
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        {/* AVORA-53 · 6.10: Két sắt already names the place; no second "Tài chính" title inside. */}
-        <p className="text-[15px] text-muted-foreground">{subtitle}</p>
-        {action}
-      </div>
+    <>
+      <StickyBar name="finance" className="-mx-4 px-4 sm:-mx-6 sm:px-6 md:-mx-10 md:px-10">
+        {() => (
+          <div data-finance-head="" className="flex items-center justify-between gap-2 border-b border-border py-2">
+            {/* AVORA-53 · 6.10: Két sắt already names the place; no second "Tài chính" title inside. */}
+            <nav aria-label="Mục tài chính" className="min-w-0">
+              {/* QA01-12: one line on a phone — tighter pads there, and a sideways scroll before any wrap. */}
+              <ul data-finance-tabs="" data-h-scroll="" className="flex gap-0.5 overflow-x-auto [scrollbar-width:none] sm:gap-1">
+                {TABS.map((tab) => (
+                  <li key={tab.to}>
+                    <NavLink
+                      to={tab.to}
+                      end={tab.end}
+                      className={({ isActive }) =>
+                        cn(
+                          "press inline-block whitespace-nowrap rounded-md px-1.5 py-2 text-[14px] font-medium transition-colors min-[400px]:px-2 sm:px-3.5",
+                          isActive ? CHIP_ON_PLAIN : "text-muted-foreground hover:bg-accent/35 hover:text-foreground",
+                        )
+                      }
+                    >
+                      {tab.label}
+                    </NavLink>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+            {action !== undefined ? (
+              <div data-finance-action="" className="shrink-0">
+                {action}
+              </div>
+            ) : null}
+          </div>
+        )}
+      </StickyBar>
+      <p data-finance-subtitle="" className="mt-3 text-[13.5px] text-muted-foreground">
+        {subtitle}
+      </p>
+    </>
+  );
+}
 
-      <nav aria-label="Mục tài chính" className="mt-5">
-        {/* QA01-12: one line on a phone — tighter pads there, and a sideways scroll before any wrap. */}
-        <ul data-finance-tabs="" data-h-scroll="" className="flex gap-0.5 overflow-x-auto [scrollbar-width:none] sm:flex-wrap sm:gap-1 sm:overflow-visible">
-          {TABS.map((tab) => (
-            <li key={tab.to}>
-              <NavLink
-                to={tab.to}
-                end={tab.end}
-                className={({ isActive }) =>
-                  cn(
-                    "press inline-block whitespace-nowrap rounded-md px-2 py-2 text-[14px] font-medium transition-colors sm:px-3.5",
-                    isActive
-                      ? CHIP_ON_PLAIN
-                      : "text-muted-foreground hover:bg-accent/35 hover:text-foreground",
-                  )
-                }
-              >
-                {tab.label}
-              </NavLink>
-            </li>
-          ))}
-        </ul>
-      </nav>
-    </header>
+/** KT-06 · E: a page action at the end of the tab row — the standard small size, icon only on a phone. */
+export function RowAction({ label, onClick }: { label: string; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-label={label}
+      title={label}
+      className="press inline-flex h-9 min-w-9 items-center justify-center gap-1.5 rounded-md bg-primary px-2 text-[13.5px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92 sm:px-3"
+    >
+      <Plus className="h-4 w-4" strokeWidth={2.2} aria-hidden="true" />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
   );
 }
 
@@ -167,7 +198,7 @@ export function FinanceHeader({ subtitle, action }: { subtitle: string; action?:
 export function FinancePage({ children }: { children: ReactNode }) {
   return (
     <div className="paper min-h-0 flex-1 overflow-y-auto">
-      <div className="animate-rise-in mx-auto max-w-6xl px-6 py-10 md:px-10">{children}</div>
+      <div className="animate-rise-in mx-auto max-w-6xl px-4 pb-10 sm:px-6 md:px-10">{children}</div>
     </div>
   );
 }

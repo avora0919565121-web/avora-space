@@ -5,7 +5,7 @@ import { toast } from "sonner";
 
 import { AccountDialog, CategoryDialog } from "@/components/finance/dialogs";
 import { FinanceTrashPanel, RemoveAccountDialog } from "@/components/finance/FinanceTrash";
-import { EmptyNote, FiguresStamp, FinanceHeader, FinancePage, FinanceUnavailable, Money, Panel } from "@/components/finance/primitives";
+import { EmptyNote, FiguresStamp, FinanceHeader, FinancePage, FinanceUnavailable, Money, Panel, RowAction } from "@/components/finance/primitives";
 import {
   ACCOUNT_TYPE_LABELS,
   activeAccounts,
@@ -271,16 +271,7 @@ const FinanceAccounts = () => {
     <FinancePage>
       <FinanceHeader
         subtitle="Nơi tiền của bạn đang nằm, và cách bạn phân loại nó."
-        action={
-          <button
-            type="button"
-            onClick={() => setAccountDialog({ open: true, editing: null })}
-            className="press inline-flex items-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
-          >
-            <Plus className="h-4 w-4" strokeWidth={2.2} />
-            Thêm tài khoản
-          </button>
-        }
+        action={<RowAction label="Thêm tài khoản" onClick={() => setAccountDialog({ open: true, editing: null })} />}
       />
 
       {figures.kind === "unknown" ? (
