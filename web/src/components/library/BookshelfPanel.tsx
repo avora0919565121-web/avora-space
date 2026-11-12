@@ -43,6 +43,7 @@ import { useNotes } from "@/lib/use-notes";
 import { clearMyCover, saveMyCover, useShelfCatalog } from "@/lib/use-book-covers";
 import { useThinkHub, useThinkHubActions } from "@/lib/use-think-hub";
 import { useShelfActions, useStars } from "@/lib/use-think-hub-shelf";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 import { useBookshelf, useShelfCovers } from "@/components/library/use-bookshelf";
 import { OnDeviceList } from "@/components/library/OnDeviceList";
@@ -318,7 +319,7 @@ function BookshelfPanelInner({ addRequest }: { addRequest: number }) {
           if (list.length === 0) return null;
           return (
             <section key={tier.key} aria-label={tier.label} className="mt-6">
-              <h3 className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{tier.label} · {list.length}</h3>
+              <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{tier.label} · {list.length}</h3>
               <ul data-h-scroll="" className="flex gap-3 overflow-x-auto border-b-[3px] border-foreground/10 pb-0 [mask-image:linear-gradient(to_right,#000_calc(100%-24px),transparent)] md:grid md:[mask-image:none] md:grid-cols-[repeat(auto-fill,minmax(118px,1fr))] md:overflow-visible md:px-0">
                 {list.map((book) => {
                   const progress = readingProgress(field(book, keys.position));
@@ -613,7 +614,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
   return (
     <section aria-label="Thư viện mở" data-open-library="" className="mt-8">
       <div className="flex items-center gap-3">
-        <h3 className="shrink-0 text-[12.5px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">Thư viện mở</h3>
+        <h3 className="shrink-0 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Thư viện mở</h3>
         <button type="button" onClick={() => setIsSearchOpen((open) => !open || text !== "")} aria-label="Tìm trong Thư viện mở" aria-expanded={isSearchOpen || text !== ""} data-library-search-toggle="" className="icon-btn h-9 w-9">
           <Search className="h-4 w-4" aria-hidden="true" />
         </button>
@@ -656,7 +657,7 @@ function OpenLibrary({ onShelf, onAdd }: { onShelf: ReadonlySet<string>; onAdd: 
             type="button"
             aria-pressed={category === item.id}
             onClick={() => setCategory(category === item.id ? null : item.id)}
-            className={cn("press h-8 shrink-0 rounded-full border px-3 text-[12.5px]", category === item.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground")}
+            className={cn("press hit-44 h-8 shrink-0 rounded-full border px-3 text-[12.5px]", category === item.id ? CHIP_ON : CHIP_OFF)}
           >
             {item.label}
           </button>

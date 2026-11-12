@@ -21,6 +21,9 @@ import { ImportContactsDialog } from "@/components/contacts/ImportContactsDialog
 import { NewContactDialog } from "@/components/contacts/NewContactDialog";
 import { UserAvatar } from "@/components/UserAvatar";
 import { InlineBack } from "@/components/nav/InlineBack";
+import { HubTitle } from "@/components/nav/HubTitle";
+import { EmptyState as SharedEmptyState } from "@/components/EmptyState";
+import { PlusMenuButton } from "@/components/PlusMenuButton";
 import {
   filterContacts,
   individualSubtitle,
@@ -36,6 +39,7 @@ import { useConnections } from "@/lib/use-connections";
 import { useContacts } from "@/lib/use-contacts";
 import { useOpenOpportunityContacts } from "@/lib/use-opportunities";
 import { SearchEverywhereLine } from "@/components/search/AvoraSearch";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 type Group = "individual" | "business" | "friends";
@@ -102,33 +106,30 @@ const Contacts = () => {
   );
 
   return (
-    <div ref={setScrollEl} className="paper min-h-0 flex-1 scroll-y-free">
-      <div className="animate-rise-in mx-auto max-w-3xl px-6 py-10 md:px-10">
-        <InlineBack className="-mt-6 mb-2" />
-        <header className="flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <h1 className="text-[28px] font-semibold tracking-tight text-foreground">Liên hệ</h1>
-            <p className="mt-1 text-[15px] text-muted-foreground">Liên hệ của riêng bạn</p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
+    <div className="paper flex min-h-0 flex-1 flex-col">
+      {/* CC-12: the shared page frame — on a phone the top row reads `‹ Kết nối · Liên hệ` and carries the +. */}
+      <HubTitle
+        title="Liên hệ"
+        className="max-w-3xl"
+        action={
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
               onClick={() => setIsImportOpen(true)}
-              className="press inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2.5 text-[14.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
+              aria-label="Nhập từ file"
+              title="Nhập từ file"
+              data-contacts-import=""
+              className="icon-btn h-11 w-11 text-foreground"
             >
-              <Upload className="h-[17px] w-[17px]" strokeWidth={1.8} aria-hidden="true" />
-              Nhập từ file
+              <Upload className="h-[18px] w-[18px]" strokeWidth={1.7} aria-hidden="true" />
             </button>
-            <button
-              type="button"
-              onClick={() => setIsNewOpen(true)}
-              className="press inline-flex items-center gap-1.5 rounded-md bg-primary px-5 py-2.5 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
-            >
-              <Plus className="h-[18px] w-[18px]" strokeWidth={2} aria-hidden="true" />
-              Thêm liên hệ
-            </button>
+            <PlusMenuButton label="Thêm liên hệ" onTap={() => setIsNewOpen(true)} entries={[]} />
           </div>
-        </header>
+        }
+      />
+    <div ref={setScrollEl} className="min-h-0 flex-1 scroll-y-free">
+      <div className="animate-rise-in mx-auto max-w-3xl px-4 pb-10 pt-4 sm:px-6 md:px-10">
+        <InlineBack className="mb-2" />
 
         {/* AVORA-72 · A: always shown, `· 0` included — the board exists for everyone. */}
         <a href="/ke-hoach?danh-sach-co-hoi=1" className="press mt-6 flex min-h-12 items-center gap-2 rounded-card border border-border bg-card px-4 text-[15px] font-medium text-foreground hover:bg-accent/40" data-opportunity-entry="">
@@ -193,8 +194,9 @@ const Contacts = () => {
           </button>
         ) : null}
 
-        <nav aria-label="Loại liên hệ" className="mt-7">
-          <ul className="flex flex-wrap gap-1">
+        <nav aria-label="Loại liên hệ" className="mt-6">
+          {/* CC-12: one line on a phone; slides sideways rather than wrapping. */}
+          <ul data-h-scroll="" data-contact-groups="" className="flex gap-1 overflow-x-auto whitespace-nowrap [scrollbar-width:none]">
             <li>
               <GroupTab
                 isActive={group === "individual"}
@@ -294,6 +296,7 @@ const Contacts = () => {
 
       <ImportContactsDialog open={isImportOpen} onOpenChange={setIsImportOpen} />
     </div>
+    </div>
   );
 };
 
@@ -316,9 +319,9 @@ function GroupTab({
       onClick={onClick}
       aria-current={isActive ? "page" : undefined}
       className={cn(
-        "press inline-flex items-center gap-2 rounded-md px-3.5 py-2 text-[14px] font-medium transition-colors",
+        "press inline-flex shrink-0 items-center gap-2 rounded-md px-3.5 py-2 text-[14px] font-medium transition-colors",
         isActive
-          ? "bg-accent/70 text-accent-foreground"
+          ? CHIP_ON_PLAIN
           : "text-muted-foreground hover:bg-accent/35 hover:text-foreground",
       )}
     >
@@ -342,25 +345,17 @@ function EmptyState({
     return <p className="px-6 py-10 text-center text-[14px] text-muted-foreground">Không tìm thấy liên hệ nào.</p>;
   }
 
+  // CC-15: the shared empty state; the one button here (the + sits in the top row).
   return (
-    <div className="px-6 py-12 text-center">
-      <p className="text-[15px] font-medium text-foreground">
-        {group === "individual" ? "Chưa có liên hệ cá nhân nào" : "Chưa có liên hệ doanh nghiệp nào"}
-      </p>
-      <p className="mx-auto mt-1.5 max-w-sm text-[13.5px] leading-relaxed text-muted-foreground">
-        {group === "individual"
-          ? "Thêm một người bạn muốn giữ liên lạc — họ không cần có tài khoản AVORA."
-          : "Thêm một công ty bạn làm việc cùng, kèm mã số thuế và người đại diện."}
-      </p>
-      <button
-        type="button"
-        onClick={onAdd}
-        className="press mt-4 inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-[13.5px] font-medium text-foreground transition-colors hover:bg-accent/40"
-      >
-        <Plus className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
-        Thêm liên hệ
-      </button>
-    </div>
+    <SharedEmptyState
+      icon={group === "individual" ? UserRound : Building2}
+      title={group === "individual" ? "Chưa có liên hệ cá nhân nào" : "Chưa có liên hệ doanh nghiệp nào"}
+      action={{ label: "Thêm liên hệ", icon: Plus, onClick: onAdd }}
+    >
+      {group === "individual"
+        ? "Bạn thêm một người muốn giữ liên lạc nhé — họ không cần có tài khoản AVORA."
+        : "Bạn thêm một công ty đang làm việc cùng, kèm mã số thuế và người đại diện."}
+    </SharedEmptyState>
   );
 }
 

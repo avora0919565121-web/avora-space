@@ -22,6 +22,7 @@ import {
 import type { AccountDraft, CategoryDraft } from "@/lib/finance-api";
 import { useFinanceActions } from "@/lib/use-finance";
 import { useBaseCurrency } from "@/lib/use-settings";
+import { SEGMENT_OFF, SEGMENT_ON, SEGMENT_TRACK } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 // The three hardcoded options are gone: the twenty supported currencies now come from the
@@ -409,7 +410,7 @@ export function CategoryDialog({
 
           <div>
             <FieldLabel required>Dùng cho</FieldLabel>
-            <div className="mt-1.5 inline-flex rounded-md border border-border bg-background p-0.5">
+            <div className={cn("mt-1.5", SEGMENT_TRACK)}>
               {(["expense", "income"] as const).map((option) => (
                 <button
                   key={option}
@@ -419,7 +420,7 @@ export function CategoryDialog({
                   onClick={() => setScope(option)}
                   className={cn(
                     "press rounded-[7px] px-4 py-1.5 text-[13.5px] font-semibold transition-colors disabled:opacity-60",
-                    scope === option ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground",
+                    scope === option ? SEGMENT_ON : SEGMENT_OFF,
                   )}
                 >
                   {option === "income" ? "Khoản thu" : "Khoản chi"}

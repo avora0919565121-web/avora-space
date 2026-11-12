@@ -4,6 +4,7 @@ import { toast } from "sonner";
 
 import { useAuth } from "@/lib/auth";
 import { fetchConversationShareRead, setConversationShareRead } from "@/lib/receipts";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 import { FeatureGate } from "@/components/features/FeatureGate";
 
@@ -50,7 +51,7 @@ function ConversationShareReadRowInner({ conversationId, isGroup }: { conversati
             onClick={() => change.mutate(option.value)}
             className={cn(
               "press min-h-11 rounded-control border px-1.5 text-[12.5px] leading-tight",
-              value === option.value ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground",
+              value === option.value ? CHIP_ON : CHIP_OFF,
             )}
           >
             {option.label}

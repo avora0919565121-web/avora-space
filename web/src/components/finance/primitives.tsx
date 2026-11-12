@@ -2,6 +2,8 @@ import { NavLink } from "react-router-dom";
 import type { ReactNode } from "react";
 
 import { OBLIGATION_STATUS_LABELS, formatMoney, type ObligationStatus } from "@/lib/finance";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
+import { TYPE } from "@/lib/type-scale";
 import { cn } from "@/lib/utils";
 
 /**
@@ -104,7 +106,8 @@ export function Panel({
     <section className={cn("rounded-card border border-border bg-card", className)}>
       {title !== undefined ? (
         <header className="flex items-center justify-between gap-3 border-b border-border px-5 py-3.5">
-          <h2 className="text-[15px] font-semibold tracking-tight text-foreground">{title}</h2>
+          {/* CC-14: the house block title (TYPE.blockTitle), the same as Avora Space's blocks. */}
+          <h2 className={cn(TYPE.blockTitle, "tracking-tight")}>{title}</h2>
           {action}
         </header>
       ) : null}
@@ -142,7 +145,7 @@ export function FinanceHeader({ subtitle, action }: { subtitle: string; action?:
                   cn(
                     "press inline-block whitespace-nowrap rounded-md px-2 py-2 text-[14px] font-medium transition-colors sm:px-3.5",
                     isActive
-                      ? "bg-accent/70 text-accent-foreground"
+                      ? CHIP_ON_PLAIN
                       : "text-muted-foreground hover:bg-accent/35 hover:text-foreground",
                   )
                 }

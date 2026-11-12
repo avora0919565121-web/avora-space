@@ -10,7 +10,7 @@ import { useOnline } from "@/lib/use-online";
 
 function SectionTitle({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   return (
-    <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+    <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
       {icon}
       {children}
     </h3>

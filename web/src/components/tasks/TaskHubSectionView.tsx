@@ -1,4 +1,4 @@
-import { Check, ChevronRight, MapPin, X } from "lucide-react";
+import { Check, ChevronRight, ListChecks, MapPin, Plus, X } from "lucide-react";
 import { useMemo } from "react";
 import { toast } from "sonner";
 
@@ -20,6 +20,7 @@ import {
 import { deadlineLabel, isDeletedFor, isTaskGone, type TaskItem } from "@/lib/tasks";
 import { useRespondInvitation, useTaskParticipants } from "@/lib/use-task-collab";
 import { useTaskActions } from "@/lib/use-tasks";
+import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 
 function clock(iso: string): string {
@@ -197,7 +198,7 @@ function TrashList({ tasks, userId, today, onOpen, empty }: { tasks: readonly Ta
 }
 
 /** Every Task Hub section other than "Tasks", which keeps the existing four readings. */
-export function TaskHubSectionView({ section, tasks, userId, today, onOpen }: { section: TaskHubSection; tasks: readonly TaskItem[]; userId: string | undefined; today: string; onOpen: (task: TaskItem) => void }) {
+export function TaskHubSectionView({ section, tasks, userId, today, onOpen, onAddFirst }: { section: TaskHubSection; tasks: readonly TaskItem[]; userId: string | undefined; today: string; onOpen: (task: TaskItem) => void; onAddFirst?: () => void }) {
   const flags = useTaskFlagIndex();
   const list = useMemo(() => tasksForSection(section.id, tasks, userId, today, flags), [section.id, tasks, userId, today, flags]);
 
@@ -205,7 +206,7 @@ export function TaskHubSectionView({ section, tasks, userId, today, onOpen }: { 
   if (section.id === "upcoming") return <UpcomingCalendar tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty={section.empty} />;
   if (section.id === "invitations") return <InvitationsList tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty={section.empty} />;
   if (section.id === "trash") return <TrashList tasks={tasks} userId={userId} today={today} onOpen={onOpen} empty={section.empty} />;
-  if (section.id === "my_day") return <MyDay tasks={tasks} userId={userId} today={today} onOpen={onOpen} list={list} empty={section.empty} />;
+  if (section.id === "my_day") return <MyDay tasks={tasks} userId={userId} today={today} onOpen={onOpen} list={list} empty={section.empty} onAddFirst={onAddFirst} />;
   if (list.length === 0) return <Empty text={section.empty} />;
   return (
     <div className="overflow-hidden rounded-[12px] border border-border bg-card">
@@ -226,12 +227,12 @@ export function TaskHubSectionView({ section, tasks, userId, today, onOpen }: { 
  * AVORA-89 · 3.B (AVORA-93 · 4): `Hôm nay` reads top to bottom — invitations waiting on me,
  * then what is late, then today's own. A person with nothing at all gets one gentle start card.
  */
-function MyDay({ tasks, userId, today, onOpen, list, empty }: { tasks: readonly TaskItem[]; userId: string | undefined; today: string; onOpen: (task: TaskItem) => void; list: readonly TaskItem[]; empty: string }) {
+function MyDay({ tasks, userId, today, onOpen, list, empty, onAddFirst }: { tasks: readonly TaskItem[]; userId: string | undefined; today: string; onOpen: (task: TaskItem) => void; list: readonly TaskItem[]; empty: string; onAddFirst?: () => void }) {
   const { data: participants } = useTaskParticipants();
   const invites = useMemo(() => invitationRows(participants ?? [], tasks, userId), [participants, tasks, userId]);
   const late = useMemo(() => tasksForSection("overdue", tasks, userId, today).filter((task) => !list.some((item) => item.id === task.id)), [tasks, userId, today, list]);
   const hasAnyTask = tasks.some((task) => !isTaskGone(task) && !isDeletedFor(task, userId));
-  if (!hasAnyTask && invites.length === 0) return <StartGently />;
+  if (!hasAnyTask && invites.length === 0) return <StartGently onAddFirst={onAddFirst} />;
   return (
     <div className="space-y-5" data-my-day="">
       {invites.length > 0 ? (
@@ -275,16 +276,20 @@ function todayLine(task: TaskItem, today: string): MyDayCardNote | null {
   return note;
 }
 
-/** The one card a person with no tasks yet sees (89 · 3.B): what a task is, and one way in. */
-function StartGently() {
+/** The one card a person with no tasks yet sees (89 · 3.B): what a task is, and one way in (CC-15). */
+function StartGently({ onAddFirst }: { onAddFirst?: () => void }) {
   return (
-    <div data-start-gently="" className="rounded-[14px] bg-personal-soft/60 px-4 py-4">
-      <p className="text-[15px] font-semibold text-foreground">Bắt đầu nhẹ nhàng</p>
-      <p className="mt-1 text-[13.5px] leading-relaxed text-muted-foreground">
+    <div data-start-gently="" className="rounded-[14px] bg-personal-soft/60">
+      <EmptyState
+        icon={ListChecks}
+        title="Bắt đầu nhẹ nhàng"
+        className="py-6"
+        action={onAddFirst !== undefined ? { label: "Thêm việc đầu tiên", icon: Plus, onClick: onAddFirst } : undefined}
+      >
         Một việc cần nhớ? {/* CC-17g: a finger taps, a mouse clicks. */}
         <span className="md:hidden">Chạm</span>
         <span className="hidden md:inline">Bấm</span> <span className="font-semibold text-foreground">+</span> ở trên. Việc người khác giao cho bạn trong Kết nối cũng hiện ở đây.
-      </p>
+      </EmptyState>
     </div>
   );
 }

@@ -15,6 +15,7 @@ import { onVaultAdd } from "@/lib/vault-add";
 import type { VaultSection } from "@/lib/vault-crypto";
 import { prepareVaultFile, VAULT_MAX_PAGES } from "@/lib/vault-image";
 import { daysLeft, isSecretField, SECTION_LABEL, strongPassword, templateOf, VAULT_TEMPLATES, type VaultPayload } from "@/lib/vault-templates";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 const field = "mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[15px]";
@@ -422,7 +423,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
         {section === "certificates" ? (
           <div role="tablist" className="mt-s-2 inline-flex rounded-full border border-border bg-card p-1">
             {(["group", "life"] as const).map((v) => (
-              <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={cn("press h-9 rounded-full px-4 text-[13px] font-medium", view === v ? "bg-foreground text-background" : "text-muted-foreground")}>{v === "group" ? "Theo nhóm" : "Dòng đời"}</button>
+              <button key={v} type="button" role="tab" aria-selected={view === v} onClick={() => setView(v)} className={cn("press h-9 rounded-full px-4 text-[13px] font-medium", view === v ? CHIP_ON_PLAIN : "text-muted-foreground")}>{v === "group" ? "Theo nhóm" : "Dòng đời"}</button>
             ))}
           </div>
         ) : null}
@@ -439,7 +440,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
         {view === "life" && section === "certificates" ? (
           byOwner.map((owner) => (
             <section key={owner} className="mt-s-2">
-              <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{owner}</h3>
+              <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{owner}</h3>
               <ol className="mt-2 border-l-2 border-primary/30 pl-4">
                 {shown.filter((i) => i.payload.owner_label === owner).sort((a, b) => (a.payload.fields.issued_on ?? "").localeCompare(b.payload.fields.issued_on ?? "")).map((i) => (
                   <li key={i.id} className="relative py-2">
@@ -456,7 +457,7 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
         ) : (
           groups.map((group) => (
             <section key={group} className="mt-s-2">
-              <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{group}</h3>
+              <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{group}</h3>
               <ul className="mt-2 divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
                 {shown.filter((i) => templateOf(section, i.payload.type).group === group).map(row)}
               </ul>

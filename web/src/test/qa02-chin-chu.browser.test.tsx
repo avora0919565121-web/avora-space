@@ -53,6 +53,13 @@ vi.mock("@/lib/auth", () => ({
 vi.mock("@/lib/realtime", () => ({ useChatRealtime: () => ({ status: "live", isLive: true, setReadingConversation: () => undefined }) }));
 
 import { ConfirmHost } from "@/components/ConfirmHost";
+import { EmptyState } from "@/components/EmptyState";
+import { OfflineNotice } from "@/components/OfflineNotice";
+import { RouteErrorBoundary } from "@/components/RouteErrorBoundary";
+import { MobileTopBar } from "@/components/nav/MobileTopBar";
+import { lazyRetry } from "@/lib/lazy-retry";
+import { MessagesSquare } from "lucide-react";
+import { Suspense } from "react";
 import { PlusMenuButton } from "@/components/PlusMenuButton";
 import { AccountDialog } from "@/components/finance/dialogs";
 import { selectChevron, selectClass } from "@/components/finance/primitives";
@@ -62,11 +69,11 @@ import { Toaster } from "@/components/ui/sonner";
 
 const WAIT = { timeout: 5_000, interval: 50 } as const;
 
-function Frame({ children }: { children: ReactNode }) {
+function Frame({ children, at = "/nhiem-vu" }: { children: ReactNode; at?: string }) {
   const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
   return (
     <QueryClientProvider client={client}>
-      <MemoryRouter initialEntries={["/nhiem-vu"]}>
+      <MemoryRouter initialEntries={[at]}>
         {children}
         <Toaster />
         <ConfirmHost />
@@ -227,4 +234,122 @@ test("CC-17b · ô số tiền VND: gợi ý 0, gõ ra 45.000", async () => {
   expect(box.placeholder).toBe("0");
   await userEvent.type(box, "45000");
   expect(box.value).toBe("45.000");
+});
+
+/* ------------------------------------------------------------------ Đợt 2 */
+
+function setOnline(isOnline: boolean): void {
+  Object.defineProperty(navigator, "onLine", { configurable: true, get: () => isOnline });
+}
+function restoreOnline(): void {
+  delete (navigator as unknown as { onLine?: boolean }).onLine;
+}
+
+test("CC-09 · mất mạng mở phòng chưa tải: nói cần mạng, có mạng thì tự mở lại", async () => {
+  let attempts = 0;
+  const Room = lazyRetry(async () => {
+    attempts += 1;
+    if (navigator.onLine === false) throw new TypeError("Failed to fetch dynamically imported module: /assets/ThinkHub.js");
+    return { default: () => <p data-room-open="">Thư phòng đã mở</p> };
+  });
+  setOnline(false);
+  try {
+    await render(
+      <Frame at="/ke-hoach">
+        <RouteErrorBoundary resetKey="/ke-hoach">
+          <Suspense fallback={null}>
+            <Room />
+          </Suspense>
+        </RouteErrorBoundary>
+      </Frame>,
+    );
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Cần có mạng để mở Thư phòng lần đầu"), WAIT);
+    expect(document.body.textContent).not.toContain("Phần này đang gặp sự cố");
+    // Still offline: no request loop.
+    await settle(500);
+    expect(attempts).toBeLessThanOrEqual(2);
+    setOnline(true);
+    window.dispatchEvent(new Event("online"));
+    await vi.waitFor(() => expect(document.querySelector("[data-room-open]")).not.toBeNull(), WAIT);
+    expect(document.body.textContent).not.toContain("Cần có mạng");
+  } finally {
+    restoreOnline();
+  }
+});
+
+test("CC-10 · ngoại tuyến: Tạo nhiệm vụ báo ngay, không gửi, giữ nguyên chữ", async () => {
+  const onCreateMine = vi.fn(async () => ({ id: "t-new" }));
+  await render(
+    <Frame>
+      <TaskCard open onOpenChange={() => undefined} place="personal" initial={{ deadline: "2099-01-02" }} onCreateMine={onCreateMine} />
+    </Frame>,
+  );
+  await vi.waitFor(() => expect(document.getElementById("task-card-title")).not.toBeNull(), WAIT);
+  await userEvent.type(document.getElementById("task-card-title") as HTMLElement, "Việc tạo khi mất mạng");
+  setOnline(false);
+  try {
+    await userEvent.click(document.querySelector("[data-card-submit]") as HTMLElement);
+    await vi.waitFor(() => expect(document.body.textContent).toContain("Bạn đang ngoại tuyến nên nhiệm vụ chưa được lưu"), WAIT);
+    expect(onCreateMine).not.toHaveBeenCalled();
+    expect((document.getElementById("task-card-title") as HTMLTextAreaElement).value).toBe("Việc tạo khi mất mạng");
+  } finally {
+    restoreOnline();
+    toast.dismiss();
+  }
+});
+
+test("CC-10 · dải Ngoại tuyến có ở danh sách Kết nối, nhường chỗ trong cuộc trò chuyện", async () => {
+  setOnline(false);
+  try {
+    const list = await render(<Frame at="/tin-nhan"><OfflineNotice /></Frame>);
+    await vi.waitFor(() => expect(document.querySelector("[data-offline-notice]")).not.toBeNull(), WAIT);
+    await list.unmount();
+    await render(<Frame at="/tin-nhan/c1"><OfflineNotice /></Frame>);
+    await settle();
+    expect(document.querySelector("[data-offline-notice]")).toBeNull();
+  } finally {
+    restoreOnline();
+  }
+});
+
+test("CC-12 · Liên hệ trên điện thoại: thanh trên có ‹ và tên trang, không phải logo AVORA", async () => {
+  await render(<Frame at="/lien-he"><MobileTopBar /></Frame>);
+  await vi.waitFor(() => expect(document.querySelector("[data-top-title]")?.textContent).toBe("Liên hệ"), WAIT);
+  expect(document.querySelector("[data-back]")).not.toBeNull();
+  expect(document.querySelector("[data-logo]")).toBeNull();
+});
+
+test("CC-15 · Nhiệm vụ trống có nút Thêm việc đầu tiên; EmptyState một câu, một nút", async () => {
+  const onClick = vi.fn();
+  await render(
+    <Frame>
+      <EmptyState icon={MessagesSquare} action={{ label: "Kết bạn qua PIN / QR", onClick }}>
+        Chưa có ai ở đây. Bạn kết bạn với người thân qua PIN hoặc QR để bắt đầu trò chuyện.
+      </EmptyState>
+    </Frame>,
+  );
+  const card = document.querySelector("[data-empty-state]") as HTMLElement;
+  expect(card.querySelectorAll("button")).toHaveLength(1);
+  expect(card.querySelector("svg.lucide")).not.toBeNull();
+  await userEvent.click(page.getByRole("button", { name: "Kết bạn qua PIN / QR" }));
+  expect(onClick).toHaveBeenCalledTimes(1);
+});
+
+test("CC-18 · nút 38px trên thanh trên nhận chạm trong vùng 44px", async () => {
+  await render(
+    <Frame>
+      <div data-mobile-top-row="" className="flex h-[52px] items-center pl-10">
+        <button type="button" className="icon-btn" data-probe="top" aria-label="Tìm">x</button>
+      </div>
+    </Frame>,
+  );
+  const button = document.querySelector('[data-probe="top"]') as HTMLElement;
+  const rect = button.getBoundingClientRect();
+  expect(Math.round(rect.width)).toBe(38);
+  // 2px outside the drawn edge still lands on the button.
+  const before = getComputedStyle(button, "::before");
+  expect(before.position).toBe("absolute");
+  expect(before.top).toBe("-4px");
+  const hit = document.elementFromPoint(rect.right + 2, rect.top + rect.height / 2);
+  expect(hit?.outerHTML.slice(0, 80)).toBe(button.outerHTML.slice(0, 80));
 });

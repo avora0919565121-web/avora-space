@@ -59,7 +59,7 @@ export function ThoughtNote({
       <button
         type="button"
         onClick={() => setIsOpen(true)}
-        className="press mt-2 text-[12.5px] font-medium text-muted-foreground underline decoration-border underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground"
+        className="press relative mt-2 text-[12.5px] font-medium text-muted-foreground underline before:absolute before:-inset-x-2 before:-inset-y-[13px] before:content-[''] decoration-border underline-offset-2 transition-colors hover:text-foreground hover:decoration-foreground"
       >
         Viết lời bình
       </button>

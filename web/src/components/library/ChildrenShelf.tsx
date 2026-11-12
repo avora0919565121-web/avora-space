@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { BookCover } from "@/components/library/BookCover";
 import { bookTitleLines, CHILDREN_AGES, coverUrl, fetchChildrenShelf, type CatalogBook, type ChildrenAge } from "@/lib/book-catalog";
 import { useShelfCatalog } from "@/lib/use-book-covers";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 type Row = ChildrenAge | "tranh";
@@ -50,7 +51,7 @@ export function ChildrenShelf({ onShelf, onAdd }: { onShelf: ReadonlySet<string>
             aria-pressed={only === c.id}
             data-children-age={c.id}
             onClick={() => setOnly(only === c.id ? null : c.id)}
-            className={cn("press h-9 rounded-full border px-3.5 text-[13px] font-medium", only === c.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground")}
+            className={cn("press h-9 rounded-full border px-3.5 text-[13px] font-medium", only === c.id ? CHIP_ON : CHIP_OFF)}
           >
             {c.label}
           </button>

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/auth";
 import { amIOps } from "@/lib/feedback";
 import { logError } from "@/lib/log";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 type Health = {
@@ -61,7 +62,7 @@ const OpsHealth = () => {
                   role="radio"
                   aria-checked={days === value}
                   onClick={() => setDays(value)}
-                  className={cn("press min-h-11 rounded-full border border-border px-4 text-[13px] font-medium", days === value ? "bg-foreground text-background" : "text-muted-foreground")}
+                  className={cn("press min-h-11 rounded-full border border-border px-4 text-[13px] font-medium", days === value ? CHIP_ON_PLAIN : "text-muted-foreground")}
                 >
                   {value === 1 ? "Hôm nay" : `${value} ngày`}
                 </button>

@@ -184,6 +184,7 @@ import { spotlight } from "@/lib/spotlight";
 import { useRestScope } from "@/lib/use-rest-day";
 import { cn } from "@/lib/utils";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
+import { Skeleton } from "@/components/ui/skeleton";
 import { isAreaRoot } from "@/lib/go-back";
 import { CleanupCard } from "@/components/library/CleanupCard";
 import { ArchivedRecordsRow, RecordSelectSheet } from "@/components/think-hub/ArchivedRecords";
@@ -1441,8 +1442,34 @@ const ThinkHub = () => {
   };
 
   if (isPending) {
+    // CC-03: in the room, the frame comes first — title, Đọc · Ghi chép · Kế hoạch — and each part holds
+    // its own place. Ghi chép does not need the boards at all; only a named board still waits as before.
+    const isRoomAsked = inRoom && searchParams.get(HUB_TABLE_PARAM) === null;
+    if (!isRoomAsked) {
+      return <LoadingOrRetry className="paper" withBack={!isAreaRoot(location)} />;
+    }
     return (
-      <LoadingOrRetry className="paper" withBack={!isAreaRoot(location)} />
+      <div className="paper relative flex min-h-0 flex-1 flex-col" data-room={room} data-room-pending="">
+        <HubTitle title="Thư phòng" />
+        <StudyStrip part={studyPart} shelf={room} onPart={goStudy} onPlanView={(to) => goRoom(to)} />
+        <div className={cn("min-h-0 flex-1 scroll-y-free", room <= 3 ? "bg-[hsl(var(--room-wall)/0.45)]" : "bg-[hsl(var(--room-desk)/0.45)]")}>
+          <div data-under-tabs="" className="mx-auto max-w-6xl px-4 pb-24 pt-4 sm:px-6 md:px-10 short:px-4">
+            {room === 5 && studyPart === "ghi" ? (
+              <section id="room-diary" data-room-section="diary" data-study-notes="" className="min-w-0">
+                <DiaryShelf />
+              </section>
+            ) : (
+              <div role="status" aria-label="Đang mở Thư phòng" data-room-skeleton="" className="space-y-4">
+                <span className="sr-only">Đang mở Thư phòng</span>
+                <Skeleton className="h-[70px] rounded-card" />
+                <Skeleton className="h-4 w-32" />
+                <Skeleton className="h-24 rounded-card" />
+                <Skeleton className="h-24 rounded-card" />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 

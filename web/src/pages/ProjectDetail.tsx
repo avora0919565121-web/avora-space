@@ -588,7 +588,7 @@ const ProjectDetail = () => {
         </header>
 
         <section className="mt-7 rounded-card border border-border bg-card px-5 py-4">
-          <h2 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Hiến chương</h2>
+          <h2 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Hiến chương</h2>
           <dl className="mt-3 space-y-3">
             <div>
               <dt className="text-[12.5px] font-medium text-muted-foreground">Kim chỉ nam</dt>

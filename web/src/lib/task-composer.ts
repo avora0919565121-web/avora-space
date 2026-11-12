@@ -160,6 +160,16 @@ export function composerSuccess(recipients: Recipients, nameOf: (userId: string)
   return `Đã tạo nhiệm vụ của bạn và gợi ý cho ${others} người.`;
 }
 
+/**
+ * CC-10: said straight away when the device is offline — the card stays open with everything typed,
+ * and nothing is sent (no spinner that never ends, no second copy later).
+ */
+export const COMPOSER_OFFLINE = "Bạn đang ngoại tuyến nên nhiệm vụ chưa được lưu. Những gì bạn viết vẫn ở đây — có mạng, bạn bấm Tạo lại nhé.";
+
+/** CC-10: after this long without an answer, the card says the network is slow (the save keeps trying). */
+export const COMPOSER_SLOW_MS = 5_000;
+export const COMPOSER_SLOW = "Mạng đang chậm — AVORA vẫn đang lưu nhiệm vụ của bạn.";
+
 /** A failure halfway keeps the honest "Đã gửi x/y" count. */
 export function composerPartialFailure(done: number, total: number, message: string): string {
   return done === 0 ? message : `Đã gửi ${done}/${total}. ${message}`;

@@ -117,6 +117,15 @@ export function activeNavEntry(pathname: string): NavEntry | null {
 }
 
 /**
+ * CC-12: a page that is not a tab but stands on its own (opened from a tab) names itself in the phone's
+ * top row beside `‹`, as a tab does beside the logo. Null = not such a page.
+ */
+export function subPageTitle(pathname: string): string | null {
+  if (pathname === "/lien-he") return "Liên hệ";
+  return null;
+}
+
+/**
  * Where the phone's tool-belt steps aside: inside an open conversation, as a native messenger
  * does, so the composer and the keyboard keep the whole bottom of the screen.
  */

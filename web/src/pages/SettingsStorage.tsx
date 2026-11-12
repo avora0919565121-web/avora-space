@@ -1,5 +1,5 @@
 import { formatStorageBytes, STANDARD_UPLOAD_CAP_BYTES, useMyUploadUsage } from "@/lib/conversation-storage";
-import { ChevronDown, ChevronRight, Download, Loader2, RotateCcw } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, RotateCcw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
@@ -12,6 +12,7 @@ import { fetchThinkTables, thinkHubKeys } from "@/lib/think-hub";
 import { useNotes } from "@/lib/use-notes";
 import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 /**
  * AVORA-100 · V·4 — Cài đặt › Dung lượng. Information, not alarm: no red, one decimal.
@@ -127,7 +128,16 @@ const SettingsStorage = () => {
         <section aria-labelledby="usage-heading">
           <p id="usage-heading" className="text-[13px] text-muted-foreground">Bạn đang dùng</p>
           {usage.isPending ? (
-            <Loader2 className="mt-2 h-5 w-5 animate-spin text-muted-foreground" aria-label="Đang tải" />
+            // CC-22: the total and the list hold their places while the counts arrive — no spinner.
+            <div role="status" aria-label="Đang tải" data-storage-skeleton="">
+              <Skeleton className="mt-1 h-10 w-40" />
+              <Skeleton className="mt-1.5 h-3.5 w-full" />
+              <div className="mt-s-2 space-y-3 rounded-card border border-border bg-card px-4 py-3">
+                {[0, 1, 2, 3].map((line) => (
+                  <Skeleton key={line} className="h-5 w-full" />
+                ))}
+              </div>
+            </div>
           ) : usage.isError ? (
             <p className="mt-1 text-[14px] text-muted-foreground">{usage.error.message}</p>
           ) : (
@@ -161,7 +171,7 @@ const SettingsStorage = () => {
         </section>
 
         <section aria-labelledby="cleanup-heading">
-          <h2 id="cleanup-heading" className="text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Dọn dẹp</h2>
+          <h2 id="cleanup-heading" className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Dọn dẹp</h2>
           <div className="mt-2 overflow-hidden rounded-card border border-border bg-card">
             <button type="button" className={row} aria-expanded={open === "largest"} onClick={() => setOpen(open === "largest" ? null : "largest")} data-storage-largest="">
               <span className="min-w-0 flex-1">
@@ -201,7 +211,7 @@ const SettingsStorage = () => {
             </button>
             {open === "bin" ? (
               <ul className="border-b border-border/60 bg-secondary/30" data-storage-bin-list="">
-                {journal.isPending || tables.isPending ? <li className="px-4 py-3"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></li> : null}
+                {journal.isPending || tables.isPending ? <li className="px-4 py-3" aria-label="Đang tải"><Skeleton className="h-4 w-2/3" /></li> : null}
                 {bin.map((item) => (
                   <li key={item.key} className="flex items-center gap-2 border-b border-border/50 px-4 py-2 last:border-b-0">
                     <span className="min-w-0 flex-1">

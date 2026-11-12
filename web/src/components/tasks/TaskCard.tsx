@@ -74,6 +74,9 @@ import {
 import {
   composerCopy,
   composerPartialFailure,
+  COMPOSER_OFFLINE,
+  COMPOSER_SLOW,
+  COMPOSER_SLOW_MS,
   composerSuccess,
   departureLine,
   hasRecipients,
@@ -1568,7 +1571,13 @@ function CreateTaskCardBody({
   const submit = async (): Promise<void> => {
     const clean = values();
     if (clean === null) return;
+    // CC-10: offline → say so at once and keep the card as it is.
+    if (typeof navigator !== "undefined" && navigator.onLine === false) {
+      toast.error(COMPOSER_OFFLINE);
+      return;
+    }
     let extrasError: Error | null = null;
+    const slow = window.setTimeout(() => toast(COMPOSER_SLOW), COMPOSER_SLOW_MS);
     const result = await sendToRecipients({
       recipients,
       createMine: async () => {
@@ -1588,6 +1597,7 @@ function CreateTaskCardBody({
         await onPropose(assigneeId, { ...clean, extras: undefined });
       },
     });
+    window.clearTimeout(slow);
     if (result.error !== null) {
       toast.error(composerPartialFailure(result.done, result.total, result.error.message));
       return;

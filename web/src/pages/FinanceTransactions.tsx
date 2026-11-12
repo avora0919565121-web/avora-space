@@ -566,7 +566,7 @@ const FinanceTransactions = () => {
                 {days.map((day) => (
                   <section key={day.date}>
                     <header className="flex items-baseline justify-between gap-3 bg-background/70 px-5 py-1.5">
-                      <h3 className="text-[12.5px] font-semibold uppercase tracking-wide text-muted-foreground">
+                      <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                         {day.date === today ? "Hôm nay" : formatDayVi(day.date)}
                       </h3>
                       <Money cents={day.netCents} currency={currency} signed className="text-[12.5px] font-medium" />

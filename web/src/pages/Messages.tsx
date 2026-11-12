@@ -20,6 +20,7 @@ import {
   ListTodo,
   Mail,
   MessageSquarePlus,
+  MessagesSquare,
   MoreHorizontal,
   CalendarDays,
   NotebookPen,
@@ -323,6 +324,9 @@ import { CLEANUP_CONFIRM_AT } from "@/lib/journal-lines";
 import { myNameFor } from "@/lib/user-aliases";
 import { useUserAliases } from "@/lib/use-user-aliases";
 import { useContacts } from "@/lib/use-contacts";
+import { useOnline } from "@/lib/use-online";
+import { emptyPaneCopy } from "@/lib/chat-cache";
+import { EmptyState } from "@/components/EmptyState";
 import { cn } from "@/lib/utils";
 import { transcriptText } from "@/lib/chat-transcript";
 import { draftPreview, readDraft, useDraftsVersion, writeDraft } from "@/lib/chat-drafts";
@@ -369,6 +373,7 @@ const Messages = () => {
     [proposalsQuery.data],
   );
   const { isLive, setReadingConversation } = useChatRealtime();
+  const isOnline = useOnline();
   const isTabVisible = useDocumentVisible();
 
   const [query, setQuery] = useState<string>("");
@@ -379,6 +384,7 @@ const Messages = () => {
   const isPlaceholder = isPlaceholderTab(activeTab);
   /** Dự án lists projects rather than threads, so the pane below the strip changes entirely. */
   const isProjects = isProjectTab(activeTab);
+  const emptyPane = emptyPaneCopy(activeTab);
   const topSearch = topSearchButtons(activeTab, isPlaceholder);
   // Desktop only: the list column's width, as the reader last dragged it.
   const listColumn = useColumnWidth(LIST_COLUMN);
@@ -2757,11 +2763,12 @@ const Messages = () => {
           label="Độ rộng danh sách"
         />
         {/* VMT 10/10 19:39: on an upright phone nothing sits between the top row and the strip. */}
-        <div className={cn("pl-tab pr-4 md:block md:pb-4 md:pr-6 md:pt-7 short:block short:pb-2 short:pt-3", isLive ? "hidden" : "block pb-2 pt-2")}>
-          <div className={cn("items-center justify-between gap-3 md:flex short:flex", isLive ? "hidden" : "flex")}>
+        <div className={cn("pl-tab pr-4 md:block md:pb-4 md:pr-6 md:pt-7 short:block short:pb-2 short:pt-3", isLive || !isOnline ? "hidden" : "block pb-2 pt-2")}>
+          <div className={cn("items-center justify-between gap-3 md:flex short:flex", isLive || !isOnline ? "hidden" : "flex")}>
             {/* AVORA-89 · 1.1: on an upright phone the top row already reads `A · Kết nối`. */}
             <h1 className="shrink-0 whitespace-nowrap text-[28px] font-semibold tracking-tight text-foreground hidden md:block short:block md:text-[30px]">Kết nối</h1>
-            {!isLive ? (
+            {/* CC-10: offline, the one Ngoại tuyến band above says it; this line is for a dropped live link. */}
+            {!isLive && isOnline ? (
               <span className="flex items-center gap-1.5 text-[12px] text-muted-foreground" role="status">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary" />
                 Đang kết nối lại
@@ -3039,33 +3046,18 @@ const Messages = () => {
               </button>
             </div>
           ) : visibleConversations.length === 0 ? (
-            <div className="px-3 py-10 text-center">
-              <p className="text-[14px] text-muted-foreground">
-                {tabConversations.length > 0
-                  ? "Không có kết quả phù hợp."
-                  : activeTab === "group"
-                    ? "Chưa có nhóm nào. Tạo nhóm để trò chuyện cùng nhiều người."
-                    : "Chưa có cuộc trò chuyện nào."}
-              </p>
-              {tabConversations.length === 0 && activeTab === "group" ? (
-                <button
-                  type="button"
-                  onClick={() => setIsNewGroupOpen(true)}
-                  className="press mt-3 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
-                >
-                  Tạo nhóm
-                </button>
-              ) : null}
-              {tabConversations.length === 0 && activeTab === "direct" ? (
-                <button
-                  type="button"
-                  onClick={() => setIsNewChatOpen(true)}
-                  className="press mt-3 inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent/40"
-                >
-                  <QrCode className="h-4 w-4" strokeWidth={1.7} aria-hidden="true" /> Kết bạn qua PIN / QR
-                </button>
-              ) : null}
-            </div>
+            tabConversations.length > 0 ? (
+              <p className="px-3 py-10 text-center text-[14px] text-muted-foreground">Không có kết quả phù hợp.</p>
+            ) : activeTab === "group" ? (
+              // CC-15: the shared empty state — one warm sentence, one way forward.
+              <EmptyState icon={Users} action={{ label: "Tạo nhóm", icon: Plus, onClick: () => setIsNewGroupOpen(true) }}>
+                Gia đình, nhóm bạn hay đội làm việc — bạn tạo một nhóm để mọi người cùng trò chuyện.
+              </EmptyState>
+            ) : (
+              <EmptyState icon={MessagesSquare} action={{ label: "Kết bạn qua PIN / QR", icon: QrCode, onClick: () => setIsNewChatOpen(true) }}>
+                Chưa có ai ở đây. Bạn kết bạn với người thân qua PIN hoặc QR để bắt đầu trò chuyện.
+              </EmptyState>
+            )
           ) : activeTab === "group" && query.trim().length === 0 ? (
             // No search: the tree. A search reads flat, so a match deep in a branch is never folded away.
             <GroupTree tree={groupTree} activeConversationId={conversationId} userId={userId} projectById={projectByIdMap} />
@@ -3608,11 +3600,12 @@ const Messages = () => {
                       Thử lại
                     </button>
                   </div>
+                ) : messages.length === 0 && activeKind === "personal" ? (
+                  // CC-15: Nhật ký's way forward is the composer right below, so no button here.
+                  <EmptyState icon={NotebookPen}>Nhật ký còn trống. Bạn viết một dòng về hôm nay nhé — chỉ mình bạn đọc.</EmptyState>
                 ) : messages.length === 0 ? (
                   <p className="mx-auto max-w-sm text-center text-[14px] text-muted-foreground">
-                    {activeKind === "personal"
-                      ? "Nhật ký còn trống. Bạn viết một dòng về hôm nay nhé — chỉ mình bạn đọc."
-                      : activeKind === "group"
+                    {activeKind === "group"
                         ? `Chưa có tin nhắn nào trong ${threadTitle}. Mở lời đầu tiên nhé.`
                         : `Chưa có tin nhắn nào. Gửi lời chào đầu tiên tới ${threadTitle}.`}
                   </p>
@@ -4733,27 +4726,28 @@ activeKind === "personal" ? (
             </>
           )
         ) : (
-          <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+          <div className="flex flex-1 flex-col items-center justify-center px-8 text-center" data-empty-pane={activeTab}>
             {activeTab === "group" ? (
               <Users className="h-16 w-16 text-foreground/80" strokeWidth={1.2} />
+            ) : activeTab === "journal" ? (
+              <NotebookPen className="h-16 w-16 text-foreground/80" strokeWidth={1.2} />
+            ) : activeTab === "projects" ? (
+              <FolderKanban className="h-16 w-16 text-foreground/80" strokeWidth={1.2} />
             ) : (
               <MessageSquarePlus className="h-16 w-16 text-foreground/80" strokeWidth={1.2} />
             )}
-            <h2 className="mt-8 text-[26px] font-semibold tracking-tight text-foreground">
-              {activeTab === "group" ? "Chọn một nhóm" : "Chọn một người để trò chuyện"}
-            </h2>
-            <p className="mt-2 text-[15px] text-muted-foreground">
-              {activeTab === "group"
-                ? "Hoặc tạo nhóm mới với bạn bè của bạn"
-                : "Hoặc kết bạn qua PIN / QR để bắt đầu"}
-            </p>
-            <button
-              type="button"
-              onClick={() => (activeTab === "group" ? setIsNewGroupOpen(true) : setIsNewChatOpen(true))}
-              className="press mt-7 rounded-md bg-primary px-6 py-3 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
-            >
-              {activeTab === "group" ? "Tạo nhóm" : "Trò chuyện mới"}
-            </button>
+            {/* CC-20: the words follow the tab on the left. */}
+            <h2 className="mt-8 text-[26px] font-semibold tracking-tight text-foreground">{emptyPane.title}</h2>
+            <p className="mt-2 text-[15px] text-muted-foreground">{emptyPane.body}</p>
+            {emptyPane.action !== null ? (
+              <button
+                type="button"
+                onClick={() => (emptyPane.action === "group" ? setIsNewGroupOpen(true) : setIsNewChatOpen(true))}
+                className="press mt-7 rounded-md bg-primary px-6 py-3 text-[15px] font-semibold text-primary-foreground transition-colors hover:bg-primary/92"
+              >
+                {emptyPane.action === "group" ? "Tạo nhóm" : "Trò chuyện mới"}
+              </button>
+            ) : null}
           </div>
         )}
       </section>

@@ -1,4 +1,4 @@
-import { ChevronRight, FolderKanban, RotateCcw, Table2 } from "lucide-react";
+import { ChevronRight, FolderKanban, MessagesSquare, RotateCcw, Table2, Trash2, type LucideIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
@@ -23,13 +23,14 @@ type SectionKey = "tables" | "groups" | "trash";
 function BranchHeader({
   open,
   onToggle,
-  emoji,
+  icon: Icon,
   label,
   count,
 }: {
   open: boolean;
   onToggle: () => void;
-  emoji: string;
+  /** CC-16: the house's line icons, not emoji. */
+  icon: LucideIcon;
   label: string;
   count: number;
 }) {
@@ -45,9 +46,7 @@ function BranchHeader({
         strokeWidth={2.2}
         className={cn("h-4 w-4 shrink-0 text-muted-foreground", open && "rotate-90")}
       />
-      <span aria-hidden="true" className="text-[15px] leading-none">
-        {emoji}
-      </span>
+      <Icon className="h-4 w-4 shrink-0 text-muted-foreground" strokeWidth={1.7} aria-hidden="true" />
       <span className="text-[13.5px] font-semibold text-foreground">{label}</span>
       <span className="tabular text-[12px] text-muted-foreground">{count}</span>
     </button>
@@ -251,7 +250,7 @@ export function ProjectList({
         <BranchHeader
           open={groupsOpen}
           onToggle={() => toggle("groups")}
-          emoji="💬"
+          icon={MessagesSquare}
           label="Trò chuyện dự án"
           count={groupProjects.length}
         />
@@ -309,7 +308,7 @@ export function ProjectList({
       </section>
 
       <section className="mt-1">
-        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} emoji="📊" label="Danh sách bảng" count={mineCount + projectTables.length} />
+        <BranchHeader open={tablesOpen} onToggle={() => toggle("tables")} icon={Table2} label="Danh sách bảng" count={mineCount + projectTables.length} />
         {tablesOpen ? (
           tablesQuery.isError ? (
             // AVORA-49 · 1.8: a failed load says so; it never passes for an empty list.
@@ -393,7 +392,7 @@ export function ProjectList({
 
       {deleted.length > 0 ? (
         <section className="mt-1">
-          <BranchHeader open={trashOpen} onToggle={() => toggle("trash")} emoji="🗑️" label="Dự án đã xoá" count={deleted.length} />
+          <BranchHeader open={trashOpen} onToggle={() => toggle("trash")} icon={Trash2} label="Dự án đã xoá" count={deleted.length} />
           {trashOpen ? (
             <ul>
               <li className="px-9 pb-2 text-[12px] leading-relaxed text-muted-foreground">

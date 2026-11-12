@@ -305,7 +305,7 @@ export function GroupTaskListSheet({
             <div className="space-y-7">
               {sections.map((section) => (
                 <section key={section.kind} aria-label={PROJECT_TASK_KIND_LABELS[section.kind]}>
-                  <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="mb-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                     {PROJECT_TASK_KIND_LABELS[section.kind]}
                   </h3>
                   {section.content}

@@ -36,13 +36,27 @@ export function HubTitle({
   action?: ReactNode;
   className?: string;
 }) {
-  const isPhone = useMediaQuery(PHONE_UPRIGHT);
+  // CC-03: read on the very first render, so an upright phone never draws the big title for a frame and
+  // then pulls everything under it up by ~70px when the title moves into the top row.
+  const [isPhone, setIsPhone] = useState<boolean>(() => typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia(PHONE_UPRIGHT).matches);
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const query = window.matchMedia(PHONE_UPRIGHT);
+    const update = (): void => setIsPhone(query.matches);
+    update();
+    query.addEventListener("change", update);
+    return () => query.removeEventListener("change", update);
+  }, []);
+  const [hasLooked, setHasLooked] = useState<boolean>(false);
   const [slot, setSlot] = useState<HTMLElement | null>(null);
   useEffect(() => {
     setSlot(isPhone ? document.getElementById(MOBILE_TOP_ACTIONS_ID) : null);
+    setHasLooked(true);
   }, [isPhone]);
 
   if (isPhone && slot !== null) return action !== undefined ? createPortal(<div className="flex items-center gap-1.5" data-hub-actions="">{action}</div>, slot) : null;
+  // Phone, top row not looked for yet: draw nothing for that one frame rather than a title that will leave.
+  if (isPhone && !hasLooked) return null;
 
   return (
     <header className="relative z-10 shrink-0 border-b border-border/70 bg-background/92 backdrop-blur-sm">

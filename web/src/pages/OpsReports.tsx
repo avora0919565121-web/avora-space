@@ -17,6 +17,7 @@ import {
   type OpsAction,
   type OpsReport,
 } from "@/lib/safety";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -243,7 +244,7 @@ const OpsReports = () => {
                   role="radio"
                   aria-checked={filter === value}
                   onClick={() => setFilter(value)}
-                  className={cn("press min-h-11 rounded-full border border-border px-4 text-[13px] font-medium", filter === value ? "bg-foreground text-background" : "text-muted-foreground")}
+                  className={cn("press min-h-11 rounded-full border border-border px-4 text-[13px] font-medium", filter === value ? CHIP_ON_PLAIN : "text-muted-foreground")}
                 >
                   {value === "open" ? `Cần xử lý · ${openCount}` : "Tất cả"}
                 </button>

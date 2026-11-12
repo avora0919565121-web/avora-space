@@ -16,6 +16,7 @@ import {
   type FeatureKey,
   type FeatureStatus,
 } from "@/lib/features";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 const STATUS_LABEL: Record<FeatureStatus, string> = { stable: "Đang chạy", soon: "Sắp có", hidden: "Ẩn" };
@@ -94,7 +95,7 @@ const OpsFeatures = () => {
                           onClick={() => void ask(key, status)}
                           className={cn(
                             "press min-h-11 px-3 text-[12.5px] font-medium transition-colors",
-                            current === status ? "bg-foreground text-background" : "text-muted-foreground hover:bg-secondary",
+                            current === status ? CHIP_ON_PLAIN : "text-muted-foreground hover:bg-secondary",
                           )}
                         >
                           {STATUS_LABEL[status]}

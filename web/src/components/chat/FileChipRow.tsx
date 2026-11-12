@@ -1,4 +1,5 @@
 import { chipCounts, FILE_CHIPS, type CategorizableFile, type FileChip } from "@/lib/file-category";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -30,7 +31,7 @@ export function FileChipRow({ files, chip, onChip }: { files: readonly Categoriz
             onClick={() => onChip(isOn && c.id !== "all" ? "all" : c.id)}
             className={cn(
               "press inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full border px-3 text-[13px] font-medium",
-              isOn ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground",
+              isOn ? CHIP_ON : CHIP_OFF,
             )}
           >
             {c.label}

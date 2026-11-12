@@ -1,9 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { lazy, Suspense } from "react";
+import { Suspense } from "react";
 import { BrowserRouter, Navigate, Routes, Route } from "react-router-dom";
 
 import { LegacyRedirect, ShelfRedirect, SignUpRedirect } from "@/components/LegacyRedirect";
 import { LoadingOrRetry } from "@/components/LoadingOrRetry";
+import { lazyRetry } from "@/lib/lazy-retry";
 import { LookSync } from "@/components/LookSync";
 import { KeyboardSync } from "@/components/KeyboardSync";
 import { NotchSync } from "@/components/NotchSync";
@@ -17,26 +18,26 @@ import { AuthProvider } from "@/lib/auth";
 import { HOME_ROUTE } from "@/lib/navigation";
 import { ChatRealtimeProvider } from "@/lib/realtime";
 
-const AcceptContactInvite = lazy(() => import("./pages/AcceptContactInvite"));
-const ArgonBench = lazy(() => import("./pages/ArgonBench"));
-const PublicPolicy = lazy(() => import("./pages/PublicPolicy"));
-const SettingsPolicy = lazy(() => import("./pages/SettingsPolicy"));
-const DeviceConfirm = lazy(() => import("./pages/DeviceConfirm"));
+const AcceptContactInvite = lazyRetry(() => import("./pages/AcceptContactInvite"));
+const ArgonBench = lazyRetry(() => import("./pages/ArgonBench"));
+const PublicPolicy = lazyRetry(() => import("./pages/PublicPolicy"));
+const SettingsPolicy = lazyRetry(() => import("./pages/SettingsPolicy"));
+const DeviceConfirm = lazyRetry(() => import("./pages/DeviceConfirm"));
 import Auth from "./pages/Auth";
-const ThinkHub = lazy(() => import("./pages/ThinkHub"));
-const ConnectByPin = lazy(() => import("./pages/ConnectByPin"));
-const ContactNameRepair = lazy(() => import("./pages/ContactNameRepair"));
-const ContactChannelReview = lazy(() => import("./pages/ContactChannelReview"));
-const ContactDetail = lazy(() => import("./pages/ContactDetail"));
-const Contacts = lazy(() => import("./pages/Contacts"));
+const ThinkHub = lazyRetry(() => import("./pages/ThinkHub"));
+const ConnectByPin = lazyRetry(() => import("./pages/ConnectByPin"));
+const ContactNameRepair = lazyRetry(() => import("./pages/ContactNameRepair"));
+const ContactChannelReview = lazyRetry(() => import("./pages/ContactChannelReview"));
+const ContactDetail = lazyRetry(() => import("./pages/ContactDetail"));
+const Contacts = lazyRetry(() => import("./pages/Contacts"));
 import Dashboard from "./pages/Dashboard";
-const Finance = lazy(() => import("./pages/Finance"));
-const FinanceAccounts = lazy(() => import("./pages/FinanceAccounts"));
-const FinanceReports = lazy(() => import("./pages/FinanceReports"));
-const FinanceTransactions = lazy(() => import("./pages/FinanceTransactions"));
-const JoinGroup = lazy(() => import("./pages/JoinGroup"));
+const Finance = lazyRetry(() => import("./pages/Finance"));
+const FinanceAccounts = lazyRetry(() => import("./pages/FinanceAccounts"));
+const FinanceReports = lazyRetry(() => import("./pages/FinanceReports"));
+const FinanceTransactions = lazyRetry(() => import("./pages/FinanceTransactions"));
+const JoinGroup = lazyRetry(() => import("./pages/JoinGroup"));
 const loadMessages = () => import("./pages/Messages");
-const Messages = lazy(loadMessages);
+const Messages = lazyRetry(loadMessages);
 
 /**
  * K3 · 1: Kết nối + the chat thread are one bundle, fetched as soon as the first screen is up
@@ -48,28 +49,28 @@ if (typeof window !== "undefined") {
   if (idle !== undefined) idle(warm, { timeout: 3000 });
   else window.setTimeout(warm, 1500);
 }
-const BookReader = lazy(() => import("./pages/BookReader"));
+const BookReader = lazyRetry(() => import("./pages/BookReader"));
 import NotFound from "./pages/NotFound";
-const Profile = lazy(() => import("./pages/Profile"));
-const ProjectDetail = lazy(() => import("./pages/ProjectDetail"));
-const ResetPassword = lazy(() => import("./pages/ResetPassword"));
-const Settings = lazy(() => import("./pages/Settings"));
-const SettingsAssistant = lazy(() => import("./pages/SettingsAssistant"));
-const SettingsGuide = lazy(() => import("./pages/SettingsGuide"));
-const SettingsNotifications = lazy(() => import("./pages/SettingsNotifications"));
-const SettingsStorage = lazy(() => import("./pages/SettingsStorage"));
-const SettingsFeedback = lazy(() => import("./pages/SettingsFeedback"));
-const OpsFeatures = lazy(() => import("./pages/OpsFeatures"));
-const OpsHealth = lazy(() => import("./pages/OpsHealth"));
-const OpsReports = lazy(() => import("./pages/OpsReports"));
-const PublicFeedback = lazy(() => import("./pages/PublicFeedback"));
-const SettingsPreferences = lazy(() => import("./pages/SettingsPreferences"));
-const Tasks = lazy(() => import("./pages/Tasks"));
-const Vault = lazy(() => import("./pages/Vault"));
-const VaultAssets = lazy(() => import("./pages/VaultAssets"));
-const VaultCertificates = lazy(() => import("./pages/VaultCertificates"));
-const VaultDocuments = lazy(() => import("./pages/VaultDocuments"));
-const VaultPasswords = lazy(() => import("./pages/VaultPasswords"));
+const Profile = lazyRetry(() => import("./pages/Profile"));
+const ProjectDetail = lazyRetry(() => import("./pages/ProjectDetail"));
+const ResetPassword = lazyRetry(() => import("./pages/ResetPassword"));
+const Settings = lazyRetry(() => import("./pages/Settings"));
+const SettingsAssistant = lazyRetry(() => import("./pages/SettingsAssistant"));
+const SettingsGuide = lazyRetry(() => import("./pages/SettingsGuide"));
+const SettingsNotifications = lazyRetry(() => import("./pages/SettingsNotifications"));
+const SettingsStorage = lazyRetry(() => import("./pages/SettingsStorage"));
+const SettingsFeedback = lazyRetry(() => import("./pages/SettingsFeedback"));
+const OpsFeatures = lazyRetry(() => import("./pages/OpsFeatures"));
+const OpsHealth = lazyRetry(() => import("./pages/OpsHealth"));
+const OpsReports = lazyRetry(() => import("./pages/OpsReports"));
+const PublicFeedback = lazyRetry(() => import("./pages/PublicFeedback"));
+const SettingsPreferences = lazyRetry(() => import("./pages/SettingsPreferences"));
+const Tasks = lazyRetry(() => import("./pages/Tasks"));
+const Vault = lazyRetry(() => import("./pages/Vault"));
+const VaultAssets = lazyRetry(() => import("./pages/VaultAssets"));
+const VaultCertificates = lazyRetry(() => import("./pages/VaultCertificates"));
+const VaultDocuments = lazyRetry(() => import("./pages/VaultDocuments"));
+const VaultPasswords = lazyRetry(() => import("./pages/VaultPasswords"));
 
 // K3 · N8: lists stay fresh for 30 s and heavy reads do not refetch on every tab focus.
 const queryClient = new QueryClient({

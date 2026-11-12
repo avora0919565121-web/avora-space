@@ -41,6 +41,7 @@ import {
 import { fileSizeLabel } from "@/lib/journal-lines";
 import type { SavedMeetingNote } from "@/lib/meeting-notes";
 import type { TaskItem } from "@/lib/tasks";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 /** What each Nhật ký view holds, in one line under its name. */
@@ -108,8 +109,8 @@ export function DiaryCountRow({
                 className={cn(
                   "press relative flex h-9 items-center gap-1.5 rounded-full border px-3 text-[13px] font-medium transition-colors",
                   isActive
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "border-border bg-background text-foreground hover:border-primary/40 hover:bg-accent/40",
+                    ? CHIP_ON
+                    : CHIP_OFF,
                 )}
               >
                 <Icon className="h-3.5 w-3.5" strokeWidth={1.9} aria-hidden="true" />

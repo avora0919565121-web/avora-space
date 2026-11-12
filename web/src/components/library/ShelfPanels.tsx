@@ -58,7 +58,7 @@ export function DefaultShelf({
     <div className="grid grid-cols-1 gap-3 md:grid-cols-3" data-shelf-panel="mac-dinh">
       {ZONES.map((zone) => (
         <section key={zone.id} aria-label={zone.label} data-zone={zone.id} className="rounded-card border border-border bg-card">
-          <h3 className="border-b border-border/70 px-4 py-2 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{zone.label}</h3>
+          <h3 className="border-b border-border/70 px-4 py-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{zone.label}</h3>
           {zone.id === "ket-sat" && isZoneShut(zone.id) ? (
             <p data-vault-locked="" className="flex items-center gap-2 border-b border-border/50 px-4 py-2 text-[12.5px] text-muted-foreground">
               <Lock className="h-3.5 w-3.5 shrink-0" aria-hidden="true" /> {vaultZoneLockText(hasCode)}

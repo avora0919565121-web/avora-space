@@ -4,7 +4,8 @@ import { useLocation } from "react-router-dom";
 
 /**
  * 112-F · luồng 5: without a network every tab says so in one quiet line, so an empty list never reads as
- * "nothing here". Kết nối has its own line (`Đang kết nối lại`), so it is not repeated there.
+ * "nothing here". CC-10: Kết nối's list says it too (its `Đang kết nối lại` steps aside while offline); an
+ * open conversation keeps its own send states instead.
  */
 export function OfflineNotice() {
   const location = useLocation();
@@ -18,7 +19,7 @@ export function OfflineNotice() {
       window.removeEventListener("offline", update);
     };
   }, []);
-  if (!isOffline || location.pathname.startsWith("/tin-nhan")) return null;
+  if (!isOffline || /^\/tin-nhan\/[^/]+/.test(location.pathname)) return null;
   return (
     <p role="status" data-offline-notice="" className="flex items-center gap-2 border-b border-border bg-accent/40 px-4 py-1.5 text-[12.5px] text-muted-foreground md:px-10">
       <WifiOff className="h-3.5 w-3.5 shrink-0" strokeWidth={1.8} aria-hidden="true" />

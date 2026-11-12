@@ -39,6 +39,7 @@ import {
 } from "@/lib/search";
 import { useConversations } from "@/lib/use-conversations";
 import { useChatLock } from "@/lib/use-chat-lock";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 const KIND_ICONS: Readonly<Record<SearchKind, LucideIcon>> = {
@@ -249,7 +250,7 @@ export function AvoraSearchHost() {
               onClick={() => setFilter(item.id)}
               className={cn(
                 "press shrink-0 rounded-full border px-3 py-1 text-[12.5px]",
-                filter === item.id ? "border-primary bg-primary text-primary-foreground" : "border-border text-muted-foreground hover:text-foreground",
+                filter === item.id ? CHIP_ON : CHIP_OFF,
               )}
             >
               {item.label}

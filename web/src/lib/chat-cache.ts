@@ -924,3 +924,22 @@ export function bigEmojiCount(content: string): number {
   return graphemes >= 1 && graphemes <= 3 ? graphemes : 0;
 }
 
+
+/**
+ * CC-20: what the right column of Kết nối says on a computer before anything is opened — it follows the
+ * tab on the left (Nhật ký never says "Chọn một người để trò chuyện").
+ */
+export function emptyPaneCopy(tab: MessageTab): { title: string; body: string; action: "chat" | "group" | null } {
+  switch (tab) {
+    case "journal":
+      return { title: "Nhật ký của bạn", body: "Chọn Nhật ký, Sổ ghi chép hoặc File ở bên trái.", action: null };
+    case "group":
+      return { title: "Chọn một nhóm", body: "Hoặc tạo nhóm mới với bạn bè của bạn", action: "group" };
+    case "projects":
+      return { title: "Chọn một dự án", body: "Dự án bạn tham gia nằm ở danh sách bên trái.", action: null };
+    case "email":
+      return { title: "Email sắp có", body: "Phần này đang được chuẩn bị.", action: null };
+    default:
+      return { title: "Chọn một người để trò chuyện", body: "Hoặc kết bạn qua PIN / QR để bắt đầu", action: "chat" };
+  }
+}

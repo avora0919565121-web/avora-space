@@ -1,6 +1,7 @@
 import { memo } from "react";
 
 import type { OverviewMode } from "@/lib/project-tree";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 /** `Toàn cảnh · Chỉ bảng` at the head of an open board (remembered per board, AVORA-104 · 4.2). */
@@ -38,7 +39,7 @@ export const OverviewToggle = memo(function OverviewToggle({
               onClick={() => onChange(option.id)}
               className={cn(
                 "press min-h-9 rounded-full px-3.5 text-[13px] font-medium transition-colors",
-                isOn ? "bg-foreground text-background" : "border border-border text-foreground hover:bg-accent/40",
+                cn("border", isOn ? CHIP_ON : CHIP_OFF),
               )}
             >
               {option.label}

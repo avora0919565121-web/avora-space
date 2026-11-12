@@ -8,6 +8,7 @@ import {
   type FeedbackDraft,
   type FeedbackKind,
 } from "@/lib/feedback";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 type Props = {
@@ -81,7 +82,7 @@ export function FeedbackForm({ variant, onSubmit, className }: Props) {
             onClick={() => setKind(k.id)}
             className={cn(
               "press h-11 flex-1 rounded-control border text-[15px] font-medium transition-colors",
-              kind === k.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground hover:bg-secondary",
+              kind === k.id ? CHIP_ON : CHIP_OFF,
             )}
           >
             {k.label}

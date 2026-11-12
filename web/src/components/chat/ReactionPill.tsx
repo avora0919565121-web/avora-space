@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { reactionPill, type ReactionGroup } from "@/lib/reactions";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -77,11 +78,11 @@ export function ReactionPill({
             <SheetDescription className="sr-only">Ai đã thả cảm xúc cho tin này</SheetDescription>
           </SheetHeader>
           <div role="tablist" aria-label="Lọc cảm xúc" className="mt-2 flex gap-1.5 overflow-x-auto px-4 pb-1 [scrollbar-width:none]" data-h-scroll="">
-            <button type="button" role="tab" aria-selected={filter === null} onClick={() => setFilter(null)} className={cn("press h-9 shrink-0 rounded-full border px-3 text-[13.5px]", filter === null ? "border-foreground bg-foreground text-background" : "border-border bg-card")}>
+            <button type="button" role="tab" aria-selected={filter === null} onClick={() => setFilter(null)} className={cn("press h-9 shrink-0 rounded-full border px-3 text-[13.5px]", filter === null ? CHIP_ON : CHIP_OFF)}>
               Tất cả
             </button>
             {groups.map((group) => (
-              <button key={group.emoji} type="button" role="tab" aria-selected={filter === group.emoji} onClick={() => setFilter(group.emoji)} className={cn("press h-9 shrink-0 rounded-full border px-3 text-[13.5px]", filter === group.emoji ? "border-foreground bg-foreground text-background" : "border-border bg-card")}>
+              <button key={group.emoji} type="button" role="tab" aria-selected={filter === group.emoji} onClick={() => setFilter(group.emoji)} className={cn("press h-9 shrink-0 rounded-full border px-3 text-[13.5px]", filter === group.emoji ? CHIP_ON : CHIP_OFF)}>
                 {group.emoji} {group.count}
               </button>
             ))}

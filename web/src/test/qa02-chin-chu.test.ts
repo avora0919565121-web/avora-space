@@ -168,3 +168,162 @@ describe("CC-23 · chân hộp Tài khoản mới dính đáy", () => {
     expect(src("components/finance/dialogs.tsx")).toMatch(/data-dialog-footer="" className="sticky -bottom-6/);
   });
 });
+
+/* ------------------------------------------------------------------ Đợt 2 */
+
+import { CHIP_ON, CHIP_ON_PLAIN, chipTone } from "@/lib/chip";
+import { emptyPaneCopy } from "@/lib/chat-cache";
+import { chunkFaultCopy, isChunkLoadError, roomNameOf } from "@/lib/lazy-retry";
+import { subPageTitle } from "@/lib/navigation";
+import { COMPOSER_OFFLINE, COMPOSER_SLOW_MS } from "@/lib/task-composer";
+import { TYPE } from "@/lib/type-scale";
+
+describe("CC-03 · Thư phòng vẽ khung trước, mỗi phần giữ chỗ riêng", () => {
+  it("khi chờ dữ liệu bảng: vẫn có tiêu đề + dải Đọc · Ghi chép · Kế hoạch; Ghi chép vẽ thật", () => {
+    const code = src("pages/ThinkHub.tsx");
+    expect(code).toMatch(/data-room-pending=""[\s\S]{0,200}<HubTitle title="Thư phòng" \/>[\s\S]{0,120}<StudyStrip/);
+    expect(code).toMatch(/data-room-pending[\s\S]*studyPart === "ghi" \? \([\s\S]{0,200}<DiaryShelf \/>/);
+  });
+  it("Thời gian đọc giữ chỗ khi đang tải, không còn trả null rồi chen vào", () => {
+    expect(src("components/library/RoomStats.tsx")).toContain('data-reading-time-pending=""');
+  });
+});
+
+describe("CC-09 · mất mạng mở phòng chưa tải: nói đúng nguyên nhân", () => {
+  it("nhận ra lỗi tải đoạn mã", () => {
+    expect(isChunkLoadError(new TypeError("Failed to fetch dynamically imported module: /assets/ThinkHub.js"))).toBe(true);
+    expect(isChunkLoadError(new TypeError("Importing a module script failed."))).toBe(true);
+    expect(isChunkLoadError(new Error("boom"))).toBe(false);
+    expect(isChunkLoadError("x")).toBe(false);
+  });
+  it("lời theo phòng và theo mạng", () => {
+    expect(roomNameOf("/ke-hoach")).toBe("Thư phòng");
+    expect(roomNameOf("/ket-sat/giao-dich")).toBe("Két sắt");
+    expect(chunkFaultCopy("/ke-hoach", false)).toEqual({ title: "Cần có mạng để mở Thư phòng lần đầu", body: "AVORA sẽ tự mở lại khi có mạng." });
+    expect(chunkFaultCopy("/ket-sat", true).title).toBe("Chưa tải được Két sắt");
+  });
+  it("mọi trang lười tải trong App dùng lazyRetry (thử lại được sau khi có mạng)", () => {
+    const app = src("App.tsx");
+    expect(app).not.toMatch(/= lazy\(/);
+    expect(app).toMatch(/const ThinkHub = lazyRetry\(/);
+    expect(app).toMatch(/const Vault = lazyRetry\(/);
+  });
+});
+
+describe("CC-10 · Nhiệm vụ khi mất mạng; Kết nối có dải Ngoại tuyến", () => {
+  it("báo ngay khi ngoại tuyến, báo chậm sau 5 giây", () => {
+    expect(COMPOSER_OFFLINE).toContain("ngoại tuyến");
+    expect(COMPOSER_SLOW_MS).toBe(5000);
+  });
+  it("dải Ngoại tuyến chỉ nhường chỗ trong một cuộc trò chuyện đang mở", () => {
+    expect(src("components/OfflineNotice.tsx")).toContain("/^\\/tin-nhan\\/[^/]+/.test(location.pathname)");
+  });
+});
+
+describe("CC-12 · Liên hệ dùng khung trang chung", () => {
+  it("thanh trên: ‹ Kết nối · Liên hệ", () => {
+    expect(subPageTitle("/lien-he")).toBe("Liên hệ");
+    expect(subPageTitle("/lien-he/abc")).toBeNull();
+    expect(subPageTitle("/nhiem-vu")).toBeNull();
+  });
+  it("HubTitle + nút + trên thanh; chip một dòng", () => {
+    const code = src("pages/Contacts.tsx");
+    expect(code).toContain('<HubTitle\n        title="Liên hệ"');
+    expect(code).toContain('<PlusMenuButton label="Thêm liên hệ"');
+    expect(code).toContain('data-contact-groups="" className="flex gap-1 overflow-x-auto whitespace-nowrap');
+    expect(code).not.toContain("Liên hệ của riêng bạn");
+  });
+});
+
+describe("CC-13 · một kiểu chip được chọn", () => {
+  it("token chung là nền cam nhạt, chữ cam, viền cam", () => {
+    expect(CHIP_ON).toBe("border-personal bg-personal-soft text-personal-soft-foreground");
+    expect(CHIP_ON_PLAIN).toBe("bg-personal-soft text-personal-soft-foreground");
+    expect(chipTone(false)).toContain("border-border");
+  });
+  it("không còn chip chọn đen đặc / cam đặc ở các chỗ báo cáo nêu", () => {
+    for (const file of [
+      "components/KeepsakeSheet.tsx",
+      "components/think-hub/overview/OverviewToggle.tsx",
+      "components/think-hub/OpportunityBoard.tsx",
+      "components/tasks/CalendarPeekSheet.tsx",
+      "components/library/BookshelfPanel.tsx",
+      "components/library/ChildrenShelf.tsx",
+      "components/feedback/FeedbackForm.tsx",
+      "components/finance/dialogs.tsx",
+      "components/vault/VaultSetup.tsx",
+      "components/vault/VaultCompartment.tsx",
+      "components/habits/HabitEditor.tsx",
+      "components/PolicyView.tsx",
+      "components/chat/DiaryViews.tsx",
+      "pages/Contacts.tsx",
+    ]) {
+      const code = src(file);
+      expect(code, file).not.toMatch(/\? "(border-foreground )?bg-foreground text-background"/);
+      expect(code, file).not.toMatch(/\? "border-primary bg-primary text-primary-foreground"/);
+      expect(code, file).not.toMatch(/\? "bg-accent\/70 text-accent-foreground"/);
+    }
+  });
+});
+
+describe("CC-14 · bậc chữ tiêu đề", () => {
+  it("nhãn nhóm chữ hoa một kiểu (12px, giãn 0.1em)", () => {
+    expect(TYPE.groupLabel).toBe("text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground");
+    expect(src("pages/SettingsStorage.tsx")).not.toContain("text-[11px] font-semibold uppercase");
+    expect(src("components/library/RoomStats.tsx")).not.toContain("text-[11.5px] font-semibold uppercase");
+  });
+  it("Panel dùng TYPE.blockTitle; Báo cáo 17px; Chính sách trong Cài đặt là H2", () => {
+    expect(src("components/finance/primitives.tsx")).toContain("<h2 className={cn(TYPE.blockTitle, \"tracking-tight\")}>{title}</h2>");
+    expect(src("pages/FinanceReports.tsx")).not.toContain("text-[18px]");
+    expect(src("components/PolicyView.tsx")).toMatch(/<h2 className="hidden text-\[22px\][^"]*">Chính sách<\/h2>/);
+  });
+});
+
+describe("CC-15 · trạng thái trống chung", () => {
+  it("1-1, Nhóm, Nhật ký, Nhiệm vụ, Liên hệ dùng EmptyState", () => {
+    const messages = src("pages/Messages.tsx");
+    expect(messages).toContain("Chưa có ai ở đây. Bạn kết bạn với người thân qua PIN hoặc QR để bắt đầu trò chuyện.");
+    expect(messages).toContain("Gia đình, nhóm bạn hay đội làm việc — bạn tạo một nhóm để mọi người cùng trò chuyện.");
+    expect(messages).toContain("<EmptyState icon={NotebookPen}>");
+    expect(src("components/tasks/TaskHubSectionView.tsx")).toContain('label: "Thêm việc đầu tiên"');
+    expect(src("pages/Contacts.tsx")).toContain("<SharedEmptyState");
+  });
+});
+
+describe("CC-16 · Dự án dùng biểu tượng nét", () => {
+  it("không còn emoji 💬 📊 🗑️", () => {
+    const code = src("components/projects/ProjectList.tsx");
+    expect(code).not.toMatch(/💬|📊|🗑/);
+    expect(code).toContain("icon={MessagesSquare}");
+    expect(code).toContain("icon={Table2}");
+  });
+});
+
+describe("CC-18 · vùng chạm 44px, hình giữ nguyên", () => {
+  it("nút thanh trên, lịch nổi, chip nhỏ, Viết lời bình, Tắt trong…", () => {
+    expect(src("index.css")).toMatch(/\[data-mobile-top-row\] \.icon-btn::before,[\s\S]{0,200}inset: -4px;/);
+    expect(src("index.css")).toMatch(/\.hit-44::before \{[\s\S]{0,80}inset: -7px -2px;/);
+    expect(src("components/QuickActionBubble.tsx")).toContain("before:-inset-[4px]");
+    expect(src("components/space/ThoughtNote.tsx")).toContain("before:-inset-y-[13px]");
+    expect(src("components/chat/MuteSettingsCard.tsx")).toContain("press hit-44");
+    expect(src("components/calendar/DateRangeField.tsx")).toContain("press hit-44");
+  });
+});
+
+describe("CC-20 · cột phải Kết nối theo tab", () => {
+  it("Nhật ký không nói 'Chọn một người để trò chuyện'", () => {
+    expect(emptyPaneCopy("journal")).toEqual({ title: "Nhật ký của bạn", body: "Chọn Nhật ký, Sổ ghi chép hoặc File ở bên trái.", action: null });
+    expect(emptyPaneCopy("direct").action).toBe("chat");
+    expect(emptyPaneCopy("group").action).toBe("group");
+    expect(emptyPaneCopy("projects").title).toBe("Chọn một dự án");
+  });
+});
+
+describe("CC-22 · Cài đặt dùng khung xương thay vòng quay", () => {
+  it("Tuỳ chọn chung và Dung lượng không còn Loader2", () => {
+    expect(src("pages/SettingsPreferences.tsx")).not.toContain("Loader2");
+    expect(src("pages/SettingsStorage.tsx")).not.toContain("Loader2");
+    expect(src("pages/SettingsPreferences.tsx")).toContain('data-settings-skeleton=""');
+    expect(src("pages/SettingsStorage.tsx")).toContain('data-storage-skeleton=""');
+  });
+});

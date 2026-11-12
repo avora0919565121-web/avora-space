@@ -18,6 +18,7 @@ import {
   type DisappearSeconds,
   type DisappearState,
 } from "@/lib/disappear";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 import { FeatureGate } from "@/components/features/FeatureGate";
 
@@ -106,7 +107,7 @@ function DisappearRowsInner({
                   onClick={() => change.mutate(option.value)}
                   className={cn(
                     "press flex min-h-12 items-center justify-between rounded-control border px-4 text-[16px] disabled:opacity-50",
-                    selected ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground",
+                    selected ? CHIP_ON : CHIP_OFF,
                   )}
                 >
                   {option.label}

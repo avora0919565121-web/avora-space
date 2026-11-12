@@ -22,6 +22,7 @@ import {
   type HabitKind,
 } from "@/lib/habits";
 import { createHabit, updateHabit } from "@/lib/use-habits";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 /** Enter never sends (ADR rule): it only leaves the field alone. */
@@ -107,7 +108,7 @@ export function HabitEditor({ open, onOpenChange, habit, initial, onSaved }: { o
                     onClick={() => pick(suggestion.id)}
                     className={cn(
                       "press h-10 rounded-full border px-3.5 text-[13.5px] font-medium transition-colors",
-                      picked === suggestion.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground hover:bg-secondary",
+                      picked === suggestion.id ? CHIP_ON : CHIP_OFF,
                     )}
                   >
                     {suggestion.draft.name}
@@ -119,7 +120,7 @@ export function HabitEditor({ open, onOpenChange, habit, initial, onSaved }: { o
                   onClick={() => pick("custom")}
                   className={cn(
                     "press h-10 rounded-full border border-dashed px-3.5 text-[13.5px] font-medium transition-colors",
-                    picked === "custom" ? "border-foreground bg-foreground text-background" : "border-border text-foreground hover:bg-secondary",
+                    picked === "custom" ? CHIP_ON : CHIP_OFF,
                   )}
                 >
                   Thói quen của tôi
@@ -218,7 +219,7 @@ export function HabitEditor({ open, onOpenChange, habit, initial, onSaved }: { o
                   onClick={() => toggleDay(day)}
                   className={cn(
                     "press h-11 rounded-[10px] border text-[13px] font-semibold transition-colors",
-                    draft.weekdays.includes(day) ? "border-foreground bg-foreground text-background" : "border-border bg-card text-muted-foreground",
+                    draft.weekdays.includes(day) ? CHIP_ON : CHIP_OFF,
                   )}
                 >
                   {WEEKDAY_SHORT[day]}

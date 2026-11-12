@@ -893,7 +893,7 @@ export function GroupInfoSheet({
       </FoldRow>
       <FoldRow id="invite" title="Liên kết mời" summary={<span className="text-[12.5px] text-muted-foreground">hết hạn sau 7 ngày</span>}>
                 <section className="mb-2" aria-label="Liên kết mời tham gia nhóm">
-                  <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                  <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                     <Link2 className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
                     Mời vào nhóm
                   </h3>
@@ -1063,7 +1063,7 @@ export function GroupInfoSheet({
                 </div>
                 {canSeeRemovalRequests(myRole as GroupRole) && (requestsQuery.data ?? []).length > 0 ? (
                   <section className="mb-5 px-3" aria-label="Đề nghị xoá đang chờ duyệt">
-                    <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    <h3 className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
                       <ShieldQuestion className="h-3.5 w-3.5" strokeWidth={1.8} aria-hidden="true" />
                       Đề nghị xoá đang chờ duyệt
                     </h3>

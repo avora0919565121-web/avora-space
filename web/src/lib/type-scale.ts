@@ -5,6 +5,7 @@
  * 2. Block description  — the one line saying what it holds; softer.  13px, warm grey.
  * 3. Main content       — the rows people actually read.              14.5px, ink.
  * 4. Metadata           — dates, labels, counters; the faintest.      12px, warm grey at 80%.
+ * 5. Group label        — the small capitals over a group (CC-14).    12px semibold, spaced, warm grey.
  *
  * Kept as class strings rather than a Tailwind theme entry so every screen names a step, not a
  * pixel value, and a later change of one step moves the whole app at once.
@@ -14,6 +15,7 @@ export const TYPE = {
   blockDescription: "text-[13px] leading-5 text-muted-foreground",
   body: "text-[14.5px] text-foreground",
   meta: "text-[12px] text-muted-foreground/80",
+  groupLabel: "text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground",
 } as const;
 
 export type TypeStep = keyof typeof TYPE;

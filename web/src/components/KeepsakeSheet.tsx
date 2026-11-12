@@ -6,6 +6,7 @@ import { AvoraSticker } from "@/components/chat/AvoraSticker";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { STICKER_PACKS, STICKERS, type StickerPack } from "@/lib/stickers";
 import type { useKeepsake } from "@/lib/use-keepsake";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 type Api = ReturnType<typeof useKeepsake>;
@@ -51,7 +52,7 @@ export function KeepsakeSheet({ open, onOpenChange, api }: { open: boolean; onOp
               role="tab"
               aria-selected={tab === t.id}
               onClick={() => setTab(t.id)}
-              className={cn("press h-10 shrink-0 rounded-full border px-4 text-[14px] font-medium", tab === t.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground")}
+              className={cn("press h-10 shrink-0 rounded-full border px-4 text-[14px] font-medium", tab === t.id ? CHIP_ON : CHIP_OFF)}
             >
               {t.label}
             </button>

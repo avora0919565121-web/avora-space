@@ -75,7 +75,7 @@ export function TemplateLibrary({
           <button type="button" onClick={onChangeRoles} className="press h-10 rounded-md px-2 text-[13.5px] font-semibold text-personal">Đổi</button>
         ) : null}
       </div>
-      <h3 className="mt-1 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+      <h3 className="mt-1 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
         Nền tảng · ai cũng dùng <span className="tabular">{foundation.length}</span>
       </h3>
       <ul className="mt-1.5 overflow-hidden rounded-card border border-border bg-card" data-foundation="">
@@ -83,7 +83,7 @@ export function TemplateLibrary({
       </ul>
       {groups.length > 0 ? (
         <>
-          <h3 className="mt-5 text-[11px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+          <h3 className="mt-5 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">
             Hợp với vai trò của bạn <span className="tabular">{groupCount}</span>
           </h3>
           <div className="mt-1.5 overflow-hidden rounded-card border border-border bg-card" data-role-groups="">

@@ -8,6 +8,7 @@ import { ownWords, rankBookNotes, statName, useStatsPrefs } from "@/lib/room-sta
 import { useReadingDays, useRoomStats, type RoomStatItem, type RoomViewed } from "@/lib/use-activity";
 import { BookCover } from "@/components/library/BookCover";
 import { useShelfCovers } from "@/components/library/use-bookshelf";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 /**
@@ -44,7 +45,7 @@ function Card({ children, className, ...rest }: { children: ReactNode; className
 }
 
 function Label({ children }: { children: ReactNode }) {
-  return <h3 className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{children}</h3>;
+  return <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{children}</h3>;
 }
 
 function TopList({ items, format, onOpen }: { items: readonly RoomStatItem[]; format: (value: number) => string; onOpen: (key: string) => void }) {
@@ -208,7 +209,18 @@ export function ReadingTime({ books, onOpenBook, continueBook }: { books: readon
   const week = useMemo(() => weekDays(today), [today]);
   const from = [week[0], localDay(Date.now() - 6 * DAY_MS)].sort()[0];
   const rows = useReadingDays(from, !hidden);
-  if (hidden || rows.data === undefined) return null;
+  if (hidden) return null;
+  // CC-03: the card's place is held while the days load — it no longer lands late and pushes the shelf down.
+  if (rows.data === undefined) {
+    return (
+      <Card data-reading-time="" data-reading-time-pending="">
+        <Label>Thời gian đọc</Label>
+        <div className="py-2" aria-hidden="true">
+          <Skeleton className="h-5 w-48" />
+        </div>
+      </Card>
+    );
+  }
   const sevenFrom = localDay(Date.now() - 6 * DAY_MS);
   const todaySec = rows.data.filter((row) => row.day === today).reduce((sum, row) => sum + row.active_seconds, 0);
   const lastSeven = rows.data.filter((row) => row.day >= sevenFrom);

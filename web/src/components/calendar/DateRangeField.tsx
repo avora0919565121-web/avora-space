@@ -117,7 +117,7 @@ export function DateRangeField({
                 aria-pressed={active}
                 onClick={() => onChange({ from: range.from, to: range.to })}
                 className={cn(
-                  "press min-h-9 rounded-full border px-3 text-[12.5px] transition-colors",
+                  "press hit-44 min-h-9 rounded-full border px-3 text-[12.5px] transition-colors",
                   active ? "border-foreground/25 bg-accent font-medium text-foreground" : "border-border bg-card text-muted-foreground hover:bg-accent/40",
                 )}
               >

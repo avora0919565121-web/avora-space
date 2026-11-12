@@ -9,6 +9,7 @@ import { parseIsoDay, type CalendarMode } from "@/lib/calendar-view";
 import { isDayAllowed, orderRange, pickHint, yearChoices, type DateAllow } from "@/lib/date-field";
 import { hereFrom, withReturn } from "@/lib/return-to";
 import { todayIso, type TaskItem } from "@/lib/tasks";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 import { BackClosesBinding } from "@/lib/use-back-closes";
 
@@ -197,7 +198,7 @@ function CalendarPickerBody({
               onClick={() => setIsSharedOnly(option.on)}
               className={cn(
                 "press h-9 shrink-0 rounded-full border px-3 text-[13px] font-medium transition-colors",
-                isSharedOnly === option.on ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground hover:bg-accent/40",
+                isSharedOnly === option.on ? CHIP_ON : CHIP_OFF,
               )}
             >
               {option.label}

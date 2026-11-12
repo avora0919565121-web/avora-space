@@ -418,7 +418,7 @@ export function ThinkingOverview({
       ) : null}
       {thinking.length > 0 ? (
         <section className="mt-3 rounded-card border border-border bg-card px-4 py-2" data-overview="thinking">
-          <h3 className="pt-1 text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">Đang nghĩ {thinking.length}</h3>
+          <h3 className="pt-1 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Đang nghĩ {thinking.length}</h3>
           <ul>
             {thinking.slice(0, THINKING_SHOWN).map((board) => {
               const onDesk = deskIds.includes(board.id);
@@ -613,7 +613,7 @@ export function ProgressMatrix({
         </div>
         <p className="mt-2 text-[12px] text-muted-foreground">Chạm một ô để xem bảng trong ô đó · chạm tên hàng / cột để xem cả hàng / cột</p>
         <section className="mt-3" data-matrix-picked="">
-          <h3 className="text-[11.5px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">{label === "" ? "Tất cả" : label} {picked.length}</h3>
+          <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">{label === "" ? "Tất cả" : label} {picked.length}</h3>
           <ul className="mt-2 space-y-2">{picked.map((board) => card(board, true))}</ul>
           {picked.length === 0 ? <p className="mt-2 text-[13px] text-muted-foreground">Ô này chưa có bảng nào.</p> : null}
         </section>

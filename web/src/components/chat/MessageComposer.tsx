@@ -22,6 +22,7 @@ import {
   filterMentionCandidates,
   type MentionCandidate,
 } from "@/lib/mentions";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 import {
   activeTrigger,
@@ -393,7 +394,7 @@ export function MessageComposer({
                       onMouseDown={(event) => event.preventDefault()}
                       onClick={() => setHashFilter(kind)}
                       aria-pressed={hashFilter === kind}
-                      className={cn("press shrink-0 rounded-full px-2 py-0.5 text-[11.5px]", hashFilter === kind ? "bg-foreground text-background" : "text-muted-foreground")}
+                      className={cn("press shrink-0 rounded-full px-2 py-0.5 text-[11.5px]", hashFilter === kind ? CHIP_ON_PLAIN : "text-muted-foreground")}
                     >
                       {kind === "all" ? "Tất cả" : kind === "file" ? "File" : kind === "record" ? "Hạng mục" : "Ghi chép"}
                     </button>

@@ -152,6 +152,7 @@ import { useTaskFlagIndex } from "@/lib/use-task-flags";
 import { useSharedTaskOrder, useViewOrder } from "@/lib/use-task-order";
 import { useTaskProjectIndex, useTaskProjectLinks } from "@/lib/use-projects";
 import { useTaskActions, useTasks } from "@/lib/use-tasks";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 function showError(error: unknown): void {
@@ -1395,8 +1396,8 @@ function ScopeChips({ value, onChange }: { value: TaskScope | null; onChange: (n
             className={cn(
               "press h-9 shrink-0 rounded-full border px-3.5 text-[13px] font-medium transition-colors",
               isActive
-                ? "border-foreground bg-foreground text-background"
-                : "border-border bg-card text-muted-foreground hover:bg-secondary hover:text-foreground",
+                ? CHIP_ON
+                : CHIP_OFF,
             )}
           >
             {option.label}
@@ -1775,7 +1776,7 @@ export default function Tasks() {
                 onOpenContext={openFromCalendar}
               />
             ) : (
-              <TaskHubSectionView section={hubSection} tasks={tasks ?? []} userId={userId} today={today} onOpen={openTask} />
+              <TaskHubSectionView section={hubSection} tasks={tasks ?? []} userId={userId} today={today} onOpen={openTask} onAddFirst={() => openNew("task")} />
             )}
             {/* AVORA-107 · 1.2 · 3: today's habits fold into one block at the end of Hôm nay. */}
             {hubSection.id === "my_day" ? <HabitTodayBlock /> : null}

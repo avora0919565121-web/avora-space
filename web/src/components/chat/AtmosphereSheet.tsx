@@ -101,7 +101,7 @@ export function AtmosphereSheet({
 
         <div className="space-y-5 px-4 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3">
           <section aria-labelledby="atm-color">
-            <h3 id="atm-color" className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Màu cuộc trò chuyện</h3>
+            <h3 id="atm-color" className="mb-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Màu cuộc trò chuyện</h3>
             <div role="radiogroup" aria-label="Màu cuộc trò chuyện" className="flex flex-wrap gap-2">
               {[{ id: null, label: "Theo tôi" } as { id: AtmosphereColor | null; label: string }, ...ATMOSPHERE_COLORS].map((option) => {
                 const style = atmosphereToneStyle(option.id, isDark);
@@ -130,7 +130,7 @@ export function AtmosphereSheet({
           </section>
 
           <section aria-labelledby="atm-backdrop">
-            <h3 id="atm-backdrop" className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Nền</h3>
+            <h3 id="atm-backdrop" className="mb-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Nền</h3>
             <div role="radiogroup" aria-label="Nền" className="grid grid-cols-4 gap-2">
               {ATMOSPHERE_BACKDROPS.map((option) => {
                 const isActive = option.id === backdrop;
@@ -157,7 +157,7 @@ export function AtmosphereSheet({
 
           {kind === "group" ? (
             <section aria-labelledby="atm-icon">
-              <h3 id="atm-icon" className="mb-2 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Icon của nhóm</h3>
+              <h3 id="atm-icon" className="mb-2 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Icon của nhóm</h3>
               <div className="grid grid-cols-6 gap-1.5">
                 {Object.entries(GROUP_ICONS).map(([key, Icon]) => {
                   const isActive = appearance?.iconKey === key;
@@ -203,7 +203,7 @@ export function AtmosphereSheet({
           ) : null}
 
           <section aria-labelledby="atm-effects">
-            <h3 id="atm-effects" className="mb-1 text-[12px] font-semibold uppercase tracking-wide text-muted-foreground">Hiệu ứng khi nhận</h3>
+            <h3 id="atm-effects" className="mb-1 text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Hiệu ứng khi nhận</h3>
             <p className="mb-2 text-[12.5px] text-muted-foreground">
               {reduced ? "Máy đang bật Giảm chuyển động, nên luôn là Tắt." : "Chỉ bạn thấy lựa chọn này."}
             </p>

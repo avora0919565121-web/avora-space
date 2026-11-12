@@ -348,6 +348,27 @@
     border-color: transparent;
     background-color: transparent;
   }
+  /* CC-18: the 38px look stays (ADR-059); the finger gets 44px — the same widened target the sub-tabs use. */
+  [data-mobile-top-row] .icon-btn,
+  [data-mobile-top-row] [data-top-btn] {
+    position: relative;
+  }
+  [data-mobile-top-row] .icon-btn::before,
+  [data-mobile-top-row] [data-top-btn]::before {
+    content: "";
+    position: absolute;
+    /* -4px from inside the 1px border: 38 + 2 × 3 = 44px to the finger. */
+    inset: -4px;
+  }
+  /* CC-18: a small chip or text button keeps its look and gets a 44px-tall target. */
+  .hit-44 {
+    position: relative;
+  }
+  .hit-44::before {
+    content: "";
+    position: absolute;
+    inset: -7px -2px;
+  }
   [data-mobile-top-row] .icon-btn-primary {
     background-color: hsl(var(--personal-soft));
     color: hsl(var(--personal));

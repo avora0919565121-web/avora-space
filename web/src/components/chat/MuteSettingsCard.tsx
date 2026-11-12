@@ -88,7 +88,7 @@ function MuteRow({ scope }: { scope: MuteScope }) {
             type="button"
             disabled={isWorking}
             onClick={() => void turnBackOn()}
-            className="press shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-45"
+            className="press hit-44 shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-foreground transition-colors hover:bg-accent/40 disabled:opacity-45"
           >
             Bật lại
           </button>
@@ -98,7 +98,7 @@ function MuteRow({ scope }: { scope: MuteScope }) {
             disabled={isWorking}
             onClick={() => setIsPicking(!isPicking)}
             aria-expanded={isPicking}
-            className="press shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:opacity-45"
+            className="press hit-44 shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[12.5px] font-medium text-muted-foreground transition-colors hover:bg-accent/40 hover:text-foreground disabled:opacity-45"
           >
             Tắt trong…
           </button>

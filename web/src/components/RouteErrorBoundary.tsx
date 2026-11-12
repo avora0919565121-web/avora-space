@@ -1,10 +1,12 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { AlertTriangle, RotateCcw } from "lucide-react";
-import { Component, type ErrorInfo, type ReactNode } from "react";
+import { AlertTriangle, RotateCcw, WifiOff } from "lucide-react";
+import { Component, useEffect, type ErrorInfo, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 
+import { chunkFaultCopy, isChunkLoadError, retryLazyLoads } from "@/lib/lazy-retry";
 import { logError } from "@/lib/log";
 import { HOME_ROUTE } from "@/lib/navigation";
+import { useOnline } from "@/lib/use-online";
 import { cn } from "@/lib/utils";
 
 type BoundaryProps = {
@@ -18,7 +20,7 @@ type BoundaryProps = {
   children: ReactNode;
 };
 
-type BoundaryState = { hasError: boolean; resetKey: string | undefined };
+type BoundaryState = { hasError: boolean; resetKey: string | undefined; error: unknown };
 
 /**
  * One broken part never takes the whole app down (Đợt gộp 2 · A6).
@@ -27,14 +29,14 @@ type BoundaryState = { hasError: boolean; resetKey: string | undefined };
  * fault is logged through `lib/log.ts` (scope + class name only — never what the screen held).
  */
 class ErrorBoundaryCore extends Component<BoundaryProps, BoundaryState> {
-  state: BoundaryState = { hasError: false, resetKey: this.props.resetKey };
+  state: BoundaryState = { hasError: false, resetKey: this.props.resetKey, error: null };
 
-  static getDerivedStateFromError(): Partial<BoundaryState> {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown): Partial<BoundaryState> {
+    return { hasError: true, error };
   }
 
   static getDerivedStateFromProps(props: BoundaryProps, state: BoundaryState): Partial<BoundaryState> | null {
-    if (props.resetKey !== state.resetKey) return { hasError: false, resetKey: props.resetKey };
+    if (props.resetKey !== state.resetKey) return { hasError: false, resetKey: props.resetKey, error: null };
     return null;
   }
 
@@ -43,15 +45,50 @@ class ErrorBoundaryCore extends Component<BoundaryProps, BoundaryState> {
   }
 
   retry = (): void => {
+    retryLazyLoads();
     this.props.onRetry?.();
-    this.setState({ hasError: false });
+    this.setState({ hasError: false, error: null });
   };
 
   render(): ReactNode {
     if (!this.state.hasError) return this.props.children;
     if (this.props.fallback !== undefined) return this.props.fallback(this.retry);
+    // CC-09: a room whose code never arrived (offline, first visit this session) says so, and opens by itself.
+    if (isChunkLoadError(this.state.error)) return <RouteNeedsNetwork path={this.props.resetKey ?? ""} onRetry={this.retry} />;
     return <RouteFault onRetry={this.retry} />;
   }
+}
+
+function RouteNeedsNetwork({ path, onRetry }: { path: string; onRetry: () => void }) {
+  const isOnline = useOnline();
+  // Back online: try once more by itself.
+  useEffect(() => {
+    const onBack = (): void => onRetry();
+    window.addEventListener("online", onBack);
+    return () => window.removeEventListener("online", onBack);
+  }, [onRetry]);
+  const copy = chunkFaultCopy(path, isOnline);
+  return (
+    <div role="status" data-route-needs-network={isOnline ? "online" : "offline"} className="paper flex min-h-0 flex-1 items-center justify-center px-6 py-16">
+      <div className="max-w-sm text-center">
+        <span className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-secondary text-muted-foreground">
+          <WifiOff className="h-5 w-5" strokeWidth={1.8} aria-hidden="true" />
+        </span>
+        <h2 className="mt-4 text-[17px] font-semibold tracking-tight text-foreground">{copy.title}</h2>
+        <p className="mt-1.5 text-[14px] leading-relaxed text-muted-foreground">{copy.body}</p>
+        {isOnline ? (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="press mt-5 inline-flex h-11 items-center gap-1.5 rounded-md bg-primary px-4 text-[14px] font-semibold text-primary-foreground hover:bg-primary/92"
+          >
+            <RotateCcw className="h-4 w-4" strokeWidth={2} aria-hidden="true" />
+            Thử lại
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 function RouteFault({ onRetry }: { onRetry: () => void }) {

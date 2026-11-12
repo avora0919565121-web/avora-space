@@ -7,7 +7,7 @@ import { useBackPress } from "@/hooks/use-back-press";
 import { readReturn } from "@/lib/return-to";
 import { useLogoTap } from "@/components/nav/use-logo-tap";
 import { useLongPress } from "@/hooks/use-long-press";
-import { activeNavEntry, HOME_ROUTE, LOGO_HOLD_MS } from "@/lib/navigation";
+import { activeNavEntry, HOME_ROUTE, LOGO_HOLD_MS, subPageTitle } from "@/lib/navigation";
 import { MOBILE_TOP_ACTIONS_ID } from "@/components/nav/top-actions-slot";
 import { useFocusHeaderValue } from "@/lib/focus-header";
 
@@ -24,6 +24,8 @@ export function MobileTopBar() {
   const hasReturn = readReturn(searchParams) !== null;
   const current = activeNavEntry(location.pathname);
   const isHome = location.pathname === HOME_ROUTE;
+  // CC-12: Liên hệ (and pages like it) — `‹ Kết nối · Liên hệ`, never the logo with no way back.
+  const subTitle = current === null ? subPageTitle(location.pathname) : null;
   // AVORA-89 · 2.3: a focused screen owns the row — `‹ · name`, no logo (ADR-053: ‹ and A never side by side).
   const focus = useFocusHeaderValue();
 
@@ -55,7 +57,7 @@ export function MobileTopBar() {
           ) : (
           <>
           {/* AVORA-94B: opened from elsewhere (`tu`) → `‹ {nơi trước}` takes the logo's place (never side by side). */}
-          {hasReturn ? <BackButton showLabel className="-ml-1" /> : (
+          {hasReturn || subTitle !== null ? <BackButton showLabel className="-ml-1" /> : (
           <button
             type="button"
             {...press}
@@ -71,9 +73,9 @@ export function MobileTopBar() {
             {isHome || current === null ? <span className="wordmark text-[16px] text-foreground">AVORA</span> : null}
           </button>
           )}
-          {!isHome && current !== null ? (
+          {!isHome && (current !== null || subTitle !== null) ? (
             <h1 className="min-w-0 flex-1 truncate pl-1 text-[22px] font-semibold tracking-tight text-foreground" data-top-title="">
-              {current.label}
+              {current?.label ?? subTitle}
             </h1>
           ) : (
             <span className="flex-1" />

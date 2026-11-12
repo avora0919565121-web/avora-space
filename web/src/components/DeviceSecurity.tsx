@@ -353,7 +353,7 @@ export function DeviceSecuritySection({ signOutOthers }: { signOutOthers: ReactN
       ) : null}
 
       <div>
-        <h3 className="text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">Thiết bị</h3>
+        <h3 className="text-[12px] font-semibold uppercase tracking-[0.1em] text-muted-foreground">Thiết bị</h3>
         <ul className="mt-2 divide-y divide-border rounded-lg border border-border">
           {deviceRow(byRank(1), 1)}
           {deviceRow(byRank(2), 2)}

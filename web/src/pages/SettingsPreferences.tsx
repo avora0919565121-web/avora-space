@@ -1,4 +1,4 @@
-import { Clock, Coins, Loader2, PencilLine, Quote } from "lucide-react";
+import { Clock, Coins, PencilLine, Quote } from "lucide-react";
 import { toast } from "sonner";
 
 import { AppearanceCard } from "@/components/AppearanceCard";
@@ -16,6 +16,7 @@ import {
   type DailyThoughtCategory,
 } from "@/lib/daily-thoughts";
 import { Switch } from "@/components/ui/switch";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { selectChevron, selectClass } from "@/components/finance/primitives";
 import { TIMEZONE_OPTIONS } from "@/lib/settings";
@@ -112,8 +113,15 @@ const SettingsPreferences = () => {
           </p>
 
           {isLoading ? (
-            <div className="flex justify-center py-8" role="status" aria-label="Đang tải thiết lập">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+            // CC-22: the three fields' places, held while the settings arrive — no spinner.
+            <div className="mt-s-4 space-y-s-4" role="status" aria-label="Đang tải thiết lập" data-settings-skeleton="">
+              {[0, 1, 2].map((field) => (
+                <div key={field} className="space-y-2">
+                  <Skeleton className="h-4 w-36" />
+                  <Skeleton className="h-12 w-full rounded-md" />
+                  <Skeleton className="h-3 w-3/4" />
+                </div>
+              ))}
             </div>
           ) : (
             <div className="mt-s-4 space-y-s-4">
@@ -205,7 +213,7 @@ const SettingsPreferences = () => {
               <div className="space-y-2 border-t border-border pt-s-4">
                 <label
                   htmlFor="hideTyping"
-                  className="flex items-start gap-3 text-[14px] font-medium text-foreground"
+                  className="flex min-h-11 items-start gap-3 text-[14px] font-medium text-foreground"
                 >
                   <input
                     id="hideTyping"

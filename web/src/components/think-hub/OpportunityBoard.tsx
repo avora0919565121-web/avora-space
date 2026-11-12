@@ -8,6 +8,7 @@ import { createOpportunity, suggestedOpportunityTitle } from "@/lib/opportunitie
 import { STAGE_CHIPS, totalValue, type StageChip } from "@/lib/opportunity-board";
 import type { ThinkRecord, ThinkTable } from "@/lib/think-hub";
 import { useContacts } from "@/lib/use-contacts";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 const vnd = (n: number): string => `${n.toLocaleString("vi-VN")} ₫`;
@@ -52,7 +53,7 @@ export function OpportunityBoardBar({
                 role="tab"
                 aria-selected={chip === item.id}
                 onClick={() => onChip(item.id)}
-                className={cn("press h-9 shrink-0 rounded-full border px-3.5 text-[13px] font-medium", chip === item.id ? "border-foreground bg-foreground text-background" : "border-border bg-card text-foreground")}
+                className={cn("press h-9 shrink-0 rounded-full border px-3.5 text-[13px] font-medium", chip === item.id ? CHIP_ON : CHIP_OFF)}
               >
                 {item.label}
               </button>

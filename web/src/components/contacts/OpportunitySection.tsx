@@ -12,6 +12,7 @@ import {
   type OpportunityStage,
 } from "@/lib/opportunities";
 import { useContactOpportunities, useOpportunityActions } from "@/lib/use-opportunities";
+import { CHIP_OFF, CHIP_ON } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 /**
@@ -209,8 +210,8 @@ function OpportunityRow({
                     className={cn(
                       "press inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[12.5px] font-medium transition-colors",
                       isCurrent
-                        ? "bg-accent/70 text-accent-foreground"
-                        : "border border-border text-foreground hover:bg-accent/40",
+                        ? cn("border", CHIP_ON)
+                        : cn("border", CHIP_OFF),
                     )}
                   >
                     {isCurrent ? (

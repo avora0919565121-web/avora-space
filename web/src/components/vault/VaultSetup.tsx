@@ -11,6 +11,7 @@ import { entropyToWords, isKitWord, newRecoveryEntropy, passphraseStrength, pick
 import { logError } from "@/lib/log";
 import { VaultUserError, openWithPassphrase, openWithRecovery, setupVault, type Keyring } from "@/lib/vault-keys";
 import { suggestPassphrase } from "@/lib/vault-templates";
+import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
 
 export const E2EE_ABOUT = {
@@ -61,7 +62,7 @@ export function E2eeAboutText({ className }: { className?: string }) {
     <div className={className}>
       <div role="tablist" className="inline-flex rounded-full border border-border bg-card p-1">
         {(["you", "tech"] as const).map((id) => (
-          <button key={id} type="button" role="tab" aria-selected={layer === id} onClick={() => setLayer(id)} className={cn("press h-9 rounded-full px-4 text-[13px] font-medium", layer === id ? "bg-foreground text-background" : "text-muted-foreground")}>
+          <button key={id} type="button" role="tab" aria-selected={layer === id} onClick={() => setLayer(id)} className={cn("press h-9 rounded-full px-4 text-[13px] font-medium", layer === id ? CHIP_ON_PLAIN : "text-muted-foreground")}>
             {id === "you" ? "Với bạn" : "Kỹ thuật"}
           </button>
         ))}
