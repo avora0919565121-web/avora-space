@@ -1,5 +1,7 @@
 import { ChevronLeft, Loader2, Lock, LockKeyhole, Mail, MonitorSmartphone, Smartphone } from "lucide-react";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+
+import { COMPARTMENT_INTRO, type CompartmentKey } from "@/lib/vault-compartments";
 import { Link } from "react-router-dom";
 
 import { ClaimMainDeviceButton } from "@/components/DeviceSecurity";
@@ -75,8 +77,10 @@ function Shell({ icon, title, children, onBack }: { icon: ReactNode; title: stri
 /**
  * AVORA-51 · the screen over the whole of Két sắt while it is locked: first code, unlock, and
  * "Quên mã?" through an emailed code. Every decision is the server's; this only asks and says.
+ * KT-06 · D: given a `compartment` (no code yet), it says what that compartment keeps and invites the
+ * first one in; `below` is where SP-04's sample list will go.
  */
-export function VaultGate() {
+export function VaultGate({ compartment = null, below }: { compartment?: CompartmentKey | null; below?: ReactNode } = {}) {
   const { user } = useAuth();
   const vault = useVaultLock();
   const status = vault.status;
@@ -236,7 +240,12 @@ export function VaultGate() {
 
   if (step.kind === "intro") {
     return (
-      <Shell icon={<LockKeyhole className="h-6 w-6" strokeWidth={1.6} />} title="Trước khi đặt mã Két sắt">
+      <Shell icon={<LockKeyhole className="h-6 w-6" strokeWidth={1.6} />} title={compartment !== null ? `Đặt mã để cất ${COMPARTMENT_INTRO[compartment].noun} đầu tiên` : "Trước khi đặt mã Két sắt"}>
+        {compartment !== null ? (
+          <p data-compartment-intro={compartment} className="mt-2 text-[15px] leading-relaxed text-foreground">
+            {COMPARTMENT_INTRO[compartment].purpose}
+          </p>
+        ) : null}
         <div className="mt-5 rounded-card border border-border bg-card p-5">
           <VaultAboutText />
         </div>
@@ -256,12 +265,18 @@ export function VaultGate() {
 
   if (step.kind === "set") {
     const isSecond = step.first !== null;
+    const intro = compartment !== null && !isSecond ? COMPARTMENT_INTRO[compartment] : null;
     return (
       <Shell
         icon={<LockKeyhole className="h-6 w-6" strokeWidth={1.6} />}
-        title={isSecond ? "Nhập lại mã Két sắt" : "Đặt mã Két sắt"}
+        title={isSecond ? "Nhập lại mã Két sắt" : intro !== null ? `Đặt mã để cất ${intro.noun} đầu tiên` : "Đặt mã Két sắt"}
         onBack={isSecond ? () => go({ kind: "set", first: null }) : undefined}
       >
+        {intro !== null ? (
+          <p data-compartment-intro={compartment} className="mt-2 text-[15px] leading-relaxed text-foreground">
+            {intro.purpose}
+          </p>
+        ) : null}
         {line(isSecond ? "Nhập lại đúng 6 số vừa chọn." : VAULT_SET_HINT)}
         <CodePad label="Mã Két sắt" value={code} onChange={setCode} onComplete={handleSet} isDisabled={isBusy} shakeKey={shake} />
         {!isSecond ? (
@@ -271,6 +286,8 @@ export function VaultGate() {
           </details>
         ) : null}
         {isBusy ? <Loader2 className="mt-4 h-5 w-5 animate-spin text-muted-foreground" aria-label="Đang lưu" /> : null}
+        {/* SP-04: the static sample list will sit here (data-vault-samples-slot). */}
+        {intro !== null ? <div data-vault-samples-slot={compartment} className="mt-6 w-full">{below}</div> : null}
       </Shell>
     );
   }

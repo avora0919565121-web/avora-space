@@ -17,6 +17,7 @@ import { prepareVaultFile, VAULT_MAX_PAGES } from "@/lib/vault-image";
 import { daysLeft, isSecretField, SECTION_LABEL, strongPassword, templateOf, VAULT_TEMPLATES, type VaultPayload } from "@/lib/vault-templates";
 import { CHIP_ON_PLAIN } from "@/lib/chip";
 import { cn } from "@/lib/utils";
+import { LoadingOrRetry } from "@/components/LoadingOrRetry";
 
 const field = "mt-1 h-11 w-full rounded-lg border border-input bg-card px-3 text-[16px] outline-none focus:border-personal md:text-[15px]";
 
@@ -253,6 +254,22 @@ function ItemForm({ section, initial, pages, onAddPages, onSave, onCancel, isSav
   );
 }
 
+/** KT-06 · D (SP-04 B2/B3): what a failed read says — plainly, with a way to try again. */
+export function VaultLoadFailed({ onRetry, inline = false }: { onRetry: () => void; inline?: boolean }) {
+  const online = typeof navigator === "undefined" || navigator.onLine !== false;
+  return (
+    <div data-vault-load-failed="" role="status" className={cn("flex flex-col items-center justify-center px-6 text-center", inline ? "mt-14" : "flex-1 py-10")}>
+      <p className="text-[16px] font-semibold text-foreground">Chưa tải được Két sắt</p>
+      <p className="mt-1 max-w-sm text-[14px] text-muted-foreground">
+        {online ? "Đồ của bạn vẫn còn nguyên. Thử lại sau giây lát nhé." : "Máy đang không có mạng. Đồ của bạn vẫn còn nguyên."}
+      </p>
+      <button type="button" onClick={onRetry} className="press mt-4 min-h-11 rounded-md border border-border bg-card px-5 text-[14px] font-medium text-foreground">
+        Thử lại
+      </button>
+    </div>
+  );
+}
+
 type Mode = { kind: "list" } | { kind: "detail"; id: string } | { kind: "form"; id: string | null; startPage: number } | { kind: "trash" };
 
 /**
@@ -261,9 +278,9 @@ type Mode = { kind: "list" } | { kind: "detail"; id: string } | { kind: "form"; 
  */
 export function VaultCompartment({ section }: { section: VaultSection }) {
   const { user } = useAuth();
-  const { ring, isPending: ringPending } = useKeyring();
+  const { ring, isPending: ringPending, isError: ringFailed, refetch: refetchRing } = useKeyring();
   const hasKey = useHasMasterKey();
-  const { items, isPending } = useVaultItems(section, ring);
+  const { items, isPending, error: itemsError, refetch: refetchItems } = useVaultItems(section, ring);
   const actions = useVaultItemActions(section, ring);
   const [mode, setMode] = useState<Mode>({ kind: "list" });
   const [query, setQuery] = useState<string>("");
@@ -318,7 +335,9 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
     return live.filter((i) => normalizeSearch([i.payload.title, i.payload.owner_label, templateOf(section, i.payload.type).label, ...Object.entries(i.payload.fields).filter(([key]) => !isSecretField(section, i.payload.type, key)).map(([, value]) => value)].join(" ")).includes(q));
   }, [live, query, section]);
 
-  if (ringPending) return <div className="flex flex-1 items-center justify-center"><Loader2 className="h-5 w-5 animate-spin text-muted-foreground" /></div>;
+  // KT-06 · D (SP-04 B2): the keyring could not be read → say so, with Thử lại; never a spinner that stays.
+  if (ringFailed) return <VaultLoadFailed onRetry={refetchRing} />;
+  if (ringPending) return <LoadingOrRetry label={`Đang mở ${SECTION_LABEL[section]}`} showLabel onRetry={refetchRing} />;
   if (ring === null) return <VaultSetupFlow />;
   if (ring !== undefined && (!hasKey || recovered)) {
     if (recovered && hasKey) return <RecoveredReset onDone={() => setRecovered(false)} />;
@@ -428,7 +447,9 @@ export function VaultCompartment({ section }: { section: VaultSection }) {
           </div>
         ) : null}
         {isPending ? <Loader2 className="mx-auto mt-s-4 h-5 w-5 animate-spin text-muted-foreground" /> : null}
-        {!isPending && live.length === 0 ? (
+        {/* KT-06 · D (SP-04 B3): a failed read is never shown as "Chưa có gì" — that reads as lost papers. */}
+        {!isPending && itemsError !== null ? <VaultLoadFailed onRetry={refetchItems} inline /> : null}
+        {!isPending && itemsError === null && live.length === 0 ? (
           <div className="mt-14 text-center">
             <p className="text-[17px] font-semibold">Chưa có gì trong {SECTION_LABEL[section]}</p>
             <p className="mt-1 text-[14px] text-muted-foreground">

@@ -49,17 +49,18 @@ export function useHasMasterKey(): boolean {
   return useSyncExternalStore(subscribeVaultKeys, hasMasterKey, () => false);
 }
 
-export function useKeyring(): { ring: Keyring | null | undefined; isPending: boolean } {
+export function useKeyring(): { ring: Keyring | null | undefined; isPending: boolean; isError: boolean; refetch: () => void } {
   const { user } = useAuth();
   const isUnlocked = useVaultUnlocked();
   const query = useQuery({ queryKey: vaultE2eeKeys.keyring(user?.id), queryFn: fetchKeyring, enabled: Boolean(user?.id) && isUnlocked, staleTime: 60_000 });
-  return { ring: query.data, isPending: query.isPending };
+  // KT-06 · D (SP-04 B2): a failed read is said as such (with Thử lại), never a spinner that stays.
+  return { ring: query.data, isPending: query.isPending && !query.isError, isError: query.isError && query.data === undefined, refetch: () => void query.refetch() };
 }
 
 const TABLE = "vault_items" as never;
 const FILES = "vault_files" as never;
 
-export function useVaultItems(section: VaultSection, ring: Keyring | null | undefined): { items: VaultItem[]; isPending: boolean; error: Error | null } {
+export function useVaultItems(section: VaultSection, ring: Keyring | null | undefined): { items: VaultItem[]; isPending: boolean; error: Error | null; refetch: () => void } {
   const { user } = useAuth();
   const hasKey = useHasMasterKey();
   const query = useQuery<VaultItem[], Error>({
@@ -99,7 +100,7 @@ export function useVaultItems(section: VaultSection, ring: Keyring | null | unde
       return out;
     },
   });
-  return { items: query.data ?? [], isPending: query.isPending && hasKey, error: query.error };
+  return { items: query.data ?? [], isPending: query.isPending && hasKey && !query.isError, error: query.data === undefined ? query.error : null, refetch: () => void query.refetch() };
 }
 
 export type NewPage = { bytes: Uint8Array; mimeClass: "image" | "pdf" };

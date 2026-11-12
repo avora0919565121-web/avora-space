@@ -10,6 +10,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { ChangeCodeDialog } from "@/components/vault/ChangeCodeDialog";
 import { VaultAboutText } from "@/components/vault/VaultAbout";
 import { VaultGate } from "@/components/vault/VaultGate";
+import { compartmentOf } from "@/lib/vault-compartments";
 import { VAULT_TABS } from "@/lib/navigation";
 import { useVisibleNav } from "@/lib/use-feature";
 import { isFinancePath, useVaultLock } from "@/lib/use-vault-lock";
@@ -133,7 +134,14 @@ const Vault = () => {
   let body;
   if (vault.isLoading) {
     body = (
-      <LoadingOrRetry label="Đang mở Két sắt" />
+      // KT-06 · D (SP-04 B1): the words are for the eye too, with the shape of the page underneath.
+      <LoadingOrRetry label="Đang mở Két sắt" showLabel onRetry={() => void vault.refresh()} className="justify-start">
+        <div aria-hidden="true" data-vault-skeleton="" className="mt-6 grid w-full max-w-3xl gap-3 sm:grid-cols-2">
+          {[0, 1, 2, 3].map((cell) => (
+            <div key={cell} className="h-[88px] animate-pulse rounded-card border border-border bg-card" />
+          ))}
+        </div>
+      </LoadingOrRetry>
     );
   } else if (vault.error !== null && vault.status === null) {
     body = (
@@ -159,7 +167,9 @@ const Vault = () => {
     );
   } else if (!vault.isUnlocked) {
     // Giấy tờ · Mật khẩu · Chứng chỉ · Tài sản are encrypted with the code: it is asked here, at the first one.
-    body = <VaultGate key={vault.status?.hasCode === true ? "has-code" : "no-code"} />;
+    // KT-06 · D: no code yet → the compartment says what it keeps and invites the first one in.
+    const compartment = vault.status?.hasCode === true ? null : compartmentOf(location.pathname);
+    body = <VaultGate key={vault.status?.hasCode === true ? "has-code" : `no-code-${compartment ?? ""}`} compartment={compartment} />;
   } else {
     body = (
       <>

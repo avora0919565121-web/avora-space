@@ -32,9 +32,15 @@ export function LoadingOrRetry({
   withBack = false,
   className,
   extra,
+  showLabel = false,
+  children,
 }: {
   onRetry?: () => void;
   label?: string;
+  /** KT-06 · D (SP-04 B1): say the label for the eye too, not only for screen readers. */
+  showLabel?: boolean;
+  /** KT-06 · D: a shape of what is coming (skeleton), drawn under the spinner while waiting. */
+  children?: ReactNode;
   withBack?: boolean;
   className?: string;
   /** A second way out under `Thử lại` (e.g. `Đăng nhập lại`). */
@@ -67,7 +73,8 @@ export function LoadingOrRetry({
         ) : (
           <>
             <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" aria-hidden="true" />
-            <span className="sr-only">{label}</span>
+            <span className={showLabel ? "mt-2 text-[14px] text-muted-foreground" : "sr-only"}>{showLabel ? `${label}…` : label}</span>
+            {children}
           </>
         )}
       </div>
