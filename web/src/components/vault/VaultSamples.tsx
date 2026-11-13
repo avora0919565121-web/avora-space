@@ -70,9 +70,19 @@ function SampleRow({ sample }: { sample: VaultSample }) {
  * this account (dismissed_guidance), "Xem lại mẫu" brings them back. Never shown on a load error.
  */
 export function VaultSampleList({ section, invite }: { section: VaultSection; invite?: string }) {
-  const { shouldShow, dismiss } = useGuidance();
+  const { shouldShow, dismiss, isDismissed, restore } = useGuidance();
   const samples = useMemo(() => vaultSamples(section, todayIso()), [section]);
   const key = sampleHiddenKey(section);
+  // KT-09 (CEO): hidden is not gone — one quiet line brings this compartment's samples back.
+  if (isDismissed(key)) {
+    return (
+      <div className="w-full text-left" data-vault-samples-hidden={section}>
+        <button type="button" onClick={() => restore(key)} data-vault-samples-restore={section} className="press min-h-11 px-1 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          Xem lại mẫu
+        </button>
+      </div>
+    );
+  }
   if (!shouldShow(key)) return null;
   return (
     <section aria-label={`Mẫu ${SECTION_LABEL[section]}`} data-vault-samples={section} className="w-full text-left">

@@ -6,7 +6,7 @@ import { vi } from "vitest";
 const state = vi.hoisted(() => ({ dismissed: [] as string[] }));
 vi.mock("@/lib/use-task-flags", async () => {
   const actual = await vi.importActual<typeof import("@/lib/use-task-flags")>("@/lib/use-task-flags");
-  return { ...actual, useGuidance: () => ({ shouldShow: (key: string) => !state.dismissed.includes(key), dismiss: (key: string) => state.dismissed.push(key) }) };
+  return { ...actual, useGuidance: () => ({ shouldShow: (key: string) => !state.dismissed.includes(key), dismiss: (key: string) => state.dismissed.push(key), isDismissed: (key: string) => state.dismissed.includes(key), restore: (key: string) => { state.dismissed = state.dismissed.filter((k) => k !== key); } }) };
 });
 vi.mock("@/components/vault/VaultGate", () => ({ VaultGate: () => <div data-stub-gate="">Bàn phím đặt mã</div> }));
 

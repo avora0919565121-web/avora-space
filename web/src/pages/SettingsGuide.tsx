@@ -60,13 +60,13 @@ function ReplayHints() {
             data-replay-samples=""
             onClick={() =>
               void restoreSamples().then(
-                () => toast.success("Mẫu Két sắt đã hiện lại."),
+                () => toast.success("Các mẫu đã hiện lại."),
                 (caught: unknown) => toast.error(caught instanceof Error ? caught.message : "Không đổi được."),
               )
             }
             className="press shrink-0 rounded-md border border-border px-2.5 py-1.5 text-[13px] font-medium"
           >
-            Xem lại mẫu Két sắt
+            Hiện lại các mẫu
           </button>
         </li>
       </ul>

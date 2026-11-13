@@ -206,6 +206,9 @@ export type FinanceBookState = {
   canShowSample: boolean;
   setBook: (mode: "mine" | "sample") => void;
   hideSample: () => void;
+  /** KT-09: after "Ẩn sổ mẫu", a quiet "Xem lại mẫu" (optional so older callers keep working). */
+  canRestoreSample?: boolean;
+  restoreSample?: () => void;
 };
 
 /**
@@ -256,7 +259,18 @@ const FinanceBookContext = createContext<FinanceBookState | null>(null);
 /** KT-07c: the switch sits right after the page's own header line — never between the two strips. */
 function FinanceBookSlot() {
   const book = useContext(FinanceBookContext);
-  if (book === null || !(book.isSample || book.canShowSample)) return null;
+  if (book === null) return null;
+  if (!(book.isSample || book.canShowSample)) {
+    // KT-09 (CEO): the hidden sample can come back from where it was hidden.
+    if (book.canRestoreSample !== true || book.restoreSample === undefined) return null;
+    return (
+      <div className="mt-2" data-finance-sample-hidden="">
+        <button type="button" onClick={book.restoreSample} data-finance-sample-restore="" className="press min-h-11 px-1 text-[13px] font-medium text-muted-foreground underline-offset-4 hover:text-foreground hover:underline">
+          Xem lại mẫu
+        </button>
+      </div>
+    );
+  }
   return <FinanceBookBar book={book} />;
 }
 

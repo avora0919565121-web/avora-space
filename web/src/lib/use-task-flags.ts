@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tan
 import { useAuth } from "@/lib/auth";
 import {
   dismissGuidance,
+  restoreGuidance,
   fetchDismissedGuidance,
   guidanceKeys,
   shouldShowGuidance,
@@ -136,6 +137,10 @@ export function useMyDay(): {
 export function useGuidance(): {
   shouldShow: (key: GuidanceKey) => boolean;
   dismiss: (key: GuidanceKey) => void;
+  /** KT-09: true only once the list is read and the key is in it (never while loading or on an error). */
+  isDismissed: (key: GuidanceKey) => boolean;
+  /** KT-09: brings a dismissed key back (shown at once; the row is removed on the server). */
+  restore: (key: GuidanceKey) => void;
 } {
   const queryClient = useQueryClient();
   const { user } = useAuth();
@@ -172,5 +177,24 @@ export function useGuidance(): {
     [queryClient, userId],
   );
 
-  return { shouldShow, dismiss };
+  const isDismissed = useCallback(
+    (key: GuidanceKey): boolean => isSuccess && dismissed.includes(key),
+    [dismissed, isSuccess],
+  );
+
+  const restore = useCallback(
+    (key: GuidanceKey): void => {
+      if (userId === "") return;
+      queryClient.setQueryData<GuidanceKey[]>(guidanceKeys.list, (current) => current?.filter((item) => item !== key));
+      void restoreGuidance(userId, key)
+        .then(() => queryClient.invalidateQueries({ queryKey: guidanceKeys.all }))
+        .catch((error: unknown) => {
+          logError("guidance", error);
+          void queryClient.invalidateQueries({ queryKey: guidanceKeys.all });
+        });
+    },
+    [queryClient, userId],
+  );
+
+  return { shouldShow, dismiss, isDismissed, restore };
 }

@@ -41,12 +41,15 @@ export type BookLedger = Ledger & {
   canShowSample: boolean;
   setBook: (mode: FinanceBookMode) => void;
   hideSample: () => void;
+  /** KT-09: the sample was hidden and the real book is readable — "Xem lại mẫu" can bring it back. */
+  canRestoreSample: boolean;
+  restoreSample: () => void;
 };
 
 export function useBookLedger(): BookLedger {
   const real = useLedger();
   const picked = useSyncExternalStore(subscribe, read, read);
-  const { shouldShow, dismiss } = useGuidance();
+  const { shouldShow, dismiss, isDismissed, restore } = useGuidance();
   // While the dismissed list is still loading `shouldShow` says false — read as hidden, so the real
   // book shows first and the sample never flashes for someone who hid it.
   const hidden = !shouldShow("sample_hidden_finance");
@@ -77,6 +80,11 @@ export function useBookLedger(): BookLedger {
     hideSample: () => {
       chooseFinanceBook(null);
       dismiss("sample_hidden_finance");
+    },
+    canRestoreSample: isDismissed("sample_hidden_finance") && !real.isLoading && !real.isUnavailable,
+    restoreSample: () => {
+      restore("sample_hidden_finance");
+      chooseFinanceBook("sample");
     },
   };
 }
