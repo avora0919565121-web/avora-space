@@ -3,7 +3,6 @@ import { Bell, FileText, Loader2, LogOut, ShieldAlert } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 
 import { DeleteAccountDialog } from "@/components/AccountDeletion";
-import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { useAuth } from "@/lib/auth";
 import {
   NOTICE_TEXT,
@@ -70,7 +69,14 @@ function SuspendedScreen({ until }: { until: string }) {
   );
 }
 
-/** Older accounts (and anyone after the Điều khoản change) agree once; nothing is pre-ticked. */
+/**
+ * Older accounts (and anyone after the Điều khoản change) agree once; nothing is pre-ticked.
+ *
+ * KT-09 (lỗi CEO gặp trên điện thoại): a whole screen, not a dialog over the app. Over the app a
+ * `fixed z-[60]` layer (WelcomeHome) covered the z-50 dialog while Radix's modal had switched
+ * pointer events off everywhere else — the person saw the welcome screen, taps did nothing, and a
+ * tap could land on the invisible dialog's "Không đồng ý" or link. Nothing else is rendered here.
+ */
 function TermsPrompt({ onDecline }: { onDecline: () => void }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -80,13 +86,13 @@ function TermsPrompt({ onDecline }: { onDecline: () => void }) {
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: safetyKeys.gate(user?.id ?? "") }),
   });
   return (
-    <Dialog open onOpenChange={() => undefined}>
-      <DialogContent showCloseButton={false} className="max-w-[440px] gap-0 rounded-card border-border bg-card p-0" data-testid="terms-prompt" onEscapeKeyDown={(event) => event.preventDefault()} onInteractOutside={(event) => event.preventDefault()}>
+    <main className="paper flex min-h-[100dvh] items-center justify-center px-4 py-10" data-testid="terms-prompt" aria-labelledby="terms-prompt-title">
+      <div className="w-full max-w-[440px] rounded-card border border-border bg-card shadow-sm">
         <div className="px-6 pb-2 pt-6">
-          <DialogTitle className="text-[18px] font-semibold tracking-tight text-foreground">Điều khoản sử dụng mới</DialogTitle>
-          <DialogDescription className="mt-1.5 text-[14px] leading-6 text-muted-foreground">
+          <h1 id="terms-prompt-title" className="text-[18px] font-semibold tracking-tight text-foreground">Điều khoản sử dụng mới</h1>
+          <p className="mt-1.5 text-[14px] leading-6 text-muted-foreground">
             Avora đã cập nhật Điều khoản và Quy tắc cộng đồng: không chấp nhận nội dung khiêu dâm, bạo lực, quấy rối, lừa đảo hay gây hại cho trẻ em. Bạn có thể báo cáo và chặn bất kỳ ai.
-          </DialogDescription>
+          </p>
           <a href="/chinh-sach#dieu-khoan" target="_blank" rel="noreferrer" className="mt-2 inline-flex min-h-11 items-center text-[14px] font-medium text-foreground underline underline-offset-2">
             Đọc Điều khoản và Quy tắc cộng đồng
           </a>
@@ -94,7 +100,7 @@ function TermsPrompt({ onDecline }: { onDecline: () => void }) {
             <input type="checkbox" checked={checked} onChange={(event) => setChecked(event.target.checked)} className="mt-1 h-4 w-4 accent-personal" data-terms-check="" />
             <span>Tôi đồng ý với Điều khoản sử dụng và Quy tắc cộng đồng.</span>
           </label>
-          {accept.isError ? <p className="text-[13px] text-destructive">{accept.error.message}</p> : null}
+          {accept.isError ? <p role="alert" className="text-[13px] text-destructive">{accept.error.message}</p> : null}
         </div>
         <div className="flex flex-col gap-2 px-6 pb-6 pt-3">
           <button type="button" disabled={!checked || accept.isPending} onClick={() => accept.mutate()} className={primaryClass}>
@@ -105,8 +111,8 @@ function TermsPrompt({ onDecline }: { onDecline: () => void }) {
             Không đồng ý
           </button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </main>
   );
 }
 
@@ -131,42 +137,49 @@ function TermsDeclinedScreen({ onReview }: { onReview: () => void }) {
   );
 }
 
-/** One notice at a time; closing it marks it read. */
-function NoticeDialog({ gate }: { gate: AccountGate }) {
+/**
+ * One notice at a time; "Đã hiểu" marks it read.
+ *
+ * KT-09: a whole screen before the app, like the agreement — never a modal over it. Over the app it
+ * sat under the app's own full-screen layers (WelcomeHome z-[60], the habit clock z-[70]) while the
+ * modal had switched taps off everywhere else, the same trap as Điều khoản.
+ */
+function NoticeGate({ gate, children }: { gate: AccountGate; children: ReactNode }) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [closed, setClosed] = useState<ReadonlySet<string>>(new Set());
   const notice = gate.notices.find((item) => !closed.has(item.id));
-  if (notice === undefined) return null;
+  if (notice === undefined) return <>{children}</>;
   const text = NOTICE_TEXT[notice.kind] ?? NOTICE_TEXT.report_reviewed;
   const close = (): void => {
     setClosed((prev) => new Set(prev).add(notice.id));
     void ackNotice(notice.id).then(() => queryClient.invalidateQueries({ queryKey: safetyKeys.gate(user?.id ?? "") }));
   };
   return (
-    <Dialog open onOpenChange={(next) => (next ? undefined : close())}>
-      <DialogContent className="max-w-[420px] gap-0 rounded-card border-border bg-card p-0" data-testid="account-notice" data-kind={notice.kind}>
+    <div className="paper flex min-h-[100dvh] items-center justify-center px-4 py-10">
+      <div role="dialog" aria-labelledby="account-notice-title" aria-describedby="account-notice-body" className="w-full max-w-[420px] rounded-card border border-border bg-card shadow-sm" data-testid="account-notice" data-kind={notice.kind}>
         <div className="flex flex-col items-center px-6 pb-2 pt-7 text-center">
           <span className={`flex h-12 w-12 items-center justify-center rounded-full ${notice.kind === "warning" ? "bg-destructive/10 text-destructive" : "bg-primary/10 text-primary"}`}>
             <Bell className="h-6 w-6" strokeWidth={1.7} aria-hidden="true" />
           </span>
-          <DialogTitle className="mt-3 text-[18px] font-semibold tracking-tight text-foreground">{text.title}</DialogTitle>
-          <DialogDescription className="mt-1.5 text-[14px] leading-6 text-muted-foreground">{text.body}</DialogDescription>
+          <h1 id="account-notice-title" className="mt-3 text-[18px] font-semibold tracking-tight text-foreground">{text.title}</h1>
+          <p id="account-notice-body" className="mt-1.5 text-[14px] leading-6 text-muted-foreground">{text.body}</p>
         </div>
         <div className="px-6 pb-6 pt-4">
           <button type="button" onClick={close} className={primaryClass}>
             Đã hiểu
           </button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </div>
   );
 }
 
 /**
  * 111-B · after the deletion gate: suspended → only the restricted screen; terms not agreed →
  * the agreement (a fresh sign-up that ticked the box is recorded without asking again);
- * otherwise the app, with any unread notice on top. A failed read lets the app through — the
+ * otherwise any unread notice (one screen each), then the app. KT-09: nothing of the app is
+ * rendered under these screens, so no fixed layer of it can cover them. A failed read lets the app through — the
  * server still refuses a suspended session everywhere.
  */
 export function SafetyGate({ children }: { children: ReactNode }) {
@@ -198,17 +211,8 @@ export function SafetyGate({ children }: { children: ReactNode }) {
   if (gate.data.suspendedUntil !== null) return <SuspendedScreen until={gate.data.suspendedUntil} />;
   if (needsTerms && !autoAccept) {
     if (declined) return <TermsDeclinedScreen onReview={() => setDeclined(false)} />;
-    return (
-      <>
-        {children}
-        <TermsPrompt onDecline={() => setDeclined(true)} />
-      </>
-    );
+    // KT-09: only the agreement — no app (and no fixed layer of it) underneath; the welcome comes after.
+    return <TermsPrompt onDecline={() => setDeclined(true)} />;
   }
-  return (
-    <>
-      {children}
-      <NoticeDialog gate={gate.data} />
-    </>
-  );
+  return <NoticeGate gate={gate.data}>{children}</NoticeGate>;
 }
