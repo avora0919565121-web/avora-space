@@ -134,10 +134,15 @@ export function conflictSummary(input: {
   columns: readonly ColumnDef[];
   byName: string | null;
   byMe: boolean;
+  /** True while the server's row is still being read (then `latest` is null). */
+  loading?: boolean;
 }): { replaced: FieldKey[]; kept: FieldKey[]; text: string } {
   const { base, mine, latest, columns } = input;
   const who = input.byMe ? "bạn (ở nơi khác)" : input.byName !== null && input.byName.trim() !== "" ? input.byName.trim() : "người kia";
   const mineChanged = changedFields(base, mine, columns);
+  if (latest === null && input.loading === true) {
+    return { replaced: [], kept: [], text: `Đang xem ${who} đã sửa ô nào…` };
+  }
   if (latest === null) {
     return { replaced: [], kept: [], text: `Chưa xem được ${who} đã sửa ô nào. Bấm "Vẫn lưu của tôi" sẽ tải lại trước khi lưu.` };
   }

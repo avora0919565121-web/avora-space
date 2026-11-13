@@ -37,6 +37,8 @@ describe("KT-09 · QA06-02 — chỉ gửi trường đã đổi", () => {
     expect(both.text).toContain("Trạng thái Phòng Kỹ thuật vừa sửa vẫn giữ nguyên.");
     const apart = conflictSummary({ base, mine: { ...base, title: "Tiêu đề QA" }, latest, columns, byName: "Phòng Kỹ thuật", byMe: false });
     expect(apart.replaced).toEqual([]);
+    expect(conflictSummary({ base, mine: base, latest: null, columns, byName: "Phòng Kỹ thuật", byMe: false, loading: true }).text).toBe("Đang xem Phòng Kỹ thuật đã sửa ô nào…");
+    expect(conflictSummary({ base, mine: base, latest: null, columns, byName: "Phòng Kỹ thuật", byMe: false }).text).toContain("Chưa xem được Phòng Kỹ thuật");
     expect(apart.text).toBe("Trạng thái và Ghi chú Phòng Kỹ thuật vừa sửa vẫn giữ nguyên. Chỉ lưu Tiêu đề bạn đã đổi.");
   });
 });

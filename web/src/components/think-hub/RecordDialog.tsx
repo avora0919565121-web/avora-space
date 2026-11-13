@@ -277,7 +277,7 @@ export function RecordDialog({
    * KT-09: `latest` is the row as the server has it (null while it loads / when it could not be read).
    * No patch is kept here: the form stays editable and is read again when the person chooses.
    */
-  const [conflict, setConflict] = useState<{ error: RecordConflictError; latest: ThinkRecord | null; then?: () => void } | null>(null);
+  const [conflict, setConflict] = useState<{ error: RecordConflictError; latest: ThinkRecord | null; latestFailed?: boolean; then?: () => void } | null>(null);
   const conflictRef = useRef<HTMLDivElement | null>(null);
   const { isSubmitting, guard } = useSubmitGuard();
 
@@ -372,7 +372,7 @@ export function RecordDialog({
       if (record === null) return;
       loadLatest(record.id).then(
         (latest) => setConflict((current) => (current !== null && current.error === error ? { ...current, latest } : current)),
-        () => undefined,
+        () => setConflict((current) => (current !== null && current.error === error ? { ...current, latestFailed: true } : current)),
       );
     },
     [loadLatest, record],
@@ -417,7 +417,7 @@ export function RecordDialog({
       if (latest === null) {
         try {
           latest = await loadLatest(record.id);
-          setConflict((current) => (current !== null && current.error === error ? { ...current, latest } : current));
+          setConflict((current) => (current !== null && current.error === error ? { ...current, latest, latestFailed: false } : current));
         } catch {
           setNotice("Chưa tải được bản mới nên chưa lưu. Thử lại nhé.");
           return;
@@ -454,6 +454,7 @@ export function RecordDialog({
       columns,
       byName: conflict.error.byName,
       byMe: conflict.error.byMe,
+      loading: conflict.latest === null && conflict.latestFailed !== true,
     }).text;
   }, [conflict, baseDraft, draft, columns]);
 
